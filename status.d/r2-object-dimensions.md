@@ -14,7 +14,7 @@ active-work:
 next: Stamp the `client` dimension once the matter-to-client link has a reader — the backfill sweep fills it in for what already exists at no extra cost
 link-spec:
 link-plan:
-adrs: r2-object-matter-dimension
+adrs: ADR-0254
 blocked-by:
 ---
 

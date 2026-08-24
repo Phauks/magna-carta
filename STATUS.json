@@ -1693,8 +1693,8 @@
         "spec": "docs/specs/2026-06-28-file-repair-salvage-design.md",
         "plan": "docs/specs/2026-07-03-file-repair-salvage-plan-6b-attach-to-matter.md",
         "adrs": [
-          "file-repair-single-container-lane",
-          "engine-host-r2-optional"
+          "ADR-0177",
+          "ADR-0174"
         ]
       },
       "blockedBy": [],
@@ -1780,8 +1780,8 @@
         "spec": "docs/specs/2026-06-26-decryption-tool-design.md",
         "plan": "docs/specs/2026-06-26-decryption-slice-2-plan-2-orchestration-implementation-plan.md",
         "adrs": [
-          "decryption-file-unlock-recovery",
-          "decryption-recovery-orchestration"
+          "ADR-0169",
+          "ADR-0170"
         ]
       },
       "blockedBy": [],
@@ -2114,7 +2114,7 @@
         "spec": null,
         "plan": null,
         "adrs": [
-          "r2-object-matter-dimension"
+          "ADR-0254"
         ]
       },
       "blockedBy": [],
@@ -2157,14 +2157,14 @@
         "spec": "docs/specs/2026-08-06-notifications-delivery-design.md",
         "plan": "docs/specs/2026-08-06-notifications-delivery-implementation-plan.md",
         "adrs": [
-          "notifications-delivery-half",
-          "notifications-retention-and-swept-unread",
-          "a-comparison-is-a-third-production-path-and-the-registry-says-so",
-          "a-hearing-that-moved-is-not-a-hearing-that-was-edited",
-          "a-job-notification-is-a-reply-and-only-a-requester-can-receive-one",
-          "a-silenced-notification-is-counted-not-absent",
-          "a-digest-states-the-shape-of-the-queue-and-never-its-contents",
-          "a-dedupe-key-is-bounded-by-the-retention-window"
+          "ADR-0251",
+          "ADR-0258",
+          "ADR-0358",
+          "ADR-0359",
+          "ADR-0360",
+          "ADR-0362",
+          "ADR-0364",
+          "ADR-0377"
         ]
       },
       "blockedBy": [],

@@ -14,7 +14,7 @@ active-work:
 next: GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; end-user UI (post-0·7); connect the magna-carta-recovery Worker to Workers Builds
 link-spec: docs/specs/2026-06-26-decryption-tool-design.md
 link-plan: docs/specs/2026-06-26-decryption-slice-2-plan-2-orchestration-implementation-plan.md
-adrs: decryption-file-unlock-recovery, decryption-recovery-orchestration
+adrs: ADR-0169, ADR-0170
 blocked-by:
 ---
 

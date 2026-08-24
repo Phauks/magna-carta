@@ -14,7 +14,7 @@ active-work:
 next: attach-to-matter UI (post-0·7a); connect the magna-carta-file-repair Worker to Workers Builds + run the deploy smoke test
 link-spec: docs/specs/2026-06-28-file-repair-salvage-design.md
 link-plan: docs/specs/2026-07-03-file-repair-salvage-plan-6b-attach-to-matter.md
-adrs: file-repair-single-container-lane, engine-host-r2-optional
+adrs: ADR-0177, ADR-0174
 blocked-by:
 ---
 

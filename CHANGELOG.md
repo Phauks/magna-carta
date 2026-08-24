@@ -85,7 +85,7 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 - Documentation tooling: `vp run decisions-build` / `vp run changelog-build` assemble per-entry ADR and changelog fragments on `main`, so parallel worktrees no longer collide on the register or `CHANGELOG.md`. ADRs became a directory of per-file records (`docs/decisions/`) numbered at merge; the Decision-Log register is generated.
 - Worktree coordination: `vp run worktrees` prints the active-work registry — concurrent streams from `git worktree list` merged with per-stream `docs/active-work/<branch>.md` notes, plus declared touch-overlaps and each stream's drift from `main`. New `CLAUDE.md` conventions cover making a stream visible, a `main`-sync cadence, and the worktree/branch lifecycle.
 - **Product-usage analytics (opt-out)** — `reached`/`completed` usage events on the one telemetry path, gated by a per-firm `usage_analytics.enabled` (default true) plus a per-user `member.opted_out_of_usage_analytics` override resolved off the hot path; content-free `{ feature, phase, surface }` from a versioned feature taxonomy, with HMAC-pseudonymous identifiers that fail closed on a missing pepper. Server-side `reached` is wired in a route→feature outbound-pass middleware and `completed` from the outbox sweep (topic→feature, firm-level); live counts flow through the Analytics Engine `usage` dataset, cross-firm aggregate only with small-n (k=5) suppression. The R2 Data Catalog Iceberg tier (Logpush→Pipelines) for full-fidelity retention/BI and the client beacon for pure-client surfaces are documented, deferred seams. Design: [`docs/specs/2026-06-18-usage-analytics-design.md`](docs/specs/2026-06-18-usage-analytics-design.md).
-- **AI inference foundation (`@magna-carta/inference`)** (spec [`docs/specs/2026-06-17-ai-inference-foundation-design.md`](docs/specs/2026-06-17-ai-inference-foundation-design.md)): the credential-less AI-Gateway-backed model chokepoint every future AI feature reaches the model through — backend plumbing only; no UI; the first AI feature and the BYOK adapter are later slices. **`@magna-carta/inference`** (new pure package): the `InferencePort` interface with streaming (token-stream async iterator for interactive first-token-latency paths) and durable (Cloudflare-Workflow-invocable, per-step contract) text-generation result shapes, plus the platform-fixed embedding operation whose model argument is absent by design (a firm-swappable embedding model would invalidate the Vectorize index — the type enforces this); typed `Dispatch` outcomes (`ok` / `adapterError`) and a normalized `IntegrationProblem` taxonomy with a caller-safe `detail`, never a spliced upstream body. The curated ZDR-eligible model catalog (`src/catalog.ts`): every entry carries `slot` / `modelId` (gateway-routable, provider-prefixed) / `snapshotId` (pinned for reproducibility) / `referenceId` / `zdrEligible` / `noTrainingEligible` / `verifiedOn`; validated at module load via a zod `safeParse` — a malformed entry or a non-ZDR reasoning entry fails loud at import; `claude-fable-5` excluded (mandates 30-day retention; non-ZDR). The per-firm reasoning-model setting (`src/settings.ts`): `primaryReasoningModelDefinition` stores the firm's selected reasoning model in the per-firm `setting` table via a `FirmSettingDefinition` whose schema is a refinement over the ZDR-eligible reasoning subset — an off-catalog or non-ZDR model id is rejected at the write path; reads are total (default on missing/invalid/unparseable). `aiProcessingEligibilityDefinition` is the firm-level eligibility seam (per-matter enforcement, consent UI, and content minimization are the first AI feature's scope). The AI-Gateway-backed implementation (`src/gateway.ts`): reaches the model only through the authenticated Worker `AI` binding; pins `skipCache: true` (caching off — no firm-dimension in the default cache key, cross-firm cache collision risk), `collectLog: false` (logging off — the binding toggle is all-or-nothing, no payload-only middle ground), and derived firm metadata (`firm_id` opaque, ≤5 keys, no `model` tag, never client/matter text) on every request via the binding's `gateway` options object (not `cf-aig-*` headers, which the binding does not read); the fail-closed per-request ZDR guard asserts the selected model is `zdrEligible` before dispatch and rejects with a non-retryable `validation` problem on a miss — it never silently downgrades; authoritative token usage is read from the inference response, never the logs. **`@magna-carta/data-access`** gains the per-firm token-usage metering read/write surface (`src/token-usage-statements.ts` + `./token-usage-statements` subpath export). **`@magna-carta/database`** gains the `token_usage_meter` per-firm table and migration `0014_inference-token-usage`. **`apps/worker`** gains the AI binding + `INFERENCE` Queue binding on `Bindings`, the firm-scoped call-site helper (`src/inference/call-site.ts` — reads the firm's model through the firm-scoped data-access layer and constructs the port), and the off-hot-path Queue consumer (`src/inference/inference-consumer.ts`) with the `firmRateGate(firm_id)` pass-through seam sited between dequeue and `env.AI.run` (the per-firm token-bucket machinery drops in behind this hook without touching `InferencePort` or any call site, built when measured) and the firm-isolated metering write through the firm-scoped data-access layer. The BYOK credentialed adapter seam is documented and deferred — built when a firm attestation requires it or the shared rate cap is measured-binding. Load-profile extension for the token-usage table is deferred to the first AI feature (volume-shaped only once a feature drives traffic). The client-consent model (ADR-ai-inference-client-consent) is Proposed — owner decision required before the first AI feature ships.
+- **AI inference foundation (`@magna-carta/inference`)** (spec [`docs/specs/2026-06-17-ai-inference-foundation-design.md`](docs/specs/2026-06-17-ai-inference-foundation-design.md)): the credential-less AI-Gateway-backed model chokepoint every future AI feature reaches the model through — backend plumbing only; no UI; the first AI feature and the BYOK adapter are later slices. **`@magna-carta/inference`** (new pure package): the `InferencePort` interface with streaming (token-stream async iterator for interactive first-token-latency paths) and durable (Cloudflare-Workflow-invocable, per-step contract) text-generation result shapes, plus the platform-fixed embedding operation whose model argument is absent by design (a firm-swappable embedding model would invalidate the Vectorize index — the type enforces this); typed `Dispatch` outcomes (`ok` / `adapterError`) and a normalized `IntegrationProblem` taxonomy with a caller-safe `detail`, never a spliced upstream body. The curated ZDR-eligible model catalog (`src/catalog.ts`): every entry carries `slot` / `modelId` (gateway-routable, provider-prefixed) / `snapshotId` (pinned for reproducibility) / `referenceId` / `zdrEligible` / `noTrainingEligible` / `verifiedOn`; validated at module load via a zod `safeParse` — a malformed entry or a non-ZDR reasoning entry fails loud at import; `claude-fable-5` excluded (mandates 30-day retention; non-ZDR). The per-firm reasoning-model setting (`src/settings.ts`): `primaryReasoningModelDefinition` stores the firm's selected reasoning model in the per-firm `setting` table via a `FirmSettingDefinition` whose schema is a refinement over the ZDR-eligible reasoning subset — an off-catalog or non-ZDR model id is rejected at the write path; reads are total (default on missing/invalid/unparseable). `aiProcessingEligibilityDefinition` is the firm-level eligibility seam (per-matter enforcement, consent UI, and content minimization are the first AI feature's scope). The AI-Gateway-backed implementation (`src/gateway.ts`): reaches the model only through the authenticated Worker `AI` binding; pins `skipCache: true` (caching off — no firm-dimension in the default cache key, cross-firm cache collision risk), `collectLog: false` (logging off — the binding toggle is all-or-nothing, no payload-only middle ground), and derived firm metadata (`firm_id` opaque, ≤5 keys, no `model` tag, never client/matter text) on every request via the binding's `gateway` options object (not `cf-aig-*` headers, which the binding does not read); the fail-closed per-request ZDR guard asserts the selected model is `zdrEligible` before dispatch and rejects with a non-retryable `validation` problem on a miss — it never silently downgrades; authoritative token usage is read from the inference response, never the logs. **`@magna-carta/data-access`** gains the per-firm token-usage metering read/write surface (`src/token-usage-statements.ts` + `./token-usage-statements` subpath export). **`@magna-carta/database`** gains the `token_usage_meter` per-firm table and migration `0014_inference-token-usage`. **`apps/worker`** gains the AI binding + `INFERENCE` Queue binding on `Bindings`, the firm-scoped call-site helper (`src/inference/call-site.ts` — reads the firm's model through the firm-scoped data-access layer and constructs the port), and the off-hot-path Queue consumer (`src/inference/inference-consumer.ts`) with the `firmRateGate(firm_id)` pass-through seam sited between dequeue and `env.AI.run` (the per-firm token-bucket machinery drops in behind this hook without touching `InferencePort` or any call site, built when measured) and the firm-isolated metering write through the firm-scoped data-access layer. The BYOK credentialed adapter seam is documented and deferred — built when a firm attestation requires it or the shared rate cap is measured-binding. Load-profile extension for the token-usage table is deferred to the first AI feature (volume-shaped only once a feature drives traffic). The client-consent model (ADR-0109) is Proposed — owner decision required before the first AI feature ships.
 - **Slice 1·4 backend built — the shared custom-fields engine** (spec [`docs/specs/2026-06-18-slice-1-4-custom-fields-design.md`](docs/specs/2026-06-18-slice-1-4-custom-fields-design.md); backend plan [`docs/specs/2026-06-18-slice-1-4-backend-implementation-plan.md`](docs/specs/2026-06-18-slice-1-4-backend-implementation-plan.md)): the 17-task backend, backend + API only. **`@magna-carta/custom-fields`** — a new sibling domain package on the slice-0·2 atomic-batch pattern (validates in memory, composes statements for the caller to run, holds no D1 binding): the typed entity-attribute-value engine for matter types (1·1) and entity categories (1·3). **Identity is a stable `customField_` handle, never the label** — values, picks, and reads all bind by handle, so a rename is a one-column UPDATE that never breaks a stored value. **Three per-firm tables (migration `0013_custom-fields`):** `custom_field` definitions (the Clio-12 kind catalog — checkbox/date/time/number/currency/picklist/single-line/multi-line/url/email/matter-reference/contact-reference; `target` matter|entity; optional `attachment_id`; `number_scale`; `required`/`archived`/`converting` flags; the reserved `template_field_key` seam), `picklist_option` rows, and `custom_field_value` with five typed value columns under a CHECK that **exactly one is non-null** (reference kinds get a real indexed `value_reference_id` column), `is_current`/`valid_from`/`valid_to` temporal columns, and a **one-current partial unique index** `(target_row_id, field_id) WHERE is_current = 1`. **Value history is append-and-flip** (the directory pattern): a set flips the prior current row to history and inserts a new current row in one batch; a clear flips and inserts nothing — the full history endures, so clear and Convert are reversible. **Retype is a non-destructive guided Convert** (`previewConvert` counts each value clean/needs-a-rule/parked without writing; `applyConvert` flips every original to history, gives clean values a coerced current row, and leaves parked values cleared — no data loss; `CONVERT_INLINE_VALUE_LIMIT` is the calibrated inline-vs-Queue ceiling, the bulk offload a forward seam). **Currency/number scaling happens at the route** — `value_number` stores an integer in minor units, the route scales the inbound decimal by the field's `number_scale` (falling back to the money minor-unit scale for currency). **Lifecycle & governance:** archive-first (retire-but-keep-readable), a hard-delete that **refuses a field with values** (`field-in-use` → 409) and only deletes an unused field with its options, the load-profile-calibrated anti-bloat caps (`MAX_FIELDS_PER_SCOPE`/`MAX_FIELDS_PER_FIRM`/`MAX_OPTIONS_PER_FIELD`, named codes), and a separate gated, audited **Purge** erasure seam that refuses until its executing pass is built. **Reference-kind values stay whole through directory merge** — the directory's `mergeEntities` gained two `custom_field_value` `REPOINT_TARGETS` (in `packages/directory/src/merge.ts`): a value POINTING AT the subordinate repoints `value_reference_id` → master, and a value OWNED BY the subordinate repoints `target_row_id` → master with a new **`onCollision: archive-to-history`** mode — on a same-field collision the loser is moved onto the master and flipped to history (field-level survivorship) rather than discarded, the relink CI-guarded against dangling pointers. **20 `/api/v1/custom-fields` worker routes** through the 0·5 chokepoint — field define/rename/required/reorder/archive/unarchive/hard-delete/purge/resolve, convert preview+apply, picklist-option create/rename/reorder/archive/hard-delete, value set/clear, and the record-values/history reads — all mutations behind `customFields:manage` with idempotency, reads open to any firm member, `CustomFieldError.code` mapped to RFC 9457 problems at the route. **Load-profile extended (`ledgerVolume-v6`):** custom-field definitions + typed values + reference-kind columns seeded at volume. **Fitness + e2e:** `assertCustomFieldFitness` per-invariant probes; a worker end-to-end suite drives the whole lifecycle over the real HTTP surface (define a picklist + a contact-reference field → set values on a matter and on directory contacts → rename keeps the binding by handle → Convert to currency with a parked value keeps the original in history and flips the kind → merge repoints the contact-reference and survivorship-absorbs the owned value while the merged alias still resolves → archive keeps values readable → hard-delete-with-values refused 409). Per-package `CLAUDE.md` for `@magna-carta/custom-fields`. **Built by Opus 4.8; the full worker suite + the `@magna-carta/custom-fields` and `@magna-carta/fixtures` package suites + `lint:process-refs` + package-scoped `vp check` green (the repo-wide `pnpm check` OOMs in the formatter on this machine, so the gate ran package-scoped). Fable 5 re-review pending per the model-split policy.** UI plan + owner manual-verification checklist follow once 0·7a/0·7b land (the 1·1/1·3 precedent).
 - **Access-triggered re-scan + content-dedup skip + informed access** (design [`docs/specs/2026-06-22-access-triggered-rescan-design.md`](docs/specs/2026-06-22-access-triggered-rescan-design.md)): the per-firm dedup cache (`scan_cache`) gains a reader, and committed files are re-scanned **when they are accessed** — not by a proactive sweep — so a file nobody opens is never re-scanned (it can't harm anyone until accessed) and cost tracks attention, not corpus size. A `/download` or `/preview` enqueues a background re-scan **only if** the served version's recorded engine version is stale vs the firm's current engine (a per-firm `fileManager.scanEngineVersion` setting, stamped automatically by each real clean scan); the consumer's new in-place re-scan branch is **cache-first** (identical content already scanned under the current engine reuses the verdict with no engine call) and stamps the verdict on the committed version **without moving the current-version pointer** (idempotent on `rescan:<versionId>:<engineVersion>`). **Never-silent-clean holds:** an unset engine version or a non-definitive engine result never fabricates or downgrades a verdict. **Informed access (no data loss):** a re-scan that finds an already-visible version `infected` leaves it listed (no hide, no version-regress) — a raw `/download` is gated `409` until the member acknowledges the risk (`?acknowledgeMalware=true`), which proceeds and is audited as `file.downloaded_malware_acknowledged`; a fresh finding emits a `file.rescan_infected` notification (once per version per engine). The proactive weekly re-scan sweep is removed (superseded). `security.md` amended (the accepted, mitigated deviation from hard-quarantine, for firm-controlled evidence). **Fast-follows (deferred):** the safe-preview rendition (leans on the conversion engine) and a stronger step-up re-authentication on the malware override.
 - **Ad-hoc malware-scan diagnostic** (`POST /api/v1/scan/diagnose`): a firm member can stream a file's bytes straight through the scan engine and get back a verdict — `clean` / `infected` / `unscanned` / `suspicious`, plus the signature, reason, or active-content flag — **without** uploading it to a matter or storing anything. The body streams unbuffered to the engine; the inspectable-size cap is enforced from `Content-Length` before the scan runs. Gated on a new firm-level capability `firm:scanFile` (seeded to every default role in per-firm migration `0017`, mirroring `firm:reportIncident`); because the scan stores nothing, the request's audit row (`file.scan_diagnosed`, verdict only — never the file's bytes or name) is the record of who ran a scan. Returns an honest `unscanned` until the scan Container is activated (the engine-less adapter never reports a false `clean`).
@@ -3022,6 +3022,2340 @@ The finding that reframes the request is that **the stated problem is already so
 Ranks what actually threatens a lawyer on hotel wifi — credential phishing, session-cookie theft, device compromise, shoulder-surfing, and only then eavesdropping — and notes that a tunnel defeats none of the top three while **passkeys** (origin-bound, already in the stack) and **Device Bound Session Credentials** (two server endpoints; generally available in Chrome on Windows since Chrome 145/146) defeat the first two. Also covers HSTS, certificate pinning and DNS-over-HTTPS as cheaper partial answers to the metadata problem; why the client portal must never take a network control (per-grant assurance is the designed answer for unmanaged external devices); why the Tauri shell is the one place a genuine connection-integrity story fits within ADR-0023 parity (pinning, which the browser cannot do since HPKP's removal); and why memory safety is **not** among the reasons to refuse a client binary (WARP's datapath is BoringTun and MASQUE, both Rust) — the reasons are confidentiality and cost, and they suffice.
 
 Closes with six things to re-verify before acting (including the unconfirmed $7-per-seat Zero Trust price, which no Cloudflare-authored page would confirm) and eleven things not to conclude. Two decision fragments accompany it, both **Proposed**. Research only — nothing built, nothing adopted, no ADR ratified.
+- **Three notification settings were read on every pass and writable by nothing.** The preference
+subsystem stores two tiers of one key, and only one of them had a route. A member could set their own
+per-category matrix; the FIRM tier — the in-app floor that stops somebody silencing a category their
+firm insists on — was composed into `resolveCategoryPreference` on every fan-out and could not be set
+by anybody. The same held for the two firm settings beside it: `notifications.retentionDays`, read by
+the nightly sweep that deletes notification rows, and `notifications.digestLocalHour`, asked of every
+firm by the hourly digest pass. All three write statements existed, were correct, and had exactly one
+non-test reference in the repository: their own definition. Nothing failed, because the read side
+returned the default forever and the tests that covered the floor inserted the row themselves.
+
+**`GET` and `PATCH /api/v1/firm/notifications/policy`** close it, under a new
+`firm:manageNotificationPolicy` seeded to Owner/Admin only. **The permission is the decision here, not
+a detail.** The member preference route rides `notifications:read`, which is deliberately seeded to
+every default role including Read-only, because reading one's own feed is not a privilege. Reusing it
+for the firm tier would have meant any member of any firm could raise the floor for all their
+colleagues and shorten the whole firm's retention window — `apps/api-worker/test/firm-notification-policy-routes.test.ts`
+seeds exactly that member and asserts 403 on both verbs, and swapping the route's permission back to
+the member key was watched to turn both red with `expected 200 to be 403`.
+
+**Two more properties were pinned by breaking them.** Writing the firm tier must not write the
+administrator's own preferences: the test reads the `scoped_setting` rows directly and asserts a
+firm-tier row with the value and zero user-tier rows for the actor, and pointing the write at
+`writeMemberNotificationPreferencesStatement` instead turned four tests red. And the floor has to
+actually bind, which is only observable from the other side — a member silences a category through
+their own route, the firm raises the floor through this one, and the member's own read comes back
+`inApp: on`, `inAppLockedBy: firm-policy`, with their own choice still on the row so lowering the floor
+returns them to `off` rather than to the default.
+
+**The window and the hour are refused outside their bounds, never clamped.** Thirty to three hundred
+and sixty-five days, and an hour from 0 to 23; anything else is a 422 with nothing written. A firm that
+asked for five years and silently got one would believe it had the first. Removing the bound was
+watched to turn that test red.
+
+**The sparse merge is now one function for both tiers.** `mergeNotificationPreferences` moved out of
+the member route into `@magna-carta/notifications`, so "clear this channel" means the same thing
+whichever tier is patching. Two copies of that is two subtly different notions of what an absent
+preference is.
+
+**A fitness function for the shape this was found by.** `pnpm run lint:unwired-writes` fails any
+exported write-shaped function in `apps/` or `packages/` that nothing outside a test calls. It was
+measured against the whole tree before it was kept, in both variants: the strict form reports four
+today, every one a written allowlist entry with its reason (a test logger, an unused port factory over
+a function production calls directly, and two control-plane tables that are seeded by hand because the
+platform has no self-service grant surface for them). Replayed against the tree as it stood one commit
+earlier it reports ten, including the three auto-file writers whose absence made the auto-file engine
+evaluate an empty set. The looser variant — "no reference outside the defining file" — was measured at
+nine against four and rejected: all five extra hits are the same correct idiom, a statement composed
+into an ordered batch by a helper beside it, which is how every write whose ordering is the invariant
+is written here. An allowlist entry with a blank reason, an entry naming a function that no longer
+exists, and an entry whose function has since gained a caller are each failures of their own, so the
+gate cannot go quiet without somebody deciding it should.
+
+**Not built, and named rather than left implicit:** the firm's email DETAIL-LEVEL ceiling
+(`notifications.emailDetailLevel`) has no write statement in either tier, so it is invisible to a scan
+that looks for writers with no callers. Building only the firm half would let a firm raise what its
+members' mail carries with no member lever to lower it again, which is the asymmetry the subsystem is
+built to prevent; it wants both halves in one change. Recorded on the `notifications.firm-policy`
+ledger node.
+- **`custom_field.target` widens to `matterAsset`, and the widening needed no migration.**
+`CUSTOM_FIELD_TARGETS` in `packages/custom-fields/src/types.ts` is the one home for the vocabulary;
+the drizzle column, the route's request enum, and the asset scope read all derive from it, and
+`packages/custom-fields/test/schema-name-sync.test.ts` pins the column's `enumValues` to the constant
+so a fourth target cannot be added in one place only. The column is a bare `text NOT NULL` with no
+CHECK and drizzle's `enum` option emits no SQL, so nothing at the database had to change —
+`readCustomFieldValuesForScope` and the merge catalogue's target filter are the readers that did.
+- **A firm-supplied fillable PDF is now a template KIND rather than a second subsystem.**
+`document_template_version.kind` is `wordProcessing | pdfForm`, defaulting to the existing value, and
+the two kinds share the catalogue, the immutable version ladder, the ingest gate, the field-manifest
+shape, the binding index, the per-firm dictionary, the formatters, the absence model, the provenance
+row, and the telemetry — while sharing no engine. `prepareFormTemplateVersion`
+(`packages/document-assembly/src/pdf-form.ts`) reads the AcroForm field set through an injected reader
+over `crates/pdf-core`, scrubs the upload, and builds the manifest from the bytes that will be STORED;
+`fillFormTemplate` (`src/fill-form.ts`) plans the fill and hands it to the same engine. The assembly job
+branches on the kind in exactly one place, with the version read, the byte cache, the batched
+merge-context resolution, and the protected-field chokepoint on one side of it and the absence
+accounting, the ingest chokepoint, the provenance row, and the telemetry on the other.
+
+**A box binds only what a human confirmed, and the exact name match is refused as well as the near one.**
+Mappings come from the registration request or from the firm's existing
+`document_template_field_mapping` library — the same store the Word `MERGEFIELD` conversion writes to. A
+field whose name IS a merge key character for character is reported as `proposedMergeKey` and nothing
+applies it: a proposal built on exactness becomes one built on normalization and then on resemblance,
+and the line has to sit where it fits in one sentence. Every terminal field the form declares comes out
+either bound or on a fourth manifest list (`unboundFormFields`) with its reason —
+`no-confirmed-mapping`, `not-fillable`, or `unclassified`. An unclassifiable field is never filled as
+text (a text fill writes an appearance stream, and an appearance stream prints), and a form binding
+nothing warns that every document from it is the blank form — the failure `FORMTEXT` and the
+placeholder-showing content control each produced before their lists existed.
+
+The absence model is unchanged, with one divergence stated rather than smuggled: a tick box and a
+set-answer box have nowhere to print a marker, so an unanswerable one is left unanswered with a reason
+recorded, and a non-boolean value bound to a tick box or a value outside a drop-down's option set is a
+reported absence rather than a guess.
+
+**Flatten-or-not is left open as a typed seam.** `FormFillFinish` is a required parameter on the fill;
+the platform's one answer is a named constant in `apps/api-worker/src/assemblies/pdf-form-engine.ts`, set to
+`interactive` while the owner decision stands open, because flattening is irreversible.
+
+Also: `crates/pdf-core`'s `FormField` gains `required` (`/Ff` bit 2, inherited down the field tree), which
+the manifest records; and the per-firm lineage gains
+`20260816T170000_document-template-kind`.
+- **A party could be put on a matter through the API and never read back.** Fifteen directory
+endpoints, and the only matter-party operation among them was create. `readMatterParties` was not
+missing: it is production code the conflicts checker calls on every run, exported from the package
+and covered by tests, and no route mounted it. Whatever a client wrote, it could not ask for.
+
+Two more holes came out of the same seam. Nothing anywhere set `matter_party.deleted_at`, and five
+separate readers filter on that column, so a party linked by mistake was permanent and the only
+remedy was a hand-written statement against the firm's database. And the shared row type omitted
+`capacity` even though the link write has always stored it, so callers reading a party through the
+package saw an absence that was not real.
+
+The matter Parties section is built on the repaired seam. It lists who is on the matter with the
+role, the directory name resolved in the same read rather than a query per row, and the capacity
+where one was recorded, and it can sever a link with a confirmation that says what severing does.
+Severing is a soft delete on purpose: a conflicts report that named a party has to stay reproducible,
+so the row is retained and marked rather than removed. The sever publishes no bus message where the
+link publishes one, because removing a party can only ever retract a conflicts hit, never create a
+new one, and a retracted hit still showing is the safe direction to be wrong in.
+
+Adding a party from the screen waits on the directory picker, so that action renders disabled with
+the one line saying what it waits on. The route behind it has always worked.
+- **The matter Calendar section reads the firm's own record.** Thirty-three calendar endpoints have
+been built since early August and no screen called any of them; the section rendered a stub. It now
+reads two things a matter's calendar is actually made of: every deadline recorded against the matter,
+soonest first, and every event, furthest ahead first. Neither list is narrowed — a deadline already
+satisfied or vacated is part of the record, and a cancelled setting is shown as cancelled rather
+than hidden, because a setting that was called off and one that never existed are different facts.
+
+Overdue leads. A deadline that is open and past its moment is the only thing on the screen anyone
+still has to act on, so it is the only thing that alarms; the count is stated at the top. Past due is
+the server's own read-time derivation in each deadline's own time zone, not a stored flag — there is
+no column anywhere that says a firm missed something, and this screen adds none.
+
+**The event listing answered with a type identifier and no name.** A screen handed
+`eventTypeId` has nothing to render, which is the same hole the cost listing had for its vendor and
+the time listing had for its timekeeper. The listing and the single-event read now resolve the type's
+name through a display projection that joins the type catalog; the join is LEFT, so an event
+classified under nothing stays in the list rather than falling out of it. The lean single-event read
+the six lifecycle services use is untouched — resolving whether a change is allowed does not need a
+type name, and widening six reads to serve one is the wrong trade.
+
+Recording a date from this screen still waits on the participant picker, so those actions render
+disabled and say why. Where a page shows only the first page of a longer record, it now says so
+rather than presenting a truncated list as the whole thing.
+- **A hard-coded model identifier goes wrong on a schedule this repository cannot see, so the inference
+catalog now records when each pin was last checked and against what — and the gate says so.**
+
+No model changed. The reasoning default resolves to the same model it did yesterday, the embedding
+model is the same, and the gate is green.
+
+**The reasoning half.** The firm default was the literal string `anthropic/claude-opus-4-8` written into
+`settings.ts`. It is now derived from a **reasoning tier** — `most-capable` / `balanced` — that the
+catalog assigns an occupant to and validates at module load, so moving the platform forward is a data
+edit rather than a hunt for every literal. `reasoning-tier.ts` additionally lets deploy configuration
+re-point a tier with no build at all. **That override can only ever select a model already curated in
+the catalog**, which is the design and not a gap: a deploy-time string cannot carry a human's finding
+that a model is zero-data-retention eligible, so adding a model still costs a code change and a
+verification while choosing among verified ones does not. A rejected override falls back to the catalog
+occupant and is reported rather than swallowed. A firm that has explicitly chosen a model keeps it —
+re-pointing a firm's own selection because the platform default moved would override a decision it made
+about its own confidential content.
+
+**The staleness half, which is the part that stops this recurring.** Every entry now carries two
+verification dates instead of one: `verifiedOn` for the confidentiality facts and
+`availabilityVerifiedOn` for the lifecycle facts. They are separate because they live on different
+provider pages and go stale independently, and a single date would let the cheap lifecycle check
+silently refresh the confidentiality claim nobody re-read. Beside them sit the provider's own published
+facts — `retirementNotBefore` and `supersededBy`. `model-pin-freshness.ts` reads those dates against a
+calendar (never a network, never prose) and grades findings two ways: **`expired`** — past a published
+retirement, or unread past the hard interval — fails the gate, because a model past its retirement may
+return an error rather than an answer; **`due`** — a successor exists, a retirement approaches, a fact
+is overdue — is reported and does not, because a decision that belongs to a person should not arrive as
+a broken build.
+
+Read against the provider's deprecation reference on 2026-08-14, the pass reports three findings and no
+failures: `claude-opus-4-8` and `claude-sonnet-4-6` each have a published successor, and
+`claude-haiku-4-5` reaches its earliest published retirement date in 62 days. All three were true before
+this change and nothing in the repository could say so.
+
+**What it cannot see, stated rather than implied:** a successor released since the last time somebody
+looked. Supersession is not derivable from in-repo data, and a gate-time call to the provider's models
+endpoint would need a network and credentials in CI and would fail for reasons unrelated to the change
+under test. The gap is _bounded_ by the re-read interval, not closed.
+
+**The embedding half is a different problem and gets a different answer.** Every stored vector is a
+function of the model that produced it, so the pin is free to move only while no index exists and costs
+a full re-embedding of every corpus afterwards. **No mechanism makes a frozen pin cheaply changeable and
+none is claimed here.** What is built instead protects the window: the embedding entry records
+`pinState: "open"`, and a fitness scan refuses to let that window close by accident — while the pin reads
+open, no source file may reach a vector index. Comments are stripped before the scan, so the deferred
+semantic-search module's descriptions of the adapter nobody has written do not count as writing one. The
+first code that writes a vector fails that test, and clearing it means recording `frozen` — a line whose
+only honest author is whoever has decided which model the index is built with. Verified by construction:
+the scan was run against a deliberate vector write and reported exactly it.
+- **A sixteenth repo-wide lint, `pnpm run lint:ungranted-permissions`,** fails any permission that
+gates a member-facing surface and that no committed seed grants to any role. It is the sibling of
+`lint:unwired-writes` for a defect that gate is structurally unable to see: these are permissions
+rather than writes, so nothing is exported, nothing is uncalled, and the route the permission gates
+has a caller, a test and a correct chokepoint check. The only symptom is a 403.
+
+**Two demand sources, both surfaces a member reaches.** A chokepoint-enforced route, read out of the
+committed OpenAPI snapshot (`defineOpenAPIRoute` writes `x-mc-permission` and `x-mc-surface` onto
+every operation, and a byte-exact test fails if the snapshot drifts from the code — so the fact is
+already committed in a shape with no parsing ambiguity); and a Tools catalogue manifest, since
+`toolsByGroup` renders only the tools whose permission the member holds. Grants come from every
+`role_permission` and `direct_grant` seed in both migration lineages, read by column name rather than
+by position so a seed written with its columns reordered still counts.
+
+**Measured in four variants against `main` at the commit this branched from — 102 declared
+permissions, 90 seeded — and the two wider ones were rejected:**
+
+| Variant                                         | Hits | Real | False |
+| ----------------------------------------------- | ---- | ---- | ----- |
+| Every declared permission with no seed          | 12   | 9    | 3     |
+| Every permission named by **any** route meta    | 7    | 4    | 3     |
+| Named by a `surface: "app"` route meta          | 5    | 4    | 1     |
+| **Kept:** that, plus a Tools catalogue manifest | 10   | 9    | 1     |
+
+The middle form is the worst of the four and worth naming: it drops the five real Tools cases and
+keeps all three false ones. Excluding `surface: "public"` is what removes two of the three, and it is
+grounded rather than fitted — the chokepoint skips its session, authn and RBAC steps entirely for a
+public surface, so a role holding `firm:provision` would gain nothing. The single remaining exception,
+`diagnostics:overview`, is on the allowlist with the reason: a diagnostic support session carries the
+whole `diagnostics` namespace through `resolveSupportPermissions`, and a role that held it would give
+every member of the firm the help-desk view the tier exists to keep separate.
+
+**Replayed against 2026-06-22, it names the defect on the commit that shipped it.** At `0185ce46`,
+the commit immediately before the editor-launch route landed, the rule reports seven and no
+`documents:*` — correct, the routes did not exist. At `507d9f9b`, the commit that added the route, it
+reports eight, and the new one is `documents:edit`. At `0f4d53fa` it picks up `documents:checkout`.
+Fifty-eight days before the gap was found by reading. Every hit in that replay was real: besides the
+editing keys and the five Tools manifests still ungranted today, it names `customFields:purge` and
+`tools:speedTest`, both of which were genuinely unheld then and were seeded later.
+
+Same shape as its two siblings — pure rules beside an impure runner, fixtures the gate self-tests
+against on every invocation and that the suite drives through the same entry point, two vacuity
+guards (no demand collected, no seed collected), and a per-permission allowlist whose entries each
+carry a required reason. A blank reason, an entry no surface demands any more, and an entry whose
+permission a seed now grants are each failures of their own, so the gate cannot go quiet by accident.
+
+What it does **not** catch, and no rule here pretends otherwise: a permission granted to a role no
+member holds, and a capability with no permission at all.
+- **Raw control characters in tracked source and Markdown now fail the gate; write the escape.**
+`pnpm run lint:control-characters` (`tooling/lint-control-characters.mjs`) rejects every C0 byte and
+DEL that is not tab, newline, or carriage return, prints the exact escape to write in its place, and
+runs in the governance job beside the process-reference scan and in the pre-push hook.
+
+The reason is legibility rather than correctness: a raw NUL is invisible in a file read, in
+`git diff`, in a review pane, and in most editors, so the source reads as one thing and means
+another. A separator written as a literal NUL read as `.join("")` to two separate readers on the same
+day and produced a wrong diagnosis of a real defect. The escape is the same value at runtime and says
+what the byte is.
+
+Ten source files carried eighteen raw bytes and all were converted: the hash-domain separators in
+`joining-secrets.ts`, four composite map keys (`scoped-setting-statements.ts`, `normalize.ts`,
+`matter-suggestion.ts`, `fusion.ts`), the three in `metering-statements.ts` including the `split()`
+that had to agree with them, the C0 range in the assembled-document-name regular expression, and two
+tests whose subject IS the byte — the expression fuzz alphabet, the denied-construct corpus, and the
+zip local-file-header magic in the JPEG appended-data test. None needed the escape hatch; the escape
+is clearer in the tests too, which is where the argument for the raw byte would have been strongest.
+
+The scan covers Markdown, which the process-reference scan deliberately exempts. That is not
+symmetry for its own sake: a code sample in a document gets copied into source, one spec already
+carried a NUL inside a cache-key sample, and the first draft of this rule's own convention entry was
+written with a raw escape byte in its prose. It self-tests on every run, on the ledger-staleness
+idiom — over invisible bytes, a check that has quietly stopped firing is indistinguishable from a
+clean tree.
+- **A discovery review set is now its own search corpus, and a matter query is structurally unable to
+name its splits.** The index scope key had been widened from a matter to a corpus everywhere except
+the half that decides disclosure: the split CATALOG was still keyed by matter, so a review set indexed
+under its own matter would have put material an opposing party produced into the result set of an
+ordinary matter search. Under a protective order that is not a cache miss. `index_split` gains
+`corpus_kind` and `corpus_id`, every scope read moves onto them, and `matter_id` stays as provenance
+that nothing enumerates by — which is what the split's R2 prefix, the compaction backstop's candidate
+set, and the query path's own key resolution all now agree on.
+
+**A review document reaches the index through the same coordinator and the same consumer as a
+committed file version. What differs is only where the passages come from.** Its text was already
+extracted, certified in a manifest and written to R2, so indexing reads that object rather than
+handing an opposing party's bytes to a second parser — a second parse is a second answer to what the
+document says, produced by whatever engines happen to be deployed that day, with nothing comparing it
+to the one the firm stands behind. The text object gains a form-feed page separator so the pages come
+back as the passages they were; a form feed cannot occur inside one, because normalization drops every
+control character before anything is derived. Where the text and its page metadata disagree the index
+job REFUSES rather than pairing them positionally, because a search hit that names the wrong page of a
+production is worse than no hit: somebody cites it. Only the primary of a duplicate group is indexed,
+which is the entire economic argument for deduplicating at all.
+
+**A document the index has not taken is recorded on its own row, and deliberately not as an
+exception.** The exception vocabulary is a closed list held by a database constraint, every code in it
+is a sentence about what could not be READ, and every one is rendered into a report a firm hands to
+another party — so "our own search index has not caught up" is not one of them, and a later deploy
+would silently change the number. `review_document.index_state` gives the property that was actually
+wanted: the backlog is countable and pageable from the corpus rather than only from a Durable Object
+somebody has to know to open. The one index-stage failure that IS about the document — its derived
+text gone from the bucket — files `source-bytes-missing`, which the vocabulary already has.
+
+**The reads the review surface will sit on exist and are measured.** The review-document list page
+filtered by Custodian of Record, load, family, processing state and exception code; the live exception
+surface with its counts by reason; the occurrences a suppressed copy stays reachable through; and what
+the corpus still owes the index. The list is keyset-paged over `(sort_date, id)` in two segments
+rather than one predicate — a production routinely arrives with documents nothing can date, a
+descending sort puts those after every dated one, and a single keyset clause over a nullable column
+either drops the whole undated tail or becomes an OR the planner cannot turn into a range.
+
+**Found and closed while building on it: none of the discovery surface was access-scoped except
+coding.** The review-set list was not, and a name is enough — "Plaintiff's production, Ridgeway
+settlement" on a matter tells a reader that a production was received. Neither were the review set,
+its loads, its Custodians of Record, or any of the write routes: a member holding every discovery
+permission and on no access list could rename or CLOSE a walled review set, which releases its derived
+artifacts irreversibly. All of them now go through the access list and answer ABSENT rather than
+refused, and the visibility fitness sweep grew a second registry so the new reads are held to the same
+wall from the same table-driven pass.
+
+**The load profile found a real defect on its first run, which is what it is for.** The list page —
+the read every reviewer makes hundreds of times a day — cost 10.3 ms per page mid-corpus at the
+250,000-document ceiling, because SQLite turns `a < ? OR (a = ? AND b < ?)` into a scan from the end
+of the index down to the cursor rather than a seek. The same predicate written as a row value is
+0.26 ms and flat with corpus size: a 39-fold difference on the hottest read in the subsystem, and
+invisible at any volume small enough to demo. Two further reads sorted through a temporary b-tree
+because their indexes stopped one column short of the order they are served in.
+
+**Two numbers that were asserted are now derived.** The per-review-set ceiling rests on 633 MiB
+measured at 250,000 documents against 66 MiB at 25,000 — at the exact size rather than extrapolated
+from a tenth of it — which leaves room for roughly a dozen ceiling-sized review sets inside a firm's
+database. The allocation batch size stays at 100 because one batch costs 0.62 ms and the parameter and
+query walls are what cap it, not its cost.
+
+**Semantic indexing is deliberately not built.** The owner flag is open on evidence rather than
+neglect: the cost is now priced at roughly 490 times the keyword half's for a ceiling-sized review
+set, and the recall gain that would justify it has never been measured on legal prose with relevance
+judgements. The per-review-set flag stays a column nothing reads, because turning it on would embed a
+corpus on a guess and the embedding model pin is unchangeable once one vector exists.
+- **The matter file manager's rulings are written down and checked by a browser. Three settled
+decisions were silently reverted in one round of mockup review, and nothing caught any of them.**
+
+Design review on this surface runs in rounds: it is built, the owner walks it, corrections come
+back. Each round was rebuilding the page from scratch, so anything decided two rounds earlier and
+not restated in the newest message came back as whatever the model would have produced unprompted.
+In one round that cost the forward button, the breadcrumb's home icon (back to the word "Files"),
+and the matter search's position (back into the file-manager toolbar) — none of them mentioned in
+the instructions that undid them, all of them already settled.
+
+`docs/conventions/file-manager-rulings.md` is the cumulative ledger: every ruling, numbered, each
+marked `settled`, `regressed`, `open` or `superseded`. A ruling in it is not re-proposed. It is
+linked from `design-corrections.md`, which already carried the same lesson from the sign-in flow's
+fifteen revisions.
+
+`tooling/file-manager-rulings/` is the half that does not rely on anyone reading. It opens the
+surface in headless Chromium and asserts each mechanically-checkable ruling — that Back, Forward and
+Up all exist and that Forward enables once Back is used; that the breadcrumb root is an icon; that
+the inspector carries five named tabs and offers no action buttons; that every column but Name
+drags; that clicking a row does not open the inspector. It found two real defects while it was being
+written: an "already removed" line that was still on the page because the script that removed it had
+aborted before writing, and a hover-only `visibility` rule that made every version-row button
+untargetable while a presence-only assertion passed.
+
+The harness is also what keeps the ledger honest. A status is a claim about the built screen, and
+it goes stale the moment a round builds something without returning to the table — twenty-six rows
+were stale on the first reconciliation, all of them understating what had been built. That direction
+of staleness costs the same as the other one: it sends the next round to rebuild what already
+exists, which is exactly how the forward button was lost. The ledger now opens with the rule that
+the harness runs first and any row it contradicts is corrected in the same commit. Standing at
+reconciliation: 99 settled, 21 open, 1 regressed (renaming still selects the extension), 1
+superseded.
+
+Only mechanically-checkable rulings are in the tool. Taste stays a person's job.
+- **Natural-language document search, built whole and switched off — every gate closed, no instance in
+existence, and the one part that could answer a question deliberately absent.**
+
+A firm can now be given a search that takes an ordinary question against a matter and returns
+passages of its own documents. None can yet, and that is the shape of the work rather than a
+shortfall: everything the feature needs exists except the adapter that calls the managed index, which
+waits on evidence rather than on effort.
+
+**The gate is a gate on a gate.** `search.naturalLanguageEnabled` defaults off, and the write path
+refuses to open it unless the firm has accepted the **current version** of a written disclosure —
+recorded firm-level, with who accepted it and when. When the feature ever changes what it copies or
+what it can do, the version moves, every firm's acceptance stops matching, and they are asked again
+without anybody remembering to ask. The setting change, its audit row, and the message that
+provisions the instance ride one transaction, so there is no state where a firm's gate is open with
+no provisioning in flight.
+
+**The disclosure refuses two things rather than hedging them.** Data residency for the managed store
+is not something the platform can specify or verify, so it offers no guarantee and tells a firm with
+a residency obligation not to enable the feature. Deletion of the managed index is a request whose
+completeness the platform cannot demonstrate, so the statement says exactly that — the platform
+deletes the extracted text it wrote, from storage it owns, and can enumerate the catalog to show it,
+and stops there. Neither sentence is a caveat on a promise; they are the absence of a promise.
+
+**What can reach the index is an allow-list with one entry.** The instance is pointed at a derived
+text feed, never at a firm's bucket — a bucket holds received productions, mid-edit working copies,
+conversion artifacts and index splits, and pointing an index at it would put an opposing party's
+production into a search of the firm's own working files. The feed writer runs from one place, the
+existing search index job, as a **second consumer of the extraction already computed there**: the
+bytes are read once and parsed once, and the keyword split and the feed both read that one result.
+A test asserts the extraction runs exactly once.
+
+**A matter left out has its copies deleted, not merely stopped.** Once a firm opts in every matter is
+fed — a search covering only the matters somebody remembered to tick has invisible gaps, and a lawyer
+who finds nothing concludes there is nothing. The escape hatch enqueues deletion of that matter's
+feed objects, because an exclusion that only stopped new writes would leave the material that
+prompted it sitting in the index.
+
+**Deletion is planned from the catalog and never from a bucket listing**, so an object the catalog
+does not know about is a reported inconsistency rather than a silent miss; reconciliation runs as
+part of every teardown and its result is recorded.
+
+**The meter keeps measurement and estimate in different objects**, structurally, so a renderer cannot
+show them alike: query counts and fed bytes are exact because the platform makes every call and
+writes every byte, the ingestion figure is derived from fed bytes at a ratio stored on the row, and
+managed storage is a **named gap** rather than a zero, because no per-firm figure is published and a
+guess presented as a meter is a future billing dispute.
+
+**Not built: the retrieval adapter and its route.** The design's central claim is that the metadata
+filter is a recall optimization and read-time re-authorization is the boundary — but the route still
+must not ship until the filter's semantics have been observed against a real instance, because a
+filter that fails open, or that is accepted and silently ignored, cannot bear even the optimization's
+weight. Both ports resolve, through the production resolvers, to typed unavailable outcomes; an
+absent binding reports `instance-not-provisioned` rather than an empty success, which would be
+indistinguishable from a corpus in which nothing matched.
+
+Fitness tests assert what a later edit could quietly undo: no generation call anywhere, no
+public-endpoint enablement anywhere, the port's input has no slot a caller-supplied filter could
+arrive in, the feed writer emits exactly one object class and cannot emit a reserved one, and the
+instance configuration constant is the only place the metadata schema is spelled — because changing
+that schema re-indexes every document in every firm's instance.
+- **Notification preferences, the firm policy floor, and the one property that makes them safe: a
+suppressed notification is counted, never merely absent.**
+
+A member now sets, per category, whether it reaches their in-app feed and how often it is mailed —
+one `notifications.preferences` key on the shipped `user → firm → default` scope chain, defaulting to
+on in app everywhere and a daily mail except `jobs` and `system`. The two channels compose in
+**opposite directions**, and that asymmetry is the decision rather than an implementation detail. In
+app, the firm's tier is a **floor**: a firm may insist a category reaches its members and a member
+cannot switch it back off. By email, the **member's tier wins**: a firm may never raise somebody's
+cadence, because forcing email is forcing privileged-adjacent metadata into a mailbox the firm may not
+administer, beyond both the audit log and the visibility filter. `security` and `trust` are
+non-silenceable in app from either tier; a member may still set their email cadence to `off`.
+
+**The part worth reading.** A category set `inApp: off` writes **no feed row** — not a hidden one, not
+one somebody later discovers. Which produces the failure mode every preference system has: silence.
+Afterwards, "nobody was told" and "this person asked not to be told" look identical, so a member
+cannot be reassured and a real fan-out fault cannot be found. So the fan-out writes a
+`notification_in_app_suppression` tally beside the rows it did write — member, category, civil day,
+whose choice it was, and a count — and reports a `notifications.suppressed_by_preference` counter with
+both closed labels. No event, no subject, no matter, no kind: a per-item record of what somebody
+declined to hear would be a second feed holding exactly the pointers they asked not to be given. The
+tally ages out on the firm's own retention window, and a member's preference read reports their own
+back to them, so they can see that their choice and not a fault is why nothing arrived. An audience
+everybody silenced is counted apart from an audience that resolved to nobody — only the second is a
+bug.
+
+**A firm may also designate trust-compliance recipients** — a firm-tier list, written under
+`trust:manage` and audited by count and never by name, whose members join the recipient set of every
+trust-category notification on top of whatever the kind's audience already resolves. **A designation
+is not a grant of access:** the designated member gets an ordinary recipient row and the shipped
+visibility filter still decides at read, so a notification about a matter they may not see leaves
+their feed and their unread count byte-identical to a firm where it was never raised — no placeholder,
+which would be an existence oracle.
+
+**API, no screen:** `GET`/`PATCH /api/v1/notifications/preferences` (the member's own, scoped to the
+session and never a path parameter; the `PATCH` audited with the categories touched and never a
+subject, a matter, or a recipient) and `GET`/`PUT
+/api/v1/firm/notifications/trust-compliance-recipients`. The notification centre and the preference
+screen remain unbuilt, so `docs/user/` gains nothing here — there is no surface a member can reach yet.
+
+**Also repaired in passing:** the per-firm drizzle snapshot had fallen a migration behind the schema,
+so the next `generate` would have re-emitted a full `review_document` table rebuild against firms that
+already have the columns. The snapshot is refreshed to the lineage head; the new migration adds one
+table and nothing else.
+- **The auto-file engine stops evaluating an empty set.** The guardrail function, the port on the
+capture core and the evidence gatherer all shipped without the one thing that makes a delegation a
+delegation: something that delegates. Nothing in the product created a rule — `createEmailAutoFileRule`
+had exactly one caller in the repository and it was a test — so every unrouted capture paid two
+indexed lookups, matched nothing, and returned `NO_AUTO_FILE_RULE_MATCHED`. Eight routes in
+`apps/api-worker/src/routes/auto-file-rules.ts` close that: create from a filing, set the promotion
+posture, suspend, resume, revoke, the matter's rules, one message's decision history, and the firm's
+thirty-day review.
+
+**Three refusals carry the weight, and each is pinned by a test that was watched to fail with the
+refusal removed.** A rule may not be **stored** asking to file while the firm's ceiling is down —
+accepting the posture and quietly staging would tell the member who set it that their firm had opted
+into unattended filing, which is precisely the act no individual member may perform. A
+`threadContinuation` rule is refused unless the conversation is already filed to the named matter,
+because its entire claim is "your firm already decided this" and without a filed link that claim is
+false. And a rule reached through a different matter's path is absent, so access to one matter can
+never act on another's delegation.
+
+**The review read narrows before it hydrates, and carries no cursor.** The matter set goes through
+`filterAccessibleMatters` before a single rule row is read, so a rule on a matter the caller cannot
+open contributes no entry, no count and no suspension line — it never enters the answer rather than
+being filtered out of one. The window is fixed at thirty days and unpaged on purpose: a cursor over a
+set a wall can shrink hands out short pages and calls them the end of the list. Counts come from the
+links themselves rather than the ledger, so a filing somebody has since removed reads as removed —
+the same signal the circuit breaker's undo input is derived from, which keeps the two from telling a
+firm different stories about one rule.
+
+**A partial index on `email_matter_link.auto_file_rule_id`,** over the automatic links only. The
+shipped undo derivation subqueries that column with nothing behind it, which is a scan of every link
+the firm holds, issued on the capture path the moment a rule matches. Partial so a firm with no rules
+carries an empty index and the index grows with rule activity rather than with mail volume.
+
+**A closed-set fitness sweep over four homes.** A rule kind, a suppression reason and a demotion
+reason each live in the domain package's unions, the per-firm schema's column enums and CHECK
+constraints, the data-access layer's structurally-identical declarations, and the API's zod enums —
+four homes, which is the price of those layers not depending on each other.
+`packages/email-filing/test/auto-file-closed-set-fitness.test.ts` reads all four out of the real source
+and fails when one moves alone; adding a third kind to the API enum only was watched to turn it red.
+It also asserts that no phrasing table interpolates anything, which is what makes "the explanation
+carries no message content" a property of the code rather than of the caller's care.
+
+**The load profile, and one claim that came back narrower than it was written.** Ten thousand rules
+across a thousand matters cost no more per capture than ten (0.331 ms against 0.374 ms on this
+machine) — the lookup is by match value, so the flat-cost claim holds. Two hundred firings inside the
+breaker's window report as the cap rather than as two hundred, and the cap still sits above the
+threshold, so a runaway rule neither drags its whole history onto every later capture nor escapes the
+breaker. The thread claim is the narrow one: the rule lookup for a conversation really is by
+identifier and really is flat, but the read beside it — the thread's already-filed matters — joins
+over every message in the conversation and grew thirty-one fold from eight messages to two thousand
+(0.06 ms to 1.888 ms). That is inside a queue consumer's budget and is the same read the suggestion
+endpoint already issues inside a request budget, so nothing was changed for it; the measurement
+reports it rather than restating a sentence its own numbers contradict.
+- **A discovery load now produces the two records a firm hands to another party: a manifest of what
+arrived, and an exception report naming every document that could not be read and why. Duplicate
+copies are suppressed from extraction without being suppressed from the corpus, and an archive
+becomes a family instead of a file that mysteriously held no words.**
+
+This is the remainder of the processing sub-slice: deduplication with occurrence rows, container
+families over the guarded archive expansion the engine already had, and the load manifest and
+exception report written at load completion.
+
+**The exception report is the piece worth having.** A production is a claim — _we produced everything
+we could read_ — and without a document the claim is an assertion. The report names every item the
+claim excludes and gives the reason for each, from a closed vocabulary in which every code is a
+different sentence: `encrypted` and `password-protected` stay apart because a password can be asked
+for and a key cannot, and `no-text-extracted` exists precisely so a document that yields nothing is
+listed rather than indexed as empty. It is written per load, in a machine-readable and a printable
+form, only once the load reconciles — a report that does not add up is not one — and it is
+**reproducible**: the generation reads the instant the corpus stopped moving off the load row rather
+than taking a clock, every walk is ordered by identifier, and nothing is derived from the
+environment, so the same load reported twice is byte-identical.
+
+**Deduplication keeps the duplicate.** The identity is the content hash the ingest gate already
+recorded, or the email record model's own dedup key for a message — never the near-duplicate
+fingerprint on the same row, which collides by design and would be suppressing a document from review
+on a heuristic. The copy is marked non-primary, keeps its own Custodian of Record and its own load,
+reaches its own terminal state (mirroring the primary's, including inheriting its named reasons when
+the primary is one nothing could read), and is named by an occurrence row. "Which custodians held
+this document" is one indexed read. Primacy is taken by a single guarded statement and held by a
+partial unique index, so a group can never have two primaries and the copies can never be extracted
+twice or attributed to neither.
+
+**A container family is a chain-of-custody claim.** An archive that reaches the extractor is expanded
+by the engine under its five existing guards, and every entry re-enters the ordinary ingest gate —
+presigned session, magic-byte sniff, hash, malware scan — by the same path an email attachment takes.
+The entries become `container-child` documents of the archive, sorted by path so a re-processing
+numbers them the same way; the archive becomes the family head, processed with no text object of its
+own and an entry listing in its sidecar. Entries the engine described rather than opened become a
+named exception on the archive carrying a **count and a kind, never a path**. One level of expansion
+per document, absolutely: a child that is itself a container is one the engine already declined to
+open, and it says so.
+
+**Found and fixed along the way.** A document waiting on the scan gate parked and was acked, which
+meant nothing would ever look again — it now re-reads the row and throws so the queue redelivers,
+which is what a container's children need since their bytes cross the gate after their message
+exists. A `quarantined` verdict is deliberately never re-read, because the two failure directions are
+not symmetrical.
+
+Also: the extraction facts gain the digest set the engine already computed in the same pass, so the
+manifest's MD5 and SHA-1 — which load-file specifications still ask for and which nothing else in the
+platform would ever compute — reach the row; a legacy binary keeps the digests of the bytes that
+arrived rather than of the conversion made to read them; the exception row gains its load, so the
+report walks its own index instead of joining the corpus; and the record artifacts carry a
+`review-load-record` object class, stamped apart from the derived text and sidecars so a collection
+rule cannot delete the evidence and keep the cache.
+
+Not built: the review-document index enqueue, opt-in semantic indexing, the review-document list read
+and the shared discovery load-profile volume, which are the next sub-slice. No review surface.
+- Billing — the invoice delivery record: `invoice_delivery`, one append-only row per attempt at getting
+a bill to its client, so **"has this bill been given to the client" is finally a question the
+platform can answer.** It was specified, its identifier prefix was registered, and the table did not
+exist.
+
+**"Sent" is deliberately not an invoice status, and this is why.** A bill goes out possibly several
+times and possibly by several channels, and a re-send is not a change to the financial record.
+Modelling delivery as a status would force the finalized invoice row to stay mutable for its least
+load-bearing field, which is the one concession that stops an append-only table being one. So a
+second delivery is a second row: channel, recipient reference, the firm-supplied delivery date, an
+optional external reference, the outcome, and who recorded it. Three triggers hold append-only
+unconditionally — including the BEFORE INSERT guard that catches `INSERT OR REPLACE`, which fires
+neither of the other two because SQLite runs `recursive_triggers` off by default. Two more hold what
+a row may describe: a delivery names a **finalized** bill (a draft is still being written; a voided
+draft was never issued to anybody), and it cannot predate the bill's own issue date, which is the one
+thing about a firm-supplied date the platform can check.
+
+**It records a delivery; it does not perform one — and that is the design rather than a shortfall.**
+Nothing here renders an invoice and nothing carries one to a client. Every row is a delivery the firm
+made and is reporting: handed over at a meeting, put in the post, emailed from the firm's own mailbox,
+submitted to the client's own e-billing portal. Out-of-band delivery is the common case, so a table
+that could only hold deliveries the platform itself performed would leave the question unanswerable
+for exactly the firms that most need to answer it.
+
+**Surfaced, never a gate.** `readInvoiceDeliveryState` rides the invoice detail read rather than
+waiting to be asked for separately, because the surface that has to show it is the one where a firm
+decides to take fees out of a client's trust ledger — several jurisdictions expect the client to have
+been given a bill first — and a fact that must be fetched on purpose is a fact a surface forgets to
+show. Finalization alone still gates. The reasoning is uncomfortable and worth keeping written down:
+a hard delivery gate would be satisfied by firms recording deliveries that never happened, which
+converts a compliance record into a checkbox and makes the record worse than not having one.
+
+**The state read is built to answer the two questions that look like one.** A bill with no rows has
+never been sent; a bill with three failed attempts has been chased and has not landed. Both are "not
+delivered", and the attempt counts are what tell them apart — a surface showing one message for both
+would tell a firm nothing it needs. The recorded date is the **first** success, not the most recent
+one, because when the client was first given the bill is the question a jurisdiction asks and a
+courtesy re-send weeks later does not move it. A batched form answers a whole set of open receivables
+in one query, since a reminder pass asking per invoice would be an N+1 against the table that grows
+with a firm's whole billing history.
+
+`billing.invoice.delivered` is emitted in the same batch as the write, carrying identifiers, the
+channel, and the outcome — and never the recipient reference. A client's address is the client's own
+fact and a topic payload fans out to every subscriber's notification record; it resolves behind the
+deep link, through billing's own access-checked read.
+
+Migration idx 68 (`20260817T000000_billing-invoice-delivery`); two new chokepoint routes on the
+existing `billing:draft` and `billing:read` keys, so no permission inventory moved. A PII registry
+entry for the recipient reference, on the footing the contact a firm records reaching a client it
+holds unclaimed money for sits on.
+
+**Two owner questions this raised and did not answer.** Whether a delivery recorded in error may be
+superseded by a correcting row — the table is append-only and the design names no correction shape,
+unlike a credit note, whose answer is a further credit note. And the `outcome` vocabulary, which the
+design names as a column without enumerating: `delivered` and `failed` are the built floor rather
+than an answered set.
+- Email auto-file — the rule circuit breaker's thresholds are now a per-firm setting, on the settings
+idiom the scan policy and the direct-filing ceiling already use.
+
+The breaker's two numbers were fixed in code: twenty-five firings per rule per rolling hour, and
+three undos within a rule's last ten firings. Both remain the platform defaults, so a firm that never
+touches the setting sees exactly the behaviour that shipped. What changes is that the numbers are
+resolved per firm — `emails.auto_file_circuit_breaker` on the existing `setting` table, so there is no
+schema change and no migration — and read through one helper by both the settings route
+(`GET`/`PATCH /api/v1/firm/email-auto-file-policy`, which now carries `circuitBreaker` beside
+`directFilingPermitted`) and the capture consumer. The queue path and the API cannot disagree about
+what a firm chose.
+
+**The thresholds are settable; the breaker is not optional.** The design that raised the question
+named the numbers and said nothing about a floor, so one is enforced rather than assumed. Every
+threshold is a whole number inside a fixed range — one to five hundred firings per hour, one to a
+hundred for the recent-fire window and the undo count — and `maxUndosInRecentFires` may not exceed the
+`recentFireWindow` it is counted over, because a threshold above the window it is measured against
+could never be reached and the breaker would read as configured while never tripping. The fire
+ceiling is finite for a second reason as well: the activity read walks up to the threshold plus one
+row per candidate rule per captured message, so an unbounded threshold is an unbounded read on the
+capture path.
+
+One definition of what a firm may set: the bounds live in `@magna-carta/email-filing` beside the
+guardrail that applies them, the zod schema that refuses a bad write is built from those bounds, and
+the pure decision function re-checks them — thresholds it cannot act on are unevaluable evidence, so
+the capture stages rather than filing past a guardrail nothing can reach. Absent thresholds are
+treated the same way, on the rule the module already holds for every other field: a gatherer that did
+not answer the question has not given permission.
+- Billing — corrections after finalization: credit notes, client credits, write-offs, and reversals,
+plus the contingency shrunk-basis residual the fee-models review left open.
+
+**Nothing corrects a bill by editing it.** A finalized invoice is frozen by database trigger and
+`void` is unreachable from `final`, so every correction here is a second permanent record standing
+beside the first. `credit_note` and `credit_note_line` are append-only from birth and refused
+outright against anything but a finalized invoice, by trigger. The invoice's own `total_minor` never
+moves: a note lands as an `invoice_application` against `applied_minor`, so what the client was told
+stays exactly as it was told and only the derived balance changes.
+
+**A correction that outruns the unpaid balance opens a `client_credit`, and the split is forced by
+the balance CHECK.** Reducing a matter's total below what has already been applied to it would be a
+negative unpaid receivable, and in the ordinary case that money has already left the client's trust
+ledger and become the firm's — un-writing it is a firm-funds decision, not an invoicing one. So the
+note credits the receivable by what the bill can absorb and the client-credit liability by the rest.
+Open is DERIVED (`amount_minor` frozen, `discharged_minor` delta-updated under a bounds CHECK), on
+the same reasoning that keeps a status column off `trust_hold`. The one of the three exits that
+moves no money — setting the credit against a later bill of the same client, on any of their matters
+— is built; refund-from-operating and return-to-trust are named and deliberately not performed.
+
+**The application door now records WHICH posting each application rode with, and a trigger holds the
+pairing.** No entry for a trust transfer (the two linked entries are trust's, and its operating leg
+has already credited the receivable), none for a credit note (one posting sits on the note, which is
+also the only place a note against a fully-paid bill could record one), exactly one for every other
+kind. That turns the single most likely bug in the subsystem — a second receivable credit composed
+here — from a remembered discipline into a database guarantee, with a new fitness query re-proving
+the other direction: a credit note, write-off, or reversal that moved a balance with no posting
+behind it.
+
+**A reversal refuses two kinds by name.** A trust transfer, because putting client money back is a
+movement in the trust ledger and billing composes no trust statement; and a credit note, because it
+is a document the client may already hold and unwinding its application while it still stood would
+orphan any credit it opened. A discharged client credit reversed gives the credit back in the same
+batch.
+
+**The contingency shrunk-basis residual.** A fee derived from a basis is billed as the increment
+over what earlier bills already charged — and that comparison read the GROSS charge, while a
+finalized line cannot be edited. So the one record that can answer a basis that shrank after billing
+had no effect on the report that demanded it, and the matter stayed flagged forever. A credit-note
+line may now name the invoice line it credits (`credits_invoice_line_id`, held to the same bill and
+matter by trigger), and both the composer's offset and
+`contingencyBilledBeyondEntitlementStatement` read billed net of attributed credits. A new
+`readContingencyResidual` states the residual as an amount and names the finalized fee lines a
+correction would be aimed at, with what each bill still owes — and issues nothing, because what a
+firm owes back after a settlement collapses is a decision with a client in it.
+
+A matter does not close over an open client credit: a hard block on the shared close-precondition
+registry, proven twice like trust's, with the commit guard aiming a value the table's CHECK forbids
+at exactly the open rows. There is deliberately no block on an unpaid receivable — bad debt is an
+ordinary outcome whose lawful exit is a write-off.
+
+Migration idx 56 (`20260813T000000_billing-credit-notes`); seven new chokepoint routes on the
+existing `billing:credit`, `billing:apply`, and `billing:read` keys, so no permission inventory
+moved.
+- `docs/now.md` is now **the build register**: every one of the 702 capability nodes in the
+`roadmap.d/` feature ledger, at the status the ledger actually holds, led by the arithmetic over the
+whole set. It is rendered by `vp run register-build` and diff-gated, so it cannot drift from the
+state of the work.
+
+**The counts come first, because they are what the document is read for.** A roll-up of done /
+part-built / ahead / parked; every one of the nine statuses with its own count and share; and a
+per-area matrix with a column per status, each area's total, and its shipped percentage. Percentages
+are computed by largest remainder so a column of shares always sums to 100 beside a column of counts
+that sums to the total.
+
+**Nine statuses, nine columns — the bands are gone.** The previous rendering collapsed the ledger's
+nine statuses into five horizon bands, which put `partial` (a shipped backend with no screen on it)
+under the same heading as `in-build` (being written right now). Those are the two facts most worth
+holding apart, and the register never bands them again.
+
+**The gap between 34% and 60% is named in the document.** Shipped alone is 241 of 702; shipped plus
+partial is 423. The 182 nodes in between are approximately the program's interface debt — engineered
+and unreachable — and the register says so rather than leaving a reader to pick whichever number
+flatters.
+
+**Every node is listed, nothing collapsed.** The register prints all 702 in ledger order, grouped by
+area, indented by the depth of the dotted id, with each node's id, status, name, scope and note. The
+short lists above it — waiting on the owner, being built now, next up — no longer collapse a subtree
+to its shallowest node either: a parent's status is a roll-up and its children are the actual units
+of work.
+
+**Where we were is stated as absent rather than invented.** The ledger holds only current status and
+no history, so the register draws no trend line and says why, pointing at `CHANGELOG.md` as the only
+dated record of what shipped.
+
+**The public roadmap document is withdrawn until there are users.** `docs/public-roadmap.md` is
+deleted and no longer generated: there are no users, so a document written for users has no reader,
+and a document nobody reads is a document nobody keeps honest. Everything behind it stays and stays
+tested — the renderer, the `audience` / `public-name` / `public-summary` / `public-group` ledger
+keys, the public-copy rules in `pnpm run lint:roadmap`, and the artifact schema and strict parser in
+`@magna-carta/product-updates`. The corpus test now renders that document in memory from the real
+ledger and round-trips it through the artifact parser, so the guarantee the committed file carried
+is intact without the file, and publishing again is one line in the assembler.
+
+`vp run public-roadmap-build` is renamed `vp run register-build`, and
+`tooling/doc-fragments/build-public-roadmap.mjs` is renamed `build-register.mjs`.
+- **Client intake is designed, and the finding that matters most is that the subsystem it was said to be
+blocked on has been waiting for it.** The feature ledger claimed `intake.conflict-check` was stuck
+because "no conflicts check exists to trigger." `packages/conflicts` has been on `main` since slice 1
+— the orchestrator, the reporting posture, the append-only log, the disposition stream, the
+event-driven re-check ledger, its two queue consumers and the cron backstop — and the trigger
+vocabulary intake needs is live already: `TRIGGER_BY_TOPIC` records a `matter.created` check as
+`preliminary` and a `matter.opened` or `matter.reopened` one as `comprehensive`. What intake adds is
+the call that vocabulary cannot reach today, because it happens before a matter exists to raise an
+event about. `roadmap.d/conflicts.md` carried the same
+staleness from the other side and is corrected too: its parent still said the feature "has no code or
+spec" over a shipped package with two specs, and `conflicts.triggers` still said no check invocation
+existed anywhere after slice 2 shipped four event producers, two consumers and a scheduled backstop.
+
+**A prospect turns out not to be a record.** It is a reading of two the platform already has: a
+Directory entity, and a matter that has not drawn a number. The Directory placement is forced rather
+than chosen — the engine's four blocking channels are Directory tables, so anything stored anywhere
+narrower is invisible to the check that a prospect exists to be subject to. The structural carrier of
+the distinction is the **absent matter number**, not the status column, and that is stronger than it
+looks: the number is the join every money subsystem reaches a matter through, so a prospective matter
+has no invoice, holds no trust money and carries no portal grant — not because a permission check
+refuses it, but because there is nothing to join on. A `prospect` flag would have had to be defended
+separately in every one of those subsystems, forever.
+
+**The front door does not open onto the Directory.** An enquiry lands as an `intake_submission` that
+is not an entity, not a matter, and not in the conflicts corpus, and only a named member's audited act
+promotes one. The boundary sits at triage rather than at conversion for a reason specific to this
+Directory: it soft-deletes only, and a merged subordinate stays in the corpus **on purpose** so a
+merged-away alias still surfaces a hit. There is no undo, so whatever an anonymous stranger can write
+into the Directory is in the conflicts corpus permanently.
+
+**The public form reads nothing, which is the only way it can reveal nothing.** Answering identically
+after a lookup still leaks — a form that consults the Directory answers measurably slower for a name
+with candidates, and a probing script takes its oracle off the clock. So the rule is structural: one
+write, no read, no duplicate detection, no conflicts check, no routing refusal for an unsupported
+practice area, and a source scan proving it. Every one of those reads is available a moment later on
+the staff side of triage, where the caller is a member. A public form also may not collect a protected
+identifier at all, enforced by the field vocabulary having no kind that maps to a `protectedField`
+declaration rather than by validation.
+
+**The conversion gate is on the firm's procedure, never on a verdict.** The engine returns no
+conclusion and this design does not invent one. It gates on four conditions the posture read already
+computes — never checked, scope below the firm's live floor, a surfaced hit nobody disposed, an open
+re-check request — every one a fact about whether the firm looked rather than about the client. The
+asymmetry is the argument: fourteen strongest-tier hits, each disposed by a named partner with a
+rationale, passes; zero hits with no check does not. The scope condition costs nothing because the
+shortfall is derived against the live policy row on read, so raising a firm's floor fails the gate
+everywhere at once with no sweep and no stored judgement to rot.
+
+Also settled: a lead and a prospective matter are one record, so nothing migrates at conversion;
+conversion is the shipped `openMatter` transition and is one-way, because releasing a drawn number is
+what the allocation primary key exists to prevent; a pipeline stage is firm vocabulary that gates
+nothing, since a stage that gated conversion would let a rename move an ethics gate; and call intake
+gets a reserved `telephony` source value and stops there, because the port does not exist.
+
+Two gaps recorded rather than filled. The platform has **no note, comment or timeline entity on any
+record**, so a CRM activity feed can be derived from submissions, stage changes, checks, calendar
+events and filed email but cannot hold "she is thinking about it" — and a note belongs to every
+matter, not only a prospective one. And `matter` has `closed_at` with no reason column, so a declined
+engagement has no home on the matter today; the outcome goes on the intake record and the conflicts
+report stays reproducible rather than stored, because `describeCheck` is pure over rows six database
+triggers refuse to mutate.
+
+No feature code, no schema, no migration, no route. Thirteen owner flags in a new `J` series: seven
+decide what gets built, four decide how, and two are professional-conduct questions the design
+analyses and answers neither — Rule 1.18 against the unbuilt ethical wall, and an erasure request from
+a declined prospect against a conflicts corpus whose whole value is that it does not forget.
+- Conflicts 4·1 deepening — the design for trigger coverage and search depth, answering the owner's
+"both gaps" scope call. Design only: a spec, a five-slice implementation plan, and six ADR fragments.
+No application code, no schema, no migration.
+
+**The framing decision comes first, and everything else inherits it.** The platform may assert facts
+about its own search — these channels ran, this source has no corpus, this traversal was truncated at
+500 entities, nothing surfaced — and never a fact about the world. It does not say a matter is
+conflict-free. Slice 1 is that posture made mechanical: one derived per-matter read (latest check with
+its scope verbatim, the shortfall between that scope and the firm's **current** policy, pending
+re-check causes, undisposed counts by tier, unavailable sources, and a never-checked state distinct
+from checked-and-nothing-surfaced), with no aggregate and no field named `clear`, `passed`, or
+`status`, held by a `lint:conflicts-vocabulary` fitness function modelled on the shipped custodian
+lint. Staleness is derived at read time, never written onto a record — the posture the calendar holds
+for an overdue deadline.
+
+**Trigger coverage becomes an event-driven re-check ledger.** Seven corpus write points — party
+linked, entity merged, entity renamed, edge created, identifier added, matter created, matter opened —
+plus personnel change and a cron cadence each commit **one outbox row** in the batch they were already
+composing; nothing heavy runs in a request handler. A request consumer resolves the affected matter
+set in one bounded query and writes `conflicts_recheck_request` rows; a separate run consumer drains
+them under a budget, coalescing every cause accumulated for one matter into one check that names them
+all. The ledger exists so a pending re-check is visible before it is satisfied, so work is bounded
+without being dropped, and so the interval between a corpus change and the check that answered it is
+on the record — which is what a reasonable-procedures defence actually turns on. The **non-triggers**
+are decided too and stated as decisions: entity creation alone (an import storm with no possible new
+hit), party removal, disposition, matter close, and a policy raise all deliberately fire nothing.
+
+**Search depth splits into its two real axes.** Traversal gains a budget per edge class — corporate
+family transitive at zero cost, control/family/representation one hop each — plus a closure cap, with
+every stop recorded: reaching the cap writes `expansion_truncated` with the frontier size, so a
+truncated expansion is never reported as a completed one. Expired edges are traversed with the expiry
+on the path (Rule 1.9 is about former relationships), and degree-based hub suppression is refused in
+favour of an attributable firm marking that stops traversal _through_ an entity while still matching
+it. Matching gains two derived columns beside the frozen `normalized_display` — `normalized_match_key`
+(ampersand and legal-form spelling canonicalized, legal form preserved: `Smith & Jones LLP` and
+`Smith and Jones, L.L.P.` match at **tier 2**) and `normalized_match_key_bare` (legal form removed:
+LLP versus LLC surfaces at **tier 3**, a question rather than an equation) — plus Beider-Morse as a
+third phonetic scheme at over-inclusive strictness. The tier CHECK is deliberately not widened;
+widening one rebuilds a growing append-only table.
+
+**Uncertainty is where the design spends its judgement.** A re-surfaced hit may cite an earlier
+conclusion and may never inherit one: `answered-before` requires byte-identical evidence and any
+strengthening makes it a fresh question, bulk affirmation writes one **real** disposition row per hit
+naming the **affirming** member, and two structural layers stop the machine concluding anything — a
+source-scan fitness function fails the build if a re-check consumer imports `disposition.ts`, and a
+trigger refuses a disposition whose reviewer is not a live member.
+
+The N+1 goes in the same slice as the traversal widening rather than after a measurement — one query
+per node table and one per blocking channel over the whole expanded set, with an equivalence test
+against the per-entity matcher as the correctness proof — because widening depth without batching
+would put thousands of queries in one invocation.
+
+Twelve questions are flagged rather than decided, each shipping as a firm setting with a recommended
+default: the balanced band's name-role breadth, lateral-hire imputation, re-scan cadence, the
+carry-forward default, tiered disposition authority, the traversal numbers, expired-edge traversal,
+notification escalation, firm-marked non-expandable entities, whether a policy raise forces a
+re-scan, whether a matter may be refused opening on undisposed tier-1 hits, and a signable engagement
+memorandum. Every one changes what the platform asserts about a firm's ethical position, which makes
+it the owner's call and not the design's.
+- **Conflicts checks now fire when the world changes, not only when somebody asks.** The second slice of
+the conflicts deepening: outbox topics at the write points that can invalidate an answered check, a
+durable re-check ledger, two queue consumers, a cron backstop, and a notification.
+
+Six write paths each add **exactly one** outbox row to a batch they were already composing — no query,
+no fan-out, no traversal on any request path. `packages/directory/src/topics.ts` names them once, in
+the shape `packages/matters/src/topics.ts` already holds, so a producer and a subscriber cannot come
+to spell one topic two ways: `matter_party.linked` (`linkMatterParty`), `directory.entity.merged`
+(`mergeEntities`, naming master **and** subordinate), `directory.edge.created` (`createEdge`, naming
+both endpoints and the type), `directory.identifier.added` (`addIdentifier`, naming the entity and the
+identifier **type** — never a value, never the blind index), plus the two shipped literals moved onto
+constants. `member.provisioned` joins them from the member-provision mirror, because Rule 1.10 imputes
+across the whole firm. `matter.created` / `matter.opened` / `matter.reopened` were already emitted and
+are wired, not duplicated.
+
+**`conflicts_recheck_request`** is the load-bearing new object, and it exists because a queue message
+is not a record. A partial unique index over the _unsatisfied_ rows makes a redelivery a no-op while
+still letting a genuinely recurring cause be requested again after it has been answered. Three
+triggers hold the rest: the cause columns cannot be rewritten, a satisfaction cannot be reopened, and
+no row is ever deleted — the interval between a corpus change and the check that answered it is the
+evidence that the firm's procedure noticed something, which no check row alone can show.
+`conflicts_check` gains two nullable columns by `ALTER TABLE ADD COLUMN` (`trigger_source`,
+`cause_json`), so the append-only guard triggers stand and every stored row reads exactly as it did.
+
+Request and run are **separate consumers**, deliberately: a slow check must not be able to
+back-pressure the recording of causes, because the recording is what makes staleness visible. The
+request consumer resolves the affected matter set in one bounded indexed query per topic and records
+one ledger row per matter; the run consumer claims a matter's open causes, coalesces **every** one of
+them into a single check whose `cause_json` names them all, and stamps each claimed row with the check
+that answered it. `CONFLICTS_TRIGGERS` widens to the full catalogue (the column CHECK is `length > 0`,
+so no migration), and an automated run records `trigger_source: "event"` with no actor.
+
+**Bounds bind the invocation, never the work.** A fan-out past `maxMattersPerEvent` still writes every
+ledger row and simply queues fewer of them; the cron backstop drains the rest oldest-cause-first under
+a wall-clock budget, and exceeding it leaves rows _pending_ — a visible state the posture read reports,
+never a discarded one. The scheduled re-scan enqueues open matters in batches at the firm's cadence
+(weekly by default), and whether a firm has switched it off is recorded and surfaced. Both ride the
+**daily** cron pass rather than the `*/5` sweep, because `scheduleRequestPathSweep` runs that sweep on
+`waitUntil` after a provisioning route commits — anything on it executes on the tail of an HTTP
+request, and a full conflicts check is precisely the work that must not. Nothing is lost by the wait:
+the queue is the primary path and answers a cause within one relay cycle.
+
+**`conflicts.hit.surfaced`** joins the notifications registry — category `conflicts`, audience
+`conflicts:read` holders, matter-anchored, `digest`. It subscribes to a check-written outbox row the
+automated path emits only when there is something to say, and carries **two counts and nothing else**:
+no entity, no matched field, no identifier. A notification row outlives the access check that
+justified it.
+
+**The automated path is structurally incapable of concluding anything.** Two source-scan fitness
+functions fail the build if any module on it imports the disposition writer, and a third proves the
+request consumer never runs a check. `packages/conflicts/src/posture.ts` fills `pendingRecheck` from
+the ledger — a matter that has _never_ been checked can still be owed one, and that is the case that
+most needs saying.
+- **The conflicts reporting posture — a derived per-matter read, an honest zero-hit report, and a
+fitness function that keeps both honest.** The first slice of the conflicts deepening, and the framing
+every later slice inherits. No new matching, no new firing, no schema change.
+
+`readMatterConflictsPosture` (`packages/conflicts/src/posture.ts`) is now the one sanctioned way to
+ask where a matter stands. It is computed from rows at read time and writes nothing: the latest check
+with the scope it actually ran under read back verbatim; the shortfall between that scope and the
+firm's **live** policy; undisposed counts by evidence tier; disposition counts by kind, each naming its
+reviewers; every source that recorded `unavailable`, with a derived reason; and a `neverChecked` state
+distinct from checked-and-nothing-surfaced and distinct again from a check whose sources were all
+unavailable. There is no aggregate and no field named `clear`, `clean`, `ok`, `passed`, `status`,
+`severity`, or `conflictFree` — a caller that wants one word writes it itself and owns it. Raising the
+firm floor makes the shortfall appear immediately on every affected matter with no sweep and no write,
+the posture `packages/calendar/src/overdue.ts` already holds for an overdue deadline.
+
+`describeCheck` (`packages/conflicts/src/report-text.ts`) renders one check as the statement of a
+procedure: what ran with what settings over how many entities, which identifier types cannot be probed
+on their own, what did not run and why, and what surfaced. A check that surfaced nothing ends
+**"Nothing surfaced."** — a fact about the search ending, never about the matter. `packages/conflicts/src/sources.ts`
+becomes the one home for what a check can search and, when it cannot, why, so the write side and the
+read side of the log cannot describe the same row differently.
+
+Both are served over the API: `GET /api/v1/matters/{matterId}/conflicts-posture` on `conflicts:read`,
+and the shipped check GET gains the statement list. The posture route deliberately does not 404 on an
+unknown matter — a 404 would make "never checked" and "no such matter" the same answer.
+
+`readHitDispositionStates` reads every hit of a check with its latest disposition in **one** query
+(the same `created_at DESC, rowid DESC` tie-break the shipped current-disposition read uses), removing
+the per-hit N+1 a page-view read cannot afford. Both posture queries are proved to walk an index
+rather than scan the append-only log, in the package test and as two new load-profile plan probes.
+
+**`pnpm run lint:conflicts-vocabulary`** (`tooling/lint-conflicts-vocabulary/index.mjs`, modelled on
+the shipped custodian lint and wired into the gate's governance step) makes the vocabulary mechanical
+rather than conventional. It scans the conflicts package, the conflicts route, the web conflicts
+surfaces, and `docs/user/` for assertion phrases and for verdict-shaped field declarations, self-tests
+its own patterns before every run, and carries a fixture suite that proves each banned phrase fires.
+`cleared` survives only as a `DISPOSITION_KINDS` value — a named human's conclusion about one hit,
+carried on a row with that human's identity and rationale. Prose that exists to state the rule rather
+than to break it carries an inline `conflicts-vocabulary:allow — <reason>` marker on the same line; a
+verdict-shaped **field name** has no escape hatch at all.
+- Custodian and calendar now have load-profile volume profiles, so the two subsystems that shipped
+without a measurement baseline have one.
+
+Every other built subsystem extends the standing harness in-area; these two were missed, and the miss
+mattered because both have adversarial data shapes. Custodian holds a physical-item hierarchy walked
+by a recursive query, and the calendar's matter timeline is a federated read that unions fourteen
+sources per page — a tree walk and an N+1 are exactly what those two shapes hide. The profile version
+bumps to 13, which renames the committed baseline and invalidates every cached snapshot by design.
+
+**The volumes come from the designs, not from round numbers.** Custodian's design states its scale
+directly — low thousands of packets, a handful of items each, one to two movements per packet per
+_year_, held for decades and read across twenty years of history, with one packet at two hundred
+movements as the tail. The profile is two thousand packets over a twenty-year span, so a packet's
+ledger depth is its age times the movement rate and the movement table (the only one here that grows
+without bound) is filled by the SPAN rather than by the packet count. The calendar's two designs state
+theirs the same way: a long-tailed distribution of matters by timeline depth with one matter
+deliberately deep in every federated source at once, events spread unevenly across a decade with a
+dense recent window, several hundred open deadlines with a realistic overdue fraction, a year of
+weekly firm events entered as individual rows, eight resources across two offices with a deliberate
+overlap fraction, and one hearing continued four times.
+
+**Nine custody measurements and eight calendar ones**, each riding the real production query — the
+register list by owner and by location subtree, the recursive subtree walk on its own, occupancy, the
+packet detail assembly, the overdue and reviews-due sweeps, a keyset-paginated history page taken at a
+real second-page cursor, a custody number draw; and page 1 against page 20 of a deep matter timeline,
+a shallow timeline beside it, the firm-wide 31-day window, the member-filtered firm calendar,
+availability, the overlap check, and the continuance chain read.
+
+**The calendar's assertions are counts, not only timings.** A federated page reports the statements it
+issued and the rows it read, and the smoke test asserts the bound the design names — one statement per
+selected source, rows read within `sourceCount × (pageSize + 1)`, and strictly fewer sources on a
+member-filtered read than on the same window unfiltered. A per-row lookup added inside a projection
+changes no plan and, at a small corpus, no duration; it changes those counts.
+
+**Baselines now record the machine they came off.** The numbers are relative by construction — they
+decide regressions on one machine and mean nothing across two — and until now the file could not say
+which machine, so a reader diffing two baselines could not tell a regression from a different laptop.
+The baseline carries the node version, platform, architecture, processor, core count, and memory, plus
+the federated read's counts.
+
+**Most of both subsystems is boring, which is the good outcome.** Every custody read except two sweeps
+sits between 0.08 ms and 1.0 ms at two thousand packets and thirty-eight thousand ledger movements;
+the recursive subtree walk the custodian design flagged as its least predictable read is 0.22 ms and
+seeks on both arms, so neither a materialized path nor a closure table is warranted on this evidence.
+Keyset pagination holds on both: a packet's deep history page is 0.18 ms, and page 20 of a deep matter
+timeline is faster than page 1.
+
+This is a measurement change and deliberately not a fix. What it found is recorded where the plans are
+taken: one predicate (`custodyDueBack`) plans through the wrong index and costs 16.2 ms of a 17.3 ms
+matter timeline page and 15.3 ms of the overdue sweep, walking 32,723 movements to answer 91; the
+member filter's participant lookup costs about a hundred times the same window unfiltered; the
+register list has no index covering its sort; and the firm-wide window scans nine of its fourteen
+sources. Each gets its own change, against the baseline this one commits.
+- **Overdue deadlines, deadlines due today, custody reviews, overdue check-outs, calendar changes, and
+finished document assemblies now reach a member's notification feed. The comparison-driven production
+path is built, and the three calendar write paths that had no transactional announcement have one.**
+
+The first delivery slice rested on the observation that the emission half was already built:
+thirty-one topics commit a durable outbox row in the same atomic batch as the write they describe, so
+the subsystem subscribes and owns nothing on the bus. This slice covers the things that were never
+writes at all.
+
+**A third production path, declared rather than inferred.** A notification type now says how it is
+raised — `outbox-topic`, `comparison-sweep`, or `job-coordinator` — and each path gets its own index,
+so a comparison kind can never be materialized twice by a translator that mistook its name for a
+topic. All three paths share one materializer, one set of audience resolvers, and one set of
+UNIQUE-insert statements.
+
+**The per-firm comparison sweep** rides the daily cron over the same reachable-active-firm
+enumeration every other per-firm sweep uses, quarantining one firm's failure exactly as the outbox
+sweep does. It calls the calendar's own overdue arithmetic and the custody register's own
+`collectCustodyReminders` rather than restating either — no second definition of what is due. The
+dedupe key buckets by the civil date in the subject's own zone (the court's for a deadline), so a
+condition that is continuously true raises once per day rather than once per pass; each kind is
+capped at 200 findings with the clamp counted on a new `notifications.comparison_clamped` metric.
+Four types registered: `deadlines.deadline.due`, `deadlines.deadline.overdue`, `custody.review.due`,
+`custody.checkout.overdue`.
+
+**Three calendar topics.** `calendar.event.scheduled`, `.rescheduled`, and `.cancelled` are written
+in the batch the record / edit / cancel / continue effects were already composing, spelled once in
+`packages/calendar/src/notifications.ts` so a producer and a subscriber cannot diverge. `rescheduled`
+fires only when the setting actually moves — its dates, times, or zone — and never for a title or
+room correction; a continuance raises exactly one `rescheduled` naming the new setting, because one
+thing happened in the world. Payloads are two identifiers.
+
+**A document assembly's terminal state** writes the durable row for the tab that was closed while it
+ran, addressed to the member who asked. The socket push is unchanged. The dedupe key carries the
+outcome, so a job the stuck-alarm failed and that then succeeded announces both rather than leaving
+the timeout's row as the last word.
+
+**What is deliberately not built.** `calendar.deadline.horizon` stays declared and unwired: it needs
+a firm-configured lead window and no such setting exists, and a lead the platform picked is a lead the
+firm did not choose. Four of the five job coordinators announce nothing durable — three record no
+requester at all, and the bundle builder structurally cannot (it is single-flight across concurrent
+identical requests, so one job has many requesters); the recovery coordinator's type is registered
+and unwired pending a refactor of its five terminal transitions. Each gap has a written reason and a
+fitness test where one is possible.
+
+**A new fitness rule:** a matter-anchored type may not resolve to a single member unless it is on a
+short list saying why. That is the failure that put three notification kinds in front of exactly one
+reader once already, and the new comparison kinds are tested with an assertion that counts the
+recipients rather than checking that somebody was told.
+
+No user interface. The bell, the list, and the preference screens remain unbuilt.
+- **Discovery reads its corpus. The `DISCOVERY_PROCESS` queue lane carries a review document from the
+review set to the pure-Rust engine, and the platform's one text-extraction port becomes genuinely
+composite — recording which engine read each document, which is the fact the corpus could not
+previously state.**
+
+**The lane.** A dedicated queue with its own dead-letter queue at concurrency 4, separate from every
+ingest lane, because a load at the ceiling is a quarter of a million documents and the alternative is
+a firm's interactive uploads queued behind an opposing party's production. Dispatch is a keyset-paged
+walk from the load coordinator with its cursor in durable storage, so an eviction or a deploy costs a
+repeated page and never a skipped document; it starts only once allocation is complete, so the
+reconciliation the load completes against is never counted against a growing corpus. Messages carry
+identifiers and R2 keys — never bytes, never text, never a file name somebody wrote a client's name
+into.
+
+**The composite port.** The discovery engine (`crates/discovery-core` behind `containers/discovery`)
+is the native route when its service is bound: PDF text layers, OOXML, OpenDocument, RTF, email and
+plain text, all pure Rust, identified from the bytes rather than from a file name, with the page
+count, the document date and the near-duplicate fingerprint produced in the same pass. Recognition is
+asked only about the pages the engine reports as pixels. A legacy `.doc`, `.xls` or `.ppt` goes
+through the consented, network-isolated office container and the CONVERSION is then read by the
+memory-safe engine — so the parser that touches an opposing party's bytes stays pure Rust even for a
+format no pure-Rust parser exists for, and the identified format on the record stays the legacy one.
+When the engine service is absent the port falls back to the in-Worker PDF reader plus recognition,
+exactly as before.
+
+**The route is on the row.** `review_document.extraction_route` names the engines in the order they
+ran; `pages_recognized` counts how many pages are a machine's reading of a picture rather than the
+author's characters; the per-page provenance list goes to the metadata sidecar in R2. This is the
+fact that was missing when an OCR-only port recorded born-digital PDFs as unreadable and nothing in
+the corpus could say why.
+
+**A failure is a verdict a reviewer can see.** Every extraction failure maps onto one of the closed
+exception codes — `encrypted`, `password-protected`, `corrupt`, `unsupported-format`, `oversize`,
+`container-guard-tripped`, `no-text-extracted`, `recognition-failed`, `conversion-failed`,
+`container-not-expanded`, `malware-flagged`, `source-bytes-missing` — with the identified format
+recorded beside it, because "we could not read this, and it was an encrypted Word document" is a
+sentence a firm can say to a court and "extraction failed" is not. The map is total over the
+extraction port's own exported vocabulary, proved against that export rather than a copy. A document
+that yields no text is excepted rather than indexed empty: an empty index entry asserts "this
+document contains no text", the one answer a discovery search must never give wrongly.
+
+**An undeployed engine is a state, not a verdict.** A document nothing has read yet stays `pending`
+with `processing_deferred_reason` on the row, so what a review set is still owed is one indexed read
+over the corpus rather than a question only a dead-letter queue can answer. Its load will not reach
+`complete` while it is outstanding, which is the reconciliation doing its job.
+
+**Also.** The conversion registry gains `doc`, `xls` and `ppt` as sources and `xlsx`/`pptx` as
+targets with LibreOffice edges onward to PDF, which makes legacy office files convertible in the file
+converter too — no new dependency; the office container is already consented and already contained.
+Two new object classes (`review-extracted-text`, `review-document-metadata`) for the derived objects,
+both collectable when a review set closes because both are rebuildable from source.
+
+**Not in this change, and separately planned:** deduplication and occurrence rows, container families,
+the load manifest and the exception-report artifacts, and the review-document index enqueue.
+
+**Deploy:** the queue pair and the discovery engine worker are recorded in `docs/deploy-queue.md`, in
+the order they must happen.
+- **An assembly can be asked for a PDF, and the job says which of the two it is producing.** The submit
+route takes an optional `outputFormat` (`docx` by default, `pdf`); the `pdf` arm hands the merged
+package to the registry's own `docx` to `pdf` edge inside the same job, through `runConversion` and the
+same per-engine-id resolver the file-converter tool executes with, and files what comes back under a
+`.pdf` name with `application/pdf` declared to the ingest gate. There is no second conversion path, no
+engine belonging to document automation, and no new registry edge — the office suite already had
+exactly this job.
+
+A conversion that cannot be done **fails the assembly** (`conversion-failed`) rather than filing the
+word-processing package instead. That is the whole reason the requested format is a column on
+`document_assembly` (`output_format`, additive migration
+`20260813T000000_document-assembly-output-format`) rather than something inferred from the filed
+object: a job that failed still has to say what it was trying to make, and a member who asked for a
+PDF and silently received a Word document finds out when the seal will not take it.
+
+The same column is the signature hand-off. `GET /api/v1/matters/{matterId}/assemblies/{assemblyId}`
+now answers `outputFormat` beside the file and version handles, from the moment of submit and after a
+failure, so a caller knows whether the produced document is in the one form `POST
+/api/v1/documents/seal` accepts before it has landed. Nothing about the seal itself changed; the
+assembled document simply arrives in its shape.
+
+The office suite runs in a container the convert worker owns, which is a deploy-time activation — the
+Documents surface's availability inventory records the PDF arm as `deployed-only` for that reason
+rather than leaving a person to conclude the feature is broken.
+- **An email reaching a matter now commits an `email.filed` outbox row in the same batch as the link
+change, on both paths that reach `filed`, and the notification registry subscribes to it. The
+in-process `raiseEmailFiledNotification` that stood there is deleted: nothing subscribes to a function
+call, a call fires for a batch that rolled back, and it fired from only one of the two write paths.**
+
+`packages/email-filing/src/topics.ts` is new and holds `EMAIL_FILED_TOPIC` in the frozen topic-set
+shape the matters, conflicts, directory and file-manager packages already use. The staff accept route
+(`apps/api-worker/src/routes/emails.ts`) and the capture consumer (`apps/api-worker/src/emails/capture-consumer.ts`)
+each write the row beside the link change, so the row exists exactly when the filing does and rolls
+back with it. One registry entry subscribes: `category: email`, `audience: matter-team` — the
+responsible member plus everyone currently assigned, which resolves properly now that
+`matter_assignment` backs it — matter-anchored, digest, counts-only email. The payload is two
+identifiers and the declared facts are empty, because an email's subject line is routinely the
+client's name, the opposing party, or the substance of the advice, and a notification row outlives the
+access check that justified writing it. No binding, no queue, no schema change: the relay already
+sweeps every per-firm topic onto the bus and the dispatcher already offers each message to the
+translator.
+
+**Writing a row instead of making a call exposed an emission that was not honest.** The accept route's
+`UPDATE` is guarded on `state = 'staged'` and quietly changes nothing otherwise, but the batch around
+it was unconditional — a repeated accept wrote a second audit row for a promotion that never happened,
+and would have announced a filing that never happened. The route now reads the link first: `staged`
+promotes and announces, `filed` writes nothing and returns the same 200 the first accept returned, and
+`unlinked` or absent is the 404 the route already declares — where it previously answered 200 `filed`
+over a link somebody had deliberately unlinked. On the capture path the link insert is `ON CONFLICT DO
+NOTHING`, so a second filer forwarding a message the matter already holds changes nothing and raises
+nothing; the check costs one indexed read and only on the dedup path.
+- Slice 3·6 — financial and trust-compliance reporting: the specification and implementation plan for
+all four report families, with the bar-audit pack sliced first per the owner's scope answer. No
+product code in this cycle.
+
+**The reporting surface is a projection layer, not a subsystem.** It adds no money concept and no
+new assertion about a firm's compliance. Every quantity it prints is classified: owned elsewhere and
+therefore **called** rather than reimplemented (`computeTrustThreeWayProof`,
+`selectTrustClientLedgerTotalAsOfStatement`, `readAccountsReceivableAging`,
+`readContingencyResidual`); a decomposition of one of those, which ships with a fitness test asserting
+it sums to its aggregate over the load-profile fixture book; or genuinely new — counts, ratios,
+hours — which is deliberately the only class that touches no money the ledger has an opinion about.
+Nothing recomputes the three-way reconciliation: a closed period prints its frozen attestation
+verbatim, and where the live proof now differs both appear labelled, never a third figure.
+
+**Reproducibility is bitemporal, on columns that already exist.** A ledger-backed read takes
+`(periodStart, periodEnd, knownAsOf)` and filters `effective_date` for the period and `recorded_at`
+for what was known. Both columns sit on append-only tables and are never updated, so the triple names
+a pure function of rows that cannot change. A single-axis read filtered only on `effective_date`
+would let a reversal posted next month with a backdated effective date change last month's answer
+after somebody signed it — the exact failure ADR-0246 froze the reconciliation to prevent. Omitting
+`knownAsOf` is legal, means now, and produces a **live** result stamped `computedAt` and explicitly
+not claimed to reproduce. Reproducibility covers **figures**: display names, entity merges,
+letterhead and jurisdiction citations are mutable captions carried beside stable ids, and the pack
+says so in its own words.
+
+**Read-only is four checkable mechanisms rather than an intention.** A purity fitness function over
+`@magna-carta/reporting`'s own sources (modelled on the custodian stocktake's, non-vacuity assertion
+included) rejecting write SQL and every composer import; GET-only routes with a conformance assertion
+that the namespace declares exactly one non-GET; a `reports:*` permission namespace granting reads
+only, seeded to Owner and Admin, with a registry assertion that no `reports:` key reaches a write
+path's guard; and the one write named out loud — producing a pack writes an append-only
+`report_production` row, an outbox message, and a File Manager version, all composed by the route and
+the queue consumer, never by the package.
+
+**Nothing is materialised.** No rollup table, no cached total, no period snapshot — the financial core
+is organized against stored derived figures and a reporting layer would be the one place they
+reappeared. The honest weak point is named: a journal over a trust bank account drives from
+`ledger_line_account_id_index` and filters dates as a residual. If the load profile says that matters,
+the remedy is a denormalization of `effective_date` onto `ledger_line`, written in the posting batch —
+an immutable column duplicated from the same row's parent, which cannot drift — and not a cached
+balance.
+
+**Three things the ledgers cannot currently support are named rather than approximated.** Work in
+progress, productivity, and realization's standard-value leg are **live only**: `time_entry` and
+`cost_entry` are mutable working stores with a `status` column, no `billed_at`, no `voided_at`, and an
+`amount_minor` recomputed on re-rate, so an as-of work-in-progress figure is not reconstructable —
+those endpoints omit `knownAsOf` entirely rather than accept and ignore it, and the named remedy is
+stamps in the slice that owns the stores. **Profitability** is not computable at all: no timekeeper
+cost rate exists anywhere in the schema. **A firm-wide operating position** waits on slice 3·5's chart
+of accounts, which is not on `main`.
+
+Six ADR fragments; nine questions flagged for the owner, none of which blocks the first sub-slice.
+The load-bearing flag: ethical walls are a deferred seam, and whether a firm-wide financial total
+includes a walled matter's money (complete, but the residual leaks that balance by subtraction) or
+excludes it (nothing leaks, and the total no longer ties to the reconciliation) changes what the
+platform asserts about a firm's books. The trust-compliance pack is settled either way — it is never
+screened, because a partial one is not evidence — and every response carries a completeness
+declaration from the first sub-slice so the later answer is a field's value rather than a redesign.
+- Slice 3·5 — operating accounting / general ledger: the design and implementation plan for the product
+chart of accounts, the general journal, accounts payable, period close, the financial-statement read
+primitives, and the accounting integration seam. No product code in this cycle. **Supersedes the
+design and plan on the dormant `slice-3-5-operating-general-ledger` branch**, whose two load-bearing
+choices were correct in July and are wrong now.
+
+**The operating books are a classification laid over the one ledger, not a second ledger.** Four
+additive columns on `ledger_account` — a code, a statement section, a system-account marker, a
+description — with the five-value `type` CHECK untouched and normal balance still derived in its one
+home. One posting primitive, and a source scan asserting `@magna-carta/general-ledger` composes no
+`ledger_entry` or `ledger_line` insert and no `account_balance` update. The consequence that matters:
+a firm's operating books and its trust books are provably the same rows, so a bar-audit pack and a
+balance sheet cannot disagree about what happened.
+
+**The general journal is a third door onto the posting primitive, and it is refused at the door rather
+than guarded.** The ledger is account-agnostic by design, so a journal entry naming a matter leaf and
+an income account would be balanced, leaf-only, single-currency, correctly dated, and would post client
+money into fee income. `composeGeneralJournalEntry` therefore resolves every line through **trust's
+own** `loadTrustAccountRoles` and refuses the whole entry unless every line is outside trust — the
+inverse of a rule trust owns, computed from trust's resolver rather than reimplemented, so a new tier
+of trust account is refused the day it exists with no edit here. A fitness query re-proves it over
+stored rows, catching the sequence no pre-check can: an ordinary account journalled against and later
+registered as a trust bank leaf. The same refusal binds the vendor-bill and bill-payment composers.
+Nothing in the slice is a flag on `assertTrustComposition` and nothing widens the bank-charge carve-out
+door.
+
+**What a chart may and may not reference is stated as a rule with three mechanisms behind it.** It may
+and must classify a trust-registered account for statement presentation — a trust bank account is an
+asset and the client-trust liability an equal liability, and omitting them hides the one relationship
+an examiner checks. It may not map one to any `firm_account_role` (refused at configuration, proved by
+a fitness query, and refused again by trust's guard at composition for every path but the journal), may
+not re-section one (the two reserved trust sections are derived from trust's registration, never stored
+as a firm's choice), and may not re-type one. There is deliberately no `is_trust` flag: registration is
+already stored in three places, and a fourth would be free to go stale in exactly the direction that
+matters.
+
+**The shipped account-role map is the resolver, and this closes slice-map pin 4 in the direction the
+build order took.** Billing landed before the general ledger, with `firm_account_role`, nine roles, a
+resolver that refuses by name, and a configuration composer that the payments design already extends.
+The prior design's `semantic_key` column is refused because it would be a second map from meaning to
+account, editable independently of the first, and the disagreement would look correct in both surfaces.
+Instead: the map moves into a pure leaf both consumers can depend on (the `billing-core` precedent,
+with a no-behaviour-change gate), exactly two roles are added (`accounts_payable`, `owners_equity`, and
+deliberately no default expense account), and three configuration guards land — no trust-registered
+account, no parent account, and the account's `type` must match the role's declared normal balance,
+because mapping `fee_income` to an asset account inverts the sign of every future invoice posting while
+the entry still balances and the batch still commits.
+
+**Two corrections to the prior design's schema plan.** Widening `cost_entry.source` with a fourth value
+is unbuildable — SQLite cannot widen a CHECK without a destructive rebuild of a table holding data, the
+constraint billing's own `invoice_delivery.channel` note records — so the bill-to-cost link lives on
+`vendor_bill_line.disbursement_entry_id` and provenance is derived from it, the same shape
+reversed-status already takes, leaving `cost_entry` untouched. And a `vendor_bill.status` column becomes
+a derived state: an append-only payment table plus a bounds-checked `paid_minor` delta, the
+`invoice_matter_balance` arrangement, so two payments racing for one remainder abort rather than
+overpay.
+
+**Period close is proposed as an addition to the slice's scope, with the race closed rather than
+accepted.** A monotonic lock date in its own table (a setting any settings write can move is not a
+lock), checked inside `postEntry` because a lock only the general journal honours is not a lock and
+because period membership is a property of the ledger's own `effective_date` column — the same class of
+rule as no-future-dating. A reversal always passes, dated into the open period, or fixing a mistake in a
+closed month would require reopening it and reopening would become routine. The close-versus-posting
+race is closed with billing's refuse-on-frozen-work pattern: the posting batch aims a value the lock
+column's date CHECK forbids at the row only when the lock has moved since the read, so a stale read
+aborts its own whole batch, where the prior design accepted the race and covered it with a fitness
+query. Retained earnings is computed and never posted.
+
+**Four statement primitives that refuse rather than degrade**, bitemporal in the shape financial
+reporting shipped, with the temporal contract moved down into a shared leaf so exactly one validation of
+a period-plus-knowledge-instant triple exists. A trial balance that does not foot, a balance sheet that
+does not balance, trust sections that do not net to zero, and any posting account no section would place
+each refuse by name — dropping an unclassified account leaves a statement that does not foot, and
+lumping it into "other" asserts a classification nobody made. Re-sectioning is bounded so it can only
+move an account within one statement, by a per-type DDL CHECK on the section vocabulary plus an
+immutable `type` on any account carrying lines. Nothing is materialised.
+
+**QuickBooks is a sync because it has no inbound operation and nowhere to put a remote figure.** The
+`accounting` category's descriptor declares export operations only, with a fitness assertion rejecting
+any import-shaped operation name, so a capability that does not exist cannot be called. No
+`quickbooks_id` on `ledger_entry`, no `external_balance`, no table reconciling the two books — the only
+remote state is an append-only dispatch row recording what left. An export refusal is a dispatch outcome
+retried through the outbox; a divergence caused by editing the remote is not detectable, is not
+simulated, and is stated as outside what the platform asserts, because detecting it needs the read-back
+that would make the remote authoritative. The bank feed is reserved with no table, no port method, and
+no column.
+
+**Seven ADR fragments; five sub-slices, each shippable alone.** Sixteen questions flagged for the owner.
+The load-bearing ones: whether a starter chart ships at all (recommended yes, with no seeded role
+mapping — the mapping is where money goes); cash basis versus accrual (accrual, with the derived cash
+view deferred because it is not a tax basis and must not be presented as one); whether period close is
+in scope for this slice at all (recommended yes, and a clean cut if not, since nothing else reads the
+lock); and whether these books ship ahead of payments' manual receipt. **Three things are scoped out
+rather than half-built**: cash does not arrive until payments' first slice lands, so the operating bank
+balance moves only through a typed journal entry; there is no operating bank reconciliation until an
+importer and the payments clearing account exist; and per-office or per-matter income statements are not
+designed, because the dimension columns land here and the paths that produce income are in slices this
+one does not own.
+- Human verification on the anonymous endpoints — a real server-side control where there had only been
+an unticked box. Cloudflare Turnstile had been treated as adopted since the owner approved it, and
+four merged designs name it as the write gate on registration, intake, community posting and the
+credential endpoints. Nothing verified anything: the only Turnstile in the tree was a line in the
+operations runbook, a static placeholder in the sign-in mock-up, and an entry in the sign-in
+surface's own register of unbuilt capabilities. The platform's one self-serve write from the open
+internet — founding a firm, which sends mail — had an IP-keyed rate limit and nothing else.
+
+**What now exists.** A `HumanVerificationPort` with a three-valued outcome, a Turnstile siteverify
+adapter behind it, and a gate the two anonymous writes call before they do anything: `POST
+/api/v1/registrations` and `POST /api/v1/invitations/redemptions`. A client presents its challenge
+solution in the `X-Human-Verification-Token` header — a header rather than a body field, so the
+published request bodies and every client already building them are unchanged.
+
+**Three decisions, not two, and only the first two are about the caller.** `verified` and `refused`
+are verdicts on the request. `unavailable` is a fact about this deployment: nothing was asked, so
+nothing was learned. Collapsing it into a refusal would turn our own outage into an accusation
+against a visitor trying to sign up; collapsing it into a pass would mean an operator who can break
+one outbound call has switched the gate off. A refusal is `403`. A live verifier that will not
+answer, or that rejects our own secret, is a retryable `503` carrying a retry window — never a `500`
+with an Error ID for a fault the caller cannot act on.
+
+**It ships dormant, and dormant is loud.** No Turnstile widget exists, so no secret is provisioned,
+so every environment resolves the not-configured verifier and the protected endpoints behave exactly
+as they did before. The absence is not silent: every decision — including every unprotected pass —
+records one `human_verification.decided` point carrying the route, the outcome and a closed-set
+reason. An unprotected anonymous endpoint that says nothing is how this became a runbook checkbox in
+the first place, so the dormant state is the one that is counted hardest. The missing credential is
+reported, never thrown: a throw at composition-root construction is what makes a not-configured path
+unreachable, which is the bug the credential-store seam was reworked to avoid.
+
+**The posture when no verifier is provisioned is fail-open, and it is one deployment variable away
+from fail-closed.** These endpoints include the platform's only self-serve way in; defaulting to
+refusal would have made the act of adding abuse protection its own outage. Both branches are tested.
+Recorded for ratification as a pending decision.
+
+The challenge solution is a bearer credential and reaches no log, no counter dimension, no error
+message and no URL — structurally, since the telemetry catalogs have no field it could occupy.
+Activation is queued for the owner in `docs/deploy-queue.md`; the runbook no longer claims this is a
+manual checkbox.
+- **A matter's documents now have a working screen.** Open a matter, go to Files, and the whole
+loop is there on real records: what the firm holds for that matter, adding something new to it,
+saving the next version of it, and reading the history of every version kept.
+
+**Two ways to add one.** From a file you already have — drag it in, and it goes straight to storage
+without passing through the application, is checked, and appears. Or from one of the firm's
+templates: pick one, and the document is built against this matter and filed onto it like any other.
+If the merge could not fill something in, the screen says which fields were left blank and which
+ones are printing text left over from the template, because a document that reads as finished and is
+not is exactly the failure worth catching before it goes out.
+
+**Nothing on the screen is decoration.** A document still being checked says so; one the scanner
+rejected is listed with its reason rather than silently never appearing; a document with no cleared
+version cannot be opened, and the controls that would open it say why. Saving never overwrites — the
+returning bytes are checked and kept as the next version, and the previous one stays exactly as it
+was, with its size and content hash.
+
+**Editing in the browser is honest about where it is.** Opening the editor is a real operation: the
+document moves to co-editing, the open is recorded, and a signed token scoped to that one version is
+minted. The editor itself is served by a separate per-document container that exists only in a
+deployed environment, so on a developer's machine the frame stays empty and the screen says that
+plainly rather than looking broken.
+
+**Matters can now be reached by their own address.** Until now the matter screens resolved only the
+three built-in samples, so a firm's actual matter could not be opened at its own URL at all. It reads
+the firm's record first now and falls back to the samples, and the two are never confused: a sample
+matter says it is one and offers nothing that would write to a firm.
+- **The Nevada starter court-form library is designed, with the sources researched to primary and the terms recorded per publisher.** [`docs/specs/2026-08-14-nevada-court-form-library-design.md`](docs/specs/2026-08-14-nevada-court-form-library-design.md) and its implementation plan settle what a shipped form is; [`docs/research/2026-08-14-nevada-court-form-sources-and-terms.md`](docs/research/2026-08-14-nevada-court-form-sources-and-terms.md) records what each of Nevada's six publishers actually publishes, in what format, and what each says about reuse — every claim sourced to a direct retrieval, with the two sources whose terms could not be established labelled as not established rather than assumed.
+
+A shipped form is **compiled reference data in a pure package**, on the `@magna-carta/trust-jurisdictions` model, and a firm **adopts** one — which registers an ordinary template through the existing pipeline and ingest chokepoint. Nothing is seeded at provisioning, a correction is a package release rather than a migration against every tenant, and after adoption the copy is the firm's and the platform never edits it. The platform **authors its own template from prescribed statutory or rule text and cites the authority** rather than redistributing a court's published document: the two Nevada corpora a firm most wants both assert copyright expressly (one of them a private nonprofit), while the Nevada Revised Statutes assert nothing and prescribe several forms' operative words verbatim.
+
+**An unreviewed form cannot be adopted at all**, and the whole Nevada set ships NOT REVIEWED — the trust jurisdiction posture, per form rather than per library, with the review bound to a content-derived revision so an amendment re-closes the gate. Staleness is a build-time obligation expressed as a CI check that fails, because no Nevada source emits a currency signal. **A form declares its forum as values** and a wrong-court assembly is one of three distinct refusals, the middle of which (a court whose forum is not typed) refuses rather than passes.
+
+Three decisions ship as fragments at `Proposed`. **Eleven owner flags open in a new `N` series, of which N1 through N5 gate the build** — whether the platform authors rather than redistributes, what the starter set contains, who reviews, whether fillable-PDF templates get built at all, and whether permission is sought from the two copyright-asserting publishers. The plan does not start until those five are answered.
+
+Three findings about the shipped document-automation subsystem came out of the audit and are recorded in the design. A **fillable PDF cannot be a template** today, so the entire statewide Supreme-Court-approved corpus is unreachable whatever the licensing answer is. A **legacy Word form field binds nothing and nothing says so**: the normalizer matches `MERGEFIELD` and leaves every other field instruction as authored, so a Nevada appellate `.docx` registers cleanly, declares no keys, reports no absence, and files a document carrying the form's frozen help text — the `unconvertedMergeFields` safety net does not cover `FORMTEXT`. And **four caption facts have no merge key**: the court's county and address, and any party's address, telephone or email address.
+
+No product code in this change.
+- **The note primitive and the tasks subsystem are designed, in that order, and the first finding is that
+the activity stream everyone was about to build has been shipped since the case-calendar slice.**
+
+**Both reported gaps are real, and were verified rather than inherited.** All 175 per-firm tables were
+enumerated: there is no `note`, `comment`, `annotation`, `activity` or `timeline` table. What exists
+are scalar `note` / `notes` columns on a dozen individual records — custody movements, trust movements
+and reconciliations, invoices, matter assets, resource bookings — each one nullable free text on one
+row, attributable to nobody, editable in place, with no history and no reader beyond that row's own
+detail view. They are not a primitive; they are the symptom of one being absent. Corroborated three
+more ways: no `NoteId` among the 166 identifier types (this platform reserves handles before it builds
+things — `PortalGrantId` is reserved with no portal); no node describing a note anywhere in
+`roadmap.d/`; and `apps/web/src/lib/matters/sections.ts` already promising a Notes section at maturity
+stage `soon`, "dated, attributed, and searchable," over nothing. The `matter` table carries `closed_at`
+and no reason column of any kind, and the only later `ALTER TABLE matter` in the tree adds
+`system_key`.
+
+**Activity is the calendar's federated read with one more source on it, and building a second timeline
+was the failure to avoid.** `packages/calendar` already reads one page across fourteen declared sources
+under one comparable sort key, the platform's own cursor, and one required visible-matter predicate
+composed in SQL before the `LIMIT`. Its registry states that a source is "a read-side declaration and
+NEVER a write-side obligation," and its package invariant states why that matters: nothing is
+projected, copied or backfilled, which is what makes the bug where the timeline disagrees with the
+register unwritable, because the timeline IS the register. A note joins for one registry row, one
+statement builder, one projection and one label decision — and the label decision is `declaresLabel:
+false`, on the precedent that the filed-email source refuses a subject line and the time-entry source
+projects a duration rather than a narrative. One thing does not come free and is stated rather than
+discovered: a note on a **Directory entity** has neither anchor the registry expresses, and reaching
+for the `firm` anchor — a reviewed one-entry allowlist — would be a silent loosening of the exemption
+that package guards most carefully. So matter notes join the timeline first and entity notes wait for a
+third anchor with its own predicate.
+
+**An internal note and a client-visible comment are two entities, decided while the portal is still
+unbuilt.** No visibility boolean, and no path by which one becomes the other. A boolean makes
+publishing work product to the opposing party a one-character diff and an irreversible one — flipping
+it back does not unsend what the portal rendered. Beyond that: a note's author is a member and a
+comment's may be an external principal the portal places in the control-plane database as a distinct
+principal type; a grant's scope vocabulary is matter, folder and file, so a comment is reachable
+through a grant and a note is reachable through **nothing**, which is a structural protection a `WHERE`
+clause would replace; and the tree already separates them, with `notes` and `messaging` as two matter
+sections. Sharing a note is therefore a new comment authored by the member at the instant they authored
+it, because a publication decision made in June must not alter a record made in January.
+
+**A note is corrected by revision and retracted, never deleted — and it is neither the ledger nor the
+calendar.** The ledger is append-only because a third party relies on it and the firm demonstrably
+could not have changed it; nobody audits a firm's notes. The calendar edits in place because it records
+a plan, and "a firm made to record a compensating row to fix a typo stops recording"; but a note is a
+contemporaneous record whose weight is that it was written then, by that person. So: an identity row
+plus revision rows, an edit appends and moves the head, every prior body retained. Retraction is a
+state with its own actor, instant and reason — the body stops rendering and drops off the timeline
+while the rows remain — and it exists so the case that would otherwise force a delete has an answer.
+There is no hard-delete route; the one case where bytes must genuinely leave routes through the PII
+registry's `report-manual` action, which is defined for exactly this and neither auto-erases free text
+nor silently refuses. Authorship survives a departure: the author reference never nulls and never
+repoints, because every sibling subsystem already made that choice and an unattributed contemporaneous
+record is worth a fraction of an attributed one; the former-member signal is a read-time join on
+`member.status`, never a column.
+
+**Two containment rules, because both failures would look reasonable to whoever wrote them.** The
+PDF scrub removes document-level surfaces and is structurally blind to merge-filled text, which is page
+content — so a merge field resolving to a note body would put internal work product into a letter under
+the firm's letterhead and the one machine built to stop privileged text escaping in a PDF would not see
+it. **No merge field ever resolves to a note or a comment**, guarded by a source scan landing in the
+same slice as the table. And `review_document.source_kind` is a three-value CHECK over file versions,
+email messages and attachments, so a note is uncollectable into a review set today; that default is
+**defended** rather than inherited, with export-as-document as the route if production is ever ordered,
+because widening the enum puts every candid internal assessment one bulk load away from a production
+set.
+
+**Then tasks, and the date finding is bigger than the modelling.** The brief assumed the calendar ships
+rules-based docketing and a task due "14 days after service" reaches the same computation a deadline
+does. **It does not exist.** The calendar states as a capital-letter invariant that nothing computes a
+deadline date, its time-zone module says it never derives a date from another date, a test scans the
+sources for date-arithmetic identifiers, and `roadmap.d/calendar.md` records the absence as "a
+deliberate position, not a gap." So a task reaches what does exist and adds nothing: the deadline's
+three columns (civil date, optional wall-clock time, required zone — never midnight-local-as-UTC), the
+calendar's own civil-date resolver with a dateless task due at the **end** of its civil day, and
+read-time overdue with no column and no sweep, which is a stronger argument for tasks than for
+deadlines because tasks are numerous. A matter plan's "14 days after" is the same forbidden arithmetic
+wearing a template, so a template carries an **anchor and an offset**, instantiation renders a
+**proposed** date, and a member's acceptance is the write — the propose-and-confirm interaction the
+calendar already reserved for the statutory catalog it has not built, reused rather than reinvented,
+with the anchor vocabulary held to one real value behind a CHECK constraint so growing it costs a
+reviewed migration.
+
+**The platform ships no matter plans**, for the calendar's reason about computed dates: a plan asserts
+how a firm practises in a jurisdiction, and a shipped plan with a missing step is a malpractice vector
+carrying the platform's name, trusted precisely because it shipped. Instantiation is a one-time copy
+with provenance columns and no live link; nothing reconciles, because a drift report is the live link
+with an approval step. Sequencing is one `blocked_by` predecessor that renders and sorts and gates
+nothing. Open tasks register a close **advisory** and never a precondition — the advisory file's own
+reasoning is this exact case — and nothing happens to the tasks at close, because closed is
+archived-but-additive; they drop out of the default read through a filter, so reopening restores them
+with no backfill. Task assignment **subscribes** to the notifications registry on its existing
+outbox-row-is-the-emission discipline; the comparison-shaped due-soon and overdue points are declared
+and wired to nothing, beside the calendar's identical declarations, so one sweep eventually serves both.
+
+**A stale comment worth reporting, and it is not this design's to fix.**
+`packages/notifications/src/recipients.ts` resolves the `matter-team` audience with "DECLARED AND
+UNRESOLVABLE TODAY: there is no per-matter team table." `matter_assignment` **is** one — matter,
+member, role, and a validity interval — and it shipped two merges later (`45003814` is the
+notifications slice, `8d98eca0` the assignment table). Three registered notification types today
+declare `audience: "matter-team"` and quietly deliver only to the responsible member, reporting
+`substituted: true` to nobody. The substitution field was built so this would be a one-resolver change
+when the table landed, and it landed. Task notifications use `designated` and do not depend on it.
+
+**Ledger corrected, and one node deliberately not added.** All four `roadmap.d/tasks.md` nodes asserted
+no spec exists; their evidence now names the spec and records it as Proposed pending owner flags, with
+no status moved and no `spec:` key set — the precedent `roadmap.d/intake.md` set the same day.
+`tasks.workflow-model` was `researching`, which the vocabulary defines as "a named open research
+workstream," and the white paper's research list names exactly two, neither of them this; corrected to
+`not-started`. **No node is added for the note primitive**: there is none anywhere in `roadmap.d/`,
+which is a real finding and an owner decision about whether the register grows, not a gap for a branch
+to fill. The matter close-reason gap is confirmed and placed: it belongs to `packages/matters`, not
+here, because a close reason is a closed vocabulary reporting, conflicts and retention all need to read
+programmatically, and answering "why did it close" with a free-text note answers it for humans and for
+nobody else.
+
+No feature code, no schema, no migration, no route. Fifteen owner flags in a new **W** series: eleven
+decide what gets built, two decide how, and two are professional-conduct questions the design analyses
+and answers neither. Two of the eleven — whether notes may ever enter the discovery collection
+vocabulary, and whether a search result may carry a snippet of privileged text — are confidentiality
+questions that additionally decide a build, so they sit with the build-gating set rather than beside
+the two the design refuses to answer: what it means that the platform is about to acquire its first
+durable, attributable, discoverable place to criticise a colleague, and what the matter close-reason
+vocabulary contains, given that "declined" and "completed" attach different obligations under Model
+Rule 1.18.
+- **`Smith & Jones LLP` and `Smith and Jones, L.L.P.` are now one name to a conflicts check. The name
+half of conflicts search depth ships two derived match keys, the nickname catalogue registered and
+empty, and the name roles a check compares against turned into a firm setting recorded on the row.
+Beider-Morse does not ship, and the reason is a measurement rather than an opinion.**
+
+The shipped matcher compared names four ways — blind-index identifier equality, an exact
+`normalized_display` probe, Double Metaphone, and trigram overlap — and `normalizeName` is a frozen
+contract stored across every firm, so what it misses has to close beside it rather than in it.
+
+**Spelling.** `normalized_match_key` and `normalized_match_key_bare` are nullable columns on
+`directory_name`, derived inside `insertNameStatement` from the row's own normalized display so none
+of the eight name-writing paths can omit one. The first canonicalizes connector words and
+legal-entity spellings and **keeps** the legal form, so an equality means one name written two ways —
+**tier 2**, the same rung as an exact name. The second removes the legal form, so `Smith & Jones LLP`
+and `Smith & Jones LLC` meet — **tier 3**, because one firm re-formed and two unrelated legal persons
+look identical from there. No tier is widened and no CHECK is rebuilt; the signals name themselves in
+`matched_fields_json`. Existing corpora are filled by a resumable, budgeted sweep on the daily cron —
+no stored cursor, because the selection predicate is the outstanding work — with a fitness probe
+reporting what is left.
+
+**Which names a check compared is now a setting, not a word.** The resolved name-role set is
+firm-configurable, recorded verbatim on the check row beside the name keys compared and the phonetic
+schemes that ran, and its shipped default searches former, maiden and alias names at the balanced
+band — so the party who married and changed surname is no longer invisible at the setting nearly every
+firm runs. Over-inclusive still searches every role and is deliberately not configurable, which is
+what keeps the superset invariant structural. The owner flag behind the default stays open; answering
+it is now a settings edit rather than a release.
+
+**Nicknames are registered and empty.** `Bob`/`Robert` is not a phonetic relationship and no algorithm
+derives it. The table ships with no rows, and every check records `nickname_equivalence` as a source
+it could not search — read from the catalogue rather than asserted, so the day a firm curates one the
+log stops saying otherwise without anybody editing code.
+
+**Beider-Morse was built, measured, and taken back out.** The recall is real: over a thirty-pair
+cross-origin surname corpus it reaches seven pairs Double Metaphone structurally cannot
+(`Nowak`/`Novak`, `Kowalczyk`/`Kovalchik`, `Wojcik`/`Voychik` among them). The only maintained
+pure-TypeScript implementation is MIT with zero runtime dependencies, so golden rule 14 never came
+into it. What stopped it is workerd: the library compiles its rule tables into regular expressions at
+module load, which Node does in 16 ms and **workerd does in 20,377 ms** — measured on the first person
+create with the channel wired up. That is past the CPU limit, the request never completes, and a lazy
+dynamic import is worse (Workers forbid runtime module loading, and it hangs). So the channel is not
+shipped, the table is not created, the dependency is not taken, and the follow-on now carries a
+numeric flip condition instead of a hopeful one: an encoder whose tables cost workerd single-digit
+milliseconds, which is the Rust/WASM port the design already nominated.
+
+**A schema claim in the design is corrected on the way past.** `directory_name_phonetic_code`'s open
+`scheme` CHECK is real, but its PRIMARY KEY is `(name_id, scheme)` — one code per name per scheme,
+which fits Double Metaphone's two and not an encoder returning tens. Whenever a variable-output
+encoder lands it needs a table keyed by the code; the rule is now written beside the table so the next
+reader does not rediscover it.
+- **The payments subsystem is designed, and the finding that matters most is not about payments: billing
+shipped four fee models, credit notes, client credits, write-offs and the trust application, and a firm
+still cannot record a client's cheque.**
+
+`composeInvoiceApplication` refuses the `payment` application kind for **every** rail, not only the
+electronic ones. A manual receipt needs no port, no adapter, no webhook, no merchant account and no PCI
+posture — one composer, one ledger entry through the account-role map, and one application. It closes
+the "a firm can produce an invoice and has no way to be paid for it" gap on its own, and it is the first
+stage of the plan for that reason. Owner flag K1.
+
+**Where the processor's fee lands for a trust-destined payment, which is the question the design lives
+or dies on.** It lands on the firm's operating account, borne by the firm, always. A trust-destined
+payment is two independent ledger entries — the gross deposit through `composeTrustEntry`, and
+`Dr Merchant Fees / Cr Operating Bank` touching no trust account — and **they cannot be joined by a
+ledger entry, because an entry joining them is exactly the commingling the guard refuses.** So they are
+joined by a payment record instead, and that is the central move of the whole subsystem. The firm's
+cushion inside the trust account may not bear it either: the second door's category is closed at
+`firm_funds_deposit` and `bank_charge`, and a card processor's discount rate is not the institution's
+service charge. The one shape that is dangerous because it _is_ expressible — a firm depositing its own
+money onto a client's matter leaf through `composeTrustDeposit`'s free-text `source`, which the guard
+cannot catch because the other leg is the trust bank — is refused by name.
+
+**What could not be established, and is flagged rather than defaulted.** `processorFees` in
+`@magna-carta/trust-jurisdictions` is exactly the field that would settle whether a fee may reduce
+client principal, and Nevada — the only jurisdiction the platform ships — records it as `GAP`: four
+sources searched for five terms with no hit, and the ethics-opinions index never worked through. The
+corpus states the principle everywhere and verifies it almost nowhere, and the four jurisdictions that
+address it expressly **disagree** — Arizona permits a merchant-fee cushion inside trust outright, Texas
+and Maine instead permit a non-trust transit account with a two-business-day window and Texas adds a
+three-business-day chargeback reimbursement duty. So the design implements only the arrangement that is
+safe under every possible answer and refuses by name every arrangement that would need the field to
+resolve. The `GAP` stands.
+
+**A processor that debits the trust account is surfaced, never absorbed.** The fee arrives as a bank
+statement line nothing can clear, the three-way proof reports a `bank-to-book` difference of exactly that
+amount, and a close freezes the unbalanced answer. That is the existing posture applied to a condition
+reconciliation exists to catch.
+
+**The trust rail's hard requirement is a reconciliation requirement, not a compliance one.**
+`composeTrustReconciliationMatch` ties one statement line to one ledger entry, so a batch-settling
+processor leaves nine of ten deposits outstanding forever and one bank line unmatched, and a firm learns
+that its trust reconciliation always disagrees. The gross-deposit rules want the same arrangement, but
+the compliance reason is satisfied by arrangements that would destroy the reconciliation — so the
+reconciliation reason is the one recorded, because it is the one that gets relaxed by somebody being
+helpful.
+
+Also settled: a payments-clearing account so one settlement entry matches one bank line; receipt recorded
+before it is applied, because the `invoice_matter_balance` bounds CHECK aborts a whole batch and would
+otherwise abort the record of money the firm already holds; no status column on a payment, with state
+derived from an append-only event log; a partial refund as a full reversal plus a smaller re-application,
+on the trust partial-release precedent; and a chargeback dated when it happened, never backdated into a
+period whose reconciliation is already frozen.
+
+**The platform's first inbound webhook** is specified here because there is none to copy: raw-byte
+signature verification before parsing, the firm named by an unguessable path segment (the signing secret
+is per-firm and the body is attacker-controlled until it verifies), idempotency keyed on the processor's
+event id and settled by a UNIQUE at commit, and a scheduled settlement pull because webhooks are lost.
+One concrete hazard is recorded rather than left to be rediscovered: `idempotencyMiddleware` reads the
+body through `context.req.json()` and consumes the raw stream the signature is computed over, so mounting
+the house idiom in front of a webhook route fails looking like a wrong secret.
+
+Two documentation drifts found: the white paper's _Payments_ area still describes in-DOM hosted-fields
+tokenization, which ADR-0181 rejected by name as SAQ A-EP; and `packages/trust-jurisdictions/CLAUDE.md`
+together with the comment in `src/data/nevada.ts` still say the bank-charge carve-out is not wired and
+that the composition guard refuses every posting to a firm-funds node, which stopped being true when
+`composeTrustFirmFundsEntry` landed.
+
+No feature code, no schema, no migration, no route. Twelve owner flags in a new `K` series; seven decide
+what gets built and the plan does not start until they are answered.
+- **The public changelog has a source, a contract, and a gate — the first of the community surfaces,
+built alone.** A `changelog.d/` fragment now declares **`audience:`**, `public` or `internal`, and the
+key is **required with no default in either direction**: assuming `public` would publish an internal
+research note the first time somebody forgot, and assuming `internal` would let the public changelog
+quietly stop being written, which is worse because nothing announces it. A `public` fragment carries
+its customer-facing sentences in a **`## Public` block** below the developer entry — one file, one
+commit, one review, two audiences, and no shared sentences to drift. `vp run changelog-build` folds
+both halves in a **single pass**: the developer entry into `CHANGELOG.md` as before, the public entry
+into the new **`docs/public-changelog.md`**, which it must, because folding deletes the fragment and
+the public block lives nowhere else — a publish step deferred to later would have destroyed the prose
+it deferred. Like `CHANGELOG.md` the new document is assembled and never hand-edited on a branch,
+but unlike it the document is **curated on `main`**, where a dated section that arrives as one bullet
+per fragment may be edited into the thematic roll-up a reader actually wants; what curation never
+does is author a change with no fragment behind it. **`pnpm run lint:changelog-fragments`** (in the
+gate's governance job, and re-run over the whole set inside the assembler before it folds anything)
+refuses a fragment with no audience, a public one with no block, an internal one carrying a block
+nothing would read, an unknown category, a non-kebab-case filename, or an emoji — golden rule 2's ban
+is enforced here because bulleted highlights with emoji prefixes are the house style of every hosted
+changelog product, and a published entry cannot be edited afterwards. New package
+**`@magna-carta/product-updates`** holds the artifact schema and a **strict** parser from the
+assembled document: it refuses a mistyped category heading, a bullet above the first dated heading,
+an unparseable release heading, and a duplicate date, because the failure worth guarding is silent
+omission — a shipped change dropping out of the published changelog with nothing raised. Entries are
+**dated rather than versioned** since no release has been cut, with a `version` field carried and
+null so the day one is cut is an edit to the document rather than a schema change. There is no
+committed generated artifact and deliberately no drift gate: consumers build it from the document at
+their own build time, so it cannot fall out of step. The five fragments then in `changelog.d/`
+migrated to `audience: internal` mechanically. **No board, no votes, no database, no screen** — the
+surface holds no firm data at all, which is why it sits outside the firm-scoped data-access rule by
+having no business data in play rather than by taking an exception to it. 58 tests.
+- **The registration and invitation-redemption screens.** Joining is now something a visitor can do
+from the app rather than only against the API: the **Register** link on the sign-in card opens the
+three-way choice — a client at a law firm, someone who works at one, or someone starting a new one —
+and the two invited doors both land on invitation redemption, because who belongs to a firm is that
+firm's decision and never a stranger's. The founding door asks for the firm's name, then the
+founder's own details, and sends one confirmation email; the screen that token is spent on reads it
+out of the address bar as well as accepting it typed. The fork itself is settled in the browser: the
+registration route answers the same constant for both invited doors, and spending a round trip and a
+slice of the anonymous rate-limit budget to be told a constant would put the platform's front door
+behind the API's availability.
+
+**Redemption refuses as one.** The code, the last name and the date of birth are matched against a
+single stored digest over all three, so the handler cannot know which was wrong — and the screen does
+not pretend otherwise. One sentence, one alert, and all three fields carry the invalid mark together,
+because the refusal belongs to the combination. The wording is a constant of the app's own rather
+than an echo of the server's `detail`, so a change to the wording on the other side of the wire
+cannot turn one answer into a per-field one, and a fitness test reads the screen and the page on
+every run to keep it that way. What does vary is shown: the remaining attempts and the lockout
+countdown render from the budget the server publishes, and stay absent when it publishes none.
+
+**Every step says how far it carries.** A joining register sits beside the sign-in surface's register
+of unbuilt capabilities, and the developer console's screen-state page renders both it and each new
+screen in every state it can take. Two steps are marked as stopping short rather than shown as
+working: the confirmation email carries a bare token and no link, so today the code has to be typed;
+and neither the Terms of Service nor the Privacy Policy is published, so the two acknowledgements
+gate the submit in the browser and are recorded nowhere. No credential is chosen while registering —
+the password is set from the emailed link, which is the same act that proves the mailbox.
+
+Dates on these screens are written out in full — `September 4, 2026, 14:03 PDT (UTC-07:00)`, never a
+numeric date — because the one question a send time gets asked is whether the mail on screen is the
+one this page just sent, and that should not need decoding.
+- Discovery search — the keyword engine now reaches real per-firm R2. The `RangeReader` seam
+`crates/search-core` was built against has a production implementation, and the worker and container
+that hold it exist.
+
+**The engine reads a firm's index without holding a key to it.** `containers/search` is a pure-Rust
+service over `search-core`; its `HttpRangeReader` issues one HEAD for a split's size and then exactly
+one closed-`Range` GET per read the engine makes, against `splits.magna-carta.internal` — a host that
+resolves nowhere. `SearchIndexContainer.outboundByHost` intercepts it and forwards it over a service
+binding into the app worker, where a new cookieless split-object host (`/search-objects/*`) verifies a
+capability token, resolves the firm's bucket through `files/firm-bucket.ts`, and performs one R2
+operation. `enableInternet` stays false and the container holds no credential — the same topology the
+Collabora editor uses to reach the WOPI host.
+
+**The token is a capability over one corpus.** HMAC-signed per firm from `AUTH_SECRET`, minted per
+operation, read-only for a query and write-capable only for an index or compaction pass, and its allowed
+key prefix is derived from its corpus rather than carried — so the request line chooses which split (a
+query reads several) but cannot leave the corpus the token names.
+
+**An unranged GET is refused rather than served whole.** `crates/search-eval` measures per-query ranged
+reads, and every one is an R2 range GET in a deployment; that number only transfers if the adapter
+issues exactly the reads the engine asked for. The host answers 416, the container's test double does
+the same, and the container reports the ranged-read count it actually issued on every query response, so
+the measured number and the billed number can be compared rather than assumed equal.
+
+A published split is stamped `object_class: search-split` with its corpus as the matter dimension — a new
+class in `@magna-carta/object-dimensions`, so a reader of the bucket can tell an index from a document.
+
+`apps/search-worker` (`magna-carta-search`) shards by firm rather than by request, because an instance's
+value is the splits it is already holding open. Its warm-poke cron handler is wired and the trigger is
+deliberately off until a firm has indexing enabled.
+
+**Still dormant, and unchanged:** `resolveSearchIndexPort` returns the deferred port until
+`SEARCH_SERVICE` is bound, so every index job still parks in `deferred` and no query reaches an engine.
+Activation is a deploy step — see `docs/deploy-queue.md`. The container keeps no split cache between
+calls: a cached searcher would answer from bytes authorized on a previous call, and the residency sizing
+is a measurement that needs a resident corpus.
+- Search and discovery — a standardized, owner-readable performance benchmark for the read path, as the
+new `crates/search-eval` harness beside the engine crate, on the `pdf-eval` pattern. One command
+(`cargo run -p search-eval --profile benchmark -- benchmark`), and output written to be interpreted by
+someone who did not build it: latency percentiles with the corpus size, index size, hit count, and
+number of queries behind every figure, and the target stated beside it.
+
+**It measures the real engine, and says plainly what it could not reach.** Queries run against
+`crates/search-core` itself — Tantivy building splits and answering BM25 queries through the ranged-read
+access pattern a split in R2 is designed for — so nothing is stubbed. What cannot run on a local machine
+is named rather than approximated: the network, the search Worker and its Container, the warm cache,
+Vectorize and the whole semantic half, reciprocal rank fusion, and the per-firm catalog read. That list
+is printed before any number and is stored inside the baseline file, so a figure cannot be lifted out of
+either without its caveats. Timing the deferred `SearchIndexPort` — which returns `engine-not-implemented`
+anywhere off a deployment — is refused on purpose: an unlabelled number from a stub reads as the
+system's speed and is worse than no number.
+
+**Two axes, each varying one thing.** Corpus size, with the corpus compacted into one split at 250 /
+5,000 / 25,000 documents, which is the shape compaction produces. And split fan-out, which is the shape
+the pipeline publishes today — a split's object key is derived from one document version, and a query is
+handed every live split key the catalog holds, so a matter of N indexed versions is N splits and one
+query touches all of them. The axes meet at 5,000 documents so the comparison can be read directly.
+
+**What the first run found.** Compacted, the engine holds up exactly as the split model claims: at
+25,000 documents (200,000 passages, a 13.0 MiB index) an ordinary review query ran in 0.072 ms median /
+0.163 ms p95, and per-query ranged reads stayed between 37 and 59 across a 97x growth in index size — the
+round trips a query costs are set by what it asks for, not by how large the matter grew. Uncompacted, it
+does not: the same 5,000 documents as 5,000 per-document splits cost **186,293 ranged reads for one
+query** against 45 for the identical documents compacted, about 4,140x the round trips for the same
+answer. Every one of those is an R2 range GET in a deployment, so that shape cannot reach a sub-second
+query however fast the engine is. Compaction is not an optimization for this read path; it is what makes
+it viable, and there is now a number saying so.
+
+**Two gaps in the engine the harness surfaced rather than papered over.** `search-core` exposes no way to
+reuse an opened index across queries, so the warm steady-state latency the sub-second target rests on
+cannot be measured through its public surface at all — the per-query index-open cost is broken out
+instead. And it has no ranged multi-split query: the multi-split entry point takes in-memory slices only,
+so the harness issues one ranged query per split and merges the results itself, which makes the fan-out
+figures an explicit lower bound rather than a measurement of the deployed path.
+
+A committed baseline (`crates/search-eval/search-benchmark-baseline.json`) carries its own timestamp,
+machine label, build profile, corpus seed, and iteration counts, because none of those transfer between
+machines. The benchmark is deliberately out of every gate — `pnpm test`, `pnpm check`, and
+`vp run rust-check` never run it; the crate's own unit tests do, and finish in a fraction of a second. A
+`benchmark` cargo profile is added because the workspace release profile optimizes for size, which
+understates the engine and makes two runs incomparable.
+- **Search split compaction — a corpus's live split count now tracks a threshold the platform chooses,
+not the number of documents ever indexed into it.** The write pipeline publishes one split per document
+version, and the standing read-path benchmark priced that shape: one query over 5,000 documents issued
+**186,293 ranged reads** published as one split each, against **45** for the same documents compacted.
+A ranged read is an R2 range GET in a deployment, so no engine speed reaches a sub-second query from
+there. Compaction stops being a later optimization and becomes the thing that makes the read path
+viable.
+
+**The engine** (`crates/search-core`) gains `merge_splits_over_readers` — a segment-level merge, not a
+re-index, because the schema indexes `body` without storing it and the documents cannot be read back out
+of a split. Deletions are applied inside the merge: the superseded document ids are deleted by term and
+the segment is repacked, so their postings leave the published bytes rather than being masked. It also
+gains the two things the benchmark named as absences. `SplitSearcher` holds a split open across queries,
+so a resident process pays the footer read, the index open, and the per-field setup once for the life of
+the split — 2 warm reads against 40 cold, at the smoke tier — which is the state the sub-second target
+is actually stated against and could not previously be measured at all. `query_splits_over_readers` is
+the ranged multi-split query, so the fan-out shape production has now exists in the engine instead of
+being assembled by the harness.
+
+**The pass** is triggered by a live-split threshold the write path notices in one indexed count after
+publishing, single-flighted per corpus by a `SearchCompactionJob` Durable Object, and run off a
+dedicated queue. It is bounded by split count and by bytes and re-enqueues itself while the corpus is
+still over threshold, so a matter holding thousands of splits converges over several bounded merges
+rather than attempting one no Container could finish. The daily reconciliation cron is the backstop for
+corpora that crossed the threshold through deletion or stopped being written to.
+
+**The correctness is the publication order**, and it runs one way: the merged split is written to R2
+first; one atomic batch then inserts its row, inserts its membership, and marks every source superseded;
+and the source objects are left in place, retired by a later sweep after a grace period. A query that
+resolved its split keys before the swap holds source keys whose objects still exist; one that resolved
+after holds the merged key and none of the sources. No interleaving yields both, and none yields neither.
+Deleting a source inside the pass that superseded it is the one ordering that could hand a live query a
+key to bytes that are gone, which is why retirement is a separate sweep.
+
+**Deletion and re-indexing** are handled by a new per-firm `index_split_member` table plus a per-split
+exclusion on the query path. A merged split covers document versions and claims none on its own row, so
+the membership is what says which versions are inside it. Re-indexing a document marks its membership
+stale in the same atomic batch that publishes the replacement, and the query path carries those ids to
+the engine per split — per split, because the same document is legitimately live at a newer version in a
+different one. Marking is what makes a superseded version stop matching immediately; the next compaction
+passes the same ids to the merge, which is what makes it stop costing anything.
+
+Every threshold is a per-firm setting rather than a constant: compaction trades a query's Class B reads
+against the merge's own reads and its write, and only a deployment can price that.
+
+The benchmark reports it: a third axis merges every fan-out point through the engine and re-queries it,
+so the saving is a subtraction inside one run over identical documents rather than a comparison across
+two differently-built corpora.
+- **A firm can now produce, from its own append-only records, the document a bar examiner asks for
+about one trust account — and ask for the same period again in five years and get the same integers.**
+
+The first shipped capability in the reporting area, which had eleven ledger nodes and nothing built.
+
+**What the document is.** For one trust account over one period: the cover, every reconciliation whose
+statement period ends inside it, each client's ledger with each matter under it, the
+receipts-and-disbursements journal, the firm's own bank-charge cushion where it keeps one, the
+exceptions, and the provenance. Served as JSON from
+`GET /api/v1/reports/trust-compliance/{trustAccountId}` on a new `reports:trustCompliance` capability.
+
+**Why it re-derives.** Every ledger-backed figure filters on **both** date axes the schema already
+carries — `effective_date` for the period, `recorded_at` for what the platform knew. Give it a period
+and a knowledge instant and the answer is a pure function of rows that can never change; omit the
+instant and you get a live report, stamped and explicitly not claimed to reproduce. Five new select
+builders in the trust package carry the second axis; the settled as-of statements are untouched,
+because the three-way proof's contract does not move for a report. A reconciliation closed **after**
+the knowledge instant reads as open and its attestation does not appear — printing it would be
+printing knowledge from after the moment the document claims to be taken at.
+
+**The test that is the point.** Produce a pack; post a correction with an effective date inside the
+period and a `recorded_at` months later — the exact move that silently rewrites a signed month on any
+single-axis report; re-run at the same instant. Every integer is identical. Re-run live and the
+figures move, the attestation does not, and the difference is stated leg by leg.
+
+**Nothing recomputes what another package owns.** The three-way proof, the client-ledger total, the
+book balance, the outstanding-item list and the ledger's stored-balance check are all called through
+the functions that own them. What this package adds is decomposition — a per-client, per-matter
+breakdown of a total trust asserts, and a per-entry journal behind a bank balance it asserts — and
+each decomposition ships with an agreement test proving it sums to its aggregate over rows written by
+the real composers, not by the suite.
+
+**Two blocks are labelled as outside the reproducibility claim, and that is a finding rather than an
+omission.** The proof shown beside each attestation, and the outstanding items, unmatched statement
+lines and balance checks in the exceptions section, are each read through an owner that takes no
+knowledge instant. Bounding them here would have meant writing a second definition of the
+reconciliation a firm attested to. They carry their own `computedAt` and an explicit
+`boundedByKnowledgeInstant: false`, the document says which part may differ between two runs, and the
+reproducibility test strips exactly those two blocks and holds everything else to byte-identical
+figures. The first version of that test found the leak: the exceptions section was silently unbounded,
+and it took a failing comparison rather than a review to notice.
+
+**Read-only is checkable, at two layers.** `@magna-carta/reporting` composes nothing, holds no
+binding, reads no clock and owns no table; a purity scan over its own sources rejects a write
+statement, effect-batch machinery, a domain composer import, or an aggregate of its own over the
+ledger, and asserts it has sources to check. At the route layer the conformance suite rejects any
+mutating route gated on a `reports:` read key. Nothing is materialised.
+
+**What it refuses, by name rather than by answering short.** A period holding more of an account's
+activity than one document can carry — the remedy is a shorter period, and a report missing entries
+with no way to tell would be worse than none. An account whose outstanding-item list is longer than
+one reconciliation can account for — the trust package's own refusal, propagated unchanged. And it
+prints no governing-rule citation for a jurisdiction nobody has had reviewed: every encoded
+jurisdiction ships unreviewed today, so the cover states which of the four refusals applies, in the
+corpus's own words, and produces the rest of the document — the figures are the firm's own records and
+no rule elsewhere conditions them. Refusing the whole pack instead is a seam the owner can flip.
+
+**Measured.** Over the load-profile trust volume, at one month and at twelve: the client-ledger read
+0.6 to 1.4 ms, the journal 0.6 to 1.7 ms, and the whole document 63 to 106 ms. Nothing scans. The cost
+is dominated by the per-reconciliation three-way proof, not by the per-row reads, so the
+`ledger_line.effective_date` denormalization the design held in reserve is not warranted yet.
+
+**Five capabilities seeded to Owner/Admin alone** — trust compliance, financial, productivity,
+operational, and produce — deliberately narrower than the trust and billing reads a firm grants more
+widely, because an aggregate across every matter and client is a different exposure from a per-matter
+read, and a report about people is a different grant from a report about money.
+
+**Not built, and named rather than half-built:** turning a pack into a filed, content-hashed firm
+record. It needs a renderer that this repository cannot run — the conversion engines are not deployed
+— and the two append-only tables that would record a production are deliberately left out of the
+migration rather than shipped for nothing to write. The other three report families, delivery, and
+every screen are also unbuilt. **Nine owner questions from the design remain open**; three of them
+ship as defaults behind named seams and the pack records which it was produced with.
+- **The build register now says where we have been, reconstructed from version control rather than
+remembered.** `docs/now.md` gains a _Where we have been_ section: the count at each of the nine
+ledger statuses at every past commit that touched a `roadmap.d/` node file, what moved between one
+commit and the next, and the movement per area since the series began.
+
+**One parser, so the trend cannot disagree with the totals above it.** For each first-parent commit,
+the ledger as it stood at that commit is read out of git and parsed by the same `parseArea` the live
+render uses. The counts are persisted one record per commit — keyed by full commit hash — in
+`docs/register-history.json`, so the expensive pass runs once: an ordinary `vp run register-build`
+reads only the commits that file does not already hold, normally one.
+`vp run register-build --rebuild-history` (or
+`node tooling/doc-fragments/build-register-history.mjs --rebuild`) recomputes the whole series, which
+is what to run after changing the ledger parser or the status vocabulary.
+
+**A commit that does not parse is a hole, and stays one.** Nineteen of the forty commits in the
+series are written in a ledger vocabulary today's parser rejects — one node carrying a `built` status
+between 2026-08-04 and 2026-08-11 — and each is recorded with the parser's own reason and listed in
+the document. Nothing is interpolated across them: the +27 shipped that spans that week is printed
+beside the count of commits nobody read, rather than apportioned to the two rows on either side of
+the gap.
+
+**Rates, and no projected date.** The section states the change in shipped nodes since the ledger
+began, the rate across the whole series, and the rate over the most recent stretch with no hole in
+it. It projects no completion date, because the ledger puts no size on a node and a date derived
+from node counts would treat a jurisdiction research corpus and a second authentication factor as
+equal work.
+
+Where the register used to say that no trend line could be drawn from the ledger without inventing
+one, it now points at the section and names the two limits that survive: a snapshot shows when a
+node's **status** changed and never when the work happened, and a capability added to the ledger
+late arrives as a jump in the total rather than as work done. `pnpm run lint:roadmap` re-derives the
+document from both committed inputs — the ledger and the reconstruction — so neither can drift.
+- `pnpm run lint:ledger-staleness` checks the `roadmap.d/` feature ledger against **the repository**.
+Its twin, `pnpm run lint:roadmap`, holds `docs/now.md` to a fresh render of the ledger, and that pair
+already made it impossible for a derived document to drift off its source. Neither could tell whether
+the **source** was true. Two nodes proved it one day apart: `discovery.search` and
+`discovery.search.keyword` read `designed` — "accepted design spec exists; no code" — after four
+thousand lines of search engine had shipped, and the auto-file node's notes described a state that had
+ended two slices earlier. A person found both, because nothing was watching.
+
+**Six rules, all exact, none of them reading English.** A node whose status asserts there is no code
+may not point at code that no shipped node accounts for; a line saying a named path is absent fails
+the day the path appears; a parent may not claim less than its own children; every path named must
+resolve; every `adrs` entry must be an `ADR-NNNN` with a file behind it; and `not-started` may not
+carry a spec.
+
+**Quiet on purpose, and measured rather than argued.** The ledger holds 702 nodes, so a rule firing on
+two percent of them prints fourteen lines nobody reads twice. Every candidate was run against the whole
+ledger before being kept, and three plausible ones were run and thrown away: keying off a node's slice
+tag is 13 hits and 13 of them false, because a slice tag is shared by nodes at different maturities;
+flagging build claims inside a pre-code node is 22 hits and 22 of them false, because "the engine it
+reuses is shipped" is how a node correctly explains what it is waiting on; and coupling the diff to the
+ledger needs a diff base and is satisfied by touching a node rather than by making it true. The kept
+rules produce **zero** false positives on the ledger and on a checkout from before the search fix.
+
+**It found four stale nodes nobody had noticed, all now corrected.** The jurisdiction-compliance engine
+read `designed` with evidence saying `packages/trust-jurisdictions` did not exist yet, while the package
+holds the typed profile model, the registry, overlay resolution, the review gate, Nevada encoded and
+three test files — now `partial`. LEDES e-billing read `not-started` over a child that shipped early —
+now `partial`. And four notification nodes cited two decisions by their pending fragment slug, long
+after both were accepted as `ADR-0251` and `ADR-0258`.
+
+The scan **self-tests before it scans**, on fixtures that include both original stale nodes. One of
+those fixtures asserts that the scan finds nothing wrong with the auto-file node: its claim names no
+path and no identifier, so catching it would need an English noun phrase resolved against the tree, and
+that is the guessing this gate refuses. A node the tree genuinely cannot match carries
+`ledger-staleness:allow — <reason>` in its `notes`, on the same marker-plus-reason terms as the
+object-dimension scan.
+- **`pnpm check:scoped` now runs the repo-wide set — the checks a diff-scoped gate structurally cannot
+find.** A repo-wide check does not live in the package whose code it governs, so the diff that breaks it
+is routinely in a package that has never heard of it; three changes reached `main` red in one session that
+way, while the whole-repo tier that would have caught all three was unavailable (Actions billing block,
+and `pnpm check` OOM-killed at step one). Two new steps: `repo-wide lints` always (~0.7 s — twelve
+whole-repo scans spawned concurrently as the commands their scripts name, rather than through twelve
+`pnpm run` startups), and `repo-wide fitness sweep` whenever the diff touches first-party source (~2.5 s —
+nine Vitest scans in one process under `tooling/check-scoped/vitest.repo-wide-fitness.config.ts`, which
+costs 2.5 s against the root workspace's 8.5 s for the same files, plus a `schema` scope of ten more when
+`packages/database` moves).
+
+Membership is **derived, not listed** — a roster of repo-wide checks is the same drift one level up. The
+lints are enumerated from the `lint:*` scripts in the root `package.json` (the CI `governance` job now
+calls the same runner with `--all`, so the tiers cannot disagree); the fitness tests self-register with an
+`@repo-wide-fitness` directive in their own header. Two lints are deferred with their numbers:
+`lint:licenses` (1.6 s, dependency-set-only — runs when a manifest or lockfile changes) and
+`lint:test-collection` (26 s — CI's own job). `apps/api-worker`'s route conformance is excluded outright at
+26 s in the Miniflare pool.
+
+Measured warm, before → after: a markdown-only diff 0.9 s → 1.6 s, one ordinary source file 2.3 s →
+4.9 s, a `packages/database` schema file 4.7 s → 7.8 s. `lint:test-registration` learned about
+**re-runner** configs (a Vitest config that owns no tests, only re-runs files belonging to other
+projects) and refuses to let one be registered twice. Homes:
+[`tooling/check-scoped/repo-wide.mjs`](../tooling/check-scoped/repo-wide.mjs),
+[`docs/conventions/build-performance.md`](../docs/conventions/build-performance.md),
+[`docs/conventions/testing.md`](../docs/conventions/testing.md).
+- **Notifications can now leave the platform, and a digest says only how much is waiting and in which
+categories. A fixed subject carrying a count, a line of per-category counts, one link back in — and
+nothing a person typed.**
+
+This is the first time this subsystem hands anything to a mailbox. Every surface before it was a row
+read inside the product, behind the session and the visible-matter predicate, where a row shown to
+the wrong person is fixed by the next read. An email is a copy retained by a provider the firm did
+not choose, forwarded, backed up, rendered on a lock screen — and it **cannot be re-filtered when
+access changes**, which is the whole basis on which the wall here binds at read time. So the content
+stops at what never depended on access in the first place.
+
+**What a digest line may contain:** a category label from the closed vocabulary, and an integer.
+**What it may not:** matter titles, matter numbers, client or party names, filenames, email subject
+lines, deadline descriptions or dates, custody numbers, amounts, invoice numbers, platform handles.
+The boundary is structural rather than remembered — the digest read selects a category, a kind, an
+instant and two handles, and the renderer's only parameters are a closed label, integers, a cadence
+and a configured origin, so there is no argument a title could arrive in. A golden test renders over
+a fixture whose matter is named after its parties and numbered, and fails if any of it reaches the
+output.
+
+**The first reader of the per-category email cadence.** The preference slice stored a cadence and
+nothing consumed it; the run now partitions each member's window by it. A category on the other
+cadence is left to that cadence's own watermark; a category set `off` is **withheld and recorded**,
+not dropped — every row a run did not mail gets a `suppressed` delivery row naming a closed reason,
+so a member who chose not to be written to stays distinguishable from a member the platform silently
+failed to write to. That is the same requirement the in-app suppression tally answers, met with the
+mechanism the schema already had.
+
+**Send first, mark second**, on a keyset watermark (an instant _and_ its event id — two events
+sharing an instant must not straddle a boundary), per member per cadence, committed in one batch
+after the send returns. A crash between them re-sends a summary; marking first would lose one. A
+member with nothing visible in the window gets no email at all. Runs are anchored to the firm's own
+morning, resolved from the default office the calendar already books against.
+
+**Outbound mail is an unprovisioned seam.** The digest resolves its own send port rather than reusing
+the shared adapter resolver, which falls back to the dev logging adapter when the Email Service
+binding is absent — right for a password reset, catastrophic here, because the run would record
+`sent` rows and advance watermarks for mail that was printed to a log. Absent a binding, a verified
+sender, or a public origin, the port answers with a typed reason, the pass exits before reading a
+firm, and the reason is counted every pass. Owner steps are in `docs/deploy-queue.md`.
+
+Still deferred: the notification centre and the preference screens (no `apps/web` change here), and
+the `matter-number` detail level, which stays declared and renders as `counts-only` so a firm's
+stored ceiling is honoured at its most private reading rather than silently rewritten.
+- **`apps/web-worker` — the SvelteKit application on its own Cloudflare Worker, so a change to a
+button's label no longer rebuilds and redeploys the API.**
+
+The app Worker binds the SPA's build output under its own `assets` block, which means every UI-only
+change rebuilds a Worker that also carries the per-firm data layer, the WebAssembly artefacts and the
+Docker steps that produce them. The new Worker carries the same build output and nothing else: no
+`main`, no bindings, no secrets. A page request is answered by Cloudflare's asset server and invokes
+no script at all.
+
+It is separable because `apps/web` genuinely depends on nothing that reaches a crate — its four
+workspace dependencies are `@magna-carta/design-system`, `@magna-carta/design-tokens`,
+`@magna-carta/tools` and `@magna-carta/merge-field-catalog-contract`. The WebAssembly imports that
+make the app Worker's build slow and Docker-dependent are the API's own: PDF form fill and text
+extraction, decryption, and email parsing.
+
+**This stage is additive and changes nothing that is serving.** The app Worker keeps its `assets`
+block, so the application answers from one origin exactly as it does today, and the new Worker is a
+second door to the same files. Cutting over needs route patterns on one hostname — the SPA
+everywhere, the API Worker on its own paths — which needs a zone hostname the account does not have
+yet. Removing the app Worker's `assets` block before those routes exist would make the application
+unreachable, so the runbook entry says so at the point where somebody would be tempted.
+
+Build settings for the new Worker are the same three uniform fields every sibling uses; the runbook
+records them along with its Watch Paths.
+- **A design for the Worker fleet: what the core Worker stops carrying, where the hosts go, and why the
+API and the orchestration stay one program.**
+
+Fifteen entries under `apps/` are three different kinds of thing — entrances, the core, and engines —
+and nothing said so. The design names the kinds, records that `apps/api-worker` is the naming convention
+applied to the root script rather than an oversight, and refuses the split of the API from the
+orchestration on the one fact that settles it: `FirmDatabase` is a Durable Object on that script and
+is each firm's database.
+
+The segmentation that is worth doing is different. The core Worker still imports three WebAssembly
+packages whose work belongs at Workers that already exist — PDF at the signing Worker, decryption at
+the recovery Worker, message parsing at the mail entrance. Moving them makes the slowest build in the
+repository need no Docker at all.
+
+It also records that the host cutover was never blocked. `magnacarta.esq` has been a live zone since
+June and the status Worker already holds a custom-domain route on it; a stale comment claiming
+otherwise is what made it look gated. The design orders the cutover so the `assets` block stays as the
+rollback until both hosts are confirmed serving, and names the two same-origin assumptions that stop
+being true when the application and the API move to different subdomains.
+- **Three merged designs had no ledger node at all, so the register could not see them and their open
+owner flags had nowhere to land. Twenty-five nodes added across three new areas: exhibits, translation
+services, and self-serve provisioning with the free evaluation tier.**
+
+**These are not new scope, and the totals moving does not mean new work was promised.** Each of the
+three designs is merged, which is to say the commitment was already made; the ledger simply never
+learned about it, so the register was under-counting the program rather than over-counting it. This
+is the same reasoning under which two shipped trust capabilities were given nodes last week —
+recording work already committed is not the same as adding work. The owner reads the headline totals,
+so it is worth saying plainly: 708 capabilities became 733, and not one of the 25 is a decision taken
+here.
+
+**Statuses are derived, not chosen.** Exhibits carries a merged design _and_ a merged sixteen-task
+implementation plan with its slice fragment reporting no build begun, which the vocabulary calls
+`planned` — eight nodes plus a root, with trial admission tracking `deferred` because the design
+parks it and prints its three columns blank. Translation carries a merged design and no plan, which is
+`designed` — six nodes plus a root, with human-attested certification `deferred` to the design's own
+fourth slice. Self-serve is the one with code in it: registration is `shipped`, so its root is
+`partial`.
+
+**A finding worth stating: half of the self-serve design is already built.** The two-stage
+registration split, the three-door role fork, the confirmed-registration outbox row and the
+provisioning consumer that runs the existing provisioner off it are all on `main` under ADR-0280,
+along with the `firm.display_name` split that took the firm's human name out of the unique resume
+identity. What is _not_ built is everything the flags are about: no tier catalog, no tier column, no
+quota ceiling, no upgrade-required refusal, and no lifecycle beyond provisioning.
+
+**Eighteen of the twenty-three owner flags placed, on sixteen node lines; five left in their specs.**
+The same rule as the last sweep: surface a
+flag when the answer changes what gets built, leave out anything that only decides how an agreed
+build is written. Placed — exhibits E1 and E4 (letter overflow past Z, which becomes a migration once
+a label has been served, plus which numbering presets ship), E2 and E6 (how strict an issued set is),
+E5 (package pagination against an already-stamped produced page), E7 (admission tracking at all), E8
+(detecting prose references in a firm's existing documents); translation T1 (engine and vendor
+posture), T2 (whether the provenance record exists), T3 (human certification), T4 (pasted text
+recorded or ephemeral), T5 (derived sibling or new version), T8 (the machine-output statement on
+every rendition); self-serve F1 (the free-tier numbers — the flag the founding-a-firm screen's
+"starts on the free tier" line is literally waiting on), F2 (the reaping clock), F3 (trust on
+verification or on payment), F4 (verification as review or attestation), F6 (metered tool allowances
+or a hard lock). Left in their specs: exhibits E3 and translation T6 and T7, which decide wording and
+plumbing on agreed builds, and self-serve F5 and F7, a legal-perimeter call and a nod to retire a
+reserved route field.
+
+No existing node's `status` was touched. `docs/now.md` is regenerated from the ledger, as always.
+- Trust — bank charges, and the firm's own funds in a trust account. A trust bank account gets charged
+by its institution, and until now the ledger had no way to record that: a firm's real bank statement
+could not be reconciled, because the one item on it that no member authorized had nowhere to land.
+The conduct rules answer that by permitting a firm to keep a small amount of its **own** money in the
+account for the sole purpose of bearing those charges, and that is now wired — narrowly.
+
+**A bank charge cannot be turned into a way to move client money, and that is a property of the
+structure rather than a rule somebody remembers.** The record beside a firm-funds entry lives in its
+own table which has **no column for a client, a matter, a node, or a payee** — so a row of it cannot
+describe a movement of anybody else's money whatever a caller intends. The entry goes through a
+second composition door that admits exactly two lines, the firm-funds balance and that same account's
+bank leaf, and refuses everything else; the door client money goes through still refuses a firm-funds
+line outright and was not relaxed to make room. Only two movements exist in the category — the firm
+putting its cushion in, and the institution taking a charge out — and there is deliberately no
+movement that pays anybody: paying a person out of a trust account is a disbursement and goes through
+the disbursement queue with its authorization.
+
+**A bank charge is never borne by client funds, enforced by the database.** The firm-funds balance
+carries the same zero floor every matter ledger carries, so a charge larger than the firm's own money
+in the account drives it below zero and the whole batch aborts. Recording such a charge is refused
+with the remedy named: put the firm's funds in to cover it, then record it. Until then the statement
+line sits unmatched and the reconciliation reports the difference, which is the honest state.
+
+**The carve-out is off until a firm turns it on, per account, and it takes a capability of its own.**
+`trust:firmFunds` is seeded to Owner/Admin alone — narrower than every other trust key, including the
+authority to release a client's money. Opening it is refused on a pooled interest-bearing account:
+the researched rules exempt that kind of account from service charges, so there is nothing for the
+firm's funds to pay and putting them there would be commingling with no permitted purpose.
+
+**The three-way proof learned about it.** The firm's cushion is a leg of the proof in its own right
+and is never folded into the client total — a client leg that quietly included the firm's own money
+would tie out while asserting that firm money is client money, and leaving the cushion out of the
+comparison entirely would report a `book-to-client` disagreement on every account that enabled the
+carve-out, poisoning the one signal that means something reached the ledger without going through the
+composition guard. Closing a reconciliation freezes the cushion figure alongside the other three.
+
+---
+
+Trust — unclaimed client funds: the dormancy read and the firm's diligence file. A firm holding money
+for somebody it can no longer reach has a continuing duty to make reasonable efforts to locate the
+owner and distribute the funds, and to be able to evidence both afterwards. The platform now surfaces
+the balances and holds the evidence.
+
+**Nothing here escheats, sweeps, or moves on a timer.** In the jurisdiction researched for this
+subsystem, designated client trust accounts are exempt from the state unclaimed-property presumption
+outright — nothing escheats, no dormancy period runs against them, and the one onward destination the
+rules name is permissive rather than compelled. So there is no countdown, and no screen says a firm
+must act by a date.
+
+**Dormancy is a comparison, not a column.** The read lists matter ledgers that still hold money and
+have been quiet since a date **the reader states** — there is no default period, because the periods
+differ by jurisdiction and several of them gate a permission rather than an obligation. Nothing is
+stored, no sweep maintains it, and the same read against a wider window gives a different answer with
+no state having changed. It reports two dates rather than one, because the rules' clocks run from
+**receipt of the property** and not from the last thing that happened on the matter.
+
+**Every locate attempt is recorded when it is made** — regular mail, certified mail, telephone, email,
+a review of the firm's own records — with the address or number actually used, the outcome, and who
+recorded it. That is the artifact a certification is built from and the one thing nobody can
+reconstruct two years later. The file is append-only and one client ledger carries one open review at
+a time.
+
+**Every movement takes a person.** Closing a review as a distribution names a disbursement that
+**already posted** through the ordinary authorized path; the closing composer receives no amount, no
+payee, no date and no method, so there is nothing it could assemble into a ledger entry. It writes one
+row and moves nothing, and the database independently refuses a closure that names a payment out of
+another client's ledger.
+- Trust — PDF bank-statement import for three-way reconciliation, designed. Owner extension T10. Design only: a spec, a five-slice implementation plan, and one ADR fragment at `status: Proposed`. No application code, no schema, no migration, no route, no parser.
+
+**It adds one producer of rows that already have a home.** The reconciliation built under ADR-0246 is untouched — not the statement table, not the matcher, not the proof, not the close, not what a match means. Everything hard is upstream of the row, which is why the design is small.
+
+**The governing sentence is that a reconciliation records a disagreement between the firm and the bank, and must never record a disagreement between the bank and our reading of the bank.** Both are differences between two numbers and they are opposites: the first is the whole product, which is why an unbalanced proof closes rather than being refused; the second is a defect wearing the first one's face, and once it is in `trust_bank_statement_line` it is indistinguishable from the bank having said it.
+
+**The confidence model is arithmetic, not a score.** A statement states its opening balance, its closing balance, and the items between them, so rows that foot to the parsed closing balance are corroborated by two figures read independently from a different part of the page; a single misread digit breaks the footing by a power of ten, and a misidentified column breaks it comprehensively. Where a running balance is printed the check localizes to the line. A statement that does not foot is **refused**, not stored with the difference recorded. A recognizer's per-line confidence is retained on the row as provenance and used only to order a member's review and to explain a failure — a threshold on a confidence score is the silent-and-usually-right default ADR-0214 exists to refuse, and it cannot see structural uncertainty at all, which is where the damage lives.
+
+**An imported line never causes a movement, and nothing has to be built to enforce that.** Four independent grounds: the line has no client and no matter, and trust attribution is derived from the matter's own client party rather than accepted from a caller; the bank leg is the only independent input in the proof, so a posting import would make the reconciliation compare the bank statement with itself and lose the one signal that means something reached the ledger without going through the composition guard; a movement caused by a parse has no authorizer, and `authorized_by` is a table CHECK; and it is a strictly larger authority than automatic matching, which the shipped matcher already refuses. Structurally, `trust_bank_statement_line` has no relation to the ledger and the only join is a match row a member created.
+
+**Provenance is retained rather than recomputed**, because recognition is server-canonical rather than cross-architecture deterministic and model pins move — so re-running extraction next year is a fresh reading, not a reconstruction. The PDF, its digest, the extraction artifact with geometry and engine provenance, the parser version, the resolved profile, the rows with a locator back into the artifact, and the confirmed preview fingerprint are all kept. This also names an existing defect: the delimited importer takes its file in a request body and drops it after parsing, so a statement already recorded as `imported` cannot be re-derived from anything the platform kept.
+
+**Parsing runs where the platform already parses, and no dependency is introduced.** Native text layer in pure Rust as WASM in the Worker over `crates/pdf-core`; pages that are scans in the OCR Container that is already deployed; table reconstruction in TypeScript beside the money rules it must obey. The one Rust addition is an exposure, not an engine — `textpos.rs` already computes glyph boxes and `textextract.rs` discards them for a single-column reading order that interleaves columns, which is fine for a keyword index and fatal for a table. A PDF table library is refused (the mature ones are Python or sit on a large C++ parser reading untrusted privileged bytes), and reading the statement with a model is refused on three grounds — non-reproducible output, no arithmetic corroboration of a generated number, and a consent question that is not a parsing detail.
+
+**Nine flags (S1-S9) go to the owner**, numbered as their own series so an answer cannot be mistaken for an answer to a trust ledger flag. Four decide what gets built: whether a footing failure may be overridden, whether a scanned statement may be imported at all, how long a client's bank statement is retained and whether subject erasure reaches it, and whether the retention repair is applied backwards to the delimited path. The rest cover a pre-filled bank-charge composer for an unmatched service charge, one line matching several ledger entries, the capability the import runs under, whether a model may ever read a statement, and whether an import needs a second person.
+- **The UI standard has always required looking at the rendered page, and there was no tool that could
+look.** `docs/conventions/ui-design.md` instructs the coordinator of a UI stream to verify
+empirically before committing — screenshots, computed styles, interaction round-trips — and the
+repository configured no browser. Every gate under it reads source text, so "the classes are right"
+was machine-checked and "the screen is right" was somebody's word. The Chrome DevTools MCP server is
+now declared in `.mcp.json`, and the standard says where to point it and what evidence a review owes.
+
+The same standard delegates UI work to subagents "with the constraints, not just the task", and
+there were no agent definitions to carry them — so each delegation restated the rules from memory.
+`ui-builder` and `design-reviewer` now hold the binding constraints and the reading order.
+
+**The third gap is the one that cost the most.** The auth flow went through fifteen mockup revisions
+before it was built, and most of what those revisions settled was not about auth at all: headers are
+title case, user-facing copy takes no em dashes, a duration in a sentence renders from the value
+that governs it, every non-initial step of a flow carries the same back control, a resend counts
+down visibly from the first send. Those are rules for every screen, and they lived in one task
+description. `docs/conventions/design-corrections.md` is now their home — append-only, and read
+before composing anything.
+- Unified identity and authentication methods — the design for passkeys, one-time sign-in links, firm
+identity providers and client-portal identity, treated as one surface rather than four bolt-ons.
+Design only: a spec, a six-slice implementation plan, and six ADR fragments. No application code, no
+schema, no migration.
+
+**The framing sentence comes first and everything inherits it.** A method proves you are the principal;
+it never decides who the principal is, and it never decides what the principal may then do. The failure
+the design exists to prevent is a method quietly acquiring one of the other two jobs — and one instance
+of that is already in the tree, where a credential-issuing event (the invitation's `kind`) is the only
+record of whether an account is staff or a client.
+
+**Three nouns carry the whole surface.** A **principal** with an immutable `principal_kind`; an
+**authentication-method register** projected over Better Auth's four credential tables, because three of
+the questions the platform must answer — may this account use a password, is this the last method, what
+was enrolled after that sign-in — are asked across those tables and answerable in none of them; and an
+**assurance** level (`mailbox` < `credential` < `multiFactor` < `phishingResistant`) with an
+`authenticated_at` stamped on the session. Which methods an account may use resolves most-restrictive-wins
+over a platform floor that is code beside the permission registry, firm narrowing through the settings
+registry, and actual enrolment.
+
+**Client-portal identity becomes structural, and the load-bearing half is the one usually skipped.**
+`principal_kind` is NOT NULL with an immutability trigger, `RouteMeta` gains `principals` enforced by a
+new chokepoint admission gate, and a portal principal holds no per-firm `member` row so RBAC grants it
+nothing anywhere. But the change that matters is
+`CHECK ((principal_kind = 'portalClient') = (firm_id IS NULL))`: `user.firm_id` is what every
+firm-scoped surface reads to place a caller, so leaving it populated for a portal client makes a
+forgetful surface fail **open** inside that firm, while emptying it makes the same surface resolve no
+firm and answer the reserved cross-firm 404. The community board's invitation-counting subquery — whose
+own comment asks for exactly this — becomes one session field.
+
+**Recovery is the part the design spends its judgement on**, because recovery is where account takeover
+lives and any method can be added. Every recovery path is an authentication method with the ceremony
+removed, so it is enrolled, budgeted against the shared ladder, and audited as one — a passkey defeated
+by "email us a link" is a mailbox credential wearing a passkey's clothes. The mechanism is a hold:
+announced immediately to every channel of record plus the firm's Owners and Admins (never one channel,
+because the attacker holds one), delayed, cancellable by any valid session or one click from any
+notified channel, and on effect revoking every session and every method enrolled since the request.
+Its converse closes the commonest takeover shape — enrolling a method is itself a notified event. The
+primary path is firm-administered and reuses the shipped three-fact invitation machinery; platform
+recovery is bounded to the sole-Owner case and deliberately not routed through the support-grant
+framework, which is consent-anchored and cannot stretch to somebody who by definition cannot consent.
+Four paths are refused outright, including knowledge-based answers, since a firm's own data is largely
+in public court records.
+
+**Home-realm discovery answers about a domain, never an address.** Silently refusing and silently
+allowing are both wrong, and resolving on blur is worse than either. Discovery resolves on submit
+against a domain the firm verified by publishing a DNS TXT record — a fact anyone can already resolve —
+which is why the map may only ever be populated by verification and never by an administrator pasting a
+list of addresses. `exclusive` enforcement removes the password from the register rather than ignoring
+it, and cannot be turned on until the firm's Owner holds a passkey, because a provider outage must not
+lock a firm out of its own practice-management system.
+
+**The library was verified rather than assumed**, per golden rule 11: Better Auth supplies passkeys,
+magic links, email OTP, Turnstile, cross-domain one-time tokens, `session.freshAge`, and — as a separate
+MIT package — OIDC and SAML single sign-on with domain matching. It supplies no principal kind, no
+method register, no assurance, no domain verification, no interception of a password submit, and no
+recovery hold. Two of its defaults are inverted and pinned by test because both are wrong for an
+invitation-only platform: magic-link auto-registration, and its documented removal of an unverified
+account's password on verify, which lands on exactly the state an invited member occupies between
+redemption and setting a password. Account linking is set explicit for the same class of reason. Three
+stale facts in the tree are scheduled for repair in slice 1, including the two-factor plugin's own new
+lockout, which would otherwise disagree with the platform's published attempt budget.
+
+**Step-up becomes route metadata** over the `stepUpRequired` field the problem contract already carries
+for the malware-flagged download, with a counter-rule so the gate does not metastasise: step-up is for
+acts that are irreversible or that create a new way in, and everything else is RBAC's job.
+
+Fifteen questions are flagged rather than decided, each shipping as a configurable value with a
+recommended default: whether a passkey may stand alone, whether a link may establish a session, whether
+a firm may narrow or weaken a control, the second-factor floor and its grace, the three recovery hold
+windows, platform-administered recovery, forced re-enrolment after a spent recovery code, the single
+sign-on enforcement modes and break-glass, the federated session cap, the step-up list, portal method
+strength, whether one mailbox that is staff at one firm and a client of another gets one account or
+two, and whether the shared attempt ladder becomes a Durable Object. Every one of them changes the
+platform's security posture, which makes it the owner's call and not the design's.
+- Design and implementation plan for the scheduled no-client-present billing layer — recurring and batch bills, payment reminders, payment plans, and evergreen below-floor replenishment. Design only; no application code.
+- **Trust firm-funds and unclaimed-funds routes are now reachable through the API: opening a firm-funds ledger node, recording firm-funds deposits and bank charges, and reading/reviewing/closing unclaimed-funds dormant balances, each gated on its own permission key separate from client-money routes.** The domain layer for both had already landed with no route layer in front of it; the OpenAPI contract and generated API client are regenerated to match what the worker now actually serves.
 
 ### Fixed
 
@@ -3861,6 +6195,1733 @@ oversight left in place. The platform's key-required gate identifies a repeat re
 through a cache that decodes it as text, which does not preserve arbitrary bytes — so an endpoint whose
 body is a file cannot use that gate without risking hashing or scanning something the caller never sent.
 Neither endpoint stores anything, so a repeated request simply recomputes.
+- **Two file-manager rulings were marked `settled` in the ledger while the screen still had the
+defect, because the harness asserted the wrong property. The owner raised each of them three times.**
+
+The sidebar toggle is the clean example. The complaint was a dark panel behind an active button. The
+rule sets `box-shadow: none` and the check asserted exactly that — `box-shadow` was `none`, the check
+passed, and the thing being pointed at was `background: var(--mc-surface-selected)`, a fill. The
+check tested a reading of the words rather than the screen, and a passing check is louder than a
+person repeating themselves.
+
+Renaming was the other: the field was built from `f.name` and `.select()`ed whole, so the extension
+was always shown and always selected. No check covered it at all, and the ledger row saying
+`regressed` was merged without anyone acting on it.
+
+Both are fixed, and both now have checks that would have caught them: the toggle's computed
+background is compared against the toolbar's with the pointer parked away from the button (`:hover`
+legitimately raises the surface, and measuring under the cursor reads that as the active fill), and
+rename is exercised in both extension modes — shown, where the selection must stop before the
+extension, and hidden, where the field must carry none and the commit must put it back.
+
+Nine more round-seven rulings landed with them: delete works at last (files soft-delete; a folder
+with contents asks, and keeping them is the default); folder rows match file rows (an unclassed icon
+was rendering at 200px in a 32px row); Home reaches the root; a folder's Size reads bytes and count;
+colour is a submenu of square swatches; document type is editable where it is displayed; the tab
+strip scrolls; the signature modal is rebuilt on the dialog's own structure and decodes the signature
+name into its four documented parts rather than showing an opaque string; a digest can be verified
+against a file hashed in the browser; and archive members render on the matter's own table, with the
+columns they cannot answer left empty rather than invented.
+
+The harness is 51 checks, up from 40. A dialog is now capped so a long one cannot push its own Close
+button off-screen — found because the rebuilt modal did exactly that.
+- **The drizzle snapshot-freshness checker was correct, complete, and wired into nothing — so the
+per-firm snapshot fell behind the schema twice, weeks apart, and both times the damage was found by
+the next person who ran `generate` rather than by a gate.** The second occurrence sat on `main` long
+enough that a generate there would have re-emitted fourteen statements, including a destructive
+`review_document` table rebuild aimed at firms that already had those columns. `check-snapshots` now
+runs in three places, and the failure names its own repair.
+
+The mechanism is a property of drizzle-kit, not a mistake: it writes a snapshot only as a side effect
+of emitting a migration. Every hand-written migration — the normal case in this repository, because
+partial indexes, FTS5 tables, seeds and ordered column adds cannot be generated — advances the journal
+while `meta/` stands still. Nothing observable happens at that moment. The cost lands later, when the
+next `generate` diffs against the stale snapshot and re-emits every table added since.
+
+That is exactly the failure shape a gate exists for: silent at the point of introduction, expensive
+and confusing at the point of discovery, and cheap to detect at any time in between. Detecting it
+costs 2.6 s for both lineages, which is why it goes in all three tiers rather than being rationed:
+
+- **`pnpm check:scoped`** — conditional, triggered by any change under `packages/database/`. The
+  trigger is deliberately wider than the checker's true inputs; deciding which file reaches the
+  drizzle generator costs more thought than the three seconds costs time.
+- **`pnpm check`** — unconditional. The whole-repo gate is the one that is real today: the CI account
+  is billing-blocked and `gate.yml` has executed nothing since 2026-08-05.
+- **`gate.yml`, `governance` job** — unconditional, beside the migration-integrity test, which proves
+  the committed chain is sound while this proves the snapshot still describes it. Ready for when CI
+  starts running again.
+
+The `--check` failure message previously read "Re-run without --check to repair", which is true and
+leaves the reader to work out what the command is. It now prints the exact
+`refresh-<lineage>-snapshot` invocation, the snapshot file it rewrites, and the fact that it belongs
+in the same commit as the migration.
+
+Verified by reproduction rather than by reading: adding one scratch column to the per-firm schema
+without refreshing made `check:scoped` fail at the new step in 3 s with the repair instructions; the
+advertised repair command fixed it and proved its own settle; reverting the column returned the gate
+to green. No reviewer checklist was added — the rule already has a home in
+`packages/database/CLAUDE.md`, and what it lacked was enforcement, not another place to be written
+down.
+- **The sign Worker's build configuration is recorded, and it is the app worker's.** Its Workers Build
+failed on every run with `ENOENT … pdf_core_bg.wasm`: `apps/sign-worker/src/index.ts` imports the
+pdf-core WASM binary, `packages/pdf/src/pkg/` is a git-ignored artefact of the `rust-wasm-build`
+task, and a build scoped to the package runs only `wrangler deploy --dry-run` and never reaches it.
+
+`pdf-core` was already covered by `rust-wasm-build` — the rule the deploy runbook states. What that
+rule left half-said, across three occurrences now, is the other half: **a Worker importing WASM needs
+a build command that reaches the task, not merely a crate that is listed in it.** Recorded in
+[`operations.md`](../docs/conventions/operations.md) section 12 with the failure signature and the
+watch paths.
+
+The fix is one line in `apps/sign-worker/package.json`: its `build` script now runs
+`vp run -w rust-wasm-build` ahead of the bundle. `-w` reaches the repository-root task from a package
+directory, so the Worker stays rooted at its own `apps/sign-worker` like every sibling and its
+dashboard build command stays the plain `pnpm run build` they all use. A per-Worker root task drafted
+for this was withdrawn: the dependency belongs where the import is.
+- **The general ledger has been waiting on sixteen owner decisions since its design merged, and the
+document written to collect owner decisions showed none of them.**
+
+A design lands carrying a numbered flag register, its capability nodes go into the feature ledger as
+`designed`, and if nobody writes the `awaiting-owner:` line by hand the questions exist only inside
+the spec. The build register renders, the decision desk renders, and the slice sits blocked with the
+one person who can unblock it never shown the block. The ledger node even said so in prose —
+"sixteen owner flags gate what is built" — which is true, unactionable, and invisible to every
+document that reads the keyed field.
+
+Six questions now reach the desk. Which sub-slice each one decides is recorded on that sub-slice
+rather than piled on the parent: whether a starter chart of accounts ships and whether it may seed a
+role mapping; the five that decide fiscal-period close, including whether the lock is checked inside
+the posting primitive itself, which is the only version a caller cannot decline to honour and is a
+behaviour change in shipped subsystems; the three on accounts payable; whether trust accounts appear
+on the firm's balance sheet; and the three that decide whether the slice starts at all. Custodian's
+retention dating gains one too — its notes have read "owner-gated" since the design merged, and the
+question behind that was nowhere a person would look for it.
+
+**The second occurrence is why there is now a detector rather than another sweep.** An earlier pass
+moved seventy flags onto nodes by hand; it fixed the ledger of that day and installed nothing, so the
+next merged design reopened the hole. `lint-ledger-staleness` gains a rule: a spec carrying a flag
+register, cited only by nodes with nothing built behind them, must have an `awaiting-owner:` line on
+at least one of them.
+
+The narrowing is the whole rule — **fire only when every node citing the spec is pre-code.** A flag
+register is a point-in-time list and flags are answered by being built, so the custodian and
+discovery registers are mostly settled and the shipped code beside them is what settled them.
+Nothing in a spec distinguishes an answered flag from an open one, so the rule refuses to guess. It
+was measured against the whole ledger before it was kept: one hit, no false positives, where the
+obvious wider form takes six groups and five of them are wrong.
+- **`pnpm fix:scoped` no longer rewrites an annotated array constant into a `Set` and leave the
+annotation behind. Five separate passes had to notice the same non-compiling rewrite and undo it by
+hand.**
+
+`unicorn/prefer-set-has` fires on a constant that is only ever membership-tested, and its autofix
+rewrites both halves of the pattern: the initializer becomes `new Set([...])` and the `.includes()`
+call becomes `.has()`. What it does not touch is the declaration's type annotation. On
+`const KEYS: readonly string[] = [...]` the result is a file that lints clean and does not compile —
+TS2740 on the declaration, because a `Set` is not an array, and TS2339 on the call, because `has`
+does not exist on one.
+
+The live example is `APPEARANCE_STORAGE_KEYS` in the design system's theme-preference module, which
+the fix pass reaches whenever a change touches that file. The rule is now on the fix-pass exclusion
+list in `tooling/check-scoped/unsafe-autofix-rules.mjs`, alongside the three rewrites already there.
+The exclusion is fix-pass only: `pnpm check:scoped`, `pnpm check` and the editor still report the
+finding, they simply stop applying it unattended.
+- **The pre-push hook took its migration-integrity check through the test runner, so an unrelated suite
+running in another worktree could fail the push — under the words "migration integrity", which reads
+as lineage corruption.** It failed that way twice in one session while another agent was building
+elsewhere; both times the same check passed standalone in about 600 ms, and both times the printed
+label sent the reader looking for a broken journal. The second lesson taken from it was `--no-verify`,
+which is the expensive part: a hook that cries corruption over contention does not just waste a
+diagnosis, it teaches people to switch the hook off.
+
+The checks never needed a runner. They are structural assertions over the committed journal, the
+`.sql` files and the `meta/` snapshots, plus one apply of the whole chain into an in-memory
+`node:sqlite` — no Miniflare, no browser, no worker pool, no fixtures. They now live at
+`tooling/migration-integrity/` as a plain script, and the three callers all drive that one module:
+the pre-push hook and the gate's `governance` job run `node tooling/migration-integrity/index.mts`
+directly, and a Vitest twin runs the same functions with the normal suite. `packages/database/test/migration-integrity.test.ts`
+is gone — its content moved wholesale rather than being copied, so the hook and the suite cannot
+drift into disagreeing about what a sound lineage is.
+
+Two things were tightened while the checks moved. A lineage that loads zero migrations now fails
+instead of passing: every rule above it is satisfied vacuously by an empty set, and a guard that
+clears nothing is indistinguishable from a guard that ran. And any error raised while taking the
+checks — an unreadable journal, an absent `drizzle/` directory — is reported as a failure rather than
+allowed to look like a clean run.
+
+**The gate's `lint:test-collection` was also reported as counting seven files more than the gate
+collects. It does not, and the seven have a name.** Measured on a quiet machine at 949 registered
+test files: the lint asserts 656 for `test-node`, an unfiltered run executes `Test Files 656 passed
+(656)`, and the two CI shards execute 328 and 328 with no file in both and no file in neither.
+`test-worker` reconciles the same way at 238.
+
+The reported 649 came from an invocation carrying **ten** of `test-node`'s **fourteen** positional
+paths. The four missing ones — `apps/{recovery,scan,search,sign}-worker` — hold exactly 7 files and
+41 tests, which is the whole of the reported gap in both figures (656 − 7 = 649, 7475 − 41 = 7434).
+Nothing runs nowhere. The path list wraps over five YAML lines and gets copied short, and a short
+list does not fail: it runs a subset and reports green, which is the same property that made the
+original mis-scoped filter invisible. `pnpm run lint:test-collection --print-invocations` now emits
+each job's command resolved onto one line so a count can be reproduced without retyping anything.
+
+What the episode did expose is that the lint had no way to be checked. It existed to prove something
+about the gate, and its own set arithmetic — floor, union, disjointness, drift — had never been run
+against a known-bad input, which is the same posture as the workflow comment that confidently claimed
+a mis-scoped path "fails loud" and was false for months. So the lint moved to
+`tooling/lint-test-collection/`: the arithmetic is now separable and covered by
+`collection.test.mjs`, where each assertion is shown to bite on the failure it names and to stay
+quiet on the near-miss that is legitimately fine (a file claimed by two projects is two entries, not
+a double-payment). One real hole is closed with it — the lint checked that every invocation it holds
+still exists in the workflow, but never the reverse, so a fourth test job added to `gate.yml` and
+never registered would have taken a share of the suite that the coverage check then credited to
+nobody. The invocation list is now closed in both directions.
+
+`docs/conventions/build-performance.md` records what the lint proves and, newly, where that proof
+stops: at collection, not execution, with the measurement that currently bridges the two and the
+warning not to read a shard's count as a job's.
+- **The cost listing narrowed to drafts exactly as the time listing did.** Asking for a matter's costs
+with no status returned only the draft ones; everything submitted, approved, invoiced or voided was
+excluded, and the contract declared the parameter optional with no default and no note. A matter
+that had been billing for a year showed almost nothing.
+
+An absent status now means every status. Narrowing to one remains the work-in-progress question, and
+the contract says so.
+
+The listing resolves the vendor's directory name in the same statement rather than answering with an
+identifier. A matter with fifty disbursements would otherwise be fifty lookups to print one column.
+Two outer joins, because a vendor is optional on a cost and may be a person or an organization; the
+screen tells "no vendor recorded" from "the directory entry is gone", which are different facts and
+`vendorId` is what distinguishes them.
+
+The Costs section is built over the repaired read, replacing a fixture table. It shows each cost's
+status and its hard-or-soft class, and totals what the firm advanced beside what it may recover —
+the difference being what the firm decided to absorb, which is a decision worth seeing rather than
+one figure hiding it. Voided costs are excluded from both, since a withdrawn cost was never advanced.
+
+**Both silent defaults are now gone, and there were only two.** The other seven query defaults in
+the route surface are page sizes and explicit nulls, so this was a repeated mistake rather than a
+class needing a gate.
+- **Asking for a matter's time answered with its drafts, and nothing said so.** The per-matter listing
+defaulted its status filter to `draft` when the caller named none. The contract declares that
+parameter optional with no default and no note, so a client reading it would expect the matter's
+time record; what came back excluded every entry that had been submitted, approved, invoiced or
+voided. A matter with a year of billed work read as nearly empty.
+
+An absent status now means every status, which is what a matter's time record is. Narrowing to one
+is still available and is the work-in-progress question, asked by a different caller for a different
+reason; the contract now says which is which.
+
+The listing also resolves the timekeeper's name in the same statement rather than answering with the
+identifier. A matter with forty entries would otherwise be forty reads to print one column. The join
+is outer: a member can be archived while the time they recorded stays on the matter, and that reads
+as an honest absence rather than a user handle where a person's name belongs.
+
+The Time section is built over the repaired read, replacing a fixture table. It shows the status of
+every entry, because a voided line and a billed line are not the same fact, and it totals only the
+billable time that still counts. Starting a timer from the screen waits on the timer surface and
+renders as an affordance that says so.
+- **`pnpm test tooling` collected nothing and reported that the directory had no tests. It now collects
+all 34 files, and a filter that genuinely selects nothing says which of the two happened.** The
+snapshotter also reaps its own working copies again, after ~125 of them filled a disk.
+
+Three unrelated pieces of developer-tooling friction, batched because they live in the same two
+directories.
+
+**A directory filter now resolves across projects.** The runner matches a positional filter against
+each project's OWN root-relative paths, and every `tooling/*` project roots at its own directory —
+so `tooling` matched nothing anywhere: relative to `tooling/clean`, its one test file is
+`select.test.mjs`, a string not containing "tooling". `packages` and `apps` had the same shape. That
+made the documented idiom — the root `CLAUDE.md` says to filter by PATH, not by test name — fail on
+the directories most likely to be filtered that way, and answer with "No test files found", which
+reads as _nothing here has tests_ rather than _your filter matched nothing_. An absolute path always
+did resolve, which is why the gate's test jobs spell every path `"$PWD/tooling"` — not a style choice
+there either, after a relative `packages` filter once collected zero of the packages' tests while the
+gate stayed green. `pnpm test` now resolves a directory filter to its absolute path before the runner
+sees it (`tooling/test-single-flight/path-filters.mjs`), so the short spelling means the working one
+and nobody has to know the gate's idiom. Filters that are not directories — `select.test.mjs`, an
+option's value — are passed through untouched.
+
+**And a selection that provably cannot match is refused before the lock is taken**, naming the filter
+and saying that it matched nothing rather than that the directory is empty. The one refusal condition
+is proof, not heuristic: the project list in `vite.config.ts` is closed, so a directory with no
+registered project at, above, or inside it can never yield a file however the filter is spelled. A
+directory that does hold a project but whose `include` globs happen not to cover it is left to the
+runner — proving that case would mean re-implementing glob resolution, and a wrong refusal blocks a
+run that would have worked.
+
+**The load-profile snapshotter reaps its own working copy.** It `mkdtemp`s a directory per load and
+copies the whole snapshot database into it; nothing removed them, and ~125 accumulated to ~8 GB until
+the box hit 100% disk. Reaping now belongs to the code that created the directory — the only code
+that knows its name — on close, in a `finally` so a failed handle-close still reaps, and on process
+exit, because the measure CLI is a straight-line script whose mid-run throw never reaches its own
+`close()`. That is how they leaked. As a backstop for a run killed outright, `vp run clean` sweeps
+abandoned copies older than 24 h. The sweep matches the `mkdtemp` name shape exactly rather than by
+prefix, so it cannot take the fixture cache that shares the prefix and belongs to a different
+creator, and the age bound is the whole safety argument for deleting by name: without it the sweep
+would race a live run and delete the database it was measuring against.
+
+**The inner loop's wasm-artefact precondition is left as it is, deliberately, and now says why.** It
+looked like the one unconditional step in a gate that scopes everything else to the diff — svelte-check,
+the Rust gate, drizzle snapshots and the fitness sweep all skip with a stated reason. Scoping it to
+the diff is nevertheless wrong, and measuring said so: in a fresh worktree `vp run typecheck` fails
+with twelve `TS2307`s on the missing generated `.d.ts` files. That step is itself unconditional and
+`tsc -b` builds the whole reference graph, so whether the artefacts are needed is a fact about the
+build graph, not about the diff — no diff-shaped condition can be both sound and useful. Skipping the
+check would only trade one clear message naming its own repair for twelve confusing ones. The
+reasoning is recorded at the step and in `docs/conventions/build-performance.md` so the next reader
+reaches the same conclusion without re-measuring.
+- **A real matter rendered blanks where a sample matter rendered detail.** The client's mapper for a
+live matter read hardcoded seven fields to null: the matter type, the Location, the responsible
+attorney, the e-billing flag, and all three instants. Only the three in-repo sample matters — the
+fixtures the interface is reviewed against — ever showed those, which is the worst way round for a
+demonstration to be wrong.
+
+Three of the seven the contract already carried and the client's payload type simply did not accept,
+so they were parsed away on arrival. The other four the contract did not carry at all.
+
+The detail read now resolves the type, the Location and the responsible member to **names**, in the
+same statement, rather than answering with the identifiers a screen cannot print at a person. That
+is a separate statement from the one the lifecycle service uses: deciding whether a matter may open
+or close has no business paying for three joins to learn a name it will never render. All three
+joins are outer, and an unset type or an archived member reads as an honest null rather than an
+identifier standing in for a name.
+
+The three collections stay empty on purpose and now say so in the code. Files, time entries and
+costs each have their own list endpoint on their own screen; filling them from the matter read would
+be three calls the overview does not need and a record that goes stale the moment one of those
+screens writes.
+- **The gate of record has executed nothing since 2026-08-05, and the reason is not in this repository.
+Ten days of pull requests merged against a status that looked like a failing build and was actually an
+account that could not start a job.** The runner labels were never the cause; no workflow change lands
+here, and the one action that clears it is now on the deploy queue.
+
+The standing suspicion was that `ubuntu-slim` — introduced by the CI cost-reduction work — is not a
+real runner label, and that fixing or reverting it would restore the gate. Checked against GitHub's
+current runner reference, `ubuntu-slim` is generally available, needs no plan and no enablement: a
+1-CPU / 5 GB container runner, exactly as `gate.yml`'s own `RUNNERS` header describes it. Three
+independent observations then rule it out as the cause:
+
+- Run 351 on `main` (2026-08-05, 04:04Z) failed with the identical fingerprint at a commit whose
+  `gate.yml` carried **thirteen `ubuntu-latest` jobs and no `ubuntu-slim` at all**.
+- `assemble-docs.yml`, which is entirely `ubuntu-latest` and contains no `ubuntu-slim`, has been
+  failing the same way on every push to `main` throughout.
+- Moving the `changes` job to `ubuntu-latest` on a live branch and pushing it reproduced the failure
+  exactly — 2 seconds, `runner_id: 0`, no logs. The proposed fix was measured, and it does not work.
+
+The outage began between 03:16Z and 03:46Z on 2026-08-05, three hours **before** `ubuntu-slim` first
+entered the repository, which settles the ordering on its own. What actually happens is that GitHub
+refuses to start any billable job for this private repository: the job is created, no runner is ever
+attached, and it concludes `failure` in two or three seconds with a log endpoint that 404s. The Free
+plan includes 2,000 Actions minutes a month for private repositories and GitHub blocks usage once the
+quota is spent with no valid payment method — which is what the austerity note said on the day it was
+written, before the diagnosis drifted into "no runner assigned" and then into a label theory.
+
+**What lands:** the recognition rule in `operations.md` — `runner_id: 0` with an empty `runner_name`
+is a job that never started, and it must be read as _unverified_, never as _broken_ — plus the owner's
+billing step at the top of the deploy queue, a corrected date and cause in `ROADMAP.md` (it read
+2026-08-07), and a revert checklist in `build-performance.md` that now keys off an observed non-zero
+`runner_id` rather than a calendar month turning over. `gate.yml` itself is untouched, deliberately:
+reverting the labels would spend three times the runner rate to fix nothing.
+- **ADR-0167 has said since June that the Worker-extraction rubric "and the worker template are the
+living standard in `docs/conventions/operations.md`," and the rubric was never written there.** A
+`grep -i rubric` over that file returned nothing. The cost is not hypothetical: the question of which
+subsystems earn their own Worker was re-derived from first principles in a long exchange, by two
+people who each looked for the rule where its own decision says it lives and did not find it. The
+rubric now lives there, as § 18.
+
+It is written to be decided from — a reader settles "does this subsystem get its own Worker?" without
+opening the Decision Log. The five properties are stated as tests rather than labels (property ③ is
+"state the contention as a sentence," which is why the discovery and search containers are separate
+Workers: extraction saturates CPU for hours during a bulk load while search's premise is staying warm
+for sub-second queries). The compute-vs-coordination seam is stated in full, and the fleet is
+tabulated as worked examples — the nine container-owning Workers with the properties each cleared, the
+four Workers that exist for other reasons and did not come through the rubric at all, and the eleven
+coordination Durable Objects that deliberately stayed in the app Worker.
+
+Three things the rubric's own history makes worth writing down. Search reads like a counter-example
+and is not one: it failed the statelessness gate as first posed, got a stateful-service design
+instead, and reaches its dedicated Worker only because that design moved the index state out of the
+container — the rubric was not bent. "One deployable, one origin" (ADR-0069) is reconciled rather
+than quietly contradicted: what survives is one public origin, and every extraction since is internal.
+And the containment property is what binds, not the literal absence of a route — which is why
+`magna-carta-edit` is browser-facing on a cookieless content domain and still satisfies it.
+
+The clause placing coordination Durable Objects in the app Worker carries a short note that it is
+under active revision by a decision in flight, since the API surface is being split from background
+orchestration. The note names no ADR number and predicts no outcome; it says which sentence moves and
+which does not, so the decision that supersedes it replaces one block quote rather than the section.
+
+Nothing in the Decision-Log register was edited — it is assembled on `main`. One inaccuracy in
+ADR-0167 is left standing and reported rather than silently corrected in the retelling: it lists "the
+pure-Rust PDF engine" among the Container family, and that engine shipped as in-process WASM in the
+app and sign Workers, with no container anywhere.
+- **The scoped gate could not pass a change that touched only screens.** `pnpm check:scoped` handed
+every changed path to `vp check`, which runs the formatter and the linter together; the formatter has
+no Svelte parser and refuses outright when *every* path in the set is one it cannot format. A change
+set of nothing but `.svelte` files therefore failed the gate with "Expected at least one target file"
+regardless of what was in it &mdash; and the pre-push hook runs this gate. It stayed hidden because
+every screen built so far shipped alongside a route or a transport module, and one formattable path
+in the set makes the refusal disappear.
+
+The two passes are now split the way `pnpm fix:scoped` already split them, and for the reason that
+script already stated: each pass gets only the paths it can parse. The step construction moved into
+its own module so the split is a pure function with a test, rather than something only a real run can
+falsify.
+
+**The matter sections kept the previous matter's answer on screen while the next read ran.** Costs,
+Time and Parties set their list inside an effect keyed on the matter without clearing it first, so
+navigating between two matters left the old table and any old failure standing until the new read
+landed. A failure was attributed to the matter now on screen; a list was read as that matter's own.
+Each now discards the old answer before asking for the next one.
+
+Parties discards on a change of *matter* only. Its reload after a sever is the same matter's list
+being read again, and blanking it there would flash a skeleton over a table the reader is still
+looking at.
+- **Template registration leaks bytes, and until now nothing could even say how many.**
+
+Registration writes its bytes to R2 inside the idempotent effect and before the scan, so a
+registration that throws in between leaves a full copy behind. Each attempt mints a fresh key, so
+retries multiply it, and the storage reconciliation never reaches them: that pass lists `files/` and
+`bulk/` only, and corrects the meter rather than deleting anything.
+
+A daily pass now **measures** the leak: per firm, it walks `templates/` and counts every object no
+`document_template_version` row anywhere in the fleet names, that is not a staged upload, and that is
+older than a 24-hour grace period.
+
+**It deletes nothing, and that is the finding rather than a shortcut.** The rule "delete the
+complement of the live set" is only as safe as the live set is complete, and completeness cannot
+currently be verified. A read that FAILS can be caught, and is — one failure disarms the whole pass.
+A read that SUCCEEDS AND RETURNS NOTHING cannot be told from a firm that holds no templates, because
+the per-firm database object self-migrates on construction: address it under the wrong name and it
+answers zero rows from a brand-new empty database rather than throwing. The residency seam already
+documented in the database proxy makes that reachable — the first jurisdiction-bound firm will be
+addressed with a jurisdiction its statements carry and this pass does not.
+
+Arming the delete wants the invariant to become checkable, most plausibly by stamping each object
+with the firm that wrote it, so an orphan is decided against ONE firm's rows and the fleet-wide union
+disappears along with its blast radius. That is a design decision with a real trade, and it is filed
+for the owner rather than taken here.
+
+**The retention read is paged.** It crossed the per-firm database boundary in a single response, and
+a failed retention read disarms the whole fleet's pass — so a firm large enough to overflow one
+response would not have slowed the measurement down, it would have switched it off, every night,
+silently. It is a keyset walk over the object key now; the key carries the version identifier, so the
+ordering is total and no row can be skipped or repeated across pages.
+
+**Two smaller things the review corrected.** The candidate count is DISTINCT KEYS, not sightings:
+template keys carry no firm segment and every firm resolves to the same bound bucket, so each firm's
+pass walks the same prefix and a per-sighting count would scale with tenancy rather than with the
+leak. And the per-firm cap is a budget per PASS, not per that firm's own objects — the fleet-wide
+ceiling is the cap times the number of active firms, which the earlier wording claimed the opposite of.
+- **The shipping credential-store defect was a class, and the class has now been swept: seventeen
+injection seams in the worker's composition root, each exercised against `createApp()` with no
+overrides. Fifteen are honest or legitimate. One more was not — `POST /api/v1/scan/diagnose`
+answered `500 Internal server error` with an Error ID where the scan engine is wired but
+unreachable — and it now answers `503`.**
+
+**What a member got.** The route's own description promised "an honest `unscanned` verdict until the
+scan Container is activated", and that promise only holds while `SCAN_SERVICE` is **absent**.
+`wrangler.jsonc` declares the binding, and Cloudflare refuses a deploy whose service binding names a
+worker that does not exist — so the state a deployment actually spends time in is bound-and-answering-5xx
+(a placeholder worker, a Container that is not up), where `containerScanAdapter` threw a bare `Error`
+and the member asking whether a file was safe was told the platform had broken. The
+sibling `POST /api/v1/file-type/verify` degrades to a clean `503` on the identical condition. The
+tools reality check recorded the inconsistency on 2026-08-15 and left it, because choosing between
+"fault" and "verdict" for an unreachable engine is a safety decision; this changes neither — it
+changes only how the fault is **reported** on the one surface that answers a person directly.
+
+**The fix, in the vocabulary that already existed.** A 5xx from the scan service now throws
+`ScanFaultError` — the error the verdict layer already raises for a deployed engine reporting
+unavailable, because it is the same fact: no scan happened and none can right now. A 4xx keeps the
+plain throw, since this adapter and the service disagreeing about the request is fixed by neither a
+retry nor a deploy. The diagnostic route catches the typed error and returns the registered
+`service-unavailable` problem, whose contract — the condition clears when the binding is activated —
+is true here. Nothing about the ingest consumer changed: a queued file with an unreachable engine
+still throws, still retries, and still never commits as clean.
+
+**Why nothing caught it.** `apps/api-worker/vitest.config.ts` registers a stub worker for every service
+binding, and the scan stub answers an honest engine-less result over HTTP 200. A stub that behaves
+correctly proves only that the route works against a healthy service.
+`scan-unreachable-engine-seam.test.ts` binds a placeholder that answers 503 and pins both states
+apart: nothing wired at all is still a verdict a firm can read (`unscanned`, reason `no-engine`), an
+unreachable engine is a refusal.
+
+**The count, because it is the result.** Of seventeen seams: eleven are legitimate injections with no
+production placeholder to test against (the clock, the logger, the fetch and socket adapters, the
+browser renderer, the presigner and firm-resource-provider pairs, the flag evaluator, the assistant's
+self-marked deterministic inference port, the recovery backend); four were already honest and now
+verified by running them (`esign.seal` → `503`, `ai-detection.detect` → `422`,
+`tools/turn-credentials` → `503`, the conversion and search engine ports' `engine-not-implemented`);
+one was the shipping defect, fixed already; one is this. So the shipping case was closer to unlucky
+than typical — but the reason it survived was systemic, and
+[`docs/conventions/testing.md`](../docs/conventions/testing.md) now carries the rule: every injection
+seam has at least one test that supplies nothing and asserts what a real request gets.
+
+**Not fixed here:** the scan engine's deployment, and the transactional-email adapter, which is the
+one remaining seam whose production default is a placeholder — with `EMAIL_FROM` unset the logging
+adapter is selected and every verification and reset message is written to a log and dropped while
+the API answers success. That is the documented deploy-time activation in the operations runbook, not
+a code defect, and it is the seam whose failure no status code can show.
+- **`main` was red on a second count nobody had traced: the web app's test project could not resolve
+`$lib` at all. Seventeen tests had never run.**
+
+`apps/web/vitest.config.ts` uses a plain node pool and deliberately leaves SvelteKit's plugin out —
+it never runs a dev server or a build, and the comment at the top explains why. What the comment did
+not account for is that `$lib` is SvelteKit's alias, and its plugin is the thing that resolves it.
+`.svelte-kit/tsconfig.json` maps the alias for the type-checker, so the code type-checks; at test
+time nothing mapped it at all.
+
+Thirty-six modules under `src/lib` import through the alias. Any test reaching one of them dies at
+load with `Cannot find module '$lib/…'` — a whole-file failure that reads like a missing dependency
+rather than a missing config line, which is most of why it went untraced. Only one suite reached
+one, so the hole waited for `create-document.test.ts` to be written and then looked like that
+suite's problem.
+
+The config now declares the alias itself, independent of SvelteKit and matching what the generated
+tsconfig maps. `create-document.test.ts` passes, 17 tests; the whole web project passes, 380.
+
+**A guard, not just a fix.** `test/lib-alias.test.ts` imports *through* the alias, so the hole
+cannot reopen quietly — verified to fail with `Cannot find module '$lib/api/request.ts'` when the
+alias is removed, and to pass when it is there.
+- **The instruction that creates an active-work note is shorter than the note format, and the
+difference is the part that makes the note findable.** `CLAUDE.md` said to add
+`docs/active-work/<branch>.md` with a scope and the files you expect to touch. The registry needs
+two more things: the path must mirror the branch exactly, slashes included, and the file needs a
+frontmatter block. A note that misses either is not rejected — it is simply never read, so the
+stream it describes warns nobody and `vp run retire-note` cannot find it afterwards to clean it up.
+
+The registry already detects both failures and names them, in a section written precisely for this
+case. It is only reached by running `vp run worktrees`, which the instruction did not say to do.
+Now it does, and the two requirements are stated where the note gets written rather than only in the
+format document.
+- **`changelog.d/a-firm-puts-its-own-fields-on-an-asset.md` gains the developer entry it was marked
+`public` without.** The fragment carried only customer-facing prose under no `## Public` heading, so
+`lint:changelog-fragments` had been failing on `main` since it landed — `vp run changelog-build` would
+have refused to assemble either changelog. It surfaced the moment that lint moved into the inner loop's
+always-on step; a red gate on arrival is exactly what a gate is for, but it belongs fixed in the same
+change that starts enforcing it.
+- **`pnpm fix:scoped` deleted type assertions the code needed, and the file stopped compiling.** The
+rewrite strips the shape assertion off `await response.json()` in the worker's route tests. It is
+reproducible: two assertions in, zero out, ten TS2571 errors on a file that type-checked a moment
+earlier, and it reaches every such assertion in the file rather than only the ones just written.
+
+The two tools disagree about the same call. `typescript/no-unnecessary-type-assertion` reads
+`.json()` as returning `any`, against which any assertion is a no-op worth deleting; the type-check
+of record resolves it to `unknown`, against which the assertion is the only thing making the
+property access legal. The fixer trusts its own answer and rewrites.
+
+It joins the two rewrites already held back from the unattended fix pass. The finding still shows in
+every check path, as those do — seeing it and deciding is the point; having it applied while you
+look away is not.
+- **A resource's availability could report a room as free when it was double-booked.** The read caps at
+two thousand bookings in the window, then pairs overlapping bookings over the rows it was handed. A
+booking past the cut that overlapped one inside it was a conflict the grid never painted — a _wrong_
+answer rather than a short one, and wrong in the direction that says a room is available.
+
+The cap was reachable with ordinary data, not only pathological data: the window is capped at 366
+days, and a well-used meeting room booked six times a working day crosses two thousand inside one
+year. The read now **refuses** past the ceiling and names the remedy — ask for a shorter window —
+taking the posture the continuance walk and the stocktake reconciliation already take when an answer
+cannot be given accurately in one pass. The ceiling is injectable so the refusal is provable at a size
+a test can seed rather than by writing two thousand rows.
+
+**The resource picker's silent backstop now reports itself.** Five hundred was a magic number in the
+route handler; it is `MAX_FIRM_RESOURCES` beside the statement, and the response carries `capped`. The
+picker still returns the whole catalog rather than a page, because a picker missing a room says the
+room does not exist — but a firm that somehow holds more bookable things than one answer carries is
+now told to filter by kind or office instead of being shown a short list that looks complete.
+
+**The event-type catalog and the continuance chain are recorded as bounded by construction**, each
+with what bounds it: a firm's own event vocabulary, and `MAX_CONTINUANCE_CHAIN_DEPTH`, which
+`readContinuanceChain` already asserts on every step because a chain longer than that is corrupt
+rather than continued. The chain must also stay whole — it is the procedural history of one hearing,
+and half of it is a different account of what happened.
+- **`file_version.uploaded_by` was classified as containing no personal data, so erasing a member left
+their name on every document version they had ever committed.**
+
+The column has existed since the baseline schema and is deliberately not a foreign key — the upload
+fact is meant to outlive the member row, so nothing cascades when an account is removed. That is the
+correct shape for chain of custody and exactly the shape that needs an erasure rule. It had none: the
+table sat in the registry's no-personal-data list under a note enumerating the object key, the hashes
+and the status, which simply did not mention the uploader.
+
+Three tables already carry the identical shape and the identical answer — the billing record's
+timekeeper, the audit log's actor, the conflicts check's actor — all `pseudonymize-keep`. This is now
+the fourth. Pseudonymize rather than delete, for the reason the append-only tables do: that somebody
+committed this version at this time is a fact a firm can be asked to account for, and removing the
+row would break the version lineage the current-version pointer walks.
+
+Found while specifying a version-history surface that wanted to show who uploaded what. The wire
+field is a separate question; the erasure gap was true with or without it.
+- **The calendar source-fitness pass stopped re-migrating a database per assertion.**
+`packages/calendar/test/source-fitness.test.ts` built a fresh in-memory per-firm database inside
+`statementsFor`, so every one of roughly seventy-five statement compositions re-read the committed
+migrations off disk and replayed the whole schema — fourteen seconds of DDL to prove properties
+about composed SQL text, none of which is ever executed. One migrated handle now serves the file,
+matching `test/visibility-fitness.test.ts` and `test/load-profile.test.ts`; the file's test time
+falls from 14.65 s to 50 ms across the same 64 assertions. This is what made the pass time out at
+the 5 s default on branches that never touched the calendar: under CPU contention a case doing real
+work gets starved, and the red run then names the wrong subsystem.
+- The build-artifact cleaner now recognises a branch that landed by **squash merge**, which is how
+every pull request in this repository lands.
+
+It asked only `git branch --merged`, an ancestry question. A squashed branch's commits are never
+ancestors of `main`, so the answer was always "nothing is merged" — the post-merge hook swept
+nothing from the day it was installed, and the on-demand run reported `0 worktree(s)` in a tone
+indistinguishable from having found nothing to do. Twenty-six landed worktrees had accumulated
+roughly nine gigabytes of `target/`, `.svelte-kit/`, and `dist/` output before anyone looked.
+
+Three changes, all in `tooling/clean/`:
+
+- **A content test beside the ancestry test.** A branch is landed when merging it into the baseline
+  would change no file — `git merge-tree --write-tree` against the baseline's own tree. That is
+  blind to how the commits got there. A merge that conflicts counts as not landed: the branch and
+  the baseline disagree about something, and this tool deletes things.
+- **A worktree sitting exactly on the baseline commit is never swept.** It has delivered nothing, so
+  every "does it add anything?" test calls it landed — while it is in fact a freshly created
+  workspace with a build running in it. The tip check comes before anything else is asked.
+- **The baseline is `origin/main`, not the local `main` ref**, which drifts behind in a long-lived
+  clone and answers for a state nobody is on.
+
+The report also says which of the two zeros it is: a sweep that selected nothing now names how many
+worktrees it declined and why, rather than printing a total that reads as "all clear" to whoever is
+watching the disk fill.
+- **A case timeline was ninety-four percent one custody predicate, and the predicate was reading the
+wrong table first.** The volume profiles committed alongside the custodian and calendar measured sets
+named it without fixing it; this is the fix, proved against that baseline.
+
+`custodyDueBack` — "what went out and is due back" — and the register's own overdue check-out sweep
+are the same question asked twice. Both were written with the movement ledger as the outer table and
+the packet joined to it, which left the planner two predicates on `custody_movement` to choose
+between: the partial index built for `due_back_on`, and `item_id IS NULL`. It took `item_id IS NULL`,
+which matches every packet-scoped movement the firm has ever recorded — 32,723 of 38,711 rows in the
+profile corpus — and evaluated a correlated most-recent-check-out subquery over all of them. The
+answer is the 91 packets that are actually out.
+
+Both statements now drive from **the packet**. "Still out" is the selective fact — a firm has tens of
+packets out against a ledger that grows for as long as it holds them — so the read seeks those
+packets and asks each one for its latest check-out, one indexed seek per packet. `kind` and `item_id`
+are asserted only inside the subquery that picks that movement out; stating them again in the outer
+`WHERE` filtered nothing and was precisely what offered the planner the worse way in. Same rows, same
+predicates, same reasons — proved row-for-row against the old statement over the whole corpus.
+
+Measured on the profile corpus, against the committed baseline and with no schema change at all:
+
+| Read                             | Before   | After    |
+| -------------------------------- | -------- | -------- |
+| `custody-overdue.sweep`          | 15.30 ms | 0.24 ms  |
+| `timeline.matter-page-1`         | 17.34 ms | 1.74 ms  |
+| `timeline.matter-shallow-page-1` | 17.14 ms | 1.29 ms  |
+| `timeline.matter-page-20`        | 10.60 ms | 1.31 ms  |
+| `timeline.firm-window-31-day`    | 18.58 ms | 14.97 ms |
+
+The shallow matter costing what the deep one cost was the tell that the page's cost was never the
+matter's depth, and it is the number that moves furthest. The federated read's own bounds are
+unchanged — thirteen statements over twelve sources, 180 rows read to return 50 — so nothing here
+traded a statement count for a timing. `custodyDueBack` comes off the firm-window scan allowlist in
+the same change, because it no longer scans.
+- **Four billing list endpoints read with no `LIMIT` at any layer.** A matter's recoveries, a bill's
+credit notes, a bill's delivery attempts, and a client's open credits each built a bare
+`SELECT ... WHERE ... ORDER BY ...` and returned however many rows the firm's own history held. This
+is the same defect as the two matter listings fixed earlier, not the capped-but-silent one the rest of
+the campaign has mostly been.
+
+Three now page over the platform's keyset cursor, all ascending: the recoveries and the credit notes
+because each is a history read forwards, and the client credits because the oldest open credit is the
+one a person reaches for first.
+
+**The recovery read the contingency fee is derived from stays whole, and is now a separate function
+that says so.** The derivation is a sum — a page of recoveries would produce a fee computed from part
+of what the firm recovered, which is a wrong number rather than a short list. `readMatterRecoveries`
+keeps every row for the arithmetic; `readMatterRecoveriesPage` serves the list. A test asserts the fee
+is still derived from sixty recoveries, so the two cannot be quietly reunited.
+
+**The delivery history is capped with a signal rather than paged**, and the ordering is why. Two
+attempts on one day are ordinary — an email in the morning, a posted copy in the afternoon — so the
+sort key is `(delivery_date, recorded_at, id)`, three columns where the platform's opaque cursor
+carries two. Dropping `recorded_at` would scramble same-day attempts into identifier order and lose
+the fact a reader is looking for. The response already leads with a state summary computed from every
+attempt, so the list is detail behind an answer already given; `capped` is what stops the detail being
+cut in silence.
+
+**The credit-note list no longer reads its lines one note at a time.** It was an N+1 whose length the
+bill chose. With the page bounding the identifier list, `readCreditNoteLinesForNotes` answers the
+whole page in one `IN (...)` — two reads instead of one per note, and it refuses a list past the
+bound-parameter ceiling rather than silently building an oversized statement.
+- **Four reads answered without any bound at all, and a fifth was red on `main`.** The shrink-only
+baseline of unpaged list endpoints was traced through to the statement behind each one. Twenty-two
+already carry a limit and want only a cursor; four carried nothing, and each got the answer its own
+shape calls for rather than one applied uniformly.
+
+**Directory search was the worst of them,** because the size of its answer is chosen by the caller
+rather than by the firm's history: a trigram FTS match over every non-deleted name, ordered by
+relevance, `LIMIT` nowhere. It is now capped, and the cap reports itself — the response carries
+`capped`, so a short answer and a complete one cannot be confused. Deliberately not cursor-paged: the
+ordering key is bm25, a score recomputed per query rather than a column the row carries, so a keyset
+over it would page by a value that does not exist in the table.
+
+**A file's version history and a custom field's value history** are both append-only and both now
+page over the platform's cursor. A document under daily revision for five years is close to two
+thousand versions in one response.
+
+**The folder tree was measured and deliberately left whole.** The load profile models 2 to 6 folders
+per matter, and one of the three callers is the ZIP builder, which needs the complete tree to resolve
+paths. Half a tree is not a tree. It moves to the recorded-bound list with that reasoning rather than
+being paged for symmetry.
+
+One trap worth naming: `version_number` is an INTEGER, and the shared keyset helper binds the cursor
+value as the TEXT the cursor carries. SQLite orders across storage classes before comparing within
+one, so every integer is less than every string — `version_number < '9'` would be true for every row
+and the page would never advance. That predicate is written out with a numeric binding, and says why.
+
+**Also fixed: a red test on `main`.** `packages/directory/test/schema-name-sync.test.ts` had been
+failing since the matter Parties section landed — that slice added two projection aliases and never
+widened the package's sanctioned-token list. The aliases are now listed individually rather than
+matched by a pattern, because a rule like "anything ending `_display_name`" would wave through a
+genuine typo in a real column.
+- **A refused invitation redemption no longer reveals whether the code exists.** The refusal published a
+remaining-attempts number taken from the invitation row, and the row is found by the code alone — so
+anybody could type a guessed code with an invented surname and date of birth and read the answer off
+that one number: four left meant a live invitation with exactly that code, five meant no such code (or
+one already used, revoked or expired), zero meant a live code currently locked out. The two facts the
+invitation asks for on top of the code were doing nothing to stop it, because they guard the comparison
+and not the lookup. That is the enumeration the whole surface is arranged to make impossible — a
+machine for confirming that a named code belongs to a real person at a real firm — and it was reachable
+without knowing a single thing about the person.
+
+Every unsuccessful redemption now answers with one identical document, whatever the lookup found: the
+same status, the same sentence, and a budget that counts **the caller's own** attempts rather than the
+invitation's. The caller's ladder is a real one — five tries from one address, then a pause — so the
+number on screen is still honest and still enforced, and it is a fact the caller already knew. The
+lockout countdown that used to appear only when a real invitation was locked is now the caller's own
+countdown, for the same reason: a locked invitation is an invitation that exists.
+
+The invitation's own attempt counter and its lockout are untouched. They are what stops somebody
+walking a date of birth against a code they genuinely hold, and they still spend, still lock, and still
+refuse the correct answer once spent — they simply do so silently. A refusal on a code that matched
+nothing now performs the same control-plane write as one that matched, so the difference the body no
+longer carries is not left sitting in a stopwatch instead.
+- **A template built from legacy Word form fields now says so at registration, instead of registering
+clean and filing the form's own prompts.** A `.docx` whose blanks are `w:fldChar` complex fields with
+a `FORMTEXT` / `FORMCHECKBOX` / `FORMDROPDOWN` instruction and a `w:ffData` block — the shape the
+appellate court forms and a great deal of legacy firm precedent take — contributed no merge key,
+because `mergeFieldNameOf` matched `MERGEFIELD` and nothing else, and `unconvertedMergeFields` only
+ever carried what the `MERGEFIELD` pass had looked at and rejected. So the template registered with
+no failures, no fields, and one warning: `no-placeholders`, whose text is "the template carries no
+merge fields, so every assembly of it produces the same document". That is the exact opposite of
+true for such a template, and the assembled document filed carrying `Click here to enter caption`
+with nothing anywhere having mentioned it.
+
+The normalization pass now detects the construct and records it on the field manifest as
+`legacyFormFields` — the `w:ffData` bookmark name, the field's kind, the part, the occurrence count,
+the author's own status-bar prompt, and the text the document prints there today. Registration warns
+naming each field and what it prints, the version's field list carries it, the `no-placeholders`
+warning is suppressed for a template that has these (it was the most misleading possible thing to
+say about one), and every assembly reports them alongside the unconverted merge fields and lands on
+`succeeded_with_absences`. A refused registration reports them too, so a template rejected for an
+unrelated authoring mistake still names the fields nothing will bind.
+
+**Nothing converts one, and that is the decision rather than a gap.** A `MERGEFIELD` carries a name
+the firm chose, which the firm can confirm the meaning of through the field-mapping library. A form
+field carries a Word-minted bookmark (`Text1`) and a sentence of help text, so deriving
+`client.displayName` from either would be a guess at what a firm's document means, on privileged
+content — the same silent binding decision the engine's name-guessing rule already refuses with
+better evidence available. The two lists are kept separate on the manifest for the same reason:
+blending them would offer "register again asking for conversion" as the remedy for a construct
+conversion does not answer.
+
+Two related facts, named and not fixed: `w:documentProtection` survives the metadata scrub, so a
+template protected as a Word form registers with its edit restriction intact and every document
+assembled from it opens restricted; and whether the product should ever offer a form-field
+conversion is an owner decision, not a default this pass may take.
+- **Three notification types stopped reaching one person, and the class of comment that let that happen
+was swept by hand.**
+
+**The `matter-team` audience resolves against `matter_assignment`.** The resolver narrowed to the
+matter's responsible member on the stated grounds that no per-matter team table existed — true when
+written, false two merges later. It now reads the responsible member unioned with every member
+holding an assignment valid at the pass's own instant, in one statement, deduplicated and clamped in
+SQL at the fan-out ceiling. The responsible member is an unconditional arm rather than an assignment
+lookup, because the assignment write path refuses a role that normalizes to `responsibleAttorney` —
+so a matter with no assignments resolves to that one member rather than to nobody, and reports
+`substituted: false`, because a team of one is a correct answer and not a narrowed one. The
+assignment arm additionally requires an active member, since staffing history outlives a departure by
+design and this audience reaches email. The validity window is read exactly as the document-assembly
+staffing read reads it, so an assignment that staffs a document also staffs its notifications.
+Widening was checked against content first: all three affected types are matter-anchored document
+events carrying no free text, at most one identifier, and a count-only email. No registered type
+declares `audienceSubstitutedFrom` any more, and a fitness test now asserts that emptiness rather than
+asserting the substitution. Decision recorded as
+`the-matter-team-is-the-assignment-table-plus-the-responsible-member`.
+
+**A hand sweep of absence comments, deliberately not a linter.** That comment was true when written,
+false two merges later, and nothing could have caught it; the equivalent problem in the ledger's
+evidence prose was measured last week and found unrulable. So this was one pass by hand over every
+comment in the tracked source asserting that something does not exist. Most were still true — that is
+the point of doing it by hand. Ten were not, and they are corrected where they live: the
+`matter_asset_valuation.encumbrance_id` seam had been waiting for a table that has since landed and
+that the column's own readers already filter on; the file-manager meter telemetry port claimed the
+telemetry package had not landed when it has, and now says plainly that nothing implements the port
+and no meter trend point is written; the email-filing and custodian notification seams claimed to be
+waiting for a subsystem that has shipped, and now name what actually stands between them and a
+delivery; the accordion deferred its height animation on a motion gate that now exists; the tools
+listing claimed no tool had a page when two do; the assemble scaffold claimed there was no assembly
+API when the submit and poll routes exist; and three worker test fixtures granted a permission the
+baseline migration already seeds while explaining that the seeding migration had not landed.
+- **Nine registered permissions were granted to no role, so the surfaces behind them refused
+everybody.** The registry declares 102 keys; the `role_permission` seeds granted 90. Twelve were
+declared and seeded nowhere, and nothing made up the difference:
+`effectivePermissions` (`packages/access-control/src/resolver.ts`) is the union of a member's role
+rows and their unexpired direct grants, with no wildcard and no owner bypass, and no statement in
+`packages/data-access` writes either table — the migration seeds are the entire supply. So an absent
+seed is not a default a firm can change; it is a 403 for every member of every firm, forever, that
+reads exactly like a firm having configured things that way.
+
+**Four of the nine are the co-editing surface**, enforced at the chokepoint since 2026-06-22 and
+unreachable from that day: the editor launch (`documents:edit`), the offline checkout and its
+check-in (`documents:checkout`), the divergent-copy resolution (`documents:reconcile`) and the
+force-release of another member's lock (`documents:forceReleaseLock`). No test caught it because
+every editing suite inserted its own `direct_grant` first — and one of them carried the comment "the
+role-seeding migration lands at integration", which is where the migration stopped. Those suites now
+hold nothing but seeded roles, so the denial each asserts is a seat the seed deliberately does not
+reach rather than an artefact of its own setup.
+
+**Five are Tools catalogue manifests** — the property-listing, county-records, business-entity,
+attorney-licence and shipping tiles. `toolsByGroup` (`packages/tools/src/select.ts`) renders only the
+tools whose permission the member holds, so four whole subject groups never appeared on `/tools` for
+any seat. Every tool added to the catalogue after the baseline shipped with its own seed in the same
+commit; these five were declared against a Tools shell that did not exist yet and the seeding never
+followed the shell when it landed.
+
+**The split, and why it is not one line.** `documents:edit` and `documents:checkout` reach the three
+content-writing seats, exactly where `files:upload`, `files:organize` and `documents:assemble`
+already sit — typing a new version and uploading one are the same act through two doors.
+`documents:reconcile` stops at Owner/Admin and Attorney: choosing which of two divergent copies
+becomes the firm's text of record is the `files:delete` bracket, not the drafting one.
+`documents:forceReleaseLock` stops at Owner/Admin alone, because an override every editor also holds
+is not an override; nothing deadlocks behind that, since the exclusive lock is opt-in and the
+idle-checkout sweep frees a stale hold on the daily cron. The four link libraries reach every default
+role — they open a public-record website and read nothing of the firm's — and the shipping tile
+matches `shipping:manage` at Owner/Admin, because every operation behind that tile is gated on it.
+
+**The other three are correct and were established rather than assumed.** `firm:provision` and
+`support:mintSession` sit on `surface: "public"` routes whose session, authn and RBAC steps the
+chokepoint skips by design (`apps/api-worker/src/chokepoint/chokepoint.ts`), so their permission is
+nominal metadata beside a header-token guard. `diagnostics:overview` is carried by a diagnostic
+support session through `resolveSupportPermissions`, never by a firm role, and seeding it would hand
+every member the help-desk view the tier exists to keep separate.
+
+**A firm provisioned before this migration gets the rows on its next wake**, since the per-firm
+`FirmDatabase` applies pending migrations when it starts — asserted by splitting the committed
+lineage at this tag and driving exactly that, with the same end state as a firm created today.
+- **The active-content badge was recorded on uploaded files and dropped on templates — the path where
+it matters most — because the same decision was written twice.**
+
+When the scan engine reports a clean verdict over bytes that still hold PDF JavaScript or Office
+macros, `computeVerdict` returns `activeContent: true` and the file-ingest path records
+`scan_detail: "active-content"`. The template-registration path recomputed that decision inline and
+wrote `null` for every clean verdict, so the one signal the platform actually computes about
+executable content survived on uploaded files and was discarded on templates. A template is, by the
+route's own comment, untrusted content a firm will run against privileged data.
+
+**There were three writers, not two.** The in-place re-scan is the third, and it sets the column
+unconditionally with the flagged reason — null for a clean verdict — so a version already badged
+`active-content` had that badge erased the first time an engine-version bump re-scanned it. Not by a
+weekly sweep — that helper selects on `scan_verdict = 'unscanned'`, so it can never see a badged
+version, and no cron routes to it. The re-scan runs from the ingest consumer, reached three ways:
+downloading or previewing a version whose recorded engine is stale, a member re-scanning a matter,
+and — the one that makes this wider than it looks — the nightly storage passes. Both the editing
+tiering sweep and the object-dimension backfill re-put objects at the same key, and a `PutObject`
+under the `files/` prefix is an ingest notification like any other, so versions nobody has ever
+opened were re-scanned too. The badge
+is now `scanDetailFor` in `@magna-carta/file-manager/verdict`, called by all three. Fixing it in place
+would have left copies free to diverge again; this is one home with its own unit tests.
+
+**A second literal in the same function named the wrong file type.** The template scan hardcoded the
+OOXML wordprocessingml MIME as its `sniffedContentType` for every template, including a fillable PDF.
+It now passes the type for the kind the preparation arm actually validated the bytes as — deliberately
+not the `?kind=` the presigned PUT was signed for, which nothing forces the registration body to match.
+This changed no behaviour: the scan container hands the type only to heuristics that ignore it and
+dispatch on magic bytes, and the prefilter that would consult it is built but deliberately unwired. It
+is corrected because the value is a claim about the bytes and it was false, and because a truthful type
+is what makes wiring the prefilter a no-op instead of a misclassification arriving with it.
+
+**What this does not do yet, on either side.** No surface shows an `active-content` badge to anyone —
+which is a narrower claim than "nothing reads the column", and the narrower one is what is true.
+`scan_detail` reaches a client on five file paths: two flagged-download refusals in `routes/files.ts`,
+and as `quarantineReason` on the file list, the file read, and the upload poll, which `apps/web`
+renders. All five are gated on a verdict the badge cannot have — `flagged` or `quarantined` — and
+every quarantine writer records its own reason rather than a badge, so no reader can reach one. The template column has no
+reader at all. So this fixes a STORED FACT ahead of
+the surface that will read it, on both paths — not a visible regression. Neither is backfilled: a file
+regains its badge the next time access re-scans it, and a template version registered before this keeps
+its `null` permanently, because nothing re-scans templates.
+
+Recording it right first is deliberate rather than incidental. A badge the platform never wrote is not
+something a later screen can recover, and the whole defect here is two writers quietly disagreeing about
+a value nobody was looking at.
+
+**Both call sites are pinned by tests that fail when the fix is reverted.** The re-scan writer fails
+`ingest-consumer.test.ts`; the template writer fails `pdf-form-templates.test.ts`. The template one
+needed a deployed engine answering clean-with-active-content, because that is the single verdict the
+replaced expression and `scanDetailFor` disagree on — the old one already recorded the reason for
+`unscanned`, which is all the pool's engine-less stub can produce. Two earlier attempts tried to
+smuggle a marker through the bytes and failed, because the route scans the output of the form scrub
+and the scrub re-serializes the document. The bytes were never the seam: `resolveScanPort` reads
+`SCAN_SERVICE` off the request env, so the test overrides that binding with a fake engine, exactly as
+`scan-unreachable-engine-seam.test.ts` drives an engine that will not answer.
+
+**Not changed, and worth stating.** A template version activating on an `unscanned` verdict is not a
+defect — `packages/file-manager/CLAUDE.md` records it as explicit launch policy for a firm with no
+engine deployed, and the template path mirrors the file path exactly. A deployed engine that will not
+answer still raises `ScanFaultError` out of the registration handler, which is safe (nothing commits)
+but reaches the caller as an Error ID rather than the retry-shortly `503` `scan-diagnose` gives for
+the same fault; the effect callback owes a write and a response code rather than a `Response`, so
+that fix belongs one level out and is filed rather than forced in here.
+- **Three defects in the trust reconciliation and statement-import reads: a fingerprint whose canonical
+form reserved a character the file is free to contain, a capped read with no truncation probe, and
+one word with two definitions.**
+
+**The preview fingerprint is unambiguous rather than merely reproducible.** The canonical text a
+statement-import fingerprint is taken over ran the parsed fields together with a control character
+between them. A separator can only carry that weight if a field cannot contain it, and a bank writes
+whatever it likes into a description, a reference, or a payee column — this parser passes every
+character through. A file carrying the separator inside a field canonicalizes exactly as the same
+characters arranged one field to the left do, so a shift across a field boundary reproduces the
+fingerprint the preview already returned and the confirmation stores a file nobody reviewed. Every
+field is now written as `<length>:<text>`, which leaves a reader one place to cut, and the two
+invisible control characters leave the source with it. This changes the fingerprint value of every
+file, which is harmless: a fingerprint is only ever compared against one a preview returned in the
+same request cycle, no column anywhere stores one, and a preview taken before the change and
+confirmed after it is refused with `statement-import-preview-mismatch` — the honest answer, and one
+whose remedy is to preview again.
+
+**The unmatched-statement-line read asks one row past its ceiling, like the read beside it.** The
+outstanding-item read has always probed for truncation and refused
+`reconciliation-outstanding-items-truncated` rather than proving a period from a list that stopped at
+its cap; the line read did not. It was whole only because a statement is separately capped at
+`MAX_TRUST_BANK_STATEMENT_LINES` (2,000), which happens to sit below `MAX_TRUST_RECONCILIATION_ROWS`
+(5,000) — an arithmetic accident neither constant states and nothing would have caught if either
+moved. `frozen_unmatched_line_count` is one of the figures a close freezes as the firm's attestation,
+so the same invariant binds: the new `reconciliation-unmatched-lines-truncated` refuses with a
+sentence a member can act on, and both truncation refusals now answer as the
+`trust-reconciliation-truncated` problem type instead of falling through the catch-all that tells a
+firm the trust rules refuse its reconciliation.
+
+**One definition of "unmatched line".** The proof derived it from SQL; the matching surface
+re-derived it by subtracting the reconciliation's active matches from the statement's lines in
+memory. The two agreed — same active-match predicate, same reconciliation scope, same treatment of
+withdrawn matches and of matches on a superseded period — which is precisely why the duplication was
+worth removing rather than reporting: both forms answer plausibly, so the day they parted company a
+member would have worked one list while the close attested to another. `matching.ts` now calls
+`readUnmatchedTrustBankStatementLines`, which is also how the matching surface inherits the new
+truncation probe.
+- **Shipping told a member their draft was fine and then broke. Connecting a postage account, rate
+shopping, buying, tracking and refunding all returned `500` with an Error ID, because the per-firm
+credential read is an unbuilt seam that threw when the integration registry was assembled. The
+refusal now arrives first, by name, as a `501`.**
+
+**The sequence that shipped.** `POST /api/v1/shipments` returns `201` — it never touches the
+registry. `POST /api/v1/shipments/{id}/rates` then returned `500`, and so did purchase, tracking and
+refund. So did `POST /api/v1/integrations/shipping/connection`, which is the remedy a member would
+reach for: `firmSecretStoreNotYetAvailable` threw before anything was stored. A real EasyPost key
+and every worker deployed would have changed nothing, because the code that reads a stored key does
+not exist yet. `shipping-e2e.test.ts` injects an in-memory secret store, so it exercised none of
+this; the new `shipping-unbuilt-credential-seam.test.ts` builds the app on the production default and
+pins the whole sequence.
+
+**The framework already had the shape, and now has the word.** `Dispatch` gains a fourth failure
+reason, `credential-store-not-implemented`, beside `not-connected`, `capability-unsupported` and
+`adapter-error` — the same first-class deferred-seam state the conversion and search ports carry as
+`engine-not-implemented`. `SecretStoreForFirm` returns `SecretStore | null` instead of throwing, and
+the worker hands the registry `unbuiltCredentialStore` when it is null. Resolution answers the new
+reason **before** the connection lookup: with no credential read there is no connection that could
+ever resolve, so "not connected" would be a true sentence pointing at the wrong remedy — that one a
+firm fixes by connecting an account, this one only a build fixes. A credential-less adapter still
+resolves.
+
+**Why `501` and not `503`.** `service-unavailable` promises the condition clears when a binding is
+activated at deploy time, and no deploy clears this. `not-implemented` is the registered type for
+"known, and not built", the same correction WHOIS took for its registry-less TLDs.
+
+**Drafting still works, on purpose.** A draft is the firm's own addresses, parcel and options in its
+own database and needs no carrier, so refusing it would forbid a legitimate thing permanently. It
+would also not have fixed the ordering — it would have relocated a 500 while connecting an account,
+the act that actually blocks, still failed the same way.
+
+**Not fixed here:** the credential store itself. This makes its absence legible, not present.
+- **Every Anthropic model in the inference catalog recorded a snapshot that never existed, and the field
+that recorded it is the one that answers which model produced a discoverable work product.**
+
+All three entries carried an identical `-20260101` suffix — `claude-opus-4-8-20260101`,
+`claude-sonnet-4-6-20260101`, `claude-haiku-4-5-20260101`. A uniform date across three models released
+at different times is a placeholder somebody wrote once, and it was. Read against the provider's model
+reference on **2026-08-14**: the provider publishes **no dated form at all** for Opus 4.8 or Sonnet 4.6,
+and Haiku 4.5's real dated identifier is `claude-haiku-4-5-20251001`.
+
+**Why this is not cosmetic.** `gateway.ts` returns `entry.snapshotId` on the generate, conversation, and
+stream paths, and it is persisted on the Magnus turn record and in the audit event. That record exists to
+answer _which exact model produced this output_, and it is read by people reconstructing what happened —
+potentially years later, potentially adversarially. A snapshot that never existed does not fail to answer
+that question; it answers it falsely, with the authority of a field whose entire purpose is provenance.
+
+**What the field now holds, and the part that is counter-intuitive.** The instinct is that a bare
+undated id is a weaker record, and that absence would at least be honest. The provider's own reference
+settles it the other way: every id it publishes is a pinned snapshot, and _from the 4.6 generation on,
+ids use a dateless format that is also a pinned snapshot, not an evergreen pointer._ For Opus 4.8 and
+Sonnet 4.6 the undated id **is** the pin — nothing is being omitted, because no date was ever issued.
+Recording absence there would assert that no snapshot exists when one does, and would null the field for
+most of the catalog. So `snapshotId` stays **required**, holds the provider's published pin verbatim, and
+the three values are corrected to `claude-opus-4-8`, `claude-sonnet-4-6`, and `claude-haiku-4-5-20251001`.
+
+**The part that stops it recurring.** Whether a provider issues a dated id for a given model is not
+derivable from anything in this repository — which is precisely why the placeholder survived: nothing
+could tell `<referenceId>-20251001` from `<referenceId>-20260101`, since both are well-formed. Each entry
+now records the **form** it read off the provider's reference — `provider-dated`, `provider-dateless`, or
+`platform-composed` (the embedding entry, which binds the model to its index generation) — and
+`catalogEntrySchema` refuses an id that contradicts it. A date suffix on a model the provider publishes
+undated is now a malformed entry, not a plausible string.
+
+**That check fails at import, not at the gate, and the distinction is the point.** The staleness pass
+added alongside this catalog grades facts a calendar can settle. An id that disagrees with its own form
+is wrong the moment it is written and stays wrong — there is no date at which it becomes so — so it sits
+at the data boundary with the catalog's other invariants (ZDR eligibility, tier occupancy, the embedding
+pin state) and fails for every consumer at import. Routing it through the freshness pass would have let a
+fabricated id sit in the tree, and in every provenance record written meanwhile, until someone ran the
+gate. The freshness pass keeps the half that genuinely decays: the snapshot id is read off the same
+provider page as the retirement date and the successor, so it is dated by the same `availabilityVerifiedOn`
+field and reported by the same `lifecycle-facts-unread` finding — now named explicitly in the report text,
+so "re-read the lifecycle facts" unambiguously includes "re-read the snapshot id".
+
+**No persisted row needs correcting.** The only table carrying `snapshot_id` is the Magnus turn record,
+created by a migration that is not on the `release` branch Workers Builds deploys from — `release` sits at
+2026-07-04 and predates both the migration and the assistant that writes through it. No environment has
+the column, so no environment holds a row asserting a snapshot that never existed.
+
+**No model changed.** No tier moved, no selection was taken, and `gateway.ts` is untouched — it returns
+`entry.snapshotId` exactly as before, because the shape was never the problem. Which model occupies each
+tier remains the owner's open decision.
+- `STATUS.md` had drifted from the fragments it is rendered from, and nothing could tell. `pnpm run lint:status` validated the `status.d/` fragments — malformed frontmatter, two slices claiming one slot, a link pointing nowhere — and then never re-derived the document. Valid fragments and a current render are different claims, and only the first was being checked.
+
+The gap has a specific shape. The assembler runs on `main` after a merge, so a branch that lands a fragment change without it leaves the rendered table stating the stage a slice was at **before** the work, indefinitely. The financial-reporting slice was sitting at `built: todo` in `STATUS.md` while its own fragment said the build was under way and the pack had already merged.
+
+`lint:status` now re-derives `STATUS.md` and `STATUS.json` from the fragments and diffs them against what is committed — the same gate `lint:roadmap` has always held over `docs/now.md`, over the other generated tracker. It runs only once every fragment has parsed and the set has validated, because a partial set renders a shorter document and would be reported as drift rather than as the parse failure it is.
+
+The drift it caught on the way in was thirty lines of `STATUS.md` and forty-one of `STATUS.json`.
+- **The weekly keep-alive Cron expression was out of range, and the record of why seven weeks of deploys
+failed named the wrong cause.**
+
+Cloudflare's cron parser numbers days of the week **1 = Sunday through 7 = Saturday**, where almost
+every other implementation reads `0` as Sunday. `NATURAL_LANGUAGE_KEEP_ALIVE_CRON` was `0 4 * * 0` —
+not a different-but-valid spelling, an out-of-range value. It is now `0 4 * * 1`.
+
+The schedule write is **one atomic call for the whole set**, so a single malformed expression refuses
+every trigger alongside it. That is why "three deploy, five do not" read as a ceiling on the number of
+triggers and was recorded in the configuration as one. It was not: the account is on a plan whose
+documented limit is two orders of magnitude higher, and the refusal was the set, not the count. The
+comments now say so.
+
+**The immediate blocker was simpler than either.** The three-trigger configuration had been correct on
+the trunk since 2026-08-21 and had never reached the production branch, so every build was still
+carrying the five-trigger set. Pushing the trunk to `release` deployed it successfully — the first
+deploy in seven weeks.
+
+**Nothing is added or removed here.** The three live triggers are unchanged and the correction to the
+weekly expression is untested against this account, because the deploy that went green carried three
+rather than four. Restoring `0 * * * *` alone would settle it: nothing in that expression is
+malformed, so a refusal would mean a real ceiling and a success would mean the day-of-week rule was
+the whole of it. Either way they go back one at a time, because the atomic write hides which one was
+rejected.
+
+Also recorded, because it is the difference between a safe deploy and a silent outage: omitting the
+`triggers` key entirely makes the deploy skip the schedule call and leave what is attached alone,
+while `"crons": []` writes an empty set and **deletes every schedule**. The five-minute sweep is the
+only thing that applies control-plane migrations.
+- `pnpm run lint:status` has been failing on `main`, and the cause is a coupling nobody had exercised
+before tonight: a status fragment carries an `active-work` pointer at the stream note describing the
+work, and sweeping a landed stream's note leaves that pointer dangling. Two sweeps of landed notes
+broke five fragments across three areas.
+
+Both halves of that are correct in isolation. The note should go when the branch lands — the worktree
+lifecycle says so, and leaving it turns the registry into a list of finished work. The pointer should
+resolve — a fragment citing a file that is not there is a broken reference the linter exists to catch.
+What was missing is that they move together: the pointer's whole meaning is "this slice is being worked
+on, over there", so when the stream lands, the honest value is empty rather than a path to something
+deleted. Five fragments now say that, which is what every fragment for a slice with no live stream
+already said.
+
+Also re-rendered `STATUS.md` and `STATUS.json`, which the fragment edits moved. The drift gate that
+caught it is the one added a few merges ago precisely so a fragment could not move without the
+assembler running; it is now working on a case it was not written for.
+- **Registering a template while the scan engine was down handed the member an Error ID for something
+only waiting could fix.**
+
+The malware scan has three states and only two of them are verdicts: no engine wired at all is an
+honest `unscanned`/`no-engine`, an engine that answers is a real verdict, and an engine that is bound
+but will not answer is a **fault**. `routes/scan-diagnose.ts` already answered that third state with a
+retryable `503`, on the reasoning that a member asking whether a file is safe must not be sent to
+support over a Container that is simply not up.
+
+Template registration raised the same fault as a `500`. `POST /api/v1/templates` and the versions
+route now answer it the way the diagnose route does, and the staged upload is deliberately left in
+place so a retry does not mean re-uploading the file.
+
+**No row commits, and bytes are a separate question.** The effect throws before its write, so nothing
+lands in the database. The prepared template is already in R2 by then — it is written inside the
+effect, ahead of the scan — and each execution mints a fresh version and key, so every refused
+attempt leaves another full copy under `templates/` that no row points at. The storage reconciliation
+sweep does not reach it: that pass lists `files/` and `bulk/` only, and corrects the meter rather than
+deleting anything. The leak predates this change — the Error ID it replaced left the same object
+behind — but a retryable answer invites the retries that multiply it, and it is filed rather than
+fixed here because reclaiming orphaned template bytes is a sweep, not a route.
+
+**Why it was wrong in the first place, and where the fix had to go.** The scan runs inside
+`runIdempotentEffect`, whose callback owes a write plus a response code rather than a `Response`. An
+earlier attempt put the handler inside that callback, which does not typecheck against the contract;
+the refusal belongs one level out, in the handler, where a `Response` is what gets returned. Both call
+sites go through one `refuseOnScanFault`, which rethrows anything that is not a `ScanFaultError` — a
+fault is the only thing this catches, and a real bug still surfaces as one.
+
+Adding a declared response changes the API contract, so the committed OpenAPI snapshot and the
+generated client move in the same commit. Only the two routes that scan gained the `503`.
+- **The read a firm uses to decide whether to trust a rule was counting from a sample.** The auto-file
+review reports, per rule, how many messages it filed, how many it staged, and how many somebody has
+since removed. It computed those by walking at most five hundred automatic links in the window and
+tallying them in application code, which broke in two ways past that cap — and broke in the direction
+that makes a rule look _less_ consequential than it is, on precisely the screen where a firm decides
+to let rules file without confirmation.
+
+Every count understated. And a matter whose links all fell past the cut was **absent from the answer
+entirely**, not undercounted: the matter set handed to the access filter came from that same truncated
+page, so a rule on such a matter contributed no entry at all.
+
+The matter set now comes from the **rules**, not from the links. A rule is bound to one matter, so the
+rule catalog names every matter a rule could have filed to — and it puts the ceiling on a quantity a
+person controls (how many matters the firm has set rules on) rather than one that activity drives.
+Revoked rules are included, because a rule that filed for three weeks and was then stopped is exactly
+what a reviewer is looking for. The counting then happens in the database, grouped per rule over the
+matters that survived the wall, so there is no ceiling on links at all and the numbers are exact.
+
+`matterScopeCapped` on the response says when the firm holds rules on more matters than one answer
+carries — a rule may then be missing from the list, which is a different and far rarer failure than a
+count being wrong.
+
+**Neither read is paged, and that is unchanged.** The existing argument stands: a cursor over a set the
+access filter can shrink hands out short pages and calls it the end of the list. What was wrong was
+never the absence of a cursor — it was the silence about the cut.
+- The discovery processing slice landed a load-profile measurement harness that prints its latencies,
+and the console-ban fitness function failed on `main` the moment it merged. The harness is the same
+class as the measurement CLI already on the allowlist — a developer tool whose stdout is its product,
+printing machine-relative numbers precisely because asserting them against a threshold would turn a
+busy laptop into a red build — so it joins the allowlist rather than losing the print.
+
+Two things this exposed rather than caused. The ban scans `src/`, which includes a `.test.ts` living
+there, so a measurement test is held to a rule written for application code; the existing measurement
+files avoid it only by keeping the logic in a plain module and letting the allowlisted CLI do the
+printing. And the ban's own comment said "the ONLY two source files" above a list of five.
+
+It merged green because the check that catches it lives in `packages/telemetry` and the verification
+run covered the packages the change touched. A repository-wide fitness function is not in the package
+whose code it governs, so scoping a test run by the diff can skip it entirely.
+- **The custody register's nine list endpoints each carried a different defect, and one fix would have
+been wrong for most of them.** Traced individually rather than paged for symmetry.
+
+The overdue check-out sweep and the holds report now page over the platform's keyset cursor. Both are
+ascending, and the direction is the point: a page of the most overdue check-outs, or the oldest holds
+still in force, is the answer a firm wants, and paging forward walks toward the merely late.
+
+The holdings-per-owner report and the stocktake list are **capped with a signal** instead. Their
+answers now carry a `capped` flag, true when the firm holds or has counted more than the response
+names. Neither can take a cursor honestly: holdings-per-owner is ordered by `packets_held DESC`, a
+count the query computes rather than a column any row carries, and a keyset over it would page by a
+value that does not exist in the table. The stocktake list answers which count is running now and what
+the last one found — a short answer was the right shape all along, and only the silence about it was
+the defect.
+
+The item-type vocabulary, the location tree, and the per-location occupancy report are recorded as
+bounded by construction with what bounds each. The location tree is left whole for the same reason a
+matter's folder tree is: its callers resolve a packet's shelf to a path through its ancestors, and
+half a tree resolves to a wrong path rather than a short one.
+
+Two are left as they were, with the reason written down: the sighting list orders on three columns and
+the reminder collector merges two streams, and each needs a design decision rather than a fix applied
+for consistency.
+- **Five discovery reads that grow with the corpus answered with a page and no way to reach the rest.**
+Each carried a LIMIT and no cursor, so a review set larger than a page returned a prefix that read
+exactly like a complete answer.
+
+The coding history is the one that mattered most. It is the record a challenge to a production is
+answered from — who coded what, when, under what criteria, and who reversed it — and its whole value
+is that it is complete. Truncated to the most recent fifty acts, it omitted precisely the history a
+meet-and-confer is about. It now pages, newest first.
+
+The matter's review sets, a review set's loads, its Custodians of Record, and a document's other
+copies page too. Two of them needed their sort key made total first: `display_name` alone does not
+order two custodians who share a name, and the occurrence list ordered on the duplicate's identifier
+with nothing behind it. Both now carry the row's own identifier as the tiebreak, so the keyset cannot
+skip or repeat at a page boundary. The custodian list stays alphabetical and ascending, because that
+is how a person looks a name up; the copies list is the read behind "which custodians held this
+document", and a boilerplate announcement held by every custodian in the matter is exactly the
+document that question gets asked about.
+
+Every one of these composes the review-set access predicate into its SQL. The keyset clause is placed
+between that predicate and the ORDER BY, so the predicate still precedes the LIMIT and the visibility
+fitness pass holds unchanged.
+
+**Two are recorded as bounded by construction, each with the index that bounds it.** A review set's
+access list holds one row per member (`review_set_access_member_unique_index`), and a document's live
+coding holds one row per tag (`review_document_tag_live_unique_index`), so the bounds are the firm's
+headcount and its own tag catalog rather than the corpus.
+
+**`keysetClause` joins the cursor helpers.** The existing helpers push onto a conditions array, which
+does not fit a statement assembled by string concatenation around an access predicate whose position
+in the WHERE clause is load-bearing. Five reads needed the same clause; it now has one home.
+- **The sign-in password field carries a "Password" placeholder, matching the email field above it.**
+
+The email input has read "Email Address" inside the box since the screen shipped; the password input
+had nothing. The two sit one above the other, so the empty one read as the odd element rather than as
+a deliberate difference.
+- `vp run worktrees` printed two views of the active-work registry and they disagreed completely. The
+streams list was empty — it required a non-agent worktree, and every stream here runs in an agent
+worktree it explicitly omitted. The touch-overlap list, three lines below, named twenty branches
+colliding across twenty-five paths. Every one of those branches had already landed: measured, twenty
+of twenty. The section a new stream is told to consult before editing a shared file was wrong in
+every entry it had.
+
+Overlaps were computed from every note file on disk with no liveness test of any kind. A note is a
+file, and a file outlives the work it describes — nothing deletes one but the hand that wrote it, and
+the cue to do so, the branch disappearing, never fires here, because this repository cannot delete
+its remote branches. Two hundred and thirty of them are still on the remote; exactly one note named a
+branch that was actually gone.
+
+The registry now decides for itself. "Has this branch landed" moves to `tooling/branch-landing`,
+shared with the build-artifact cleaner, which already had to answer it for the opposite purpose — one
+implementation, because a wrong answer either deletes a live workspace's build output or hides a real
+collision. A stream is in flight while it has a workspace or an unlanded branch, so a forgotten note
+can no longer manufacture a warning, and work on another machine is visible even though this checkout
+sees none of its worktrees.
+
+Three failures it used to swallow are now named rather than dropped: notes for branches that have
+landed (thirty-six of them, swept here), notes whose branch resolves to no ref, and notes with no
+frontmatter block — nineteen of those, half the directory, all silently collapsing onto one empty key
+so that eighteen were discarded and their declared touch lists warned nobody. A note's branch is now
+read from its path, which is why a malformed one still has an identity to report. Drift for a branch
+that is not checked out locally reads as unknown instead of `+0/-0`; the live UI stream, which the old
+output called perfectly in sync, is four hundred and eleven commits behind.
+- **Three corrections on the signed-out surface.** The sign-in card's footer line is gone. The quiet
+inline links beside a field — Register, Forgot Password, and every other side door sharing the
+`QUIET_LINK` register — now carry `cursor-pointer`: they render as bare `<button>` elements to stay
+out of the control chrome, and Tailwind v4's preflight sets `cursor: default` on a button, which the
+design system's own Button recipe answers for itself but a raw-class link does not. And the chrome
+band's four destinations now resolve through `ECOSYSTEM_SITES` instead of a local list of hardcoded
+`#` hrefs, so Status links to the live status page and the three sites that are not stood up yet stay
+inert until their registry entry carries a URL.
+
+The band having its own copy of each address is what let the status page be live and unreachable from
+here at the same time.
+- **The typecheck of record covers `src/` and nothing else — 837 test files across all 71 graph members
+are checked by no pass in the gate. Three real type errors that had been sitting in
+`@magna-carta/notifications` are fixed; the gap itself is now written down instead of implied.**
+
+**The report that started it held exactly.** On a clean `origin/main`,
+`tsc -b packages/notifications` reports three errors and `tsc -b tsconfig.build.json` reports none:
+
+```
+test/delivery-end-to-end.test.ts(387,26): error TS2345: Argument of type 'SqlStatement[]' is not
+  assignable to parameter of type 'NodeSqlStatement[]'.
+  Property 'bindings' is missing in type 'SqlStatement' but required in type 'NodeSqlStatement'.
+test/read-bounds.test.ts(122,28): error TS2339: Property 'bindings' does not exist on type 'SqlStatement'.
+test/read-bounds.test.ts(141,26): error TS2339: Property 'bindings' does not exist on type 'SqlStatement'.
+```
+
+Both sites ask a builder-returned statement for `bindings`, which only the node-sqlite adapter's
+`NodeSqlStatement` has — the builders deliberately type their return as the narrower D1-shaped
+`SqlStatement`. The code was right about the runtime and wrong about the type, so the fix is the
+narrowing helper `packages/fixtures/src/load-profile/*-measurements.ts` already spells out five times
+over, not a change to either interface. Nothing about what the tests assert moved.
+
+**The two commands disagree because they read different files, and that is the finding.** Each
+generated `tsconfig.build.json` sets `include: ["src/**/*.ts"]`; `tsc -b <package>` reads the
+package's own `tsconfig.json`, which lists `test/**/*.ts`. This is not one package's mistake —
+**all 71 graph members** have a `test/` directory, **all 71** list it in their own `tsconfig.json`,
+and the generated build config **replaces** that `include` rather than extending it. So `vp run typecheck`
+— the gate's only type pass since `vp check` went to `typeCheck: false` — sees 1,078 source files and
+none of the 837 test files beside them. Vitest strips types rather than checking them, so `pnpm test`
+never notices either. A type error in a test file could sit on `main` forever with every gate green.
+
+**The backlog behind the gap was measured, not guessed.** Type-checking every member against its own
+`tsconfig.json` — the config that does include `test/` — surfaces **52 further errors across 16 of
+the 71 members**, every one of them in a test file, on top of the three fixed here. They are ordinary
+drift, not exotica: `TS2345` argument mismatches (18, mostly a raw `string` where a branded id is
+wanted, or a hand-rolled database double missing a method the real interface has), `TS2532`/`TS18048`
+possibly-undefined (11), `TS2352`/`TS2353` bad casts and object literals (11), and three `TS2307`
+missing-module errors where a worker test project was never wired for `cloudflare:test` at all. The
+heaviest are `@magna-carta/magnus` (10), `@magna-carta/email` (7), and `@magna-carta/conflicts` and
+`@magna-carta/document-assembly` (5 each).
+
+**That count is a floor, not a total.** `apps/api-worker` holds 240 of the 837 test files — 29 percent of
+the corpus — and its type-check did not finish inside 18 minutes, so it is excluded from the 52
+outright. Whatever it holds is additional.
+
+**The graph is not widened here, on purpose.** The member projects are `composite` +
+`emitDeclarationOnly` with `rootDir: "src"`, so test files cannot simply join `include` — a file
+outside `rootDir` cannot take part in that emit. Closing this properly means a second, non-emitting
+test project per package, and burning down at least 55 errors before it can gate anything. Turning
+that on across the repository in one commit is a decision with a cost attached, so it is filed as a
+recommendation with numbers rather than made unilaterally.
+
+What did change is that the gap is now stated where people look for it: the src-only boundary and its
+consequence are written into `docs/conventions/build-performance.md`, and the comment in
+`tooling/tsconfig-refs/index.mjs` that claimed "tests stay with `vp check`" — the sentence that made
+this invisible, since `vp check` has not type-checked anything since `typeCheck` went off — now says
+plainly that nothing checks them and gives the per-package command that does.
+- **The typecheck of record now reads the test files. Every graph member gains a generated,
+non-emitting `tsconfig.test.json` beside its `tsconfig.build.json`; the 53 errors that surfaced are
+fixed at the seam each one names, and `apps/api-worker` is deferred with its measurement rather than
+quietly skipped.**
+
+**What was open.** The gap the previous pass measured and documented rather than closed: the member
+projects are `composite` + `emitDeclarationOnly` with `rootDir: "src"`, a file outside `rootDir`
+cannot take part in that emit, so the generated build configs replace each package's own `include`
+with `src/**/*.ts`. Nothing else filled it — `vp check` runs with `typeCheck: false` and Vitest strips
+types — so 885 of the workspace's 2,118 type-checkable files were checked by no pass in
+`pnpm check`, `pnpm check:scoped`, or CI.
+
+**The mechanism is a second project, not a wider one.** `tooling/tsconfig-refs` now emits a
+`tsconfig.test.json` per member: `composite`, because a solution file can only reference composite
+projects, and `noEmit`, because no consumer imports a test — which is precisely what frees it from the
+`rootDir` the build project needs. It references the package's **own** build project first and then
+the same dependency build projects, so `../src/thing.ts` and `@magna-carta/thing` alike resolve to
+declarations `tsc -b` already produced and no source is checked twice. Its `include` is **derived**,
+never restated: the package's own `include` minus `src/**` and minus `.svelte`, plus the ambient
+`.d.ts` from the package root and from `src/`. That leaves an invariant worth naming — the two
+generated projects together cover exactly what the package's own `tsconfig.json` declares — and it
+needs no new gate, because `node tooling/tsconfig-refs/index.mjs --check` already diff-gates both
+files. A root `tsconfig.test.json` collects the members and `vp run typecheck` builds both roots.
+
+**The 53 errors are fixed where they point, and nothing is silenced.** No `any`, no
+`@ts-expect-error`, no production type widened to make a test compile. They fell into recognisable
+shapes: hand-rolled database doubles missing `SqlStatement.first`
+(`@magna-carta/magnus`, 10 — the largest single group); fixture literals that had lost a field the
+production type gained, in `@magna-carta/conflicts` (a policy round-trip that had stopped covering
+`candidateCap`, now supplied and asserted), `@magna-carta/custodian` and `@magna-carta/locations`;
+possibly-undefined indexed reads in `@magna-carta/email`, `@magna-carta/conflicts` and
+`@magna-carta/pdf`, narrowed where the test already proves the value is there; casts that fought the
+real type in `@magna-carta/document-assembly` and `@magna-carta/search`, replaced by a shared
+narrowing helper and by typing an in-memory stub against the port's own input types; a `"EUR"` string
+where `@magna-carta/trust` wanted a currency, built with `currencyFromCode` the way production does;
+and a `string` in `@magna-carta/billing` that had lost its `MatterId` brand to a helper's own return
+annotation.
+
+**Three sibling workers were under-declaring what they contain, which is why their tests would not
+resolve.** `apps/status-worker` had no `worker-env.d.ts` — the file its seven sibling worker apps all
+carry — so `cloudflare:test` was unresolvable in its own tests; it has one now, plus the `?raw`
+declaration for the Wrangler-config read, in the `test/support/` shape `apps/api-worker` established.
+`apps/scan-worker`'s shard test read its Wrangler config through `node:fs` in a package typed for
+workerd; it now imports the same text through `?raw`, which is both what the other workers do and
+closer to how the worker itself is built. `apps/sign-worker`'s `.wasm` ambient declaration lives in
+`src/`, which the generator now includes in the test project for exactly this reason.
+
+**One member is deferred, named, and measured — and the reason is not that it is big.**
+`@magna-carta/api-worker` gets its test project like everything else and is checkable on demand, but is
+held out of the root solution by `DEFERRED_TEST_PROJECTS`, for two findings that only surfaced
+because the question was finally asked. **One file does not type-check at all**:
+`test/firm-database/firm-database-migration-partial-failure.test.ts` does not finish in 600 seconds
+on its own, with memory flat at ~2 GB, while its 26 batch-neighbours cost 2–3 s each — the batch
+holding it drops from over fifteen minutes to 4.2 s when it alone is removed. **And the backlog
+behind it is 156 errors**: the other 234 files check in 38.9 s in batches of 28, and 89 of the 156
+are one repeated idiom, an unchecked `await response.json()` read as `unknown`, concentrated in the
+route suites (`trust-authorization-routes` 22, `billing-routes` 16, `trust-routes` 15). That is a
+burn-down of its own size, not a tail on this one. Its test files remain checked by nothing in the
+meantime, which is stated in `docs/conventions/build-performance.md` rather than implied.
+
+**Cost, measured both ways.** With every `.tsbuild` deleted, the build half alone is **1 min 32 s**
+and both roots together are **1 min 53 s** — the test half is 24 s of that, and it is 42% more files.
+Warm, the pair is **1.1 s** against 1.0 s before, so `pnpm check:scoped` keeps the whole graph and
+pays nothing on the common path. The CI gate's existing `.tsbuild` cache already covers the new
+`.tsbuildinfo` files, so no workflow change was needed.
+- **`apps/api-worker`'s 231 test files join the typecheck of record, closing the last hole in it. The one
+file that would not type-check in 600 seconds now takes 2, and the cause was not the file: the
+`@cloudflare/workers-types` package ships its entire surface twice, and this repository was loading
+both copies.**
+
+`@magna-carta/api-worker` was the single graph member generated with a `tsconfig.test.json` and then held
+out of the root test solution, so more than a quarter of the workspace's test corpus was checked by
+nothing. Two separate problems stood behind that, and both are gone.
+
+**The 600-second file, and why the standing lead was wrong.** The suspect was the two-parameter
+`runInDurableObject(stub, (instance, state) => …)` form, because the one-parameter form next door was
+free. Bisecting to a minimal file refuted it: the two-parameter form with `state` contextually typed
+checks in 2 s, and a file containing no `runInDurableObject` at all — two variable declarations and
+two assignments — still ran past 100 s.
+
+`@cloudflare/workers-types` ships `index.d.ts`, a global script that `"types": [...]` loads, **and**
+`index.ts`, a parallel module declaring the same ~16,000 lines with `export` in front of them. The
+package publishes no `types`, `main` or `exports` field to redirect the module specifier, so
+`import ... from "@cloudflare/workers-types"` resolves to the second copy — `--traceResolution`
+confirms it. Both in one program means two distinct declarations of every Workers interface.
+Comparing them is merely wasteful for a plain interface and fatal for a generic one: `--generateTrace`
+shows variance measurement on `DurableObjectState<Props>` returning `in out (unreliable)`, which
+abandons variance and drops the checker into full structural recursion over the mutually recursive
+graph beneath it. **Deleting one import took the file from over 600 s to 2 s.**
+
+It is an upstream packaging defect, so the fix here is local and total: inside a package that already
+has the globals, never import the module copy. Three sites did — including production source, where
+`DurableObjectStub<T>` is generic and the same trap was latent — and
+`tooling/lint-workers-types-import.mjs` now fails any that come back.
+
+**And the 156 errors behind it, all fixed at the seam each named** — no `any`, no `@ts-expect-error`,
+no production type weakened. 106 were one idiom: `Response.json()` is `Promise<unknown>`, so reading a
+field off it is an error. `readJson<T>()` in the worker's existing `test/support/test-auth.ts` makes
+each call site name the shape it expects, which is the assertion rather than a formality.
+
+**Four of the remainder were substantive, and are the reason this pass is worth running:**
+
+- **A proxy input type narrower than the port it stands in for.** `ProxyBatchDatabase.batch` demanded
+  `ProxySqlStatement[]` while the `BatchDatabase` port it substitutes for promises only
+  `SqlStatement[]` — which declares `sql` optional and no `bindings` at all. TypeScript compares
+  method parameters bivariantly, so the mismatch was invisible at every call through the port and
+  surfaced only on a direct call. It now takes the port shape and checks the two fields it marshals.
+- **A fake that had stopped covering a port method.** `narrative-inference`'s recording port exists to
+  prove the model is _never_ reached when the gate is off, and implemented four of `InferencePort`'s
+  five methods — it could not have proved that for `generateConversation`.
+- **Two fakes and a fixture that had lost required fields.** The chokepoint's rate-limiter fakes
+  omitted `limit`/`remaining`, which `RateLimitVerdict` publishes on every verdict; the search index
+  message fixture omitted `engineGeneration`, which the coordinator compares to decide whether a
+  document is already indexed, so that skip branch was being driven with `undefined`.
+- **A bundle-manifest fixture in a shape the contract does not accept.** Two tests nested
+  `source: { source: "r2", r2Key }` where the entry type flattens the discriminator alongside its
+  data, so they described a manifest production never builds.
+
+Also found, and not a production defect: three call sites minting an `Idempotency-Key` with
+`newIdentifier("idempotency")`, which is not an entity type — the prefix lookup returned `undefined`
+and the header carried a literal `undefined_<token>`. They now use `crypto.randomUUID()` like every
+other suite. Separately, `packages/tsconfig/worker.json` moves to `lib: ES2023`, which all ~60
+packages already set and workerd has long supported; it was the only preset still on ES2022, and three
+tests using `toSorted`/`toReversed` were passing at runtime while failing to compile.
+
+**Cost of the complete graph**, one machine, `.tsbuild` deleted before each cold run: the build half
+alone is 1 min 54 s, both roots with the worker still deferred are 2 min 29 s, and the complete graph
+is **2 min 41 s** — so 231 more test files cost **12 s (+8%)**, because the test project reads
+declarations the build half already emitted. Warm, the pair is 1–2 s, so the inner loop pays nothing.
+- **The app Worker declares three Cron Triggers, not five, and that is what let it deploy at all.**
+Cloudflare refused the fourth and fifth on `POST .../workers/scripts/magna-carta/schedules` with an
+empty error body, deterministically, on every build. The Worker script itself uploads successfully
+and only the schedule step fails, which reads as a transient fault and is not one.
+
+The two dropped triggers — `0 * * * *` (hourly notification digest) and `0 4 * * 0` (weekly
+natural-language search keep-alive) — were added 2026-08-16, and **neither has ever fired in
+production**: the last successful deploy was 2026-07-04 and carried the three that remain. So this
+removes nothing that was running. Both branches stay in `apps/api-worker/src/index.ts`; a trigger is a
+schedule and never an action, so restoring a line is the whole of turning one back on.
+
+`*/5 * * * *` is non-negotiable among the three: it is the only applier of control-plane migrations.
+
+Revisit when the account's trigger ceiling is raised, or when either dropped pass has a reason to run
+(the digest needs outbound-mail provisioning; the keep-alive needs a managed search instance that can
+go stale).
+- **Three checks that read as evidence for a claim none of them supported: a test that asserted
+against a random row, a cleaner whose merge test expired the day after each merge, and a register
+rebuild that deleted 942 lines of committed trunk history when run off `main`.**
+
+**The email-capture test picked its subject at random.** Two assertions in
+`apps/api-worker/test/emails-capture.test.ts` resolved the message they were about with
+`SELECT id FROM email_message LIMIT 1`, against a table earlier tests in the same file had already
+filled. No `WHERE`, no `ORDER BY` — the row came back in primary-key index order, and that key is a
+randomly generated identifier, so which message the assertion checked changed from run to run. It
+failed roughly one run in three; measured here, 3 failures in 11 on unmodified `main`, always the
+`email.filed` topic assertion, always with two different `emailMessageId` values in the diff. It had
+been read as one of this repository's real concurrency phantoms, which is what a genuine flake
+hiding behind a genuine phenomenon looks like.
+
+The fix is not an `ORDER BY` — that makes an arbitrary choice stable, so the test would reliably
+assert against a row it never meant to pick. Each assertion now names the message it means and
+resolves it through that matter's own filed link: the "one record, two links" test takes the record
+the _second_ matter's filing points at, which is the claim it is making; the `email.filed` test takes
+the message that matter was just filed with, so it compares the outbox row against the link written
+in the same batch. A third assertion in the same file, `SELECT … LIMIT 1` followed by
+`expect(results).toHaveLength(1)`, could not fail at all — the `LIMIT` capped the count at exactly
+the number being asserted. It is unbounded now, so "one capture creates one message record" is a
+claim the test can actually refute.
+
+**`vp run clean` asked a question that expires.** It decided a branch had landed by merging it into
+today's `origin/main` in memory and checking the resulting tree was unchanged. That is exactly right
+at the instant of the merge and wrong from the first trunk commit afterwards that touches any file
+the branch also touched: the re-merge stops being a no-op, and the branch reads as not-landed
+forever. One branch tested as landed immediately after its merge and as not-landed two merges later,
+with the pull request provably merged both times.
+
+The durable question is not "would merging this change `main`" but "did this branch's content land",
+and a landing is a fact about the past, so it is looked for there: walk the trunk forward from the
+merge base, narrowed to commits touching the branch's own files, and take the first one the branch
+merges into without changing it. That commit never moves, so the answer never expires, and it
+survives squash merges for the same reason the tree comparison did — the squashed commit is a new
+object, but merging a branch into the commit that squashed it still changes nothing. Narrowing by
+the branch's own paths is what keeps it cheap: the landing commit is normally the first and only
+candidate, and an unfiltered walk of sixty commits is about twelve seconds per branch.
+
+Measured over all 162 local branches: the old test found **7 of 63 real landings**, and selected
+**94 empty workspaces** — branches with no commits of their own, whose build output is live — for
+deletion. The new one finds 63 of 63, selects none of the 94, and correctly leaves the 3 open
+branches alone.
+
+The ancestry test beside it is gone rather than kept. Under squash merges a delivered branch is
+never an ancestor of the trunk, so every branch `git branch --merged` reports is one with no commits
+of its own — the same condition as the live-workspace guard, asked with the opposite answer. It read
+as an independent second confirmation of a landing and was a rename of the condition that means the
+reverse. The guard itself is strengthened from "the tip equals the baseline commit" to "the branch
+holds no commit the baseline lacks", because a workspace cut a week ago and never committed in is
+just as empty and is no longer sitting on the baseline: 93 of the 95 such branches here slipped past
+the equality form.
+
+**Rebuilding the register history off `main` destroyed it.** `vp run register-build` reconstructs
+`docs/register-history.json` by walking `git log --first-parent`, which on a feature branch is the
+_branch's_ line. Every trunk landing after the branch point is unreachable from it and was treated
+as a snapshot to drop. Reproduced on a ref 57 commits back: 53 snapshots reduced to 15, **942 lines
+of committed trunk history deleted** by a command whose job is to render a document. It had not yet
+bitten only because recently cut branches share most of the trunk's line, so the damage stayed small
+enough to be invisible in a diff.
+
+Two changes, either of which alone would have prevented it. The reconstruction is now a **trunk-only
+operation**: off `main` it reads the committed file and leaves it untouched, saying why, and
+`--rebuild` is refused there too, since that is the destructive one. Trunk-ness is decided from the
+ref's name rather than the shape of the graph, because the two cases that must be told apart — `main`
+holding unpushed commits, and a branch cut from that same commit holding commits of its own — are
+graph-identical and differ only in what they are called. And a snapshot the walk cannot see is no
+longer deleted on those grounds: it is dropped only when its commit has genuinely left the
+repository, and otherwise retained in date order and reported as retained. Unreachable from here is
+evidence about here.
+
+`docs/now.md` still renders off-trunk, from the committed history, which is the same input
+`lint:roadmap` re-derives from — so declining to rebuild never puts the gate out of reach.
+
+**The guidance is fixed with the tool.** `CLAUDE.md` taught the merge-into-`main` comparison as the
+way to answer "has this landed", without the caveat that it is only true on the day of the merge; it
+now carries the durable form under _Parallel worktrees & branches_, and the orchestrator's hard-won
+knowledge register, which taught the same lesson, is corrected in place.
+- **Three stale truths in the tooling and the area guides: `pnpm test | head` wedged holding the lock,
+sixteen places claimed the node-sqlite adapter has no `.first()` when it has had one since June, and
+the gate justified its coverage check with a premise that measures the opposite of what it says.**
+
+**A closed output pipe no longer wedges the test guard.** `head` exits as soon as it has its lines.
+Node ignores `SIGPIPE` and turns the failed write into an asynchronous `EPIPE` on the stream, so a
+reporter that swallows that error neither finishes nor makes progress — the run sits at 0% CPU **still
+holding the per-worktree single-flight lock**, which is precisely what the contention the lock exists to
+prevent looks like, so the diagnosis goes to the lock instead of to the pipe. Reproduced against a
+runner stand-in that swallows `EPIPE`: still alive at 30 s, `STAT Sl`, lock held by a **live** pid, and
+cleared only by hand. That last detail is why recording the holder's pid cannot fix this and no lock
+change was made — pid reclaim already exists and works, but the holder here is blocked rather than
+dead, so a liveness probe correctly reports it alive and correctly refuses the next run. Only ending the
+run frees the lock. `tooling/test-single-flight/broken-pipe.mjs` now tears the run down on a broken
+pipe, releases the lock, and exits 141; the same case now finishes in 1 s with the lock released and the
+child reaped. Because a parent using `stdio: "inherit"` cannot observe the child's failed writes at all,
+output is forwarded through the parent whenever stdout is not a TTY — verified to produce byte-identical
+output to the old path — while a TTY, where no reader can walk away, keeps `inherit` unchanged.
+
+**The `.all()` + `results[0]` rule keeps its conclusion and loses its false reason.** Three area guides
+and thirteen source comments said the node-sqlite test adapter has no `.first()`. It has had one since
+`first<T>()` was added to every adapter "to match the D1 surface" in June, and two data-access tests
+exercise it against that adapter today, including the returns-`null` case. A real reason to prefer
+`.all()` does exist and the rule is now stated on it: uniformity of the absent-row sentinel. `results[0]`
+is `undefined`, `first()` is `null`, and the several hundred existing read sites all compose the
+`undefined` form — so a second spelling buys nothing and makes every reader check which one applies. The
+reasoning now lives once, on the interface declaration in
+`packages/data-access/src/idempotency-statements.ts`, and the sixteen copies point at it instead of
+repeating a claim that would send someone to "fix" a working adapter.
+
+**The gate's coverage check is justified by the case that actually happens.** A comment in
+`gate.yml` held that a filter matching no file "exits 0 having run nothing". It exits **1**, printing
+`No test files found, exiting with code 1` — measured across `run`, `--shard=i/N` and `--project`. The
+`test-collection` job is still well justified, but by **silent narrowing**: these jobs pass a dozen-odd
+paths each, so one wrong entry among good ones still collects the rest and exits **0** over a fraction
+of the suite. Measured: one relative path beside a good one collected 34 files and reported a green
+`Test Files 34 passed (34)` against the 656 that job owns, and nothing in the output distinguished the
+two. A false premise in front of a correct conclusion invites the next reader to delete the conclusion,
+so the sentence was corrected rather than removed — in `gate.yml`, in
+`tooling/lint-test-collection/index.mjs`, in the analogy that rests on it in
+`tooling/affected-lint/scope-fitness.mjs`, and in `docs/conventions/build-performance.md`, which is the
+cited home for the mechanism and carried the same claim.
+- **Nineteen tools were counted as built and none had ever been run. Eleven return a verified-correct
+answer, seven wait on a deploy, one is broken by an unbuilt seam rather than a missing deployment —
+and exactly two have a page a person can open.**
+
+`shipped` in the feature ledger means the artifact exists on `main`. That is an honest definition and
+it is not the same claim as "a person can use this and get a right answer", so the Tools catalog was
+traced end to end — manifest, route, package, and whatever each reaches outward for — and every tool
+exercised against a local Miniflare worker with a real session and against the real internet. Where a
+thing could not be determined the audit says so:
+[`docs/research/2026-08-15-tools-reality-check.md`](docs/research/2026-08-15-tools-reality-check.md).
+
+**Answers checked against something independent, not against a 200.** File hashing returned all five
+digests byte-identical to `md5sum`/`sha1sum`/`sha256sum`. The metadata scrubber found a `.docx`'s
+author and company, removed both, and left the body text intact — verified by unzipping the result.
+File decryption produced a well-formed `$pkzip2$` hash at the correct hashcat mode 17210 and unlocked
+the archive to its exact original plaintext. WHOIS matched public record for six targets including
+`example.com` (1995-08-14, IANA) and `cloudflare.com` (2009-02-17, Cloudflare Inc.). The email
+inspector round-tripped every header of a hand-written message. Firm usage matched the seeded firm's
+counts exactly. County property records deep-linked to a real Clark County parcel whose own page
+confirms the APN, and the attorney-licence and business-registry links resolve to the correct
+official searches.
+
+**One repair, because it was small and certain.** A WHOIS lookup for a registry publishing neither an
+RDAP service nor a port-43 host answered `500 Internal Server Error` with an Error ID to quote at
+support. Measured against the live IANA lists that is **234 of 1,438 TLDs** — `.ch`, `.at`, `.jp`,
+`.ru`, `.ae` among them, one lookup in six. It is now a typed `UnsupportedRegistry` answered as `501`
+with plain guidance, and — the half that makes the fix visible — the page classifies 501 as
+information rather than as our fault, since it shows the Error ID only on a danger tone.
+
+**The one thing no deploy fixes.** Shipping's rate-shop, purchase, tracking and refund all return 500
+because the per-firm credential read is an unbuilt seam (`firmSecretStoreNotYetAvailable`), not an
+unset secret. Connecting a real EasyPost key changes nothing. Draft creation succeeds regardless, so a
+member can create a shipment that can never be bought.
+
+**And one deploy hazard nobody had recorded.** `apps/api-worker/wrangler.jsonc` binds
+`OCR_SERVICE -> magna-carta-ocr`, Cloudflare rejects a deploy whose service binding names a missing
+Worker, and that worker appears in no Workers Builds connection list, no placeholder list, and no
+deploy queue. Either it exists and nothing says so, or the next app-worker push is rejected outright —
+blocking every tool in the catalog. It is now the first item in `docs/deploy-queue.md`, ahead of the
+four other tool steps: the scan worker (which unblocks the file type verifier and the malware scan
+together), the file-repair worker (whose Build Watch Paths point at a directory that does not exist,
+so its image never rebuilds), Browser Rendering for the safe website viewer, and the Pangram key last.
+
+**Findings left as findings, with evidence rather than a patch:** the port-43 WHOIS socket has no read
+deadline; the email inspector reports an HTML body for a `text/plain`-only message; `scan/diagnose`
+500s where the sibling `file-type` route 503s on the identical unreachable engine; the file converter
+cannot be exercised end to end under `wrangler dev` at all, because the dev upload route only accepts
+keys minted as pending file versions; and property links silently drop state and ZIP from a partial
+address, which is how one Las Vegas becomes another.
+
+Ledger notes corrected on eight nodes so each says what a person gets today. No node's `status`
+changed — the ledger's own convention counts a backend-only capability as shipped with a note, and
+what was wrong was the silence, not the statuses. `docs/now.md` regenerated from the ledger.
+- **A matter's costs and a matter's time were read with no bound of any kind.** Both listings built a
+bare `SELECT ... WHERE matter_id = ?1 ORDER BY ...` with no `LIMIT` at any layer, so a matter that had
+been running for years answered with its entire record in one response and the size of that response
+was governed by nothing but the firm's own history.
+
+Both now page over the platform's existing keyset cursor, newest first, fifty to a page. The screens
+gained a control that fetches the next page and states that a total covers only what is on screen —
+so a partial view is visibly partial rather than quietly wrong.
+
+The cost listing's sort tiebreak moved from `created_at` to the identifier. A keyset cursor needs a
+TOTAL order and `created_at` is not one: two costs entered in the same batch share it, and paging over
+it would skip or repeat rows at a page boundary. Costs sharing an incurred date now appear in a stable
+arbitrary order rather than an unstable one — there was no order among them before, only the
+appearance of one.
+
+**The three matter sections that read a paged listing now share one piece of state.** The same effect
+had been written three times, and the copies had already drifted once. `PagedList` owns the rows, the
+cursor, the failure and the in-flight page in one tested place, and discards a page that resolves
+after the reader moved to a different matter.
+
+**A new fitness function refuses the next unpaged list endpoint.** The pagination contract states the
+rule outright — every list endpoint returns the uniform `{ data, nextCursor }` envelope — and
+forty-seven endpoints did not follow it, because nothing was checking. `pnpm run lint:list-pagination`
+reads the emitted contract and compares it against a shrink-only baseline of the forty-five that
+remain: a new one is refused, and an entry that has been fixed must be deleted, so the list cannot rot
+into names nobody has re-read. Nothing in that baseline is asserted to be safe; telling a bounded
+vocabulary from the same defect means tracing each route to its statement, and the baseline is what
+makes that campaign finite and visible.
+- **`main` has been red since two directory routes landed: the emitted contract carries them and the
+conformance inventory does not.**
+
+`directory.listMatterParties` and `directory.unlinkMatterParty` are in the committed OpenAPI document
+and were missing from the not-vacuous operation list the conformance suite checks against it. The
+suite deep-compares the two, so it failed on every branch cut from `main` — three separate agents
+tripped over it today and correctly declined to fix someone else's red inside their own change.
+
+Two lines, in alphabetical position. The suite passes: 42 tests.
+
+The durable fix is still owed — deriving the inventory from the emitted document rather than keeping
+a hand-maintained parallel list, so a route cannot ship without it.
+- The build register was missing two capabilities that shipped weeks ago. The bank-charge cushion (the firm-funds carve-out) and the unclaimed client funds diligence file each have their own domain module, their own per-firm tables, their own routes, and in one case their own capability seeded to Owner and Admin alone — and neither appeared anywhere in the feature ledger, so neither was counted.
+
+This is the drift class the staleness linter records as structurally uncatchable: every rule it holds reasons **from** a node, so nothing can find one that was never written. Finding a missing node means reasoning from the tree inward, which no rule does.
+
+Both are recorded at `shipped` with the note the register's own convention asks for — backend only, no screen — and with what each deliberately does **not** do, because in both cases the incompleteness is the design rather than a gap. The carve-out has no movement that withdraws surplus firm funds and none that pays a person: the rule text authorizes the deposit and is silent on taking it back out. Nothing on the unclaimed-funds path moves money at all — the closure takes a movement that already posted and receives no amount, payee, date or method, so the manual-confirmation gate is the absence of the inputs rather than a check somebody could later remove.
+
+The register now stands at 707 capabilities, 248 of them shipped.
+- **Three of the app Worker's path families were reachable only on paper. `assets.run_worker_first`
+named `/api/*` and nothing else, so `/wopi/*`, `/search-objects/*` and `/__dev/*` were looked for
+among the SPA's static files first, found nothing, and were answered `/index.html` with a 200 by the
+single-page-application not-found handling — the handler never ran.**
+
+Workers Static Assets routes asset-server-first: the array is not a list of API prefixes, it is the
+list of every top-level family the Worker answers on. The two cookieless surfaces deliberately built
+outside `/api` — the editor's WOPI data plane (`apps/api-worker/src/editing/wopi-host.ts`) and the
+keyword engine's ranged-read host (`apps/api-worker/src/search/split-object-host.ts`) — sat outside it,
+as did the local tools demo page. The failure has no shape a caller can read: HTML with a success
+status where a document, a byte range or a page was expected.
+
+**The array now names all four families**, and it stays an explicit list rather than inverting to
+`run_worker_first: true` with exceptions, because the SPA's own files must keep being served by the
+asset server — free, and off this Worker's CPU and invocation count.
+
+**The part that stops it recurring:** `apps/api-worker/test/worker-first-routing-scan.test.ts` derives
+the families from `app.routes` — Hono's live dispatch table, so a family added by a route module, a
+plugin, or a bare `app.get` is seen the moment it exists — and fails any path the configured
+patterns do not cover. Nothing else could catch it: `SELF.fetch` in the local pool reaches the
+Worker without crossing the asset server, so the existing WOPI and split-object request tests pass
+either way (verified by re-running them against the old array). The scan reported all three missing
+families on its first run against the pre-fix configuration, including the demo page nobody had
+noticed was already shadowed.
+- **A template whose blanks are Word content controls now says so at registration, instead of
+registering clean and filing the control's own prompt.** A `w:sdt` region whose properties carry
+`w:showingPlcHdr` is a control displaying its unfilled placeholder — the construct Word produces
+today wherever an author inserts a blank — and nothing in `packages/document-assembly` looked at
+`w:sdt` at all. So a `.docx` carrying one and nothing else registered with no failures, no fields, no
+unconverted merge fields, no form fields, and one warning: `no-placeholders`, whose text is "the
+template carries no merge fields, so every assembly of it produces the same document". That is
+byte-identical to what a genuinely static document gets, and it is the opposite of true. The assembly
+then completed with **zero absences** and produced a document whose visible text was `Click here to
+enter text.`
+
+The normalization pass now walks the `w:sdt` regions and records each unfilled one on the field
+manifest as `unboundContentControls` — the author's `w:alias` and `w:tag`, the control's kind, the
+part, the occurrence count, which unfilled state it is in, and the text the document prints there
+today. Registration warns naming each control and what it prints, `no-placeholders` is suppressed for
+a template that has any, the version's field list carries them, they ride the refusal, and every
+assembly reports them in `frozen_field_names` and lands on `succeeded_with_absences`.
+
+**Two states qualify, and a filled control is deliberately silent.** `w:showingPlcHdr` is Word's own
+record that a reader is seeing the prompt rather than content; `w:dataBinding` means the control is
+refreshed from a custom XML part inside the package that nothing here writes, so it prints whatever
+the document the template was made from last put there. A control that is neither holds text an
+author typed, which is content and not a hole — and Word wraps ordinary content in controls
+constantly, so warning on those would put a finding on every ordinary template and teach a firm to
+skip past all of them.
+
+**Nothing converts one, and the argument is a step different from the legacy form field's.** That
+decision leaned partly on the evidence being poor: a form field's only name is a Word-minted `Text1`.
+A content control's alias and tag are typed by whoever authored the document, so that leg does not
+transfer, and it is recorded rather than glossed. What stands on its own is that a name means
+something only once a human has confirmed it through the field-mapping library, and that every
+rewrite of a firm's uploaded document here is opt-in. An opt-in that maps an alias through that
+library is buildable on exactly what is now recorded, and is left open as an owner decision.
+
+Kept as a third manifest list rather than folded into the legacy form fields: that construct is dead
+and its only answer is replacement, while a content control is what Word writes today and the binding
+this engine intends to grow into, so its entry is also the evidence a future binding would use. A
+`{{field}}` written INSIDE a content control keeps working exactly as one outside it does, and now
+has a test saying so.
+
+**Also fixed:** a refused registration now names the fields nothing binds, in the response a person
+reads. Both the legacy form fields and the unfilled content controls ride the refusal's field-error
+list, so a template rejected for an authoring mistake somewhere else no longer stays silent about the
+rest of its holes until the attempt that finally passes.
+- Worker test harness — background work is now waited for instead of racing the teardown.
+
+Handlers push work off the response path (`executionCtx.waitUntil`): provisioning, invitation, and
+registration-confirmation routes all start a full outbox sweep behind their 201. A test asserting on
+the response returns while that sweep is still running, and when the last test in a file returns the
+harness tears the environment down underneath it. The sweep is mid-conversation with the test host at
+that point — resolving a module on first use, emitting its `outbox.swept` line — so those calls are
+closed and reject as `EnvironmentTeardownError: Closing rpc while "resolve" was pending` into a
+promise nobody holds. Whether the runner promoted that to a failure depended on how far the sweep
+happened to get, so it presented as a flake that unrelated changes appeared to cause or cure.
+
+Fire-and-forget work now goes through `trackBackgroundWork` (`apps/api-worker/src/background.ts`), which
+accounts for it, and a global `afterEach` barrier waits for the worker to go quiet after every test.
+The barrier reads the worker's own counters, and its test asserts it can still see work being
+started — a barrier that quietly stopped observing anything would drain instantly and pass forever.
 
 ### Changed
 
@@ -4263,6 +8324,982 @@ The pin was the anachronism, not the methods. This project requires Node 22 and 
 runtime dated mid-2026; both have supported these methods for years. Raising the level fixes the
 thirteen sites at a stroke, and turns the autofixer from something to be worked around into something
 that can simply be trusted.
+- **A flag that gates a build and lives only in a spec is not a flag. Fifteen `awaiting-owner` keys
+existed across the whole feature ledger while six merged designs carried roughly seventy numbered
+owner flags between them; the register's "Waiting on you" section now carries thirty.**
+
+The ledger's `awaiting-owner` key is the register's only channel for "this is waiting on you", and it
+had almost nothing in it. Meanwhile the last two days of design work produced five lettered flag
+series — S (trust PDF statement import), N (the Nevada court-form library), K (payments), J (client
+intake), W (notes, activity, tasks and matter plans) — plus older sets in conflicts deepening and
+unified identity that no pass had ever surfaced. Those flags lived in `docs/specs/` and in merged
+pull-request bodies, which is to say nowhere the owner looks.
+
+**Fifteen lines added, not seventy.** The whole point of the key is that the section stays readable,
+so the rule applied was: surface a flag when the answer changes what gets built — whether a slice
+ships at all, a schema shape or an enum that is expensive to shrink, or a professional-conduct
+posture the platform must not choose on a firm's behalf. Leave out anything that only decides how an
+already-agreed build is written (thresholds, vocabularies, retention windows, capability names,
+defaults reversible by a setting), because those get answered when the work starts and competing for
+the same attention makes the blocking ones harder to find. Where several flags block one capability
+they are compressed into that node's single line; where a flag is a conduct question rather than a
+product one, the line says so, because it wants a different kind of attention.
+
+Each line is written to be answerable without opening the spec — what is being decided, and what
+turns on each way of deciding it — and names the design and flag numbers for the full list.
+
+**Nodes that gained a line:** `matters` and `matters.lifecycle.consultations`; the whole of `intake`
+(root, lead pipeline, public forms, conflict check, conversion); `tasks` and `tasks.matter-plans`;
+`financial.trust.reconciliation` and `financial.billing.corrections`; `payments.ach`;
+`document-automation.filing-grade-generation`; `conflicts`; `auth`.
+
+**Swept and found already settled**, so deliberately not resurfaced: the merge-field catalog, matter
+assets, calendar, auto-file rules, billing, discovery 5·1, AI Search, template expressions, Magnus
+and document automation flag sets were closed by the owner's 2026-08-07 docket (ADR-0255) and its
+same-day follow-ups, and the handful that docket does not name by number were answered by the builds
+that followed — `matter_assignment` and `matter_court_case` exist, so the merge-field catalog's
+platform-tables question is decided; the auto-file rules node ships the staged-by-default posture;
+the calendar's no-arithmetic position is ratified in ADR-0261; Magnus's context boundary is recorded
+on `ai.magnus.context` as the ratified answer for the next slice.
+
+No node's `status` changed. `docs/now.md` is regenerated from the ledger, as always.
+- **A conflicts check now bounds what it writes, not only how far it walks — and the effect batcher's
+ceiling stopped being an argument-count accident.** The closure cap stops the traversal at 500
+entities and records the stop honestly. The corpus sweep behind this change shows why that is only
+half a bound: with the closure pinned, candidates rise linearly with the Directory, so the run's total
+is the closure times the corpus and the cap bounds one factor of a product.
+
+**What the sweep found.** Pinning the closure and growing the corpus, candidates per subject came out
+at roughly six tenths of the organization corpus for an organization subject and roughly a tenth of the
+person corpus for a person — linear in both, seven times steeper for organizations. Around ninety-nine
+per cent of the volume is candidates whose ONLY signal is trigram overlap; the phonetic and
+blind-index channels are corpus-independent and contribute a near-constant handful. The mechanism is
+that a trigram-OR match asks whether two names share ONE three-character window, and multi-word
+company names nearly always do. The uneven consequence is worth stating plainly: a firm with a deep
+corporate group is fine, and a firm with a large Directory is not — which is the ordinary case.
+
+**The second bound.** `candidateCap` joins `closureCap` on `ConflictsPolicy`, defaulting to 5,000,
+overridable per run, and recorded on every check row whether or not it bites. When it does bite, the
+check records how many candidates surfaced, how many were written, how many were refused and at which
+evidence tiers; the posture read carries it on `latestCheck.scope.candidates`, and the report
+statement says in words that the search is incomplete. Strongest evidence is kept — the cap decides
+how many, evidence strength decides which — and a co-party surfacing is never refused, because it is a
+match on another of the check's own subject parties and dropping one would hide a positional conflict
+in the matter being checked. This is a capacity refusal, not a threshold: below the cap nothing is
+chosen, nothing is reordered, and nothing is recorded, and the matchers themselves are untouched, so
+the equivalence proof that the batched matcher returns exactly the per-entity matcher's hit set still
+holds by construction.
+
+**The batcher.** `composeEffectBatch` composed with `push(...effect.statements)`. A spread passes every
+element as a separate argument, so the seam every domain writes through had a ceiling set by the
+engine's remaining stack — it threw `RangeError: Maximum call stack size exceeded` around 125,000
+statements, and the exact number moved with how deep the call stack already was, so the same effect
+could commit on one path and abort on another. The spread is gone. In its place is a stated ceiling of
+10,000 statements per batch, with a refusal that names the remedy: a batch is one transaction inside
+one request, so an oversized effect is bounded at the domain that knows what its rows mean, never
+split — splitting would trade the ceiling for a partially committed write. The two bounds compose
+mechanically: `candidateCap` is clamped below what one batch can carry, so nothing a firm can store in
+its settings row can turn a truncation the platform reports into a check that fails outright.
+
+**Re-measurable.** `conflictsCandidateBounds` in the load profile reports the per-channel candidate
+breakdown and the corpus of the subject's own kind, so two baselines taken at different profile scales
+are the corpus sweep rather than two unrelated numbers.
+- **The notification dedupe key now says what it guarantees: duplicate suppression bounded by the firm's
+retention window, not a permanent record that a subject was ever notified about. And the one bound in the
+comparison sweep that could stop it finding things without saying so now says so.**
+
+**The question, and why the answer is "intended".** The UNIQUE index that makes a notification fire once
+lives on `notification_event.dedupe_key` — a column on a row the retention sweep deletes. Read as "once,
+ever", which is how "dedupe key" reads to almost everybody, that is a defect waiting to happen. It is not
+one, and the subsystem's own design says so: it frames the key as a **redelivery** floor throughout, with
+the comparison path raising "once per day" in as many words. Each production path's required lifetime is
+far shorter than the thirty-day retention floor — an outbox row is published once and flipped out of
+`pending`, so the relay never re-carries it; a comparison's civil-date bucket is derived from the pass's
+own instant, so the bucket can only move forward and a swept one is unreachable rather than merely
+unlikely; a job reports each terminal state once inside its own life. No shipped consumer depends on
+forever semantics.
+
+**What was actually wrong was where the fact lived.** The boundary had been worked out and written down —
+in the billing automations' design, for billing's own purposes, when that slice decided to put its
+convergence in `invoice_reminder` rows rather than on this key. The notifications subsystem itself said
+nothing about it, so the next author had to re-derive it or get it wrong. Each production path now
+declares a **convergence horizon** in `CONVERGENCE_HORIZON_BY_RAISER`, as a `Record` keyed on the raiser
+union so a fourth production path is a **compile error** until it states how long its key must hold. Both
+ends of the mechanism — the key builders and the retention sweep — name the boundary and the rule that
+follows it: a condition that must raise once per subject **forever** carries its convergence in the owning
+subsystem's own tables and points a notification at that record. A fitness test states the semantics out
+loud by re-inserting a key the sweep took, then proves the property that makes it safe by holding the
+comparison bucket to following the clock rather than anything stored.
+
+**No durable key table, deliberately.** It would serve no consumer that exists and would trade a bounded
+pointer store for an unbounded one — one row per notification ever raised, in a subsystem whose entire
+defensibility rests on holding pointers with a window rather than records without one. "Retain a key
+forever" is a storage decision, and nothing asked for it.
+
+**The uncounted clamp.** The comparison pass's per-kind findings cap was already honest: it over-reads by
+one to detect rather than infer, and reports `notifications.comparison_clamped`. Its **zone discovery**
+was not. The deadline comparison needs one cutoff per zone because no D1 query can resolve a zone, and
+that read was bounded at the same two hundred with no over-read and no counter. A truncated zone list is
+worse than a clamped finding count and fails differently: a zone the read never returns contributes no
+cutoff, so every deadline in it matches neither the overdue bound nor the due-today window, and the pass
+reports nothing at all about a whole jurisdiction while every other counter reads healthy — a check that
+stopped looking and still reads as coverage. It now over-reads by one and reports
+`notifications.comparison_zone_discovery_truncated`, on its own metric rather than folded into the findings
+clamp, because a clamp bounds what was missed and this does not bound it at all. The value counts
+truncated **passes** rather than zones: a read that over-reads by one to catch its own truncation learns
+that it truncated and can never learn by how much, and a magnitude invented there would be the same
+dishonesty one level down. It is reported even from the early return where no zone resolved and the pass
+found nothing, because "I found nothing" and "I could not finish looking" are different statements.
+
+The collectors' incompleteness now travels in the tally's own delta shape rather than a purpose-built
+map per kind of clamp, which is what let the zone truncation go uncounted in the first place: a new kind
+of incompleteness no longer needs a new parallel channel to be reportable.
+
+**Not changed, and left to the owner:** whether two hundred findings per kind per pass is the right
+ceiling. It is counted rather than silent, but a busy litigation practice can exceed it honestly, and
+raising it changes how much of a firm's overdue work gets reported as well as what one pass costs.
+Recorded on the ledger node rather than decided here.
+- **A capability could read `not-started` in the build register while sixteen modules, twelve routes
+and a registered close gate stood behind it, and nothing could see the contradiction. Two more rules
+in the ledger-staleness scan close that, and four nodes in the register were wrong because of it.**
+
+**Why nothing saw it.** Every rule in `tooling/lint-ledger-staleness/` keys on a node **naming a
+path**: it resolves the path, asks whether some other node accounts for it, asks whether the sentence
+around it claims the path is absent. A node that describes its own absence in prose gives those rules
+nothing to hold. `financial.trust.reconciliation`'s evidence was "in slice 3-2 scope … no code" and
+named no path at all; `financial.trust.close-rule` named the hook file, which exists and which the
+matters node correctly accounts for, and made its absence claim about a symbol rather than a path.
+Both were silent by construction, and both sat at `not-started` over `packages/trust`'s
+reconciliation, matching, statement-import and three-way-proof modules, over
+`apps/api-worker/src/routes/trust-reconciliation.ts`, and over a close precondition registered in the
+matter composition root and tested at two layers.
+
+**The new rule reads no prose.** A node carries `slices:`; a `status.d/<slug>.md` fragment carries
+`built:`. A `not-started` node whose slice fragments all report `built: in-progress` or `built: done`,
+and one of whose **siblings** is already shipped under that same slice, is two committed documents
+contradicting each other — no filesystem, no keyword matching, no guessing at English.
+
+**The narrowing is the whole design, and it was measured rather than assumed.** The unnarrowed form
+fires 19 times and 14 of those are one correct idiom: a capability tagged to the slice that built the
+_substrate it will reuse_. `payments.port` sits on the port system, every `portal.capabilities.*` on
+the document slice whose engine it will call. What separates those from a stale node is where the
+stream's output landed — their substrate is in another subtree, while a stream that has already
+shipped this node's own siblings is demonstrably working inside this one. Restricting to
+`not-started` drops two more: `designed` and `planned` are **attested** pre-code states, where a spec
+or a plan was written and somebody recorded that the build had not begun, and widening to them buys
+one true positive at the price of one false. Final measurement: **2 hits, both real, no exemptions**.
+A second rule holds the input honest — a `slices:` entry naming no fragment would silently switch the
+first rule off, and 267 tags across 235 nodes all resolve today.
+
+**What the register was saying, and what it says now.** Reconciliation is `partial`, not
+`not-started`: the whole workflow — a recorded bank period, an import that previews before it stores,
+ranked match candidates a person confirms, and a three-way proof frozen on close — is on main behind
+routes, with no screen on any of it. The zero-balance close precondition is `shipped`; its "all bills
+paid" half is deliberately not registered, because an uncollectable receivable's lawful exit is a
+write-off. Two further nodes the narrowing surfaced were verified by hand and corrected the same way:
+per-account jurisdiction binding and location-on-trust-accounts are both `partial`, both shipping
+their binding and their refusals while nothing yet resolves a rule profile through the port.
+
+Shipped moves 244 → 245 and partial 186 → 189, so shipped-plus-partial goes 430 → 434 of 705, 61% to
+62%. Four capabilities that existed were being counted as work not begun.
+- **A read that takes a limit now says when it hit it, and six feature-ledger nodes stop claiming work
+is underway where only a branch or a document is.** Two unrelated defects, one shape: an instrument
+that reads healthy while reporting nothing.
+
+**The calendar's zone read returns its own clamp.** `readOpenDeadlineTimeZones` took a `limit` and
+returned a bare array, so no caller could tell a complete zone list from one the bound cut short
+except by over-reading and comparing. That is not an under-filled page: the zone list is what the
+overdue narrowing derives one cutoff per zone from, so a zone the read never returns contributes no
+cutoff, and every deadline recorded in it matches neither the overdue bound nor the due-today
+window — a whole jurisdiction goes unreported while every counter beside it reads healthy. The read
+now over-reads by one itself and answers `{ timeZones, clamped }`, the shape the notification
+digest's window read already uses. `clamped` is a boolean on purpose: over-reading by one learns
+_that_ the bound bit and never _by how much_, and a magnitude invented there would be the same
+dishonesty one level down.
+
+The notification comparison sweep had hand-rolled exactly this at its call site, correctly, and now
+consumes the signal instead. Its `notifications.comparison_zone_discovery_truncated` counter is
+unchanged in meaning and value — still one per truncated **pass**, charged to both deadline kinds.
+The deadline-list route discards the new signal deliberately, and says why: a list read has nowhere
+honest to put it, and the nightly pass is where the same truncation is already counted.
+
+**The `in-build` sweep.** `in-build` is the register's most misleading status — it tells a reader
+work is actively underway — and `lint:ledger-staleness` structurally cannot catch a wrong one: it
+compares a node against its slice's status fragment, and a documentation-only branch produces a
+perfectly plausible fragment. So every node at `in-build` was checked against the repository
+instead. Six were wrong, in both directions:
+
+- **`documents.file-manager.file-inspector` → `not-started`.** It was `in-build` on a remote branch
+  carrying a single documentation commit and no code; there is no inspector route, no inspector
+  module, and no design under `docs/specs/`. Not `designed` either — the design is unmerged, so
+  there is no accepted spec for that status to point at.
+- **`documents.ocr.raster-cap` → `shipped`**, and **`platform.schema-migration.monotonic-ids` →
+  `shipped`.** Both pointed at a branch (in the second case at an active-work note that no longer
+  exists) while the capability had reached `main` independently, with tests.
+- **The docs-maintenance system → `shipped` for per-merge assembly and the run-report registry,
+  `partial` for the parent.** All three named artifacts are on `main`, the deterministic assembler
+  runs on every push, and the report registry has entries beyond its baseline; the evidence still
+  said "unmerged".
+
+**Five nodes were left alone and the reasoning written down** rather than guessed at, because
+`partial` and `in-build` mean different things and choosing between them on a hunch is worse than
+naming the ambiguity.
+- **The file manager's search results were a second, poorer list. They are the matter's own table now,
+and the query re-runs when you come back to it.**
+
+Results were rendered as bare rows carrying a name, a folder and a Show button. Everything the matter
+table does — sorting, filtering, the column set, right-click, selection, the footer — was absent, so
+acting on a result meant navigating away from the result set. That is also why "download all matches"
+had been asked for: with no way to select a result, a bulk button was the only exit.
+
+Results now render through `cellFor`, the same renderer the browse table uses, so a result is a row
+in every sense. Selecting several and using the existing download action replaces the bulk button
+entirely.
+
+**Three defects went with it.**
+
+The dropdown rendered only on `input`. Re-opening the field with a query already in it showed nothing
+until a character was added or removed — the query looked lost when it was merely unrendered. Focus
+and click now run the same render.
+
+"Open Full Results" sat below the hit list, so it moved every time the list changed length. It rides
+the scope line at the top, and is disabled rather than absent while the query is empty.
+
+The panel stayed hidden until a character arrived, which put the scope selector — the one control a
+person sets _before_ typing — out of reach. Opening the field opens the panel.
+
+The search field also appears in the results header, where the query is stated, so refining a search
+does not mean returning to the masthead. Re-rendering replaces that input, so focus and caret are
+restored on each keystroke; without it, typing reverses itself.
+
+Harness: 51 → 56 checks.
+- **The scoped gate now names the one type error that is not a type error, and three documents that had
+gone stale say what is true.**
+
+**A stale workspace link stops looking like broken code.** After merging a trunk that added a package
+or an export path, `tsc -b` reports `Cannot find module '@magna-carta/<something>'` against source
+that is perfectly correct — workspace links resolve at install time, so the module is genuinely absent
+from `node_modules` while the code and the reference graph are both right. It reads exactly like a
+real break, and every time it has cost an afternoon of debugging something that was never wrong. The
+remedy is `pnpm install`.
+
+`pnpm check:scoped` now says so itself. The type-check step's output is captured rather than inherited,
+and on a failure the gate applies the discriminator that was already in the repository and already
+scriptable: if the errors carry `TS2307` against a `@magna-carta/` specifier **and**
+`tooling/tsconfig-refs --check` reports every generated build config in sync, nothing about the
+projects is stale, so the missing module is a stale link — and the gate prints the remedy. Both halves
+have to hold. A hint that also fired on ordinary type errors would be worse than no hint, because it
+would train everyone to scroll past the one time it is right, so it was verified in three directions:
+it fires with a package's workspace links removed, it stays silent on an ordinary `TS2322`, and the
+reference check exits non-zero (suppressing the hint) when a `package.json` really has outrun its
+generated graph.
+
+**Two trust documents caught up with the bank-charge carve-out.** `packages/trust-jurisdictions/CLAUDE.md`
+and the comment on `cited.firmFundsForBankCharges` in `src/data/nevada.ts` both still said the carve-out
+was encoded as a citation and not wired, and that the composition guard refused every posting to a
+firm-funds node. `composeTrustFirmFundsEntry` and `openTrustFirmFundsNode` shipped on 2026-08-12. Both
+documents now describe the carve-out as the **second door** it is — and the invariant they were making
+is intact and stated with the same force, because it is still true: `composeTrustEntry`, the door client
+money goes through, refuses a firm-funds line **absolutely**, and the second door admits strictly fewer
+shapes rather than more. The Nevada comment's four unsettled points are kept and re-cast as what each
+was answered with rather than invented: no cap is chosen (the node's zero floor aborts an over-large
+charge instead), the carve-out is refused outright on a pooled interest-bearing account the rules exempt
+from service charges, the no-commingling guard is unchanged, and the three-way proof carries the cushion
+as its own leg.
+
+**The white paper's _Payments_ card capture matches the accepted decision.** It described capture via
+"hosted fields / tokenization (e.g. Helcim.js)" — the in-DOM tokenizer that ADR-0181 rejected **by
+name** as SAQ A-EP. It now states the hosted payment modal returning an opaque `cardToken`, the
+rejection of the in-DOM tokenizer and of the raw-card API, no PAN and no CVV stored, and a payment
+surface free of third-party scripts. The payments design spec's note recording that drift is updated
+to record it as resolved.
+
+**A trap gets a warning where the mistake is made.** `idempotencyMiddleware` reads the request body
+through `context.req.json()` to fingerprint it, which consumes the raw stream. Mounted in front of a
+webhook route it destroys the bytes a signature is computed over, and the failure presents as a wrong
+shared secret rather than as a consumed body — so the debugging goes into the credential store and
+stays there. The middleware now carries that warning on itself, alongside what a signature-verifying
+route does instead.
+- **Twelve feature-ledger nodes carried a status that asserts no code, over code.** The vocabulary
+defines `deferred` as explicitly parked by a decision and `designed` as an accepted design spec with
+no code; a capability with three modules, two tables and seven routes is neither. These are factual
+claims the tree refutes, and they move on the same ground the evidence sentences moved on in the
+previous pass. The register's headline shifts with them: Done 260 to 264, Part-built 103 to 111,
+Ahead 218 to 209, Parked 43 to 40, over an unchanged 624 units of work.
+
+| Node                                  | Was          | Now       |
+| ------------------------------------- | ------------ | --------- |
+| `custodian.stocktake`                 | `deferred`   | `partial` |
+| `custodian.retention-destruction`     | `designed`   | `partial` |
+| `custodian.will-reminders`            | `deferred`   | `partial` |
+| `documents.conversion.office`         | `planned`    | `shipped` |
+| `documents.conversion.searchable-pdf` | `not-started`| `shipped` |
+| `documents.pdf.manipulation`          | `not-started`| `shipped` |
+| `locations.usage.custodian`           | `designed`   | `shipped` |
+| `locations.usage.documents-billing`   | `not-started`| `partial` |
+| `notifications.digest`                | `deferred`   | `partial` |
+| `platform.time-model.zone-context`    | `not-started`| `partial` |
+| `product-updates.artifact`            | `not-started`| `partial` |
+| `user-docs.admin-docs`                | `not-started`| `partial` |
+
+**Three were found in this pass rather than the last one, all by the same search.**
+`documents.pdf.manipulation` read "No merge/split/rotate/flatten module in `crates/pdf-core/src`" —
+all four are built, three in `generate.rs` and form flattening in `forms.rs`, and every one is
+exposed at the WASM edge. It read `not-started` because it looked for a module of its own; there is
+not one, and `documents.pdf.generate` already claimed the same file.
+`documents.conversion.searchable-pdf` read "no text-layer writer in `crates/pdf-core`" —
+`searchable.rs` is exactly that, wired through `containers/ocr`'s `/ocr/searchable` and a registry
+edge. `platform.time-model.zone-context` read "no zone column in `packages/locations/src`", a fact
+two other areas had already been corrected on.
+
+**Shipped versus partial was decided by scope coverage, not by deployment.** The two container
+engines are `shipped` because `documents.conversion.raster` is, on identical evidence and an equally
+undeployed image; inventing a distinction between them would be a new inconsistency rather than a
+corrected one. Every leaf that gained a built status gained a `surface:`, all `awaiting-screen`
+except `product-updates.artifact`, which is a build step and a KV publish and has no user surface by
+nature.
+
+**Six parked nodes said why they were parked without saying which decision parked them**, which
+`deferred` and `cut` are required to carry. All six turned out to be parked in a document that names
+them — ADR-0054, ADR-0059, or a white-paper topic — so each now cites it.
+
+## The blind spot, measured
+
+The previous pass reported that rule 1 skips any path a has-code node already claims, so a `partial`
+area root naming `packages/custodian` immunises every `deferred` child beneath it. Three candidate
+rules were measured against three states of the ledger and **none of them can close it.**
+
+- **Tighten rule 1's accounting to be at-least-as-specific** (a strict ancestor no longer accounts
+  for a path). Against the ledger as it stood when all twelve wrong statuses were live: **6 hits, all
+  six false positives, and none of the twelve.** Against the post-evidence-sweep ledger: 10 hits, 2
+  true. The reason is structural — the rule's only input is the node's own prose, and a mis-statused
+  node's prose is the sentence that is wrong. It says "no such thing exists" and therefore names no
+  path, so no path-keyed rule can see it at any precision.
+- **The absence-about-a-resolving-path shape** ("no X in `packages/Y`"): **22 hits, 3 true.**
+- **Widening rule 7 (`sliceAlreadyDelivered`) past `not-started`**: `deferred` alone gives 1 hit and
+  1 false positive; the full widening to `deferred`, `designed` and `planned` gives **10 hits and 10
+  false positives** — the reports sub-slices, the matter-assets tail, and the discovery clustering
+  node, every one of them correctly pre-code. That is worse than the +2 the rule's own header already
+  measured and rejected, and it is rejected here on the same terms.
+
+What is worth doing instead is smaller and honest about which job it does. **A regression guard, not
+a detector:** a node whose `evidence` or `notes` says something landed while its status says nothing
+is built. Measured across three ledger states: **0 hits before the drift was found, 6 hits and no
+false positives in the window where the evidence had been corrected and the status had not, 0 after
+this change.** It cannot find drift nobody has noticed — its recall on that is zero by construction —
+but it makes the specific mistake the previous pass made twelve times impossible to commit again.
+
+And one number that bounds every slice-keyed rule: **220 of 265 pre-code and parked nodes carry no
+`slices:` tag at all**, so rule 7 is blind to eighty-three per cent of them whatever its status
+filter. Tagging is a cheaper lever than a rule, and it is the one that would move that number.
+
+**The rest needs a human pass on a cadence.** Both the areas swept so far were read by a person
+against the code, and both found drift running one way: nodes describing work that has since landed.
+That is a reading job, and the docs-sync routine is where it belongs.
+- **The conflicts graph walk is now budgeted per kind of relationship rather than by one integer, it
+stops at a recorded closure cap instead of running unbounded, and it costs a number of queries that
+follows the channel count rather than the entity count. The rule that carries the change is that a
+truncated expansion is never reported as a completed one.**
+
+**One integer could not express the question.** "Follow a company's rename and merger chain as far as
+it goes" and "do not walk from a spouse to her employer's other directors" are different instructions,
+and the shipped `depth` answered both with the same number because it could not tell them apart. The
+traversal now spends a budget per **edge class** — corporate family (transitive, no hop cost),
+control, family, representation — each a firm setting with the design's recommended default of one
+hop, each resolved per run and recorded verbatim on the check row. The shipped `depth` request field
+and column both keep working: supplying `depth` sets every budgeted class to that number, which is
+exactly what it always meant, and the column now carries the widest resolved budget so a reader of it
+alone is never told the traversal was shallower than it was. A stored firm policy that predates the
+typed budgets keeps its own `defaultDepth` for every class rather than falling back to the shipped
+default — falling back would silently narrow the search for precisely the firms that widened it.
+
+**The cap, and the sentence that makes it acceptable.** Corporate-family edges cost no hops, so a real
+holding structure can put thousands of entities in one closure; a bound has to exist. The per-run
+closure cap (firm-set, recommended default 500) is that bound, and it is never applied silently. On
+reaching it the walk stops and the check records **that it was truncated**, the caps in force, the
+entities it reached, how many further entities it had discovered and refused to admit, and how many
+entities it did match but never expanded from. The posture read carries the record; the report
+statement says in words that the search of the graph is incomplete. A check row written before the
+record existed reads `traversal: null` — "the row does not say" — which is a third state and is never
+flattened into either of the other two. This is the depth analogue of the shipped rule that a source
+recording `unavailable` never reads as searched and clean, and it fails the same way if broken: the
+platform telling a firm it looked somewhere it did not look.
+
+**Degree-based hub suppression is refused, and the refusal is in the code.** Skipping any node with
+more than N edges is the obvious way to keep a closure small and it silently narrows the search — a
+clearing bank on five hundred matters is exactly where a positional conflict lives. The bound is on
+the SIZE of the closure, where reaching it is a recordable fact, never on the SHAPE of the graph,
+where stepping around a hub leaves nothing on the record at all. A test holds it.
+
+**Ended relationships are traversed.** A divorced spouse or a subsidiary sold last year is walked, not
+skipped, and the path step carries `expiredAtCheck` so the reviewer weighs it — the rules that most
+often decide a conflict are about _former_ clients and _former_ relationships, so a walk that stopped
+at currency would drop the dimension they turn on. Expiry is judged against the check's own clock
+rather than an ambient wall-clock read, so a long walk cannot hold two opinions about when a
+relationship ended.
+
+**The N+1 goes in the same change as the widening, not after a measurement.** Widening a traversal
+without batching would have regressed the shipped load profile on the first deep corporate group: the
+per-entity path is one or two subject reads plus four matching queries **per reached entity**, which
+at a 500-entity closure is roughly 2,500 queries in one invocation. Now there is one subject-facts
+read per node table over the whole closure, one batched edge read per traversal round rather than one
+per node, and each blocking channel run once over the whole closure — phonetic, trigram, blind-index,
+and the exact-name probe — with per-subject attribution kept exact rather than approximated. Every
+set-valued read chunks at D1's hundred-parameter cap, so the count is proportional to channels times
+ceil(entities / 100) and not to entities times channels.
+
+**Proved, not asserted.** The batched matcher is held to returning _exactly_ the per-entity matcher's
+hit set — same entities, same evidence, same tiers, at both strictness levels — over a real migrated
+corpus carrying sound-alike surnames, typo variants, an exact-name twin, a name-mismatched identifier
+twin, former and alias name rows, a merged-away subordinate resolving to its master, a mononym too
+short for trigrams, and organizations alongside persons. A performance change to a conflicts engine
+that alters which hits come back is not a refactor; it is a missed conflict. The per-entity path is
+kept as the thing the batch is measured against, and a second test counts prepared statements on both
+paths so an accidental read inside a loop fails the build rather than waiting for a corpus large
+enough to show up in a timing.
+
+**Batching the trigram channel naively is slower than not batching it, and the harness caught that
+too.** The union query returns each candidate once, but re-deriving "does this candidate share a
+trigram with this subject" inside the per-subject loop is quadratic in subjects times candidates. The
+union's rows become an inverted trigram-to-entities index once instead — the shape the phonetic
+channel already had — and attribution is a union over each subject's own trigrams. On the same corpus
+that took a 613-entity closure from 5,684ms to 394ms for the same 211,199 candidates. Query count is
+the right target because a D1 query is a network round trip, but a batch that trades round trips for
+quadratic arithmetic has moved the cost rather than removed it.
+
+**Measured.** The load profile gains a deep corporate group — a twelve-deep successor lineage with a
+six-hundred-wide subsidiary fan, sized past the default cap on purpose — plus a complete deep-graph
+run, a deliberately truncating run, and a statement-count bound on the batched matcher printed beside
+the timings.
+
+**Two findings the harness produced, recorded rather than fixed under this change's cover.**
+
+The design says "the candidate set the channels return is still bounded by blocking", and over
+multi-word ORGANIZATION names it is not. The trigram channel matches on any shared three-character
+window, and company names share " an", "and", "nd ", "inc", "llc" with nearly every other company
+name, so each reached organization returns most of the organization corpus as candidates. Nothing is
+suppressed — that is the no-threshold rule, and it is right — so **hit rows scale as closure size
+times corpus size**, not as closure size. The closure cap therefore bounds the wrong quantity. The
+recommended default of 500 ships as designed, because the number is the owner's, but it ships beside
+this finding rather than in place of it.
+
+And the second, which is how the first was noticed: at that scale `composeEffectBatch` in
+`packages/data-access/src/effect-batch.ts` fails on `statements.push(...effect.statements)` with
+`RangeError: Maximum call stack size exceeded`. A spread argument list has a hard engine ceiling, so
+the shared batch composer has an undocumented upper bound on statement count that applies to every
+domain composing a large batch. Not this change's seam to fix.
+
+The load-profile measurements consequently run at closure caps of 40 and 15, with the reasoning
+stated at the constant, so the harness measures the traversal rather than the engine's argument
+limit. The gap between those numbers and the shipped default is the size of the finding.
+
+**Not in this change, and deliberately.** The three flags that decide what the platform asserts about
+a firm's ethical position are the owner's and are untouched: whether the balanced band searches
+former, maiden and alias names; whether an imputed conflict follows a lateral hire and whether a
+screen cures it; and whether a matter may refuse to open over undisposed hits. The firm-marked
+non-expandable-entity mark needs a Directory write path and belongs with the slice that owns it.
+- **A node's evidence can say "no conflicts check exists to trigger" and be wrong for weeks, because
+nothing in the repository can check an English sentence. The obvious fix — make the sentence name a
+path — was measured at 96 hits over 708 nodes and rejected. Eight capabilities that existed were
+being counted as work not begun, with seven further claims saying so in prose, and every one of them
+was found by running the matcher by hand instead.**
+
+**The idea, and why it does not survive measurement.** You cannot check a sentence against a
+filesystem, but you can refuse it: require evidence asserting something does not exist to also carry
+a repository path, so `no conflicts check exists` becomes `no caller of packages/conflicts exists`
+and the three path rules in `tooling/lint-ledger-staleness/` can finally see it. An unfalsifiable
+claim becomes a falsifiable one and the existing machinery does the work. The measurement says
+otherwise. **96 raw hits, 14% of every node** — not a lint finding but a migration — and the hits are
+not a fixable tail. They are the ledger's most correct idiom: _"no code"_, _"none exists"_,
+_"Backend only — no UI"_, each naming a capability with **no location on the tree at all**, because
+it was never built anywhere. Forcing a path onto those means inventing one, and rule 4 correctly
+suppresses an unresolved path inside an absence claim, so the invented path is never checked until
+somebody happens to create a file at exactly that name. The convention also cannot make anybody look:
+writing `no packages/conflicts caller exists` requires having checked, and checking is what corrects
+the belief.
+
+**A better formulation appeared while measuring, and it fails too — by one.** Drop the filesystem and
+compare the ledger against itself: a node's prose asserts a named capability does not exist, where
+that capability is another area root the ledger holds at a has-code status. No English resolved
+against a tree, just two committed statements disagreeing, the same shape as the roll-up and
+slice-delivery rules. **8 hits, 5 true, 3 false**; narrowed to a standalone word followed by a
+subsystem noun, **6 hits, 5 true, 1 false**. The survivor is `ai.magnus.record` — _"belongs to the
+discovery surface and is not built **here**"_ — a node scoping an absence to itself while naming a
+subsystem that exists. That is ordinary English, and the narrowing that would suppress it is fitted
+to the one sample rather than derived. One false positive is one too many for a scan whose entire
+argument is that it fires rarely and is right when it does.
+
+**So the matcher ships as a search tool and not as a gate**, which is the division the design already
+draws: judgement reads prose, the gate does not. Run over `roadmap.d/` by hand it found five stale
+claims, and following one of them found a sixth seam nobody was looking for.
+
+**Conflicts, corrected in one direction throughout.** Slices 1 and 2 shipped and six nodes still read
+as though nothing had. The matching engine is `shipped`, not `researching`: four blocking channels
+over the Directory corpus, related-party edge expansion as a 0-1 BFS that costs corporate hops
+nothing, and a deliberately scorer-free evidence tier that orders and never filters. The immutable
+log is `shipped`: three append-only tables with nine `RAISE(ABORT)` triggers, a runtime fitness probe
+that refuses a plaintext-identifier-shaped digit run in recorded evidence, and the plain-language
+statement of what a check searched. Human clearance is `shipped` — four disposition kinds, a required
+rationale, a reversal that is a second row rather than an edit — and firm-wide imputation is
+`shipped`, matching the firm's own people by identity and never by name, with the party class unioned
+back into the floor on every read so no stored policy can drop the firm-wide corpus. Strictness and
+search depth are `partial` rather than shipped, and for stated reasons: the strictness floor has no
+write path behind it, and the content source is registered with no corpus and records `unavailable`
+on every check so the log can never read as searched-and-clean for document text.
+
+**Billing was carrying the same shape.** `financial.billing.invoice-composition` read `not-started`
+with "no invoice model in tree" over eight invoice tables and a composer that builds fee and cost
+lines from claimed work-in-progress; `financial.billing.wip-to-ar` read `not-started` with "no
+posting service exists" over a `finalizeInvoice` that locks every claimed entry into billed and
+writes the receivable in the same batch. Four further notes lines across time, costs and the billing
+parent still called that slice unbuilt. Composition is `partial` (tax is a declared line kind and a
+posting role with nothing computing it) and the posting is `shipped`.
+
+Shipped moves 249 → 254 and partial 192 → 195, so shipped-plus-partial goes 441 → 449 of 708, 62% to
+63%. The Conflicts area moves from 11% done to 56%.
+- **The register counted 133 roll-up parents as if they were work, and it could not tell a screen
+somebody uses from a backend nobody can open. Both are fixed, and there is now one page for
+answering the questions the build is waiting on.**
+
+Three corrections to how the feature ledger is read, all raised by the owner reading the register.
+
+**A roll-up is not a unit of work.** Hierarchy is encoded in the dotted id, so a node with children
+is a summary of them — and its status goes `partial` the moment its children stop agreeing. Counting
+those parents beside the leaves did not add work to the totals, it added the same work a second time
+under a status nobody chose. The distortion was not evenly spread either: of 133 parents, 107 were
+`partial`, so it landed almost entirely on the one status a reader is most likely to mistake for
+progress. Every share in the register now runs over the 621 units of work, with the parent count and
+its `partial` share stated in its own section rather than quietly dropped. The numbers move
+accordingly: shipped reads 41% where it read 35%, and `partial` 16% where it read 27%.
+
+**`surface:` — a new ledger key, because `status` never held reach.** A backend nobody can open and a
+screen somebody uses every day are both `shipped`, and reading those as one number overstates the
+product by the entire amount of interface that has not been built. The key takes `screen`,
+`awaiting-screen` or `internal`, is required on every leaf whose status is `shipped`, `partial` or
+`in-build`, and is refused on roll-up parents and on nodes with nothing built — a parent's reach is
+its children's, and a capability nothing has been written for has no reach to record. It is recorded
+rather than derived because deriving it was measured and rejected: prose in `notes` carried a usable
+signal on 63 nodes of 754, and an `evidence:` path naming a screen on 14 of the 359 leaves with code
+behind them. The register gains a section reading the answer back, and the interface debt is now a
+stated figure rather than something inferred from `partial`.
+
+**`docs/decisions-open.html` — the decision desk.** The `awaiting-owner` questions were recorded
+where each piece of work stopped, one line inside one area file, and reachable only as a list part
+way down the register. That is somewhere to read them, not somewhere to answer them. The desk is a
+third rendering of the same ledger, built by the same `vp run register-build`: every open question as
+a card, sorted by whether anything is built behind it, with the reach chip from `surface:`, an answer
+box that persists in the browser, filters by area and by unanswered, and a copy-out block that names
+each decision by node id. It has no network of any kind — that is what lets it be read from the
+repository, from a published copy or from a laptop with no connection and be the same page — so the
+answers come back by paste, in a format written to be applied without anybody matching them up by
+hand. `pnpm run lint:roadmap` holds it to a fresh render like the other two, so a question leaves the
+desk exactly when its node's key does.
+- Custodian's number draw now runs on `@magna-carta/sequence-numbering` instead of its own copy of the
+idiom, leaving one home for how a sequence number is allocated.
+
+Custodian grew its counter and allocation statements before the shared package was extracted out of
+matters, so the same read-render-commit — ensure the counter row, increment it guarded on the
+observed value, and claim the drawn value in an allocation row whose composite primary key is the
+actual backstop — existed twice. `packages/custodian/src/numbering/counter-statements.ts` is now the
+same thin shim `@magna-carta/matters` uses: it binds `custody_number_counter`,
+`custody_number_allocation`, and the `packet_id` owner column to the shared builders and keeps the
+`CustodyPacketId` typing on the allocation. Every export it had, it still has.
+
+**Behavioural identity was the bar, and the SQL is unchanged.** The shared builders emit the same
+statements for these table names, character for character, so a custody number renders exactly as it
+did — the shape is printed on physical labels and read out over the phone, and a format change would
+not be a refactor. The one difference in reachable behaviour is a widening that cannot fire:
+`isNumberAllocationConflict` also recognises the append-only refusal that an allocation table with a
+no-overwrite trigger raises ahead of its primary key, and `custody_number_allocation` has no such
+trigger. Custodian's existing suite is the proof — the concurrent-draw test still walks three
+simultaneous draws out to `CUS-00001`/`00002`/`00003`, the allocation ledger still records one row per
+drawn value and none for a manual number, and the retry still steps past a manual number the counter
+would have rendered. A new case pins what the shared, table-parameterised predicate must not lose: a
+collision on `matter_number_allocation` is not a custody draw race and is never retried as one.
+
+**The retry loop deliberately stays in `packet-service.ts`.** `drawWithBoundedRetry` cannot express
+two things custodian's loop does: it gives up as a named `CustodyValidationError`
+(`custody-number-exhausted`) that the route maps to a problem type rather than as a bare `Error`, and
+it retries a manual-number collision that consumed no counter value and therefore has no observed
+draw to advance past. Matters keeps its own loop for the same kind of reason. The statement builders
+are what was duplicated and what is now shared; a loop growing an option per consumer's error
+vocabulary would be shared in name only.
+- **Discovery's attribution reads "Custodian of Record" wherever a person meets it.** The owner named
+the label; the code word does not move. Every user-facing string now carries it — the OpenAPI
+`description`s on the record-custodian routes, the refusal sentences the discovery services raise
+that a route surfaces verbatim as a problem `detail`, and
+[`docs/user/features/review-sets-and-loading.md`](../docs/user/features/review-sets-and-loading.md).
+Identifiers, tables, columns, route paths (`/api/v1/review-sets/{reviewSetId}/record-custodians`),
+schema names, and refusal codes stay `record_custodian` / `recordCustodian`, so nothing on the wire
+changes shape. `tooling/lint-custodian-vocabulary.mjs` now recognises both permitted forms and
+nothing else: the leading-`record` family for code, the full phrase "Custodian of Record" for
+readers, and a bare `custodian` still fails in every casing and position — with self-test rows for
+the near-misses ("the custodian of the estate" is still a violation). No screen was touched; the UI
+surfaces are the owner's to schedule.
+- **The quality gate now stops at the first failure.** Matrix fail-fast is on and the heavy jobs (WASM,
+Rust, containers) wait on the cheap format tripwire, so one red job stops the rest from spending
+runner minutes. The dependency audit is deliberately not gated on it. Part of the temporary CI
+austerity, marked for the September 1 revert.
+- **`ROADMAP.md` stops restating per-capability status and goes back to being the answer to "what is being worked on".** It had accreted into running build commentary — a single Next bullet could carry the design date, the plan link, the ADR numbers, what was built, what was deferred, the seams, and a mid-sentence status correction — and it had duplicated: the integration port system appeared twice, once ending "the framework is built and on `main`" and once ending "Build pending", with nothing flagging the contradiction. The tree settles it: `packages/integrations` exists, the ledger holds `integrations.port-framework` at `shipped`, and the false bullet is deleted. The property external-links resolver was duplicated verbatim, and both the OneDrive move and the continuous-deploy cutover sat in a "deferred, do when convenient" list marked DONE while also appearing under _Recently shipped_ — all now single entries in one place.
+
+**The register is what made this possible.** [`docs/now.md`](../docs/now.md) is generated from the feature ledger and gated against it, so it carries every capability at its real status and cannot drift. The roadmap no longer competes with it: what is per-capability status is linked, and the file keeps only what the ledger structurally cannot hold — which stream is live, what it does next, what order the rest comes in, and the cross-slice gates. Roughly 57% of the file's words are gone (17,400 to 7,600) with no stream dropped; what left was build history that already has a home in `docs/specs/`, the Decision Log, `CHANGELOG.md` and `STATUS.md`.
+
+**Gates were kept as gates.** A real cross-slice prerequisite — deploy `magna-carta-sign` before the app worker because the `SIGN_SERVICE` binding blocks it, the attorney review that blocks any compliance surface over the Nevada profile, the CASA/Microsoft verification that blocks the first credentialed adapter, Costs before Billing — stays in the italic idiom the file already used, because those are ordering facts rather than commentary.
+
+**Corrections made against the sources rather than from memory.** Phase 5 and Phase 6 slice numbering was contradicting `STATUS.md` (the roadmap still listed 5·2 as search and 6·2 as tasks; the status fragments have 5·2 as Discovery review and 6·2 as calendar firm events). Slice 2·7 (exhibits) and slice 4·3 (matter assets) were tracked in `status.d/` and absent from the roadmap entirely. Financial reporting's first sub-slice and the register's own history reconstruction had shipped without appearing. Two hardening items — malware scanning and async bulk-download jobs — were still written as deferred after shipping with slice 2·1, and now record only the options genuinely left behind the port.
+- **Price the discovery semantic half against the keyword half's measured read profile, and name the
+experiment that decides flag D4.** Cloudflare's queried-vector-dimension metric counts a Vectorize
+index's resident corpus once per month at twenty times the storage rate, so a queried index costs about
+twenty-one times what pricing its storage alone suggests — the earlier sizing recorded only the storage
+line. For a 250,000-document review set that is roughly $53.81 per month against the keyword half's
+derived eleven cents, plus a one-time embedding charge of roughly $261 to $522 at the platform-pinned
+model's published rate. Convergence stays unmeasured, and the blocker is not the deployed-only Vectorize
+binding — the binding is substitutable, while no corpus in the repository carries the relevance
+judgements a recall claim has to be scored against. Analysis in
+`docs/research/2026-08-14-semantic-half-convergence-and-cost.md`, with every figure labelled measured,
+vendor-quoted, or derived; the recommendation to defer on a named trigger is a Proposed decision
+fragment awaiting the owner. The operating-cost register gains the Vectorize and embedding lines.
+- **One bounded-retry loop draws every sequential number.** `drawWithBoundedRetry` could only give up
+as a bare `Error`, and it rethrew immediately whenever an attempt failed without having observed a
+draw — so `@magna-carta/matters` and `@magna-carta/custodian` both kept private copies of it and only
+the statement builders were actually shared. Two widenings close that. `nonConvergenceError` is now a
+required option: the loop composes the "did not converge after N attempts" wording once and hands it
+to the caller, which returns the error to throw — custodian a named `CustodyValidationError` its
+route maps to a problem type, matters a plain `Error`. A mapper rather than a result type, because
+every caller's translation is the same throw and a result type would have pushed that wording back
+out into each consumer, and required rather than defaulted so a new sequence has to decide what its
+route surfaces. And retryable-ness is now independent of observed-ness: a declared collision that
+consumed no counter value is retried without advancing anything, which is the case custodian needs
+when a concurrent first use of the shared custody holding matter loses on `matter.system_key` before
+the counter is ever read.
+
+Both consumers now run on the shared loop and their copies are gone. Behaviour is unchanged for both:
+the give-up messages are composed from the same parts and stay byte-identical, the retryable sets are
+the same predicates, and the out-of-band advance uses the same observed value and start value. The
+one difference is unreachable and in the safer direction — custodian's private loop inferred "a draw
+happened" from `scopeKey !== "" || observed !== 0`, which silently stopped advancing the counter on a
+firm-wide scheme whose start value was zero; the explicit signal has no such blind spot.
+- `pnpm check` led with its most expensive and most fragile pass. That is the wrong end: a run that dies
+partway reports nothing about the steps behind the one that died, and the type-aware lint pass —
+tsgolint over roughly 3,300 files — has been observed OOM-killed at step one of eight in a container,
+taking the whole chain down before anything else had spoken.
+
+The two checks that cost seconds and cannot fail spuriously now lead: the build-reference sync, then
+the drizzle snapshot freshness that landed a few merges ago specifically to catch a destructive
+migration. Both together are under four seconds. Everything slow follows them.
+
+This matters more than the ordering usually would. The gate of record has started no job since
+2026-08-05 — an account-side billing block, not a workflow fault — so the whole-repo chain run by hand
+is what a merge currently leans on. A chain whose cheap high-signal checks sit behind a pass that can
+be killed is one that answers nothing on the machines where it dies.
+
+Also swept nine stream notes for branches that have landed. The registry lists them now rather than
+leaving them to be noticed, which is what made a nine-note backlog visible as a single line.
+- **`apps/magna-carta-edit` is now `apps/edit-worker`.** The directory disagreed with the package
+inside it, which has always been `@magna-carta/edit-worker`, and with every sibling's
+`<thing>-worker` shape. Renaming it is the whole change: paths updated in the two tsconfig solutions,
+the root `vite.config.ts` test project list, the CI gate's test-node package list,
+`tooling/lint-test-collection`, the deploy and build-performance runbooks, two `roadmap.d/` evidence
+lines, and the cross-references from the worker's editing area and the search worker.
+
+**The deployed Worker keeps the name `magna-carta-edit`** — that is a Cloudflare script name and
+renaming it would orphan the deployment. Only the source directory moved. Its Workers Builds **root
+directory must be repointed to `apps/edit-worker`**, or the build cannot find the package.
+
+Historical records are left as written: `CHANGELOG.md` and the two 2026-07-01 review documents cite
+the old path because that is where the code was when they were written.
+- **`apps/worker` is now `apps/api-worker`, and `@magna-carta/worker` is `@magna-carta/api-worker`.**
+
+Thirteen of the fourteen entries under `apps/` name the Worker they hold — `scan-worker`,
+`sign-worker`, `status-worker`. One was called `worker`, which said only that it was one of them, and
+it happened to be the largest: the API Worker carrying D1, R2, Queues, Durable Objects, the
+WebAssembly modules and every runtime secret. A reader arriving at `apps/worker` had to open it to
+learn which Worker it was.
+
+Directory and package rename only. **The Cloudflare script name is unchanged** (`magna-carta`), so
+nothing in production moves and no Durable Object namespace is affected — but the Workers Builds
+dashboard root directory for that project must be repointed to `apps/api-worker` or its next build
+cannot find the package. That step is in `docs/deploy-queue.md`.
+
+`apps/web` is left where it is. It is the SvelteKit application, not a Worker, and `apps/web-worker`
+is already taken by the assets-only deployable that serves its build output — the two are separate
+packages on purpose, and the one that produces the bytes is a dependency of the one that serves them.
+
+`docs/specs`, `docs/decisions`, `docs/research` and the rendered `CHANGELOG.md` keep the old path:
+they record what was true when they were written.
+- **Three harness defects that all punished the honest path: retiring a stream note left a dangling
+pointer, ending a test run left the runners alive, and a docs-only diff had to build three Rust
+crates to be gated. All measured, all now one command or one condition.**
+
+**Retiring an active-work note is one operation — `vp run retire-note <branch>`.** The worktree
+lifecycle read as three parts (remove the worktree, delete the branch, delete
+`docs/active-work/<branch>.md`) and had a fourth nobody had written down: any `status.d/` fragment
+carrying `active-work: docs/active-work/<branch>.md` is then dangling, and `pnpm run lint:status`
+fails with "active-work points at a missing file". It bit five times in one session — twice caught by
+the lint after the fact, twice pre-empted by remembering to grep, once missed again by somebody who
+already knew. The fourth part is invisible from where the deletion happens: nothing in
+`docs/active-work/` knows who references it. So the command clears every pointer naming the note,
+re-renders `STATUS.md`/`STATUS.json`, deletes the note, and removes the worktree and branch — the
+pointer cannot outlive the note because the same command removes both. It refuses a branch that has
+not landed (`--force` overrides, `--dry-run` previews, `--keep-workspace` does the paperwork only),
+and it runs `lint:status` itself before reporting success. `vp run worktrees` already knew which
+notes were dead; it now names each one's dependent fragments and this command in the same breath, and
+the lint's own failure line names the repair instead of offering generic advice that cannot fix it.
+
+**Ending a test run now ends the runners.** `pnpm test` killed its direct child, which is `vp` — two
+levels above the work. Under it sit the Vitest CLI, the esbuild services and the workerd instances the
+Miniflare suites stand up; signalling only `vp` orphans the rest. Measured interrupting
+`pnpm test apps/api-worker`: the guard exited after 17 s and **released the single-flight lock with nine
+runner processes still alive**, which stayed up a further **44 s**. The next run then claims the lock
+correctly — its holder really has gone — and starts into a machine that is not idle, which is the
+contention the lock exists to prevent arriving through the one door it does not watch, and which
+presents as timeouts in files neither run touched. The runner now leads its own process group;
+teardown is SIGTERM, a grace window, SIGKILL for the remainder, and the lock is released only once
+the group is confirmed empty. The wait is bounded — a survivor is reported and the lock freed anyway,
+because a lock held until an unkillable runner dies is the 0%-CPU holder the guard exists to
+eliminate. Same target after: **zero survivors**. Detaching is gated on stdin not being a terminal,
+which is the exact shape of the `SIGTTIN` hazard that would otherwise wedge `vp test --watch`, and
+where the gate declines the kernel already signals the whole foreground group on Ctrl-C.
+
+**A docs-only diff no longer has to bootstrap.** `check:scoped` ran its type-check unconditionally,
+and `tsc -b` builds the whole project-reference graph — so the generated wasm artefacts were needed
+whatever the diff was, and a branch touching only `docs/` and the ledger fragments had to build three
+Rust crates (~80–100 s cold) before a gate that would not read a line of its own diff. The response
+that produced was `git push --no-verify`, which is the real cost: a gate that makes bypassing it the
+rational choice trains people to bypass it. The type-check is now scoped like every other conditional
+step, and the artefact prerequisite scopes with it — skipping the artefact check _alone_ would have
+been the bug, trading one message that names its own repair for twelve `TS2307`s that do not.
+`tooling/check-scoped/typecheck-scope.mjs` enumerates what provably cannot be an input to `tsc -b`
+(prose anywhere, the `docs/` tree, the rendered `STATUS.json`) and runs the check unless every changed
+path is one of those, so a new extension or directory nobody anticipated takes the check. Measured in
+a fresh, un-bootstrapped worktree: a docs-only diff passes in **2.4 s**; adding one `.ts` file to the
+same diff correctly demands the artefacts and then type-checks, naming the path that made it run.
+- **Design proposed for moving the single-page application onto its own Worker**, so an interface change
+stops rebuilding and redeploying the API:
+[`docs/specs/2026-08-21-spa-worker-split-design.md`](../docs/specs/2026-08-21-spa-worker-split-design.md).
+Design only, and gated on a measurement — two reversible settings on the existing Worker may close
+most of the gap first, in which case the proposal should be withdrawn rather than built.
+
+**Corrects a claim in [`operations.md`](../docs/conventions/operations.md) that had stood since
+2026-06-28:** that `@magna-carta/pdf` is "imported by the SPA". It is not. `apps/web` depends on none
+of the three WebAssembly packages; every importer of the pdf package is server-side. The sentence
+mattered because it is why "can the interface build without the Rust toolchain?" carried an answer of
+no for two months without anyone reading the dependency graph.
+
+Also recorded there: the assets binding declares `run_worker_first: ["/api/*"]` while the Worker also
+serves `/wopi/*` and `/search-objects/*`, so by the configuration as written a public request to
+either would be answered by the single-page-application fallback rather than by its handler. Whether
+that is reachable depends on service-binding behaviour this repository has not tested, so it is filed
+as a finding rather than a fix. The split would make it moot; without the split the repair is to add
+both prefixes.
+- **Twenty-eight areas of the feature ledger were read against the repository, and the drift ran almost
+entirely in one direction: nodes describing work that has since landed.** The staleness gate keys on a
+node NAMING a code path, or carrying a `slices:` tag whose fragment reports built. Of 755 nodes, 162
+assert an absence in prose while naming no path, and 133 of those carry no slice tag either — outside
+every rule by construction. That is roughly a fifth of the ledger the gate is structurally unable to
+read, and it was green over all of it.
+
+**The largest correction is Custodian, where three nodes describe work slice 4·2·4 shipped.**
+Stocktake sits at `deferred` saying the MVP ships container data with no stocktake workflow;
+`packages/custodian` carries `stocktake-service`, `stocktake-statements` and `stocktake-reconciliation`
+over two tables, with seven routes and a source-scan fitness function holding the observe-only
+boundary. Retention-and-destruction sits at `designed` saying `custody_destruction_request` has no
+service, no route and nothing that writes it; there are five routes, a service, and database triggers
+forcing the requester and approver to differ. Will reminders sits at `deferred` saying the per-state
+statute catalog is out of the MVP; the catalog is built with Nevada and two of its counties encoded,
+and it is the REMINDER half that is blocked, because the register records no date of death. The area
+root counted twenty-five routes over eleven tables against thirty-eight over thirteen.
+
+**Two sibling contradictions, both the shape the discovery sweep found.** Conflicts' strictness node
+said Beider-Morse runs at the over-inclusive band while its matching-engine node said Beider-Morse is
+unbuilt and gave the workerd measurement for why — the second is right, and what actually widens is
+the Double Metaphone scheme filter. Notifications' digest node sits at `deferred` calling the rollup a
+declared seam, three blocks below the email node describing the same digest as shipped with its
+module, its renderer and its hourly pass.
+
+**Six dependency claims were inverted** — a node saying its dependency is not built where the
+dependency ships. `containers/libreoffice` is a Rust supervisor over a pool of office-suite child
+processes, so the office conversion engine, the platform's container list, and the document-automation
+PDF arm were all describing a gap that closed. `crates/search-core` is Tantivy 0.26, so the Rust-core
+node's "Tantivy search not started" and the container node's "Tantivy container not started" were both
+wrong. Per-type matter templates said document automation is "Not started" where it is built through
+2·6·5. Locations now carries an IANA `time_zone` column, validated on write, which two areas asserted
+did not exist.
+
+**And a systematic one the gate cannot see: sixteen nodes across six areas cited `changelog.d/*.md`
+fragments as evidence, and every fragment named had been consumed by the assembler.** Every one of
+those paths dangled. They are replaced with the code they stood in for, which is more useful anyway —
+the settings permission check turns out to be a stated mock returning true for the billing area alone,
+which no changelog line was going to say.
+
+**No `status:` value was changed.** The sweep corrects `evidence:` and `notes:` only, on the ground
+that restatusing a node one has only read is a claim reading cannot settle. Where a status is
+demonstrably behind its own code, the node now says so in its own prose and the register renders the
+contradiction rather than hiding it.
+
+**Two shape findings about the gate itself.** Rule 1 (unaccounted code) is disarmed inside any area
+whose root names its whole package: a `partial` root naming `packages/custodian` accounts for every
+path under it, so a `deferred` child naming a shipped module in the same package never fires. And the
+path parser reads a SvelteKit route group out of a path — `apps/web/src/routes/(app)/tools/whois-lookup`
+resolves as `tools/whois-lookup` and reports missing — so evidence for a web route has to be written
+around it.
+- **The build register's web page is rendered from the feature ledger instead of hand-authored.** The
+register has always had two readers: `docs/now.md` for anyone in the repository, and a self-contained
+page for the owner, who reads it as a page rather than as a file. Only the first was generated. The
+page was 350 KB of hand-written HTML carrying the same facts, so every merge that flipped a ledger
+node left it wrong, refreshing it meant a person re-authoring it, and in practice it ran several
+merges behind — one source of truth with one generated rendering and one copy of it.
+
+`tooling/doc-fragments/register-artifact.mjs` now emits that page from the same `areas` structure the
+Markdown renderer takes — a pure function, no filesystem, no clock — and `vp run register-build`
+writes `docs/now.html` beside `docs/now.md` in the same run, the way `status-build` writes
+`STATUS.md` and `STATUS.json`. One command refreshes both, deliberately: two renderings refreshed by
+two commands are two renderings that disagree the first time somebody runs one of them.
+
+`pnpm run lint:roadmap` now re-derives and diff-gates the page exactly as it does the document, so
+the published page cannot silently fall behind the ledger either. The counts are not recomputed for
+it: `roadmap.mjs` exports `countByStatus`, `share`, `STATUSES_WITH_NOTHING_BUILT` and
+`AWAITING_BOUNDARY`, and both renderings use those. A percentage that differs between two views of
+one ledger is a defect neither view can be blamed for, and the page had already drifted to its own
+wording of the owner-list boundary — including an assertion that the Actions budget is exhausted,
+which is a live operational state `docs/deploy-queue.md` owns and no ledger change could ever make
+false again.
+
+Three things the hand-authored page got away with do not survive being generated, because a wart in
+one file is a wart and the same wart in a generator is a policy. Where `partial` ranks by size is
+derived rather than typed, so the sentence cannot go on asserting "the second largest" after
+something overtakes it — and it says "joint" instead of picking a winner when two statuses are level.
+Inline code spans in `scope` and `notes` render as `<code>` instead of printing their own backticks.
+And the boundary paragraph comes from the shared constant. The renderer handles exactly the two
+Markdown constructs the ledger and that constant actually use, code spans and one link, and
+deliberately no more: an unused branch is an untested branch, and anything else renders as its own
+source characters, which reads as a bug rather than swallowing content silently.
+
+The design of the page is otherwise unchanged from the hand-authored one it replaces, down to the
+token names and the two dark-theme definitions.
+- Ten merges landed in one stretch and the roadmap's _Now_ section still described the state before
+them. Discovery's next step was the processing lane that had just shipped. Notifications' next step
+was the comparison sweep that shipped two slices ago. Human verification on the anonymous endpoints
+did not appear at all.
+
+The per-capability ledger was correct the whole time — every slice flipped its own `roadmap.d/` node
+in its own commit, and the build register renders from those. What goes stale is the narrative, which
+is hand-written on purpose: it is the one place that says which stream to pick up next and why, and
+that judgement cannot be generated from a node's status.
+
+Three streams now read true, and each names its gate where it has one. Discovery says privilege review
+is waiting on two owner flags and which two, and separates them from the pair that gate the production
+slice after it. Notifications says what its three production paths are and which two answers stand in
+front of the remainder. Auth records that human verification is shipped and dormant, with the
+inversion that matters — the widget is a prerequisite for its own activation, because the registration
+screens are live and mint no token, so provisioning the secret first would refuse every real signup.
+- **The step whose whole purpose is removing what a PDF hides leaves its executable content
+untouched, and the question of what to do about that now reaches the decision desk.**
+
+`crates/pdf-core/src/scrub.rs` removes thirteen document-level surfaces — `Info`, `Metadata`,
+`StructTreeRoot`, `MarkInfo`, `Outlines`, named destinations, optional-content properties, field
+values and appearances, `XFA`, embedded files, `Collection`, file associations and file-attachment
+annotations — (one of them, the destinations name tree, only in its modern form — the legacy catalog `/Dests`
+dictionary is neither cleared nor checked) — and then checks its own work: `verify_scrub_absence` walks the document model before it
+is serialized, gating all seven option groups across thirteen checks, and refuses to emit anything at
+all if a surface is still reachable. (A model check, not an output-byte one — the weaker of the two
+forms the crate uses; `redact.rs` re-reads what it actually wrote.)
+
+What it never looks for is executable content. No document-level JavaScript name tree, no open
+action, no catalog actions on save, print or close, no page or field additional-actions, no
+annotation action. A document scrubbed before production to an opposing party can still carry code, and this is a live
+path rather than a hypothetical one: `prepareFormTemplateVersion` runs the scrub on every PDF form
+template a firm registers.
+
+The finding sharpens against the tree rather than against the design: the page-split path in
+`crates/pdf-core/src/generate.rs` removes some of the same entries, and does so for safety — but a
+different safety, that no byte of an excluded page survives into the output. It drops the catalog
+`OpenAction`, `AA` and `Names` because they reference pages across the whole document, and strips an
+action from an annotation on a kept page only when that action points at an excluded one, with a
+fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a
+scrub, and neither path settles what the other should do.
+
+**Surfaced, not built.** Detection is not the missing half. `inspect_pdf` in `containers/scan`
+already recognises JavaScript, auto-actions, launch actions and embedded files, with a byte-scan
+fallback for a compressed catalog, and records the finding as `active-content` on the verdict.
+Nothing is done with it: it blocks no upload unless firm policy flags the file for some other reason,
+and `scanAndGateStatements` activates a template version even on an `unscanned` verdict, discarding
+`verdict.activeContent`. Stripping is not free either, and the cost falls on fillable forms a *firm* uploaded: a
+court form uses field actions for validation and formatting, so a scrub that removes them hands back
+a form that looks right and computes nothing. The node's `awaiting-owner` line states the three
+answers — strip always, strip with an exception a firm marks at upload, or surface without removing — the last of which is
+closer to wiring up an answer the platform already computes than to building one —
+and says why a fourth that sounds obvious is empty: an exception keyed on templates the platform
+authored would exempt nothing, because every fillable template in the tree is a firm upload and
+whether the platform ever authors its own is itself an open question on
+`document-automation.filing-grade-generation`. `documents.pdf.scrub` is `shipped`, so
+the question sits under the questions that change something already running rather than under the
+ones holding a build.
+
+Also moves this stream's active-work note to `docs/active-work/claude/passive-dev-orchestrator-m7f9jw.md`.
+It was written at a flattened path, so the registry reported the branch as resolving to no ref while
+two design specs linked the correct path and found nothing there. The path mirrors the branch name,
+slashes included, which is what makes the registry collision-free.
+- **Three indexes added, three retired, and the eight that were not added written down with the numbers
+that declined them.** The second half of the follow-up to the custodian and calendar volume sweep;
+the first half rewrote the due-back reads and needed no schema change at all.
+
+**The member filter's participant lookup.** "What is on this member's calendar" resolves as an
+`EXISTS` supplying both the event and the member, but only `member_user_id` was indexed, so each
+candidate event paid a walk proportional to how many events that member is on.
+`matter_event_participant_member_event_index (member_user_id, event_id)` makes it a covering seek,
+and the single-column index it strictly subsumes is dropped in the same migration — the table carries
+the same number of indexes it did before. Keyed on the member first rather than widening the existing
+`(event_id)` index, which measured identically but would have given up seeking by member alone.
+
+**The register list's sort.** `custody_packet` is ordered by `(created_at, id)` on every page, keyset
+pages included, and nothing covered that ordering — so every page was a full table scan into a
+temporary B-tree, which is the cost keyset pagination exists to remove.
+`custody_packet_created_index` costs one B-tree insert when a packet is created and nothing
+thereafter: both columns are immutable, so the status and location updates every movement makes do
+not touch it.
+
+**The firm calendar's custody movements.** The 31-day firm-wide window reads movements by date with
+no packet to key on, so it walked the whole ledger — and that ledger is the one table here that grows
+without bound, because a firm holds originals for decades and appends to their history the whole
+time. `custody_movement_occurred_index (occurred_at, id)` is insert-only on an append-only table: one
+entry per movement a person physically records.
+
+**Two indexes retired for having no reader.** Nothing queries `custody_movement` by `item_id` — every
+read goes by `id`, by `packet_id`, or now by `occurred_at` — so `custody_movement_item_index` was
+pure write cost on the subsystem's largest table, and it was the cheap-looking entry that made the
+due-back reads walk the whole ledger. The partial `custody_movement_due_back_index` was built for the
+overdue sweep, and neither that sweep nor the timeline's due-back source seeks by `due_back_on` any
+more. `custody_movement` ends with one fewer index than it started.
+
+Measured on the profile corpus against the committed baseline. The first two are harness
+measurements; the register pages are direct statement probes, because the harness measures the
+register under its filters rather than unfiltered.
+
+| Read                                   | Before   | After    |
+| -------------------------------------- | -------- | -------- |
+| `timeline.firm-window-member-filtered` | 8.64 ms  | 0.65 ms  |
+| `timeline.firm-window-31-day`          | 18.58 ms | 10.80 ms |
+| register list, page 1 unfiltered       | 0.32 ms  | 0.09 ms  |
+| register list, page 2 keyset           | 0.42 ms  | 0.07 ms  |
+
+The register's two filtered reads plan exactly as they did before — the planner keeps the temporary
+B-tree where the filter has already narrowed to a handful of rows, which is the right call and the
+reason the new index buys nothing there.
+
+**What was declined.** The firm-wide window scans seven more sources, and none of them gets an index
+here. Each costs at most 1.7 ms of that one read at this corpus, and between them `file`,
+`time_entry`, `cost_entry`, `email_matter_link`, `document_assembly`, `conflicts_check`, and
+`trust_movement` are the platform's hottest write paths — seven indexes on seven constantly-written
+tables to save a few milliseconds on federation's weakest read is the wrong trade, and taking it
+would spend the evidence that is meant to decide whether a projected read model is ever built. The
+scan allowlist still names every one of them by hand, now with the reasoning and the numbers beside
+it.
+- The register's "Waiting on you" section is a flat list, and at thirty entries a flat list stops working. "Whether a separate gender field is ever added to a Directory person" was sitting between two decisions that each hold an entire unbuilt subsystem still, and nothing on the page distinguished them.
+
+It now splits by what the answer costs. A question on a capability with **nothing built behind it yet** is holding work still: nobody can start until it lands, and answering it late means somebody waited. A question on a capability that **already runs** is refining something that works — it deserves an answer and it is blocking nobody. Each group leads with its own count, and a group with no entries prints no heading rather than a zero.
+
+The split reads the node's own `status` rather than a second key declaring it. A `blocking: true` field would be the same fact recorded twice, and the two copies would eventually disagree — which is the failure this document has spent the week correcting everywhere else.
 
 ### Security
 
@@ -4408,6 +9445,39 @@ schema, so a plain `load` of untrusted YAML blocks the event loop for the whole 
 earlier quick-xml acceptance is not re-opened — it left this repository when its carrier was
 replaced, and the carrier today is a different one that arrived with the discovery core. There is
 still no accepted Rust advisory.
+- **Eleven of the twenty open advisories across the two supply chains are remediated, and the acceptance
+file is empty for the first time.** Nothing had audited them since 2026-08-04: the CI dependency gate is
+the only thing that looks, and no runner had been assigned since 2026-08-07. The enumeration was rebuilt
+by querying the OSV API directly with the coordinates parsed out of `pnpm-lock.yaml` and all nine
+`Cargo.lock` files — the same database and the same lockfile scope the gate's own scanner uses. Its npm
+half reproduces GitHub's reported count exactly (four high, five moderate, two low), which is what makes
+the rest of the list trustworthy; the nine RustSec findings are additional, and invisible to that count.
+
+What moved, all within an existing major:
+
+- `nanoid` 5.1.11 to 5.1.16 in the catalog — the one **direct production** dependency in the set
+  (`packages/identifiers`). Two infinite-loop advisories, and at CVSS 4.0 8.2 the only findings in the
+  sweep that were over the audit's fail threshold. Not reachable: the seam imports the secure entry
+  point rather than `nanoid/non-secure`, and every size it passes is a compile-time constant.
+- `@sveltejs/kit` 2.69.3 to 2.70.2 — quadratic `Accept`-header negotiation. The shipped SPA is
+  prerendered by adapter-static and runs no SvelteKit request handler, so the exposed surface was the
+  dev server.
+- `postcss` 8.5.18 to 8.5.26 in the overrides — an arbitrary `.map` read through a crafted
+  `sourceMappingURL`. Taken above its 8.5.23 floor because 8.5.26 is the first release requiring
+  `nanoid ^3.3.17`, and that dependency was the only thing holding a vulnerable `nanoid` 3 in the tree.
+- `lodash` pinned to 4.18.1 — this retires the long-standing accepted advisory. `postman-collection`
+  hard-pins 4.17.21 and never moved, so the acceptance had been sitting on "drops when the carrier
+  upgrades" indefinitely; the override is the same move already used for `uuid` on the same carrier, and
+  4.18.1 is what every other consumer in the tree already resolved.
+- `esbuild` scoped to 0.28.2, and patch bumps of `crossbeam-epoch`, `anyhow` and `memmap2` in the Cargo
+  lockfiles.
+
+Nine advisories remain and none is accepted, because an entry in `osv-scanner.toml` is for something
+that would otherwise fail the gate and every one of these passes it. Each has either no published fix
+(four unmaintained-crate notices, plus `rsa`'s Marvin sidechannel) or no fix reachable without a carrier
+moving first (`cookie` behind SvelteKit, `esbuild` 0.18 behind a deprecated `@esbuild-kit`, `lru` behind
+tantivy, `wasmtime` behind `yara-x`). The reasoning for each is in the `osv-scanner.toml` header, which
+now documents what is deliberately left visible rather than only what is forgiven.
 
 ### Added
 
@@ -4440,3 +9510,31 @@ are named after the branch they describe, slashes included, so a `claude/<name>`
 `docs/active-work/claude/<name>.md`; a flattened `claude-<name>.md` is invisible to the registry's
 branch-to-note lookup and reads as "no note at all". Exactly one flattened note remained, and it
 belonged to a merged stream, so the sweep removed it and the two naming conventions became one.
+- **The storage meter's Analytics Engine trend port is deleted, and the reason a trend is not kept
+replaces it. It was not a binding away from working — as declared it wrote a raw data point indexed
+by the firm id in clear, into the one dataset every other firm handle is HMAC-pseudonymized before
+reaching, laying out its own blob columns beside the declared metric catalog that exists to be that
+dataset's only door.**
+
+`packages/file-manager/src/metering-statements.ts` carried a `MeterTelemetry` port and an
+`emitMeterDataPoint` that nothing implemented and no caller ever passed an adapter to, under a comment
+explaining that it was unfilled. Reading what it would have written is what settled it. `indexes:
+[firmId]` puts a tenant identifier in the Analytics Engine index — the sampling and aggregation key,
+the most durable field on the row — where `packages/telemetry/src/pseudonymize.ts` HMACs the same
+handle under a pepper and drops the event entirely when the pepper is absent, because the dataset is a
+cross-firm aggregate store the firm does not control and cannot have redacted afterwards. The blobs
+were clean by luck rather than design: the prefix is the top-level R2 key segment and is always
+`files` or `bulk`, the class and role are enum tokens. Beside that, blob one on that dataset is the
+metric name by contract and every other writer goes through the metric catalog, which scrubs each
+dimension and drops what it cannot place — a second writer with its own layout is the unguarded door
+that catalog was built to close.
+
+What the trend was for is real: the `storage_meter` rows are a current rollup and hold no history, so
+nothing can answer how a firm's storage grew. Analytics Engine cannot answer it either — roughly
+ninety days of retention, and cross-firm aggregate by policy — so the shape is named in the code
+instead: a periodic snapshot row per firm in that firm's own database, read by the firm-usage surface
+that already reports current totals. Nothing downstream loses anything, because nothing consumed it:
+`readStorageUsage` and the `/api/v1/firm-usage` route read D1 and only D1, and the operational rate
+signals that do belong in Analytics Engine (`storage.reconciliation.corrected`,
+`storage.dimension.stamped`) already ride declared counters. The reconciliation pass's header, which
+still claimed "the analytics trend seam consumes the corrected meter on its own path", is corrected.

@@ -14,7 +14,7 @@ active-work:
 next: Provisioning, then the user interface. The digest is built and cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL exist (docs/deploy-queue.md). Three gaps left in the build — the deadline horizon comparison, which needs a firm lead-window setting nobody has specified; four of the five job coordinators, three of which record no requester; and the immediate-escalation send path, which no registered kind needs and a fitness test refuses until it ships
 link-spec: docs/specs/2026-08-06-notifications-delivery-design.md
 link-plan: docs/specs/2026-08-06-notifications-delivery-implementation-plan.md
-adrs: notifications-delivery-half, notifications-retention-and-swept-unread, a-comparison-is-a-third-production-path-and-the-registry-says-so, a-hearing-that-moved-is-not-a-hearing-that-was-edited, a-job-notification-is-a-reply-and-only-a-requester-can-receive-one, a-silenced-notification-is-counted-not-absent, a-digest-states-the-shape-of-the-queue-and-never-its-contents, a-dedupe-key-is-bounded-by-the-retention-window
+adrs: ADR-0251, ADR-0258, ADR-0358, ADR-0359, ADR-0360, ADR-0362, ADR-0364, ADR-0377
 blocked-by:
 ---
 
