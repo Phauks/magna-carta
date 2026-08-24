@@ -699,6 +699,103 @@ await check("F7", "A clean file is not given a preamble explaining that it is cl
   return !/No open finding/i.test(text) && !/every check this file has been through/i.test(text);
 });
 
+// ---- Round seven, search.
+
+await check(
+  "S13",
+  "Clicking the search field opens the dropdown before anything is typed",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    // The field is collapsed to an icon until the search button opens it.
+    await page.locator("#searchBtn").click();
+    await page.locator("#searchInput").click();
+    const pop = page.locator("#searchpop");
+    if (!(await pop.isVisible())) return false;
+    // Scope is the one control set BEFORE typing, so it has to be reachable with an empty field.
+    return (await pop.locator("#scopeSel").count()) === 1;
+  },
+);
+
+await check(
+  "S9",
+  "Open Full Results sits on the scope line, not below a list that moves",
+  async () => {
+    const scope = page.locator("#searchpop .scope");
+    const button = page.locator("#searchpop #openResults");
+    if ((await button.count()) !== 1) return false;
+    // Same row as the scope selector: same vertical centre, within a pixel or two.
+    const [scopeBox, buttonBox] = [await scope.boundingBox(), await button.boundingBox()];
+    const sameLine =
+      Math.abs(scopeBox.y + scopeBox.height / 2 - (buttonBox.y + buttonBox.height / 2)) < 3;
+    // And it cannot open a result set that does not exist yet.
+    return sameLine && !(await button.isEnabled());
+  },
+);
+
+await check(
+  "S14",
+  "An existing query re-runs when the field is reopened, with no keystroke",
+  async () => {
+    await page.locator("#searchInput").fill("Motion");
+    await page.waitForTimeout(100);
+    const before = await page.locator("#searchpop .hit").count();
+    if (before === 0) return false;
+    // Close the panel WITHOUT clearing the query, then come back to the field. Clicking away
+    // collapses the field to its icon, so reopening goes through the search button again.
+    await page.locator("#tablewrap").click({ position: { x: 5, y: 5 } });
+    await page.locator("#searchBtn").click();
+    await page.locator("#searchInput").click();
+    // The defect: the panel rendered only on `input`, so this showed nothing until a letter moved.
+    return (await page.locator("#searchpop .hit").count()) === before;
+  },
+);
+
+await check(
+  "S11",
+  "The results page is the matter's own table, with the search field in its header",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator("#searchBtn").click();
+    await page.locator("#searchInput").fill("Motion");
+    await page.waitForTimeout(100);
+    await page.locator("#openResults").click();
+    if (!(await page.locator("#tablewrap").isVisible())) return false;
+    const rows = page.locator("#rows tr");
+    if ((await rows.count()) === 0) return false;
+    // Same columns as browsing, so a result carries every fact a row carries.
+    const heads = await page.locator("#headRow th").count();
+    const cells = await rows.first().evaluate((r) => r.cells.length);
+    if (heads !== cells) return false;
+    // S12: the field is in the results header, so refining does not mean going back to the masthead.
+    if ((await page.locator("#resInput").count()) !== 1) return false;
+    // And a result is selectable, which is what makes "download all matches" unnecessary.
+    await rows.first().click();
+    return (await rows.first().getAttribute("aria-selected")) === "true";
+  },
+);
+
+await check(
+  "S11b",
+  "Refining the query on the results page keeps the caret in the field",
+  async () => {
+    const field = page.locator("#resInput");
+    await field.click();
+    await field.press("End");
+    await field.type("s");
+    await page.waitForTimeout(80);
+    const state = await page.locator("#resInput").evaluate((el) => ({
+      focused: document.activeElement === el,
+      value: el.value,
+      caret: el.selectionStart,
+    }));
+    // Re-rendering replaces the input, so without restoring focus and caret the next keystroke lands
+    // in the wrong place and typing appears to reverse itself.
+    return state.focused && state.value === "Motions" && state.caret === state.value.length;
+  },
+);
+
 await check(
   "JS",
   "No page errors while exercising all of the above",
