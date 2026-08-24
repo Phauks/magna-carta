@@ -47,7 +47,7 @@ harness does not cover are checked by hand and get a check added when they are n
 | S5  | Search covers file **names and contents**.                                                                                                                                                                     | settled |
 | S6  | Show search progress and status, not a prose explanation of how indexing works.                                                                                                                                | settled |
 | S7  | A result names its full breadcrumb, not just the parent folder.                                                                                                                                                | settled |
-| S8  | A full search results page, not only a hover — users may want to act on or download the whole result set.                                                                                                      | open    |
+| S8  | A full search results page, not only a hover — users may want to act on or download the whole result set.                                                                                                      | settled |
 
 ## R3 — the list
 
@@ -145,12 +145,12 @@ harness does not cover are checked by hand and get a check added when they are n
 | N17 | The matter status chip moves next to the matter number. The top right holds buttons only — nothing uninteractable.                                                           | settled               |
 | N18 | The `…` menu carries "Download Full Matter".                                                                                                                                 | settled               |
 | N19 | Drop the tree / breadcrumb / version-id mock state toggles from the artifact.                                                                                                | settled               |
-| S9  | "Open full results" sits at the top of the dropdown, on the same line as the scope selector.                                                                                 | open                  |
+| S9  | "Open full results" sits at the top of the dropdown, on the same line as the scope selector.                                                                                 | settled               |
 | S10 | Remove "Download all matches" from the results page. Selecting all and downloading is the path.                                                                              | settled               |
-| S11 | The results page looks and behaves like the other matter file pages, with full access to the same information.                                                               | open                  |
-| S12 | The search field appears in the results page header where "Results for" is.                                                                                                  | open                  |
-| S13 | Clicking the field opens the dropdown before anything is typed.                                                                                                              | open                  |
-| S14 | **Defect:** an existing query does not re-run — a letter has to be added or removed to make it fire.                                                                         | open                  |
+| S11 | The results page looks and behaves like the other matter file pages, with full access to the same information.                                                               | settled               |
+| S12 | The search field appears in the results page header where "Results for" is.                                                                                                  | settled               |
+| S13 | Clicking the field opens the dropdown before anything is typed.                                                                                                              | settled               |
+| S14 | **Defect:** an existing query does not re-run — a letter has to be added or removed to make it fire.                                                                         | settled               |
 | L19 | Reserve themed scrollbar space on the right of the file list.                                                                                                                | settled               |
 | L20 | The footer says "Select none", not "Clear".                                                                                                                                  | settled               |
 | L21 | Remove the download-selection button from the footer; right-click carries it.                                                                                                | settled               |
