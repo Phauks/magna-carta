@@ -41,6 +41,7 @@
     firmName,
     pending = false,
     rejection = null,
+    supportErrorId = null,
     firstNameFieldReference = $bindable(null),
     onSubmit,
     back,
@@ -55,6 +56,8 @@
     pending?: boolean;
     /** The refusal sentence, already chosen by the caller. */
     rejection?: string | null;
+    /** The correlated Error ID for a server fault, to quote to support. Null for a refusal. */
+    supportErrorId?: string | null;
     firstNameFieldReference?: HTMLInputElement | null;
     onSubmit: (event: SubmitEvent) => void;
     back?: () => void;
@@ -128,25 +131,38 @@
         are links rather than plain text because that is what they become the day the pages are
         published, and the shape of the consent should not change then. The gap is declared in
         ../joining-availability.ts under "agreements".
-      -->
-      <div class="flex items-center gap-8">
-        <Checkbox id="register-terms" bind:checked={agreedToTerms} disabled={pending} />
-        <Label for="register-terms">
-          I have read and agreed to the
-          <a class={QUIET_LINK} href="#terms" target="_blank" rel="noopener noreferrer">
-            Terms of Service
-          </a>.
-        </Label>
-      </div>
 
-      <div class="flex items-center gap-8">
-        <Checkbox id="register-privacy" bind:checked={agreedToPrivacy} disabled={pending} />
-        <Label for="register-privacy">
-          I have read and agreed to the
-          <a class={QUIET_LINK} href="#privacy" target="_blank" rel="noopener noreferrer">
-            Privacy Policy
-          </a>.
-        </Label>
+        Each sentence is ONE span inside its Label: the label recipe is a flex row (its gap spaces
+        a wrapped control from its caption), so bare text nodes and an inline anchor become
+        separate flex items — the link drifts to the far edge and the closing period ends up
+        orphaned against the card border. One span keeps the sentence flowing as inline text. The
+        two acknowledgements sit in one gap-8 group because they are one act of consent in two
+        parts, not two unrelated form sections.
+      -->
+      <div class="flex flex-col gap-8">
+        <div class="flex items-center gap-8">
+          <Checkbox id="register-terms" bind:checked={agreedToTerms} disabled={pending} />
+          <Label for="register-terms">
+            <span>
+              I have read and agreed to the
+              <a class={QUIET_LINK} href="#terms" target="_blank" rel="noopener noreferrer">
+                Terms of Service</a
+              >.
+            </span>
+          </Label>
+        </div>
+
+        <div class="flex items-center gap-8">
+          <Checkbox id="register-privacy" bind:checked={agreedToPrivacy} disabled={pending} />
+          <Label for="register-privacy">
+            <span>
+              I have read and agreed to the
+              <a class={QUIET_LINK} href="#privacy" target="_blank" rel="noopener noreferrer">
+                Privacy Policy</a
+              >.
+            </span>
+          </Label>
+        </div>
       </div>
 
       <Button type="submit" variant="primary" size="lg" class="w-full" disabled={!canSubmit}>
@@ -154,7 +170,7 @@
       </Button>
 
       <!-- Everything informational renders BELOW the button, so the button holds still. -->
-      <CredentialNotice message={rejection} subject="registration" />
+      <CredentialNotice message={rejection} errorId={supportErrorId} subject="registration" />
 
       <p class="text-sm text-text-muted">
         You will set your password from the link in that email, which is also how we know the

@@ -140,7 +140,9 @@ export async function captureResetToken(email: string): Promise<{
   });
   const requested = await auth.api.requestPasswordReset({ body: { email } });
   expect(requested.status).toBe(true);
-  const token = /\/reset-password\/([^/?]+)/.exec(sentEmails[0]?.text ?? "")?.[1];
+  // The mail links straight at the reset screen with `?token=` (src/password-reset-link.ts), never
+  // at the library's own /reset-password/{token} redirect hop, whose bare GET spends the token.
+  const token = /[?&]token=([^&\s]+)/.exec(sentEmails[0]?.text ?? "")?.[1];
   if (token === undefined) throw new Error(`reset email carries no token: ${sentEmails[0]?.text}`);
   return { auth, token, sentEmails };
 }

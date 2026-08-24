@@ -132,7 +132,10 @@ describe("founding a firm from the open internet", () => {
       return Promise.resolve();
     });
     await capturing.api.requestPasswordReset({ body: { email } });
-    const resetToken = /\/reset-password\/([^/?]+)/.exec(sentEmails[0]?.text ?? "")?.[1];
+    // The mail links straight at the screen that spends the token (password-reset-link.ts), so the
+    // token travels as `?token=` — never as a path segment of the library's own redirect endpoint,
+    // whose bare GET a mail client's preview would spend unasked.
+    const resetToken = /[?&]token=([^&\s]+)/.exec(sentEmails[0]?.text ?? "")?.[1];
     expect(resetToken).toBeDefined();
     const newPassword = "a-sufficiently-long-owner-password";
     await capturing.api.resetPassword({

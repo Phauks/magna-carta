@@ -15,6 +15,7 @@ import {
   REDEMPTION_REFUSED,
   TOO_MANY_ATTEMPTS,
   joiningErrorMessage,
+  joiningSupportErrorId,
   lockoutFrom,
 } from "../src/routes/register/joining-messages.ts";
 
@@ -65,6 +66,22 @@ describe("joiningErrorMessage", () => {
       REDEMPTION_REFUSED.includes(fact),
     );
     expect(mentioned).toHaveLength(3);
+  });
+});
+
+describe("joiningSupportErrorId", () => {
+  it("surfaces the correlation handle for a server fault, which is what support looks up", () => {
+    expect(joiningSupportErrorId(refusal(500, { errorId: "error_abc" }))).toBe("error_abc");
+  });
+
+  it("shows nothing for a refusal, where an ID would read as blame for what was typed", () => {
+    expect(joiningSupportErrorId(refusal(422, { errorId: "error_abc" }))).toBeNull();
+    expect(joiningSupportErrorId(refusal(429, { errorId: "error_abc" }))).toBeNull();
+  });
+
+  it("shows nothing when the server sent none, or nothing answered at all", () => {
+    expect(joiningSupportErrorId(refusal(500))).toBeNull();
+    expect(joiningSupportErrorId({ kind: "transport" })).toBeNull();
   });
 });
 

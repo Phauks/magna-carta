@@ -20,6 +20,7 @@
     message,
     lockoutSeconds,
     attemptsRemaining,
+    errorId,
     subject,
   }: {
     /** The rejection sentence, already chosen by the caller. Null when nothing was rejected. */
@@ -28,6 +29,11 @@
     lockoutSeconds?: number | null;
     /** How many attempts are left on the shared ladder. Null when the server has not said. */
     attemptsRemaining?: number | null;
+    /**
+     * The correlated Error ID to quote to support, shown under the message. Callers pass one only
+     * for a server FAULT — never for a refusal, where it would read as blame for what was typed.
+     */
+    errorId?: string | null;
     /** What gets locked, in the visitor's terms: "this account", "this sign-in". */
     subject: string;
   } = $props();
@@ -63,6 +69,9 @@
           {:else}
             <span class="text-xs font-semibold">{warning.message}</span>
           {/if}
+        {/if}
+        {#if errorId}
+          <span class="text-xs">Error ID: <span class="font-mono">{errorId}</span></span>
         {/if}
       </span>
     </Alert.Description>

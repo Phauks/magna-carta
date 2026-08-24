@@ -5,9 +5,9 @@
  * (apps/web/src/lib/auth/unbuilt-capabilities.ts) and the Documents surface's loop inventory
  * (apps/web/src/lib/documents/document-loop-availability.ts): a control is never rendered as though
  * it worked. The difference here is that the three routes behind these screens are all real and all
- * answer — what varies is how far the answer carries. Two steps stop short of where a visitor would
- * expect them to end, and this module is where that is written down so the screens can say it
- * instead of leaving somebody waiting for an email that reads nothing like a link.
+ * answer — what varies is how far the answer carries. The steps that stop short of where a visitor
+ * would expect them to end are written down here so the screens can say it instead of leaving
+ * somebody to discover it by clicking.
  *
  * Verified against apps/api-worker/src/routes/registrations.ts, apps/api-worker/src/routes/invitations.ts
  * and apps/api-worker/src/email-port.ts. Delete an entry, or move it to `live`, when the gap closes;
@@ -46,9 +46,9 @@ export const JOINING_STEPS: readonly JoiningStep[] = [
   {
     id: "confirm-registration",
     label: "Confirm the registration from the email",
-    reach: "partial",
+    reach: "live",
     behaviour:
-      "Spending the token is real — the firm's build is queued and the owner is sent the link that sets their password. What is missing is the LINK: the confirmation mail carries the bare token as its whole body, so nothing to click arrives and the token has to be typed in. The screen reads a token out of the address bar as well, so it already works the day the mail carries a URL.",
+      "Spending the token is real — the firm's build is queued and the owner is sent the link that sets their password. The mail carries a link that lands on the confirmation screen with the field filled, plus the bare code for a mail client that will not open links; either way the token is spent only on a deliberate press, never by a link preview.",
   },
   {
     id: "redeem-invitation",

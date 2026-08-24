@@ -63,3 +63,16 @@ export function joiningErrorMessage(outcome: JoiningOutcome<unknown>, refusal: s
 export function lockoutFrom(problem: JoiningProblem): number | null {
   return problem.retryAfterSeconds ?? null;
 }
+
+/**
+ * The Error ID to quote to support, or null when the failure is not one support can look up. Only a
+ * server FAULT (>= 500) surfaces one: it identifies the request, not the fact, so showing it leaks
+ * nothing — while a refusal's correlation handle under the neutral sentence would only read as
+ * blame for something the visitor typed. A transport failure never reached the server, so there is
+ * no ID to show.
+ */
+export function joiningSupportErrorId(outcome: JoiningOutcome<unknown>): string | null {
+  if (outcome.kind !== "problem") return null;
+  if (outcome.problem.status < 500) return null;
+  return outcome.problem.errorId ?? null;
+}

@@ -39,6 +39,7 @@
     dateOfBirth = $bindable(""),
     pending = false,
     rejection = null,
+    supportErrorId = null,
     attemptsRemaining = null,
     lockoutSeconds = null,
     codeFieldReference = $bindable(null),
@@ -52,6 +53,8 @@
     pending?: boolean;
     /** The ONE refusal sentence. It never says which of the three facts was wrong. */
     rejection?: string | null;
+    /** The correlated Error ID for a server fault, to quote to support. Null for a refusal. */
+    supportErrorId?: string | null;
     attemptsRemaining?: number | null;
     lockoutSeconds?: number | null;
     codeFieldReference?: HTMLInputElement | null;
@@ -142,6 +145,7 @@
       <!-- One alert, below the button, so the card grows and the button never moves. -->
       <CredentialNotice
         message={rejection}
+        errorId={supportErrorId}
         {attemptsRemaining}
         {lockoutSeconds}
         subject="this invitation"
