@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { friendlyFileType, sortDocuments } from "../src/lib/file-manager/file-columns.ts";
+import { fileTypeExtension, sortDocuments } from "../src/lib/file-manager/file-columns.ts";
 import type { DocumentSummary } from "../src/lib/documents/document-api.ts";
 
 /*
@@ -66,18 +66,35 @@ describe("sortDocuments", () => {
   });
 });
 
-describe("friendlyFileType", () => {
-  it("names a known media type in the reader's words", () => {
-    expect(friendlyFileType(document({ sniffedContentType: "application/pdf" }))).toBe("PDF");
-  });
-
-  it("falls back to the extension when the media type is not one we name", () => {
+describe("fileTypeExtension", () => {
+  it("reads the real extension from the name, never a category word", () => {
     expect(
-      friendlyFileType(document({ name: "drawing.dwg", sniffedContentType: "application/acad" })),
-    ).toBe("DWG");
+      fileTypeExtension(document({ name: "hearing.mp4", sniffedContentType: "video/mp4" })),
+    ).toBe("mp4");
+    expect(
+      fileTypeExtension(
+        document({
+          name: "Answer.docx",
+          sniffedContentType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }),
+      ),
+    ).toBe("docx");
   });
 
-  it("says the type is not known yet rather than inventing one", () => {
-    expect(friendlyFileType(document({ sniffedContentType: null }))).toBe("Not known yet");
+  it("keeps an extension the media-type map does not know", () => {
+    expect(
+      fileTypeExtension(document({ name: "drawing.dwg", sniffedContentType: "application/acad" })),
+    ).toBe("dwg");
+  });
+
+  it("falls back to the sniffed type's extension when the name carries none", () => {
+    expect(
+      fileTypeExtension(document({ name: "scan", sniffedContentType: "application/pdf" })),
+    ).toBe("pdf");
+  });
+
+  it("reads as blank rather than a placeholder word when nothing is known", () => {
+    expect(fileTypeExtension(document({ name: "scan", sniffedContentType: null }))).toBe("");
   });
 });

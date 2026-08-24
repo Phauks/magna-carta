@@ -30,7 +30,7 @@
   } from "$lib/documents/document-presentation.ts";
   import {
     FILE_COLUMNS,
-    friendlyFileType,
+    fileTypeExtension,
     sortDocuments,
     type FileColumnKey,
     type SortDirection,
@@ -208,7 +208,7 @@
                           {document.name}
                         </span>
                       {:else if column.key === "fileType"}
-                        {friendlyFileType(document)}
+                        {fileTypeExtension(document)}
                       {:else if column.key === "safety"}
                         {#if status === null}
                           <span class="text-text-muted">No issues found</span>
