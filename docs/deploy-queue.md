@@ -6,13 +6,24 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-24 — **26 commits undeployed** (`git log release..main`). `main` is green. The nine merges since the last refresh are the matter file manager: eight rounds of owner review on the mockup, then the screen itself built into `apps/web` against the firm's own records, then two defects found by running it that no gate could see. **The two dashboard repoints below are still outstanding** and gate the next build of both projects. The GitHub Actions billing block still gates every merge, not only every deploy._
+_Last updated: 2026-08-24 — **27 commits undeployed** (`git log release..main`). `main` is green. **Production is newer than this file believed: `release` was pushed to `19d02cf` (#363) on 2026-08-21 and every connected project built green from it** — see the position note. Of the two dashboard repoints this file carried, `magna-carta-edit`'s is done and `magna-carta`'s turns out to be a deploy-command fix, not a root-directory one — see the amended entry. The GitHub Actions billing block still gates every merge, not only every deploy._
 
 _2026-08-24 — the owner confirmed `magna-carta-ocr` exists (see the tools-catalog entry below), and
 clarified the Actions block's real blast radius: deploys ride Cloudflare Workers Builds, which do
 not involve GitHub Actions, so a `git push origin main:release` builds and deploys regardless of the
 billing block — what the block silences is the gate of record, meaning such a deploy ships on local
 verification alone._
+
+_2026-08-24, later — the read-only Cloudflare credentials the queue asked for are in the Claude Code
+cloud environment and work: the token verifies active (expires 2026-10-31), and Workers Scripts,
+Workers Builds, R2 and Queues all answer reads. This is the first API-verified pass over the queue;
+every claim below marked "API-confirmed 2026-08-24" carries that evidence. The headline findings:
+**twelve** Workers Builds projects are connected (not the seven `operations.md` §12 records — the
+convert, discovery, ocr, sign and web workers are all connected too), every one's production branch
+is `release`, every one's build caching is on, and every one's latest build is green from `19d02cf`
+(2026-08-21). All thirteen production queue pairs exist, deadletters included. `operations.md` §12's
+connection list, its `magna-carta-edit` branch claim, and §14's placeholder roster are stale against
+this; the next docs pass owns reconciling them._
 
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
@@ -47,28 +58,28 @@ _Deferred — operational setup_ in [`ROADMAP.md`](../ROADMAP.md).
 verified against GitHub's current runner reference; `ubuntu-slim` is generally available. The outage
 reproduces identically on `ubuntu-latest`, and predates `ubuntu-slim` entering the repository.
 
-## Tools catalog — five steps, and the first one gates every other deploy
+## Tools catalog — what the 2026-08-21 push settled, and what remains
 
 From the audit in [`docs/research/2026-08-15-tools-reality-check.md`](research/2026-08-15-tools-reality-check.md),
 which exercised all nineteen catalog tools against a local worker and the real internet. Listed in
-the order they have to happen. Nothing here duplicates the LibreOffice, search, bundle, sign or
+the order they were queued. Nothing here duplicates the LibreOffice, search, bundle, sign or
 email-capture steps already on this queue.
 
-1. **`magna-carta-ocr` exists — the owner confirmed it on 2026-08-24.** The concern this entry
-   carried is resolved: `apps/api-worker/wrangler.jsonc` declares `OCR_SERVICE -> magna-carta-ocr`,
-   Cloudflare rejects a deploy whose service binding names a Worker that does not exist (the same
-   rule §14 and §16 of `docs/conventions/operations.md` state for the bundle, convert and sign
-   workers), and the worker was recorded in none of the three places such a worker is listed — but
-   the owner reports it exists, so the next app-worker deploy is not blocked on it. Still worth a
-   glance in the same dashboard pass as the root-directory repoints: that its build is green and it
-   is the real worker (`apps/ocr-worker` + `containers/ocr`), not a placeholder — a placeholder
-   serves 503s to the OCR tool but rejects no deploy.
+1. **`magna-carta-ocr` is real — API-confirmed 2026-08-24.** The owner's report now has evidence
+   behind it: the worker exists on the account, it is connected to Workers Builds with root
+   directory `apps/ocr-worker` and watch paths covering `containers/ocr/*` and the OCR crates, its
+   production branch is `release`, its latest build is green (2026-08-21, from `19d02cf`), and the
+   deployed script carries the `OCR_ENGINE -> OcrEngineContainer` Durable Object binding — the real
+   worker, not a placeholder. Nothing about OCR blocks an app-worker deploy, and nothing here needs
+   a dashboard glance any more.
 
-2. **Deploy `magna-carta-scan` carrying `/identify`.** One deploy unblocks two catalog tools that
-   both answer errors today: the **file type verifier** (`POST /api/v1/file-type/verify` → 503) and
-   the **malware scan** (`POST /api/v1/scan/diagnose` → 500). The route is already in the image
-   (`containers/scan/src/lib.rs`, `.route("/identify", post(identify))`); the worker is already
-   connected to Workers Builds, so this rides its next build. No new binding, no new secret.
+2. **`magna-carta-scan` deployed carrying `/identify` on 2026-08-21.** The deploy this step waited
+   on has happened: `release` @ `19d02cf` contains the route (`containers/scan/src/lib.rs`,
+   `.route("/identify", post(identify))`) and the scan project's build from that push is green
+   (API-confirmed 2026-08-24). What a read-only token cannot do is exercise the two endpoints —
+   the **file type verifier** (`POST /api/v1/file-type/verify`) and the **malware scan**
+   (`POST /api/v1/scan/diagnose`) — against the live container; if either still answers an error,
+   read it with the failure-shape note below in hand rather than assuming the deploy missed.
 
    **Note the malware scan's failure shape, so nobody reads it as a regression.** With the binding
    declared but the engine unreachable the diagnostic returns a 500 with an Error ID, not the
@@ -78,19 +89,25 @@ email-capture steps already on this queue.
    means a placeholder or unhealthy scan worker shows up as a server error rather than a graceful
    degradation.
 
-3. **Deploy `magna-carta-file-repair` — but fix its Build Watch Paths first.** The **file repair &
-   salvage** tool answers 503 until this worker is live. Its inclusion list names
-   `containers/file-repair-worker/*` while the container actually lives at `containers/file-repair/`,
-   so **no path matches the image** and a change to the repair engine never triggers a rebuild
-   (already recorded in `operations.md` §12; repeated here because deploying without correcting it
-   ships the old image). Correct it to `containers/file-repair/*`, then deploy.
+3. **`magna-carta-file-repair` is deployed — its Build Watch Paths still need the one-word fix.**
+   The worker built green from `19d02cf` on 2026-08-21 and the deployed script carries
+   `FILE_REPAIR_ENGINE -> FileRepairEngineContainer` (API-confirmed 2026-08-24), so the **file
+   repair & salvage** tool has a live worker behind it. The watch-path drift is confirmed still
+   present: the inclusion list names `containers/file-repair-worker/*` while the container lives at
+   `containers/file-repair/`, so a change to the repair engine alone still triggers no rebuild
+   (also recorded in `operations.md` §12). Correct it to `containers/file-repair/*` — dashboard,
+   owner-only. The same read confirmed the other drift §12 records: `magna-carta-recovery`'s list
+   still lacks `crates/decryption-core/*`, though its image COPYs that crate.
 
 4. **Enable Browser Rendering on the account.** The **safe website viewer** is the only tool in the
    catalog whose dependency is an account entitlement rather than a worker, a container or a secret
    — `env.BROWSER` with `quickAction()` (the current `compatibility_date` already satisfies the
    `>= 2026-03-24` requirement). There is nothing in the repository to deploy for it and nothing
    local can exercise it: Miniflare exposes a `BROWSER` binding whose receiver has no `quickAction`,
-   so the route answers 500 in every local run no matter what changes.
+   so the route answers 500 in every local run no matter what changes. One fact the API pass adds
+   (2026-08-24): the deployed app worker does carry the `BROWSER` binding, so the binding side is
+   live; whether the entitlement actually serves `quickAction()` is only answerable by exercising
+   the route.
 
 5. **Set `PANGRAM_API_KEY` — last, and only when a firm has asked.** **AI-text detection** refuses
    twice today, both correctly: `422` because the firm's consent setting is off, and `422` again if
@@ -112,7 +129,10 @@ draft is the firm's own addresses and parcel and needs no carrier.
 Tantivy engine, its R2 range-read adapter, and the object host it reads through. Nothing
 about them is live — `resolveSearchIndexPort` returns the deferred port until the app
 worker has a `SEARCH_SERVICE` binding, so every index job still parks in `deferred` and
-no query reaches an engine.
+no query reaches an engine. API-confirmed still open in full (2026-08-24):
+`magna-carta-search` is not on the account and the deployed app worker has no
+`SEARCH_SERVICE` binding — this whole section stands. (The `SEARCH_INDEX` queue pair
+already exists, alongside every other production queue.)
 
 **A new container is its own Workers Build**, and the order matters because each step
 depends on the one before it:
@@ -152,21 +172,13 @@ first drain after activation to be a bulk pass rather than a trickle. What a rev
 still owes the index is visible before you start:
 `GET /api/v1/review-sets/{reviewSetId}/index-status`.
 
-## Split compaction — one queue pair to create before the app worker deploys
+## Split compaction — done: the queues exist and the worker shipped (API-confirmed 2026-08-24)
 
-Search split compaction landed with a new queue, its deadletter, and a new Durable
-Object class. **Create the queues first.** A declared consumer whose queue does not
-exist fails the deploy outright, the same hazard the email-capture activation below
-carries:
-
-1. Create `magna-carta-production-search-compaction` **and**
-   `magna-carta-production-search-compaction-deadletter`.
-2. Deploy the app worker. Its `wrangler.jsonc` already carries the producer binding, the
-   consumer at concurrency 1, the `SEARCH_COMPACTION_JOB` Durable Object binding, and
-   migration tag `v8-search-compaction-job`. Nothing else to set.
-
-No new secret and no bucket step: merged splits are written into the firm's existing
-bucket under the prefix the per-document splits already use.
+Both `magna-carta-production-search-compaction` and its deadletter exist, and the app
+worker deployed from `19d02cf` (2026-08-21) carries the producer binding, the consumer,
+and the `SEARCH_COMPACTION_JOB` Durable Object at migration tag
+`v8-search-compaction-job`. Nothing here waits on the owner any more; the two
+paragraphs below stay as the record of why the lane is shaped the way it is.
 
 **Why the concurrency is 1, so nobody raises it as an optimization.** A merge reads and
 rewrites every byte of its sources. Several at once would multiply the R2 traffic of
@@ -180,43 +192,22 @@ for the same documents merged. That is why this is a deploy-blocking capability 
 search rather than a later tuning pass. Figures come from
 `crates/search-eval`; how to reproduce them is in that crate's README.
 
-## Discovery processing lane — a queue pair, then a container worker, in that order
+## Discovery processing lane — done end to end (API-confirmed 2026-08-24)
 
-The discovery processing slice landed with a new queue, its deadletter, and a service
-binding to the discovery engine worker. **The queue pair comes first and is not
-optional:** a declared consumer whose queue does not exist fails the deploy outright,
-the same hazard the compaction activation above carries.
-
-1. Create `magna-carta-production-discovery-process` **and**
-   `magna-carta-production-discovery-process-deadletter`.
-2. Deploy `magna-carta-discovery` — the standalone engine worker that owns the
-   `DiscoveryEngineContainer`. Its image builds in Cloudflare Workers Builds from
-   `containers/discovery/Dockerfile` with the repo root as build context. Validate the
-   config first with
-   `pnpm --filter @magna-carta/discovery-worker exec wrangler deploy --dry-run --containers-rollout=none`.
-3. Deploy the app worker. Its `wrangler.jsonc` already carries the `DISCOVERY_PROCESS`
-   producer binding, the consumer at concurrency 4, and the `DISCOVERY_SERVICE` service
-   binding to `magna-carta-discovery`. No new secret, no new bucket.
-
-**Step 3 will fail while step 2 is undone.** A service binding naming a worker that does
-not exist is a deploy-time error, not a runtime fallback — unlike an _absent_ binding,
-which the extraction port handles by falling back. Deploy the engine worker or remove the
-binding; do not deploy the app worker against a name with nothing behind it.
-
-**The order between 2 and 3 is not cosmetic.** With the queue live and the engine worker
-absent, every review document parks `pending` with a reason on its row and its load will
-not reach `complete` — visible, recoverable, and exactly the state the design intends
-while an engine is undeployed. Re-running the load's dispatch after step 2 drains it.
+All three steps this section carried have happened. The queue pair exists
+(`magna-carta-production-discovery-process` and its deadletter); `magna-carta-discovery`
+is on the account with the `DISCOVERY_ENGINE -> DiscoveryEngineContainer` Durable Object
+and built green from `19d02cf` (2026-08-21); and the deployed app worker carries the
+`DISCOVERY_PROCESS` producer and consumer plus the `DISCOVERY_SERVICE` service binding.
+The caveat this section used to close on is also gone: `CONVERT` is bound and the convert
+worker's deployed script carries `LibreOfficeEngineContainer`, so a legacy `.doc`, `.xls`
+or `.ppt` in a review set reaches an engine rather than parking.
 
 **Why concurrency 4, so nobody raises it as a knob.** Extraction runs in the discovery
 Container, which is sized for this burst (`max_instances: 20`) and scales to zero between
 loads, so the Container's own ceiling is what bounds throughput. This number bounds how
 much of the account's 250-invocation consumer budget one bulk load may take, which is the
 whole reason the lane is separate from files ingest in the first place.
-
-**Not yet activated by this deploy:** the LibreOffice conversion engine (its own section
-below). Until `CONVERT` is bound and that container is deployed, a legacy `.doc`, `.xls`
-or `.ppt` in a review set parks rather than being recorded unreadable.
 
 ## Turnstile activation — the order matters, and the widget comes before the secret
 
@@ -267,34 +258,57 @@ whole volume is `unenforced`; after it, `unenforced` should fall to zero. A stan
 `unavailable`/`verifier-credential-rejected` count means the secret is wrong — the endpoint is
 answering `503`, and no visitor is being told it is their fault.
 
-## New configuration the next deploy must carry
+## New configuration — carried by the 2026-08-21 push
 
-- **`R2_BUCKET_NAME`** — new `wrangler.jsonc` var on the app worker (landed with the
-  bucket-resolution unification). It must stay byte-identical to
+- **`R2_BUCKET_NAME`** — `wrangler.jsonc` var on the app worker (landed with the
+  bucket-resolution unification), **live on the deployed worker** (API-confirmed
+  2026-08-24). It must stay byte-identical to
   `r2_buckets[0].bucket_name`; the resolver uses it to refuse presigning into a
-  bucket the Worker cannot read. Already committed in the config — no dashboard
+  bucket the Worker cannot read. No dashboard
   step, listed so a manual `wrangler secret`/vars review does not strip it.
 - Note: before that fix, enabling the full R2 S3 credential set in production
   would have broken every upload (presign wrote to per-firm buckets, ingest read
   the bound platform bucket). Fixed on `main`; do not deploy any pre-fix commit
   with real presigning credentials.
 
-## The `magna-carta` project's root directory moved — repoint it before its next build
+## The `magna-carta` project — the repoint this file asked for was the wrong fix; the deploy filter is the real one
 
-`apps/worker` is now `apps/api-worker`. The **Cloudflare script name is unchanged** (`magna-carta`),
-nothing in production moves, and no Durable Object namespace is affected — but Workers Builds finds
-the package by root directory, and that path no longer exists.
+`apps/worker` is now `apps/api-worker` on `main`, and the package inside it is now
+`@magna-carta/api-worker` (it was still `@magna-carta/worker` at `release` @ `19d02cf`, which is why
+the 2026-08-21 build deployed cleanly). The **Cloudflare script name is unchanged** (`magna-carta`),
+nothing in production moves, and no Durable Object namespace is affected. What the API pass found
+(2026-08-24), against what this entry used to instruct:
 
-**In the dashboard, before the next deploy of `magna-carta`:** set the project's **root directory**
-to `apps/api-worker`, and update its **Build Watch Paths** inclusion list, replacing `apps/worker/*`
-with `apps/api-worker/*`. Both live in the project's build configuration, which only the account
-owner can edit. A build that runs before this fails at package resolution rather than at compile,
-so the log will name a missing directory rather than a code fault.
+- **The root directory is `/`, and that is correct — do not repoint it.** The app worker alone spans
+  the repository (build command `pnpm exec vp run build-all` bundles the SPA and the WASM
+  artefacts), which is exactly the shape `operations.md` §12 records; rooting it at
+  `apps/api-worker` would break the build, not fix it. The earlier instruction here was wrong.
+- **The watch-path half is done**: the inclusion list now reads `apps/api-worker/*` (trigger
+  modified 2026-08-24).
+- **What will actually break the next build is the deploy command.** It still reads
+  `pnpm --filter @magna-carta/worker exec wrangler deploy`, and the moment the package rename rides
+  a `main:release` push, that filter matches nothing and the deploy step fails. **Owner step,
+  before the next push:** edit the project's deploy command to
+  `pnpm --filter @magna-carta/api-worker exec wrangler deploy`.
 
-This is the same class of step `magna-carta-edit` needed when it moved from `apps/magna-carta-edit`
-(2026-08-21), and that one is still outstanding — see its entry below. Repoint both in one pass.
+One thing the new inclusion list gives up, worth restoring in the same dashboard visit:
+`apps/api-worker/*` alone means a push touching only `packages/*` or `apps/web/*` no longer rebuilds
+the app worker, though the app worker bundles both. §12's recorded shape — include `*`, exclude
+`docs/*`, `containers/*`, `spikes/*`, `*.md` — watched those. The next release push is safe either
+way (Workers Builds always builds a push of 20+ commits, and 27 are queued), but a small follow-up
+push could silently skip the rebuild.
 
-## Behaviour changes the next deploy carries (no dashboard step)
+The `magna-carta-edit` half of the old "repoint both in one pass" is **done** — API-confirmed
+2026-08-24: root `apps/edit-worker`, production branch `release`, latest builds green.
+
+## Behaviour changes — shipped by the 2026-08-21 push (no dashboard step)
+
+**These are live, not pending.** Every migration and endpoint named below is at `release` @
+`19d02cf` — verified against the deployed tree on 2026-08-24, when the API pass surfaced the
+2026-08-21 push this file had not recorded — so the "before the push" heads-ups below are current
+duties, and the counters named are worth reading now. The one exception inside the permissions
+entry is also resolved: `magna-carta-edit` deployed in the same push, so the editor frame the entry
+says "stays blank" should now fill.
 
 - **Twenty list endpoints changed the SHAPE of their answer.** The campaign
   behind `pnpm run lint:list-pagination` worked the unpaged-listing baseline from
@@ -436,10 +450,18 @@ review-load-record` — deliberately a different class from the
 
 ## Position
 
-- Production is `release` @ `0988844` (2026-07-04). `main` is several hundred
-  commits ahead and growing; everything below rides the next push.
+- Production is `release` @ `19d02cf` (2026-08-21, "Next Batch" #363). This file carried
+  `0988844` (2026-07-04) until the API pass on 2026-08-24 found all twelve Workers Builds
+  projects green from the newer push — the owner had deployed and the queue had not
+  recorded it. `main` is 27 commits ahead; anything merged before #363 is live, and
+  "the next deploy" below means the next `main:release` push.
 
-## `magna-carta-edit` now gates a screen a person can reach
+## `magna-carta-edit` — deployed 2026-08-21; the screen it gated should now fill
+
+**API-confirmed 2026-08-24:** the edit worker built green from `19d02cf` and the deployed script
+carries `DOCUMENT_EDITOR -> DocumentEditorContainer` plus its `APP_WORKER` service binding back to
+`magna-carta`. The empty-frame state this section describes ended with that push — what remains
+below is the record of why it mattered, and two smaller items that still travel.
 
 This moved up the queue on 2026-08-12 and the reason is worth stating plainly:
 until now the Collabora editor was a capability nobody could get to, so its
@@ -465,10 +487,12 @@ what fills it. Two smaller things travel with it:
   reads `?token=`, so it works the day the mail carries a link — until then the
   only path through is copy-paste.
 
-## Status page — the upstream-severity fix needs BOTH workers deployed
+## Status page — both workers shipped 2026-08-21
 
-No new binding, no new secret, no dashboard step. But the fix spans the two
-sides of `STATUS_KV` and only shows once both have shipped:
+**API-confirmed 2026-08-24:** `magna-carta` and `magna-carta-status` both built green from
+`19d02cf`, so the upstream-severity fix is live on both sides of `STATUS_KV` and the page should
+have corrected itself within one cron cycle of that push. Kept as the record of why both deploys
+were needed:
 
 - **`apps/api-worker`** (the cron) computes the provider severity and writes
   `status:derived`. Until it redeploys, the stored snapshot still carries the
@@ -485,38 +509,31 @@ cache window.
 
 ## Order-sensitive deploy hazards
 
-1. **`magna-carta-sign` must exist before the app worker deploys.** The app
-   worker's `wrangler.jsonc` binds `SIGN_SERVICE -> magna-carta-sign`;
-   Cloudflare rejects a deploy whose service binding names a missing Worker.
-   Deploy `apps/sign-worker` first (or stand up a 503 placeholder of that
-   name, the `magna-carta-bundle`/`magna-carta-convert` precedent). Runbook:
-   `docs/conventions/operations.md` section 16.
-2. After the sign worker exists: provision the platform seal identity with
+1. **Retired — `magna-carta-sign` exists.** API-confirmed 2026-08-24: the sign worker is on the
+   account, connected to Workers Builds on `release`, and built green from `19d02cf` (2026-08-21).
+   The `SIGN_SERVICE` binding on the deployed app worker resolves, so the missing-Worker rejection
+   this hazard guarded against cannot fire.
+2. Still open: provision the platform seal identity with
    `pnpm run platform-seal-certificate` and set the emitted
-   `wrangler secret put` values. The seal route serves 503 until then — safe.
+   `wrangler secret put` values. API-confirmed 2026-08-24 that the deployed sign worker holds **no**
+   secrets, so the seal route serves `503 seal-not-configured` — safe, and owner-only. Runbook:
+   `docs/conventions/operations.md` section 16.
 
-## LibreOffice conversion engine activation
+## LibreOffice conversion engine activation — the deploy happened; one bucket rule turns out to be missing
 
 The engine (`containers/libreoffice`) gives bodies to the four registered office
-edges. Everything is committed; the steps below are the deploy, in order.
+edges. **The deploy is done** — API-confirmed 2026-08-24: the convert worker built green from
+`19d02cf` (2026-08-21) and its deployed script carries both `RASTER_ENGINE ->
+RasterEngineContainer` and `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer` at migration tag
+`v2`, in the right order (the convert worker before the app worker, both in the same push).
 
-1. **Deploy `apps/convert-worker` first, with the new Container class.** Its
-   `wrangler.jsonc` now carries a second `containers` entry
-   (`LibreOfficeEngineContainer`, `standard-2`), its Durable Object binding
-   (`LIBREOFFICE_ENGINE`), and migration tag `v2`. The app worker's
-   `CONVERT_WORKER_ENGINE_IDS` already names `libreoffice`, so deploying the app
-   worker first would route the engine id at a convert worker that does not know
-   it: a 501 the adapter maps to `adapter-error` and the job fails cleanly. That
-   is a degradation rather than an outage, which makes the order a strong
-   preference rather than a hazard — but it is free to get right.
-2. **Expect a long first build.** This image bakes an office suite and lands
-   around a gigabyte — an order of magnitude above every other container here —
-   so its first Workers Builds run will take substantially longer than any build
-   in this project so far. It fits: the limit is the instance disk (twelve
-   gigabytes on `standard-2`) against a fifty-gigabyte account image allowance.
-3. **No new bucket step.** The `conversions/` R2 lifecycle rule already on this
-   queue covers this engine's outputs too.
-4. **Verify readiness honestly.** This container's `/ready` answers 503 until a
+1. **The bucket step this section waved off is real after all.** It said the `conversions/` R2
+   lifecycle rule "already on this queue covers this engine's outputs too" — but the API pass found
+   that rule **does not exist**: the platform files bucket carries exactly two rules, `bundles/` at
+   seven days and an incomplete-multipart abort at seven days. Until the owner adds a
+   `conversions/` expiry, conversion outputs accumulate. Same class of dashboard step as the
+   `templates/staging/` rule at the bottom of this queue.
+2. **Verify readiness honestly.** This container's `/ready` answers 503 until a
    worker has finished suite initialisation (tens of seconds), so a freshly
    deployed instance reporting not-ready for half a minute is correct behaviour,
    not a fault. If it never becomes ready, `docker logs` on the instance carries
@@ -539,7 +556,11 @@ Do them in this order; each one is inert without the ones before it.
    records). This is the long pole — DNS propagation and verification, not a click.
 2. **Bind the app worker to it.** The `send_email` binding is what `env.SEND_EMAIL` resolves to. The
    binding already exists for password-reset and verification mail; if it is present, this step is
-   done. Missing binding → reason `send-binding-not-configured`.
+   done. Missing binding → reason `send-binding-not-configured`. **It is present** — API-confirmed
+   2026-08-24 on the deployed worker, so this step is done. Steps 3 and 4 are not: the deployed
+   vars carry no `EMAIL_FROM` and no `APP_BASE_URL`, and the digest's hourly cron is not attached
+   yet (live schedules are `*/5`, `*/10` and `0 3` only — the digest code itself rides a future
+   push).
 3. **Set `EMAIL_FROM`** to an address on the verified domain (a `wrangler.jsonc` var, not a secret —
    it is public configuration). Missing → reason `sender-address-not-configured`. Note that this
    variable also switches password-reset and verification mail off the dev logging adapter, so
@@ -571,24 +592,32 @@ for the member-facing description.
 
 Runbook: `docs/conventions/operations.md` section 2a.
 
-1. Create the `emails-capture` queue **and its deadletter** first.
-2. Deploy `apps/email-worker`.
+1. Done — `magna-carta-production-emails-capture` and its deadletter both exist
+   (API-confirmed 2026-08-24).
+2. Deploy `apps/email-worker` — still to do: `magna-carta-email` is not on the account.
 3. Add the single zone-level catch-all on `in.magnacarta.esq`.
 4. Forward/CC capture stays inert until the capture-address mint route is
    deployed with the rest of the app worker.
 
-## Verification the owner reported but no session has confirmed
+## Verification the owner reported — closed by the API pass, 2026-08-24
 
-- `magna-carta-convert`: connected to Workers Builds on `release`; unverified
-  that the deployed worker is the real one (settings should show the
-  `RASTER_ENGINE` Durable Object binding + container image) and that its
-  first build went green. The `conversions/` R2 lifecycle rule (~24h) is a
-  separate dashboard step, also unverified.
-- `magna-carta-edit`: repointed to `release`; verify the first post-repoint
-  build is green (8 consecutive failures through 2026-06-28 before that).
-- Adding read-only `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`
-  (Workers Builds Read, Workers Scripts Read, R2 Read) to the Claude Code
-  environment would let a session close these checks itself.
+The read-only credentials the last bullet of this section asked for arrived, and a session used
+them the same day. Everything the section held is now confirmed, with one new fact each:
+
+- `magna-carta-convert`: **confirmed real.** Connected to Workers Builds on `release`, root
+  `apps/convert-worker`, watch paths covering both container images; latest build green
+  (2026-08-21, from `19d02cf`); the deployed script carries `RASTER_ENGINE ->
+  RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
+  `v2`. **The `conversions/` R2 lifecycle rule is NOT there** — the platform files bucket carries
+  exactly two rules (`bundles/` at seven days, incomplete-multipart abort at seven days), so that
+  dashboard step moves back to open, on the LibreOffice entry above. Nothing expires under
+  `discovery/`, which is the required state.
+- `magna-carta-edit`: **confirmed repointed and green.** Production branch `release` (the
+  `slice-2-2-editing` leftover is gone), root directory `apps/edit-worker`, and its last two builds
+  are green (both 2026-08-21). One drift found in exchange: its watch-path inclusion list reads
+  `apps/edit-worker` with no trailing `/*`, which matches no file **under** the directory — so in
+  practice only `containers/collabora/*` and `pnpm-lock.yaml` trigger its rebuilds today.
+  One-character dashboard fix: make it `apps/edit-worker/*`.
 
 ## Blocked-in-environment owner chores
 
