@@ -1,8 +1,8 @@
 ---
 worktree: /home/user/magna-carta (remote session)
-area: file-manager round-nine review corrections (mockup + app parity)
+area: file-manager round-nine review corrections (mockup + app parity) + login/registration readiness
 status: building
-touches: docs/conventions/file-manager-rulings.md, tooling/file-manager-rulings/, apps/web/src/lib/file-manager/, changelog.d/
+touches: docs/conventions/file-manager-rulings.md, tooling/file-manager-rulings/, apps/web/src/lib/file-manager/, apps/web/src/lib/auth/, apps/api-worker/src, docs/deploy-queue.md, changelog.d/
 ---
 
 Applying the owner's ninth round of file-manager corrections: The Docket mockup revised and

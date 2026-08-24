@@ -8,6 +8,12 @@ orchestration stream; check `git log release..main` for the live commit delta.
 
 _Last updated: 2026-08-23 — **16 commits undeployed** (`git log release..main`). `main` is green: both of the reds found on 08-22 have landed — the conformance operation inventory (#373) and the web test project's unresolvable `$lib` alias (#376), the second of which had been silently skipping seventeen tests. **A new dashboard step joined the queue today**: the `magna-carta` project's root directory moved to `apps/api-worker` and must be repointed before its next build — see the entry below, and do it in the same pass as `magna-carta-edit`'s outstanding repoint. The GitHub Actions billing block below still gates every merge, not only every deploy._
 
+_2026-08-24 — the owner confirmed `magna-carta-ocr` exists (see the tools-catalog entry below), and
+clarified the Actions block's real blast radius: deploys ride Cloudflare Workers Builds, which do
+not involve GitHub Actions, so a `git push origin main:release` builds and deploys regardless of the
+billing block — what the block silences is the gate of record, meaning such a deploy ships on local
+verification alone._
+
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
 **Nothing in the repository can fix this and no session can perform it.** Since 2026-08-05 GitHub has
@@ -48,16 +54,15 @@ which exercised all nineteen catalog tools against a local worker and the real i
 the order they have to happen. Nothing here duplicates the LibreOffice, search, bundle, sign or
 email-capture steps already on this queue.
 
-1. **Confirm `magna-carta-ocr` exists — do this before ANY app-worker deploy.**
-   `apps/api-worker/wrangler.jsonc` declares `OCR_SERVICE -> magna-carta-ocr`, and Cloudflare rejects a
-   deploy whose service binding names a Worker that does not exist (the same rule §14 and §16 of
-   `docs/conventions/operations.md` state for the bundle, convert and sign workers). But
-   `magna-carta-ocr` is in **none** of the three places such a worker is recorded: not the seven
-   Workers Builds connections in §12, not the placeholder list in §14, and not this queue. So either
-   it exists and nothing says so, or the next push is rejected outright — which would block every
-   tool in the catalog, not only OCR. `apps/ocr-worker` and `containers/ocr` are both committed and
-   buildable; if it does not exist, connect it as a Workers Build (or stand up a 503 placeholder of
-   that name, the `magna-carta-bundle` precedent) before the app worker goes.
+1. **`magna-carta-ocr` exists — the owner confirmed it on 2026-08-24.** The concern this entry
+   carried is resolved: `apps/api-worker/wrangler.jsonc` declares `OCR_SERVICE -> magna-carta-ocr`,
+   Cloudflare rejects a deploy whose service binding names a Worker that does not exist (the same
+   rule §14 and §16 of `docs/conventions/operations.md` state for the bundle, convert and sign
+   workers), and the worker was recorded in none of the three places such a worker is listed — but
+   the owner reports it exists, so the next app-worker deploy is not blocked on it. Still worth a
+   glance in the same dashboard pass as the root-directory repoints: that its build is green and it
+   is the real worker (`apps/ocr-worker` + `containers/ocr`), not a placeholder — a placeholder
+   serves 503s to the OCR tool but rejects no deploy.
 
 2. **Deploy `magna-carta-scan` carrying `/identify`.** One deploy unblocks two catalog tools that
    both answer errors today: the **file type verifier** (`POST /api/v1/file-type/verify` → 503) and
