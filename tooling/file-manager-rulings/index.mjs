@@ -1134,6 +1134,453 @@ await check("I35", "A version label is one token, not two numbers", async () => 
   return !/tabular/.test(variant);
 });
 
+// ---- Round nine.
+
+await check("I37", "The safety report's Copy and Download are small icon buttons", async () => {
+  await openInspectorOnFlagged();
+  await page.locator('#inspector [data-instab="safety"]').click();
+  await page.locator("#inspector [data-sig]").click();
+  for (const sel of ["[data-sigcopy]", "[data-sigdownload]"]) {
+    const b = page.locator(sel);
+    if ((await b.count()) !== 1) return false;
+    // Icon-only: no visible text label, and genuinely small.
+    if ((await b.innerText()).trim() !== "") return false;
+    const box = await b.boundingBox();
+    if (box.width > 32 || box.height > 32) return false;
+    // Still says what it will do — just not as a text label.
+    if (!/(copy|download)/i.test((await b.getAttribute("title")) ?? "")) return false;
+  }
+  await page.locator("[data-sigclose]").click();
+  return true;
+});
+
+await check(
+  "I38",
+  "Details has no safety sentence — a Flag row, alike the others, opens Safety",
+  async () => {
+    await openInspectorOnFlagged();
+    await page.locator('#inspector [data-instab="details"]').click();
+    const text = await page.locator("#inspector").innerText();
+    // The sentence the owner struck, in both of its halves.
+    if (/open safety finding/i.test(text)) return false;
+    if (/Open the Safety tab/.test(text)) return false;
+    // The flag is one facts row like every other: a dd in the same list, holding the
+    // Lucide Flag geometry, not a notice bar.
+    const flag = page.locator("#inspector dl.facts dd .flagbtn");
+    if ((await flag.count()) !== 1) return false;
+    const path = await flag.locator("svg path").first().getAttribute("d");
+    if (!path?.startsWith("M4 22V4")) return false; // Lucide flag
+    await flag.click();
+    return (
+      (await page.locator('#inspector [data-instab="safety"]').getAttribute("aria-selected")) ===
+      "true"
+    );
+  },
+);
+
+await check(
+  "L32",
+  "File Type shows the extension — mp4, zip, docx — never the category",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    const cellOf = async (needle) => {
+      const idx = await page
+        .locator("#headRow th")
+        .evaluateAll((ths) => ths.findIndex((th) => th.dataset.col === "fileType"));
+      const row = page.locator("#rows tr").filter({ hasText: needle }).first();
+      return await row.evaluate((r, i) => r.cells[i].innerText.trim(), idx);
+    };
+    await page.locator('.tnode[data-tree="depositions"]').first().click();
+    if ((await cellOf("Deposition Video")) !== "mp4") return false;
+    await page.locator('.tnode[data-tree="discovery"]').first().click();
+    if ((await cellOf("Site Inspection Photos")) !== "zip") return false;
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    if ((await cellOf("Motion to Compel")) !== "docx") return false;
+    // The category words must be gone from the column everywhere. Case matters: the
+    // categories were Title-case words, while "pdf" the extension is a correct cell.
+    const cells = await page.locator("#rows td.ftype").allInnerTexts();
+    return !cells.some((c) => /^(Video|Archive|Word|Program|PDF)$/.test(c.trim()));
+  },
+);
+
+await check(
+  "L33",
+  "A zebra setting sits directly beneath the extension setting, and it stripes",
+  async () => {
+    await page.locator('.tnode[data-tree="discovery"]').first().click();
+    await page.locator("#colsBtn").click();
+    // Directly beneath: the very next row of the menu, not somewhere in it.
+    const adjacent = await page
+      .locator("#hideExt")
+      .evaluate(
+        (el) => el.closest("label")?.nextElementSibling?.querySelector("#zebraRows") != null,
+      );
+    if (!adjacent) return false;
+    await page.locator("#zebraRows").check();
+    await page.keyboard.press("Escape");
+    await page.mouse.move(4, 4); // hover legitimately recolours a row; park the pointer
+    await page.waitForTimeout(120);
+    const bg = (n) =>
+      page
+        .locator(`#rows tr:nth-child(${n})`)
+        .evaluate((el) => getComputedStyle(el).backgroundColor);
+    const striped = (await bg(1)) !== (await bg(2));
+    await page.locator("#colsBtn").click();
+    await page.locator("#zebraRows").uncheck();
+    await page.keyboard.press("Escape");
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(120);
+    const plain = (await bg(1)) === (await bg(2));
+    return striped && plain;
+  },
+);
+
+await check(
+  "L34",
+  "Label and filter button share one hover surface inside the header cell",
+  async () => {
+    const th = page.locator('#headRow th[data-col="fileType"]');
+    const cell = th.locator(".hcell");
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(120);
+    const resting = await cell.evaluate((el) => getComputedStyle(el).backgroundColor);
+    // The unit encloses both the label and the filter control.
+    const [cellBox, labelBox, filterBox] = [
+      await cell.boundingBox(),
+      await th.locator(".sortbtn").boundingBox(),
+      await th.locator(".filterbtn").boundingBox(),
+    ];
+    const encloses = (outer, inner) =>
+      inner.x >= outer.x - 1 &&
+      inner.x + inner.width <= outer.x + outer.width + 1 &&
+      inner.y >= outer.y - 1 &&
+      inner.y + inner.height <= outer.y + outer.height + 1;
+    if (!encloses(cellBox, labelBox) || !encloses(cellBox, filterBox)) return false;
+    // Hovering the LABEL lights the unit…
+    await th.locator(".sortbtn").hover();
+    await page.waitForTimeout(100);
+    const overLabel = await cell.evaluate((el) => getComputedStyle(el).backgroundColor);
+    if (overLabel === resting) return false;
+    // …and hovering the filter button lights the SAME surface, not a different one.
+    await th.locator(".filterbtn").hover();
+    await page.waitForTimeout(100);
+    const overFilter = await cell.evaluate((el) => getComputedStyle(el).backgroundColor);
+    return overFilter === overLabel;
+  },
+);
+
+await check(
+  "L35",
+  "A pinned column holds still under horizontal scroll, behind a Lucide pin",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    await page.locator("#colsBtn").click();
+    // The control is the PIN, not a star.
+    const pinPath = await page
+      .locator('#colsMenu [data-pincol="docType"] svg path')
+      .first()
+      .getAttribute("d");
+    if (pinPath !== "M12 17v5") return false;
+    for (const key of ["location", "created"]) {
+      const cb = page.locator(`#colsMenu input[data-col="${key}"]`);
+      if (!(await cb.isChecked())) await cb.check();
+    }
+    await page.locator('#colsMenu [data-pincol="docType"]').click();
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 1100, height: 800 });
+    await page.waitForTimeout(150);
+    const xOf = (col) =>
+      page.locator(`#headRow th[data-col="${col}"]`).evaluate((el) => el.getBoundingClientRect().x);
+    const pinnedBefore = await xOf("docType");
+    const looseBefore = await xOf("modified");
+    await page.locator("#tablewrap").evaluate((el) => {
+      el.scrollLeft = 180;
+    });
+    await page.waitForTimeout(150);
+    const pinnedAfter = await xOf("docType");
+    const looseAfter = await xOf("modified");
+    await page.setViewportSize({ width: 1600, height: 900 });
+    // The pinned column did not move; its neighbours did.
+    return Math.abs(pinnedAfter - pinnedBefore) < 1 && looseBefore - looseAfter > 100;
+  },
+);
+
+await check("L36", "Every column filters, through the one shared mechanism", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  // Every header cell carries a filter control — Name and the numeric columns included.
+  const thCount = await page.locator("#headRow th").count();
+  if ((await page.locator("#headRow th .filterbtn").count()) !== thCount) return false;
+  // The text kind, on Name.
+  const before = await page.locator('#rows tr[data-key^="d:"]').count();
+  await page.locator('#headRow th[data-col="name"]').hover();
+  await page.locator('#headRow th[data-col="name"] .filterbtn').click();
+  await page.locator("#filterText").fill("Motion");
+  await page.waitForTimeout(150);
+  const narrowed = await page.locator('#rows tr[data-key^="d:"]').count();
+  if (!(narrowed >= 1 && narrowed < before)) return false;
+  await page.locator("#filterClear").click();
+  await page.waitForTimeout(120);
+  // The range kind, on Size: only the Complaint clears 0.3 MB in Pleadings. The bound
+  // keeps a row on screen on purpose — an emptied list swaps to the No Matches pane and
+  // stops saying anything about which rows the filter kept.
+  await page.locator('#headRow th[data-col="size"]').hover();
+  await page.locator('#headRow th[data-col="size"] .filterbtn').click();
+  await page.locator("#rangeMin").fill("0.3");
+  await page.waitForTimeout(150);
+  const bigRows = await page.locator('#rows tr[data-key^="d:"]').allInnerTexts();
+  if (bigRows.length !== 1 || !bigRows[0].includes("Complaint")) return false;
+  await page.locator("#filterClear").click();
+  await page.waitForTimeout(120);
+  return (await page.locator('#rows tr[data-key^="d:"]').count()) === before;
+});
+
+await check("L11b", "The pin glyph is the Lucide pin, not a star", async () => {
+  // Its own setup: this check must not inherit whatever filter state came before it.
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click({ button: "right" });
+  await page.locator('#ctx button[data-cmd="pin"]').click();
+  await page.waitForTimeout(120);
+  const mark = page.locator("#rows .pinmark path").first();
+  if ((await mark.count()) === 0) return false;
+  const d = await mark.getAttribute("d");
+  // Lucide pin starts with the stem; the star's path starts M11.525 — the regression.
+  return d === "M12 17v5";
+});
+
+await check("L14b", "A runtime deletion records a person's name, never You", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  await page
+    .locator('#rows tr[data-key^="d:"]')
+    .filter({ hasText: "Answer and Counterclaim" })
+    .first()
+    .click({ button: "right" });
+  await page.locator('#ctx button[data-cmd="delete"]').click();
+  await page.waitForTimeout(150);
+  await page.locator('[data-view="deleted"]').click();
+  await page.waitForTimeout(150);
+  const row = page
+    .locator('#rows tr[data-key^="x:"]')
+    .filter({ hasText: "Answer and Counterclaim" });
+  if ((await row.count()) !== 1) return false;
+  const text = await row.innerText();
+  if (/\bYou\b/.test(text)) return false;
+  // Deleted By is a person's name.
+  return /[A-Z]\. [A-Z][a-z]+/.test(text);
+});
+
+await check(
+  "A15",
+  "Moving files is undoable and redoable, and the control says what it will undo",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    if (!(await page.locator("#undoBtn").isDisabled())) return false; // nothing moved yet
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    await page
+      .locator('#rows tr[data-key^="d:"]')
+      .filter({ hasText: "Complaint" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="cut"]').click();
+    await page.locator('.tnode[data-tree="orders"]').first().click();
+    await page.locator("#tablewrap").click({ position: { x: 5, y: 5 } });
+    await page.locator("#rows tr").first().click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="paste"]').click();
+    await page.waitForTimeout(150);
+    // The tooltip names the movement, not a mystery.
+    const title = await page.locator("#undoBtn").getAttribute("title");
+    if (!/^Undo move of 1 file to /.test(title ?? "")) return false;
+    // Ctrl+Z puts it back.
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(150);
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    if ((await page.locator("#rows tr").filter({ hasText: "Complaint" }).count()) !== 1)
+      return false;
+    // The visible redo control re-applies it.
+    if (!/^Redo move of 1 file/.test((await page.locator("#redoBtn").getAttribute("title")) ?? ""))
+      return false;
+    await page.locator("#redoBtn").click();
+    await page.waitForTimeout(150);
+    return (await page.locator("#rows tr").filter({ hasText: "Complaint" }).count()) === 0;
+  },
+);
+
+await check(
+  "N22",
+  "History sits beneath File Analysis and Deleted Files, on the matter's table",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    const order = await page.locator(".viewrow").evaluateAll((bs) => bs.map((b) => b.dataset.view));
+    if (JSON.stringify(order) !== JSON.stringify(["analysis", "deleted", "history"])) return false;
+    await page.locator('[data-view="history"]').click();
+    await page.waitForTimeout(150);
+    // The breadcrumb titles the view (N21), with no second heading.
+    if (!/History/.test(await page.locator("#crumbs").innerText())) return false;
+    // The columns the owner named: time, action, file, from → to, who.
+    const heads = await page.locator("#headRow th").allInnerTexts();
+    const labels = heads.map((h) => h.trim().toLowerCase());
+    if (
+      !["time", "action", "file", "from / to", "who"].every((l) =>
+        labels.some((h) => h.startsWith(l)),
+      )
+    )
+      return false;
+    const rows = page.locator("#rows tr");
+    if ((await rows.count()) < 5) return false;
+    // Newest first by default; sorting by Time flips it.
+    const firstBefore = await rows.first().innerText();
+    await page.locator('[data-sortbtn="histTime"]').click();
+    await page.waitForTimeout(120);
+    const firstAfter = await page.locator("#rows tr").first().innerText();
+    return firstBefore !== firstAfter;
+  },
+);
+
+await check("T7", "A folder drags to a new parent within the tree", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  const node = page.locator('.tnode[data-tree="orders"]');
+  if ((await node.getAttribute("draggable")) !== "true") return false;
+  await page.evaluate(() => {
+    const dt = new DataTransfer();
+    const src = document.querySelector('.tnode[data-tree="orders"]');
+    const dst = document.querySelector('.tnode[data-tree="pleadings"]');
+    src.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: dt }));
+    dst.dispatchEvent(
+      new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }),
+    );
+    dst.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+  });
+  await page.waitForTimeout(150);
+  const parent = await page.evaluate(() => folderById("orders")?.parent);
+  if (parent !== "pleadings") return false;
+  // And it is a movement like any other: undo puts it back at the top level.
+  await page.locator("#undoBtn").click();
+  await page.waitForTimeout(150);
+  return (await page.evaluate(() => folderById("orders")?.parent)) === null;
+});
+
+await check(
+  "A16",
+  "Uploading asks where to save: here by default, the root, or any folder",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    // A8's real picker still applies — the modal FOLLOWS the pick.
+    await page.locator("#filePicker").setInputFiles({
+      name: "settlement-notes.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4 settlement notes"),
+    });
+    await page.waitForTimeout(200);
+    const dialog = page.locator("#newDocWash .dialog");
+    if (!(await dialog.isVisible())) return false;
+    // The folder being viewed is the default…
+    const here = page.locator('#newDocWash input[name="updest"][value="here"]');
+    if (!(await here.isChecked())) return false;
+    if (!/Pleadings/.test(await here.evaluate((el) => el.closest("label").innerText))) return false;
+    // …the root is one click, and so is any other folder.
+    if ((await page.locator('#newDocWash input[name="updest"][value="root"]').count()) !== 1)
+      return false;
+    await page.locator('#newDocWash input[name="updest"][value="other"]').check();
+    await page.locator('#newDocWash [data-updfolder="correspondence"]').click();
+    await page.locator('#newDocWash [data-upd="yes"]').click();
+    await page.waitForTimeout(200);
+    await page.locator('.tnode[data-tree="correspondence"]').first().click();
+    return (await page.locator("#rows tr").filter({ hasText: "settlement-notes" }).count()) === 1;
+  },
+);
+
+await check(
+  "I39",
+  "Clicking the name in the inspector renames inline, extension untouched",
+  async () => {
+    await openFile("pleadings", "Motion to Compel");
+    await page.locator('#inspector [data-instab="preview"]').click();
+    await page.locator("#insRename").click();
+    const field = page.locator(".ins-head input.rename");
+    const state = await field.evaluate((el) => ({
+      value: el.value,
+      start: el.selectionStart,
+      end: el.selectionEnd,
+    }));
+    // A9 binds here too: the selection stops before ".docx".
+    if (!state.value.endsWith(".docx")) return false;
+    if (state.start !== 0 || state.end !== state.value.length - ".docx".length) return false;
+    await field.fill("Motion to Compel (retitled)");
+    await field.press("Enter");
+    await page.waitForTimeout(150);
+    const rows = await page.locator('#rows tr[data-key^="d:"]').allInnerTexts();
+    return rows.some((r) => r.includes("Motion to Compel (retitled).docx"));
+  },
+);
+
+await check("L37", "An unset document type shows blank — never Unfiled", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  if ((await page.content()).includes("Unfiled")) return false;
+  // The flagged home-level file has no type: its cell is EMPTY.
+  const idx = await page
+    .locator("#headRow th")
+    .evaluateAll((ths) => ths.findIndex((th) => th.dataset.col === "docType"));
+  const cell = await page
+    .locator('#rows tr[data-key="d:11"]')
+    .evaluate((r, i) => r.cells[i].innerText.trim(), idx);
+  if (cell !== "") return false;
+  // The Details field is blank too, but keeps a labelled, clickable footprint.
+  if (!(await page.locator("#inspector").isVisible())) await page.locator("#insBtn").click();
+  await page.locator('#rows tr[data-key="d:11"]').click();
+  await page.locator('#inspector [data-instab="details"]').click();
+  const fieldButton = page.locator("#inspector [data-dt-open]");
+  if ((await fieldButton.innerText()).trim() !== "") return false;
+  const box = await fieldButton.boundingBox();
+  return box.width >= 60; // blank, not vanished
+});
+
+await check("I40", "The preview fits its panel, and an image previews as the image", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  if (!(await page.locator("#inspector").isVisible())) await page.locator("#insBtn").click();
+  // The pdf preview — the box that used to run off the right of the screen.
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  await page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Complaint" }).first().click();
+  await page.locator('#inspector [data-instab="preview"]').click();
+  await page.waitForTimeout(150);
+  const fits = async () => {
+    const [box, panel] = [
+      await page.locator("#inspector .previewbox").boundingBox(),
+      await page.locator("#inspector").boundingBox(),
+    ];
+    return (
+      box.x + box.width <= panel.x + panel.width + 1 &&
+      box.x + box.width <= page.viewportSize().width + 1
+    );
+  };
+  if (!(await fits())) return false;
+  // An image file previews AS the image — not a "renders here" placeholder.
+  await page.locator('.tnode[data-tree="sitephotos"]').first().click();
+  if (await page.locator("#iconGrid").isVisible()) await page.locator("#viewModeBtn").click();
+  await page.locator('#rows tr[data-key^="d:"]').first().click();
+  await page.locator('#inspector [data-instab="preview"]').click();
+  await page.waitForTimeout(150);
+  const photo = page.locator("#inspector .previewbox.photoprev");
+  if ((await photo.count()) !== 1) return false;
+  if (/renders here/i.test(await page.locator("#inspector").innerText())) return false;
+  return await fits();
+});
+
 await check(
   "JS",
   "No page errors while exercising all of the above",

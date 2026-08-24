@@ -106,7 +106,7 @@ harness does not cover are checked by hand and get a check added when they are n
 | I13 | Drop the "Folder · Discovery" line; the breadcrumb already says it, and it is incomplete.                                                                  | settled           |
 | I14 | Left and right sidebar toggle buttons carry no shadow when active.                                                                                         | settled           |
 | I15 | Real file-type icons, from a public, commonly used icon set — not letter tiles we drew ourselves.                                                          | open              |
-| I16 | `.docx` shows as "Word". `.doc` shows as the legacy name. They are different internals and must be told apart.                                             | settled           |
+| I16 | `.docx` shows as "Word". `.doc` shows as the legacy name. They are different internals and must be told apart.                                             | superseded by L32 |
 
 ## R6 — file analysis
 
@@ -167,7 +167,7 @@ harness does not cover are checked by hand and get a check added when they are n
 | T5  | Folders recolour from a set palette: red, orange, yellow, green, blue, purple, black, white, brown, grey. Leave room for a future icon change.                               | settled               |
 | I18 | The inspector has no horizontal scrollbar. If anything scrolls sideways it is the tab strip.                                                                                 | settled               |
 | I19 | Remove "See the Safety tab for what was found."                                                                                                                              | settled               |
-| I20 | Details says only that a safety issue exists and to open the Safety tab; the detail lives there.                                                                             | settled               |
+| I20 | Details says only that a safety issue exists and to open the Safety tab; the detail lives there.                                                                             | superseded by I38     |
 | I21 | Drop the "Verified" marker beside the hashes.                                                                                                                                | settled               |
 | I22 | A compare button sits beside the hash refresh button; the separate compare area at the top goes away.                                                                        | settled               |
 | I23 | Safety's Engine line names the engine version, not just the engine.                                                                                                          | settled               |
@@ -335,3 +335,31 @@ very file while the screen still had the defect, because the harness asserted th
   checked-out file. This closes the question the save-new-version analysis raised.
 - **Presence is worth having.** A document should be able to show that other people have it open.
   Recorded as P16; designed here, not built.
+
+## R11 — round nine: the extension column, undo, and the History changelog
+
+| #    | Ruling                                                                                                                                                                                                                                                                           | Status  |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| I37  | The safety report's Copy and Download are small icon buttons, out of the reading's way. Refines I34: both still render from one text, so they cannot disagree.                                                                                                                   | settled |
+| I38  | Details carries NO safety sentence. An open finding is one row like every other — a Flag icon (Lucide Flag) whose click opens the Safety tab. All details rows read alike. **Supersedes I20.**                                                                                   | settled |
+| L32  | The File Type column always shows the extension — "mp4", "zip", "docx" — never the processing category. **Supersedes I16**: the extension tells `.doc` and `.docx` apart on its own. Archive members too.                                                                        | settled |
+| L33  | A zebra setting sits directly beneath the file-extension setting in the columns menu: alternating row shading, design tokens only, with selection and hover keeping the last word.                                                                                               | settled |
+| L34  | The per-column filter button sits inside the same header cell as the label it filters — one unit, one hover surface covering both. Refines L30: its space is still reserved, so revealing it moves nothing.                                                                      | settled |
+| L35  | A column can be pinned: it holds its place under horizontal scrolling (`position: sticky`), discoverable where column controls already live (the columns menu), shown with the Lucide pin.                                                                                       | settled |
+| L36  | Filtering works on every column through ONE mechanism parameterized per column type — a checkbox set, a contains-text field, or a from/to range — never per-column copies.                                                                                                       | settled |
+| L11b | **Regression:** the pin glyph carried Lucide `star` geometry, not the pin L11 ruled. Fixed: the pin is Lucide `pin` everywhere it appears — pinned rows and column pinning alike.                                                                                                | settled |
+| L14b | **Regression:** deleting a file at runtime recorded its deleter as "You", which the deleted list then displayed. Fixed: the deleted record carries the person's name and the file's real authorship.                                                                             | settled |
+| A15  | Undo and redo stacks for movement — moves between folders, drag-and-drop, cut/paste. Ctrl+Z / Ctrl+Y (and Shift+Ctrl+Z), plus visible controls beside Back/Forward/Up that say what will be undone.                                                                              | settled |
+| N22  | A History changelog in the left sidebar, directly beneath File Analysis and Deleted Files: how files moved, were renamed, deleted, or changed — on the matter's own table (D1b), the breadcrumb titling the view (N21), columns time · action · file · from → to · who.          | settled |
+| T7   | Folders can be moved by dragging within the left-sidebar tree. A folder never drops into itself or its own descendants; the move is undoable like any other.                                                                                                                     | settled |
+| A16  | Uploading opens a destination modal: the currently viewed folder (default), the root, or any other folder through a folder picker. A8's real file picker still applies — the modal follows the pick. Save New Version asks nothing: its destination is the file it was asked on. | settled |
+| I39  | Clicking the file name in the inspector renames it inline. A9 binds: the extension is never selected, and never shown while extensions are hidden.                                                                                                                               | settled |
+| L37  | An unset document type shows BLANK — never "Unfiled" — in the cell and in the Details field alike. The field keeps its labelled, clickable footprint.                                                                                                                            | settled |
+| I40  | The preview box fits its panel — the tall preview's fixed height had made its aspect ratio force the width past the screen edge. And an image file previews AS the image in the Preview tab, not as a page placeholder.                                                          | settled |
+
+**Notes recorded this round:**
+
+- I38 removes the finding sentence from Details; the byte-disagreement statement stays there
+  because it is a TYPE fact — I10 ("say what the bytes actually read as") still binds.
+- The document-type menu's "Add" item rendered the literal text "undefined" — `ICONS.plus` was
+  referenced but never defined. Fixed in passing; no ruling needed, it was simply broken.
