@@ -128,7 +128,7 @@ harness does not cover are checked by hand and get a check added when they are n
 | P3  | Deleted files restore somewhere sane when their original folder is gone.                                                                                                                                                  | open                           |
 | P4  | A file-manager error must give a technical explanation, first steps (refresh, check connection), and a working report path through the standard in-house reporting pipeline. Retry and Report must actually do something. | open — both are inert          |
 | P5  | The error view must scroll.                                                                                                                                                                                               | settled                        |
-| P6  | "Save new version" as currently shaped is not wanted — replacing a document by uploading a copy over it is too easy to get wrong. Research the right workflow before building anything here.                              | open — analysis owed           |
+| P6  | "Save new version" as currently shaped is not wanted — replacing a document by uploading a copy over it is too easy to get wrong. Research the right workflow before building anything here.                              | answered — awaiting decision   |
 | P7  | Resolve the difference between "Open" and "Open in Editor", or drop one.                                                                                                                                                  | open                           |
 | P8  | Concurrent authorship needs a rule for who is credited. Look at what Google Docs does.                                                                                                                                    | open                           |
 | P9  | Version identifiers: `v1` is fine. The date-stamped idea (`26-08-01.01`) is not adopted.                                                                                                                                  | settled                        |
@@ -291,12 +291,12 @@ very file while the screen still had the defect, because the harness asserted th
 - **Litigation holds are out of scope here.** The hold table covers custody packets, not matter
   files, and our delete is a soft delete that destroys nothing.
 
-| #      | Still open                                                                              | Status                |
-| ------ | --------------------------------------------------------------------------------------- | --------------------- |
-| S9–S14 | The results-page rebuild, including the defect where an existing query does not re-run. | open                  |
-| I15    | Real file-type icons from a public set.                                                 | open — owner question |
-| P4     | The error view: technical explanation, working Retry and Report.                        | open                  |
-| P6     | "Save new version" — the analysis of what should replace it.                            | open — analysis owed  |
-| P7     | Open vs Open in Editor.                                                                 | open — owner question |
-| P8     | Concurrent authorship credit.                                                           | open                  |
-| A10    | Template picking at scale.                                                              | open — deferred       |
+| #      | Still open                                                                                                                                                           | Status                       |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| S9–S14 | The results-page rebuild, including the defect where an existing query does not re-run.                                                                              | open                         |
+| I15    | Real file-type icons from a public set.                                                                                                                              | open — owner question        |
+| P4     | The error view: technical explanation, working Retry and Report.                                                                                                     | open                         |
+| P6     | "Save new version" — answered in [`docs/specs/2026-08-24-save-new-version-analysis.md`](../specs/2026-08-24-save-new-version-analysis.md); one owner question in it. | answered — awaiting decision |
+| P7     | Open vs Open in Editor.                                                                                                                                              | open — owner question        |
+| P8     | Concurrent authorship credit.                                                                                                                                        | open                         |
+| A10    | Template picking at scale.                                                                                                                                           | open — deferred              |
