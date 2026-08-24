@@ -41,11 +41,11 @@
       aria-current={currentFolderId === null ? "true" : undefined}
       onclick={() => (currentFolderId = null)}
     >
-      <House class="size-14" aria-hidden="true" />
+      <House class="size-16" aria-hidden="true" />
       Home
     </Button>
     <Button variant="ghost" size="sm" aria-label="New folder" title="New folder" onclick={onNewFolder}>
-      <FolderPlus class="size-14" aria-hidden="true" />
+      <FolderPlus class="size-16" aria-hidden="true" />
     </Button>
   </div>
 

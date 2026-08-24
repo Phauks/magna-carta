@@ -165,7 +165,10 @@
   }
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col">
+<!-- The height is explicit because the shell's <main> is a block container: a flex child of a
+     block parent sizes to its content, so `flex: 1` here stretched nothing and the three panes
+     collapsed to the height of the shortest one. -->
+<div class="flex h-full min-h-0 flex-col">
   <div class="flex items-center gap-12 border-b border-border-default px-12 py-8">
     <nav class="flex min-w-0 items-center gap-2 overflow-x-auto" aria-label="Folder path">
       {#each trail as crumb, index (crumb.id ?? "root")}
