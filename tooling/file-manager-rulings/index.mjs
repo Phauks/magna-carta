@@ -796,6 +796,64 @@ await check(
   },
 );
 
+// ---- The error view.
+
+await check(
+  "P4",
+  "The error view explains, gives first steps, and reports through the in-house pipeline",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('.mockbar button[data-state="error"]').click();
+    const pane = page.locator("#statePane");
+    const text = await pane.innerText();
+    // A technical explanation: what was requested, what came back, when, and the correlating ID.
+    if (!/GET \/matters\//.test(text)) return false;
+    if (!/504/.test(text)) return false;
+    if (!/err_/.test(text)) return false;
+    // First steps, as steps.
+    if ((await pane.locator(".errsteps li").count()) < 3) return false;
+    // And it must say the record is safe — the first thing a person needs to know.
+    return /record itself is unaffected/i.test(text);
+  },
+);
+
+await check("P4b", "Report opens a real reporter that states what leaves the firm", async () => {
+  await page.locator("#reportBtn").click();
+  const dialog = page.locator("#newDocWash .dialog");
+  if (!(await dialog.isVisible())) return false;
+  const text = await dialog.innerText();
+  // It must name what is sent AND what is not — redact-by-default is the standard, and a person
+  // deciding whether to send needs that stated, not implied.
+  if ((await dialog.locator("#repWhat").count()) !== 1) return false;
+  if (!/No document, file name or matter content/i.test(text)) return false;
+  if (await dialog.locator("#repShot").isChecked()) return false; // a screenshot is opt-in
+  await page.locator('#newDocWash [data-rep="yes"]').click();
+  // Sending has to say something happened, and reference the same identifier.
+  const ack = await page.locator("#reportAck").innerText();
+  return /err_/.test(ack) && /not an outside service/i.test(ack);
+});
+
+await check(
+  "P5",
+  "The error view scrolls inside its pane rather than running off the screen",
+  async () => {
+    await page.locator('.mockbar button[data-state="error"]').click();
+    const overflow = await page
+      .locator("#statePane .errpane")
+      .evaluate((el) => getComputedStyle(el).overflowY);
+    // P5 was marked settled off a DIALOG fix, and the error view is a pane — the cap did nothing here.
+    // The pane must never be taller than the area it sits in.
+    const fits = await page
+      .locator("#statePane .errpane")
+      .evaluate(
+        (el) =>
+          el.getBoundingClientRect().bottom <= el.parentElement.getBoundingClientRect().bottom + 1,
+      );
+    return overflow === "auto" && fits;
+  },
+);
+
 await check(
   "JS",
   "No page errors while exercising all of the above",
