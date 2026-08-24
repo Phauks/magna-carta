@@ -12,6 +12,7 @@
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",
     "lint:process-refs": "node tooling/lint-process-references.mjs",
     "lint:control-characters": "node tooling/lint-control-characters.mjs",
+    "lint:icon-sizes": "node tooling/lint-icon-sizes.mjs",
     "lint:workers-types-import": "node tooling/lint-workers-types-import.mjs",
     "lint:custodian-vocabulary": "node tooling/lint-custodian-vocabulary.mjs",
     "lint:conflicts-vocabulary": "node tooling/lint-conflicts-vocabulary/index.mjs",
