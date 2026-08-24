@@ -73,19 +73,19 @@ harness does not cover are checked by hand and get a check added when they are n
 
 ## R4 — actions
 
-| #   | Ruling                                                                                                                                                   | Status                                                                     |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| A1  | Pin, rename, copy, download and delete are **right-click actions**. They are not buttons in a header bar and not buttons in the right sidebar.           | settled                                                                    |
-| A2  | Download, Open in Editor and Save New Version are removed from the right sidebar. Access is by right-click only.                                         | settled                                                                    |
-| A3  | The right-click item is "Download". Not "Download (acknowledge first)" or similar — if an acknowledgement is needed, raise it **after** the click.       | settled                                                                    |
-| A4  | Actions are icons, not text labels, wherever they repeat per row.                                                                                        | settled                                                                    |
-| A5  | Copy and cut. Plain copy — not "copy to another folder". Folders copy too.                                                                               | settled                                                                    |
-| A6  | "New folder", not "New subfolder".                                                                                                                       | settled                                                                    |
-| A7  | The New button is on the left. There is no second New button on the right.                                                                               | settled                                                                    |
-| A8  | Upload opens a real file picker.                                                                                                                         | settled                                                                    |
-| A9  | Renaming: when extensions are hidden, the rename field shows no extension. When they are shown, the selection covers the name only, never the extension. | **regressed** — still selects the extension and still shows it when hidden |
-| A10 | Template picking must scale to hundreds of templates — a plain dropdown does not. Stubbed for now.                                                       | open                                                                       |
-| A11 | Document type is a custom, firm-editable vocabulary, and there must be a way to set it.                                                                  | settled                                                                    |
+| #   | Ruling                                                                                                                                                   | Status  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| A1  | Pin, rename, copy, download and delete are **right-click actions**. They are not buttons in a header bar and not buttons in the right sidebar.           | settled |
+| A2  | Download, Open in Editor and Save New Version are removed from the right sidebar. Access is by right-click only.                                         | settled |
+| A3  | The right-click item is "Download". Not "Download (acknowledge first)" or similar — if an acknowledgement is needed, raise it **after** the click.       | settled |
+| A4  | Actions are icons, not text labels, wherever they repeat per row.                                                                                        | settled |
+| A5  | Copy and cut. Plain copy — not "copy to another folder". Folders copy too.                                                                               | settled |
+| A6  | "New folder", not "New subfolder".                                                                                                                       | settled |
+| A7  | The New button is on the left. There is no second New button on the right.                                                                               | settled |
+| A8  | Upload opens a real file picker.                                                                                                                         | settled |
+| A9  | Renaming: when extensions are hidden, the rename field shows no extension. When they are shown, the selection covers the name only, never the extension. | settled |
+| A10 | Template picking must scale to hundreds of templates — a plain dropdown does not. Stubbed for now.                                                       | open    |
+| A11 | Document type is a custom, firm-editable vocabulary, and there must be a way to set it.                                                                  | settled |
 
 ## R5 — the inspector, versions and safety
 
@@ -127,13 +127,13 @@ harness does not cover are checked by hand and get a check added when they are n
 | P2  | Entry into archives, and extraction out of one into a matter.                                                                                                                                                             | open — spec written, not built |
 | P3  | Deleted files restore somewhere sane when their original folder is gone.                                                                                                                                                  | open                           |
 | P4  | A file-manager error must give a technical explanation, first steps (refresh, check connection), and a working report path through the standard in-house reporting pipeline. Retry and Report must actually do something. | open — both are inert          |
-| P5  | The error view must scroll.                                                                                                                                                                                               | open                           |
+| P5  | The error view must scroll.                                                                                                                                                                                               | settled                        |
 | P6  | "Save new version" as currently shaped is not wanted — replacing a document by uploading a copy over it is too easy to get wrong. Research the right workflow before building anything here.                              | open — analysis owed           |
 | P7  | Resolve the difference between "Open" and "Open in Editor", or drop one.                                                                                                                                                  | open                           |
 | P8  | Concurrent authorship needs a rule for who is credited. Look at what Google Docs does.                                                                                                                                    | open                           |
 | P9  | Version identifiers: `v1` is fine. The date-stamped idea (`26-08-01.01`) is not adopted.                                                                                                                                  | settled                        |
-| P10 | Pinned ordering: alphabetical or user-arranged — undecided.                                                                                                                                                               | open — owner question          |
-| P11 | Whether a folder's file count is presented alongside its size — undecided.                                                                                                                                                | open — owner question          |
+| P10 | Pinned ordering: alphabetical or user-arranged — undecided.                                                                                                                                                               | settled                        |
+| P11 | Whether a folder's file count is presented alongside its size — undecided.                                                                                                                                                | settled                        |
 
 ## R8 — round six
 
@@ -172,7 +172,7 @@ harness does not cover are checked by hand and get a check added when they are n
 | I22 | A compare button sits beside the hash refresh button; the separate compare area at the top goes away.                                                                        | settled               |
 | I23 | Safety's Engine line names the engine version, not just the engine.                                                                                                          | settled               |
 | I24 | The signature sheet is unreadable — no background. Fix it.                                                                                                                   | settled               |
-| I25 | Version comparison becomes a full modal for moving between versions, tied to the preview. Deferred, marked Soon.                                                             | open — deferred       |
+| I25 | Version comparison becomes a full modal for moving between versions, tied to the preview. Deferred, marked Soon.                                                             | settled               |
 | I26 | Remove "— bytes agree". Agreement is the assumption; only disagreement is stated.                                                                                            | settled               |
 | I27 | **Regression:** document type can no longer be set.                                                                                                                          | settled               |
 | P12 | Enter zip files from the list.                                                                                                                                               | settled               |
@@ -254,3 +254,49 @@ Checked against the schema rather than invented.
    search subsystem would have to expose it. **Worth doing, needs a seam first.**
 
 So: two now (Uploaded by, Location), three that want work elsewhere before they can be honest.
+
+## R9 — round seven of review: the repeats, and the deletion model
+
+The three at the top had each been raised more than once. Two of them were marked `settled` in this
+very file while the screen still had the defect, because the harness asserted the wrong property.
+
+| #    | Ruling                                                                                                                                                                       | Status  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| A9   | Renaming never selects the extension, and never shows it when extensions are hidden. Raised three times.                                                                     | settled |
+| I14  | An active sidebar toggle shows no dark fill. The complaint was always the FILL; the check tested `box-shadow`, which was already `none`, so it passed while the fill stayed. | settled |
+| A12  | Delete works. Files soft-delete. A folder with contents asks, defaulting to keeping them — the folder goes, its contents move up one level. Cascade is the second choice.    | settled |
+| L28  | A folder row is exactly as tall as a file row. The row icon had no size class at all and rendered at 200px.                                                                  | settled |
+| N20  | Home in the rail returns to the root. It had a contextmenu handler and no click handler.                                                                                     | settled |
+| P11  | A folder's Size cell reads bytes AND count, e.g. "4.6 GB · 13 files".                                                                                                        | settled |
+| P10  | Pinned ordering is user-arranged.                                                                                                                                            | settled |
+| T6   | Colour is a submenu opening to the right, swatches are squares. The palette values are unchanged.                                                                            | settled |
+| I27b | Document type is editable from the field in Details that displays it, not only from right-click.                                                                             | settled |
+| I28  | A digest states itself. "matches ingest" is struck — a hash recomputed on open needs no provenance caption.                                                                  | settled |
+| I29  | Safety history uses what the scanner declares ("No issues found"), never our own cheerful phrasing.                                                                          | settled |
+| I30  | The inspector tab strip scrolls horizontally; it never wraps to a second row.                                                                                                | settled |
+| I31  | The signature modal is rebuilt: header/body/footer, the signature name decoded into its four documented parts, an NVD link where the name embeds a CVE, and a source line.   | settled |
+| I32  | A digest can be verified by choosing a file from disk; it is hashed in the browser and never uploaded.                                                                       | settled |
+| F7   | A clean file gets no preamble explaining that it is clean.                                                                                                                   | settled |
+| P5   | A dialog is capped at the viewport and only its body scrolls, so a long one cannot push its own Close button off-screen.                                                     | settled |
+| P12c | Archive members render on the matter's own table — same columns, same row height. Columns an archive member cannot answer are EMPTY, never invented.                         | settled |
+| I25  | Comparing versions is deferred. The affordance stays on every older row, disabled, and says it is not built.                                                                 | settled |
+
+**Owner rulings recorded this round, binding from here:**
+
+- **Nothing is ever blocked.** A flag is a note, not a gate. Users always reach their files. This
+  makes `allow-and-flag` the only correct ingest treatment and turns the platform's existing
+  `quarantined` path into something to remove rather than surface.
+- **Folder deletion asks, and keeping the contents is the default.** An empty folder deletes with no
+  dialog. Cascade exists but is never the accidental click.
+- **Litigation holds are out of scope here.** The hold table covers custody packets, not matter
+  files, and our delete is a soft delete that destroys nothing.
+
+| #      | Still open                                                                              | Status                |
+| ------ | --------------------------------------------------------------------------------------- | --------------------- |
+| S9–S14 | The results-page rebuild, including the defect where an existing query does not re-run. | open                  |
+| I15    | Real file-type icons from a public set.                                                 | open — owner question |
+| P4     | The error view: technical explanation, working Retry and Report.                        | open                  |
+| P6     | "Save new version" — the analysis of what should replace it.                            | open — analysis owed  |
+| P7     | Open vs Open in Editor.                                                                 | open — owner question |
+| P8     | Concurrent authorship credit.                                                           | open                  |
+| A10    | Template picking at scale.                                                              | open — deferred       |

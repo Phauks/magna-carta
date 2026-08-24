@@ -201,7 +201,10 @@ await check("I3", "Hashes recompute on open rather than reciting the stored dige
   const during = await page.locator("#hashList").innerText();
   if (!during.includes("digesting them again")) return false;
   await page.waitForTimeout(1200);
-  return (await page.locator("#hashList").innerText()).includes("matches ingest");
+  // The recomputed digest states itself. "matches ingest" was struck: a hash that is recomputed on
+  // open needs no provenance caption to be believed.
+  const after = await page.locator("#hashList").innerText();
+  return !after.includes("digesting them again") && /[0-9a-f]{16}/i.test(after);
 });
 
 await check(
@@ -220,7 +223,7 @@ await check(
 
 await check("I21", "No Verified badge beside the digests", async () => {
   const text = await page.locator("#hashList").innerText();
-  return !text.includes("Verified") && text.includes("matches ingest");
+  return !text.includes("Verified") && !text.includes("matches ingest");
 });
 
 await check("I4", "Version rows carry icon buttons at all times, no hover reflow", async () => {
@@ -240,10 +243,27 @@ await check("I4", "Version rows carry icon buttons at all times, no hover reflow
   return true;
 });
 
-await check("I6", "An older version can be compared with the current one", async () => {
-  await page.locator("#inspector .vrow").nth(1).locator('[data-ver^="diff:"]').click();
-  return await page.locator("#verdiff").isVisible();
-});
+// I6 asked for a diff between two versions and it was built inline. I25 supersedes it: comparing
+// versions is a reading surface of its own, tied to the preview, and it is deferred. The affordance
+// stays on every older row so the shape of the feature is legible, and it states that it is not
+// built rather than opening something half-made.
+await check(
+  "I25",
+  "Comparing versions is offered on every older row, and declares itself deferred",
+  async () => {
+    const rows = page.locator("#inspector .vrow");
+    const n = await rows.count();
+    if (n < 2) return false;
+    for (let i = 1; i < n; i += 1) {
+      const compare = rows.nth(i).locator('[data-ver^="diff:"]');
+      if ((await compare.count()) !== 1) return false;
+      if (await compare.isEnabled()) return false;
+      const why = await compare.getAttribute("title");
+      if (!why || !/not built/i.test(why)) return false;
+    }
+    return true;
+  },
+);
 
 await check("I23", "Safety names the engine AND its version, not the engine alone", async () => {
   await openInspectorOnFlagged();
@@ -261,8 +281,33 @@ await check("I9", "A signature match is its own line and opens an explanation", 
   const shown = await sheet.isVisible();
   const text = await sheet.innerText();
   await page.locator("[data-sigclose]").click();
-  return shown && text.includes("What it matches");
+  // The modal was rebuilt: it decodes the signature name into its documented parts so it says
+  // something true even when the firm library has no entry, and it states where the facts come from.
+  const decoded = ["Platform", "Category", "Family name", "Signature"].every((k) =>
+    text.includes(k),
+  );
+  // Section headings are uppercased by `.caps` in CSS, so the rendered text is "WHAT IT MEANS".
+  // Comparing case-sensitively here is what made this assertion lie about the heading twice.
+  return shown && decoded && /what it means/i.test(text) && text.includes("Source:");
 });
+
+await check(
+  "I31",
+  "The signature modal is capped so its Close button cannot leave the screen",
+  async () => {
+    await page.locator("#inspector [data-sig]").click();
+    const dialog = page.locator("#newDocWash .dialog");
+    const [box, viewport] = [await dialog.boundingBox(), page.viewportSize()];
+    if (box.y + box.height > viewport.height + 1) return false;
+    // The body is the part that scrolls, so a long finding never pushes the footer away.
+    const overflow = await page
+      .locator("#newDocWash .dialog > .body")
+      .evaluate((el) => getComputedStyle(el).overflowY);
+    const closeVisible = await page.locator("[data-sigclose]").isVisible();
+    await page.locator("[data-sigclose]").click();
+    return overflow === "auto" && closeVisible;
+  },
+);
 
 await check(
   "T4",
@@ -275,10 +320,28 @@ await check(
   },
 );
 
-await check("T5", "A folder recolours from the closed palette, and the icon follows", async () => {
+await check("T5", "Colour is a submenu that opens to the right, with square swatches", async () => {
+  // The palette used to sit open in the menu, which made every folder right-click a colour
+  // decision. It is behind one item now, so the panel must be CLOSED until the item is hovered.
+  const panel = page.locator("#ctx .subpanel");
+  if ((await panel.count()) !== 1) return false;
+  if (await panel.isVisible()) return false;
+  const opener = page.locator("#ctx .subopen");
+  if (!/color/i.test((await opener.innerText()) ?? "")) return false;
+  await opener.hover();
+  if (!(await panel.isVisible())) return false;
+  // Opening to the RIGHT, not below. `left: 100%` is relative to the menu ITEM, which the menu's
+  // own padding insets, so the panel's left edge sits a few pixels inside the menu's right edge —
+  // the assertion allows that inset rather than demanding a clean separation that flyouts do not have.
+  const [menuBox, panelBox] = [await page.locator("#ctx").boundingBox(), await panel.boundingBox()];
+  if (panelBox.x < menuBox.x + menuBox.width - 16) return false;
+  if (panelBox.y > menuBox.y + menuBox.height) return false;
   const swatches = page.locator("#ctx .swatch[data-colour]");
   if ((await swatches.count()) !== 11) return false; // ten colours plus Default
-  if ((await page.locator("#ctx .swatch.icon").count()) !== 1) return false; // room reserved for icons
+  // Square, not round: a colour chip must not read as a bullet.
+  const radius = await swatches.first().evaluate((el) => getComputedStyle(el).borderRadius);
+  if (/50%|9999px/.test(radius)) return false;
+  if ((await page.locator("#ctx .subicon").count()) !== 1) return false; // room reserved for icons
   await page.locator('#ctx .swatch[data-colour="red"]').click();
   const style = await page.locator('.tnode[data-tree="discovery"] svg.fold').getAttribute("style");
   return style !== null && style.includes("color");
@@ -368,13 +431,20 @@ await check("P12", "A zip opens into itself and its members are browsable", asyn
   await zip.dblclick();
   const bar = page.locator(".archbar");
   if (!(await bar.isVisible())) return false;
-  // Reading the index is not extraction, and the page must say so.
-  if (!(await bar.innerText()).toLowerCase().includes("nothing is extracted")) return false;
-  const rows = page.locator(".archlist .archrow");
-  if ((await rows.count()) === 0) return false;
+  // Members render on the MATTER'S OWN TABLE now, not a second list that looks different.
+  if (!(await page.locator("#tablewrap").isVisible())) return false;
+  const memberRows = page.locator("#rows tr");
+  if ((await memberRows.count()) === 0) return false;
+  // Same row height as a matter file, and columns that cannot apply are empty rather than invented.
+  const shape = await memberRows.first().evaluate((r) => ({
+    h: Math.round(r.getBoundingClientRect().height),
+    cells: [...r.cells].map((c) => c.innerText.trim()),
+  }));
+  if (shape.h !== 32) return false;
+  if (!shape.cells.some((c) => c === "")) return false;
   // Descend a directory inside the archive, then climb back out of the archive entirely.
-  await page.locator("[data-archdir]").first().click();
-  if ((await page.locator(".archlist .archrow").count()) === 0) return false;
+  await page.locator("#rows tr[data-archdir]").first().click();
+  if ((await page.locator("#rows tr").count()) === 0) return false;
   await page.locator("#archLeave").click();
   return (
     !(await page.locator(".archbar").isVisible()) && (await page.locator("#tablewrap").isVisible())
@@ -443,6 +513,190 @@ await check("F2", "A file can be acted on from analysis, not merely revealed", a
     (await page.locator('#inspector [data-instab="safety"]').getAttribute("aria-selected")) ===
     "true"
   );
+});
+
+// ---- Round nine. The first three are the ones the owner had to raise more than once.
+
+await check(
+  "A9",
+  "Renaming never selects the extension, and never shows it when extensions are hidden",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    await page
+      .locator('#rows tr[data-key^="d:"]')
+      .filter({ hasText: "Motion to Compel" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="rename"]').click();
+    const field = page.locator("#rows input.rename");
+    const read = (locator) =>
+      locator.evaluate((el) => ({
+        value: el.value,
+        start: el.selectionStart,
+        end: el.selectionEnd,
+        ext: el.dataset.ext,
+      }));
+    // Extensions SHOWN — the default. The extension is visible and editable on purpose, but the
+    // selection must stop before it, so the first keystroke cannot replace ".docx".
+    const shown = await read(field);
+    if (shown.ext !== ".docx") return false;
+    if (!shown.value.endsWith(".docx")) return false;
+    if (shown.start !== 0 || shown.end !== shown.value.length - ".docx".length) return false;
+    await field.press("Escape");
+
+    // Extensions HIDDEN — the field must carry no extension at all, and committing must put it back
+    // rather than renaming the file to something with no type.
+    // "Hide File Extensions" lives in the columns menu, so it has to be opened to reach the setting.
+    await page.locator("#colsBtn").click();
+    await page.locator("#hideExt").check();
+    await page.keyboard.press("Escape");
+    await page
+      .locator('#rows tr[data-key^="d:"]')
+      .filter({ hasText: "Motion to Compel" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="rename"]').click();
+    const hiddenField = page.locator("#rows input.rename");
+    const hidden = await read(hiddenField);
+    if (hidden.value.includes(".docx")) return false;
+    if (hidden.start !== 0 || hidden.end !== hidden.value.length) return false;
+    await hiddenField.fill("Motion to Compel Production (renamed)");
+    await hiddenField.press("Enter");
+    // The row still shows no extension, but the underlying name kept one: turning the setting back
+    // off has to reveal it.
+    await page.locator("#colsBtn").click();
+    await page.locator("#hideExt").uncheck();
+    await page.keyboard.press("Escape");
+    const after = await page.locator('#rows tr[data-key^="d:"]').allInnerTexts();
+    return after.some((row) => row.includes("Motion to Compel Production (renamed).docx"));
+  },
+);
+
+await check("I14", "An active sidebar toggle carries no filled panel behind it", async () => {
+  // Independent of whatever the previous check left on screen — this one is about a computed style,
+  // so it must not inherit an archive view or a half-open menu.
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  const toolbar = await page
+    .locator(".toolbar")
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
+  for (const id of ["#insBtn", "#treeBtn"]) {
+    const button = page.locator(id);
+    if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+    // Park the pointer away from the toolbar first. `:hover` legitimately raises the surface, and
+    // measuring while the mouse still rests on the button reads that as the active fill.
+    await page.mouse.move(4, 4);
+    const style = await button.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { background: s.backgroundColor, shadow: s.boxShadow };
+    });
+    // The complaint was a DARK FILL, not a box-shadow. Asserting only the shadow is exactly what let
+    // this survive three rounds while the thing being pointed at sat there unchanged.
+    if (style.background !== "rgba(0, 0, 0, 0)" && style.background !== toolbar) return false;
+    if (style.shadow !== "none") return false;
+  }
+  return true;
+});
+
+await check(
+  "A12",
+  "A folder with contents asks before deleting, and defaults to keeping them",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    const before = await page.locator("#rows tr").count();
+    await page.locator('#rows tr[data-kind="folder"]').first().click({ button: "right" });
+    const remove = page.locator('#ctx button[data-cmd="delete"]');
+    if (!(await remove.isEnabled())) return false; // it used to be disabled for any non-empty folder
+    await remove.click();
+    const dialog = page.locator("#newDocWash .dialog");
+    if (!(await dialog.isVisible())) return false;
+    if (!/\d+ file/.test(await dialog.innerText())) return false; // it must name what is inside
+    if (!(await page.locator('#newDocWash input[value="promote"]').isChecked())) return false;
+    await page.locator('#newDocWash [data-del="yes"]').click();
+    // The folder went and its contents came up a level, so the row count cannot have fallen.
+    return (await page.locator("#rows tr").count()) >= before;
+  },
+);
+
+await check("L28", "A folder row is the same height as a file row", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="discovery"]').first().click();
+  const rows = await page
+    .locator("#rows tr")
+    .evaluateAll((list) =>
+      list.map((r) => ({ kind: r.dataset.kind, h: Math.round(r.getBoundingClientRect().height) })),
+    );
+  const folders = rows.filter((r) => r.kind === "folder").map((r) => r.h);
+  const files = rows.filter((r) => r.kind === "file").map((r) => r.h);
+  if (folders.length === 0 || files.length === 0) return false;
+  // An unclassed folder icon rendered at its intrinsic 200px and made the row 207px tall.
+  return Math.max(...folders) === Math.max(...files);
+});
+
+await check("N20", "Home in the rail returns to the root", async () => {
+  await page.locator('.tnode[data-tree="depositions"]').first().click();
+  if ((await page.locator("#crumbs").innerText()).trim() === "") return false;
+  await page.locator("#railHome").click();
+  return (await page.locator("#crumbs").innerText()).trim() === "";
+});
+
+await check("P11", "A folder states its size in bytes and how many files make it up", async () => {
+  const cells = await page
+    .locator('#rows tr[data-kind="folder"]')
+    .evaluateAll((list) => list.map((r) => [...r.cells].map((c) => c.innerText.trim())));
+  if (cells.length === 0) return false;
+  return cells.every((row) =>
+    row.some((cell) => /\d+(\.\d+)?\s?(B|KB|MB|GB|TB)/.test(cell) && /\d+ file/.test(cell)),
+  );
+});
+
+await check("I27b", "Document type is editable from the field that displays it", async () => {
+  await openFile("pleadings", "Motion to Compel");
+  await page.locator('#inspector [data-instab="details"]').click();
+  const field = page.locator("#inspector [data-dt-open]");
+  if ((await field.count()) !== 1) return false;
+  await field.click();
+  const open = await page.locator("#newDocWash .dialog").isVisible();
+  await page.locator("#newDocWash").evaluate((el) => {
+    el.hidden = true;
+  });
+  return open;
+});
+
+await check("I30", "The inspector tab strip scrolls rather than wrapping", async () => {
+  const strip = page.locator("#inspector .instabs");
+  const style = await strip.evaluate((el) => getComputedStyle(el).overflowX);
+  const rowCount = await strip.evaluate(
+    (el) =>
+      new Set(
+        [...el.querySelectorAll("button")].map((b) => Math.round(b.getBoundingClientRect().top)),
+      ).size,
+  );
+  // One row, always: wrapping changes the panel's height as the selection moves.
+  return style === "auto" && rowCount === 1;
+});
+
+await check(
+  "I32",
+  "A digest can be verified from a file on disk, not only from paste",
+  async () => {
+    await page.locator('#inspector [data-instab="hashes"]').click();
+    await page.waitForTimeout(1100);
+    await page.locator("#hashCompareBtn").click();
+    if ((await page.locator("#hashFileBtn").count()) !== 1) return false;
+    // It must say the bytes stay local, or nobody should point it at a client document.
+    return /not uploaded/i.test(await page.locator("#hashCompare .hashnote").innerText());
+  },
+);
+
+await check("F7", "A clean file is not given a preamble explaining that it is clean", async () => {
+  await page.locator('#inspector [data-instab="safety"]').click();
+  const text = await page.locator("#inspector").innerText();
+  return !/No open finding/i.test(text) && !/every check this file has been through/i.test(text);
 });
 
 await check(
