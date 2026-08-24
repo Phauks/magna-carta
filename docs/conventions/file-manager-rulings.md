@@ -301,3 +301,37 @@ very file while the screen still had the defect, because the harness asserted th
 | P7  | Open vs Open in Editor.                                                                                                                                              | open — owner question        |
 | P8  | Concurrent authorship credit.                                                                                                                                        | open                         |
 | A10 | Template picking at scale.                                                                                                                                           | open — deferred              |
+
+## R10 — round eight: the icons ruling, and the deleted list becoming a list
+
+| #    | Ruling                                                                                                                                                                                   | Status  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| I15  | **We do not draw our own glyphs. Every icon is Lucide**, taken from the installed `@lucide/svelte` package rather than hand-authored path data. This binds the app, not just the mockup. | settled |
+| T6b  | Colour and Icon are two separate right-click items, each with its own flyout. Icon is not reached by going through Colour.                                                               | settled |
+| T6c  | The palette runs in rainbow order and includes pink. Swatches are true squares — no corner radius.                                                                                       | settled |
+| I33  | A tab strip scrolls sideways only. It is tall enough for its own horizontal scrollbar, so no vertical one appears.                                                                       | settled |
+| L29  | Both side panels resize by dragging their inner edge, identically. Arrow keys move them; a double-click restores the default.                                                            | settled |
+| I27c | Document type is a dropdown anchored to whatever opened it, never a modal.                                                                                                               | settled |
+| I34  | A scanner finding can be copied and downloaded, and both render from one text so they cannot disagree.                                                                                   | settled |
+| F8   | File Analysis offers Copy All and Download All Issues.                                                                                                                                   | settled |
+| I35  | A version label is one token: "v12" does not read as "v1 2". Tabular figures are off for version labels.                                                                                 | settled |
+| N21  | A view that is not a place in the folder tree titles the breadcrumb rather than adding a heading beneath it.                                                                             | settled |
+| F9   | Safety History in File Analysis opens the panel it points at. It set a tab on a panel the view had disabled, so it looked live and did nothing.                                          | settled |
+| F10  | File Analysis counts by severity, not by how many files have anything at all.                                                                                                            | settled |
+| F11  | An issue can be ignored, the ignored ones can be viewed, and any of them can be taken back. Ignoring is per issue, not per file.                                                         | settled |
+| D1b  | Deleted files render on the matter's own table: same columns, same sorting, same right-click, same multiple selection — plus Deleted, Deleted By and Was In.                             | settled |
+| D1c  | The deleted view's explanatory paragraphs are struck, and its row buttons are gone: Restore lives in the right-click menu, where it cannot overlap anything.                             | settled |
+| A13  | One selection control, and it says what pressing it will do. Two buttons meant one of them was always the wrong one.                                                                     | settled |
+| A14  | Unselecting a row reaches the details panel. It kept showing the file the user had just let go of.                                                                                       | settled |
+| L30  | A column's filter control sits with that column's label and reserves its space at all times, so revealing it on hover moves nothing.                                                     | settled |
+| L31  | The list runs to the edge of its column. A scrollbar gutter reserved on both edges held the table off and stopped its rules short.                                                       | settled |
+| I36  | Scan provenance prose is struck; a finding states itself.                                                                                                                                | settled |
+
+**Owner rulings recorded this round, binding from here:**
+
+- **Lucide, always.** We do not draw glyphs. Where Lucide has no icon for a thing, the answer is the
+  nearest Lucide icon, not a drawn one.
+- **A checkout is not a lock.** Editing runs through Durable Objects, so other people can edit a
+  checked-out file. This closes the question the save-new-version analysis raised.
+- **Presence is worth having.** A document should be able to show that other people have it open.
+  Recorded as P16; designed here, not built.

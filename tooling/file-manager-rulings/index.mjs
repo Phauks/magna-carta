@@ -288,7 +288,9 @@ await check("I9", "A signature match is its own line and opens an explanation", 
   );
   // Section headings are uppercased by `.caps` in CSS, so the rendered text is "WHAT IT MEANS".
   // Comparing case-sensitively here is what made this assertion lie about the heading twice.
-  return shown && decoded && /what it means/i.test(text) && text.includes("Source:");
+  // The provenance sentence was struck: a finding states itself. What must survive is the decode,
+  // the plain-language section, and the two ways of taking the finding off the screen.
+  return shown && decoded && /what it means/i.test(text) && !text.includes("Source:");
 });
 
 await check(
@@ -323,10 +325,11 @@ await check(
 await check("T5", "Colour is a submenu that opens to the right, with square swatches", async () => {
   // The palette used to sit open in the menu, which made every folder right-click a colour
   // decision. It is behind one item now, so the panel must be CLOSED until the item is hovered.
-  const panel = page.locator("#ctx .subpanel");
+  // Two flyouts live here now, Colour and Icon. This ruling is about Colour's.
+  const panel = page.locator("#ctx .hassub").first().locator(".subpanel");
   if ((await panel.count()) !== 1) return false;
   if (await panel.isVisible()) return false;
-  const opener = page.locator("#ctx .subopen");
+  const opener = page.locator("#ctx .subopen").first();
   if (!/color/i.test((await opener.innerText()) ?? "")) return false;
   await opener.hover();
   if (!(await panel.isVisible())) return false;
@@ -337,11 +340,13 @@ await check("T5", "Colour is a submenu that opens to the right, with square swat
   if (panelBox.x < menuBox.x + menuBox.width - 16) return false;
   if (panelBox.y > menuBox.y + menuBox.height) return false;
   const swatches = page.locator("#ctx .swatch[data-colour]");
-  if ((await swatches.count()) !== 11) return false; // ten colours plus Default
+  if ((await swatches.count()) !== 12) return false; // eleven colours plus Default
   // Square, not round: a colour chip must not read as a bullet.
+  // Square means no radius at all, not merely "not a circle" — a rounded chip was the complaint.
   const radius = await swatches.first().evaluate((el) => getComputedStyle(el).borderRadius);
-  if (/50%|9999px/.test(radius)) return false;
-  if ((await page.locator("#ctx .subicon").count()) !== 1) return false; // room reserved for icons
+  if (radius !== "0px") return false;
+  // Icon is no longer inside this panel: it is its own item, checked by T6b.
+  if ((await page.locator("#ctx .subicon").count()) !== 0) return false;
   await page.locator('#ctx .swatch[data-colour="red"]').click();
   const style = await page.locator('.tnode[data-tree="discovery"] svg.fold').getAttribute("style");
   return style !== null && style.includes("color");
@@ -354,8 +359,9 @@ await check("L25", "Selecting a row does not reflow the footer", async () => {
   const before = await foot.boundingBox();
   await page.locator("#rows tr").first().click();
   const after = await foot.boundingBox();
-  // Both controls exist either way; only the disabled state changes.
-  if ((await foot.locator("#selNone").count()) !== 1) return false;
+  // One control now, and it must be present in both states — a control that appears on selection
+  // is exactly what moves the footer.
+  if ((await foot.locator("#selToggle").count()) !== 1) return false;
   return Math.abs(before.width - after.width) < 1;
 });
 
@@ -373,13 +379,15 @@ await check("I27", "Document type can be set, and a new one added to the firm's 
   const row = page.locator('#rows tr[data-key^="d:"]').first();
   await row.click({ button: "right" });
   await page.locator('#ctx button[data-cmd="doctype"]').click();
-  const wash = page.locator("#newDocWash");
-  if (!(await wash.isVisible())) return false;
+  const menu = page.locator("#filterMenu");
+  // It opens on the next frame, deliberately: the click that opens it also reaches the document
+  // handler that closes menus, and this is how it survives that.
+  await menu.waitFor({ state: "visible", timeout: 4000 });
   await page.locator("#dtFilter").fill("Trial Brief");
-  const add = page.locator('#dtList [data-new="1"]');
+  const add = page.locator('#filterMenu [data-new="1"]');
   if ((await add.count()) !== 1) return false;
   await add.click();
-  if (await wash.isVisible()) return false;
+  if (await menu.isVisible()) return false;
   return (await row.innerText()).includes("Trial Brief");
 });
 
@@ -660,8 +668,9 @@ await check("I27b", "Document type is editable from the field that displays it",
   const field = page.locator("#inspector [data-dt-open]");
   if ((await field.count()) !== 1) return false;
   await field.click();
-  const open = await page.locator("#newDocWash .dialog").isVisible();
-  await page.locator("#newDocWash").evaluate((el) => {
+  await page.locator("#filterMenu").waitFor({ state: "visible", timeout: 4000 });
+  const open = await page.locator("#filterMenu").isVisible();
+  await page.locator("#filterMenu").evaluate((el) => {
     el.hidden = true;
   });
   return open;
@@ -853,6 +862,277 @@ await check(
     return overflow === "auto" && fits;
   },
 );
+
+// ---- Round eight.
+
+await check("I15", "Every icon is Lucide, not a glyph drawn here", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  // Lucide stamps every icon with its own default attributes. An icon drawn by hand in this file
+  // would not carry them, so a stray one shows up as a viewBox or a linecap that does not match.
+  const bad = await page.evaluate(
+    () =>
+      [...document.querySelectorAll("svg")].filter(
+        (s) =>
+          s.getAttribute("viewBox") !== "0 0 24 24" ||
+          s.getAttribute("stroke-linecap") !== "round" ||
+          s.getAttribute("stroke-linejoin") !== "round",
+      ).length,
+  );
+  return bad === 0;
+});
+
+await check(
+  "T6b",
+  "Icon is its own right-click item, below Color, not nested inside it",
+  async () => {
+    await page.locator('.tnode[data-tree="discovery"]').first().click({ button: "right" });
+    const openers = await page
+      .locator("#ctx .subopen")
+      .evaluateAll((bs) => bs.map((b) => b.innerText.trim()));
+    if (openers.length !== 2) return false;
+    if (!/^color/i.test(openers[0]) || !/^icon/i.test(openers[1])) return false;
+    // Reaching Icon must not require going through Colour: its panel is a sibling, not a child.
+    const nested = await page.locator("#ctx .subpanel #iconSub").count();
+    return nested === 0;
+  },
+);
+
+await check("T6c", "The palette runs in rainbow order and includes pink", async () => {
+  const names = await page
+    .locator("#ctx .swatch[data-colour]")
+    .evaluateAll((bs) => bs.map((b) => b.dataset.colour));
+  const rainbow = ["red", "orange", "yellow", "green", "blue", "purple", "pink"];
+  const seen = names.filter((n) => rainbow.includes(n));
+  return names[0] === "default" && seen.join(",") === rainbow.join(",");
+});
+
+await check("T6d", "Choosing an icon changes the folder's icon", async () => {
+  await page.locator("#iconSub").hover();
+  const before = await page.locator('.tnode[data-tree="discovery"] svg').first().innerHTML();
+  await page.locator('#ctx [data-folder-icon="gavel"]').click();
+  const after = await page.locator('.tnode[data-tree="discovery"] svg').first().innerHTML();
+  return before !== after;
+});
+
+await check("I33", "A tab strip scrolls sideways only, never vertically", async () => {
+  await openFile("pleadings", "Motion to Compel");
+  const strip = page.locator("#inspector .instabs");
+  const box = await strip.evaluate((el) => ({
+    scrollH: el.scrollHeight,
+    clientH: el.clientHeight,
+    overflowY: getComputedStyle(el).overflowY,
+  }));
+  return box.overflowY === "hidden" && box.scrollH <= box.clientH + 1;
+});
+
+await check("L29", "Both side panels resize by dragging their inner edge", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  // A hidden panel has no edge to drag, and no bounding box either.
+  if (!(await page.locator("#inspector").isVisible())) await page.locator("#insBtn").click();
+  await page.waitForTimeout(150);
+  const drag = async (id, dx) => {
+    const box = await page.locator(id).boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + dx, box.y + 200, { steps: 6 });
+    await page.mouse.up();
+  };
+  const railBefore = (await page.locator(".rail").boundingBox()).width;
+  await drag("#railResize", 60);
+  const railAfter = (await page.locator(".rail").boundingBox()).width;
+  const insBefore = (await page.locator("#inspector").boundingBox()).width;
+  await drag("#inspResize", -60);
+  const insAfter = (await page.locator("#inspector").boundingBox()).width;
+  // Both grow when dragged away from the middle. If one of them did not, the two edges are not
+  // behaving identically, which is the ruling.
+  return railAfter > railBefore + 40 && insAfter > insBefore + 40;
+});
+
+await check("I34", "A scanner finding can be copied and downloaded", async () => {
+  await openInspectorOnFlagged();
+  await page.locator('#inspector [data-instab="safety"]').click();
+  const link = page.locator("#inspector [data-sig]");
+  if ((await link.count()) === 0) return false;
+  await link.click();
+  const ok =
+    (await page.locator("[data-sigcopy]").count()) === 1 &&
+    (await page.locator("[data-sigdownload]").count()) === 1;
+  await page.locator("[data-sigclose]").click();
+  return ok;
+});
+
+await check(
+  "F10",
+  "File Analysis counts by severity, not by how many files have anything",
+  async () => {
+    await page.locator('[data-view="analysis"]').click();
+    await page.waitForTimeout(200);
+    const chips = await page.locator("#statePane .sevchip").count();
+    const tally = await page.locator("#tally").innerText();
+    // The old line counted files. Severity is what a person triages by.
+    return chips > 0 && /issue/.test(tally) && !/with something to answer/.test(tally);
+  },
+);
+
+await check(
+  "F8",
+  "File Analysis offers Copy All and Download All Issues",
+  async () =>
+    (await page.locator("#anCopyAll").count()) === 1 &&
+    (await page.locator("#anDownloadAll").count()) === 1,
+);
+
+await check("F11", "An issue can be ignored, then found again and taken back", async () => {
+  const before = await page.locator("#statePane .ancard").count();
+  const tag = page.locator("#statePane [data-anignore]").first();
+  const which = await tag.getAttribute("data-anignore");
+  await tag.click();
+  await page.waitForTimeout(120);
+  const toggle = page.locator("#anIgnoredToggle");
+  if (!/Ignored \(1\)/.test(await toggle.innerText())) return false;
+  await toggle.click();
+  await page.waitForTimeout(120);
+  // The ignored one is reachable, and reachable means reversible.
+  const back = page.locator(`#statePane [data-anignore="${which}"]`);
+  if ((await back.count()) !== 1) return false;
+  await back.click();
+  await page.waitForTimeout(120);
+  await page.locator("#anIgnoredToggle").click();
+  await page.waitForTimeout(120);
+  return (await page.locator("#statePane .ancard").count()) === before;
+});
+
+await check("F9", "Safety History in File Analysis opens the panel it points at", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('[data-view="analysis"]').click();
+  await page.waitForTimeout(150);
+  await page.locator('#statePane [data-anact="safety"]').first().click();
+  await page.waitForTimeout(150);
+  // It used to set a tab on a panel this view had disabled, so the button looked live and did
+  // nothing at all.
+  const tab = page.locator('#inspector [data-instab="safety"]');
+  return (await tab.count()) === 1 && (await tab.getAttribute("aria-selected")) === "true";
+});
+
+await check("N21", "A view that is not a folder titles the breadcrumb", async () => {
+  await page.locator('[data-view="deleted"]').click();
+  await page.waitForTimeout(150);
+  const crumb = await page.locator("#crumbs").innerText();
+  if (!/Deleted Files/.test(crumb)) return false;
+  // And it does not ALSO print a heading below the breadcrumb, which is the duplication the
+  // owner objected to.
+  return (await page.locator("#statePane .viewhead h2").count()) === 0;
+});
+
+await check(
+  "D1b",
+  "Deleted files render on the matter's own table, with when and by whom",
+  async () => {
+    const rows = page.locator('#rows tr[data-key^="x:"]');
+    if ((await rows.count()) < 2) return false;
+    const heads = await page
+      .locator("#headRow th")
+      .evaluateAll((ths) => ths.map((th) => th.dataset.col));
+    if (!["deleted", "deletedBy", "fromPath"].every((c) => heads.includes(c))) return false;
+    // Sorting by deletion time is the whole reason this list is opened.
+    await page.locator('[data-sortbtn="deleted"]').click();
+    await page.waitForTimeout(120);
+    const first = await page.locator('#rows tr[data-key^="x:"]').first().innerText();
+    await page.locator('[data-sortbtn="deleted"]').click();
+    await page.waitForTimeout(120);
+    const flipped = await page.locator('#rows tr[data-key^="x:"]').first().innerText();
+    return first !== flipped;
+  },
+);
+
+await check(
+  "D1c",
+  "A deleted row has a right-click menu and no overlapping row buttons",
+  async () => {
+    await page.locator('[data-view="deleted"]').click();
+    await page.waitForTimeout(150);
+    // The old view put a Restore button in every row, where it overlapped the Soon badge beside it.
+    if ((await page.locator("#rows tr .btn").count()) !== 0) return false;
+    await page.locator('#rows tr[data-key^="x:"]').first().click({ button: "right" });
+    const cmds = await page
+      .locator("#ctx button[data-dcmd]")
+      .evaluateAll((bs) => bs.map((b) => b.dataset.dcmd));
+    await page.keyboard.press("Escape");
+    return ["restore", "details", "purge"].every((c) => cmds.includes(c));
+  },
+);
+
+await check("D1d", "Deleted rows take multiple selection like any other rows", async () => {
+  const rows = page.locator('#rows tr[data-key^="x:"]');
+  await rows.nth(0).click();
+  await rows.nth(1).click({ modifiers: ["Control"] });
+  return (await page.locator('#rows tr[aria-selected="true"]').count()) === 2;
+});
+
+await check("A13", "One selection control, and it says what pressing it will do", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  if ((await page.locator("#selAll, #selNone").count()) !== 0) return false;
+  const toggle = page.locator("#selToggle");
+  if (!/Select All/.test(await toggle.innerText())) return false;
+  await toggle.click();
+  await page.waitForTimeout(120);
+  if (!/Select None/.test(await page.locator("#selToggle").innerText())) return false;
+  await page.locator("#selToggle").click();
+  await page.waitForTimeout(120);
+  return (await page.locator('#rows tr[aria-selected="true"]').count()) === 0;
+});
+
+await check("A14", "Unselecting a row reaches the details panel", async () => {
+  // The panel has to be OPEN before its contents mean anything — a closed panel is empty, which
+  // would satisfy a careless assertion in both directions.
+  await openFile("pleadings", "Answer and Counterclaim");
+  const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click();
+  await page.waitForTimeout(120);
+  const named = await page.locator("#inspector").innerText();
+  if (named.includes("Select a file or folder")) return false;
+  await row.click({ modifiers: ["Control"] }); // let go of it
+  await page.waitForTimeout(150);
+  // It used to keep showing the file the user had just released, which reads as a dead click.
+  return (await page.locator("#inspector").innerText()).includes("Select a file or folder");
+});
+
+await check(
+  "L30",
+  "A column's filter control sits with its label and reflows nothing",
+  async () => {
+    const th = page.locator('#headRow th[data-col="fileType"]');
+    const widthBefore = (await th.boundingBox()).width;
+    await th.hover();
+    await page.waitForTimeout(120);
+    const widthAfter = (await th.boundingBox()).width;
+    if (Math.abs(widthBefore - widthAfter) > 1) return false;
+    // Inside its own column, not floating past its right edge into the next one.
+    const [cell, btn] = [await th.boundingBox(), await th.locator(".filterbtn").boundingBox()];
+    return btn.x >= cell.x && btn.x + btn.width <= cell.x + cell.width + 1;
+  },
+);
+
+await check("L31", "The list runs to the edge of its column", async () => {
+  const [wrap, table] = [
+    await page.locator("#tablewrap").boundingBox(),
+    await page.locator("#tablewrap table").boundingBox(),
+  ];
+  // A gutter reserved on BOTH edges held the table off the left and stopped its rules short.
+  return table.x - wrap.x < 2;
+});
+
+await check("I35", "A version label is one token, not two numbers", async () => {
+  const cell = page.locator("#rows td.ver").first();
+  if ((await cell.count()) !== 1) return false;
+  const variant = await cell.evaluate((el) => getComputedStyle(el).fontVariantNumeric);
+  // Tabular figures widen a "1" to a "0"'s advance, which put a visible gap inside "v12".
+  return !/tabular/.test(variant);
+});
 
 await check(
   "JS",
