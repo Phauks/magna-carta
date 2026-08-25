@@ -69,10 +69,26 @@ Run the harness FIRST each round, before making changes. It catches what the pre
   script before it does, so a later failure never discards earlier work.
 - **A pattern that matches nothing is a failure, not a no-op.** Every edit asserts it changed
   something. Silent misses are how a "fixed" item reaches the owner unfixed.
-- **Verify in a browser, not by reading the diff.** Three defects this session were only visible when
+- **Verify in a browser, not by reading the diff.** Five defects this session were only visible when
   rendered: icons pinned to 2px by a regex that matched `stroke-width="2"`, a class rule silently
-  defeating the `hidden` attribute, and a dialog growing tall enough to push its own Close button
-  off-screen.
+  defeating the `hidden` attribute, a dialog growing tall enough to push its own Close button
+  off-screen, a `size-14` class rendering at 56px, and a three-pane layout collapsed to a quarter of
+  the window. The last two shipped to `main` past a green gate, fifteen passing tests and a clean
+  build — nothing that reads source could see either.
+
+  The recipe is short but not guessable:
+
+  ```
+  # The ai and browser bindings are remote-only; comment them out or wrangler will not boot.
+  pnpm exec vp run worker-dev                       # localhost:8787, builds the SPA first
+  curl -X POST localhost:8787/api/__dev/seed -H 'content-type: application/json' -d '{}'
+  ```
+
+  The seed returns a firm, a matter id and the owner's credentials. In Playwright, `POST` those to
+  `/api/auth/sign-in/email` on the page's request context — that puts a real session cookie on the
+  browser, which is the only way to reach a `(app)` route. Then navigate, screenshot, and MEASURE:
+  `boundingBox()` on the thing you changed, and walk the ancestor chain when a flex child will not
+  stretch. Restore `wrangler.jsonc` before committing.
 
 ### Design-system facts worth knowing before you start
 
