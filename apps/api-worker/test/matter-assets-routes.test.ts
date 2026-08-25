@@ -295,9 +295,13 @@ describe("what it was worth, and when", () => {
     const history = await get(`/api/v1/matter-assets/${assetId}/valuations`);
     const historyBody = (await history.json()) as {
       data: { correctsValuationId: string | null }[];
+      nextCursor: string | null;
     };
     expect(historyBody.data).toHaveLength(2);
     expect(historyBody.data.some((row) => row.correctsValuationId === wrongId)).toBe(true);
+    // The paged envelope, on a history short enough to fit one page: a caller reads `nextCursor`
+    // to know it has the whole record, and null is the only answer that says so.
+    expect(historyBody.nextCursor).toBeNull();
   });
 
   // No route edits or deletes a recorded value, which is the API expression of the append-only

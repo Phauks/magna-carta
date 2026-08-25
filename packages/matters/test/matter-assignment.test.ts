@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   composeCreateMatterAssignment,
   composeEndMatterAssignment,
-  listMatterAssignments,
+  pageMatterAssignments,
 } from "../src/matter-assignment.ts";
 import { MatterValidationError } from "../src/validation.ts";
 
@@ -103,7 +103,7 @@ describe("the validity window at composition", () => {
     for (const built of [windowed, oneDay, open]) {
       for (const statement of built.statements) await statement.run();
     }
-    const rows = await listMatterAssignments(database, MATTER_ID);
+    const rows = (await pageMatterAssignments(database, MATTER_ID)).data;
     expect(rows).toHaveLength(3);
     // Same role and creation instant for all three, so the listing's order among them is by id.
     const bounds = rows.map((row) => row.validTo);
@@ -123,7 +123,7 @@ describe("the validity window at composition", () => {
       context,
     );
     for (const statement of ended.statements) await statement.run();
-    const rows = await listMatterAssignments(database, MATTER_ID);
+    const rows = (await pageMatterAssignments(database, MATTER_ID)).data;
     expect(rows[0]?.validTo).toBe("2026-08-07T12:00:00.000Z");
   });
 });

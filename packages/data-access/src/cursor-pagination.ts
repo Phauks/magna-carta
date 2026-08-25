@@ -126,3 +126,92 @@ export function assemblePage<Row extends SortKeyRow, Item>(
     nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Three-part keyset, for a read whose order needs a column BETWEEN the sort key and the identifier.
+//
+// The two-part (sort key, id) cursor above covers every list whose display order is one column plus
+// a tiebreak. It does not cover a read whose middle column carries meaning: an asset's valuations
+// sort by as_of_date and then by recorded_at, because two assertions about the same date are ordered
+// by which one was made later, and re-ordering those by identifier would put the superseded figure
+// first at random. A matter's staffing groups by role before it runs in time. In both, dropping the
+// middle column to fit the two-part cursor changes what the answer MEANS, so the cursor grows
+// instead.
+//
+// The wire encoding extends the same opaque object with one more key rather than forking the format:
+// `{ c, s, i }`. A two-part cursor still decodes here (`s` absent), and a three-part cursor still
+// decodes in `decodeCursor` as its (c, i) prefix — which is a coarser page boundary, never a wrong
+// one, so a token minted by one deploy is safe to hand to the other.
+
+export interface CompositeSortCursor {
+  readonly primary: string;
+  readonly secondary: string;
+  readonly id: string;
+}
+
+export function encodeCompositeCursor(primary: string, secondary: string, id: string): string {
+  return btoa(JSON.stringify({ c: primary, s: secondary, i: id }));
+}
+
+export function decodeCompositeCursor(cursor: string | undefined): CompositeSortCursor | undefined {
+  if (cursor === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(atob(cursor)) as { c?: unknown; s?: unknown; i?: unknown };
+    if (
+      typeof parsed.c === "string" &&
+      typeof parsed.s === "string" &&
+      typeof parsed.i === "string"
+    ) {
+      return { primary: parsed.c, secondary: parsed.s, id: parsed.i };
+    }
+  } catch {
+    // A malformed/tampered cursor reveals nothing and is treated as the first page.
+  }
+  return undefined;
+}
+
+// The three-part predicate, written as the lexicographic comparison spelled out rather than as a
+// row-value comparison: SQLite supports `(a, b, c) < (?, ?, ?)`, but the spelled-out form is what
+// the (primary, secondary) index can actually seek on, and this read exists to be indexed.
+//
+// All three column names are CODE-supplied literals — never request input — because they are
+// interpolated into the SQL text. Returns "" with no cursor, and pushes its six bindings in the
+// order the clause reads them.
+export function compositeKeysetClause(
+  bindings: unknown[],
+  cursor: CompositeSortCursor | undefined,
+  columns: { readonly primary: string; readonly secondary: string; readonly id: string },
+  ascending: boolean,
+): string {
+  if (cursor === undefined) return "";
+  const comparison = ascending ? ">" : "<";
+  bindings.push(
+    cursor.primary,
+    cursor.primary,
+    cursor.secondary,
+    cursor.primary,
+    cursor.secondary,
+    cursor.id,
+  );
+  return (
+    `AND (${columns.primary} ${comparison} ? ` +
+    `OR (${columns.primary} = ? AND ${columns.secondary} ${comparison} ?) ` +
+    `OR (${columns.primary} = ? AND ${columns.secondary} = ? AND ${columns.id} ${comparison} ?)) `
+  );
+}
+
+// The page envelope for a three-part keyset. `key` reads the cursor columns off a row rather than
+// fixing their names, because the two consumers sort by different columns and neither is created_at.
+export function assembleCompositePage<Row, Item>(
+  results: readonly Row[],
+  pageSize: number,
+  key: (row: Row) => CompositeSortCursor,
+  map: (row: Row) => Item,
+): Page<Item> {
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  if (!hasMore || last === undefined) return { data: rows.map(map), nextCursor: null };
+  const { primary, secondary, id } = key(last);
+  return { data: rows.map(map), nextCursor: encodeCompositeCursor(primary, secondary, id) };
+}

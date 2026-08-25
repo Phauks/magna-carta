@@ -3427,10 +3427,17 @@
             "items": {
               "$ref": "#/components/schemas/MatterAssignmentRecord"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "MatterAssignmentRecord": {
@@ -12960,10 +12967,17 @@
             "items": {
               "$ref": "#/components/schemas/MatterAssetValuationDetail"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "MatterAssetValuationDetail": {
@@ -34674,7 +34688,7 @@
     },
     "/api/v1/matters/{id}/assignments": {
       "get": {
-        "description": "Lists the matter's staffing assignments, every recorded window included. The responsible attorney is not among them: that fact lives on the matter record itself.",
+        "description": "Lists the matter's staffing assignments, every recorded window included, a page at a time. The responsible attorney is not among them: that fact lives on the matter record itself. Ordered by role, then by when the window was recorded.",
         "operationId": "matters.listAssignments",
         "tags": [
           "matters"
@@ -34700,6 +34714,14 @@
             "required": true,
             "name": "id",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
@@ -51665,7 +51687,7 @@
     },
     "/api/v1/matter-assets/{assetId}/valuations": {
       "get": {
-        "description": "The asset's whole value history, newest date first. Corrections are shown AS corrections, naming the entry they replace — a figure somebody corrected stays visible, because the record's worth in a dispute is that nothing could be quietly rewritten after the fact.",
+        "description": "The asset's whole value history, newest date first, a page at a time. Corrections are shown AS corrections, naming the entry they replace — a figure somebody corrected stays visible, because the record's worth in a dispute is that nothing could be quietly rewritten after the fact. Two assertions about the same date read newest-recorded first, which is what makes a correction the current figure.",
         "operationId": "matterAssets.listValuations",
         "tags": [
           "matterAssets"
@@ -51691,6 +51713,14 @@
             "required": true,
             "name": "assetId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {

@@ -1,3 +1,10 @@
+import {
+  DEFAULT_PAGE_SIZE,
+  assembleCompositePage,
+  compositeKeysetClause,
+  decodeCompositeCursor,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -78,22 +85,49 @@ function toRow(columns: MatterAssignmentColumns): MatterAssignmentRow {
   };
 }
 
-// The staffing on a matter, every recorded window included — the reader decides what "current"
-// means for its own question (the merge engine windows by the assembly instant; a staffing screen
-// shows history).
-export async function listMatterAssignments(
+// The matter's staffing, every recorded window included — the reader decides what "current" means
+// for its own question. The order is the display order (role, then when the window was recorded),
+// so the keyset carries all three columns; see packages/data-access/src/cursor-pagination.ts for
+// why a two-part cursor cannot express it.
+//
+// A matter's staffing is a HISTORY: every re-assignment over the life of the matter keeps its row,
+// so it grows with how long the firm has run the matter rather than with the firm's headcount. It
+// used to be read whole with no LIMIT at any layer, which made the response size a function of the
+// matter's age. The document engine reads staffing through its own windowed statement in
+// packages/document-assembly/src/merge-statements.ts and does not come through here.
+export async function pageMatterAssignments(
   database: SqlDatabase,
   matterId: MatterId,
-): Promise<MatterAssignmentRow[]> {
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<MatterAssignmentRow>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const cursor = decodeCompositeCursor(options.cursor);
+  const bindings: unknown[] = [matterId];
+  const keyset = compositeKeysetClause(
+    bindings,
+    cursor,
+    { primary: "assignment_role", secondary: "created_at", id: "id" },
+    true,
+  );
   const { results } = await database
     .prepare(
       `SELECT id, matter_id, member_user_id, assignment_role, valid_from, valid_to, created_at
-         FROM matter_assignment WHERE matter_id = ?1
-        ORDER BY assignment_role ASC, created_at ASC, id ASC`,
+         FROM matter_assignment WHERE matter_id = ?1 ${keyset}
+        ORDER BY assignment_role ASC, created_at ASC, id ASC
+        LIMIT ${String(pageSize + 1)}`,
     )
-    .bind(matterId)
+    .bind(...bindings)
     .all<MatterAssignmentColumns>();
-  return results.map(toRow);
+  return assembleCompositePage(
+    results,
+    pageSize,
+    (columns) => ({
+      primary: columns.assignment_role,
+      secondary: columns.created_at,
+      id: columns.id,
+    }),
+    toRow,
+  );
 }
 
 async function assertExists(
