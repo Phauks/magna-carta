@@ -376,18 +376,19 @@ await check("L24", "A row queued for cut looks different from one queued for cop
 });
 
 await check("I27", "Document type can be set, and a new one added to the firm's list", async () => {
+  // Round ten moved this into a flyout beside the menu item (I27d); the PROPERTY — set a
+  // type, add a new one to the firm's vocabulary — is what this asserts.
   const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click();
   await row.click({ button: "right" });
-  await page.locator('#ctx button[data-cmd="doctype"]').click();
-  const menu = page.locator("#filterMenu");
-  // It opens on the next frame, deliberately: the click that opens it also reaches the document
-  // handler that closes menus, and this is how it survives that.
-  await menu.waitFor({ state: "visible", timeout: 4000 });
-  await page.locator("#dtFilter").fill("Trial Brief");
-  const add = page.locator('#filterMenu [data-new="1"]');
+  await page.locator("#ctx .subopen").filter({ hasText: "Set Document Type" }).hover();
+  const panel = page.locator("#ctx .dtpanel");
+  await panel.waitFor({ state: "visible", timeout: 4000 });
+  await page.locator("#ctx .dtflyfilter").fill("Trial Brief");
+  const add = page.locator('#ctx [data-dtfly][data-new="1"]');
   if ((await add.count()) !== 1) return false;
   await add.click();
-  if (await menu.isVisible()) return false;
+  if (await page.locator("#ctx").isVisible()) return false;
   return (await row.innerText()).includes("Trial Brief");
 });
 
@@ -653,6 +654,11 @@ await check("N20", "Home in the rail returns to the root", async () => {
 });
 
 await check("P11", "A folder states its size in bytes and how many files make it up", async () => {
+  // Aggregates render pending first (L40) and fill in; the property here is the FILLED
+  // value, so wait for the computation the way a person would.
+  await page
+    .waitForFunction(() => !document.querySelector("#rows .pendingval"), null, { timeout: 4000 })
+    .catch(() => {});
   const cells = await page
     .locator('#rows tr[data-kind="folder"]')
     .evaluateAll((list) => list.map((r) => [...r.cells].map((c) => c.innerText.trim())));
@@ -847,6 +853,10 @@ await check(
   "P5",
   "The error view scrolls inside its pane rather than running off the screen",
   async () => {
+    // Its own setup: this measures geometry, so it must not inherit whatever transient
+    // state the reporting flow before it left behind.
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
     await page.locator('.mockbar button[data-state="error"]').click();
     const overflow = await page
       .locator("#statePane .errpane")
@@ -1422,7 +1432,9 @@ await check(
     await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(300);
     const order = await page.locator(".viewrow").evaluateAll((bs) => bs.map((b) => b.dataset.view));
-    if (JSON.stringify(order) !== JSON.stringify(["analysis", "deleted", "history"])) return false;
+    // Search Results (S17, round ten) joined the family between Deleted Files and History.
+    if (JSON.stringify(order) !== JSON.stringify(["analysis", "deleted", "results", "history"]))
+      return false;
     await page.locator('[data-view="history"]').click();
     await page.waitForTimeout(150);
     // The breadcrumb titles the view (N21), with no second heading.
@@ -1519,7 +1531,9 @@ await check(
     // A9 binds here too: the selection stops before ".docx".
     if (!state.value.endsWith(".docx")) return false;
     if (state.start !== 0 || state.end !== state.value.length - ".docx".length) return false;
-    await field.fill("Motion to Compel (retitled)");
+    // Extensions are shown, so the field carries the whole name and what is typed stands
+    // (A21). A user keeping the type keeps the extension in the field.
+    await field.fill("Motion to Compel (retitled).docx");
     await field.press("Enter");
     await page.waitForTimeout(150);
     const rows = await page.locator('#rows tr[data-key^="d:"]').allInnerTexts();
@@ -1530,6 +1544,11 @@ await check(
 await check("L37", "An unset document type shows blank — never Unfiled", async () => {
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(300);
+  // Let the aggregate fill-ins land first: their re-render replaces inspector nodes, and
+  // a boundingBox taken across that swap reads a detached element.
+  await page
+    .waitForFunction(() => !document.querySelector("#rows .pendingval"), null, { timeout: 4000 })
+    .catch(() => {});
   if ((await page.content()).includes("Unfiled")) return false;
   // The flagged home-level file has no type: its cell is EMPTY.
   const idx = await page
@@ -1579,6 +1598,819 @@ await check("I40", "The preview fits its panel, and an image previews as the ima
   if ((await photo.count()) !== 1) return false;
   if (/renders here/i.test(await page.locator("#inspector").innerText())) return false;
   return await fits();
+});
+
+// ---- Round ten.
+
+const waitForAggregates = async () => {
+  await page
+    .waitForFunction(
+      () => !document.querySelector("#rows .pendingval, #iconGrid .pendingval"),
+      null,
+      { timeout: 4000 },
+    )
+    .catch(() => {});
+};
+
+await check("L38", "A pinned item's pin renders filled, in the menu and on the row", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click();
+  await row.click({ button: "right" });
+  const item = page.locator('#ctx button[data-cmd="pin"]');
+  // Unpinned: the glyph is outline-only.
+  if ((await item.locator("svg").getAttribute("fill")) !== "none") return false;
+  await item.click();
+  await page.waitForTimeout(120);
+  // Pinned: the same glyph, filled — and the row's mark is filled too.
+  if (
+    (await page.locator('#ctx button[data-cmd="pin"] svg').getAttribute("fill")) !== "currentColor"
+  )
+    return false;
+  const rowMark = page.locator("#rows .pinmark").first();
+  if ((await rowMark.getAttribute("fill")) !== "currentColor") return false;
+  await page.locator('#ctx button[data-cmd="pin"]').click(); // unpin again
+  await page.keyboard.press("Escape");
+  return true;
+});
+
+await check("A17", "Pinning keeps the menu open, and the item restates itself", async () => {
+  const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click({ button: "right" });
+  const item = page.locator('#ctx button[data-cmd="pin"]');
+  const before = (await item.innerText()).trim();
+  await item.click();
+  await page.waitForTimeout(120);
+  if (!(await page.locator("#ctx").isVisible())) return false; // the ruling: it stays open
+  const after = (await page.locator('#ctx button[data-cmd="pin"]').innerText()).trim();
+  await page.locator('#ctx button[data-cmd="pin"]').click();
+  await page.keyboard.press("Escape");
+  return before.includes("Pin to Top") && after.includes("Unpin");
+});
+
+await check(
+  "L39",
+  "The footer scale control grows previews and text, from the keyboard",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    const slider = page.locator("#fmScale");
+    if ((await slider.count()) !== 1) return false;
+    if (!((await slider.getAttribute("aria-label")) ?? "").length) return false;
+    if (!(await page.locator('.pagefoot label[for="fmScale"]').count())) return false;
+    await page.locator('.tnode[data-tree="sitephotos"]').first().click();
+    await waitForAggregates();
+    const tile = page.locator("#iconGrid .tile").first();
+    const beforeW = (await tile.boundingBox()).width;
+    const beforeFont = await page
+      .locator("#iconGrid .cap")
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    // Keyboard-operable: End walks the slider to its maximum.
+    await slider.focus();
+    await slider.press("End");
+    await page.waitForTimeout(200);
+    const afterW = (await page.locator("#iconGrid .tile").first().boundingBox()).width;
+    const afterFont = await page
+      .locator("#iconGrid .cap")
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    if (!(afterW > beforeW * 1.2 && afterFont > beforeFont * 1.2)) return false;
+    // And the list's text scales too.
+    await page.locator("#viewModeBtn").click();
+    const rowFont = await page
+      .locator("#rows td")
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    await slider.focus();
+    await slider.press("Home");
+    await page.waitForTimeout(150);
+    const rowFontBack = await page
+      .locator("#rows td")
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    return rowFont > rowFontBack;
+  },
+);
+
+await check("L40", "Computing aggregates render immediately, pending, then fill in", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  // Straight after load the folder rows must already CARRY their aggregate fields,
+  // visibly pending — never hidden.
+  await page.waitForSelector("#rows tr[data-kind='folder']", { timeout: 5000 });
+  const pending = await page.locator("#rows .pendingval[aria-busy='true']").count();
+  if (pending === 0) return false;
+  await waitForAggregates();
+  // Filled: sizes with counts, and the aggregate safety chip exists somewhere.
+  const text = await page.locator("#rows").innerText();
+  if (!/\d+ files/.test(text)) return false;
+  return (await page.locator("#rows .okmark, #rows .chip").count()) > 0;
+});
+
+await check("A18", "Convert is a flyout of quick formats, every entry honestly Soon", async () => {
+  await waitForAggregates();
+  const row = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Invoice_scan" }).first();
+  // A program has no honest convert: the item must be absent for it.
+  await row.click();
+  await row.click({ button: "right" });
+  if ((await page.locator("#ctx .subopen").filter({ hasText: "Convert" }).count()) !== 0)
+    return false;
+  await page.keyboard.press("Escape");
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const docx = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Motion" }).first();
+  await docx.click();
+  await docx.click({ button: "right" });
+  const opener = page.locator("#ctx .subopen").filter({ hasText: "Convert" });
+  if ((await opener.count()) !== 1) return false;
+  await opener.hover();
+  await page.waitForTimeout(150);
+  const items = await page
+    .locator("#ctx .convpanel .convitem")
+    .evaluateAll((bs) =>
+      bs.map((b) => [b.disabled, (b.title ?? "").length > 0, b.textContent.includes("Soon")]),
+    );
+  await page.keyboard.press("Escape");
+  return items.length >= 3 && items.every(([d, t, s]) => d && t && s);
+});
+
+await check(
+  "A15b",
+  "Undo and redo live in the footer, not the navigation cluster",
+  async () =>
+    (await page.locator(".pagefoot #undoBtn").count()) === 1 &&
+    (await page.locator(".pagefoot #redoBtn").count()) === 1 &&
+    (await page.locator(".toolbar #undoBtn, .toolbar #redoBtn").count()) === 0,
+);
+
+await check(
+  "I41",
+  "The struck placeholder sentence is gone",
+  async () => !(await page.content()).includes("details, safety history, and versions live here"),
+);
+
+await check("L41", "Right-clicking empty list space opens the folder-level menu", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator("#rows tr").first().click(); // have something selected
+  const wrap = await page.locator("#tablewrap").boundingBox();
+  await page.mouse.click(wrap.x + wrap.width / 2, wrap.y + wrap.height - 40, { button: "right" });
+  await page.waitForTimeout(120);
+  if (!(await page.locator("#ctx").isVisible())) return false;
+  const cmds = await page
+    .locator("#ctx button[data-bcmd]")
+    .evaluateAll((bs) => bs.map((b) => b.dataset.bcmd));
+  // L22 consistency: the selection cleared.
+  const selected = await page.locator('#rows tr[aria-selected="true"]').count();
+  await page.keyboard.press("Escape");
+  return (
+    ["newfolder", "newdoc", "upload", "paste", "selectall"].every((c) => cmds.includes(c)) &&
+    selected === 0
+  );
+});
+
+await check("A19", "Cut, copy and paste work from the keyboard, end to end", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const complaint = page
+    .locator('#rows tr[data-key^="d:"]')
+    .filter({ hasText: "Complaint" })
+    .first();
+  await complaint.click();
+  await page.keyboard.press("Control+c");
+  await page.waitForTimeout(120);
+  if ((await complaint.getAttribute("data-clipboard")) !== "copy") return false;
+  await page.keyboard.press("Control+x");
+  await page.waitForTimeout(120);
+  if ((await complaint.getAttribute("data-clipboard")) !== "cut") return false;
+  await page.locator('.tnode[data-tree="orders"]').first().click();
+  await page.keyboard.press("Control+v");
+  await page.waitForTimeout(150);
+  return (await page.locator("#rows tr").filter({ hasText: "Complaint" }).count()) === 1;
+});
+
+await check(
+  "N23",
+  "No Views heading in the rail",
+  async () => (await page.locator(".rail h2").filter({ hasText: "Views" }).count()) === 0,
+);
+
+await check("A20", "A selection's menu speaks for the whole selection, nothing dead", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const rows = page.locator('#rows tr[data-key^="d:"]');
+  await rows.nth(0).click();
+  await rows.nth(1).click({ modifiers: ["Control"] });
+  await rows.nth(1).click({ button: "right" });
+  const text = await page.locator("#ctx").innerText();
+  if (!/Download 2 files/.test(text)) return false;
+  if (!/Copy 2 files/.test(text)) return false;
+  if (!/Set Document Type for 2 Files/.test(text)) return false;
+  // Every disabled item states its reason.
+  const disabled = await page
+    .locator("#ctx button:disabled")
+    .evaluateAll((bs) => bs.map((b) => (b.title ?? "").length > 0));
+  if (!disabled.every(Boolean)) return false;
+  // Files only: no folder styling offered.
+  if ((await page.locator("#ctx .subopen").filter({ hasText: "Color" }).count()) !== 0)
+    return false;
+  await page.keyboard.press("Escape");
+  // Mixed selection: Colour scopes itself to the folders and says so.
+  await page.locator("#railHome").click();
+  await waitForAggregates();
+  await page.locator('#rows tr[data-kind="folder"]').first().click();
+  await page
+    .locator('#rows tr[data-kind="file"]')
+    .first()
+    .click({ modifiers: ["Control"] });
+  await page.locator('#rows tr[data-kind="file"]').first().click({ button: "right" });
+  const mixed = await page.locator("#ctx").innerText();
+  await page.keyboard.press("Escape");
+  return /Color \(1 folder\)/.test(mixed);
+});
+
+await check("T6e", "A hovered swatch keeps its own colour", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="discovery"]').first().click({ button: "right" });
+  await page.locator("#ctx .subopen").first().hover();
+  await page.waitForTimeout(150);
+  const swatch = page.locator('#ctx .swatch[data-colour="blue"]');
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(100);
+  const resting = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await page.locator("#ctx .subopen").first().hover();
+  await swatch.hover();
+  await page.waitForTimeout(100);
+  const hovered = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  // The defect turned it the menu-hover wash; the ruling: hover keeps ITS colour.
+  return hovered === resting;
+});
+
+await check("T6f", "The selected swatch's halo paints above its neighbours", async () => {
+  const on = page.locator("#ctx .swatch.on").first();
+  if ((await on.count()) !== 1) return false;
+  const style = await on.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { position: s.position, z: s.zIndex, outline: s.outlineStyle, radius: s.borderRadius };
+  });
+  await page.keyboard.press("Escape");
+  // Raised stacking is what guarantees the halo is never overpainted by a later sibling;
+  // and T6c re-verified while here: the rendered radius is exactly 0.
+  return (
+    style.position === "relative" &&
+    Number(style.z) >= 1 &&
+    style.outline !== "none" &&
+    style.radius === "0px"
+  );
+});
+
+await check("A21", "Invoice_scan.pdf.exe renames to Invoice_scan.pdf, and it sticks", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await waitForAggregates();
+  const row = page.locator('#rows tr[data-key="d:11"]');
+  await row.click();
+  await row.click({ button: "right" });
+  await page.locator('#ctx button[data-cmd="rename"]').click();
+  const field = page.locator("#rows input.rename");
+  // A9 still: the default selection stops before the LAST extension.
+  const sel = await field.evaluate((el) => ({
+    v: el.value,
+    s: el.selectionStart,
+    e: el.selectionEnd,
+  }));
+  if (sel.v !== "Invoice_scan.pdf.exe" || sel.s !== 0 || sel.e !== sel.v.length - ".exe".length)
+    return false;
+  await field.fill("Invoice_scan.pdf");
+  await field.press("Enter");
+  await page.waitForTimeout(150);
+  const renamed = page.locator('#rows tr[data-key="d:11"]');
+  const text = await renamed.innerText();
+  // The name lost its .exe, the extension column follows the NAME — and the finding does
+  // not vanish: a rename changes no bytes.
+  return (
+    text.includes("Invoice_scan.pdf") &&
+    !text.includes(".exe") &&
+    /\bpdf\b/.test(text) &&
+    /Type Mismatch/.test(text)
+  );
+});
+
+await check(
+  "A22",
+  "The folder-delete dialog: header, affected list, structure and destination",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await waitForAggregates();
+    await page
+      .locator('#rows tr[data-kind="folder"]')
+      .filter({ hasText: "Discovery" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="delete"]').click();
+    await page.waitForTimeout(150);
+    const dialog = page.locator("#newDocWash .dialog");
+    // The header defect: the h2 must sit INSIDE a padded header.
+    const headed = await dialog.evaluate((el) => {
+      const h2 = el.querySelector("h2");
+      const header = h2?.closest("header");
+      return header ? getComputedStyle(header).paddingTop : null;
+    });
+    if (headed !== "16px") return false;
+    // Collapsed affected list with an honest count, expanding to the actual files.
+    const details = dialog.locator("details.delaffected");
+    if (await details.evaluate((el) => el.open)) return false;
+    const summary = await details.locator("summary").innerText();
+    if (!/13 files and 3 subfolders/.test(summary)) return false;
+    await details.locator("summary").click();
+    await page.waitForTimeout(120);
+    if ((await details.locator(".dellist li").count()) !== 16) return false;
+    // Cap-and-scroll: the dialog still fits the viewport with the list open.
+    const box = await dialog.boundingBox();
+    if (box.y + box.height > page.viewportSize().height + 1) return false;
+    // Structure choices, keep as default; destination choices, up-one-level as default.
+    // Discovery is TOP-LEVEL, so "up one level" already IS the root and the separate root
+    // option is deliberately collapsed away — a nested folder shows it (asserted below).
+    if (!(await dialog.locator('input[name="delmode"][value="promote"]').isChecked())) return false;
+    if ((await dialog.locator('input[name="delmode"][value="flatten"]').count()) !== 1)
+      return false;
+    if (!(await dialog.locator('input[name="deldest"][value="up"]').isChecked())) return false;
+    await dialog.locator('[data-del="no"]').click();
+    await page.waitForTimeout(150);
+    // A nested folder offers the root as its own destination.
+    await page.locator('.tnode[data-tree="discovery"]').first().click();
+    await waitForAggregates();
+    await page
+      .locator('#rows tr[data-kind="folder"]')
+      .filter({ hasText: "Depositions" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="delete"]').click();
+    await page.waitForTimeout(150);
+    if ((await dialog.locator('input[name="deldest"][value="root"]').count()) !== 1) return false;
+    await dialog.locator('[data-del="no"]').click();
+    await page.waitForTimeout(150);
+    // Back to Discovery for the flatten exercise.
+    await page.locator("#railHome").click();
+    await waitForAggregates();
+    await page
+      .locator('#rows tr[data-kind="folder"]')
+      .filter({ hasText: "Discovery" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="delete"]').click();
+    await page.waitForTimeout(150);
+    // Flatten: subfolders go, the files land loose at the destination.
+    await dialog.locator('input[name="delmode"][value="flatten"]').check();
+    await dialog.locator('[data-del="yes"]').click();
+    await page.waitForTimeout(200);
+    if ((await page.locator('.tnode[data-tree="depositions"]').count()) !== 0) return false;
+    await waitForAggregates();
+    // Home is mostly images after the flatten, so it opens as the icon grid — read the
+    // surface the person sees, whichever it is.
+    const surface = (await page.locator("#iconGrid").isVisible()) ? "#iconGrid" : "#rows";
+    return (await page.locator(surface).innerText()).includes("Hale Deposition Transcript");
+  },
+);
+
+await check("N22b", "A history row leads to its document, wherever it now lives", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('[data-view="history"]').click();
+  await page.waitForTimeout(150);
+  await page
+    .locator("#rows tr[data-hist]")
+    .filter({ hasText: "Settlement Demand" })
+    .first()
+    .click();
+  await page.waitForTimeout(200);
+  // It went to the file: browse, its folder, selected, inspector on it.
+  if ((await page.locator('#rows tr[data-key="d:9"][aria-selected="true"]').count()) !== 1)
+    return false;
+  if (!(await page.locator("#inspector").innerText()).includes("Settlement Demand")) return false;
+  // A deleted document's row leads to Deleted Files.
+  await page.locator('[data-view="history"]').click();
+  await page.waitForTimeout(150);
+  await page
+    .locator("#rows tr[data-hist]")
+    .filter({ hasText: "Draft Settlement Outline" })
+    .first()
+    .click();
+  await page.waitForTimeout(200);
+  if (!/Deleted Files/.test(await page.locator("#crumbs").innerText())) return false;
+  if ((await page.locator('#rows tr[data-key="x:901"][aria-selected="true"]').count()) !== 1)
+    return false;
+  // Right-click carries scoped actions, nothing inert.
+  await page.locator('[data-view="history"]').click();
+  await page.waitForTimeout(150);
+  await page.locator("#rows tr[data-hist]").first().click({ button: "right" });
+  const reveal = await page.locator('#ctx [data-hcmd="reveal"]').count();
+  const deadOnes = await page
+    .locator("#ctx button:disabled")
+    .evaluateAll((bs) => bs.map((b) => (b.title ?? "").length > 0));
+  await page.keyboard.press("Escape");
+  return reveal === 1 && deadOnes.every(Boolean);
+});
+
+await check("S15", "Open Full Results fits the dropdown, Search in on one line", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator("#searchBtn").click();
+  await page.locator("#searchInput").click();
+  await page.waitForTimeout(150);
+  const [pop, all, scope] = [
+    await page.locator("#searchpop").boundingBox(),
+    await page.locator("#openResults").boundingBox(),
+    await page.locator(".searchpop .scope").boundingBox(),
+  ];
+  if (all.x + all.width > pop.x + pop.width + 1) return false;
+  // One line: the label and the results control share a vertical centre.
+  const label = await page.locator(".searchpop .scopelbl").boundingBox();
+  if (Math.abs(label.y + label.height / 2 - (all.y + all.height / 2)) > 4) return false;
+  if (scope.height > 48) return false; // a wrapped second line would double this
+  const options = await page.locator("#scopeSel option").allInnerTexts();
+  return !options.some((o) => /everywhere/i.test(o));
+});
+
+await check("S16", "The indexing status is wired: the number moves, surfaces agree", async () => {
+  const bar = page.locator("#popIdxBar");
+  const label = page.locator("#popIdxLabel");
+  const pct = Number(await bar.getAttribute("value"));
+  if (!(await label.innerText()).includes(String(pct) + "%")) return false;
+  await page.waitForTimeout(3400);
+  const pct2 = await bar.evaluate((el) => Number(el.value));
+  const label2 = await label.innerText();
+  return pct2 > pct && label2.includes(String(pct2) + "%");
+});
+
+await check("S17", "Search Results joins the views family while a search is live", async () => {
+  if (!(await page.locator("#searchViewRow").isHidden())) return false; // no live search yet? it appears only with one
+  await page.locator("#searchInput").fill("Motion");
+  await page.waitForTimeout(150);
+  await page.locator("#openResults").click();
+  await page.waitForTimeout(150);
+  const rowVisible = await page.locator("#searchViewRow").isVisible();
+  const current = await page.locator("#searchViewRow").getAttribute("aria-current");
+  if (!rowVisible || current !== "true") return false;
+  if (!/Search Results/.test(await page.locator("#crumbs").innerText())) return false;
+  // Leaving restores the prior highlight; the row stays while the query lives.
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  await page.waitForTimeout(150);
+  return (
+    (await page.locator("#searchViewRow").getAttribute("aria-current")) === "false" &&
+    (await page.locator("#searchViewRow").isVisible())
+  );
+});
+
+await check(
+  "N24",
+  "The rail starts tight under the header, views tight under the tree",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.mouse.move(4, 4);
+    const railTop = (await page.locator(".rail").boundingBox()).y;
+    const homeTop = (await page.locator("#railHome").boundingBox()).y;
+    if (homeTop - railTop > 9) return false;
+    const treeBottom = await page
+      .locator("#treeList")
+      .evaluate((el) => el.getBoundingClientRect().bottom);
+    const viewsTop = (await page.locator('[data-view="analysis"]').boundingBox()).y;
+    return viewsTop - treeBottom <= 18;
+  },
+);
+
+await check("L42", "A live filter is unmissable, and one click clears it", async () => {
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const th = page.locator('#headRow th[data-col="name"]');
+  await th.hover();
+  await th.locator(".filterbtn").click();
+  await page.locator("#filterText").fill("Motion");
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Escape");
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(100);
+  // The funnel fills — a real background, not a tint of text alone.
+  const active = await page
+    .locator('#headRow th[data-col="name"] .filterbtn')
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
+  if (active === "rgba(0, 0, 0, 0)") return false;
+  // The footer counts what is hidden and offers the way back, saying what it will do.
+  if (!/1 of 3 files · filtered/.test(await page.locator("#tally").innerText())) return false;
+  const clear = page.locator("#clearAllFilters");
+  if (!/Clear 1 Filter/.test(await clear.innerText())) return false;
+  await clear.click();
+  await page.waitForTimeout(150);
+  return (
+    (await page.locator("#clearAllFilters").count()) === 0 &&
+    /3 files/.test(await page.locator("#tally").innerText())
+  );
+});
+
+await check(
+  "A24",
+  "One Open: the editor for editable types, the preview for the rest",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    if ((await page.content()).includes("Open in Editor")) return false;
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    // A pdf opens its preview.
+    const pdf = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Complaint" }).first();
+    await pdf.click();
+    await pdf.click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="open"]').click();
+    await page.waitForTimeout(150);
+    if (
+      (await page.locator('#inspector [data-instab="preview"]').getAttribute("aria-selected")) !==
+      "true"
+    )
+      return false;
+    // A docx opens the editor.
+    const docx = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Motion" }).first();
+    await docx.click();
+    await docx.click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="open"]').click();
+    await page.waitForTimeout(150);
+    return /editor/i.test(await page.locator("#toast").innerText());
+  },
+);
+
+await check(
+  "D2",
+  "Restoring an orphaned file asks, defaulting to the nearest ancestor",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('[data-view="deleted"]').click();
+    await page.waitForTimeout(150);
+    // A file whose folder survives restores silently.
+    await page.locator('#rows tr[data-key="x:901"]').click({ button: "right" });
+    await page.locator('#ctx button[data-dcmd="restore"]').click();
+    await page.waitForTimeout(200);
+    if (await page.locator("#newDocWash .dialog").isVisible()) return false;
+    // The orphaned one asks, and the default names the nearest surviving ancestor.
+    await page.locator('#rows tr[data-key="x:902"]').click({ button: "right" });
+    await page.locator('#ctx button[data-dcmd="restore"]').click();
+    await page.waitForTimeout(200);
+    const dialog = page.locator("#newDocWash .dialog");
+    if (!(await dialog.isVisible())) return false;
+    const near = dialog.locator('input[name="rddest"][value="near"]');
+    if (!(await near.isChecked())) return false;
+    if (!/Discovery/.test(await near.evaluate((el) => el.closest("label").innerText))) return false;
+    await dialog.locator('[data-rd="yes"]').click();
+    await page.waitForTimeout(200);
+    await page.locator('.tnode[data-tree="discovery"]').first().click();
+    await waitForAggregates();
+    return (await page.locator("#rows tr").filter({ hasText: "Old Site Photos" }).count()) === 1;
+  },
+);
+
+await check(
+  "F12",
+  "Severity speaks Error/Warning/Info, and the counts are the filters",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('[data-view="analysis"]').click();
+    await page.waitForTimeout(200);
+    const sev = await page.locator(".ansev").innerText();
+    if (/serious|worth checking|tidy-up/.test(sev)) return false;
+    if (!/Errors/.test(sev) || !/Warnings/.test(sev) || !/Info/.test(sev)) return false;
+    const before = await page.locator(".ancard").count();
+    await page.locator('button.sevchip[data-sevfilter="danger"]').click();
+    await page.waitForTimeout(150);
+    const after = await page.locator(".ancard").count();
+    if (!(after > 0 && after < before)) return false;
+    const pressed = page.locator("button.sevchip.on");
+    if ((await pressed.count()) !== 1) return false;
+    if ((await pressed.getAttribute("aria-pressed")) !== "true") return false;
+    await pressed.click();
+    await page.waitForTimeout(150);
+    return (await page.locator(".ancard").count()) === before;
+  },
+);
+
+await check("I42", "The clean verdict is a filled circle-check, not a bare tick", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const mark = page.locator("#rows .okmark .cleanmark circle").first();
+  if ((await mark.count()) === 0) return false;
+  const fill = await mark.evaluate((el) => getComputedStyle(el).fill);
+  // The circle is FILLED with the success token — computed to a real colour, not none.
+  return fill !== "none" && fill !== "rgb(0, 0, 0)";
+});
+
+await check("A23", "Ctrl+A selects every file in the view, and no page text", async () => {
+  const rowCount = await page.locator("#rows tr[data-key]").count();
+  await page.keyboard.press("Control+a");
+  await page.waitForTimeout(120);
+  const selected = await page.locator('#rows tr[aria-selected="true"]').count();
+  if (selected !== rowCount) return false;
+  if (String(await page.evaluate(() => String(getSelection()))) !== "") return false;
+  return new RegExp(rowCount + " selected").test(await page.locator("#selfoot").innerText());
+});
+
+await check("L43", "Arrows: 2D in the grid, Left/Right never dead in the list", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const rows = page.locator('#rows tr[data-key^="d:"]');
+  await rows.nth(0).click();
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(80);
+  const second = await rows.nth(1).getAttribute("aria-selected");
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForTimeout(80);
+  const firstAgain = await rows.nth(0).getAttribute("aria-selected");
+  if (second !== "true" || firstAgain !== "true") return false;
+  await page.locator('.tnode[data-tree="sitephotos"]').first().click();
+  await waitForAggregates();
+  const tiles = page.locator("#iconGrid .tile");
+  await tiles.nth(0).click();
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(80);
+  if ((await tiles.nth(1).getAttribute("aria-selected")) !== "true") return false;
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(80);
+  // One visual row down from tile 1: expected index is 1 + the measured column count,
+  // clamped to the last tile — the 2D model, not a fixed guess at the grid's width.
+  const columns = await page.evaluate(() => gridColumns());
+  const count = await tiles.count();
+  const expected = Math.min(1 + columns, count - 1);
+  const [target, sel] = [
+    await tiles.nth(expected).boundingBox(),
+    await page.locator('#iconGrid .tile[aria-selected="true"]').boundingBox(),
+  ];
+  return Math.abs(sel.x - target.x) < 2 && Math.abs(sel.y - target.y) < 2;
+});
+
+await check(
+  "I27d",
+  "Set Document Type is a flyout beside its item, never at the screen edge",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    const row = page.locator('#rows tr[data-key^="d:"]').first();
+    await row.click();
+    await row.click({ button: "right" });
+    await page.locator("#ctx .subopen").filter({ hasText: "Set Document Type" }).hover();
+    await page.waitForTimeout(150);
+    const [menu, panel] = [
+      await page.locator("#ctx").boundingBox(),
+      await page.locator("#ctx .dtpanel").boundingBox(),
+    ];
+    await page.keyboard.press("Escape");
+    return panel.x > 100 && panel.x > menu.x + menu.width - 20;
+  },
+);
+
+await check("A25", "Cut, copy, paste sit between separators as their own group", async () => {
+  const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click({ button: "right" });
+  const kinds = await page
+    .locator("#ctx > *")
+    .evaluateAll((ns) =>
+      ns.map((n) =>
+        n.classList.contains("rule") ? "rule" : (n.textContent ?? "").trim().split(/\s|Ctrl/)[0],
+      ),
+    );
+  await page.keyboard.press("Escape");
+  const copyAt = kinds.findIndex((k) => k === "Copy");
+  return (
+    copyAt > 0 &&
+    kinds[copyAt - 1] === "rule" &&
+    kinds[copyAt + 1] === "Cut" &&
+    kinds[copyAt + 2] === "Paste" &&
+    kinds[copyAt + 3] === "rule"
+  );
+});
+
+await check("F13", "A safety re-run appends to the history and never blocks", async () => {
+  await openInspectorOnFlagged();
+  await page.locator('#inspector [data-instab="safety"]').click();
+  const entries = () => page.locator("#inspector .hist .h").count();
+  const before = await entries();
+  await page.locator('#inspector [data-act="rescan"]').click();
+  await page.waitForTimeout(200);
+  if ((await entries()) !== before + 1) return false; // the request lands immediately
+  if (!/running now/i.test(await page.locator("#inspector .hist").innerText())) return false;
+  await page.waitForTimeout(1600);
+  if ((await entries()) !== before + 2) return false; // then the scanner's words
+  const text = await page.locator("#inspector .hist").innerText();
+  // A still-flagged file stays flagged — and the prior entries are all still there.
+  if (!/Re-scan flagged/i.test(text)) return false;
+  return (await page.locator('#rows tr[data-key="d:8"]').innerText()).includes("Flag");
+});
+
+await check(
+  "N25",
+  "The breadcrumb Home button's hover box matches the toolbar buttons",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    const [home, back] = [
+      await page.locator("#crumbs .crumbhome").boundingBox(),
+      await page.locator("#backBtn").boundingBox(),
+    ];
+    if (Math.abs(home.width - back.width) > 1 || Math.abs(home.height - back.height) > 1)
+      return false;
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(100);
+    const resting = await page
+      .locator("#crumbs .crumbhome")
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    await page.locator("#crumbs .crumbhome").hover();
+    await page.waitForTimeout(100);
+    const hovered = await page
+      .locator("#crumbs .crumbhome")
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    return resting !== hovered;
+  },
+);
+
+await check(
+  "I43",
+  "Versions are bare numbers, and the column still sorts numerically",
+  async () => {
+    const verCells = await page.locator("#rows td.ver").allInnerTexts();
+    if (verCells.some((v) => /^v\d/.test(v.trim()))) return false;
+    await openFile("correspondence", "Settlement Demand");
+    await page.locator('#inspector [data-instab="versions"]').click();
+    const vids = await page.locator("#inspector .vrow .vid").allInnerTexts();
+    if (vids.some((v) => /^v\d/.test(v.trim()))) return false;
+    if (vids[0].trim() !== "12") return false;
+    // Numeric sort: 12 outranks 2 when descending.
+    await page.locator('.tnode[data-tree="correspondence"]').first().click();
+    await page.locator('[data-sortbtn="version"]').click();
+    await page.locator('[data-sortbtn="version"]').click();
+    await page.waitForTimeout(120);
+    const first = await page.locator('#rows tr[data-key^="d:"]').first().innerText();
+    return first.includes("Settlement Demand");
+  },
+);
+
+await check("L44", "A clear-filter control exists only while a filter is in play", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  if ((await page.locator("#clearAllFilters").count()) !== 0) return false;
+  const th = page.locator('#headRow th[data-col="fileType"]');
+  await th.hover();
+  await th.locator(".filterbtn").click();
+  // Unfiltered column: no clear control in its menu.
+  if (await page.locator("#filterMenu #filterClear").isVisible()) return false;
+  await page.locator("#filterMenu input[data-val]").first().uncheck();
+  await page.waitForTimeout(150);
+  // The filter engaged: both clears exist now.
+  if (!(await page.locator("#filterMenu #filterClear").isVisible())) return false;
+  if ((await page.locator("#clearAllFilters").count()) !== 1) return false;
+  await page.locator("#filterMenu #filterClear").click();
+  await page.waitForTimeout(150);
+  return (await page.locator("#clearAllFilters").count()) === 0;
+});
+
+await check("A26", "Share is offered, honestly Soon, naming the portal dependency", async () => {
+  const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click();
+  await row.click({ button: "right" });
+  const share = page.locator('#ctx button[data-cmd="share"]');
+  if ((await share.count()) !== 1) return false;
+  if (!(await share.isDisabled())) return false;
+  if (!(await share.innerText()).includes("Soon")) return false;
+  const why = (await share.getAttribute("title")) ?? "";
+  await page.keyboard.press("Escape");
+  return /portal/i.test(why);
+});
+
+await check("I44", "Timestamps render in the viewer's local time, everywhere", async () => {
+  // A second context in a fixed non-UTC zone: 17:51 UTC is 1:51 PM in New York.
+  const ny = await browser.newContext({
+    timezoneId: "America/New_York",
+    viewport: { width: 1600, height: 900 },
+  });
+  const nyPage = await ny.newPage();
+  await nyPage.goto(page_url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await nyPage.waitForTimeout(400);
+  await nyPage.locator('[data-view="history"]').click();
+  await nyPage.waitForTimeout(150);
+  const hist = await nyPage.locator("#rows tr[data-hist] td").first().innerText();
+  let ok = hist.includes("1:51 PM") && !hist.includes("5:51 PM");
+  // And a list surface: the deleted view's timestamp shifts the same way (16:12 UTC -> 12:12 PM).
+  await nyPage.locator('[data-view="deleted"]').click();
+  await nyPage.waitForTimeout(150);
+  const del = await nyPage.locator('#rows tr[data-key="x:901"]').innerText();
+  ok = ok && del.includes("12:12 PM") && !del.includes("4:12 PM");
+  await ny.close();
+  return ok;
 });
 
 await check(
