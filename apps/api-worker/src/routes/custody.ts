@@ -1591,14 +1591,16 @@ const listRemindersRoute = defineOpenAPIRoute(readMeta("listReminders"), {
   method: "get",
   path: "/api/v1/custody/reminders",
   description:
-    "Everything the register is waiting on, in one list, oldest first: review dates that have come " +
-    "round and check-outs that have not come back. This is the single place those two are decided, " +
-    "so a reminder that arrives by any other route says the same thing this one does.",
+    "What the register is waiting on, in one list, oldest first: review dates that have come round " +
+    "and check-outs that have not come back. This is the single place those two are decided, so a " +
+    "reminder that arrives by any other route says the same thing this one does. Each reason is " +
+    "capped rather than paged — the merge of the two has no single sort column a cursor could seek " +
+    "on — and `capped` is true when either reason has more due than the answer names.",
   request: { query: z.object({ asOf: z.string().max(40).optional() }) },
   responses: {
     200: {
       description: "Reminders due",
-      content: { "application/json": { schema: z.object({ data: z.array(CustodyReminder) }) } },
+      content: { "application/json": { schema: capped(CustodyReminder) } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -1775,8 +1777,11 @@ const listSightingsRoute = defineOpenAPIRoute(readMeta("listSightings"), {
   method: "get",
   path: "/api/v1/custody/stocktakes/{stocktakeId}/sightings",
   description:
-    "Every observation recorded during a count, oldest first, each with where the register expected " +
-    "the packet at the moment it was observed.",
+    "The observations recorded during a count, oldest first, each with where the register expected " +
+    "the packet at the moment it was observed. Capped at `limit` rather than paged — a count's " +
+    "observations are read against the reconciliation of the same count, and half a count " +
+    "reconciles to a wrong answer rather than a short one. `capped` is true when the count " +
+    "recorded more than the answer names.",
   request: {
     params: stocktakeIdParam,
     query: z.object({ limit: z.coerce.number().int().min(1).max(1000).optional() }),
@@ -1784,7 +1789,7 @@ const listSightingsRoute = defineOpenAPIRoute(readMeta("listSightings"), {
   responses: {
     200: {
       description: "Observations",
-      content: { "application/json": { schema: z.object({ data: z.array(CustodySighting) }) } },
+      content: { "application/json": { schema: capped(CustodySighting) } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -2612,11 +2617,11 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { asOf } = c.req.valid("query");
-      const reminders = await collectCustodyReminders(
+      const due = await collectCustodyReminders(
         firm.firmDatabase,
         asOf ?? new Date().toISOString().slice(0, 10),
       );
-      return c.json({ data: reminders } as never, 200);
+      return c.json({ data: due.reminders, capped: due.capped } as never, 200);
     },
   );
 
@@ -2732,14 +2737,15 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
       const firm = requireChokepointFirmContext(c);
       const { stocktakeId } = c.req.valid("param");
       const { limit } = c.req.valid("query");
-      const rows = await readCustodyStocktakeSightings(
+      const sightings = await readCustodyStocktakeSightings(
         firm.firmDatabase,
         stocktakeId,
         limit ?? 500,
       );
       return c.json(
         {
-          data: rows.map((row) => ({
+          capped: sightings.capped,
+          data: sightings.rows.map((row) => ({
             id: row.id,
             kind: row.kind,
             packetId: row.packet_id,

@@ -778,7 +778,9 @@ describe("what the rules have been doing", () => {
       { headers: { cookie: ownerCookie } },
     );
     expect(read.status).toBe(200);
-    expect(await read.json()).toEqual({ data: [] });
+    // `capped` false, not absent: "no rule looked at this" and "we stopped counting" are different
+    // answers, and the empty case has to carry the flag for the difference to mean anything.
+    expect(await read.json()).toEqual({ data: [], capped: false });
   });
 
   it("counts what each rule placed, and what somebody has since taken off", async () => {

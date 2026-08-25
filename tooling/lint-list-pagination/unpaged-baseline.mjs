@@ -94,9 +94,10 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "to file without confirmation.",
   "emails.autoFileDecisions":
     "The decisions recorded for ONE message, capped at MESSAGE_DECISION_LIMIT " +
-    "(apps/api-worker/src/routes/auto-file-rules.ts). The real bound is the rule set that could " +
-    "have matched that message, and the cap is the belt on it. Not paged: a message's filing " +
-    "decisions are read as one account of why it landed where it did.",
+    "(apps/api-worker/src/routes/auto-file-rules.ts), with the response's `capped` flag saying " +
+    "when the message recorded more. The real bound is the rule set that could have matched that " +
+    "message, and the cap is the belt on it. Not paged: a message's filing decisions are read as " +
+    "one account of why it landed where it did.",
   "emails.listAutoFileRules":
     "One matter's auto-file rules, capped at MATTER_RULE_LIMIT " +
     "(apps/api-worker/src/routes/auto-file-rules.ts) rather than trusting that a matter holds " +
@@ -115,15 +116,17 @@ export const BOUNDED_BY_CONSTRUCTION = {
   // --- Capped reads whose cap is real, and whose SILENCE about it is filed separately ----------
   "custody.listSightings":
     "Capped at the caller's `limit`, default 500 and schema-capped at 1000 " +
-    "(apps/api-worker/src/routes/custody.ts). Not cursor-paged: a count's observations are read " +
-    "against the reconciliation of the same count, and half a count reconciles to a wrong " +
-    "answer rather than a short one.",
+    "(apps/api-worker/src/routes/custody.ts), with the response's `capped` flag saying when the " +
+    "count recorded more — readCustodyStocktakeSightings reads one row past the limit to learn " +
+    "it. Not cursor-paged: a count's observations are read against the reconciliation of the same " +
+    "count, and half a count reconciles to a wrong answer rather than a short one.",
   "custody.listReminders":
     "Two independently-bounded reads merged: readCustodyReviewsDue and " +
     "readOverdueCustodyCheckouts each take DEFAULT_PAGE_SIZE in " +
-    "packages/custodian/src/reminders.ts, so the answer is at most 100 rows. Not cursor-paged " +
-    "because the merge has no single sort column a keyset could seek on — a cursor over it " +
-    "would page one arm and lose the other. It answers what the register is waiting on NOW.",
+    "packages/custodian/src/reminders.ts, so the answer is at most 100 rows, and `capped` is true " +
+    "when EITHER reason has more due than the answer names. Not cursor-paged because the merge " +
+    "has no single sort column a keyset could seek on — a cursor over it would page one arm and " +
+    "lose the other. It answers what the register is waiting on NOW.",
   "directory.search":
     "Capped at NAME_SEARCH_LIMIT in packages/directory/src/search.ts, and the response's `capped` " +
     "flag says when the firm holds more. Not cursor-paged on purpose: the ordering key is bm25, a " +
