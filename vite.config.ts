@@ -255,6 +255,13 @@ export default defineConfig({
       worktrees: {
         command: "node tooling/worktrees/index.mjs",
       },
+      // Which remote claude/* branches have delivered their work and can go. Complements `worktrees`,
+      // which only asks about branches that declared themselves with a note or a workspace — a branch
+      // whose note was retired is invisible there, and those are the ones that pile up. Prints only;
+      // retiring is still `retire-note`. Add --all to list the landed ones.
+      "stale-branches": {
+        command: "node tooling/stale-branches/index.mjs",
+      },
       // End a finished stream in ONE operation: clear every status.d/ fragment pointing at its
       // active-work note, re-render STATUS.md + STATUS.json, delete the note, and remove the worktree
       // and branch. Done by hand the pointer is routinely left behind and `pnpm run lint:status` fails
