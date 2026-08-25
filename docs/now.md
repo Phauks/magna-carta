@@ -9,11 +9,11 @@ nothing collapsed and nothing curated away.
 
 **Where we are, and where we have been.** The ledger records only each capability's current status,
 but it is version controlled, so its counts at every past commit are read back in
-[Where we have been](#where-we-have-been) below rather than estimated. Three limits hold: a snapshot
-shows when a node's **status** changed and never when the work happened; a capability added to
-the ledger late arrives as a jump in the total rather than as work done; and **the series counts
-every node, roll-up parents included**, where the standing above counts only units of work — so its
-totals are the larger pair of numbers and are not comparable to them.
+[Where we have been](#where-we-have-been) below rather than estimated — and over the same quantity
+the standing above counts: **units of work**, with roll-up parents excluded at every past commit
+exactly as they are excluded here. Two limits hold: a snapshot
+shows when a node's **status** changed and never when the work happened, and a capability added
+to the ledger late arrives as a jump in the total rather than as work done.
 [`CHANGELOG.md`](../CHANGELOG.md) is still the dated record of what shipped and when.
 Slice-by-slice build stages live in [`STATUS.md`](../STATUS.md), the narrative of what each stream
 is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statuses means lives in
@@ -129,7 +129,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 
 ## Where we have been
 
-**50 of 69 commits read, 2026-07-14 to 2026-08-17 — 34 days.** The ledger keeps no history of its
+**64 of 83 commits read, 2026-07-14 to 2026-08-23 — 40 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -137,18 +137,18 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-Every figure in this section counts **every node**, parents and children alike, because that is what
-the committed reconstruction holds — it was written before the register began counting units of
-work, and recomputing it means re-parsing the ledger at every past commit, which happens on the
-trunk. Read the trend, not the level: the direction and the rate are unaffected, and the totals are
-the ones that differ from [Where the program stands](#where-the-program-stands).
+Every figure in this section counts **units of work**, the same quantity [Where the program
+stands](#where-the-program-stands) counts, so a level here is comparable to a level there. Roll-up
+parents are excluded at every past commit the same way they are excluded now — the reconstruction
+reads the hierarchy off the ledger as it stood, not off today's. The whole-node totals are on the
+record too: 663 nodes on 2026-07-14, 759 on 2026-08-23.
 
-**+63 shipped since the ledger began** — 204 on 2026-07-14, 267 on 2026-08-17, across 34 days. The
-ledger itself grew by +91 nodes over the same period (663 to 754), so the share shipped went from
-31% to 35% against a denominator that was moving too.
+**+70 shipped since the ledger began** — 197 on 2026-07-14, 267 on 2026-08-23, across 40 days. The
+ledger itself grew by +85 units over the same period (541 to 626), so the share shipped went from
+36% to 43% against a denominator that was moving too.
 
-That is **13.0 capabilities shipped a week** across the whole series, and **32.7 a week** over the
-43 snapshots since the last gap (2026-08-11 to 2026-08-17, +28 shipped in 6 days).
+That is **12.3 capabilities shipped a week** across the whole series, and **21.0 a week** over the
+57 snapshots since the last gap (2026-08-11 to 2026-08-23, +36 shipped in 12 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -156,62 +156,76 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 
 ### Every snapshot
 
-| Date | Commit | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Nodes added | Shipped added | Unread before |
+| Date | Commit | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Units | Units added | Shipped added | Unread before |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2026-07-14 | `ad6526da` | 204 | 146 | 16 | 32 | 3 | 9 | 212 | 39 | 2 | 663 | — | — | 0 |
-| 2026-07-14 | `ccbddcf8` | 204 | 146 | 16 | 32 | 3 | 9 | 212 | 39 | 2 | 663 | 0 | 0 | 0 |
-| 2026-08-04 | `31f5b5f7` | 205 | 150 | 16 | 31 | 3 | 8 | 209 | 39 | 2 | 663 | 0 | +1 | 0 |
-| 2026-08-04 | `0d72292e` | 205 | 150 | 16 | 35 | 3 | 8 | 205 | 39 | 2 | 663 | 0 | 0 | 0 |
-| 2026-08-04 | `ff3676b0` | 206 | 150 | 16 | 35 | 3 | 8 | 205 | 39 | 2 | 664 | +1 | +1 | 0 |
-| 2026-08-04 | `3573106d` | 206 | 156 | 16 | 35 | 3 | 8 | 200 | 39 | 2 | 665 | +1 | 0 | 0 |
-| 2026-08-04 | `a97e0bf7` | 212 | 158 | 16 | 29 | 3 | 8 | 200 | 39 | 2 | 667 | +2 | +6 | 0 |
-| 2026-08-11 | `5902e0aa` | 239 | 181 | 15 | 24 | 4 | 8 | 188 | 39 | 2 | 700 | +33 | +27 | 19 |
-| 2026-08-13 | `ee1d92bf` | 241 | 181 | 15 | 24 | 4 | 8 | 188 | 39 | 2 | 702 | +2 | +2 | 0 |
-| 2026-08-13 | `7db7f650` | 241 | 181 | 15 | 24 | 13 | 8 | 179 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-13 | `5eaa6752` | 241 | 181 | 15 | 24 | 13 | 8 | 179 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-13 | `3022b4b3` | 241 | 182 | 15 | 24 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-13 | `25fba751` | 241 | 182 | 15 | 24 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-14 | `f30366ad` | 241 | 182 | 15 | 24 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-14 | `0a1860c0` | 241 | 182 | 15 | 24 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-14 | `3c764ff0` | 241 | 184 | 15 | 22 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-14 | `bb884fdc` | 241 | 184 | 15 | 22 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
-| 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
-| 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
-| 2026-08-14 | `cb9225bb` | 245 | 188 | 15 | 21 | 10 | 8 | 177 | 39 | 2 | 705 | 0 | +1 | 0 |
-| 2026-08-14 | `d5499591` | 246 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 705 | 0 | +1 | 0 |
-| 2026-08-14 | `3efca761` | 248 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 707 | +2 | +2 | 0 |
-| 2026-08-14 | `489d4225` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | +1 | 0 |
-| 2026-08-14 | `ff1f49e3` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | 0 | 0 |
-| 2026-08-14 | `5184145e` | 249 | 191 | 15 | 25 | 10 | 8 | 169 | 39 | 2 | 708 | +1 | 0 | 0 |
-| 2026-08-14 | `85140ca7` | 249 | 192 | 15 | 25 | 10 | 8 | 168 | 39 | 2 | 708 | 0 | 0 | 0 |
-| 2026-08-15 | `6a5dc585` | 254 | 195 | 15 | 25 | 10 | 7 | 161 | 39 | 2 | 708 | 0 | +5 | 0 |
-| 2026-08-15 | `dd2ac00d` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
-| 2026-08-15 | `d35ae516` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
-| 2026-08-15 | `67f39333` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
-| 2026-08-15 | `9bd40bd7` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
-| 2026-08-15 | `6beeb58e` | 255 | 196 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 733 | +25 | +1 | 0 |
-| 2026-08-15 | `07e3e6d1` | 255 | 196 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 733 | 0 | 0 | 0 |
-| 2026-08-15 | `5995edb0` | 255 | 196 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 733 | 0 | 0 | 0 |
-| 2026-08-15 | `477158b3` | 255 | 198 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 735 | +2 | 0 | 0 |
-| 2026-08-15 | `04a49fc9` | 255 | 199 | 15 | 38 | 18 | 6 | 161 | 41 | 2 | 735 | 0 | 0 | 0 |
-| 2026-08-15 | `3a75b031` | 255 | 200 | 15 | 38 | 18 | 6 | 161 | 41 | 2 | 736 | +1 | 0 | 0 |
-| 2026-08-15 | `9da23568` | 256 | 200 | 15 | 38 | 18 | 6 | 161 | 41 | 2 | 737 | +1 | +1 | 0 |
-| 2026-08-16 | `f5a32745` | 256 | 202 | 15 | 38 | 18 | 6 | 159 | 41 | 2 | 737 | 0 | 0 | 0 |
-| 2026-08-16 | `067cd52f` | 257 | 202 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 739 | +2 | +1 | 0 |
-| 2026-08-16 | `cd1f5436` | 259 | 201 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 740 | +1 | +2 | 0 |
-| 2026-08-16 | `31485623` | 262 | 203 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 745 | +5 | +3 | 0 |
-| 2026-08-16 | `e01afeea` | 262 | 203 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 745 | 0 | 0 | 0 |
-| 2026-08-16 | `d17b40fb` | 262 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 751 | +6 | 0 | 0 |
-| 2026-08-17 | `39e1a9ec` | 263 | 202 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 751 | 0 | +1 | 0 |
-| 2026-08-17 | `1161e54c` | 263 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 752 | +1 | 0 | 0 |
-| 2026-08-17 | `5ac8797e` | 263 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 752 | 0 | 0 | 0 |
-| 2026-08-17 | `aeb7ce20` | 263 | 203 | 11 | 50 | 19 | 6 | 159 | 41 | 2 | 754 | +2 | 0 | 0 |
-| 2026-08-17 | `e003ea13` | 267 | 204 | 5 | 50 | 19 | 6 | 160 | 41 | 2 | 754 | 0 | +4 | 0 |
+| 2026-07-14 | `ad6526da` | 197 | 58 | 14 | 28 | 3 | 6 | 194 | 39 | 2 | 541 | — | — | 0 |
+| 2026-07-14 | `ccbddcf8` | 197 | 58 | 14 | 28 | 3 | 6 | 194 | 39 | 2 | 541 | 0 | 0 | 0 |
+| 2026-08-04 | `31f5b5f7` | 198 | 61 | 14 | 27 | 3 | 6 | 191 | 39 | 2 | 541 | 0 | +1 | 0 |
+| 2026-08-04 | `0d72292e` | 198 | 61 | 14 | 30 | 3 | 6 | 188 | 39 | 2 | 541 | 0 | 0 | 0 |
+| 2026-08-04 | `ff3676b0` | 199 | 60 | 14 | 30 | 3 | 6 | 188 | 39 | 2 | 541 | 0 | +1 | 0 |
+| 2026-08-04 | `3573106d` | 199 | 66 | 14 | 30 | 3 | 6 | 183 | 39 | 2 | 542 | +1 | 0 | 0 |
+| 2026-08-04 | `a97e0bf7` | 205 | 67 | 14 | 25 | 3 | 6 | 183 | 39 | 2 | 544 | +2 | +6 | 0 |
+| 2026-08-11 | `5902e0aa` | 231 | 83 | 13 | 21 | 4 | 6 | 175 | 39 | 2 | 574 | +30 | +26 | 19 |
+| 2026-08-13 | `ee1d92bf` | 232 | 83 | 13 | 21 | 4 | 6 | 175 | 39 | 2 | 575 | +1 | +1 | 0 |
+| 2026-08-13 | `7db7f650` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-13 | `5eaa6752` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-13 | `3022b4b3` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-13 | `25fba751` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-14 | `f30366ad` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-14 | `0a1860c0` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-14 | `3c764ff0` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-14 | `bb884fdc` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-14 | `4feb0ed5` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
+| 2026-08-14 | `c692886a` | 235 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 578 | +3 | +3 | 0 |
+| 2026-08-14 | `eb1129f2` | 235 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 578 | 0 | 0 | 0 |
+| 2026-08-14 | `cb9225bb` | 236 | 85 | 13 | 20 | 10 | 6 | 167 | 39 | 2 | 578 | 0 | +1 | 0 |
+| 2026-08-14 | `d5499591` | 237 | 88 | 13 | 18 | 10 | 6 | 165 | 39 | 2 | 578 | 0 | +1 | 0 |
+| 2026-08-14 | `3efca761` | 239 | 88 | 13 | 18 | 10 | 6 | 165 | 39 | 2 | 580 | +2 | +2 | 0 |
+| 2026-08-14 | `489d4225` | 240 | 88 | 13 | 18 | 10 | 6 | 164 | 39 | 2 | 580 | 0 | +1 | 0 |
+| 2026-08-14 | `ff1f49e3` | 240 | 88 | 13 | 18 | 10 | 6 | 164 | 39 | 2 | 580 | 0 | 0 | 0 |
+| 2026-08-14 | `5184145e` | 240 | 88 | 13 | 23 | 10 | 6 | 160 | 39 | 2 | 581 | +1 | 0 | 0 |
+| 2026-08-14 | `85140ca7` | 240 | 89 | 13 | 23 | 10 | 6 | 159 | 39 | 2 | 581 | 0 | 0 | 0 |
+| 2026-08-15 | `6a5dc585` | 244 | 92 | 13 | 23 | 10 | 6 | 152 | 39 | 2 | 581 | 0 | +4 | 0 |
+| 2026-08-15 | `dd2ac00d` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
+| 2026-08-15 | `d35ae516` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
+| 2026-08-15 | `67f39333` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
+| 2026-08-15 | `9bd40bd7` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
+| 2026-08-15 | `6beeb58e` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | +21 | +1 | 0 |
+| 2026-08-15 | `07e3e6d1` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | 0 | 0 | 0 |
+| 2026-08-15 | `5995edb0` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | 0 | 0 | 0 |
+| 2026-08-15 | `477158b3` | 245 | 94 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 604 | +2 | 0 | 0 |
+| 2026-08-15 | `04a49fc9` | 245 | 95 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 604 | 0 | 0 | 0 |
+| 2026-08-15 | `3a75b031` | 245 | 96 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 605 | +1 | 0 | 0 |
+| 2026-08-15 | `9da23568` | 246 | 96 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 606 | +1 | +1 | 0 |
+| 2026-08-16 | `f5a32745` | 246 | 97 | 13 | 34 | 17 | 5 | 151 | 41 | 2 | 606 | 0 | 0 | 0 |
+| 2026-08-16 | `067cd52f` | 247 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 608 | +2 | +1 | 0 |
+| 2026-08-16 | `cd1f5436` | 249 | 96 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 609 | +1 | +2 | 0 |
+| 2026-08-16 | `31485623` | 252 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 613 | +4 | +3 | 0 |
+| 2026-08-16 | `e01afeea` | 252 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 613 | 0 | 0 | 0 |
+| 2026-08-16 | `d17b40fb` | 252 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 618 | +5 | 0 | 0 |
+| 2026-08-17 | `39e1a9ec` | 253 | 96 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 618 | 0 | +1 | 0 |
+| 2026-08-17 | `1161e54c` | 253 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 619 | +1 | 0 | 0 |
+| 2026-08-17 | `5ac8797e` | 253 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 619 | 0 | 0 | 0 |
+| 2026-08-17 | `aeb7ce20` | 253 | 97 | 10 | 44 | 18 | 5 | 151 | 41 | 2 | 621 | +2 | 0 | 0 |
+| 2026-08-17 | `e003ea13` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | +4 | 0 |
+| 2026-08-17 | `23900672` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
+| 2026-08-17 | `03e494c8` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
+| 2026-08-18 | `ad4b35c8` | 257 | 101 | 1 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
+| 2026-08-19 | `528d2a8d` | 260 | 101 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 623 | +2 | +3 | 0 |
+| 2026-08-19 | `f8c294ef` | 260 | 102 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 624 | +1 | 0 | 0 |
+| 2026-08-19 | `6e4af19c` | 260 | 102 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 624 | 0 | 0 | 0 |
+| 2026-08-19 | `c006c9a5` | 264 | 110 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 624 | 0 | +4 | 0 |
+| 2026-08-19 | `80f9e186` | 265 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 624 | 0 | +1 | 0 |
+| 2026-08-19 | `5b40f751` | 266 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 625 | +1 | +1 | 0 |
+| 2026-08-19 | `45646867` | 267 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 626 | +1 | +1 | 0 |
+| 2026-08-20 | `f5429ecb` | 267 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 626 | 0 | 0 | 0 |
+| 2026-08-20 | `8b9af781` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
+| 2026-08-21 | `d728f134` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
+| 2026-08-23 | `e5766cb8` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 69 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 83 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -229,48 +243,48 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 
 ### Movement by area
 
-| Area | Nodes then | Nodes now | Shipped then | Shipped now | Shipped added |
+| Area | Units then | Units now | Shipped then | Shipped now | Shipped added |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 17 | 34 | 8 | 18 | +10 |
-| Authentication, Access Control & Encryption | 30 | 31 | 13 | 13 | 0 |
-| Calendar and Rules-Based Docketing | 8 | 13 | 0 | 5 | +5 |
-| Communications Layer | 19 | 21 | 2 | 3 | +1 |
-| Community & Feedback Forum | 11 | 11 | 0 | 0 | 0 |
-| Conflicts Check | 9 | 9 | 1 | 5 | +4 |
-| Core Domain — Directory, Matters & Locations | 58 | 74 | 21 | 32 | +11 |
-| Custodian (Safe Custody) | 10 | 12 | 0 | 6 | +6 |
-| Design System, UI Consistency & Design Quality | 20 | 20 | 12 | 12 | 0 |
-| Discovery (e-discovery) | 20 | 26 | 3 | 6 | +3 |
-| Document Automation | 8 | 9 | 0 | 3 | +3 |
-| Documents | 115 | 115 | 59 | 61 | +2 |
-| Exhibits and Exhibit Lists | — | 9 | — | 0 | 0 |
-| Financial Core | 55 | 69 | 8 | 19 | +11 |
-| Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
-| Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
-| Maintenance Agents | 12 | 12 | 0 | 2 | +2 |
-| Notifications | 15 | 16 | 0 | 2 | +2 |
-| Observability & Diagnostics | 24 | 24 | 11 | 11 | 0 |
-| Payments | 9 | 10 | 0 | 0 | 0 |
-| Performance & Concurrency | 13 | 13 | 6 | 6 | 0 |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 82 | 82 | 30 | 31 | +1 |
-| Client Portal | 16 | 16 | 0 | 0 | 0 |
-| Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
-| Release Channels | 9 | 9 | 7 | 7 | 0 |
-| Reports | 11 | 11 | 0 | 1 | +1 |
-| Self-Serve Provisioning and Entitlements | — | 9 | — | 1 | +1 |
-| Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
-| Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
-| Translation Services | — | 7 | — | 0 | 0 |
+| AI & Inference | 14 | 29 | 7 | 17 | +10 |
+| Authentication, Access Control & Encryption | 24 | 26 | 12 | 13 | +1 |
+| Calendar and Rules-Based Docketing | 6 | 11 | 0 | 5 | +5 |
+| Communications Layer | 15 | 16 | 2 | 4 | +2 |
+| Community & Feedback Forum | 10 | 10 | 0 | 0 | 0 |
+| Conflicts Check | 7 | 7 | 1 | 4 | +3 |
+| Core Domain — Directory, Matters & Locations | 43 | 58 | 20 | 32 | +12 |
+| Custodian (Safe Custody) | 9 | 11 | 0 | 6 | +6 |
+| Design System, UI Consistency & Design Quality | 15 | 15 | 11 | 11 | 0 |
+| Discovery (e-discovery) | 15 | 22 | 2 | 8 | +6 |
+| Document Automation | 7 | 9 | 0 | 3 | +3 |
+| Documents | 97 | 97 | 58 | 63 | +5 |
+| Exhibits and Exhibit Lists | — | 8 | — | 0 | 0 |
+| Financial Core | 42 | 54 | 8 | 17 | +9 |
+| Client Intake / CRM | 6 | 6 | 0 | 0 | 0 |
+| Integrations & Plugins | 41 | 41 | 16 | 16 | 0 |
+| Maintenance Agents | 10 | 10 | 0 | 2 | +2 |
+| Notifications | 12 | 14 | 0 | 3 | +3 |
+| Observability & Diagnostics | 20 | 20 | 11 | 11 | 0 |
+| Payments | 8 | 9 | 0 | 0 | 0 |
+| Performance & Concurrency | 11 | 11 | 6 | 6 | 0 |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 66 | 66 | 30 | 31 | +1 |
+| Client Portal | 14 | 14 | 0 | 0 | 0 |
+| Product Updates & User-Facing Documentation | 14 | 14 | 2 | 2 | 0 |
+| Release Channels | 8 | 8 | 7 | 7 | 0 |
+| Reports | 10 | 10 | 0 | 1 | +1 |
+| Self-Serve Provisioning and Entitlements | — | 7 | — | 1 | +1 |
+| Settings & Configuration | 14 | 14 | 4 | 4 | 0 |
+| Tasks and Workflows / Matter Plans | 3 | 3 | 0 | 0 | 0 |
+| Translation Services | — | 6 | — | 0 | 0 |
 
-**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+11), Financial
-Core (+11), AI & Inference (+10). **15 of 30 areas have shipped nothing in that time**:
-Authentication, Access Control & Encryption, Community & Feedback Forum, Design System, UI
-Consistency & Design Quality, Exhibits and Exhibit Lists, Client Intake / CRM, Integrations &
-Plugins, Observability & Diagnostics, Payments, Performance & Concurrency, Client Portal, Product
-Updates & User-Facing Documentation, Release Channels, Settings & Configuration, Tasks and Workflows
-/ Matter Plans, Translation Services. An area standing still here has not necessarily been idle — a
-node moves in this table only when it reaches `shipped`, so work that went from nothing to `partial`
-shows up in the nodes columns and not in this one.
+**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+12), AI &
+Inference (+10), Financial Core (+9). **14 of 30 areas have shipped nothing in that time**:
+Community & Feedback Forum, Design System, UI Consistency & Design Quality, Exhibits and Exhibit
+Lists, Client Intake / CRM, Integrations & Plugins, Observability & Diagnostics, Payments,
+Performance & Concurrency, Client Portal, Product Updates & User-Facing Documentation, Release
+Channels, Settings & Configuration, Tasks and Workflows / Matter Plans, Translation Services. An
+area standing still here has not necessarily been idle — a node moves in this table only when it
+reaches `shipped`, so work that went from nothing to `partial` shows up in the units columns and not
+in this one.
 
 ## Waiting on you
 

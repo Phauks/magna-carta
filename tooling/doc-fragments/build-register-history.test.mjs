@@ -69,7 +69,46 @@ describe("reading the ledger out of git", () => {
     expect(history.snapshots).toHaveLength(2);
     expect(history.snapshots.map((snapshot) => snapshot.total)).toEqual([1, 2]);
     expect(history.snapshots[1].statuses).toMatchObject({ shipped: 1, planned: 1 });
-    expect(history.snapshots[1].areas).toEqual([{ name: "trust.md", total: 2, shipped: 1 }]);
+    expect(history.snapshots[1].areas).toEqual([
+      { name: "trust.md", total: 2, shipped: 1, units: 2, unitsShipped: 1 },
+    ]);
+  });
+
+  it("rebuilds over a file written by an older format, which is the one thing that error asks for", () => {
+    // parseHistory refuses a foreign format with "rebuild it from scratch". Reading the committed
+    // file on the rebuild path made that instruction impossible to follow: the rebuild died on the
+    // same read, and the series stayed frozen at whatever the last compatible build left. A rebuild
+    // recomputes every row from git and needs nothing on disk, so nothing on disk may stop it.
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    writeFileSync(
+      file,
+      JSON.stringify({ format: 0, generatedBy: "an older build", snapshots: [] }),
+    );
+
+    expect(() => updateHistory({ root, file })).toThrow(/format 0/);
+
+    const { history } = updateHistory({ root, file, rebuild: true });
+    expect(history.snapshots).toHaveLength(1);
+    expect(history.snapshots[0].units).toBe(1);
+  });
+
+  it("excludes a roll-up parent from the unit counts at every past commit, not only today", () => {
+    // `trust` is a parent the moment `trust.ledger` exists beneath it — hierarchy is read off the
+    // dotted id, so the reconstruction decides it from the ledger AS IT STOOD rather than from the
+    // shape the ledger has now. Without that, a node that became a parent later would be counted as
+    // a unit of work in every snapshot before it did.
+    commitLedger("parent arrives", {
+      "trust.md": area("Trust", node("trust", "partial"), node("trust.ledger", "shipped")),
+    });
+
+    const { history } = updateHistory({ root, file });
+    const last = history.snapshots.at(-1);
+    expect(last.total).toBe(2);
+    expect(last.units).toBe(1);
+    expect(last.unitStatuses).toMatchObject({ shipped: 1, partial: 0 });
+    expect(last.areas).toEqual([
+      { name: "trust.md", total: 2, shipped: 1, units: 1, unitsShipped: 1 },
+    ]);
   });
 
   it("gives no row to a commit that touched only the ledger's README, which holds no node", () => {
