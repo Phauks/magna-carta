@@ -607,7 +607,7 @@ them the same day. Everything the section held is now confirmed, with one new fa
 - `magna-carta-convert`: **confirmed real.** Connected to Workers Builds on `release`, root
   `apps/convert-worker`, watch paths covering both container images; latest build green
   (2026-08-21, from `19d02cf`); the deployed script carries `RASTER_ENGINE ->
-  RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
+RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
   `v2`. **The `conversions/` R2 lifecycle rule is NOT there** — the platform files bucket carries
   exactly two rules (`bundles/` at seven days, incomplete-multipart abort at seven days), so that
   dashboard step moves back to open, on the LibreOffice entry above. Nothing expires under
