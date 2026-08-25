@@ -198,13 +198,12 @@ await check(
 
 await check("I3", "Hashes recompute on open rather than reciting the stored digest", async () => {
   await page.locator('#inspector [data-instab="hashes"]').click();
-  const during = await page.locator("#hashList").innerText();
-  if (!during.includes("digesting them again")) return false;
-  await page.waitForTimeout(1200);
-  // The recomputed digest states itself. "matches ingest" was struck: a hash that is recomputed on
-  // open needs no provenance caption to be believed.
+  // Recompute means the values are NOT on screen at open: every algorithm row is pending
+  // (I45's presentation), and the digests arrive from the recompute, not from storage.
+  if ((await page.locator("#hashList .pendingval").count()) !== 3) return false;
+  await page.waitForTimeout(1700);
   const after = await page.locator("#hashList").innerText();
-  return !after.includes("digesting them again") && /[0-9a-f]{16}/i.test(after);
+  return (await page.locator("#hashList .pendingval").count()) === 0 && /[0-9a-f]{16}/i.test(after);
 });
 
 await check(
@@ -1255,12 +1254,22 @@ await check(
     await page.mouse.move(4, 4);
     await page.waitForTimeout(120);
     const resting = await cell.evaluate((el) => getComputedStyle(el).backgroundColor);
-    // The unit encloses both the label and the filter control.
+    // The unit encloses both the label and the filter control. Measured with
+    // getBoundingClientRect, not boundingBox: at rest the filter button is invisible with its
+    // space reserved (L30), and boundingBox returns null for an invisible element — the reserved
+    // box is exactly the geometry this ruling is about.
+    const rect = (loc) =>
+      loc.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      });
     const [cellBox, labelBox, filterBox] = [
-      await cell.boundingBox(),
-      await th.locator(".sortbtn").boundingBox(),
-      await th.locator(".filterbtn").boundingBox(),
+      await rect(cell),
+      await rect(th.locator(".sortbtn")),
+      await rect(th.locator(".filterbtn")),
     ];
+    // A collapsed box would satisfy "enclosed" vacuously; the reserved space must be real.
+    if (filterBox.width < 8 || filterBox.height < 8) return false;
     const encloses = (outer, inner) =>
       inner.x >= outer.x - 1 &&
       inner.x + inner.width <= outer.x + outer.width + 1 &&
@@ -1651,15 +1660,20 @@ await check("A17", "Pinning keeps the menu open, and the item restates itself", 
 });
 
 await check(
-  "L39",
-  "The footer scale control grows previews and text, from the keyboard",
+  "L39b",
+  "The scale control: tooltip for a name, no text label, 50-200%, keyboard-operable",
   async () => {
     await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(300);
     const slider = page.locator("#fmScale");
     if ((await slider.count()) !== 1) return false;
+    // The accessible name stays; the visible text label is gone; the tooltip carries it.
     if (!((await slider.getAttribute("aria-label")) ?? "").length) return false;
-    if (!(await page.locator('.pagefoot label[for="fmScale"]').count())) return false;
+    if (!((await slider.getAttribute("title")) ?? "").length) return false;
+    if ((await page.locator('.pagefoot label[for="fmScale"]').count()) !== 0) return false;
+    // The widened range, exactly as ruled.
+    if ((await slider.getAttribute("min")) !== "50") return false;
+    if ((await slider.getAttribute("max")) !== "200") return false;
     await page.locator('.tnode[data-tree="sitephotos"]').first().click();
     await waitForAggregates();
     const tile = page.locator("#iconGrid .tile").first();
@@ -1978,44 +1992,61 @@ await check(
   },
 );
 
-await check("N22b", "A history row leads to its document, wherever it now lives", async () => {
-  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(300);
-  await page.locator('[data-view="history"]').click();
-  await page.waitForTimeout(150);
-  await page
-    .locator("#rows tr[data-hist]")
-    .filter({ hasText: "Settlement Demand" })
-    .first()
-    .click();
-  await page.waitForTimeout(200);
-  // It went to the file: browse, its folder, selected, inspector on it.
-  if ((await page.locator('#rows tr[data-key="d:9"][aria-selected="true"]').count()) !== 1)
-    return false;
-  if (!(await page.locator("#inspector").innerText()).includes("Settlement Demand")) return false;
-  // A deleted document's row leads to Deleted Files.
-  await page.locator('[data-view="history"]').click();
-  await page.waitForTimeout(150);
-  await page
-    .locator("#rows tr[data-hist]")
-    .filter({ hasText: "Draft Settlement Outline" })
-    .first()
-    .click();
-  await page.waitForTimeout(200);
-  if (!/Deleted Files/.test(await page.locator("#crumbs").innerText())) return false;
-  if ((await page.locator('#rows tr[data-key="x:901"][aria-selected="true"]').count()) !== 1)
-    return false;
-  // Right-click carries scoped actions, nothing inert.
-  await page.locator('[data-view="history"]').click();
-  await page.waitForTimeout(150);
-  await page.locator("#rows tr[data-hist]").first().click({ button: "right" });
-  const reveal = await page.locator('#ctx [data-hcmd="reveal"]').count();
-  const deadOnes = await page
-    .locator("#ctx button:disabled")
-    .evaluateAll((bs) => bs.map((b) => (b.title ?? "").length > 0));
-  await page.keyboard.press("Escape");
-  return reveal === 1 && deadOnes.every(Boolean);
-});
+await check(
+  "N22c",
+  "Selecting a history row presents it in the panel; Reveal is what navigates",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    // The panel opens by its own button (I17); selection then feeds it.
+    await page.locator("#insBtn").click();
+    await page.locator('[data-view="history"]').click();
+    await page.waitForTimeout(150);
+    await page
+      .locator("#rows tr[data-hist]")
+      .filter({ hasText: "Settlement Demand" })
+      .first()
+      .click();
+    await page.waitForTimeout(200);
+    // Selecting does NOT navigate: still in the History list.
+    if (!/History/.test(await page.locator("#crumbs").innerText())) return false;
+    // The panel presents the event: what happened, when, who, from/to, the document.
+    const text = await page.locator("#inspector").innerText();
+    for (const needle of ["New Version", "R. Osei", "11", "12", "Settlement Demand Letter.docx"]) {
+      if (!text.includes(needle)) return false;
+    }
+    // Reveal in the entry view is the explicit way out: file selected, panel following.
+    await page.locator('#inspector [data-hact="reveal"]').click();
+    await page.waitForTimeout(250);
+    if ((await page.locator('#rows tr[data-key="d:9"][aria-selected="true"]').count()) !== 1)
+      return false;
+    if (!(await page.locator("#inspector").innerText()).includes("Settlement Demand")) return false;
+    // The deleted-item path navigates too, via the explicit right-click Reveal.
+    await page.locator('[data-view="history"]').click();
+    await page.waitForTimeout(150);
+    await page
+      .locator("#rows tr[data-hist]")
+      .filter({ hasText: "Draft Settlement Outline" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx [data-hcmd="reveal"]').click();
+    await page.waitForTimeout(250);
+    if (!/Deleted Files/.test(await page.locator("#crumbs").innerText())) return false;
+    if ((await page.locator('#rows tr[data-key="x:901"][aria-selected="true"]').count()) !== 1)
+      return false;
+    // Double-click is the other explicit navigate gesture.
+    await page.locator('[data-view="history"]').click();
+    await page.waitForTimeout(150);
+    await page
+      .locator("#rows tr[data-hist]")
+      .filter({ hasText: "Settlement Demand" })
+      .first()
+      .dblclick();
+    await page.waitForTimeout(250);
+    if (/History/.test(await page.locator("#crumbs").innerText())) return false;
+    return (await page.locator('#rows tr[data-key="d:9"][aria-selected="true"]').count()) === 1;
+  },
+);
 
 await check("S15", "Open Full Results fits the dropdown, Search in on one line", async () => {
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
@@ -2411,6 +2442,160 @@ await check("I44", "Timestamps render in the viewer's local time, everywhere", a
   ok = ok && del.includes("12:12 PM") && !del.includes("4:12 PM");
   await ny.close();
   return ok;
+});
+
+// ---- Round eleven.
+
+await check(
+  "L45",
+  "Names cannot collide: creations disambiguate, renames refuse, copies number",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    // Two creations in the same place get distinct names.
+    await page.locator("#newFolderBtn").click();
+    await page.waitForTimeout(150);
+    await page.locator("#newFolderBtn").click();
+    await page.waitForTimeout(150);
+    const names = await page.locator('#rows tr[data-kind="folder"]').allInnerTexts();
+    if (names.filter((n) => n.includes("New Folder")).length !== 2) return false;
+    if (!names.some((n) => n.includes("New Folder (2)"))) return false;
+    // A deliberate rename into a collision is REFUSED, in place, naming the exact sibling.
+    await page
+      .locator('#rows tr[data-kind="folder"]')
+      .filter({ hasText: "New Folder (2)" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="rename"]').click();
+    const field = page.locator("#rows input.rename");
+    await field.fill("New Folder");
+    await field.press("Enter");
+    await page.waitForTimeout(120);
+    if ((await page.locator("#rows input.rename.invalid").count()) !== 1) return false;
+    const msg = await page.locator(".renameconflict").innerText();
+    if (!msg.includes("“New Folder”")) return false;
+    // Names compare case-insensitively: a case-only variant collides just the same,
+    // and the message still names the sibling by its real name.
+    await field.fill("new folder");
+    await field.press("Enter");
+    await page.waitForTimeout(120);
+    if ((await page.locator("#rows input.rename.invalid").count()) !== 1) return false;
+    if (!(await page.locator(".renameconflict").innerText()).includes("“New Folder”")) return false;
+    await page.locator("#rows input.rename").press("Escape");
+    await page.waitForTimeout(120);
+    // A colliding copy lands NUMBERED, per the platform's copy convention — never refused.
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    const complaint = page
+      .locator('#rows tr[data-key^="d:"]')
+      .filter({ hasText: "Complaint (as filed)" })
+      .first();
+    await complaint.click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="copy"]').click();
+    await complaint.click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="paste"]').click();
+    await page.waitForTimeout(200);
+    if (
+      (await page
+        .locator("#rows tr")
+        .filter({ hasText: "Complaint (as filed) (2).pdf" })
+        .count()) !== 1
+    )
+      return false;
+    // An upload into a collision disambiguates per the copy convention — and the
+    // comparison is case-insensitive there too, so a case-only variant still numbers.
+    await page.locator("#filePicker").setInputFiles({
+      name: "complaint (as filed).pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4 colliding upload"),
+    });
+    await page.waitForTimeout(200);
+    await page.locator('#newDocWash [data-upd="yes"]').click();
+    await page.waitForTimeout(250);
+    return (
+      (await page
+        .locator("#rows tr")
+        .filter({ hasText: "complaint (as filed) (3).pdf" })
+        .count()) === 1
+    );
+  },
+);
+
+await check(
+  "I45",
+  "Hash rows show pending before values, filling as each digest lands",
+  async () => {
+    await openFile("pleadings", "Complaint");
+    await page.locator('#inspector [data-instab="hashes"]').click();
+    // Every algorithm row is already on screen, value pending — expectation, not surprise.
+    const names = await page.locator("#hashList .hashline .k").allInnerTexts();
+    if (JSON.stringify(names.map((n) => n.trim())) !== JSON.stringify(["SHA-256", "SHA-1", "MD5"]))
+      return false;
+    if ((await page.locator("#hashList .pendingval").count()) !== 3) return false;
+    // They fill one at a time, not all at once.
+    await page.waitForTimeout(620);
+    const mid = await page.locator("#hashList .pendingval").count();
+    if (!(mid > 0 && mid < 3)) return false;
+    await page.waitForTimeout(1300);
+    if ((await page.locator("#hashList .pendingval").count()) !== 0) return false;
+    // A clean match stays SILENT (I28/I47) — no verdict blocks at all.
+    return (await page.locator("#hashList .hashalarm, #hashList .hashnorec").count()) === 0;
+  },
+);
+
+await check(
+  "I46",
+  "The Hashes tab scopes to any version, entered from Version History",
+  async () => {
+    await openFile("pleadings", "Motion to Compel");
+    await page.locator('#inspector [data-instab="versions"]').click();
+    const verify = page.locator('#inspector [data-ver="hashes:3"]');
+    if ((await verify.count()) !== 1) return false;
+    await verify.click();
+    await page.waitForTimeout(150);
+    // The tab switched and its scope field says WHICH version it is reading.
+    if (
+      (await page.locator('#inspector [data-instab="hashes"]').getAttribute("aria-selected")) !==
+      "true"
+    )
+      return false;
+    const head = await page.locator("#hashVerBtn").innerText();
+    if (!/Version\s*3/.test(head) || /Current/.test(head)) return false;
+    // Pending rows here too (I45), before this version's values land.
+    return (await page.locator("#hashList .pendingval").count()) === 3;
+  },
+);
+
+await check(
+  "I47",
+  "A recompute that differs from the ingest record shouts, naming both values",
+  async () => {
+    // Version 3 of the Motion is the tampered fixture; I46 just scoped the tab to it.
+    await page.waitForTimeout(1700);
+    const alarm = page.locator('#hashList .hashalarm[role="alert"]');
+    if ((await alarm.count()) !== 1) return false;
+    const text = await alarm.innerText();
+    if (!/Integrity warning/i.test(text)) return false;
+    if (!/chain-of-custody/i.test(text)) return false;
+    // BOTH values are named, and they differ.
+    const digests = await alarm.locator("dd.mono").allInnerTexts();
+    if (digests.length !== 2 || digests[0].trim() === digests[1].trim()) return false;
+    // The mismatching rows read as bad, not as quiet numbers.
+    return (await page.locator("#hashList .hashline.hashbad").count()) > 0;
+  },
+);
+
+await check("I48", "A version with no ingest record says so, never faking agreement", async () => {
+  // Version 1 of the Motion came through an older ingest path: no recorded digest.
+  await page.locator("#hashVerBtn").click();
+  await page.waitForTimeout(150);
+  await page.locator('#filterMenu [data-hashver="1"]').click();
+  await page.waitForTimeout(1700);
+  if (!/Version\s*1/.test(await page.locator("#hashVerBtn").innerText())) return false;
+  const note = page.locator("#hashList .hashnorec");
+  if ((await note.count()) !== 1) return false;
+  if (!/No ingest digest was recorded/.test(await note.innerText())) return false;
+  // No alarm — and no silence dressed up as agreement: the note IS the statement.
+  return (await page.locator("#hashList .hashalarm").count()) === 0;
 });
 
 await check(
