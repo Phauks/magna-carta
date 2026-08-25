@@ -12,7 +12,7 @@ import {
   short,
   unreadSnapshot,
 } from "./register-history.mjs";
-import { LEDGER_STATUSES, parseArea } from "./roadmap.mjs";
+import { LEDGER_STATUSES, parseArea, rollUpIds } from "./roadmap.mjs";
 
 // Reconstruct the feature ledger's counts at every past commit, into docs/register-history.json.
 // The ledger keeps no history of its own, but roadmap.d/ is version controlled, so the ledger at any
@@ -112,7 +112,14 @@ export function snapshotAt(root, { commit, date }) {
     }
   }
   if (problems.length > 0) return unreadSnapshot({ commit, date }, problems.join("; "));
-  return readSnapshot({ commit, date }, areas, LEDGER_STATUSES);
+  // Roll-up parents are decided across the WHOLE ledger, because hierarchy is read off the dotted id
+  // and a node in one area file can be the parent of a node in another.
+  return readSnapshot(
+    { commit, date },
+    areas,
+    LEDGER_STATUSES,
+    rollUpIds(areas.flatMap((area) => area.nodes)),
+  );
 }
 
 // What git said, in preference to the wrapper's "Command failed: git -C …" line, which names the
@@ -181,8 +188,6 @@ export function updateHistory({
   ref = "HEAD",
   rebuild = false,
 } = {}) {
-  const committed = loadHistory(file);
-  const existing = (rebuild ? null : committed) ?? emptyHistory();
   const idle = { added: [], dropped: [], retained: [], unavailable: null, offTrunk: null };
 
   // Off the trunk before anything is read, so no walk of the wrong line can reach the file. The
@@ -190,8 +195,14 @@ export function updateHistory({
   // recompute the series from a walk that cannot see most of it.
   const offTrunk = offTrunkReason(root, ref);
   if (offTrunk !== null) {
-    return { ...idle, history: committed ?? emptyHistory(), offTrunk };
+    return { ...idle, history: loadHistory(file) ?? emptyHistory(), offTrunk };
   }
+
+  // A REBUILD DOES NOT READ THE COMMITTED FILE. Every row is recomputed from git, so there is
+  // nothing on disk it needs — and reading it anyway is what made a format bump impossible to
+  // execute: parseHistory refuses a file written by a different format with "rebuild it from
+  // scratch", and the rebuild then failed on that same read before it could write anything.
+  const existing = (rebuild ? null : loadHistory(file)) ?? emptyHistory();
 
   let commits;
   try {

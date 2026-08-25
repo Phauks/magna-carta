@@ -425,6 +425,9 @@ describe("renderBuildRegister", () => {
 
 // One read commit of a two-node ledger. The letter stands in for a commit hash, which only has to be
 // forty hex characters to be a valid key.
+// A fixture snapshot with no roll-up parent in it, so the unit counts equal the whole-node counts
+// and the numbers in the assertions below stay readable. The parent case is exercised where the
+// reconstruction computes it, in build-register-history.test.mjs.
 function snapshot(letter, date, shipped, cut, areaCounts) {
   const statuses = Object.fromEntries(LEDGER_STATUSES.map((status) => [status, 0]));
   return {
@@ -433,7 +436,13 @@ function snapshot(letter, date, shipped, cut, areaCounts) {
     read: true,
     total: shipped + cut,
     statuses: { ...statuses, shipped, cut },
-    areas: areaCounts,
+    units: shipped + cut,
+    unitStatuses: { ...statuses, shipped, cut },
+    areas: areaCounts.map((area) => ({
+      ...area,
+      units: area.total,
+      unitsShipped: area.shipped,
+    })),
   };
 }
 

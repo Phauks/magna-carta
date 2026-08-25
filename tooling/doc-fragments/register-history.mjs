@@ -18,7 +18,13 @@
 
 // One record per commit, keyed by the full commit hash: the hash is the only identifier that stays
 // unambiguous as the series grows, and the short form is derived for display.
-export const HISTORY_FORMAT = 1;
+//
+// Format 2 records UNITS OF WORK beside the whole-node counts. Format 1 held only the latter, taken
+// before the register began separating roll-up parents from the things they roll up, so the series
+// and the standing above it were two different quantities and the document had to say so in three
+// places. Both are kept: a parent's status is a real claim about a subtree, so dropping it would
+// answer a question the old series could answer and the new one could not.
+export const HISTORY_FORMAT = 2;
 
 export function emptyHistory() {
   return { format: HISTORY_FORMAT, generatedBy: "vp run register-build", snapshots: [] };
@@ -47,6 +53,8 @@ export function serializeHistory(history) {
       fields.push(
         `      "total": ${JSON.stringify(snapshot.total)}`,
         `      "statuses": ${JSON.stringify(snapshot.statuses)}`,
+        `      "units": ${JSON.stringify(snapshot.units)}`,
+        `      "unitStatuses": ${JSON.stringify(snapshot.unitStatuses)}`,
         `      "areas": [\n${snapshot.areas
           .map(
             (area, position) =>
@@ -113,6 +121,11 @@ function checkSnapshot(snapshot) {
     if (typeof snapshot.total !== "number" || snapshot.statuses === undefined) {
       throw new HistoryError(`snapshot ${short(snapshot.commit)} is read but holds no counts`);
     }
+    if (typeof snapshot.units !== "number" || snapshot.unitStatuses === undefined) {
+      throw new HistoryError(
+        `snapshot ${short(snapshot.commit)} holds no unit counts — a format ${HISTORY_FORMAT} snapshot carries both, and a snapshot missing one half would render a level the standing above it contradicts`,
+      );
+    }
     return;
   }
   if (snapshot.read !== false) {
@@ -138,25 +151,39 @@ export function countStatuses(nodes, ledgerStatuses) {
   return counts;
 }
 
-// Per area, only the two numbers the movement table reads. Every ledger status per area per commit
-// would be nine times the file for a question nobody asked of the past.
-export function countAreas(areas) {
-  return areas.map((area) => ({
-    name: area.name,
-    total: area.nodes.length,
-    shipped: area.nodes.filter((node) => node.status === "shipped").length,
-  }));
+// Per area, only the numbers the movement table reads — the whole-node pair and the unit pair.
+// Every ledger status per area per commit would be nine times the file for a question nobody asked
+// of the past.
+//
+// `parents` is the id set of roll-up parents across the WHOLE ledger at this commit, not per area:
+// hierarchy is read off the dotted id, and an area's own nodes are not enough to decide whether one
+// of them has a child. The caller computes it once and passes it in, which is also what keeps this
+// module free of an import back into the renderer.
+export function countAreas(areas, parents = new Set()) {
+  return areas.map((area) => {
+    const units = area.nodes.filter((node) => !parents.has(node.id));
+    return {
+      name: area.name,
+      total: area.nodes.length,
+      shipped: area.nodes.filter((node) => node.status === "shipped").length,
+      units: units.length,
+      unitsShipped: units.filter((node) => node.status === "shipped").length,
+    };
+  });
 }
 
-export function readSnapshot({ commit, date }, areas, ledgerStatuses) {
+export function readSnapshot({ commit, date }, areas, ledgerStatuses, parents = new Set()) {
   const nodes = areas.flatMap((area) => area.nodes);
+  const units = nodes.filter((node) => !parents.has(node.id));
   return {
     commit,
     date,
     read: true,
     total: nodes.length,
     statuses: countStatuses(nodes, ledgerStatuses),
-    areas: countAreas(areas),
+    units: units.length,
+    unitStatuses: countStatuses(units, ledgerStatuses),
+    areas: countAreas(areas, parents),
   };
 }
 
@@ -224,8 +251,11 @@ function daysBetween(from, to) {
   );
 }
 
+// Every rate and every level in the summary is over UNITS OF WORK, the same quantity the standing
+// at the top of the register counts. The whole-node figures stay on the record for a reader who
+// wants them, and the two are never mixed inside one sentence.
 function shippedIn(snapshot) {
-  return snapshot.statuses.shipped ?? 0;
+  return snapshot.unitStatuses.shipped ?? 0;
 }
 
 function ratePerWeek(change, days) {
@@ -251,7 +281,7 @@ export function summariseHistory(history) {
     rows.push({
       ...snapshot,
       shippedChange: previous === null ? null : shippedIn(snapshot) - shippedIn(previous),
-      totalChange: previous === null ? null : snapshot.total - previous.total,
+      totalChange: previous === null ? null : snapshot.units - previous.units,
       unreadBefore: previous === null ? 0 : unreadSincePrevious,
     });
     previous = snapshot;
@@ -272,9 +302,13 @@ export function summariseHistory(history) {
     shippedFirst: shippedIn(first),
     shippedLast: shippedIn(last),
     shippedChange,
-    totalFirst: first.total,
-    totalLast: last.total,
-    totalChange: last.total - first.total,
+    totalFirst: first.units,
+    totalLast: last.units,
+    totalChange: last.units - first.units,
+    // The whole-node pair, kept beside the units so the section can say what the ledger holds in
+    // total without the two ever sharing a sentence with the shipped figures.
+    nodesFirst: first.total,
+    nodesLast: last.total,
     ratePerWeek: ratePerWeek(shippedChange, spanDays),
     sinceLastGap: sinceLastGap(history.snapshots),
     areas: areaMovement(first, last),
@@ -315,12 +349,12 @@ function areaMovement(first, last) {
     movement.push({
       name: area.name,
       presentThen: before !== null,
-      thenTotal: before === null ? null : before.total,
-      thenShipped: before === null ? null : before.shipped,
-      nowTotal: area.total,
-      nowShipped: area.shipped,
-      shippedChange: before === null ? area.shipped : area.shipped - before.shipped,
-      nodesAdded: before === null ? area.total : area.total - before.total,
+      thenTotal: before === null ? null : before.units,
+      thenShipped: before === null ? null : before.unitsShipped,
+      nowTotal: area.units,
+      nowShipped: area.unitsShipped,
+      shippedChange: before === null ? area.unitsShipped : area.unitsShipped - before.unitsShipped,
+      nodesAdded: before === null ? area.units : area.units - before.units,
     });
   }
   // An area file the ledger no longer has: kept, so the series does not quietly lose one.
@@ -330,8 +364,8 @@ function areaMovement(first, last) {
     movement.push({
       name: area.name,
       presentThen: true,
-      thenTotal: area.total,
-      thenShipped: area.shipped,
+      thenTotal: area.units,
+      thenShipped: area.unitsShipped,
       nowTotal: null,
       nowShipped: null,
       shippedChange: null,

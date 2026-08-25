@@ -393,11 +393,11 @@ is doing lives in [\`ROADMAP.md\`](../ROADMAP.md), and what each of the nine sta
 // that survive the reconstruction, and they are real.
 const PREAMBLE_WITH_HISTORY = `**Where we are, and where we have been.** The ledger records only each capability's current status,
 but it is version controlled, so its counts at every past commit are read back in
-[Where we have been](#where-we-have-been) below rather than estimated. Three limits hold: a snapshot
-shows when a node's **status** changed and never when the work happened; a capability added to
-the ledger late arrives as a jump in the total rather than as work done; and **the series counts
-every node, roll-up parents included**, where the standing above counts only units of work — so its
-totals are the larger pair of numbers and are not comparable to them.
+[Where we have been](#where-we-have-been) below rather than estimated — and over the same quantity
+the standing above counts: **units of work**, with roll-up parents excluded at every past commit
+exactly as they are excluded here. Two limits hold: a snapshot
+shows when a node's **status** changed and never when the work happened, and a capability added
+to the ledger late arrives as a jump in the total rather than as work done.
 [\`CHANGELOG.md\`](../CHANGELOG.md) is still the dated record of what shipped and when.`;
 
 const PREAMBLE_WITHOUT_HISTORY = `**This is where we are, not where we were.** The reconstruction of the ledger's past —
@@ -700,19 +700,19 @@ function renderHistory(summary, areas) {
 function renderMovement(summary) {
   const lines = [
     wrap(
-      "Every figure in this section counts **every node**, parents and children alike, because that" +
-        " is what the committed reconstruction holds — it was written before the register began" +
-        " counting units of work, and recomputing it means re-parsing the ledger at every past" +
-        " commit, which happens on the trunk. Read the trend, not the level: the direction and the" +
-        " rate are unaffected, and the totals are the ones that differ from" +
-        " [Where the program stands](#where-the-program-stands).",
+      "Every figure in this section counts **units of work**, the same quantity" +
+        " [Where the program stands](#where-the-program-stands) counts, so a level here is" +
+        " comparable to a level there. Roll-up parents are excluded at every past commit the same" +
+        " way they are excluded now — the reconstruction reads the hierarchy off the ledger as it" +
+        ` stood, not off today's. The whole-node totals are on the record too: ${summary.nodesFirst}` +
+        ` nodes on ${summary.first.date}, ${summary.nodesLast} on ${summary.last.date}.`,
     ),
     "",
     wrap(
       `**${signed(summary.shippedChange)} shipped since the ledger began** —` +
         ` ${summary.shippedFirst} on ${summary.first.date}, ${summary.shippedLast} on` +
         ` ${summary.last.date}, across ${summary.spanDays} days. The ledger itself grew by` +
-        ` ${signed(summary.totalChange)} nodes over the same period (${summary.totalFirst} to` +
+        ` ${signed(summary.totalChange)} units over the same period (${summary.totalFirst} to` +
         ` ${summary.totalLast}), so the share shipped went from` +
         ` ${share(summary.shippedFirst, summary.totalFirst)} to` +
         ` ${share(summary.shippedLast, summary.totalLast)} against a denominator that was moving too.`,
@@ -753,13 +753,13 @@ function renderMovement(summary) {
 // looking like one commit's work when nineteen commits are missing from the middle of it.
 function renderSnapshotTable(summary) {
   const rows = [
-    `| Date | Commit | ${LEDGER_STATUSES.map((status) => `\`${status}\``).join(" | ")} | Total | Nodes added | Shipped added | Unread before |`,
+    `| Date | Commit | ${LEDGER_STATUSES.map((status) => `\`${status}\``).join(" | ")} | Units | Units added | Shipped added | Unread before |`,
     `| --- | --- | ${LEDGER_STATUSES.map(() => "---:").join(" | ")} | ---: | ---: | ---: | ---: |`,
   ];
   for (const row of summary.rows) {
-    const counts = LEDGER_STATUSES.map((status) => row.statuses[status] ?? 0).join(" | ");
+    const counts = LEDGER_STATUSES.map((status) => row.unitStatuses[status] ?? 0).join(" | ");
     rows.push(
-      `| ${row.date} | \`${short(row.commit)}\` | ${counts} | ${row.total} |` +
+      `| ${row.date} | \`${short(row.commit)}\` | ${counts} | ${row.units} |` +
         ` ${row.totalChange === null ? "—" : signed(row.totalChange)} |` +
         ` ${row.shippedChange === null ? "—" : signed(row.shippedChange)} | ${row.unreadBefore} |`,
     );
@@ -815,7 +815,7 @@ function renderGaps(summary, total) {
 function renderAreaMovement(summary, areas) {
   const titles = new Map(areas.map((area) => [area.name, area.title]));
   const rows = [
-    "| Area | Nodes then | Nodes now | Shipped then | Shipped now | Shipped added |",
+    "| Area | Units then | Units now | Shipped then | Shipped now | Shipped added |",
     "| --- | ---: | ---: | ---: | ---: | ---: |",
   ];
   for (const area of summary.areas) {
@@ -843,7 +843,7 @@ function renderAreaMovement(summary, areas) {
             `${still.length === 0 ? "" : `: ${still.map((area) => titles.get(area.name) ?? area.name).join(", ")}`}.` +
             " An area standing still here has not necessarily been idle — a node moves in this table" +
             " only when it reaches `shipped`, so work that went from nothing to `partial` shows up in" +
-            " the nodes columns and not in this one.",
+            " the units columns and not in this one.",
     ),
   ].join("\n");
 }
