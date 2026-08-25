@@ -132,8 +132,15 @@ describe("recording what the counters saw", () => {
     );
     expect(recorded.sightingIds).toHaveLength(2);
 
-    const rows = await readCustodyStocktakeSightings(database, stocktakeId, 100);
+    const { rows, capped } = await readCustodyStocktakeSightings(database, stocktakeId, 100);
     expect(rows).toHaveLength(2);
+    expect(capped).toBe(false);
+    // A count that recorded more than the answer names says so. Two observations against a ceiling
+    // of one: a truncated count otherwise reads as a complete count that found fewer things, which
+    // is the difference between a register that balances and one that does not.
+    const clipped = await readCustodyStocktakeSightings(database, stocktakeId, 1);
+    expect(clipped.rows).toHaveLength(1);
+    expect(clipped.capped).toBe(true);
     expect(rows.find((row) => row.packet_id === inSafe.packetId)?.expected_location_id).toBe(safe);
     expect(rows.find((row) => row.packet_id === onShelf.packetId)?.expected_location_id).toBe(
       shelf,
@@ -156,7 +163,7 @@ describe("recording what the counters saw", () => {
       ],
       options,
     );
-    const [row] = await readCustodyStocktakeSightings(database, stocktakeId, 10);
+    const [row] = (await readCustodyStocktakeSightings(database, stocktakeId, 10)).rows;
     expect(row).toMatchObject({
       kind: "unregistered",
       packet_id: null,
@@ -204,7 +211,7 @@ describe("recording what the counters saw", () => {
       ),
     ).rejects.toThrow(/no such custody packet/);
     // A refused batch writes nothing at all — every handle is resolved before the batch is composed.
-    expect(await readCustodyStocktakeSightings(database, stocktakeId, 10)).toEqual([]);
+    expect((await readCustodyStocktakeSightings(database, stocktakeId, 10)).rows).toEqual([]);
   });
 
   it("refuses a batch larger than one request should compose", async () => {

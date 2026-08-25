@@ -264,6 +264,7 @@ export type UpdateAutoFileRuleRequest = {
 
 export type AutoFileDecisionList = {
     data: Array<AutoFileDecisionEntry>;
+    capped: boolean;
 };
 
 export type AutoFileDecisionEntry = {
@@ -15620,6 +15621,7 @@ export type CustodyListRemindersResponses = {
      */
     200: {
         data: Array<CustodyReminder>;
+        capped: boolean;
     };
 };
 
@@ -15920,6 +15922,7 @@ export type CustodyListSightingsResponses = {
      */
     200: {
         data: Array<CustodySighting>;
+        capped: boolean;
     };
 };
 

@@ -477,7 +477,7 @@ export const emailsResumeAutoFileRuleMutation = (options?: Partial<Options<Email
 export const emailsAutoFileDecisionsQueryKey = (options: Options<EmailsAutoFileDecisionsData>) => createQueryKey('emailsAutoFileDecisions', options);
 
 /**
- * Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped.
+ * Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped. `capped` is true when the message recorded more decisions than the answer names; it is about the read's own ceiling and never about the access filter, which removes rows silently by design.
  */
 export const emailsAutoFileDecisionsOptions = (options: Options<EmailsAutoFileDecisionsData>) => queryOptions<EmailsAutoFileDecisionsResponse, EmailsAutoFileDecisionsError, EmailsAutoFileDecisionsResponse, ReturnType<typeof emailsAutoFileDecisionsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -4051,7 +4051,7 @@ export const custodyCompleteReviewMutation = (options?: Partial<Options<CustodyC
 export const custodyListRemindersQueryKey = (options?: Options<CustodyListRemindersData>) => createQueryKey('custodyListReminders', options);
 
 /**
- * Everything the register is waiting on, in one list, oldest first: review dates that have come round and check-outs that have not come back. This is the single place those two are decided, so a reminder that arrives by any other route says the same thing this one does.
+ * What the register is waiting on, in one list, oldest first: review dates that have come round and check-outs that have not come back. This is the single place those two are decided, so a reminder that arrives by any other route says the same thing this one does. Each reason is capped rather than paged — the merge of the two has no single sort column a cursor could seek on — and `capped` is true when either reason has more due than the answer names.
  */
 export const custodyListRemindersOptions = (options?: Options<CustodyListRemindersData>) => queryOptions<CustodyListRemindersResponse, CustodyListRemindersError, CustodyListRemindersResponse, ReturnType<typeof custodyListRemindersQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -4203,7 +4203,7 @@ export const custodyGetStocktakeOptions = (options: Options<CustodyGetStocktakeD
 export const custodyListSightingsQueryKey = (options: Options<CustodyListSightingsData>) => createQueryKey('custodyListSightings', options);
 
 /**
- * Every observation recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed.
+ * The observations recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed. Capped at `limit` rather than paged — a count's observations are read against the reconciliation of the same count, and half a count reconciles to a wrong answer rather than a short one. `capped` is true when the count recorded more than the answer names.
  */
 export const custodyListSightingsOptions = (options: Options<CustodyListSightingsData>) => queryOptions<CustodyListSightingsResponse, CustodyListSightingsError, CustodyListSightingsResponse, ReturnType<typeof custodyListSightingsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

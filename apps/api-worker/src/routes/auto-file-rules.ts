@@ -38,6 +38,7 @@ import {
 import type { AppVariables, FirmContext } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { capped } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { readAutoFileDirectFilingPermitted } from "../emails/auto-file-policy.ts";
@@ -140,9 +141,7 @@ const AutoFileDecisionEntry = z
   })
   .openapi("AutoFileDecisionEntry");
 
-const AutoFileDecisionList = z
-  .object({ data: z.array(AutoFileDecisionEntry) })
-  .openapi("AutoFileDecisionList");
+const AutoFileDecisionList = capped(AutoFileDecisionEntry).openapi("AutoFileDecisionList");
 
 const AutoFileReviewEntry = z
   .object({
@@ -492,7 +491,10 @@ const decisionsRoute = defineOpenAPIRoute(decisionsMeta, {
     "Why this message is where it is: every automatic-filing decision recorded about it, newest " +
     "first, each with the rule responsible and the reasons in plain language. Decisions about a " +
     "matter the caller cannot access are absent entirely — no row and no count. A message no rule " +
-    "ever looked at has no decisions, which is a different answer from a rule having been stopped.",
+    "ever looked at has no decisions, which is a different answer from a rule having been stopped. " +
+    "`capped` is true when the message recorded more decisions than the answer names; it is about " +
+    "the read's own ceiling and never about the access filter, which removes rows silently by " +
+    "design.",
   request: {
     params: z.object({ emailMessageId: identifierPathParam("emailMessage", "emailMessageId") }),
   },
@@ -986,11 +988,15 @@ export function registerAutoFileRuleRoutes(
         });
       }
 
-      const decisions = await readAutoFileDecisionsForMessage(
+      // One row past the ceiling, purely to learn whether there was one. The extra row is discarded
+      // before anything else looks at it, so it can never reach the wall or the answer.
+      const read = await readAutoFileDecisionsForMessage(
         firm.firmDatabase,
         emailMessageId,
-        MESSAGE_DECISION_LIMIT,
+        MESSAGE_DECISION_LIMIT + 1,
       );
+      const decisionsCapped = read.length > MESSAGE_DECISION_LIMIT;
+      const decisions = read.slice(0, MESSAGE_DECISION_LIMIT);
       // Narrow the matters the decisions name BEFORE anything is rendered. A decision about a matter
       // the caller cannot open is dropped whole — it would otherwise name that matter's identity in a
       // read whose subject is a message the caller can legitimately see.
@@ -1038,7 +1044,7 @@ export function registerAutoFileRuleRoutes(
             createdAt: decision.createdAt,
           };
         });
-      return c.json({ data }, 200);
+      return c.json({ data, capped: decisionsCapped }, 200);
     },
   );
 

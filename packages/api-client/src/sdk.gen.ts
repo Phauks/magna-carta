@@ -224,7 +224,7 @@ export const emailsSuspendAutoFileRule = <ThrowOnError extends boolean = false>(
 export const emailsResumeAutoFileRule = <ThrowOnError extends boolean = false>(options: Options<EmailsResumeAutoFileRuleData, ThrowOnError>): RequestResult<EmailsResumeAutoFileRuleResponses, EmailsResumeAutoFileRuleErrors, ThrowOnError> => (options.client ?? client).post<EmailsResumeAutoFileRuleResponses, EmailsResumeAutoFileRuleErrors, ThrowOnError>({ url: '/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}/resume', ...options });
 
 /**
- * Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped.
+ * Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped. `capped` is true when the message recorded more decisions than the answer names; it is about the read's own ceiling and never about the access filter, which removes rows silently by design.
  */
 export const emailsAutoFileDecisions = <ThrowOnError extends boolean = false>(options: Options<EmailsAutoFileDecisionsData, ThrowOnError>): RequestResult<EmailsAutoFileDecisionsResponses, EmailsAutoFileDecisionsErrors, ThrowOnError> => (options.client ?? client).get<EmailsAutoFileDecisionsResponses, EmailsAutoFileDecisionsErrors, ThrowOnError>({ url: '/api/v1/emails/{emailMessageId}/auto-file-decisions', ...options });
 
@@ -1848,7 +1848,7 @@ export const custodyCompleteReview = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * Everything the register is waiting on, in one list, oldest first: review dates that have come round and check-outs that have not come back. This is the single place those two are decided, so a reminder that arrives by any other route says the same thing this one does.
+ * What the register is waiting on, in one list, oldest first: review dates that have come round and check-outs that have not come back. This is the single place those two are decided, so a reminder that arrives by any other route says the same thing this one does. Each reason is capped rather than paged — the merge of the two has no single sort column a cursor could seek on — and `capped` is true when either reason has more due than the answer names.
  */
 export const custodyListReminders = <ThrowOnError extends boolean = false>(options?: Options<CustodyListRemindersData, ThrowOnError>): RequestResult<CustodyListRemindersResponses, CustodyListRemindersErrors, ThrowOnError> => (options?.client ?? client).get<CustodyListRemindersResponses, CustodyListRemindersErrors, ThrowOnError>({ url: '/api/v1/custody/reminders', ...options });
 
@@ -1890,7 +1890,7 @@ export const custodyOpenStocktake = <ThrowOnError extends boolean = false>(optio
 export const custodyGetStocktake = <ThrowOnError extends boolean = false>(options: Options<CustodyGetStocktakeData, ThrowOnError>): RequestResult<CustodyGetStocktakeResponses, CustodyGetStocktakeErrors, ThrowOnError> => (options.client ?? client).get<CustodyGetStocktakeResponses, CustodyGetStocktakeErrors, ThrowOnError>({ url: '/api/v1/custody/stocktakes/{stocktakeId}', ...options });
 
 /**
- * Every observation recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed.
+ * The observations recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed. Capped at `limit` rather than paged — a count's observations are read against the reconciliation of the same count, and half a count reconciles to a wrong answer rather than a short one. `capped` is true when the count recorded more than the answer names.
  */
 export const custodyListSightings = <ThrowOnError extends boolean = false>(options: Options<CustodyListSightingsData, ThrowOnError>): RequestResult<CustodyListSightingsResponses, CustodyListSightingsErrors, ThrowOnError> => (options.client ?? client).get<CustodyListSightingsResponses, CustodyListSightingsErrors, ThrowOnError>({ url: '/api/v1/custody/stocktakes/{stocktakeId}/sightings', ...options });
 
