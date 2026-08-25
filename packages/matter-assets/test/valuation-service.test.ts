@@ -1,7 +1,7 @@
 import { resolveMatterAssetValueAsOf } from "@magna-carta/matter-assets/as-of";
 import { createMatterAsset } from "@magna-carta/matter-assets/asset-service";
 import { appendMatterAssetValuation } from "@magna-carta/matter-assets/valuation-service";
-import { readMatterAssetValuations } from "@magna-carta/matter-assets/valuation-statements";
+import { pageMatterAssetValuations } from "@magna-carta/matter-assets/valuation-statements";
 import { MatterAssetValidationError } from "@magna-carta/matter-assets/validation";
 import type { MatterAssetId } from "@magna-carta/identifiers/types";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -89,8 +89,32 @@ describe("the as-of read", () => {
     expect(resolved?.amountMinor).toBe(40000000);
     // Both rows are still on the record: a correction hides a figure from the READ, never from the
     // history a firm can be asked to account for.
-    const history = await readMatterAssetValuations(database, assetId);
-    expect(history).toHaveLength(2);
+    const history = await pageMatterAssetValuations(database, assetId);
+    expect(history.data).toHaveLength(2);
+    expect(history.nextCursor).toBeNull();
+  });
+
+  it("walks the whole history across pages without repeating or losing an assertion", async () => {
+    // Two share an as-of date, so the page boundary falls where the RECORDED instant decides. A
+    // cursor carrying only (as_of_date, id) would order those two by identifier and could hand the
+    // same one back on the next page.
+    await append("2026-01-01", 100001, "appraisal");
+    await append("2026-02-01", 100002, "appraisal");
+    await append("2026-02-01", 100003, "appraisal");
+    await append("2026-03-01", 100004, "appraisal");
+    await append("2026-04-01", 100005, "appraisal");
+
+    const seen: (number | null)[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page += 1) {
+      const built = await pageMatterAssetValuations(database, assetId, { cursor, pageSize: 2 });
+      seen.push(...built.data.map((row) => row.amount_minor));
+      if (built.nextCursor === null) break;
+      cursor = built.nextCursor;
+    }
+    expect(seen).toHaveLength(5);
+    expect(new Set(seen).size).toBe(5);
+    expect(seen[0]).toBe(100005);
   });
 
   it("reports an unvalued asset as unvalued rather than as zero", async () => {
@@ -131,7 +155,7 @@ describe("appending a valuation", () => {
 
   it("records the assertion date separately from the date the figure speaks to", async () => {
     await append("2026-03-14", 40000000, "appraisal");
-    const [row] = await readMatterAssetValuations(database, assetId);
+    const [row] = (await pageMatterAssetValuations(database, assetId)).data;
     expect(row?.as_of_date).toBe("2026-03-14");
     expect(row?.recorded_at).toBe(clock.now());
   });

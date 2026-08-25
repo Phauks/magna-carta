@@ -74,7 +74,7 @@ import {
   MAX_MATTER_ASSET_BATCH,
 } from "@magna-carta/matter-assets/types";
 import { MatterAssetValidationError } from "@magna-carta/matter-assets/validation";
-import { readMatterAssetValuations } from "@magna-carta/matter-assets/valuation-statements";
+import { pageMatterAssetValuations } from "@magna-carta/matter-assets/valuation-statements";
 import { appendMatterAssetValuation } from "@magna-carta/matter-assets/valuation-service";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -964,16 +964,18 @@ const listValuationsRoute = defineOpenAPIRoute(readMeta("listValuations", "matte
   method: "get",
   path: "/api/v1/matter-assets/{assetId}/valuations",
   description:
-    "The asset's whole value history, newest date first. Corrections are shown AS corrections, " +
-    "naming the entry they replace — a figure somebody corrected stays visible, because the record's " +
-    "worth in a dispute is that nothing could be quietly rewritten after the fact.",
-  request: { params: assetIdParam },
+    "The asset's whole value history, newest date first, a page at a time. Corrections are shown " +
+    "AS corrections, naming the entry they replace — a figure somebody corrected stays visible, " +
+    "because the record's worth in a dispute is that nothing could be quietly rewritten after the " +
+    "fact. Two assertions about the same date read newest-recorded first, which is what makes a " +
+    "correction the current figure.",
+  request: { params: assetIdParam, query: cursorQuery },
   responses: {
     200: {
       description: "The value history",
       content: {
         "application/json": {
-          schema: z.object({ data: z.array(ValuationDetail) }).openapi("MatterAssetValuationList"),
+          schema: paginated(ValuationDetail).openapi("MatterAssetValuationList"),
         },
       },
     },
@@ -1857,10 +1859,14 @@ export function registerMatterAssetRoutes(app: MatterAssetsApp, chokepoint: Chok
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { assetId } = c.req.valid("param");
-      const rows = await readMatterAssetValuations(firm.firmDatabase, assetId as MatterAssetId);
+      const { cursor } = c.req.valid("query");
+      const page = await pageMatterAssetValuations(firm.firmDatabase, assetId as MatterAssetId, {
+        cursor,
+      });
       return c.json(
         {
-          data: rows.map((row) => ({
+          nextCursor: page.nextCursor,
+          data: page.data.map((row) => ({
             id: row.id,
             assetId: row.asset_id,
             asOfDate: row.as_of_date,
