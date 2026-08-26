@@ -4,7 +4,7 @@
 **White-paper home:** _Financial Core — Time tracking_
 **Builds on:** [`2026-06-22-slice-3-1-time-tracking-design.md`](2026-06-22-slice-3-1-time-tracking-design.md) (the shipped backend) ·
 [`../research/2026-06-22-competitive-time-tracking-deep-dive.md`](../research/2026-06-22-competitive-time-tracking-deep-dive.md) ·
-[`../conventions/time-rulings.md`](../conventions/time-rulings.md) (the owner's standing time rulings — every one binds here) ·
+[`../conventions/time-tab-rulings.md`](../conventions/time-tab-rulings.md) (the owner's standing time rulings — every one binds here) ·
 [`2026-07-02-slice-0-7b-stage-1-app-shell-design.md`](2026-07-02-slice-0-7b-stage-1-app-shell-design.md) + [`2026-06-12-page-archetypes.md`](2026-06-12-page-archetypes.md) (the shell this surface lives in)
 **Answers:** time-rulings open questions **TP5** (the firm-level Timesheet week grid) and frames **TP3** (delegated entry) for decision.
 
