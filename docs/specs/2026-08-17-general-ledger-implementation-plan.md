@@ -204,6 +204,11 @@ through any path in this package.
 `accounts_payable` (liability) and `owners_equity` (equity) added to the role vocabulary in the
 extracted leaf, and to the `firm_account_role` DDL CHECK.
 
+**Do not start this task without reading
+[`2026-08-26-account-role-vocabulary-widening.md`](2026-08-26-account-role-vocabulary-widening.md).**
+The payments slice needs the same widening for two roles of its own and opens first; if it has already
+done the rebuild for all four, this task is an edit to `ACCOUNT_ROLES` and nothing else.
+
 **This is a CHECK widening on a table that holds data**, and it is the one place in this slice where
 that is unavoidable. `firm_account_role` is a small configuration table with at most one row per role,
 so the expand path is a **new table plus a data-copying migration plus a view-less cutover**, not an
