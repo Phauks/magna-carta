@@ -23,6 +23,15 @@ motivated the work: billing shipped and a firm cannot record being paid.
    `packages/billing/src/types.ts`. They resolve through the existing `firm_account_role` map and
    **refuse by name when unmapped**, exactly as `accounts_receivable` does. `merchant_fees` is unused
    in this stage and is added now because the map is configuration a firm sets once (gated on K8).
+
+   **The TypeScript array is not the constraint, and adding a role to it alone ships a role the
+   database refuses.** `firm_account_role` carries a DDL `CHECK` listing every permitted role by
+   name, and SQLite cannot widen one in place — so this step is a table rebuild with a data copy, not
+   an edit to a constant. The general-ledger slice needs the same widening for two more roles, and
+   doing it twice means rebuilding a table the first slice just rebuilt. Read
+   [`2026-08-26-account-role-vocabulary-widening.md`](2026-08-26-account-role-vocabulary-widening.md)
+   before starting this task: it recommends one widening for all four roles, ahead of both slices,
+   and names what has to be answered first.
 2. **Open the `payment` kind.** Remove `payment` from the refusal in
    `packages/billing/src/application.ts` and delete the `KINDS_WITH_A_WRITE_PATH` guard's comment
    about rails being a later slice. No schema change: the CHECK already admits the kind and
