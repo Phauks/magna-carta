@@ -5,7 +5,8 @@
 **Builds on:** [`2026-06-22-slice-3-1-time-tracking-design.md`](2026-06-22-slice-3-1-time-tracking-design.md) (the shipped timer backend: the per-timekeeper Durable Object) ·
 [`2026-08-25-personal-timesheet-design.md`](2026-08-25-personal-timesheet-design.md) (the three-place model — header = capture anywhere; this design grows that header surface up) ·
 [`../conventions/time-tab-rulings.md`](../conventions/time-tab-rulings.md) (the owner's standing time rulings — every one binds here, TT1 and TD6 most of all)
-**Mockup:** the timer-manager panel mockup (scratchpad `timer/timer-manager.html`), built to the same token vocabulary as The Timesheet mockup.
+**Mockup:** the timer-manager mockup (scratchpad `timer/timer-manager.html`), built to the same token vocabulary as The Timesheet mockup.
+**Rounds:** round one proposed a chip-anchored popover; the owner struck it (round two, verbatim): _"opening the time sheet should be a full modal, it is that important. this small fitting is not enough for the magnitude of this task. reorganize and try again. this really needs to be a table, so we can use table functionality. table is much better for mass data review and data entry."_ Everything below reflects that ruling: the chip opens a **full modal**, and the runs render as a **real table on the shared column machinery**. The model (§4), the chip (§6), the handoffs (§8), and the API deltas (§9) survived round two unchanged.
 
 ---
 
@@ -23,7 +24,7 @@ This grows up the header surface of the personal-timesheet design's three-place 
 | **`/time`** timesheet | Review and edit a period — all entries, correction, submission                              |
 | **Matter Time tab**   | The matter's record                                                                         |
 
-The timesheet design recorded "the chip never grows review affordances (no entry lists in the popover)." This design **revises that line deliberately, and narrowly**: the manager lists **timer runs** — capture-in-progress objects that exist nowhere else — plus a read-only tail of today's already-logged runs for continuity. It never grows edit, filter, or period-review machinery; a logged entry's row is a link out to `/time`, not an editing surface. The panel stays a capture surface; review stays a page.
+The timesheet design recorded "the chip never grows review affordances (no entry lists in the popover)." This design **revises that line deliberately**: the manager lists **timer runs** — capture-in-progress objects that exist nowhere else — plus a read-only tail of today's already-logged runs for continuity. The owner's round-two ruling then settled the magnitude: this is a **full modal with a real table**, sized for mass review and mass entry of the day's runs. The boundary that survives is the _object_, not the size: the manager works runs; a logged entry's row links out to `/time`, and entry editing, period review, and submission stay the timesheet's.
 
 ---
 
@@ -94,38 +95,39 @@ One **run** = one manager row = one prospective time entry. Pause/resume cycles 
 
 ---
 
-## 5. The manager panel
+## 5. The manager modal (round two — the owner's ruling)
 
-A popover anchored to the chip (elevation-3, ~400 px), three regions. The mockup renders all of this.
+Clicking the chip opens a **full modal** (owner ruling; supersedes round one's chip-anchored popover): wide (~1320 px, viewport-capped per the settled dialog rules — the table region scrolls, the modal's chrome is never pushed off), scrim behind, Escape and explicit close. Header: title, the day ("Today · Wed, Aug 26"), **Start a timer** (the `MatterPicker`; matterless start allowed — scratch). Footer: the honesty line (§5.5), **Log time without a timer**, **Open my timesheet**.
 
-### 5.1 Run rows (the live set)
+### 5.1 A real table, on the shared column machinery
 
-Ordered: the running row pinned first, then held runs by most recently touched. Each row shows:
+The runs render as a **table on the one table system** (the Docket's column machinery, which the Timesheet also adopts — the binding one-table ruling applies here): sortable columns with the in-header sort button and arrow; **in-header right-aligned filter controls** (hover-revealed funnel, active-filter accent treatment, set filters with per-value counts); **drag-to-resize grips** with double-click fit-to-widest; **drag-to-reorder** columns (drop lands before/after by which half was entered). A filter-clear control is always present in the toolbar, disabled with "No filters are applied" when idle; a filtered-empty table says why it is empty and hands over the way out. Table functionality is the point of the ruling: mass review and mass entry over the day's runs.
 
-- **Matter number + title** (`2026-0147 · Pemberton v. Hale Construction Co.`) — the owner's ruling that setting a time shows the matter number; title truncates, number never does. A scratch run shows **"No matter yet"** with the bind affordance in its place — honest, and the reason a scratch run cannot log until bound.
-- **Elapsed**, tabular numerals — ticking live on the running row, frozen on held rows. Beside it, the run's Info line (narrative so far), truncated, muted.
-- **State**, by the settled chip vocabulary (TS1's semantic tokens): running = accent dot pulsing; paused = quiet chip "Paused 10:12"; stopped-unlogged = **warning** chip "Stopped 12:40 — not logged". Timestamps are real times, never "just now" (file-manager rulings bind here).
-- **Actions** (no inert controls — every control acts or states why it cannot):
-  - Running row: **Pause**, **Stop & log**.
-  - Paused row: **Resume** (auto-pauses the running row — the button's title says so: "Resume — pauses Pemberton"), **Stop & log**.
-  - Stopped-unlogged row: **Log**, **Resume** (reopens the run's clock), **Discard** (confirm step; destructive).
-  - Scratch rows: **Set matter** (the `MatterPicker`) replaces Log until bound.
+**Columns** (default order): selection checkbox (anchored first) · **State** (the status-chip register: running = accent chip with pulsing dot; paused = quiet chip with its real timestamp "paused 10:12"; stopped-unlogged = warning chip "stopped 12:40 — not logged"; never "just now") · **Matter** (the number — the owner's setting-a-time-shows-the-matter-number ruling; a scratch run renders **"No matter yet"** as the inline bind affordance) · **Matter title** · **Note** (the narrative; becomes the entry's Info) · **Started** (real clock time; carried rows carry their date "Aug 25 · 15:50") · **Elapsed** (right-aligned tabular numerals, **live-ticking on the running row**) · **Actions** (anchored last).
 
-### 5.2 Carried over (unlogged runs from previous days)
+**Row actions** are a uniform icon set — resume / pause / stop-&-log / discard — every button present on every run row, enabled or **disabled-says-why** (the running row's resume: "Already running"; a held row's pause: "Not running — nothing to pause"; resume on a held row: "Resume — pauses 2026-0147"). Stop-&-log opens Log Time prefilled (§8); discard always asks first, naming the elapsed time it deletes.
 
-Runs stopped or paused on a previous day **must not vanish at midnight** — they are exactly the time most likely to be forgotten. A separated section above today's logged tail lists them with their **work date** ("Yesterday · Aug 25"), warning treatment, and the same Log / Resume / Discard actions — with one difference: **Resume on a previous day's run starts a new run for today on the same matter and narrative** rather than stretching one run across a date boundary (an entry belongs to one `work_date`). The section renders regardless of any period notion; it empties only by logging or discarding. No day-paging arrows: the panel's scope is "now, plus what still needs an answer," and `/time` owns the past.
+### 5.2 Mass entry in the table
 
-### 5.3 Logged today (the read-only tail)
+- **Inline note editing:** click a run's Note cell to edit it in place (Enter/blur saves, Escape cancels) — the note rides into Log Time as the Info, so a paused stack can be annotated without opening anything.
+- **Inline matter bind:** a scratch run's "No matter yet" cell opens the `MatterPicker` in place — bind without a dialog.
+- **Multi-select + bulk actions:** row checkboxes and a select-all; the toolbar becomes the bulk bar with **honest counts** — "3 selected · **Log 2 as drafts** · **Discard 3…** · 1 needs a matter". Bulk log commits only runs with a matter and a note, each at the firm rounding through its own idempotent stop-commit, and says exactly what it skipped and why — never a silent partial. Bulk discard confirms with the count and the **total elapsed time it would delete**.
 
-Today's already-committed timer runs, collapsed to quiet single lines: matter number, duration, Info, a Draft chip. **No actions** except the row linking into `/time` — editing is the timesheet's job. This is what makes the panel a truthful history of "where did today go" without becoming a review surface.
+### 5.3 Carried over (unlogged runs from previous days)
 
-### 5.4 The honesty line and the footer
+Runs stopped or paused on a previous day **must not vanish at midnight** — they are exactly the time most likely to be forgotten. A warning-tinted group row ("Carried over — not logged · Yesterday, Aug 25") separates them inside the same table; same columns, same actions, selectable for bulk cleanup — with one difference: **Resume on a previous day's run starts a new run for today on the same matter and note** rather than stretching one run across a date boundary (an entry belongs to one `work_date`). The group renders regardless of any period notion; it empties only by logging or discarding. No day-paging arrows: the modal's scope is "now, plus what still needs an answer," and `/time` owns the past.
 
-A one-line summation under the runs: **"Timed today 3.4 h · logged 1.1 h · not yet logged 2.3 h"** — server-computed when the API delta lands, and the unlogged figure is the nag (§7). Footer: **Start a timer** (with the `MatterPicker`; matterless start allowed — scratch), **Log time without a timer** (the global Log Time dialog), **Open my timesheet** (`/time`) — the same two footer links the timesheet design specified, plus start.
+### 5.4 Logged today (the read-only tail)
+
+Today's already-committed timer runs render as **rows of the same table** under a quiet group row ("Logged today · read-only — editing lives in my timesheet") — recorded as the designer's call between same-table rows and a separate section: one table keeps one column system, one scroll, and one sort vocabulary, and the group row carries the read-only honesty. Muted treatment, Draft status chip, duration in hours, no checkbox; the one action links into `/time`. This is what makes the modal a truthful history of "where did today go" without becoming an entry-editing surface.
+
+### 5.5 The honesty line
+
+One line in the modal's footer: **"Timed today 3.6 h · logged 1.1 h · not yet logged 2.5 h + 1.1 h carried over"** — server-computed when the API delta lands; the unlogged figure is the nag (§7), and carried-over time is named separately, never folded into today's total as if it happened today.
 
 ---
 
-## 6. Chip states
+## 6. Chip states (unchanged by round two — only what opens changed)
 
 | State                 | Chip renders                                                                                              |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -169,6 +171,7 @@ The single-run DO cannot host this surface. In dependency order:
 3. **Stop-commit addressing.** `stop-commit` takes `{ liveRunId }`; the derived idempotency key and entry handle already come from the run id, so the collapse-to-one-row property is untouched.
 4. **The logged tail read.** The timekeeper-day listing filtered by `source=timer` **with matter number + title** — a narrowing of the personal-timesheet design's range-listing delta (its API delta 1); build it as that delta plus a `source` filter, not as a sibling endpoint.
 5. **Carried-over resume** is client-composed (start a new run copying matter + narrative) — no new API.
+6. **Bulk log needs no batch endpoint**: it is N independent per-run stop-commits, each already idempotent on its own `liveRunId` (a mid-sequence failure leaves the remaining runs held, not half-committed) — honest counts are a client concern.
 
 Nothing here touches the WIP store's write path, rounding, rate resolution, or the entry lifecycle — a run commits through exactly the machinery that exists.
 
@@ -176,17 +179,17 @@ Nothing here touches the WIP store's write path, rounding, rate resolution, or t
 
 ## 10. Owner decisions
 
-| #   | Decision                                                                                                                                              | Recommendation                                                                                                                  |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| M1  | The model: held-run stack (switch pauses previous) vs commit-on-switch vs true concurrency                                                            | Held-run stack (§4); concurrency rejected outright; commit-per-switch remains available as a habit, never forced                |
-| M2  | Does the manager list today's **logged** runs (the read-only tail), revising the "no entry lists in the popover" line?                                | Yes — read-only, deep-linking to `/time`; it is what makes the panel honest about the whole day                                 |
-| M3  | Cap on held runs                                                                                                                                      | Soft cap (~8): past it, starting another asks the person to log or discard one first — a nag with a reason, not a hard refusal  |
-| M4  | May multiple **scratch** (unbound) runs be held at once?                                                                                              | Yes — refusing would push people back to not timing; the bind requirement at log already forces the reckoning                   |
-| M5  | Chip treatment for the unlogged count                                                                                                                 | Warning-token count beside the glyph (§6); never a red badge screaming over a normal workflow state                             |
-| M6  | Does Resume on a carried-over run start a fresh run for today (recommended) or reopen the old run across the date boundary?                           | Fresh run, same matter + narrative — one run, one `work_date`                                                                   |
-| M7  | Do manager rows link to the matter?                                                                                                                   | No (§8) — capture surface, not navigation; revisit if usage asks                                                                |
-| M8  | Rollout: does the plural-run DO migration ship with the manager, or does the manager v1 ride the single-run API (one running, nothing held)?          | Ship together — a manager over a single-run store is a popover with one row, and the silent-discard-on-start hazard stays open  |
-| M9  | Idle detection (the timer-over-lunch leak): client input-idle signal feeding `lastActivityAt`, with a Harvest-style keep / trim resolution on the row | Defer detection past v1; the run model and the DO's `lastActivityAt` + trim already accommodate it, so deferral costs no rework |
+| #   | Decision                                                                                                                                                                                                                                                                                | Recommendation                                                                                                                  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| M1  | The model: held-run stack (switch pauses previous) vs commit-on-switch vs true concurrency                                                                                                                                                                                              | Held-run stack (§4); concurrency rejected outright; commit-per-switch remains available as a habit, never forced                |
+| M2  | Does the manager list today's **logged** runs (the read-only tail)? _Revisited in round two: the modal-and-table ruling settles the surface's magnitude; what remains is confirming the tail and its placement as read-only rows of the one table (§5.4, the designer's recorded call)_ | Yes — read-only rows in the one table, deep-linking to `/time`; it is what makes the modal honest about the whole day           |
+| M3  | Cap on held runs                                                                                                                                                                                                                                                                        | Soft cap (~8): past it, starting another asks the person to log or discard one first — a nag with a reason, not a hard refusal  |
+| M4  | May multiple **scratch** (unbound) runs be held at once?                                                                                                                                                                                                                                | Yes — refusing would push people back to not timing; the bind requirement at log already forces the reckoning                   |
+| M5  | Chip treatment for the unlogged count                                                                                                                                                                                                                                                   | Warning-token count beside the glyph (§6); never a red badge screaming over a normal workflow state                             |
+| M6  | Does Resume on a carried-over run start a fresh run for today (recommended) or reopen the old run across the date boundary?                                                                                                                                                             | Fresh run, same matter + narrative — one run, one `work_date`                                                                   |
+| M7  | Do manager rows link to the matter?                                                                                                                                                                                                                                                     | No (§8) — capture surface, not navigation; revisit if usage asks                                                                |
+| M8  | Rollout: does the plural-run DO migration ship with the manager, or does the manager v1 ride the single-run API (one running, nothing held)?                                                                                                                                            | Ship together — a manager over a single-run store is a popover with one row, and the silent-discard-on-start hazard stays open  |
+| M9  | Idle detection (the timer-over-lunch leak): client input-idle signal feeding `lastActivityAt`, with a Harvest-style keep / trim resolution on the row                                                                                                                                   | Defer detection past v1; the run model and the DO's `lastActivityAt` + trim already accommodate it, so deferral costs no rework |
 
 ---
 
