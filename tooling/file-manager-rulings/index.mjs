@@ -393,12 +393,14 @@ await check("I27", "Document type can be set, and a new one added to the firm's 
 
 await check(
   "L27",
-  "Uploaded By and Location are columns, and Uploaded By names a person",
+  "Created By and Location are columns, and Created By names a person",
   async () => {
     await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(300);
     const heads = (await page.locator("#headRow th").allInnerTexts()).join(" ");
-    if (!heads.toLowerCase().includes("uploaded by")) return false;
+    // L48: an upload is an act of creation, so the column reads Created By.
+    if (!heads.toLowerCase().includes("created by")) return false;
+    if (heads.toLowerCase().includes("uploaded by")) return false;
     await page.locator("#colsBtn").click();
     const location = page.locator('#colsMenu input[data-col="location"]');
     if ((await location.count()) !== 1) return false;
@@ -1209,7 +1211,22 @@ await check(
     // The category words must be gone from the column everywhere. Case matters: the
     // categories were Title-case words, while "pdf" the extension is a correct cell.
     const cells = await page.locator("#rows td.ftype").allInnerTexts();
-    return !cells.some((c) => /^(Video|Archive|Word|Program|PDF)$/.test(c.trim()));
+    if (cells.some((c) => /^(Video|Archive|Word|Program|PDF)$/.test(c.trim()))) return false;
+    // L32b: the Convert flyout is a menu surface of the same fact, so it speaks
+    // extensions too — "To txt", never "To Plain Text"; "To docx", never "To Word".
+    const flyoutOf = async (needle) => {
+      const row = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: needle }).first();
+      await row.click({ button: "right" });
+      await page.locator("#ctx .subopen").filter({ hasText: "Convert" }).hover();
+      await page.waitForTimeout(150);
+      const text = await page.locator("#ctx .convpanel").innerText();
+      await page.keyboard.press("Escape");
+      return text;
+    };
+    const docxConv = await flyoutOf("Motion to Compel");
+    if (!/To txt/.test(docxConv) || /Plain Text/.test(docxConv)) return false;
+    const pdfConv = await flyoutOf("Complaint");
+    return /To docx/.test(pdfConv) && !/To Word/.test(pdfConv);
   },
 );
 
@@ -1276,6 +1293,17 @@ await check(
       inner.y >= outer.y - 1 &&
       inner.y + inner.height <= outer.y + outer.height + 1;
     if (!encloses(cellBox, labelBox) || !encloses(cellBox, filterBox)) return false;
+    // L34b: the filter control is the cell's right EDGE — label left, filter flush
+    // right, never a strange distance in the middle after the label.
+    if (Math.abs(cellBox.x + cellBox.width - (filterBox.x + filterBox.width)) > 1.5) return false;
+    if (Math.abs(labelBox.x - cellBox.x) > 1.5) return false;
+    // The unit still spans the whole header cell, so the one hover covers both.
+    const thBox = await rect(th);
+    const thPad = await th.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { l: parseFloat(s.paddingLeft), r: parseFloat(s.paddingRight) };
+    });
+    if (Math.abs(cellBox.width - (thBox.width - thPad.l - thPad.r)) > 1.5) return false;
     // Hovering the LABEL lights the unit…
     await th.locator(".sortbtn").hover();
     await page.waitForTimeout(100);
@@ -1448,15 +1476,17 @@ await check(
     await page.waitForTimeout(150);
     // The breadcrumb titles the view (N21), with no second heading.
     if (!/History/.test(await page.locator("#crumbs").innerText())) return false;
-    // The columns the owner named: time, action, file, from → to, who.
+    // The owner's columns, as revised in round twelve: time, action, file, From and To as
+    // their own columns (N26), and the actor as Source (N27).
     const heads = await page.locator("#headRow th").allInnerTexts();
     const labels = heads.map((h) => h.trim().toLowerCase());
     if (
-      !["time", "action", "file", "from / to", "who"].every((l) =>
+      !["time", "action", "file", "from", "to", "source"].every((l) =>
         labels.some((h) => h.startsWith(l)),
       )
     )
       return false;
+    if (labels.some((h) => h.includes("from / to"))) return false;
     const rows = page.locator("#rows tr");
     if ((await rows.count()) < 5) return false;
     // Newest first by default; sorting by Time flips it.
@@ -1905,12 +1935,12 @@ await check("A21", "Invoice_scan.pdf.exe renames to Invoice_scan.pdf, and it sti
   const renamed = page.locator('#rows tr[data-key="d:11"]');
   const text = await renamed.innerText();
   // The name lost its .exe, the extension column follows the NAME — and the finding does
-  // not vanish: a rename changes no bytes.
+  // not vanish: a rename changes no bytes. The Safety cell speaks the severity word (L47).
   return (
     text.includes("Invoice_scan.pdf") &&
     !text.includes(".exe") &&
     /\bpdf\b/.test(text) &&
-    /Type Mismatch/.test(text)
+    /\bError\b/.test(text)
   );
 });
 
@@ -2079,24 +2109,34 @@ await check("S16", "The indexing status is wired: the number moves, surfaces agr
   return pct2 > pct && label2.includes(String(pct2) + "%");
 });
 
-await check("S17", "Search Results joins the views family while a search is live", async () => {
-  if (!(await page.locator("#searchViewRow").isHidden())) return false; // no live search yet? it appears only with one
-  await page.locator("#searchInput").fill("Motion");
-  await page.waitForTimeout(150);
-  await page.locator("#openResults").click();
-  await page.waitForTimeout(150);
-  const rowVisible = await page.locator("#searchViewRow").isVisible();
-  const current = await page.locator("#searchViewRow").getAttribute("aria-current");
-  if (!rowVisible || current !== "true") return false;
-  if (!/Search Results/.test(await page.locator("#crumbs").innerText())) return false;
-  // Leaving restores the prior highlight; the row stays while the query lives.
-  await page.locator('.tnode[data-tree="pleadings"]').first().click();
-  await page.waitForTimeout(150);
-  return (
-    (await page.locator("#searchViewRow").getAttribute("aria-current")) === "false" &&
-    (await page.locator("#searchViewRow").isVisible())
-  );
-});
+await check(
+  "S17b",
+  "Search Results always sits in the rail, and an empty click is ready",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    // The row stands with no live search at all.
+    if (!(await page.locator("#searchViewRow").isVisible())) return false;
+    await page.locator("#searchViewRow").click();
+    await page.waitForTimeout(200);
+    if ((await page.locator("#searchViewRow").getAttribute("aria-current")) !== "true")
+      return false;
+    if (!/Search Results/.test(await page.locator("#crumbs").innerText())) return false;
+    // Never a dead click: the header field is focused and ready…
+    if ((await page.evaluate(() => document.activeElement?.id)) !== "resInput") return false;
+    // …and typing there searches at once.
+    await page.keyboard.type("Motion");
+    await page.waitForTimeout(250);
+    if ((await page.locator('#rows tr[data-key^="d:"]').count()) === 0) return false;
+    // Leaving keeps the row and drops the highlight.
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    await page.waitForTimeout(150);
+    return (
+      (await page.locator("#searchViewRow").getAttribute("aria-current")) === "false" &&
+      (await page.locator("#searchViewRow").isVisible())
+    );
+  },
+);
 
 await check(
   "N24",
@@ -2338,7 +2378,8 @@ await check("F13", "A safety re-run appends to the history and never blocks", as
   const text = await page.locator("#inspector .hist").innerText();
   // A still-flagged file stays flagged — and the prior entries are all still there.
   if (!/Re-scan flagged/i.test(text)) return false;
-  return (await page.locator('#rows tr[data-key="d:8"]').innerText()).includes("Flag");
+  // The row's Safety cell speaks the severity word (L47), so flagged reads Error.
+  return (await page.locator('#rows tr[data-key="d:8"]').innerText()).includes("Error");
 });
 
 await check(
@@ -2596,6 +2637,497 @@ await check("I48", "A version with no ingest record says so, never faking agreem
   if (!/No ingest digest was recorded/.test(await note.innerText())) return false;
   // No alarm — and no silence dressed up as agreement: the note IS the statement.
   return (await page.locator("#hashList .hashalarm").count()) === 0;
+});
+
+// ---- Round twelve.
+
+await check("N26", "History's From and To are two columns, sortable and filterable", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('[data-view="history"]').click();
+  await page.waitForTimeout(150);
+  const from = page.locator('#headRow th[data-col="histFrom"]');
+  const to = page.locator('#headRow th[data-col="histTo"]');
+  if ((await from.count()) !== 1 || (await to.count()) !== 1) return false;
+  // Each carries the shared filter control (L36's one mechanism).
+  if ((await from.locator('[data-filterbtn="histFrom"]').count()) !== 1) return false;
+  if ((await to.locator('[data-filterbtn="histTo"]').count()) !== 1) return false;
+  // The Settlement row reads 11 in From and 12 in To — two cells, not one arrow cell.
+  const idxes = await page
+    .locator("#headRow th")
+    .evaluateAll((ths) => [
+      ths.findIndex((th) => th.dataset.col === "histFrom"),
+      ths.findIndex((th) => th.dataset.col === "histTo"),
+    ]);
+  const row = page.locator("#rows tr[data-hist]").filter({ hasText: "Settlement Demand" }).first();
+  const cells = await row.evaluate(
+    (r, [a, b]) => [r.cells[a].innerText.trim(), r.cells[b].innerText.trim()],
+    idxes,
+  );
+  if (cells[0] !== "11" || cells[1] !== "12") return false;
+  // Sorting by From actually orders the column's own values. (Asserting "the first row
+  // changed" tested an adjacent property: the newest row also sorts first ascending,
+  // because its From is empty.)
+  await page.locator('[data-sortbtn="histFrom"]').click();
+  await page.waitForTimeout(120);
+  const vals = await page
+    .locator("#rows tr[data-hist]")
+    .evaluateAll((rows, i) => rows.map((r) => r.cells[i].innerText.trim()), idxes[0]);
+  if (vals.length < 5) return false;
+  const sorted = [...vals].sort((a, b) => a.localeCompare(b));
+  return vals.every((v, i) => v === sorted[i]);
+});
+
+await check("N27", "History's actor column is Source, in the header and the panel", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator("#insBtn").click();
+  await page.locator('[data-view="history"]').click();
+  await page.waitForTimeout(150);
+  const heads = (await page.locator("#headRow th").allInnerTexts()).map((h) =>
+    h.trim().toLowerCase(),
+  );
+  if (!heads.some((h) => h.startsWith("source"))) return false;
+  if (heads.some((h) => h.startsWith("who"))) return false;
+  await page
+    .locator("#rows tr[data-hist]")
+    .filter({ hasText: "Settlement Demand" })
+    .first()
+    .click();
+  await page.waitForTimeout(200);
+  const text = await page.locator("#inspector").innerText();
+  return /Source/.test(text) && !/\bWho\b/.test(text);
+});
+
+await check(
+  "A27",
+  "Right-click filters the view to one document — History and results only",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    // Browse does NOT offer it: narrowing a folder listing to one already-found row is noise.
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    await page
+      .locator('#rows tr[data-key^="d:"]')
+      .filter({ hasText: "Motion" })
+      .first()
+      .click({ button: "right" });
+    if ((await page.locator("#ctx button").filter({ hasText: "Filter to" }).count()) !== 0)
+      return false;
+    await page.keyboard.press("Escape");
+    // History: every event for the document, and the L42/L44 machinery engages.
+    await page.locator('[data-view="history"]').click();
+    await page.waitForTimeout(150);
+    const total = await page.locator("#rows tr[data-hist]").count();
+    await page
+      .locator("#rows tr[data-hist]")
+      .filter({ hasText: "Settlement Demand" })
+      .first()
+      .click({ button: "right" });
+    await page.locator('#ctx [data-hcmd="filterdoc"]').click();
+    await page.waitForTimeout(150);
+    const narrowed = await page.locator("#rows tr[data-hist]").count();
+    if (!(narrowed >= 1 && narrowed < total)) return false;
+    const rows = await page.locator("#rows tr[data-hist]").allInnerTexts();
+    if (!rows.every((t) => t.includes("Settlement Demand Letter.docx"))) return false;
+    if (!/filtered/.test(await page.locator("#tally").innerText())) return false;
+    const clear = page.locator("#filterfoot #clearAllFilters");
+    if ((await clear.count()) !== 1) return false;
+    await clear.click();
+    await page.waitForTimeout(120);
+    if ((await page.locator("#rows tr[data-hist]").count()) !== total) return false;
+    // Search results: the same gesture, on the matter's table.
+    await page.locator("#searchBtn").click();
+    await page.locator("#searchInput").fill("Site");
+    await page.locator("#searchInput").press("Enter");
+    await page.waitForTimeout(250);
+    const resTotal = await page.locator('#rows tr[data-key^="d:"]').count();
+    if (resTotal < 2) return false;
+    await page.locator('#rows tr[data-key^="d:"]').first().click({ button: "right" });
+    await page.locator('#ctx [data-cmd="filterfile"]').click();
+    await page.waitForTimeout(150);
+    const resNarrowed = await page.locator('#rows tr[data-key^="d:"]').count();
+    return (
+      resNarrowed >= 1 &&
+      resNarrowed < resTotal &&
+      /filtered/.test(await page.locator("#tally").innerText())
+    );
+  },
+);
+
+await check("L46", "Date Created, in the column header and the Details row", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator("#colsBtn").click();
+  const label = page.locator("#colsMenu label").filter({ hasText: "Date Created" });
+  if ((await label.count()) !== 1) return false;
+  await label.locator("input").check();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(150);
+  const heads = (await page.locator("#headRow th").allInnerTexts()).map((h) =>
+    h.trim().toLowerCase(),
+  );
+  if (!heads.some((h) => h.startsWith("date created"))) return false;
+  if (heads.some((h) => h === "created" || h === "created ↑" || h === "created ↓")) return false;
+  // Details says Date Created too.
+  if (!(await page.locator("#inspector").isVisible())) await page.locator("#insBtn").click();
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  await page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Motion" }).first().click();
+  await page.waitForTimeout(150);
+  const dts = (await page.locator("#inspector .facts dt").allInnerTexts()).map((t) => t.trim());
+  return dts.includes("Date Created") && !dts.includes("Created");
+});
+
+await check("I49", "Verify All runs the record check across every version", async () => {
+  await openFile("pleadings", "Motion to Compel");
+  await page.locator('#inspector [data-instab="hashes"]').click();
+  const btn = page.locator("#hashVerifyAll");
+  if ((await btn.count()) !== 1) return false;
+  if (!/All 7 Versions/i.test(await btn.innerText())) return false;
+  await btn.click();
+  // Every version's row is on screen at once, pending first (I45's pattern).
+  if ((await page.locator("#hashAllList .hashallrow").count()) !== 7) return false;
+  if ((await page.locator("#hashAllList .pendingval").count()) === 0) return false;
+  await page.waitForTimeout(2500);
+  if ((await page.locator("#hashAllList .pendingval").count()) !== 0) return false;
+  // One alarm (version 3) naming both values; one honest no-record note (version 1);
+  // the other five agree compactly — a quiet check, no digests restated.
+  const alarms = page.locator('#hashAllList .hashalarm[role="alert"]');
+  if ((await alarms.count()) !== 1) return false;
+  if ((await page.locator('#hashAllList .hashallrow[data-hav="3"] .hashalarm').count()) !== 1)
+    return false;
+  const digests = await alarms.locator("dd.mono").allInnerTexts();
+  if (digests.length !== 2 || digests[0].trim() === digests[1].trim()) return false;
+  if ((await page.locator('#hashAllList .hashallrow[data-hav="1"] .hashnorec').count()) !== 1)
+    return false;
+  return (await page.locator("#hashAllList .havok").count()) === 5;
+});
+
+await check(
+  "I50",
+  "File-type identity: Lucide glyphs with real-text extension badges",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    // The pdf glyph is no longer Lucide file-type: the letter-T stem is gone.
+    const pdfRow = page
+      .locator('#rows tr[data-key^="d:"]')
+      .filter({ hasText: "Complaint (as filed)" })
+      .first();
+    const pdfSvg = await pdfRow.locator("svg.ficon.pdf").first().innerHTML();
+    if (pdfSvg.includes("M12 12v6")) return false;
+    // A real-text badge carries the extension, in the type's colour convention.
+    if ((await pdfRow.locator(".ficonwrap.pdf .fbadge").innerText()) !== "PDF") return false;
+    const docxRow = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Motion" }).first();
+    if ((await docxRow.locator(".ficonwrap.word .fbadge").innerText()) !== "DOCX") return false;
+    // The badge is text, never drawn geometry.
+    if ((await docxRow.locator(".ficonwrap.word .fbadge svg").count()) !== 0) return false;
+    // The spreadsheet identity shows on the archive member fixture.
+    await page.locator('.tnode[data-tree="discovery"]').first().click();
+    await page
+      .locator('#rows tr[data-key^="d:"]')
+      .filter({ hasText: "Site Inspection Photos" })
+      .first()
+      .dblclick();
+    await page.waitForTimeout(250);
+    // The spreadsheet member sits at Batch 3/Notes/, two levels in.
+    await page.locator('#rows tr[data-archdir="Batch 3/"]').first().click();
+    await page.waitForTimeout(200);
+    await page.locator('#rows tr[data-archdir="Batch 3/Notes/"]').first().click();
+    await page.waitForTimeout(200);
+    const xlsxRow = page.locator("#rows tr").filter({ hasText: "measurements" }).first();
+    return (await xlsxRow.locator(".ficonwrap.sheet .fbadge").innerText()) === "XLSX";
+  },
+);
+
+await check("L47", "The Safety cell speaks the severity word, glyphs unchanged", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  const safetyCell = async (needle) => {
+    const idx = await page
+      .locator("#headRow th")
+      .evaluateAll((ths) => ths.findIndex((th) => th.dataset.col === "safety"));
+    const row = page.locator("#rows tr").filter({ hasText: needle }).first();
+    return await row.evaluate((r, i) => r.cells[i].innerText.trim(), idx);
+  };
+  // Flagged — a signature match and a type mismatch alike — reads Error.
+  if ((await safetyCell("Invoice_scan")) !== "Error") return false;
+  await page.locator('.tnode[data-tree="experts"]').first().click();
+  if ((await safetyCell("Expert Report")) !== "Error") return false;
+  // Never scanned reads Warning.
+  await page.locator('.tnode[data-tree="depositions"]').first().click();
+  if ((await safetyCell("Deposition Video")) !== "Warning") return false;
+  // Clean keeps the bare I42 circle-check: a glyph, no text.
+  await page.locator('.tnode[data-tree="pleadings"]').first().click();
+  const idx = await page
+    .locator("#headRow th")
+    .evaluateAll((ths) => ths.findIndex((th) => th.dataset.col === "safety"));
+  const clean = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Motion" }).first();
+  if ((await clean.evaluate((r, i) => r.cells[i].innerText.trim(), idx)) !== "") return false;
+  return (await clean.locator(".okmark .cleanmark").count()) === 1;
+});
+
+await check("L48", "Created By everywhere the label appears — an upload is creation", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator("#colsBtn").click();
+  const menuText = await page.locator("#colsMenu").innerText();
+  await page.keyboard.press("Escape");
+  if (!menuText.includes("Created By") || /Uploaded By/i.test(menuText)) return false;
+  // The deleted view shares the column.
+  await page.locator('[data-view="deleted"]').click();
+  await page.waitForTimeout(150);
+  const heads = (await page.locator("#headRow th").allInnerTexts()).join(" ").toLowerCase();
+  return heads.includes("created by") && !heads.includes("uploaded by");
+});
+
+await check(
+  "A28",
+  "Destination-scoped actions exist only where a current folder does",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    // Browse has a destination, so everything is live.
+    if (await page.locator("#newBtn").isDisabled()) return false;
+    if (await page.locator("#newFolderBtn").isDisabled()) return false;
+    // Arm the clipboard from Pleadings, then stand in Discovery — a live paste would
+    // land there and repaint Discovery's tree count.
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
+    await page.locator('#rows tr[data-key^="d:"]').first().click();
+    await page.keyboard.press("Control+x");
+    await page.locator('.tnode[data-tree="discovery"]').first().click();
+    await page.waitForTimeout(150);
+    const discoveryCount = async () =>
+      await page.locator('.tnode[data-tree="discovery"] .n').innerText();
+    const countBefore = await discoveryCount();
+    for (const v of ["analysis", "deleted", "history"]) {
+      await page.locator('[data-view="' + v + '"]').click();
+      await page.waitForTimeout(150);
+      const newBtn = page.locator("#newBtn");
+      if (!(await newBtn.isDisabled())) return false;
+      // A disabled control says why (the no-inert-controls rule).
+      if (!((await newBtn.getAttribute("title")) ?? "").includes("no current folder")) return false;
+      if (!(await page.locator("#newFolderBtn").isDisabled())) return false;
+      const nodes = await page.locator(".tnode").count();
+      const rowsBefore = await page.locator("#rows tr").count();
+      // A disabled button fires nothing — and the handlers behind it are guarded too.
+      await page.evaluate(() => {
+        document.getElementById("newBtn").click();
+        document.getElementById("newFolderBtn").click();
+      });
+      await page.keyboard.press("Control+v");
+      await page.waitForTimeout(150);
+      if (!(await page.locator("#newMenu").isHidden())) return false; // the menu never opened
+      if ((await page.locator(".tnode").count()) !== nodes) return false; // no folder was born
+      if ((await page.locator("#rows tr").count()) !== rowsBefore) return false; // no paste row
+      if ((await discoveryCount()) !== countBefore) return false; // nothing landed in Discovery
+    }
+    // Search results rows live in many folders, so no current folder exists there either.
+    await page.locator("#searchBtn").click();
+    await page.locator("#searchInput").fill("Site");
+    await page.locator("#searchInput").press("Enter");
+    await page.waitForTimeout(250);
+    if (!(await page.locator("#newBtn").isDisabled())) return false;
+    // A results file row's menu disables Paste with the reason — a paste there would
+    // write into a folder the view never shows. (A folder row would be its own
+    // explicit destination, but results rows are files.)
+    await page.locator('#rows tr[data-key^="d:"]').first().click({ button: "right" });
+    const pasteItem = page.locator('#ctx [data-cmd="paste"]');
+    if (!(await pasteItem.isDisabled())) return false;
+    if (!((await pasteItem.getAttribute("title")) ?? "").includes("no current folder"))
+      return false;
+    await page.keyboard.press("Escape");
+    // Returning to browse restores everything.
+    await page.locator('.tnode[data-tree="discovery"]').first().click();
+    await page.waitForTimeout(150);
+    if (await page.locator("#newBtn").isDisabled()) return false;
+    if (await page.locator("#newFolderBtn").isDisabled()) return false;
+    // Inside an archive the current "folder" is not a writable place.
+    await page
+      .locator('#rows tr[data-key^="d:"]')
+      .filter({ hasText: "Site Inspection Photos" })
+      .first()
+      .dblclick();
+    await page.waitForTimeout(250);
+    if (!(await page.locator("#newBtn").isDisabled())) return false;
+    return await page.locator("#newFolderBtn").isDisabled();
+  },
+);
+
+await check(
+  "T8",
+  "The sidebar's file counts are a columns-menu setting, shown by default",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    // Shown by default.
+    if ((await page.locator(".tnode .n.num").count()) === 0) return false;
+    await page.locator("#colsBtn").click();
+    // The setting sits with the display family, directly beneath extensions and zebra.
+    const labels = await page.locator("#colsMenu label").allInnerTexts();
+    const countsIdx = labels.findIndex((t) => t.includes("Show File Counts in the Sidebar"));
+    const zebraIdx = labels.findIndex((t) => t.includes("Shade Alternate Rows"));
+    if (countsIdx === -1 || zebraIdx === -1 || countsIdx !== zebraIdx + 1) return false;
+    const box = page.locator("#colsMenu #sidebarCounts");
+    if (!(await box.isChecked())) return false;
+    await box.uncheck();
+    await page.waitForTimeout(120);
+    if ((await page.locator(".tnode .n.num").count()) !== 0) return false;
+    // The choice persists alongside the other column-menu settings.
+    await page.keyboard.press("Escape");
+    await page.locator("#colsBtn").click();
+    if (await page.locator("#colsMenu #sidebarCounts").isChecked()) return false;
+    await page.locator("#colsMenu #sidebarCounts").check();
+    await page.waitForTimeout(120);
+    return (await page.locator(".tnode .n.num").count()) > 0;
+  },
+);
+
+await check("N28", "A folder move is one row; its impact expands; files inherit it", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator("#insBtn").click(); // the panel, for the presentation half
+  await page.locator('[data-view="history"]').click();
+  await page.waitForTimeout(150);
+  // One act, one row: no synthetic per-file Moved rows flood the list.
+  const synthetic = await page
+    .locator("#rows tr[data-hist]")
+    .filter({ hasText: "Site Photo A" })
+    .filter({ hasText: "Moved" })
+    .count();
+  if (synthetic !== 0) return false;
+  const row = page
+    .locator("#rows tr[data-hist]")
+    .filter({ hasText: "Site Photographs" })
+    .filter({ hasText: "moved with" })
+    .first();
+  const note = row.locator(".impactnote");
+  if ((await note.count()) !== 1) return false;
+  if (!/moved with 8 files/.test(await note.innerText())) return false;
+  // The row expands to the affected list, each entry naming its own path change.
+  await note.click();
+  await page.waitForTimeout(150);
+  const items = page.locator("#rows tr.himpact .impactitem");
+  if ((await items.count()) !== 8) return false;
+  const first = items.filter({ hasText: "Site Photo A" }).first();
+  if (!/Site Photographs\s*→\s*Discovery \/ Site Photographs/.test(await first.innerText()))
+    return false;
+  // Selecting the row presents the same fold in the panel, behind its honest count.
+  await row.locator("td").first().click();
+  await page.waitForTimeout(150);
+  const fold = page.locator("#inspector details.impactfold");
+  if ((await fold.count()) !== 1) return false;
+  if (!/8 files/.test(await fold.locator("summary").innerText())) return false;
+  // An expanded entry reveals its document.
+  await page
+    .locator("#rows tr.himpact .impactitem")
+    .filter({ hasText: "Site Photo A" })
+    .first()
+    .click();
+  await page.waitForTimeout(250);
+  // Site Photographs is the picture folder, so browse lands on the ICON GRID — the
+  // visible surface is where the selection must show, not the emptied hidden table.
+  const revealed = page.locator('#rows tr[data-key="d:20"], #iconGrid .tile[data-key="d:20"]');
+  if ((await revealed.count()) !== 1) return false;
+  if ((await revealed.getAttribute("aria-selected")) !== "true") return false;
+  // The file's own filtered story includes the inherited event, spoken quietly, with
+  // the file's OWN from → to.
+  await page.locator('[data-view="history"]').click();
+  await page.waitForTimeout(150);
+  await page
+    .locator("#rows tr[data-hist]")
+    .filter({ hasText: "Site Photo A" })
+    .first()
+    .click({ button: "right" });
+  await page.locator('#ctx [data-hcmd="filterdoc"]').click();
+  await page.waitForTimeout(150);
+  if ((await page.locator("#rows tr[data-hist]").count()) !== 2) return false;
+  const inherited = page.locator("#rows tr.histinherit");
+  if ((await inherited.count()) !== 1) return false;
+  const text = await inherited.innerText();
+  if (!/Moved with its folder/.test(text)) return false;
+  if (!text.includes("Site Photo A")) return false;
+  return text.includes("Site Photographs") && text.includes("Discovery / Site Photographs");
+});
+
+await check("S19", "Search can take in deleted files, and marks what it finds", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator("#searchBtn").click();
+  // The scope option exists, off by default.
+  const box = page.locator("#searchpop #scopeDeleted");
+  if ((await box.count()) !== 1) return false;
+  if (await box.isChecked()) return false;
+  await page.locator("#searchInput").fill("Site");
+  await page.locator("#searchInput").press("Enter");
+  await page.waitForTimeout(250);
+  // Off: no deleted rows among the results.
+  if ((await page.locator('#rows tr[data-key^="x:"]').count()) !== 0) return false;
+  // On: the deleted archive surfaces, marked in the Deleted Files view's own word.
+  await page.locator("#searchBtn").click();
+  await page.locator("#searchpop #scopeDeleted").check();
+  await page.waitForTimeout(250);
+  const deletedRow = page.locator('#rows tr[data-key="x:902"]');
+  if ((await deletedRow.count()) !== 1) return false;
+  if ((await deletedRow.locator(".delmark").innerText()) !== "Deleted") return false;
+  // It leads into Deleted Files: its right-click is the deleted menu, Restore first.
+  await deletedRow.click({ button: "right" });
+  if (!/Restore/.test(await page.locator("#ctx").innerText())) return false;
+  await page.keyboard.press("Escape");
+  // Off again removes it.
+  await page.locator("#searchBtn").click();
+  await page.locator("#searchpop #scopeDeleted").uncheck();
+  await page.waitForTimeout(250);
+  return (await page.locator('#rows tr[data-key^="x:"]').count()) === 0;
+});
+
+await check("F14", "Analysis right-click ignores in bulk, by severity, reversibly", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('[data-view="analysis"]').click();
+  await page.waitForTimeout(250);
+  const chipCount = async (tone) => {
+    const chip = page.locator('[data-sevfilter="' + tone + '"] strong');
+    return (await chip.count()) === 0 ? 0 : Number(await chip.innerText());
+  };
+  const [errorCount, warningCount, infoCount] = [
+    await chipCount("danger"),
+    await chipCount("warn"),
+    await chipCount("info"),
+  ];
+  if (infoCount === 0 || errorCount === 0) return false;
+  // On a card, the menu leads with that file's own issues.
+  await page.locator("[data-ancard]").first().click({ button: "right" });
+  const fileBtn = page.locator('#ctx [data-anmenu="file"]');
+  if ((await fileBtn.count()) !== 1) return false;
+  if (!/Ignore This File.s \d+ Issue/.test(await fileBtn.innerText())) return false;
+  await page.keyboard.press("Escape");
+  // Over the list: every present severity with its honest count, none invented.
+  await page.locator(".anlist").click({ button: "right" });
+  const total = errorCount + warningCount + infoCount;
+  if (!(await page.locator('#ctx [data-anmenu="all"]').innerText()).includes("Ignore All " + total))
+    return false;
+  const infoBtn = page.locator('#ctx [data-anmenu="info"]');
+  if (!(await infoBtn.innerText()).includes("Ignore " + infoCount + " Info Issue")) return false;
+  // Executing one moves those issues to ignored, and the counts follow.
+  await infoBtn.click();
+  await page.waitForTimeout(200);
+  if ((await chipCount("info")) !== 0) return false;
+  if ((await chipCount("danger")) !== errorCount) return false;
+  if (!(await page.locator("#anIgnoredToggle").innerText()).includes("(" + infoCount + ")"))
+    return false;
+  // The ignored view unignores the same way, and everything comes back.
+  await page.locator("#anIgnoredToggle").click();
+  await page.waitForTimeout(200);
+  await page.locator(".anlist").click({ button: "right" });
+  const unignoreAll = page.locator('#ctx [data-anmenu="all"]');
+  if (!(await unignoreAll.innerText()).includes("Unignore All " + infoCount)) return false;
+  await unignoreAll.click();
+  await page.waitForTimeout(200);
+  await page.locator("#anIgnoredToggle").click();
+  await page.waitForTimeout(200);
+  return (await chipCount("info")) === infoCount;
 });
 
 await check(
