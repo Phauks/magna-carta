@@ -25,6 +25,14 @@ is `release`, every one's build caching is on, and every one's latest build is g
 connection list, its `magna-carta-edit` branch claim, and §14's placeholder roster are stale against
 this; the next docs pass owns reconciling them._
 
+_2026-08-27 — the owner fixed the dashboard items that pass raised, and a session re-read the live
+configuration to confirm every one: the `magna-carta` deploy command now filters
+`@magna-carta/api-worker`, its watch paths again cover `packages/*` and `apps/web/*`, and the
+file-repair, recovery and edit inclusion lists are corrected. The next `main:release` push is no
+longer blocked on any dashboard step. Still open account-side: the `conversions/` and
+`templates/staging/` lifecycle rules, the platform seal secrets, and everything below that never
+depended on the token._
+
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
 **Nothing in the repository can fix this and no session can perform it.** Since 2026-08-05 GitHub has
@@ -89,15 +97,13 @@ email-capture steps already on this queue.
    means a placeholder or unhealthy scan worker shows up as a server error rather than a graceful
    degradation.
 
-3. **`magna-carta-file-repair` is deployed — its Build Watch Paths still need the one-word fix.**
-   The worker built green from `19d02cf` on 2026-08-21 and the deployed script carries
-   `FILE_REPAIR_ENGINE -> FileRepairEngineContainer` (API-confirmed 2026-08-24), so the **file
-   repair & salvage** tool has a live worker behind it. The watch-path drift is confirmed still
-   present: the inclusion list names `containers/file-repair-worker/*` while the container lives at
-   `containers/file-repair/`, so a change to the repair engine alone still triggers no rebuild
-   (also recorded in `operations.md` §12). Correct it to `containers/file-repair/*` — dashboard,
-   owner-only. The same read confirmed the other drift §12 records: `magna-carta-recovery`'s list
-   still lacks `crates/decryption-core/*`, though its image COPYs that crate.
+3. **`magna-carta-file-repair` is deployed, and its watch paths are fixed.** The worker built green
+   from `19d02cf` on 2026-08-21 and the deployed script carries
+   `FILE_REPAIR_ENGINE -> FileRepairEngineContainer` (API-confirmed 2026-08-24). The watch-path
+   drift is gone: the owner corrected the inclusion list to `containers/file-repair/*` on
+   2026-08-27, and the same pass fixed `magna-carta-recovery` (now includes
+   `crates/decryption-core/*`) — both API-confirmed the same day. Nothing here is open any more;
+   `operations.md` §12's two-drift note is now historical.
 
 4. **Enable Browser Rendering on the account.** The **safe website viewer** is the only tool in the
    catalog whose dependency is an account entitlement rather than a worker, a container or a secret
@@ -283,23 +289,25 @@ nothing in production moves, and no Durable Object namespace is affected. What t
   the repository (build command `pnpm exec vp run build-all` bundles the SPA and the WASM
   artefacts), which is exactly the shape `operations.md` §12 records; rooting it at
   `apps/api-worker` would break the build, not fix it. The earlier instruction here was wrong.
-- **The watch-path half is done**: the inclusion list now reads `apps/api-worker/*` (trigger
-  modified 2026-08-24).
-- **What will actually break the next build is the deploy command.** It still reads
-  `pnpm --filter @magna-carta/worker exec wrangler deploy`, and the moment the package rename rides
-  a `main:release` push, that filter matches nothing and the deploy step fails. **Owner step,
-  before the next push:** edit the project's deploy command to
-  `pnpm --filter @magna-carta/api-worker exec wrangler deploy`.
+- **The deploy command is fixed** — API-confirmed 2026-08-27: it now reads
+  `pnpm --filter @magna-carta/api-worker exec wrangler deploy`, so the package rename riding the
+  next `main:release` push resolves cleanly. (It read `--filter @magna-carta/worker` until then,
+  which would have failed the deploy step the moment the rename shipped.)
+- **The watch paths are broadened** — same confirmation: the inclusion list now reads
+  `apps/api-worker/*`, `packages/*`, `apps/web/*` with the standard excludes (`docs/*`,
+  `containers/*`, `spikes/*`, `*.md`), so package and SPA changes rebuild the app worker again.
 
-One thing the new inclusion list gives up, worth restoring in the same dashboard visit:
-`apps/api-worker/*` alone means a push touching only `packages/*` or `apps/web/*` no longer rebuilds
-the app worker, though the app worker bundles both. §12's recorded shape — include `*`, exclude
-`docs/*`, `containers/*`, `spikes/*`, `*.md` — watched those. The next release push is safe either
-way (Workers Builds always builds a push of 20+ commits, and 27 are queued), but a small follow-up
-push could silently skip the rebuild.
+One residual gap in that inclusion list, small and dashboard-only: it names no `crates/*` and no
+`pnpm-lock.yaml`/`pnpm-workspace.yaml`. The app worker's build bakes WASM from `crates/pdf-core` and
+`crates/decryption-core`, so a push touching only a crate — or only a dependency bump — would not
+rebuild it. §12's recorded shape (include `*`, exclude the four patterns) covered both; adding
+`crates/*`, `pnpm-lock.yaml` and `pnpm-workspace.yaml` to the includes closes it just as well. The
+next release push is safe either way (Workers Builds always builds a push of 20+ commits, and 27
+are queued).
 
 The `magna-carta-edit` half of the old "repoint both in one pass" is **done** — API-confirmed
-2026-08-24: root `apps/edit-worker`, production branch `release`, latest builds green.
+2026-08-24: root `apps/edit-worker`, production branch `release`, latest builds green. Its
+watch-path drift is gone too: the inclusion entry reads `apps/edit-worker/*` since 2026-08-27.
 
 ## Behaviour changes — shipped by the 2026-08-21 push (no dashboard step)
 
@@ -614,10 +622,11 @@ RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer
   `discovery/`, which is the required state.
 - `magna-carta-edit`: **confirmed repointed and green.** Production branch `release` (the
   `slice-2-2-editing` leftover is gone), root directory `apps/edit-worker`, and its last two builds
-  are green (both 2026-08-21). One drift found in exchange: its watch-path inclusion list reads
-  `apps/edit-worker` with no trailing `/*`, which matches no file **under** the directory — so in
-  practice only `containers/collabora/*` and `pnpm-lock.yaml` trigger its rebuilds today.
-  One-character dashboard fix: make it `apps/edit-worker/*`.
+  are green (both 2026-08-21). One drift found in exchange — its watch-path inclusion list read
+  `apps/edit-worker` with no trailing `/*`, matching no file **under** the directory — and the
+  owner fixed it on 2026-08-27 (now `apps/edit-worker/*`, API-confirmed). The same 2026-08-27 pass
+  fixed the file-repair and recovery watch lists and the `magna-carta` deploy command; see their
+  own entries.
 
 ## Blocked-in-environment owner chores
 
