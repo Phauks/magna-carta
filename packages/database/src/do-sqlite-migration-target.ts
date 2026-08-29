@@ -36,5 +36,25 @@ export function doSqliteMigrationTarget(
       }
       return Promise.resolve();
     },
+    supersedeAppliedMigrations(
+      supersededTags: readonly string[],
+      replacementTag: string,
+    ): Promise<void> {
+      // Ledger rewrite only — no schema SQL. transactionSync makes the removals and the replacement
+      // row atomic, same as applyMigration.
+      try {
+        storage.transactionSync(() => {
+          for (const tag of supersededTags) sql.exec("DELETE FROM _migrations WHERE tag = ?1", tag);
+          sql.exec(
+            "INSERT INTO _migrations (tag, applied_at) VALUES (?1, ?2)",
+            replacementTag,
+            now(),
+          );
+        });
+      } catch (error) {
+        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+      }
+      return Promise.resolve();
+    },
   };
 }

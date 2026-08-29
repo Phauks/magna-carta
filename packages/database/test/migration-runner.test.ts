@@ -18,6 +18,14 @@ function fakeTarget(initiallyApplied: string[], failOnTag?: string) {
       applied.push(migration.tag);
       return Promise.resolve();
     },
+    supersedeAppliedMigrations: (supersededTags, replacementTag) => {
+      for (const tag of supersededTags) {
+        const at = applied.indexOf(tag);
+        if (at !== -1) applied.splice(at, 1);
+      }
+      applied.push(replacementTag);
+      return Promise.resolve();
+    },
   };
   return { target, applied };
 }
