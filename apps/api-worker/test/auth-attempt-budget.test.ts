@@ -61,7 +61,11 @@ describe("the ladder itself", () => {
     for (let attempt = 0; attempt < ATTEMPT_LIMIT; attempt += 1) {
       remainingSeen.push(ladder.spend("ip:a").remaining);
     }
-    expect(remainingSeen).toEqual([4, 3, 2, 1, 0]);
+    // Derived from the limit rather than written out: the claim is that every spend takes exactly
+    // one and the last one lands on zero, which is true at any limit.
+    expect(remainingSeen).toEqual(
+      Array.from({ length: ATTEMPT_LIMIT }, (_unused, index) => ATTEMPT_LIMIT - index - 1),
+    );
     expect(ladder.read("ip:a").lockoutSecondsRemaining).toBe(LOCKOUT_SECONDS);
 
     // The countdown is a real countdown, not a constant: the screen renders it against a clock.
