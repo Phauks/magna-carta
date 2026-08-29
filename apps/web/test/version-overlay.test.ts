@@ -2,7 +2,17 @@
  * The version overlay's honesty rules, exercised on the pure model: a placeholder identity never
  * claims a skew, every non-answer keeps its own name, a cached observation states its age once it
  * has one, and a copied identifier line carries only what was actually known.
+ *
+ * The scope rules are asserted twice over. The decision itself is a pure function and is tested as
+ * one; that the component actually obeys it is read off the component's source, because this
+ * project's tests run in a plain node pool and rendering a design-system component pulls bits-ui,
+ * which a deliberate boundary gate keeps out of every config outside the design system
+ * (packages/design-system/test/fitness/boundaries.test.ts). What matters most is negative — that a
+ * signed-out panel issues no authenticated request at all — and a source assertion states it for
+ * every path into the call rather than only the one a render happened to exercise.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildsDiffer,
@@ -10,9 +20,25 @@ import {
   describeObservationAge,
   formatVersionTimestamp,
   isRealCommit,
+  readsServiceAggregate,
   serviceStateLabel,
   versionChipLabel,
+  SIGNED_OUT_ESTATE_NOTICE,
 } from "../src/lib/versions/version-overlay-model.ts";
+
+const SOURCE_ROOT = join(import.meta.dirname, "../src");
+
+function source(relativePath: string): string {
+  return readFileSync(join(SOURCE_ROOT, relativePath), "utf8");
+}
+
+/** Strip comment prose so a sweep reads only what the component does, never what it explains. */
+function stripComments(text: string): string {
+  return text
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
+}
 
 describe("what counts as a real commit", () => {
   it("accepts a short hash and rejects every honest placeholder", () => {
@@ -95,6 +121,80 @@ describe("the copied identifier line", () => {
     expect(
       copyLineForPart({ label: "Web App", commit: "dev", commitTime: null, buildTime: null }),
     ).toBe("Web App: dev");
+  });
+});
+
+describe("what each scope is allowed to read", () => {
+  it("only a session may read the aggregate", () => {
+    expect(readsServiceAggregate("app")).toBe(true);
+    expect(readsServiceAggregate("public")).toBe(false);
+  });
+
+  it("the signed-out line names the boundary rather than implying a fault", () => {
+    expect(SIGNED_OUT_ESTATE_NOTICE).toContain("signed in");
+    expect(SIGNED_OUT_ESTATE_NOTICE).not.toMatch(/fail|error|unavailable|unreachable/i);
+    // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
+    expect(SIGNED_OUT_ESTATE_NOTICE).not.toContain("—");
+  });
+});
+
+describe("the chip in its public scope", () => {
+  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+
+  it("reads the aggregate from exactly one place, and that place refuses the public scope", () => {
+    const calls = chip.match(/requestJson</g) ?? [];
+    expect(calls).toHaveLength(1);
+    const refreshBody = /async function refresh\(\): Promise<void> \{([\s\S]*?)\n  \}/.exec(chip);
+    expect(refreshBody).not.toBeNull();
+    const body = refreshBody?.[1] ?? "";
+    expect(body).toContain("if (!readsAggregate) return;");
+    // The guard precedes the call, so no path through the function reaches the network first.
+    expect(body.indexOf("if (!readsAggregate) return;")).toBeLessThan(body.indexOf("requestJson<"));
+  });
+
+  it("never opens the read on a public panel, however the panel was opened", () => {
+    expect(chip).toContain("if (!open || !readsAggregate) return;");
+  });
+
+  it("shows this build's own identity unconditionally, from the baked-in stamp", () => {
+    // The Web App row sits outside every `value`/`loading` branch: it comes from the bundle, so it
+    // renders in both scopes and with the API unreachable.
+    const webAppRow = /\{@render partRow\(\{\s*label: "Web App",[\s\S]*?\}\)\}/.exec(chip);
+    expect(webAppRow).not.toBeNull();
+    expect(webAppRow?.[0]).toContain("BUILD_IDENTITY.committedAt");
+    expect(chip.indexOf("Web App")).toBeLessThan(chip.indexOf("{#if value !== null}"));
+  });
+
+  it("says out loud what the public panel is not showing", () => {
+    expect(chip).toMatch(/\{#if !readsAggregate\}[\s\S]*SIGNED_OUT_ESTATE_NOTICE[\s\S]*\{\/if\}/);
+  });
+});
+
+describe("where the public chip is mounted", () => {
+  const frame = source("lib/auth/auth-frame.svelte");
+
+  it("rides the shared signed-out frame, in its chrome corner, in the public scope", () => {
+    // One mount covers every surface the frame wraps: sign in, password reset, and the joining
+    // screens. Pasting the chip into each screen would let them drift apart.
+    expect(frame).toContain('<VersionChip scope="public" />');
+    expect(stripComments(frame)).toMatch(
+      /<TopBar\.Actions>[\s\S]*<VersionChip[\s\S]*<\/TopBar\.Actions>/,
+    );
+  });
+
+  it("is the frame every signed-out surface is cut from", () => {
+    const surfaces = [
+      "routes/login/+page.svelte",
+      "routes/login/reset-password/+page.svelte",
+      "routes/register/+page.svelte",
+      "routes/register/firm/+page.svelte",
+      "routes/register/invitation/+page.svelte",
+      "routes/register/confirm/+page.svelte",
+      "lib/auth/auth-placeholder.svelte",
+    ];
+    for (const surface of surfaces) {
+      expect(source(surface), surface).toContain("auth-frame.svelte");
+    }
   });
 });
 
