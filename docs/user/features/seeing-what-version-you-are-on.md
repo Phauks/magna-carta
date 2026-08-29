@@ -4,7 +4,7 @@ The small chip at the top right of the screen always shows the version of Magna 
 
 ## What it does
 
-The chip itself shows the web application's build identifier: a short code that pins exactly which build your browser loaded. It is always visible while you are signed in, even when the rest of the platform cannot be reached.
+The chip itself shows the web application's build identifier: a short code that pins exactly which build your browser loaded. It is always visible, even when the rest of the platform cannot be reached.
 
 Clicking the chip opens the version overlay, which lists every part of the deployment:
 
@@ -13,6 +13,12 @@ Clicking the chip opens the version overlay, which lists every part of the deplo
 - **Services** — each backend service (malware scanning, conversion engines, text recognition, document sealing, discovery, keyword search, and the others), with the version each one reports about itself.
 
 Each entry shows its build identifier, when that build's change was made, and when it was built. A service that is not deployed in your environment, or that cannot be reached right now, says so plainly: the overlay never invents a version.
+
+## Before you sign in
+
+The same chip sits in the top right of the sign-in page, the password-reset page and the registration screens, so you can answer "which version am I on" without getting in first. This matters most when getting in is the problem: you can quote the build identifier in a support request from the screen that is refusing you.
+
+The signed-out overlay shows the web application only, and says so. The API and the backend services report their versions to people who are signed in, so before sign-in there is nothing to show for them. That is a boundary, not a fault: an empty list there does not mean anything is down.
 
 ## Common tasks
 
@@ -29,6 +35,7 @@ The web application and the server deploy separately, so for a short window they
 - **"Checked … ago."** The service list is refreshed on a short cycle rather than on every click. When the overlay is showing an observation more than a few seconds old, the header says when it was taken.
 - **"dev".** A build run outside the normal release pipeline (for example, a local development server) has no release identity, and the chip says `dev` rather than showing a number that would mean nothing.
 - **The version read failed.** If the overlay cannot reach the server, it says so and shows the Error ID when one was assigned. The chip itself keeps showing your web app's own version: that part is baked into the page and needs no connection.
+- **No "Different Builds" notice before you sign in.** The signed-out overlay has no version to compare yours against, so it never raises the notice. Sign in and open the chip again to check the pair.
 
 ## Related features
 

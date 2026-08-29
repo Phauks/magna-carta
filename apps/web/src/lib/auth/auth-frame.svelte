@@ -11,6 +11,7 @@
   import type { Snippet } from "svelte";
   import BrandMark from "@magna-carta/design-system/brand-mark";
   import * as TopBar from "@magna-carta/design-system/top-bar";
+  import VersionChip from "$lib/versions/version-chip.svelte";
   import { ECOSYSTEM_SITES } from "../navigation/ecosystem-sites.ts";
 
   let { children }: { children: Snippet } = $props();
@@ -52,6 +53,12 @@
           {/if}
         {/each}
       </nav>
+      <!-- "Which version am I on" is asked most often by someone who cannot get in, so the chip
+           belongs on this side of the door too. It sits in the same chrome corner as the app
+           shell's, from the same component: the public scope shows this build's own identifier
+           (already in the bundle the visitor downloaded) and reads nothing from the API, which
+           needs a session. -->
+      <VersionChip scope="public" />
     </TopBar.Actions>
   </TopBar.Root>
 

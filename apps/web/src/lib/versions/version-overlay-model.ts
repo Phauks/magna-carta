@@ -9,6 +9,33 @@
 
 export type ServiceVersionState = "reported" | "unbound" | "unreachable" | "unreported";
 
+/**
+ * Where the chip is rendered, which decides what it is allowed to read.
+ *
+ * - `app` — inside a session. The panel reads the aggregate and reports the whole deployment.
+ * - `public` — a signed-out surface (sign in, password reset, the joining screens). The web app's
+ *   own build is already inside the bundle the visitor downloaded, so showing it discloses
+ *   nothing new; the aggregate is an authenticated read and is not attempted here.
+ */
+export type VersionScope = "app" | "public";
+
+/**
+ * Whether a chip in this scope may read GET /api/v1/meta/versions. Only the signed-in scope may:
+ * the endpoint is authenticated, so calling it from a signed-out page can only ever produce a
+ * rejection, and rendering that rejection would report a fault where the real answer is "not
+ * yours to see yet".
+ */
+export function readsServiceAggregate(scope: VersionScope): boolean {
+  return scope === "app";
+}
+
+/**
+ * The one line a signed-out panel shows in place of the estate it may not read. It states the
+ * boundary rather than implying a failure, so nobody chases an outage that is a session boundary.
+ */
+export const SIGNED_OUT_ESTATE_NOTICE =
+  "The API and the backend services report their versions once you are signed in.";
+
 export interface ServiceVersionRow {
   id: string;
   label: string;

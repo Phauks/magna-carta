@@ -5,6 +5,13 @@
    * whether or not the API answers; opening it asks GET /api/v1/meta/versions what every other
    * part of the deployment is running.
    *
+   * TWO SCOPES, ONE COMPONENT. Inside a session (`scope="app"`) the panel reports the whole
+   * deployment. On the signed-out surfaces (`scope="public"` — sign in, password reset, the
+   * joining screens) it reports the web app only: that build identifier is already inside the
+   * bundle the visitor downloaded, so showing it discloses nothing new, while the aggregate is an
+   * authenticated read that a signed-out page must not attempt. No call is made there, and the
+   * panel says whose version it is showing rather than leaving the absence to read as a fault.
+   *
    * Honesty rules the panel keeps:
    * - The web row never comes from the network and the API/services rows never come from anywhere
    *   but the read; a failed read is said out loud with its Error ID, never papered over.
@@ -30,11 +37,18 @@
     describeObservationAge,
     formatVersionTimestamp,
     isRealCommit,
+    readsServiceAggregate,
     serviceStateLabel,
     versionChipLabel,
+    SIGNED_OUT_ESTATE_NOTICE,
     type MetaVersionsValue,
     type ServiceVersionState,
+    type VersionScope,
   } from "$lib/versions/version-overlay-model.ts";
+
+  let { scope = "app" }: { scope?: VersionScope } = $props();
+
+  const readsAggregate = $derived(readsServiceAggregate(scope));
 
   let open = $state(false);
   let value = $state<MetaVersionsValue | null>(null);
@@ -49,6 +63,9 @@
   const webCommitLabel = isRealCommit(BUILD_IDENTITY.commit) ? BUILD_IDENTITY.commit : "dev";
 
   async function refresh(): Promise<void> {
+    // The guard lives on the call itself, not only on its caller: a signed-out panel has no path
+    // to the authenticated aggregate at all, including through the failure block's Retry.
+    if (!readsAggregate) return;
     loading = true;
     const outcome = await requestJson<MetaVersionsValue>(fetch, "/api/v1/meta/versions");
     loading = false;
@@ -65,7 +82,7 @@
   // Every open re-reads (the API's brief cache absorbs the cost), and while the panel is open a
   // slow tick keeps the observation-age line moving instead of freezing at its first render.
   $effect(() => {
-    if (!open) return;
+    if (!open || !readsAggregate) return;
     void refresh();
     const ticker = setInterval(() => {
       nowEpochMilliseconds = Date.now();
@@ -204,6 +221,13 @@
       commitTime: BUILD_IDENTITY.committedAt,
       buildTime: BUILD_IDENTITY.builtAt,
     })}
+
+    {#if !readsAggregate}
+      <!-- The signed-out panel stops at the web app. Saying so is the point: an absent API row
+           with no sentence beside it reads as an outage, and this is a session boundary. -->
+      <Separator />
+      <p class="text-xs text-text-muted">{SIGNED_OUT_ESTATE_NOTICE}</p>
+    {/if}
 
     {#if value !== null}
       {@render partRow({
