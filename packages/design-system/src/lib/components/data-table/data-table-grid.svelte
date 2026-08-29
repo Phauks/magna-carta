@@ -1,0 +1,453 @@
+<script lang="ts" generics="TRow">
+  /*
+   * DataTable.Grid — the platform's ONE table (the settled cross-surface ruling: any behavior gap
+   * between two tables is a defect by definition). Driven by the declarative column model
+   * (grid-columns.ts) through a shared state object (createDataTableGrid), it carries the settled
+   * machinery: type-aware stable sorting, the in-header per-column filters, column show/hide,
+   * drag-reorder (anchored columns lead), pinning at measured sticky offsets, resize grips with
+   * double-click fit, the Docket's selection model (click / Ctrl / Shift / Ctrl+A scoped to the
+   * table / arrows / click-empty-clears), activation as its own event, the scope-honest totals
+   * row, and the filtered-empty state that says why.
+   *
+   * Rendering stays the consumer's: the `cell` snippet supplies each cell (status chips and the
+   * like are the surface's business); without it, cells render the column model's typed text.
+   * Selection is emitted, never presented — this component opens nothing.
+   */
+  import type { Snippet } from "svelte";
+  import ArrowDown from "@lucide/svelte/icons/arrow-down";
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import FunnelX from "@lucide/svelte/icons/funnel-x";
+  import { mergeClasses } from "../../internal/merge-classes.ts";
+  import Button from "../button/index.ts";
+  import Skeleton from "../skeleton/index.ts";
+  import type { GridCellContext, GridColumn } from "./grid-columns.ts";
+  import { gridCellText, gridColumnAlign } from "./grid-columns.ts";
+  import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
+  import GridColumnFilter from "./data-table-grid-filter.svelte";
+
+  type Props = {
+    grid: DataTableGridState<TRow>;
+    /** The table's accessible name (the visually hidden caption + the scroll region's label). */
+    caption: string;
+    /** Renders each body cell; omit to render the column model's typed text. */
+    cell?: Snippet<[GridCellContext<TRow>]>;
+    /** The unfiltered empty state — the surface owns its own empty-state composition. */
+    empty?: Snippet;
+    /** Skeleton rows stand in for data until it arrives. */
+    loading?: boolean;
+    skeletonRowCount?: number;
+    /** Row density; compact trims the row height a step further. */
+    density?: "comfortable" | "compact";
+    /** Right-click on a row: the selection re-targets first, then this fires for the surface's
+     * menu. Rows carry no menu of their own here. */
+    onRowContextMenu?: (event: MouseEvent, row: TRow, selectedRows: readonly TRow[]) => void;
+    class?: string;
+  };
+  let {
+    grid,
+    caption,
+    cell,
+    empty,
+    loading = false,
+    skeletonRowCount = 8,
+    density = "comfortable",
+    onRowContextMenu,
+    class: className,
+  }: Props = $props();
+
+  let scrollElement = $state<HTMLDivElement | null>(null);
+  let headerCells = $state<Record<string, HTMLTableCellElement | null>>({});
+
+  const rowKeyOf = (row: TRow): string => grid.options.rowKey(row);
+  const ariaSortOf = (columnId: string): "ascending" | "descending" | "none" =>
+    grid.sortColumnId === columnId ? grid.sortDirection : "none";
+
+  // ---- pinning: sticky offsets measured from the rendered header ------------------------------
+  // The anchored block joins the sticky set the moment anything is pinned, so the stuck columns
+  // are contiguous from the leading edge (the Docket's ordering).
+  const pinningActive = $derived(grid.pinnedColumnIds.size > 0);
+  const stickyColumnIds = $derived.by((): readonly string[] => {
+    if (!pinningActive) return [];
+    return grid.visibleColumns
+      .filter((column) => column.anchored || grid.pinnedColumnIds.has(column.id))
+      .map((column) => column.id);
+  });
+  const stickyEdgeColumnId = $derived(stickyColumnIds.at(-1));
+  let pinnedOffsets = $state<Readonly<Record<string, number>>>({});
+  $effect(() => {
+    // Track everything that can move a header cell, then measure the rendered header.
+    void grid.visibleColumns;
+    void grid.columnWidths;
+    void grid.rowsInView;
+    const ids = stickyColumnIds;
+    const next: Record<string, number> = {};
+    let offset = 0;
+    for (const id of ids) {
+      next[id] = offset;
+      offset += headerCells[id]?.getBoundingClientRect().width ?? 0;
+    }
+    if (JSON.stringify(next) !== JSON.stringify(pinnedOffsets)) pinnedOffsets = next;
+  });
+  const pinnedAttributes = (
+    columnId: string,
+  ): { "data-pinned"?: "true"; "data-pinned-edge"?: "true"; style?: string } => {
+    if (!pinningActive || pinnedOffsets[columnId] === undefined) return {};
+    return {
+      "data-pinned": "true",
+      ...(columnId === stickyEdgeColumnId ? { "data-pinned-edge": "true" as const } : {}),
+      style: `inset-inline-start: ${pinnedOffsets[columnId]}px`,
+    };
+  };
+
+  // ---- column drag-reorder --------------------------------------------------------------------
+  let draggingColumnId = $state<string | null>(null);
+  let dropTarget = $state<{ columnId: string; after: boolean } | null>(null);
+  function headDragOver(event: DragEvent, column: GridColumn<TRow>): void {
+    if (draggingColumnId === null || draggingColumnId === column.id || column.anchored) return;
+    event.preventDefault();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    dropTarget = { columnId: column.id, after: event.clientX >= rect.left + rect.width / 2 };
+  }
+  function headDrop(event: DragEvent, column: GridColumn<TRow>): void {
+    event.preventDefault();
+    if (draggingColumnId !== null && dropTarget !== null && dropTarget.columnId === column.id) {
+      grid.moveColumn(draggingColumnId, column.id, dropTarget.after);
+    }
+    draggingColumnId = null;
+    dropTarget = null;
+  }
+
+  // ---- column resize + double-click fit -------------------------------------------------------
+  let resizingColumnId = $state<string | null>(null);
+
+  function measuredWidths(): Record<string, number> {
+    const widths: Record<string, number> = {};
+    for (const column of grid.visibleColumns) {
+      widths[column.id] = Math.round(
+        headerCells[column.id]?.getBoundingClientRect().width ?? 120,
+      );
+    }
+    return widths;
+  }
+
+  let measureContext: CanvasRenderingContext2D | null = null;
+  function textWidth(text: string, font: string): number {
+    measureContext ??= document.createElement("canvas").getContext("2d");
+    if (!measureContext) return text.length * 8;
+    measureContext.font = font;
+    return measureContext.measureText(text).width;
+  }
+
+  /** The column fitted to its widest value — header included, cell furniture accounted for. */
+  function fittedWidth(column: GridColumn<TRow>): number {
+    const table = headerCells[column.id]?.closest("table");
+    const styles = table ? getComputedStyle(table) : null;
+    const family = styles?.fontFamily ?? "sans-serif";
+    const bodyFont = `${styles?.fontSize ?? "14px"} ${family}`;
+    const headFont = `600 12px ${family}`;
+    // Header: the caps label + its letterspacing + the arrow slot + the funnel slot + padding.
+    let width = textWidth(column.label.toUpperCase(), headFont) + column.label.length * 1.1 + 60;
+    for (const row of grid.rows) {
+      width = Math.max(width, textWidth(gridCellText(column, row), bodyFont) + (column.fitExtra ?? 0) + 18);
+    }
+    return Math.ceil(width);
+  }
+
+  function gripPointerDown(event: PointerEvent, column: GridColumn<TRow>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    grid.snapshotColumnWidths(measuredWidths());
+    const startX = event.clientX;
+    const startWidth = grid.columnWidthOf(column.id) ?? 120;
+    resizingColumnId = column.id;
+    const grip = event.currentTarget as HTMLElement;
+    grip.setPointerCapture(event.pointerId);
+    const move = (moveEvent: PointerEvent): void => {
+      grid.setColumnWidth(column.id, startWidth + moveEvent.clientX - startX);
+    };
+    const up = (): void => {
+      resizingColumnId = null;
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+  }
+  function gripDoubleClick(event: MouseEvent, column: GridColumn<TRow>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    grid.snapshotColumnWidths(measuredWidths());
+    grid.setColumnWidth(column.id, fittedWidth(column));
+  }
+
+  // ---- selection gestures ---------------------------------------------------------------------
+  function rowClick(event: MouseEvent, key: string): void {
+    grid.rowClick(key, {
+      shift: event.shiftKey,
+      toggle: event.ctrlKey || event.metaKey,
+      // The second click of a double-click never lets the sole selection go — activation must not
+      // churn select → deselect → select (the settled defect fix).
+      repeated: event.detail > 1,
+    });
+  }
+  function rowDoubleClick(key: string): void {
+    grid.activate(key);
+  }
+  function rowContextMenu(event: MouseEvent, row: TRow): void {
+    if (!onRowContextMenu) return;
+    event.preventDefault();
+    const key = rowKeyOf(row);
+    // Right-click outside the selection re-targets it; inside, the menu speaks for the whole set.
+    if (!grid.isSelected(key)) grid.rowClick(key, { repeated: true });
+    onRowContextMenu(event, row, grid.selectedRows);
+  }
+  function surfaceClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.closest("tr, thead, tfoot, button, input, label")) return;
+    grid.clearSelection();
+  }
+
+  function scrollFocusIntoView(): void {
+    const key = grid.selection.focus;
+    if (key === null || !scrollElement) return;
+    scrollElement
+      .querySelector(`[data-grid-row="${CSS.escape(key)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }
+
+  function surfaceKeydown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement;
+    // Text fields keep their native keys (select-all, caret movement).
+    if (target.closest("input, textarea, select, [contenteditable]")) return;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      grid.selectAll();
+      return;
+    }
+    switch (event.key) {
+      // The list has no horizontal axis, so Left/Right also move — never dead keys.
+      case "ArrowDown":
+      case "ArrowRight":
+        event.preventDefault();
+        grid.arrow(1, event.shiftKey);
+        scrollFocusIntoView();
+        return;
+      case "ArrowUp":
+      case "ArrowLeft":
+        event.preventDefault();
+        grid.arrow(-1, event.shiftKey);
+        scrollFocusIntoView();
+        return;
+      case "Enter":
+        if (grid.selection.focus !== null) grid.activate(grid.selection.focus);
+        return;
+      case "Escape":
+        grid.clearSelection();
+        return;
+      default:
+        return;
+    }
+  }
+</script>
+
+<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions --
+     the scroll region takes focus for the grid's keyboard model (arrows, Ctrl+A, Enter), and a
+     scrollable region must be reachable; the click listener only clears selection on empty space. -->
+<div
+  bind:this={scrollElement}
+  class={mergeClasses("mc-table-grid-scroll mc-scrollbar w-full", className)}
+  tabindex="0"
+  role="group"
+  aria-label={caption}
+  onkeydown={surfaceKeydown}
+  onclick={surfaceClick}
+>
+  <table
+    class="mc-table mc-table-grid w-full"
+    data-zebra={grid.zebra ? "on" : undefined}
+    data-fixed-columns={grid.columnWidthsFixed ? "on" : undefined}
+    data-row-density={density}
+  >
+    <caption class="sr-only">{caption}</caption>
+    <thead class="mc-table-header">
+      <tr class="mc-table-row">
+        {#each grid.visibleColumns as column (column.id)}
+          {@const pinned = pinnedAttributes(column.id)}
+          {@const width = grid.columnWidthOf(column.id)}
+          <th
+            bind:this={headerCells[column.id]}
+            scope="col"
+            class="mc-table-head mc-table-grid-head"
+            data-grid-column={column.id}
+            data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
+            data-pinned={pinned["data-pinned"]}
+            data-pinned-edge={pinned["data-pinned-edge"]}
+            data-dragging={draggingColumnId === column.id ? "true" : undefined}
+            data-drop={dropTarget?.columnId === column.id
+              ? dropTarget.after
+                ? "after"
+                : "before"
+              : undefined}
+            aria-sort={ariaSortOf(column.id)}
+            draggable={column.anchored ? undefined : true}
+            style={[
+              pinned.style,
+              width === undefined ? undefined : `width: ${width}px`,
+            ]
+              .filter(Boolean)
+              .join("; ") || undefined}
+            ondragstart={(event) => {
+              if (column.anchored) return;
+              draggingColumnId = column.id;
+              if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+            }}
+            ondragend={() => {
+              draggingColumnId = null;
+              dropTarget = null;
+            }}
+            ondragover={(event) => headDragOver(event, column)}
+            ondragleave={() => {
+              if (dropTarget?.columnId === column.id) dropTarget = null;
+            }}
+            ondrop={(event) => headDrop(event, column)}
+          >
+            <span class="mc-table-grid-head-inner">
+              <button
+                type="button"
+                class="mc-table-grid-sort"
+                title="Sort by {column.label}"
+                onclick={() => grid.toggleSort(column.id)}
+              >
+                {column.label}
+                <span class="mc-table-grid-sort-arrow">
+                  {#if grid.sortColumnId === column.id}
+                    {#if grid.sortDirection === "ascending"}
+                      <ArrowUp class="mc-table-grid-sort-arrow" aria-hidden="true" />
+                    {:else}
+                      <ArrowDown class="mc-table-grid-sort-arrow" aria-hidden="true" />
+                    {/if}
+                  {/if}
+                </span>
+              </button>
+              <GridColumnFilter {grid} {column} />
+            </span>
+            <span
+              class="mc-table-grid-grip"
+              data-resizing={resizingColumnId === column.id ? "true" : undefined}
+              aria-hidden="true"
+              title="Drag to resize the {column.label} column. Double-click fits it to its widest value"
+              onpointerdown={(event) => gripPointerDown(event, column)}
+              ondblclick={(event) => gripDoubleClick(event, column)}
+              onclick={(event) => event.stopPropagation()}
+              ondragstart={(event) => event.preventDefault()}
+            ></span>
+          </th>
+        {/each}
+      </tr>
+    </thead>
+    <tbody class="mc-table-body">
+      {#if loading}
+        {#each Array.from({ length: skeletonRowCount }, (_, index) => index) as skeletonRow (skeletonRow)}
+          <tr class="mc-table-row">
+            {#each grid.visibleColumns as column (column.id)}
+              <td class="mc-table-cell mc-table-grid-cell"
+                ><Skeleton class="mc-table-skeleton w-full" /></td
+              >
+            {/each}
+          </tr>
+        {/each}
+      {:else if grid.rowsInView.length === 0 && grid.isFiltered}
+        <tr class="mc-table-row">
+          <td class="mc-table-cell mc-table-grid-cell" colspan={grid.visibleColumns.length}>
+            <div class="mc-table-grid-empty">
+              <p>
+                No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
+                the {grid.activeFilterCount === 1 ? "filter" : "filters"} on
+                {grid.activeFilterLabels.join(", ")}. All {grid.totalRowCount}
+                {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} are hidden.
+              </p>
+              <Button variant="secondary" size="sm" onclick={() => grid.clearAllFilters()}>
+                <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
+                Clear All Filters
+              </Button>
+            </div>
+          </td>
+        </tr>
+      {:else if grid.rowsInView.length === 0}
+        <tr class="mc-table-row">
+          <td class="mc-table-cell mc-table-grid-cell" colspan={grid.visibleColumns.length}>
+            {#if empty}
+              {@render empty()}
+            {:else}
+              <div class="mc-table-grid-empty">
+                <p>No {grid.itemNoun.plural} yet.</p>
+              </div>
+            {/if}
+          </td>
+        </tr>
+      {:else}
+        {#each grid.rowsInView as row (rowKeyOf(row))}
+          {@const key = rowKeyOf(row)}
+          <tr
+            class="mc-table-row"
+            data-grid-row={key}
+            data-state={grid.isSelected(key) ? "selected" : undefined}
+            onclick={(event) => rowClick(event, key)}
+            ondblclick={() => rowDoubleClick(key)}
+            oncontextmenu={(event) => rowContextMenu(event, row)}
+          >
+            {#each grid.visibleColumns as column (column.id)}
+              {@const pinned = pinnedAttributes(column.id)}
+              {@const text = gridCellText(column, row)}
+              <td
+                class="mc-table-cell mc-table-grid-cell"
+                data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
+                data-pinned={pinned["data-pinned"]}
+                data-pinned-edge={pinned["data-pinned-edge"]}
+                style={pinned.style}
+              >
+                {#if cell}
+                  {@render cell({ row, column, text })}
+                {:else if text === ""}
+                  <!-- A muted em dash reads as "intentionally empty", not a rendering gap. -->
+                  <span class="mc-table-grid-empty-value" aria-hidden="true">—</span>
+                {:else}
+                  {text}
+                {/if}
+              </td>
+            {/each}
+          </tr>
+        {/each}
+      {/if}
+    </tbody>
+    {#if grid.hasTotals && grid.rowsInView.length > 0 && !loading}
+      <tfoot>
+        <tr class="mc-table-row">
+          {#each grid.visibleColumns as column, columnIndex (column.id)}
+            {@const pinned = pinnedAttributes(column.id)}
+            <td
+              class="mc-table-grid-total-cell"
+              data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
+              data-pinned={pinned["data-pinned"]}
+              style={pinned.style}
+            >
+              {#if columnIndex === 0}
+                <span
+                  class="mc-table-grid-scope"
+                  data-filtered={grid.isFiltered ? "true" : undefined}
+                  title={grid.isFiltered
+                    ? "Totals over the rows in view only"
+                    : "Totals over every " + grid.itemNoun.singular}
+                >
+                  {grid.isFiltered ? "In view" : "Total"}
+                </span>
+              {:else if column.total === "sum"}
+                {grid.totalTextFor(column)}
+              {/if}
+            </td>
+          {/each}
+        </tr>
+      </tfoot>
+    {/if}
+  </table>
+</div>

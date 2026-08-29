@@ -281,4 +281,403 @@
     display: flex;
     justify-content: flex-end;
   }
+  /* A from/to pair on one line (numeric and date ranges), the honest unit note beneath. */
+  .mc-table-filter-range-row {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+  }
+  .mc-table-filter-note {
+    color: var(--mc-text-subtle);
+    font-size: var(--mc-font-size-xs);
+  }
+  /* The per-value count beside a set-filter option — recognition of how much each choice keeps. */
+  .mc-table-filter-count {
+    margin-inline-start: auto;
+    color: var(--mc-text-subtle);
+    font-size: var(--mc-font-size-xs);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * ============ DataTable.Grid — the one table ============
+   * The composed table every matter surface renders (the one-table ruling): sticky header, the
+   * in-header filter sharing the cell's hover, drag-reorder, pinning, resize grips, the totals
+   * row, and the footer strip. It layers ON the mc-table recipes above — the grid's <table>
+   * carries both classes — and overrides only where the settled mockup geometry differs.
+   */
+  /* The grid scrolls ITSELF — both axes — so a wide table never leaks horizontal scroll to the
+     page body. `isolation` makes its sticky z-layers local, so in-table stacking never competes
+     with the app's floating layers. */
+  .mc-table-grid-scroll {
+    overflow: auto;
+    isolation: isolate;
+    border: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-radius: var(--mc-radius-lg);
+    background-color: var(--mc-surface-default);
+  }
+  .mc-table-grid-scroll:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* Once a member resizes a column the layout is theirs: fixed, overflowing text ellipsized. */
+  .mc-table-grid[data-fixed-columns="on"] {
+    table-layout: fixed;
+  }
+  .mc-table-grid[data-fixed-columns="on"] .mc-table-grid-cell {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Consistent row heights: one line per row, cells never wrap, geometry from the control scale. */
+  .mc-table-grid .mc-table-cell {
+    block-size: var(--mc-control-sm);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    white-space: nowrap;
+  }
+  .mc-table-grid[data-row-density="compact"] .mc-table-cell {
+    block-size: var(--mc-control-xs);
+    padding-block: var(--mc-space-0);
+  }
+  .mc-table-grid .mc-table-body .mc-table-row {
+    cursor: pointer;
+    user-select: none;
+  }
+  /*
+   * Header cells: sticky under vertical scroll, and the cell IS the hover unit — the label and
+   * the filter control share one surface, so the funnel needs no hunting. The head cell drops the
+   * base recipe's padding (the inner unit carries it) and hosts the absolute resize grip.
+   */
+  .mc-table-grid-head {
+    position: sticky;
+    inset-block-start: var(--mc-space-0);
+    z-index: var(--mc-z-sticky);
+    padding-inline: var(--mc-space-0);
+  }
+  .mc-table-grid-head[draggable="true"] {
+    cursor: grab;
+  }
+  .mc-table-grid-head[data-dragging="true"] .mc-table-grid-head-inner {
+    color: var(--mc-action-disabled-foreground);
+  }
+  /* The drop indicator: an edge bar on the half being entered, painted by a pseudo-element so the
+     header never reflows while a column is in flight. */
+  .mc-table-grid-head[data-drop="before"]::before,
+  .mc-table-grid-head[data-drop="after"]::after {
+    content: "";
+    position: absolute;
+    inset-block: var(--mc-space-0);
+    inline-size: var(--mc-focus-ring-width);
+    background-color: var(--mc-border-focus);
+  }
+  .mc-table-grid-head[data-drop="before"]::before {
+    inset-inline-start: var(--mc-space-0);
+  }
+  .mc-table-grid-head[data-drop="after"]::after {
+    inset-inline-end: var(--mc-space-0);
+  }
+  /* One hover unit spanning the whole cell (label + funnel), the settled header composition. */
+  .mc-table-grid-head-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    block-size: var(--mc-density-control-height);
+    padding-inline: var(--mc-space-8);
+  }
+  .mc-table-grid-head-inner:hover {
+    background-color: var(--mc-surface-selected);
+  }
+  .mc-table-grid-head-inner:hover .mc-table-grid-sort {
+    color: var(--mc-text-default);
+  }
+  .mc-table-grid-head[data-align="end"] .mc-table-grid-head-inner {
+    justify-content: flex-end;
+  }
+  /* The sort control inherits the header's caps voice (see .mc-table-sort for the UA-reset why). */
+  .mc-table-grid-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    border-radius: var(--mc-radius-sm);
+  }
+  .mc-table-grid-sort:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* The direction arrow's slot is always reserved, so sorting a column moves nothing. */
+  .mc-table-grid-sort-arrow {
+    flex: none;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+  /*
+   * The in-header filter: flush at the cell's END edge (label leading, funnel trailing; in an
+   * end-aligned column the label sits beside it at that same edge), its space reserved at all
+   * times so revealing it on hover moves nothing. Revealed while the cell is hovered or focused,
+   * and ALWAYS while active or open. Active is unmistakable: the accent-subtle fill.
+   */
+  .mc-table-grid-filter-trigger {
+    visibility: hidden;
+    flex: none;
+    margin-inline-start: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: var(--mc-text-subtle);
+    cursor: pointer;
+  }
+  .mc-table-grid-head[data-align="end"] .mc-table-grid-filter-trigger {
+    margin-inline-start: var(--mc-space-0);
+  }
+  .mc-table-grid-head:hover .mc-table-grid-filter-trigger,
+  .mc-table-grid-head:focus-within .mc-table-grid-filter-trigger,
+  .mc-table-grid-filter-trigger[data-active="true"],
+  .mc-table-grid-filter-trigger[data-state="open"] {
+    visibility: visible;
+  }
+  .mc-table-grid-head-inner:hover .mc-table-grid-filter-trigger:not([data-active="true"]) {
+    color: var(--mc-text-default);
+  }
+  .mc-table-grid-filter-trigger[data-active="true"] {
+    background-color: var(--mc-accent-subtle);
+    color: var(--mc-accent-subtle-foreground);
+  }
+  .mc-table-grid-filter-trigger:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* The resize grip rides the header cell's END edge; its rule lights on hover and while dragging.
+     Double-click fits the column to its widest value. */
+  .mc-table-grid-grip {
+    position: absolute;
+    inset-block: var(--mc-space-0);
+    inset-inline-end: var(--mc-space-0);
+    inline-size: var(--mc-space-8);
+    cursor: col-resize;
+  }
+  .mc-table-grid-grip::after {
+    content: "";
+    position: absolute;
+    inset-block: var(--mc-space-0);
+    inset-inline-end: var(--mc-space-0);
+    inline-size: var(--mc-border-width-default);
+    background-color: transparent;
+  }
+  .mc-table-grid-grip:hover::after,
+  .mc-table-grid-grip[data-resizing="true"]::after {
+    inline-size: var(--mc-focus-ring-width);
+    background-color: var(--mc-border-focus);
+  }
+  /*
+   * Pinned columns hold still under horizontal scroll: sticky cells at measured offsets,
+   * contiguous from the leading edge, a hairline marking where the pinned block ends. Sticky
+   * body cells are positioned, so they paint over the scrolling cells with no z of their own;
+   * pinned header/totals cells sit one layer above their sticky row-mates. The z tokens are read
+   * INSIDE the grid's isolated stacking context, so they order only the table's own layers.
+   */
+  .mc-table-grid-head[data-pinned],
+  .mc-table-grid-cell[data-pinned] {
+    position: sticky;
+  }
+  .mc-table-grid-head[data-pinned] {
+    z-index: var(--mc-z-overlay);
+  }
+  .mc-table-grid .mc-table-body .mc-table-grid-cell[data-pinned] {
+    background-color: var(--mc-surface-default);
+  }
+  .mc-table-grid-head[data-pinned-edge],
+  .mc-table-grid-cell[data-pinned-edge] {
+    border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
+  }
+  /* Pinned body cells carry the row's state colors themselves (an opaque sticky cell would
+     otherwise mask hover, selection, and zebra). */
+  .mc-table-grid .mc-table-body .mc-table-row:hover .mc-table-grid-cell[data-pinned] {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-table-grid
+    .mc-table-body
+    .mc-table-row[data-state="selected"]
+    .mc-table-grid-cell[data-pinned] {
+    background-color: var(--mc-surface-selected);
+  }
+  .mc-table-grid[data-zebra="on"]
+    .mc-table-body
+    .mc-table-row:nth-child(even):not(:hover):not([data-state="selected"])
+    .mc-table-grid-cell[data-pinned] {
+    background-color: var(--mc-surface-raised);
+  }
+  /*
+   * The totals row: real sums pinned under the list, scope-honest. The strong top rule separates
+   * arithmetic from data; the scope label turns accent under a filter so "In view" cannot be
+   * missed.
+   */
+  .mc-table-grid-total-cell {
+    position: sticky;
+    inset-block-end: var(--mc-space-0);
+    z-index: var(--mc-z-sticky);
+    background-color: var(--mc-surface-raised);
+    border-block-start: var(--mc-focus-ring-width) solid var(--mc-border-strong);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    font-weight: var(--mc-weight-semibold);
+    white-space: nowrap;
+  }
+  .mc-table-grid-total-cell[data-align="end"] {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+  .mc-table-grid-total-cell[data-pinned] {
+    position: sticky;
+    z-index: var(--mc-z-overlay);
+  }
+  .mc-table-grid-scope {
+    text-transform: uppercase;
+    letter-spacing: var(--mc-tracking-caps);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    color: var(--mc-text-muted);
+  }
+  .mc-table-grid-scope[data-filtered="true"] {
+    color: var(--mc-accent-subtle-foreground);
+  }
+  /* An intentionally empty cell reads as a muted em dash, not a rendering gap. */
+  .mc-table-grid-empty-value {
+    color: var(--mc-text-subtle);
+  }
+  /* The filtered-empty state says WHY the table is empty and hands over the way out. */
+  .mc-table-grid-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--mc-space-12);
+    padding-block: var(--mc-space-32);
+    padding-inline: var(--mc-space-24);
+    text-align: center;
+    color: var(--mc-text-muted);
+    white-space: normal;
+  }
+  /*
+   * The footer strip: counts and the filter state leading, the surface's own figures trailing.
+   * One line at a fixed minimum height, so a selection appearing or clearing NEVER reflows it.
+   */
+  .mc-table-grid-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-12);
+    min-block-size: var(--mc-control-sm);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-12);
+    color: var(--mc-text-subtle);
+    font-size: var(--mc-font-size-xs);
+    white-space: nowrap;
+  }
+  .mc-table-grid-footer-tally {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+  }
+  .mc-table-grid-footer-filtered {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    color: var(--mc-accent-subtle-foreground);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-table-grid-footer-filtered-icon {
+    flex: none;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+  .mc-table-grid-footer-count {
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+  .mc-table-grid-footer-link {
+    background-color: transparent;
+    color: var(--mc-text-link);
+    font: inherit;
+    font-size: var(--mc-font-size-xs);
+    cursor: pointer;
+    border-radius: var(--mc-radius-sm);
+  }
+  .mc-table-grid-footer-link:hover {
+    text-decoration: underline;
+  }
+  .mc-table-grid-footer-link:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-table-grid-footer-end {
+    margin-inline-start: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-12);
+  }
+  /* The columns menu: a checkbox row per column, each with the pin control at the row's end, and
+     the display settings beneath a hairline. */
+  .mc-table-grid-columns {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-size-popover);
+  }
+  .mc-table-grid-columns-option {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-radius: var(--mc-radius-sm);
+    font-size: var(--mc-font-size-sm);
+    color: var(--mc-text-default);
+    cursor: pointer;
+  }
+  .mc-table-grid-columns-option:hover {
+    background-color: var(--mc-surface-selected);
+  }
+  .mc-table-grid-columns-rule {
+    block-size: var(--mc-border-width-default);
+    background-color: var(--mc-border-default);
+    margin-block: var(--mc-space-4);
+  }
+  .mc-table-grid-pin {
+    margin-inline-start: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: var(--mc-text-subtle);
+    cursor: pointer;
+  }
+  .mc-table-grid-pin:hover {
+    background-color: var(--mc-surface-raised);
+    color: var(--mc-text-default);
+  }
+  .mc-table-grid-pin[aria-pressed="true"] {
+    color: var(--mc-accent-subtle-foreground);
+  }
+  .mc-table-grid-pin:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-table-grid-pin-icon {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
 }

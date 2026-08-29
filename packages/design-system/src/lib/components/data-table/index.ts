@@ -13,6 +13,10 @@
  * @tanstack/svelte-table v9 adapter when that stabilises.
  */
 import Root from "./table.svelte";
+import Grid from "./data-table-grid.svelte";
+import GridColumnsMenu from "./data-table-grid-columns-menu.svelte";
+import GridFooter from "./data-table-grid-footer.svelte";
+import GridColumnFilterControl from "./data-table-grid-filter.svelte";
 import Header from "./table-header.svelte";
 import Body from "./table-body.svelte";
 import Row from "./table-row.svelte";
@@ -25,6 +29,49 @@ import ViewMenu from "./data-table-view-menu.svelte";
 import ColumnFilter from "./data-table-column-filter.svelte";
 
 export { createSvelteTable } from "./data-table.svelte.ts";
+// The one-table composition (DataTable.Grid) — the declarative column model and its state engine.
+export {
+  createDataTableGrid,
+  DataTableGridState,
+  type DataTableGridOptions,
+  type GridItemNoun,
+} from "./data-table-grid-state.svelte.ts";
+export {
+  type GridCellContext,
+  type GridColumn,
+  type GridColumnFilterKind,
+  type GridColumnType,
+  type GridColumnValue,
+  type GridSortDirection,
+  compareGridRows,
+  gridCellText,
+  gridColumnAlign,
+  gridColumnSum,
+  gridColumnTotalText,
+  movedGridColumnOrder,
+  sortGridRows,
+  visibleGridColumns,
+} from "./grid-columns.ts";
+export {
+  type GridColumnFilter,
+  type GridFilters,
+  activeGridFilterLabels,
+  gridColumnFilterKind,
+  gridFilterSummary,
+  gridFiltersAfterChange,
+  gridSetFilterCounts,
+  rowPassesGridColumnFilter,
+  rowPassesGridFilters,
+} from "./grid-filters.ts";
+export {
+  type GridClickModifiers,
+  type GridSelection,
+  emptyGridSelection,
+  gridSelectionAfterArrow,
+  gridSelectionAfterRowClick,
+  gridSelectionOfAll,
+  gridSelectionRetained,
+} from "./grid-selection.ts";
 export { renderComponent, renderSnippet } from "./render-helpers.ts";
 export {
   type ColumnValueType,
@@ -64,6 +111,10 @@ export {
 
 export {
   Root,
+  Grid,
+  GridColumnsMenu,
+  GridFooter,
+  GridColumnFilterControl,
   Header,
   Body,
   Row,
@@ -76,6 +127,9 @@ export {
   ColumnFilter,
   //
   Root as Table,
+  Grid as DataTableGrid,
+  GridColumnsMenu as DataTableGridColumnsMenu,
+  GridFooter as DataTableGridFooter,
   Header as TableHeader,
   Body as TableBody,
   Row as TableRow,
