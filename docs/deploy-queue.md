@@ -628,6 +628,14 @@ Do them in this order; each one is inert without the ones before it.
    back into the product cannot be built without it. Missing → reason
    `app-base-url-not-configured`.
 
+   **It is also Better Auth's `baseURL`, and that makes it worth setting on its own**, ahead of and
+   independently of anything about mail. Unset, the library logs `Base URL is not set … callbacks and
+redirects may not work correctly` on every cold start and derives the origin from each incoming
+   request — which is exactly what a background pass has no way to do. `createAuth` reads it when
+   present and falls back to the request-derived default when absent (`apps/api-worker/src/auth.ts`),
+   so local development and the test pool, which are reached at whatever host serves them, keep
+   working unconfigured. Setting this var is what silences that warning in production.
+
 **A new Cron trigger rides this deploy.** `wrangler.jsonc` gains `"0 * * * *"` alongside the existing
 `*/5`, `*/10` and `0 3` expressions. Hourly is the granularity a firm-local morning needs and no
 finer; firms whose local hour it is not cost two small setting reads. It deploys with the worker —

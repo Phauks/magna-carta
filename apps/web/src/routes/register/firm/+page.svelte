@@ -28,6 +28,7 @@
   import { startRegistration } from "$lib/auth/joining-api.ts";
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import FoundFirmScreen from "$lib/auth/screens/found-firm-screen.svelte";
+  import { MINIMUM_PASSWORD_LENGTH } from "$lib/auth/password-rule.ts";
   import RegisterDetailsScreen from "$lib/auth/screens/register-details-screen.svelte";
   import {
     REGISTRATION_REFUSED,
@@ -40,6 +41,7 @@
   let firstName = $state("");
   let lastName = $state("");
   let email = $state("");
+  let password = $state("");
   let agreedToTerms = $state(false);
   let agreedToPrivacy = $state(false);
   let pending = $state(false);
@@ -74,6 +76,8 @@
       // how a person reads their own name back, not because the server stores them apart.
       name: `${firstName.trim()} ${lastName.trim()}`,
       email: email.trim(),
+      // NOT trimmed — whitespace is part of a password (see the account door's note).
+      password,
       firmName: firmName.trim(),
     });
     pending = false;
@@ -103,6 +107,8 @@
       bind:firstName
       bind:lastName
       bind:email
+      bind:password
+      minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
       bind:agreedToTerms
       bind:agreedToPrivacy
       bind:firstNameFieldReference

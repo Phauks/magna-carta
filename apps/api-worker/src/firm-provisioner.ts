@@ -6,6 +6,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { isFirmNameConflict } from "./control-plane-conflicts.ts";
 import type { FirmResourceProvider } from "./firm-resource-provider.ts";
+import { insertCredentialAccountStatement } from "./joining-credentials.ts";
 
 // The resumable provisioning orchestration. Each step is guarded by
 // the firm row's CURRENT state, so a crashed run resumes by re-invoking and completed steps no-op:
@@ -61,7 +62,18 @@ export interface ProvisionFirmInput {
   // operator door and a registration started under the superseded founding door), where the
   // activation batch creates one. The difference is one statement in step 3 and one mail the
   // caller does not send; everything else about provisioning is identical.
-  readonly owner: { readonly email: string; readonly name: string; readonly userId?: UserId };
+  readonly owner: {
+    readonly email: string;
+    readonly name: string;
+    readonly userId?: UserId;
+    // The password the owner CHOSE when they registered, already hashed (joining-credentials.ts).
+    // Present on the self-serve door, where the person picked one and proved the mailbox by spending
+    // the confirmation token — so the owner is created verified, WITH a credential, and no
+    // activation mail is owed. Absent on the operator door, where a platform admin types a name and
+    // an address and there is no password to have chosen: that owner is created account-less and
+    // activates through the password-reset flow, which creates the credential when it lands.
+    readonly credentialHash?: string;
+  };
 }
 
 export interface FirmProvisionerDependencies {
@@ -207,6 +219,11 @@ export async function provisionFirm(
   // status the step-3 guard and owner_user_id the already-active branch's owner of record.
   const adoptedOwnerUserId = input.owner.userId;
   const ownerUserId = adoptedOwnerUserId ?? newIdentifier("user");
+  // Only meaningful when the owner is CREATED here. An adopted account already holds whatever
+  // credential its own joining path gave it, and overwriting that from a registration would be a
+  // password change nobody asked for.
+  const ownerCredentialHash =
+    adoptedOwnerUserId === undefined ? input.owner.credentialHash : undefined;
   const nowEpochMilliseconds = Date.now();
   return {
     kind: "ready-to-activate",
@@ -215,9 +232,10 @@ export async function provisionFirm(
     ownerEmail,
     finalWrite: {
       statements: [
-        // The owner. Either created here — unverified and account-less, activated afterwards
-        // through the password-reset flow — or ADOPTED, when the person founding the firm already
-        // has an account and is signed in as they ask for it.
+        // The owner. Either created here — with the credential they chose when they registered, or
+        // account-less and activated afterwards through the password-reset flow when the door had
+        // no password to carry — or ADOPTED, when the person founding the firm already has an
+        // account and is signed in as they ask for it.
         //
         // The adoption is two statements because a guarded UPDATE cannot abort a D1 batch at zero
         // rows. The first is a FENCE in the shape the activation fence below already uses: it
@@ -229,9 +247,32 @@ export async function provisionFirm(
           ? [
               database
                 .prepare(
-                  'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
+                  'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, ?6, ?4, ?4, ?5)',
                 )
-                .bind(ownerUserId, input.owner.name, ownerEmail, nowEpochMilliseconds, firmId),
+                .bind(
+                  ownerUserId,
+                  input.owner.name,
+                  ownerEmail,
+                  nowEpochMilliseconds,
+                  firmId,
+                  // Verified exactly when the owner arrived by spending a token mailed to this
+                  // address — which is the same possession proof email verification asks for, and
+                  // the only door that carries a chosen password. The operator door proves nothing
+                  // about the mailbox, so its owner stays unverified until the reset link lands.
+                  ownerCredentialHash === undefined ? 0 : 1,
+                ),
+              // The credential in the SAME batch as the user, so an owner row can never commit
+              // without a password to sign in with — the state that made a missing activation mail
+              // an account nobody could ever reach.
+              ...(ownerCredentialHash === undefined
+                ? []
+                : [
+                    insertCredentialAccountStatement(database, {
+                      userId: ownerUserId,
+                      passwordHash: ownerCredentialHash,
+                      nowEpochMilliseconds,
+                    }),
+                  ]),
             ]
           : [
               database

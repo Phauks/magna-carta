@@ -13,6 +13,7 @@ import selfServeRegistrationAndInvitationsSql from "@magna-carta/database/drizzl
 // add the new import alongside its journal entry, keyed by its monotonic timestamp id.
 import naturalLanguageSearchInstanceSql from "@magna-carta/database/drizzle/control-plane/20260816T152908_natural-language-search-instance.sql";
 import firmlessAccountSql from "@magna-carta/database/drizzle/control-plane/20260829T101500_firmless-account.sql";
+import registrationCredentialSql from "@magna-carta/database/drizzle/control-plane/20260829T160000_registration-credential.sql";
 
 export function controlPlaneMigrations(): Migration[] {
   return migrationsFromJournal(controlPlaneJournal, {
@@ -24,6 +25,7 @@ export function controlPlaneMigrations(): Migration[] {
       selfServeRegistrationAndInvitationsSql,
     "20260816T152908_natural-language-search-instance": naturalLanguageSearchInstanceSql,
     "20260829T101500_firmless-account": firmlessAccountSql,
+    "20260829T160000_registration-credential": registrationCredentialSql,
   });
 }
 

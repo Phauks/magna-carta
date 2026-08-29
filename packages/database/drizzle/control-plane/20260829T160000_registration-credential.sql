@@ -1,0 +1,17 @@
+-- contract: `registration` gains `credential_hash`, the password the visitor CHOSE at registration,
+-- already hashed in Better Auth's own scrypt format. Spending the confirmation token then creates
+-- the `user` row and its credential `account` row together, so a person who has been given an
+-- account can sign in with the password they picked — no second mail, and no password-reset round
+-- trip standing between somebody and their first sign-in.
+--
+-- WHAT THIS COLUMN HOLDS IS A VERIFIER, NEVER A PASSWORD. The plaintext is hashed in the request
+-- that received it and is never written anywhere; what lands here is the same value the `account`
+-- table would hold, and it is MOVED into that row at confirmation rather than copied. The row it
+-- sits on already expires in 24 hours (`expires_at`), which bounds how long an unclaimed verifier
+-- exists at all, and the sweep that supersedes an earlier registration for the same address
+-- supersedes this along with it.
+--
+-- NULLABLE, because rows written before this migration have no such value and must still confirm:
+-- a registration in flight across the deploy falls back to the account-less creation it was started
+-- under. New rows always carry one — the request schema requires a password.
+ALTER TABLE `registration` ADD `credential_hash` text;

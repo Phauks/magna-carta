@@ -55,11 +55,17 @@ export interface StartedRegistration {
 export interface ConfirmedRegistration {
   email: string;
   /**
-   * What the spent token bought. `accountCreated` — the account exists and the link that sets its
-   * password is on its way. `provisioning` — a registration from the superseded founding door,
-   * whose firm is built off the request, so it reports "under way", not "here".
+   * What the spent token bought. `accountCreated` — the account exists, holding the password chosen
+   * at registration. `provisioning` — a registration from the superseded founding door, whose firm
+   * is built off the request, so it reports "under way", not "here".
    */
   status: "accountCreated" | "provisioning";
+  /**
+   * Where the person goes, which is a fact about whether they already hold a password. `signIn` —
+   * the credential exists; the ordinary answer now. `checkEmail` — a registration started before
+   * passwords were chosen at registration, whose password-setting link has been asked for.
+   */
+  next: "signIn" | "checkEmail";
 }
 
 export interface RedeemedInvitation {
@@ -123,6 +129,12 @@ export interface StartRegistrationInput {
   readonly email: string;
   /** The person's own name, as one string — one display name is what the row holds. */
   readonly name: string;
+  /**
+   * The password being chosen. Sent verbatim — never trimmed, never normalised: whitespace is part
+   * of a password, and altering it here would set a credential the person did not type. Required by
+   * the doors that create an account, which is every door this surface uses.
+   */
+  readonly password?: string;
   /** Read only on the founding door. Not unique, and never a lookup key. */
   readonly firmName?: string;
 }

@@ -15,7 +15,14 @@ import type { RateLimitBucket } from "../contracts/route-meta";
 // per bucket when real traffic shapes them — not a product decision being made now.
 export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: number }> = {
   default: { limit: 100, windowSeconds: 60 },
-  auth: { limit: 10, windowSeconds: 60 },
+  // Deliberately ABOVE the credential ladder's ATTEMPT_LIMIT (auth-attempt-budget.ts), because the
+  // two bound the same visitor by different means and only one of them is spoken aloud: the joining
+  // answers PUBLISH the ladder's remaining count. Whichever limit is lower is the one a visitor
+  // actually meets, so a bucket at or below the ladder makes that published number a lie — the
+  // screen says three attempts left and the next request is refused by a limiter it never mentioned.
+  // Keep this the outer bound on burst and let the ladder be the one that speaks; raising the ladder
+  // means raising this too.
+  auth: { limit: 20, windowSeconds: 60 },
   expensive: { limit: 10, windowSeconds: 60 },
   // Incident reports accept user-authored content; a tight bucket bounds abuse.
   "incident-report": { limit: 5, windowSeconds: 300 },

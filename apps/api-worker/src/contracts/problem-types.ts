@@ -451,6 +451,13 @@ export const PROBLEM_TYPES = {
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.
   "service-unavailable": "service-unavailable",
+  // The work committed, but the email it depends on could not be sent (HTTP 503). A SEPARATE type
+  // from `service-unavailable` because the two lead somewhere different: that one says a backing
+  // service is missing and there is nothing to do but wait, while this one says the one thing this
+  // request owed a person — a mail carrying a token only they can receive — did not leave, and the
+  // remedy is to ask again, which really does send a fresh one. A joining surface that could not
+  // tell them apart would have to render the vaguer sentence for both.
+  "mail-undeliverable": "mail-undeliverable",
   // The firm has not consented to sending its content to a third-party model provider at all (HTTP
   // 403). DISTINCT from `permission-denied`: the member's role is irrelevant — nobody in the firm can
   // use the assistant until an administrator opens the general AI-processing gate, and telling them

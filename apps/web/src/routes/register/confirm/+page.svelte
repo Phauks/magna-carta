@@ -12,6 +12,12 @@
    * for a mail client that will not open links. Both paths end at the same deliberate press; the
    * step's reach is declared in $lib/auth/joining-availability.ts under "confirm-registration".
    *
+   * WHAT SPENDING THE TOKEN NOW CREATES is the account AND the credential the person chose when
+   * they registered, so the ordinary ending of this screen is "sign in", not "check your email
+   * again". Which ending shows is the server's own `next`, never a guess made here: `signIn`, or
+   * `checkEmail` for a registration started before passwords were chosen at registration, which
+   * still needs its mailed link.
+   *
    * The firm is NOT built by the time this answers. Provisioning creates a bucket and mints a key,
    * which is not work an anonymous request does inline, so the route queues it and answers
    * "under way" — and the success screen says that rather than pretending a workspace is waiting.
@@ -19,8 +25,10 @@
   import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
   import { confirmRegistration } from "$lib/auth/joining-api.ts";
+  import AccountReadyScreen from "$lib/auth/screens/account-ready-screen.svelte";
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import ConfirmRegistrationScreen from "$lib/auth/screens/confirm-registration-screen.svelte";
+  import type { ConfirmedRegistration } from "$lib/auth/joining-api.ts";
   import {
     CONFIRMATION_REFUSED,
     joiningErrorMessage,
@@ -33,6 +41,9 @@
   let supportErrorId = $state<string | null>(null);
   let confirmedAddress = $state<string | null>(null);
   let confirmedAt = $state(new Date());
+  // What the server said the spent token bought, which decides which of three endings this screen
+  // shows. Held rather than derived, because the answer arrives once and the screen then stays on it.
+  let confirmed = $state<ConfirmedRegistration | null>(null);
 
   let tokenFieldReference = $state<HTMLInputElement | null>(null);
 
@@ -54,6 +65,7 @@
       return;
     }
     confirmedAt = new Date();
+    confirmed = outcome.value;
     confirmedAddress = outcome.value.email;
   }
 </script>
@@ -70,12 +82,28 @@
       {supportErrorId}
       onSubmit={confirm}
     />
-  {:else}
+  {:else if confirmed?.next === "checkEmail"}
+    <!--
+      A registration started before passwords were chosen at registration: its account has no
+      credential, so the mailed link really is the next step and this screen is still the truthful
+      ending for it.
+    -->
     <CheckEmailScreen
       address={confirmedAddress}
-      instruction="Your workspace is being built. We have sent a second email with the link that sets your password — open it once your workspace is ready."
+      instruction={confirmed.status === "provisioning"
+        ? "Your workspace is being built. We have sent a second email with the link that sets your password — open it once your workspace is ready."
+        : "We have sent a second email with the link that sets your password. Open it to finish setting up your account."}
       sentAt={confirmedAt}
-      remedy="Building takes a moment. If the second email has not arrived after a few minutes, use Reset Password from the sign-in screen."
+      remedy="If it has not arrived after a few minutes, use Reset Password from the sign-in screen."
+    />
+  {:else}
+    <!--
+      The ordinary ending, and the one nearly everybody now takes: the account exists and holds the
+      password chosen at registration, so there is nothing to wait for.
+    -->
+    <AccountReadyScreen
+      address={confirmedAddress}
+      pendingFirm={confirmed?.status === "provisioning"}
     />
   {/if}
 </AuthFrame>

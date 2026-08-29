@@ -22,6 +22,8 @@
   import { JOINING_STEPS, joiningStep } from "$lib/auth/joining-availability.ts";
   import { maskedPhoneNumber } from "$lib/auth/code-channels.ts";
   import { ATTEMPT_LIMIT } from "$lib/auth/attempt-ladder.ts";
+  import { MINIMUM_PASSWORD_LENGTH } from "$lib/auth/password-rule.ts";
+  import AccountReadyScreen from "$lib/auth/screens/account-ready-screen.svelte";
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import ConfirmRegistrationScreen from "$lib/auth/screens/confirm-registration-screen.svelte";
   import FoundFirmScreen from "$lib/auth/screens/found-firm-screen.svelte";
@@ -514,10 +516,14 @@
 
       <ScreenSpecimen
         name="Create Your Account"
-        note="The button names what pressing it does — it sends a confirmation email; the account is created when the link is followed. No password field and no passkey button: the credential is set from that link, which is the act that proves the mailbox."
+        note="The button names what pressing it does — it sends a confirmation email; the account is created when the link is followed. The password is chosen HERE and nothing is minted by choosing it: the server holds it hashed with the pending registration and commits the credential when the emailed token is spent, so one mail does what two used to."
         caveat={AGREEMENTS_GAP}
       >
-        <RegisterAccountScreen onSubmit={swallow} back={noop} />
+        <RegisterAccountScreen
+          minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
+          onSubmit={swallow}
+          back={noop}
+        />
       </ScreenSpecimen>
 
       <ScreenSpecimen
@@ -525,6 +531,7 @@
         note="Only a malformed form reaches this. A taken address and a free one both answer 202 — the difference is in the mail, never on the screen."
       >
         <RegisterAccountScreen
+          minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
           rejection="Those details could not be accepted. Check the email address and try again."
           onSubmit={swallow}
           back={noop}
@@ -591,10 +598,15 @@
 
       <ScreenSpecimen
         name="Register New User"
-        note="The button names what pressing it does. No password field and no passkey button: the credential is set from the emailed link, which is the act that proves the mailbox."
+        note="The button names what pressing it does. The password is chosen here and committed onto the account only when the emailed token is spent, which is still the act that proves the mailbox."
         caveat={AGREEMENTS_GAP}
       >
-        <RegisterDetailsScreen firmName="Goldsmith and Associates" onSubmit={swallow} back={noop} />
+        <RegisterDetailsScreen
+          firmName="Goldsmith and Associates"
+          minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
+          onSubmit={swallow}
+          back={noop}
+        />
       </ScreenSpecimen>
 
       <ScreenSpecimen
@@ -603,6 +615,7 @@
       >
         <RegisterDetailsScreen
           firmName="Goldsmith and Associates"
+          minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
           rejection="Those details could not be accepted. Check the email address and try again."
           onSubmit={swallow}
           back={noop}
@@ -621,6 +634,20 @@
           onEnterCode={noop}
           enterCodeLabel="Enter the Confirmation Code"
         />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Your account is ready"
+        note="Where confirming now ends, and the opposite of Check Your Email: the account already holds the password chosen at registration, so there is nothing to wait for and the sign-in button is under the reader's hand. The second variant is the founding door, whose workspace is still being built off the request — the credential exists either way, so the sentence must not promise a workspace that is not up yet."
+      >
+        <AccountReadyScreen address="trevor@goldsmith.example" />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Your account is ready, workspace still building"
+        note="The founding door's ending. Same credential, same button; only the sentence differs."
+      >
+        <AccountReadyScreen address="trevor@goldsmith.example" pendingFirm />
       </ScreenSpecimen>
 
       <ScreenSpecimen

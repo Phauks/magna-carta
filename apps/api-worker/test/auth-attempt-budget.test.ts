@@ -2,6 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { BUCKETS } from "../src/chokepoint/rate-limiter.ts";
 import { PASSWORD, seedCredentialedUser, seedFirm } from "./support/test-auth.ts";
 import {
   ATTEMPTS_REMAINING_HEADER,
@@ -178,8 +179,10 @@ describe("the budget on the wire", () => {
   it("puts the same budget on the chokepoint's own throttle reply", async () => {
     const clientAddress = freshClientAddress();
     let throttled: Response | undefined;
-    // The auth bucket is the tightest the platform has; walk past it on one address.
-    for (let attempt = 0; attempt < 15; attempt += 1) {
+    // Walk past the auth bucket on one address. The count comes from the bucket itself rather than
+    // a number written here: the bucket sits above the credential ladder on purpose, so a literal
+    // would silently stop reaching the throttle the day either of them moves.
+    for (let attempt = 0; attempt < BUCKETS.auth.limit + 2; attempt += 1) {
       const response = await SELF.fetch("https://example.com/api/v1/registrations", {
         method: "POST",
         headers: {

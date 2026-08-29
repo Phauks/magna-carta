@@ -11,6 +11,10 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
+// The password a registering visitor now chooses on the form. Registration commits it with the
+// account at confirmation, so every body that opens an account-creating door carries one.
+const TEST_PASSWORD = "a-sufficiently-long-test-password";
+
 // ACCOUNT-FIRST JOINING — the person is made first, and which firm they belong to is settled
 // afterwards, signed in. What is asserted here is the part that is easy to get wrong twice: what a
 // session with NO firm may reach, and that nothing about the neutral refusal changed on the way.
@@ -313,7 +317,11 @@ describe("redeeming an invitation into an account that already exists", () => {
 describe("registration, account-first", () => {
   it("creates the account when the token is spent, and no firm", async () => {
     const email = "new-person@example.com";
-    const started = await post("/api/v1/registrations", { email, name: "New Person" });
+    const started = await post("/api/v1/registrations", {
+      email,
+      name: "New Person",
+      password: TEST_PASSWORD,
+    });
     expect(started.status).toBe(202);
     expect(await started.json()).toMatchObject({ next: "checkEmail" });
 
@@ -336,6 +344,7 @@ describe("registration, account-first", () => {
       role: "foundFirm",
       email,
       name: "Old Door",
+      password: TEST_PASSWORD,
       firmName: "Old Door Legal",
     });
     expect(started.status).toBe(202);

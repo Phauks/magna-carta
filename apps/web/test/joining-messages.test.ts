@@ -10,9 +10,11 @@
 import { describe, expect, it } from "vitest";
 import type { JoiningOutcome } from "../src/lib/auth/joining-api.ts";
 import {
+  CONFIRMATION_MAIL_UNAVAILABLE,
   CONFIRMATION_REFUSED,
   JOINING_UNAVAILABLE,
   REDEMPTION_REFUSED,
+  REGISTRATION_REFUSED,
   TOO_MANY_ATTEMPTS,
   joiningErrorMessage,
   joiningSupportErrorId,
@@ -89,5 +91,40 @@ describe("lockoutFrom", () => {
   it("reports a countdown only when the refusal carried one", () => {
     expect(lockoutFrom({ status: 422, retryAfterSeconds: 900 })).toBe(900);
     expect(lockoutFrom({ status: 422 })).toBeNull();
+  });
+});
+
+describe("a confirmation email that would not send", () => {
+  // The server answers this as a 503 carrying its own problem type, because the remedy is precise:
+  // nothing was lost and pressing the button again really does send a fresh mail. The generic
+  // 5xx sentence would talk somebody out of the one action that works.
+  const mailUndeliverable = (): JoiningOutcome<unknown> =>
+    refusal(503, {
+      type: "https://api.magnacarta.esq/problems/mail-undeliverable",
+      errorId: "error_mail",
+    });
+
+  it("gets its own sentence rather than the generic outage one", () => {
+    expect(joiningErrorMessage(mailUndeliverable(), REGISTRATION_REFUSED)).toBe(
+      CONFIRMATION_MAIL_UNAVAILABLE,
+    );
+    expect(joiningErrorMessage(mailUndeliverable(), REGISTRATION_REFUSED)).not.toBe(
+      JOINING_UNAVAILABLE,
+    );
+  });
+
+  it("never reads as a verdict on what was typed", () => {
+    // It is a fault, not a refusal, so the step's own refusal sentence must not appear.
+    expect(joiningErrorMessage(mailUndeliverable(), REGISTRATION_REFUSED)).not.toBe(
+      REGISTRATION_REFUSED,
+    );
+  });
+
+  it("still surfaces an Error ID, because it is a server fault support can look up", () => {
+    expect(joiningSupportErrorId(mailUndeliverable())).toBe("error_mail");
+  });
+
+  it("leaves an ordinary 5xx on the generic sentence", () => {
+    expect(joiningErrorMessage(refusal(500), REGISTRATION_REFUSED)).toBe(JOINING_UNAVAILABLE);
   });
 });

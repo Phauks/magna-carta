@@ -239,9 +239,18 @@ export const registration = sqliteTable(
     // Which of the three doors the visitor chose. Only `foundFirm` provisions anything; the other
     // two are recorded so the rate of each is measurable and so a confirmation cannot be replayed
     // against a different door than the one it was issued for.
-    role: text("role", { enum: ["foundFirm", "firmMember", "clientOfFirm"] }).notNull(),
+    // `account` is the door the joining surface sends today — it registers a PERSON, and which firm
+    // they belong to is settled afterwards, signed in. The other three are the superseded role fork,
+    // kept so a registration started before the reflow still completes.
+    role: text("role", { enum: ["account", "foundFirm", "firmMember", "clientOfFirm"] }).notNull(),
     email: text("email").notNull(),
     displayName: text("display_name").notNull(),
+    // The password the visitor CHOSE, in Better Auth's own scrypt format — a verifier, never a
+    // password. Spending the confirmation token moves it onto the credential `account` row the same
+    // batch creates, which is what lets somebody sign in with the password they picked instead of
+    // being sent a second mail to set one. Null only for a registration written before the column
+    // existed, which confirms the account-less way it was started under.
+    credentialHash: text("credential_hash"),
     // The firm name the visitor typed, for the `foundFirm` door. It becomes `firm.display_name`,
     // never `firm.name` — see the note on that column.
     firmDisplayName: text("firm_display_name"),

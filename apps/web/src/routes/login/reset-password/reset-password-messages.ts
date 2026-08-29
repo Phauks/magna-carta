@@ -11,10 +11,12 @@
  * link and a too-short password are different remedies, so they get different sentences. A 5xx or a
  * dead transport is neither — it says nothing about the link or the password.
  */
+import { MINIMUM_PASSWORD_LENGTH } from "$lib/auth/password-rule.ts";
 import { SIGN_IN_UNAVAILABLE, TOO_MANY_ATTEMPTS } from "../sign-in-messages.ts";
 
-/** The server refuses anything shorter (apps/api-worker/src/auth.ts mounts the library default). */
-export const MINIMUM_PASSWORD_LENGTH = 8;
+// Re-exported, not redeclared: registration states the same rule, so the number has one home
+// ($lib/auth/password-rule.ts) and this surface's existing consumers keep the import they had.
+export { MINIMUM_PASSWORD_LENGTH };
 
 /** A token that will not spend: unknown, expired, or already used. One sentence for all three. */
 export const RESET_TOKEN_REFUSED =

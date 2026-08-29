@@ -9,6 +9,10 @@ import type {
 import { HUMAN_VERIFICATION_TOKEN_HEADER } from "../src/human-verification/human-verification-gate.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
+// The password a registering visitor now chooses on the form. Registration commits it with the
+// account at confirmation, so every body that opens an account-creating door carries one.
+const TEST_PASSWORD = "a-sufficiently-long-test-password";
+
 // The gate as a caller meets it: through the real registration route, which is the platform's only
 // self-serve write from the open internet. The verifier is injected rather than reached, because the
 // facts under test are what each OUTCOME becomes at the edge — a status, a problem type, a metric —
@@ -66,7 +70,13 @@ function harness(options: Parameters<typeof createApp>[0] = {}): Harness {
     register: (headers = {}) =>
       post(
         "/api/v1/registrations",
-        { role: "foundFirm", email: freshEmail(), name: "Ines Duarte", firmName: "Duarte Legal" },
+        {
+          role: "foundFirm",
+          email: freshEmail(),
+          name: "Ines Duarte",
+          password: TEST_PASSWORD,
+          firmName: "Duarte Legal",
+        },
         headers,
       ),
     redeem: (headers = {}) =>

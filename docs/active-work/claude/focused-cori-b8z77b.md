@@ -22,3 +22,22 @@ vocabulary-picker.svelte, and the one-line register change in matter-header.svel
 `apps/web/src/routes/(app)/matters/+page.svelte`, `apps/web/test/matter-columns.test.ts`, and the
 user guide `docs/user/features/opening-and-finding-matters.md`. Concurrent streams should stay out
 of `apps/web/src/lib/matters/` until this lands.
+
+**Added 2026-08-29 — a password at registration, and mail that fails out loud.** Registration now
+collects the password, and confirming the emailed token commits the `user` row and its credential
+`account` row in one batch, so a person can sign in the moment their account exists. That closes the
+production failure where every joining path created an account with no credential and leaned on a
+mailed reset link to make one — an account nobody could reach if the mail never arrived, whose only
+symptom was Better Auth logging `Credential account not found` at sign-in. Alongside it, an outbound
+send that fails is no longer an unhandled throw: registration answers a retryable `503`
+(`mail-undeliverable`) carrying an Error ID and keeps the row it committed, and every send Better
+Auth makes is guarded at the port, where the library's own swallowing of send failures can still be
+counted (`email.delivery_failed`). Owned files: `apps/api-worker/src/joining-credentials.ts`,
+`email-delivery.ts`, `routes/registrations.ts`, `firm-provisioner.ts`, `firm-provision-consumer.ts`,
+`auth.ts`, `app.ts`, `contracts/problem-types.ts`, the control-plane migration
+`20260829T160000_registration-credential.sql` + `control-plane-schema.ts`, `packages/telemetry/src/
+metrics.ts`, the OpenAPI snapshot + `packages/api-client`, and on the web side
+`apps/web/src/lib/auth/password-rule.ts`, `screens/account-ready-screen.svelte`,
+`screens/register-account-screen.svelte`, `screens/register-details-screen.svelte`,
+`lib/auth/joining-api.ts` and `routes/register/**`. Concurrent streams should stay out of the
+joining routes and `apps/web/src/routes/register/` until this lands.
