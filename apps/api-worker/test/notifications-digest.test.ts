@@ -135,16 +135,29 @@ beforeAll(async () => {
 
 describe("the digest pass on the cron", () => {
   it("mails nobody at all while outbound mail is unprovisioned", async () => {
-    // The real port on this deployment. The pool binds SEND_EMAIL but sets no EMAIL_FROM, so the
-    // honest answer is a reason — not a throw, and emphatically not the dev logging adapter, which
-    // would have this pass record `sent` rows for mail printed to a log.
-    const port = resolveNotificationDigestSendPort(env, {
-      log: () => undefined,
-      count: () => undefined,
-    } as never);
-    expect(port.status).toBe("unavailable");
+    // Each refusal is driven by taking one piece of provisioning away, rather than by whatever this
+    // deployment happens to bind: once mail IS provisioned — production has a sending address and a
+    // public origin today — a test that read the ambient bindings would silently stop asserting
+    // anything. The honest answer is a reason, not a throw, and emphatically not the dev logging
+    // adapter, which would have this pass record `sent` rows for mail printed to a log.
+    const silentLogger = { log: () => undefined, count: () => undefined } as never;
+    const unprovisioned = {
+      SEND_EMAIL: "send-binding-not-configured",
+      EMAIL_FROM: "sender-address-not-configured",
+      APP_BASE_URL: "app-base-url-not-configured",
+    } as const;
+    for (const [binding, reason] of Object.entries(unprovisioned)) {
+      const port = resolveNotificationDigestSendPort(
+        { ...env, [binding]: undefined } as never,
+        silentLogger,
+      );
+      expect(port).toEqual({ status: "unavailable", reason });
+    }
 
-    const firmsMailed = await runNotificationDigestPass(env, { now: AT_THE_HOUR });
+    const firmsMailed = await runNotificationDigestPass(
+      { ...env, EMAIL_FROM: undefined } as never,
+      { now: AT_THE_HOUR },
+    );
 
     expect(firmsMailed).toBe(0);
     expect(await deliveryStates()).toEqual([]);
