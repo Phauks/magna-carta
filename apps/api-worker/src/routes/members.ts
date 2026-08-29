@@ -1,6 +1,11 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import {
+  selectFirmMembersStatement,
+  ROLE_NAME_SEPARATOR,
+  type FirmMemberRow,
+} from "@magna-carta/data-access/member-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
@@ -8,6 +13,7 @@ import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import {
+  requireChokepointFirmContext,
   requireChokepointFirmId,
   requireChokepointIdempotency,
   requireChokepointUserId,
@@ -37,6 +43,105 @@ const InviteMemberResponse = z
     name: z.string(),
   })
   .openapi("InviteMemberResponse");
+
+// The firm's roster as a screen reads it. Four facts, and deliberately no fifth: a name to print, a
+// status so a picker can offer the people who are still here without erasing the ones who are not,
+// the roles held (the line under the name that says whom to ask), and whether a professional profile
+// exists (so an administrator can see at a glance whose letterhead identity is still unwritten).
+//
+// No email address, no direct dial, no permission set. Those are the professional-profile read and
+// the member's own settings; putting them here would make "who is on the firm" a heavier disclosure
+// than it is, and firm:readMembers is seeded to every default role precisely because this shape is
+// not.
+const FirmMemberSummary = z
+  .object({
+    userId: z.string(),
+    displayName: z.string(),
+    status: z.enum(["active", "deactivated"]).openapi({
+      description:
+        "A deactivated member is still listed: they remain the responsible attorney on matters " +
+        "they carried and the author of what they filed, and dropping the row would print those " +
+        "cells as an unfilled gap rather than as the person who is no longer here.",
+    }),
+    roleNames: z.array(z.string()).openapi({
+      description: "The names of the roles this member holds; empty where they hold none.",
+    }),
+    hasProfessionalProfile: z.boolean().openapi({
+      description:
+        "Whether a professional profile has been written for this member — the title, admissions " +
+        "and signature block a pleading states. False means unwritten, never unreadable.",
+    }),
+  })
+  .openapi("FirmMemberSummary");
+
+// The bare { data } envelope rather than a cursor page, and the reasoning is recorded beside the
+// other bounded reads in tooling/lint-list-pagination/unpaged-baseline.mjs: a member row exists only
+// where a PERSON was added to the firm, through one insert statement reached from one queue consumer
+// whose only producers are the invite route, firm provisioning and onboarding. The roster grows with
+// the firm's headcount and stops; it does not grow with the firm's activity. Paging it would also
+// break what it is for — a screen resolving names for the rows it is showing needs the whole lookup
+// before it can render any of them honestly, and a half-read roster prints blanks that read as
+// missing data.
+const FirmMemberListResponse = z
+  .object({ data: z.array(FirmMemberSummary) })
+  .openapi("FirmMemberListResponse");
+
+// Reading who is on the firm is NOT the privilege that inviting somebody is, so it does not ride
+// firm:manageMembers. It rides its own key, seeded to every default role including Read-only, on the
+// same reasoning notifications:read carries: the facts here are ones a member already meets on every
+// matter they are allowed to open, and withholding them only forces screens to print a raw handle or
+// nothing at all.
+export const membersListMeta: RouteMeta = {
+  operationId: "members.list",
+  surface: "app",
+  authenticated: true,
+  permission: "firm:readMembers",
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const listMembersRoute = defineOpenAPIRoute(membersListMeta, {
+  method: "get",
+  path: "/api/v1/members",
+  description:
+    "Lists the firm's members — display name, status, the roles held, and whether a professional " +
+    "profile has been written. Deactivated members are included: they still hold matters. Not " +
+    "paged; a firm's roster is bounded by its headcount rather than by its activity.",
+  responses: {
+    200: {
+      description: "The firm's members, ordered by display name",
+      content: { "application/json": { schema: FirmMemberListResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks firm:readMembers",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description:
+        "The session's firm is not reachable from this deployment, or the session member is " +
+        "deactivated (absent, never an existence oracle)",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+// The stored role list is one packed column; unpacking it is the route's job rather than the
+// caller's. An empty pack is a member holding no role at all, which is a real state (the outbox
+// mirrors a member before any role is named) and reads as an empty array, never as a role called "".
+function unpackRoleNames(packed: string | null): string[] {
+  if (packed === null || packed === "") return [];
+  return packed.split(ROLE_NAME_SEPARATOR).filter((name) => name !== "");
+}
 
 // The route metadata. The chokepoint, reading this at registration, enforces the WHOLE
 // security order: session → firm (404 on absence/deactivation) → firm:manageMembers (403 +
@@ -124,6 +229,31 @@ export function registerMembersRoute(
   chokepoint: Chokepoint,
   authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
 ): void {
+  // GET /api/v1/members — the roster read. The firm database comes from the chokepoint context, so
+  // the read is scoped by the session's own firm and by nothing the caller can name.
+  app.openapi(
+    { ...listMembersRoute, middleware: chokepointMiddleware(chokepoint, listMembersRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { results } = await selectFirmMembersStatement(firm.firmDatabase).all<FirmMemberRow>();
+      return c.json(
+        {
+          data: results.map((row) => ({
+            userId: row.userId,
+            displayName: row.displayName,
+            // The column is a free-text SQLite value; anything that is not the known deactivated
+            // literal reads as active, which is the schema's own default and the fail-open that
+            // matters here — a row nobody has deactivated is a colleague who is still here.
+            status: row.status === "deactivated" ? ("deactivated" as const) : ("active" as const),
+            roleNames: unpackRoleNames(row.roleNames),
+            hasProfessionalProfile: row.hasProfessionalProfile !== 0,
+          })),
+        } satisfies z.infer<typeof FirmMemberListResponse>,
+        200,
+      );
+    },
+  );
+
   app.openapi(
     {
       ...inviteMemberRoute,

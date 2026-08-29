@@ -41,6 +41,7 @@ function matter(overrides: Partial<MatterSummary> = {}): MatterSummary {
 const VOCABULARY = matterVocabulary(
   [{ id: "matterType_litigation", name: "Litigation" }],
   [{ id: "location_reno", name: "Reno" }],
+  [{ userId: "user_chase", displayName: "Marguerite Chase" }],
 );
 
 function columnById(id: string, vocabulary = VOCABULARY) {
@@ -117,6 +118,43 @@ describe("the vocabulary columns", () => {
 
   it("starts Location hidden, since most firms run one office", () => {
     expect(columnById("location").hidden).toBe(true);
+  });
+});
+
+describe("the responsible-attorney column", () => {
+  it("names the attorney from the firm's roster rather than showing the identifier", () => {
+    expect(columnById("responsibleAttorney").value(matter())).toBe("Marguerite Chase");
+  });
+
+  it("renders EMPTY for a member the roster does not name, never the user handle", () => {
+    // Two real cases, treated alike: a matter carried by somebody the roster has no row for, and a
+    // roster that has not landed. Neither is worth asserting in a cell, and printing `user_…` at a
+    // person is the outcome this column exists to avoid.
+    expect(
+      columnById("responsibleAttorney").value(matter({ responsibleMemberId: "user_ghost" })),
+    ).toBe("");
+    expect(columnById("responsibleAttorney", EMPTY_MATTER_VOCABULARY).value(matter())).toBe("");
+  });
+
+  it("names a DEPARTED colleague, because a closed matter is still theirs", () => {
+    const withDeparted = matterVocabulary(
+      [],
+      [],
+      [{ userId: "user_gone", displayName: "Cormac Vale" }],
+    );
+    expect(
+      columnById("responsibleAttorney", withDeparted).value(
+        matter({ responsibleMemberId: "user_gone" }),
+      ),
+    ).toBe("Cormac Vale");
+  });
+
+  it("shows by default: whose matter it is is not a column a person has to go find", () => {
+    expect(columnById("responsibleAttorney").hidden).toBeUndefined();
+  });
+
+  it("takes the set filter: a docket is narrowed by picking an attorney, not by typing one", () => {
+    expect(columnById("responsibleAttorney").filter).toBe("set");
   });
 });
 

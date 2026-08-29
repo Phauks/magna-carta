@@ -82,6 +82,50 @@ export function selectMemberPermissionsStatements(
   };
 }
 
+// The firm's whole member roster, in one statement — the read every screen that has to put a NAME to
+// a colleague makes. Ordered by display name so the answer is a roster rather than an arbitrary set,
+// with the user id as the tiebreak so two members sharing a name still order deterministically.
+//
+// Deactivated members are RETURNED, not filtered. A departed timekeeper is still the responsible
+// attorney on last year's matters and still the author of the time entries under them; dropping the
+// row would make those cells read as an unfilled gap, which is a different and untrue statement. The
+// caller gets `status` and decides — a picker offers the active, a listing names whoever it finds.
+//
+// Roles arrive as ONE column rather than one row per role, so a member with three roles is still one
+// row and the caller never has to fold. The separator is the ASCII unit separator (U+001F) rather
+// than a comma: a role name is firm-authored text and a comma inside one would otherwise split a
+// single role into two. An empty group_concat is NULL, which is a member holding no role at all.
+export const ROLE_TABLE = "role";
+export const MEMBER_PROFESSIONAL_PROFILE_TABLE = "member_professional_profile";
+
+/** The separator `roleNames` packs a member's role names with. */
+export const ROLE_NAME_SEPARATOR = "\u001F";
+
+/** One row of the roster read, exactly as the statement returns it. */
+export interface FirmMemberRow {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly status: string;
+  /** The member's role names packed with ROLE_NAME_SEPARATOR, or null where they hold no role. */
+  readonly roleNames: string | null;
+  /** 1 when a professional profile has been written for this member, 0 otherwise. */
+  readonly hasProfessionalProfile: number;
+}
+
+export function selectFirmMembersStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT ${MEMBER_TABLE}.user_id AS userId, ` +
+      `${MEMBER_TABLE}.display_name AS displayName, ` +
+      `${MEMBER_TABLE}.status AS status, ` +
+      `(SELECT group_concat(${ROLE_TABLE}.name, char(31)) FROM ${MEMBER_ROLE_TABLE} ` +
+      `JOIN ${ROLE_TABLE} ON ${ROLE_TABLE}.id = ${MEMBER_ROLE_TABLE}.role_id ` +
+      `WHERE ${MEMBER_ROLE_TABLE}.member_user_id = ${MEMBER_TABLE}.user_id) AS roleNames, ` +
+      `EXISTS (SELECT 1 FROM ${MEMBER_PROFESSIONAL_PROFILE_TABLE} ` +
+      `WHERE ${MEMBER_PROFESSIONAL_PROFILE_TABLE}.member_user_id = ${MEMBER_TABLE}.user_id) AS hasProfessionalProfile ` +
+      `FROM ${MEMBER_TABLE} ORDER BY ${MEMBER_TABLE}.display_name, ${MEMBER_TABLE}.user_id`,
+  );
+}
+
 // The member row's status by user id — the read /v1/me uses to split a DEACTIVATED member (404,
 // absent semantics) from a never-mirrored one (no row → 200 with empty permissions; the
 // sweep-lag window is transient and self-heals). Rows: { status }, zero rows means never mirrored.

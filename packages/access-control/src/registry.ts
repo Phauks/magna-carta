@@ -8,6 +8,14 @@ export type Permission = string & { readonly [permissionBrand]: true };
 // Grows one block per subsystem slice; the fitness tests cross-check every referenced key against this.
 export const PERMISSIONS = [
   "firm:manageMembers", // invite/deactivate members, assign roles
+  // Reading WHO is on the firm — the roster a screen needs to put a name to a colleague. Split off
+  // firm:manageMembers deliberately: adding a person to the firm and knowing who is already in it
+  // are different acts, and a member who may not invite anybody still has to be able to see that the
+  // matter in front of them is Ms Okafor's. The read carries no contact details, no permissions and
+  // no credential state — a display name, the member's status, the roles they hold, and whether a
+  // professional profile has been written — so holding it discloses nothing beyond what any
+  // colleague already learns from a hallway.
+  "firm:readMembers", // read the firm's member roster: display name, status, roles, profile presence
   "firm:provision", // reserved: platform-level firm creation (guarded by secret this slice)
   "firm:reportIncident", // file a diagnostic incident (slice 0·6) — seeded to every default role
   "firm:scanFile", // run a one-off, matter-less malware-scan diagnostic — seeded to every default role

@@ -118,6 +118,28 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
     ...(env.APP_BASE_URL !== undefined && env.APP_BASE_URL !== ""
       ? { baseURL: env.APP_BASE_URL }
       : {}),
+    // …AND the origin a request actually arrived at, trusted alongside it.
+    //
+    // Setting `baseURL` above fixes the origin links are BUILT against. It also, as a side effect,
+    // fixes the only origin the CSRF middleware will accept a cookie-bearing POST from — so the
+    // moment APP_BASE_URL was declared, signing in anywhere the deployment is reached under another
+    // name started answering 403 "Invalid origin": `wrangler dev` on 127.0.0.1, a preview
+    // deployment, and every test in this app that signs in. An account nobody can sign into is the
+    // failure mode this codebase has now paid for twice, so the two concerns are separated rather
+    // than left coupled.
+    //
+    // Trusting the request's OWN origin is not a weakening of the check. A cross-site POST from an
+    // attacker's page carries that page's origin, which still will not equal the origin the request
+    // was addressed to; what this restores is exactly the per-request derivation Better Auth did
+    // before a baseURL was declared. The function's result is unioned with the configured list, so
+    // the production origin stays trusted whatever a request claims.
+    // The parameter is OPTIONAL, and the library means it: this hook is called on server-side paths
+    // that have no request at all (resolving the context, a queue consumer asking for a reset
+    // link). Reading `.url` off the absent one throws a TypeError out of every such call, so the
+    // absence is handled rather than assumed away — a request-less call simply contributes no extra
+    // origin, leaving the configured one to answer.
+    trustedOrigins: (request?: Request) =>
+      request === undefined ? [] : [new URL(request.url).origin],
     // The encryption-key ROTATION ARRAY. Better Auth uses this same keyset to encrypt at-rest
     // credentials it owns outside the firm-keyed chokepoint — most importantly the TOTP seed (the
     // twoFactor plugin's symmetricEncrypt of the secret). A TOTP seed is a USER credential read at

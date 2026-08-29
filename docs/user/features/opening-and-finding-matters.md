@@ -1,9 +1,9 @@
 # Opening and finding matters
 
 _The matters screen is early. The list, the search, the column controls and opening a new matter all
-work today. The responsible attorney is not yet a column on the list, and cannot yet be set to a
-colleague when you open a matter — both wait on the firm member directory. Editing a matter, closing
-it, and reopening it are done from the matter's own page as those controls arrive._
+work today. The responsible attorney now shows on the list, but still cannot be set to a colleague
+when you open a matter — it is whoever opens it. Editing a matter, closing it, and reopening it are
+done from the matter's own page as those controls arrive._
 
 ## What it does
 
@@ -39,10 +39,15 @@ column. **Columns** at the right chooses which columns show, pins one so it stay
 scrolls sideways, and turns row striping on or off. Columns can be dragged into the order you prefer
 and resized by their edges.
 
-Two columns are worth explaining:
+Three columns are worth explaining:
 
 **Matter number.** A matter's number is drawn when it opens and never changes afterwards. A
 consultation has not drawn one yet, so its cell reads "Consultation" rather than sitting empty.
+
+**Responsible attorney** is the colleague the matter is filed under. A colleague who has left the
+firm is still named on the matters they carried — that is who held them. If a matter's cell is
+empty, the person it names is not on your firm's member list; the screen leaves it blank rather than
+showing you an internal reference number that means nothing.
 
 **Created** is the date the matter was first recorded, which is not always the date it opened. A
 consultation recorded in March and opened in June was created in March. The date it opened is on the

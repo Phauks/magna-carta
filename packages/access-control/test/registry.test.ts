@@ -44,6 +44,7 @@ describe("permission registry", () => {
   it("permissionsForNamespace('firm') returns exactly the firm keys", () => {
     expect(permissionsForNamespace("firm")).toEqual([
       "firm:manageMembers",
+      "firm:readMembers",
       "firm:provision",
       "firm:reportIncident",
       "firm:scanFile",

@@ -14,9 +14,9 @@
    *     read. The line under "Load more" says so.
    *   - The listing's own default is the working docket, which leaves out unnumbered consultations.
    *     They are reachable only by asking for them, which is what the scope control is for.
-   *   - The responsible attorney is not a column, because the listing answers an identifier and
-   *     nothing on the server publishes the firm's members. Naming them would cost one request per
-   *     matter; printing the identifier would be printing a handle at a person. The gap is stated.
+   *   - The responsible attorney, practice area and Location arrive as identifiers and are named
+   *     from the firm's own lists, read once per screen and joined here — never one request per
+   *     row. A row whose identifier nothing names renders empty rather than showing the handle.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -30,6 +30,7 @@
   import Plus from "@lucide/svelte/icons/plus";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import { goto } from "$app/navigation";
+  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
     listLocations,
     listMatterTypes,
@@ -90,6 +91,9 @@
         readSession(fetch),
         listMatterTypes(fetch),
         listLocations(fetch),
+        // The roster settles its own failure internally and is shared with the rest of the app, so
+        // it rides the same bootstrap without a fourth outcome to unpack here.
+        firmRoster.load(fetch),
       ]);
       if (sessionOutcome.kind === "ok") session = sessionOutcome.value;
       // A vocabulary that cannot be read leaves its column empty rather than failing the screen:
@@ -99,10 +103,13 @@
     })();
   });
 
+  // Every member the firm has, not only the active ones: a closed matter's responsible attorney may
+  // have left, and their name is still the true answer for that row.
+  const members = $derived(firmRoster.members ?? []);
   const vocabulary = $derived(
-    matterTypes.length === 0 && locations.length === 0
+    matterTypes.length === 0 && locations.length === 0 && members.length === 0
       ? EMPTY_MATTER_VOCABULARY
-      : matterVocabulary(matterTypes, locations),
+      : matterVocabulary(matterTypes, locations, members),
   );
 
   // The create control is honest about the two different reasons it may be unavailable: a member
@@ -319,11 +326,13 @@
       </div>
     {/if}
 
-    <p class="text-xs text-text-muted">
-      The responsible attorney is not shown here. The listing answers an identifier for it, and
-      nothing on the server publishes the firm's members yet, so the name is on each matter's own
-      page rather than invented on this one.
-    </p>
+    {#if firmRoster.failure !== null}
+      <!-- Said once, plainly, and only when it happened: the Responsible Attorney column is empty
+           because the roster could not be read, not because the matters have no attorney. -->
+      <p class="text-xs text-text-muted">
+        {firmRoster.failure} The Responsible Attorney column reads empty until it can.
+      </p>
+    {/if}
   {/if}
 </section>
 

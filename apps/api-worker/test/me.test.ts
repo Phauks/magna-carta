@@ -153,6 +153,9 @@ describe("GET /api/v1/me", () => {
         "firm:manageReleaseChannel",
         "firm:manageScanPolicy",
         "firm:manageSecrets",
+        // Seeded to every default role, Read-only included — reading who is on the firm is not the
+        // privilege that firm:manageMembers above is.
+        "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
         "incidents:viewDescription",

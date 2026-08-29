@@ -30,7 +30,7 @@
   import Copy from "@lucide/svelte/icons/copy";
   import { buildIdentityLine } from "$lib/build-identity.ts";
   import RecipientPicker from "$lib/components/recipient-picker.svelte";
-  import { firmMembers } from "$lib/settings/settings-permissions.ts";
+  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -46,7 +46,14 @@
   // platform; telling colleagues is a courtesy, not a requirement.
   let alsoSendToIds = $state<string[]>([]);
   let emailMeCopy = $state(false);
-  const members = firmMembers();
+  // The firm's own colleagues, read once and shared with every other composer. Only the people who
+  // are still here: a report is addressed to somebody who can read it. The read is asked for when
+  // the dialog first opens rather than on page load — nothing on a screen needs the roster until
+  // somebody reaches for the report.
+  const members = $derived(firmRoster.active);
+  $effect(() => {
+    if (open) void firmRoster.load(fetch);
+  });
 
   function addRecipient(id: string): void {
     if (!alsoSendToIds.includes(id)) alsoSendToIds = [...alsoSendToIds, id];
@@ -145,6 +152,11 @@
         onRemove={removeRecipient}
         inputId="issue-report-recipients"
       />
+      <!-- The roster is a courtesy field, so a failed read never fails the dialog: the picker is
+           simply empty and says why, and the report still files. -->
+      {#if firmRoster.failure !== null}
+        <p class="text-xs text-text-muted">{firmRoster.failure}</p>
+      {/if}
     </div>
 
     <div class="flex items-center justify-between gap-16">

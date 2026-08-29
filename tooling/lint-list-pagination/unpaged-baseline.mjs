@@ -71,6 +71,20 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "module, reached from the manage route — a template is written by a person, never derived " +
     "from the time entries that use it.",
 
+  // --- The firm's own people --------------------------------------------------------------------
+  "members.list":
+    "The firm's member roster, bounded by its HEADCOUNT rather than by its activity — the same " +
+    "distinction the vocabularies above turn on, and checkable in the same way. The `member` " +
+    "table has exactly ONE insert statement in the workspace (insertMemberStatement in " +
+    "packages/data-access/src/member-statements.ts), reached from exactly one queue consumer " +
+    "(apps/api-worker/src/member-provision-consumer.ts, topic member.provision), whose only " +
+    "producers are the invite route, firm provisioning and onboarding — three deliberate acts of " +
+    "adding a PERSON to the firm. No ingest path, cron sweep or import writes a member row, which " +
+    "is what would make this grow with what the firm does rather than with who it employs. Read " +
+    "whole on purpose: a listing resolving responsible-attorney names needs the whole lookup " +
+    "before it can render any row honestly, and a half-read roster prints blanks that read as " +
+    "missing data.",
+
   // --- Fixed catalogs the firm cannot add to ---------------------------------------------------
   "matterAssets.listAssetClasses":
     "A CONSTANT, not a query: the handler maps MATTER_ASSET_CLASS_REGISTRY " +

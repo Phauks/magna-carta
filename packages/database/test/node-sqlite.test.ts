@@ -82,6 +82,16 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .map((grant) => grant.role_id)
         .sort(),
     ).toEqual(roles.map((row) => row.id).sort());
+    // firm:readMembers joins that universal set, and is the deliberate opposite of
+    // firm:manageMembers above. Adding a person to the firm is Owner/Admin's; knowing who is
+    // already in it is every seat's, because a screen that cannot name a colleague prints a raw
+    // handle or prints nothing.
+    expect(
+      grants
+        .filter((grant) => grant.permission === "firm:readMembers")
+        .map((grant) => grant.role_id)
+        .sort(),
+    ).toEqual(roles.map((row) => row.id).sort());
     // The matters/locations/files grants extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Configuring the machine that files mail is narrower than filing mail: the two roles that own
@@ -190,6 +200,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "emails:read",
         "files:organize",
         "files:upload",
+        "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
         // The assistant reaches the seats that do legal work. Seeding the key turns nothing on:
@@ -249,6 +260,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "costs:approve",
         "custody:read",
         "emails:read",
+        "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
         "notifications:read",
@@ -286,6 +298,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:run",
         "custody:read",
         "emails:read",
+        "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
         // Read-only carries it, where trust:read deliberately stops one seat short. The two are not
