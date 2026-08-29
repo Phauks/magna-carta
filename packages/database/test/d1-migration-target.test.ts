@@ -58,6 +58,21 @@ describe("d1MigrationTarget", () => {
     expect(batch[2]).toContain("INSERT INTO _migrations");
   });
 
+  it("supersedes the legacy ledger rows and inserts the replacement in one batch (atomic)", async () => {
+    const { database, batches } = stubD1();
+    const target = d1MigrationTarget(database as never, () => "2026-08-29T00:00:00.000Z");
+    await target.supersedeAppliedMigrations(
+      ["0000_first", "0001_second"],
+      "20260704T041516_baseline",
+    );
+    expect(batches).toHaveLength(1); // ONE batch — deletes and insert commit together
+    const batch = batches[0] ?? [];
+    expect(batch).toHaveLength(3); // 2 deletes + 1 replacement insert
+    expect(batch[0]).toContain("DELETE FROM _migrations");
+    expect(batch[1]).toContain("DELETE FROM _migrations");
+    expect(batch[2]).toContain("INSERT INTO _migrations");
+  });
+
   it("a failed batch records nothing (the stub mirrors D1 rollback)", async () => {
     const { database, executed } = stubD1({ failBatchContaining: "ALTER TABLE" });
     const target = d1MigrationTarget(database as never);

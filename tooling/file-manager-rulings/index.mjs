@@ -468,7 +468,7 @@ await check(
     const zip = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: ".zip" }).first();
     await zip.click({ button: "right" });
     await page.locator('#ctx button[data-cmd="enterzip"]').click();
-    const text = await page.locator("#statePane").innerText();
+    const text = await page.locator("#viewbar").innerText();
     if (!text.toLowerCase().includes("never scanned")) return false;
     await page.locator("#archExtract").click();
     const sheet = page.locator("#newDocWash");
@@ -1894,23 +1894,43 @@ await check("T6e", "A hovered swatch keeps its own colour", async () => {
   return hovered === resting;
 });
 
-await check("T6f", "The selected swatch's halo paints above its neighbours", async () => {
-  const on = page.locator("#ctx .swatch.on").first();
-  if ((await on.count()) !== 1) return false;
-  const style = await on.evaluate((el) => {
-    const s = getComputedStyle(el);
-    return { position: s.position, z: s.zIndex, outline: s.outlineStyle, radius: s.borderRadius };
-  });
-  await page.keyboard.press("Escape");
-  // Raised stacking is what guarantees the halo is never overpainted by a later sibling;
-  // and T6c re-verified while here: the rendered radius is exactly 0.
-  return (
-    style.position === "relative" &&
-    Number(style.z) >= 1 &&
-    style.outline !== "none" &&
-    style.radius === "0px"
-  );
-});
+await check(
+  "T6h",
+  "The selected colour is an inset check; every swatch surface is square",
+  async () => {
+    // Supersedes T6f's halo: an indicator that never leaves the swatch's box cannot
+    // overlap its neighbours — the pattern the established pickers use.
+    await page.locator("#ctx .subopen").first().hover();
+    await page.waitForTimeout(150);
+    const on = page.locator("#ctx .swatch.on").first();
+    if ((await on.count()) !== 1) return false;
+    const style = await on.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { outline: s.outlineStyle, radius: s.borderRadius };
+    });
+    if (style.outline !== "none" || style.radius !== "0px") return false;
+    const checkGlyph = on.locator("svg.swcheck");
+    if ((await checkGlyph.count()) !== 1) return false;
+    // Measured as rendered: the check sits INSIDE the swatch's own box.
+    const [swatchBox, checkBox] = [await on.boundingBox(), await checkGlyph.boundingBox()];
+    const inside =
+      checkBox.x >= swatchBox.x - 0.5 &&
+      checkBox.y >= swatchBox.y - 0.5 &&
+      checkBox.x + checkBox.width <= swatchBox.x + swatchBox.width + 0.5 &&
+      checkBox.y + checkBox.height <= swatchBox.y + swatchBox.height + 0.5;
+    if (!inside) return false;
+    // Only the selected swatch carries one.
+    if ((await page.locator("#ctx .swatch .swcheck").count()) !== 1) return false;
+    // And the label's own colour pip — the surface the old checks never measured, where
+    // the rounding the owner kept seeing actually lived — is a true square too.
+    const pipRadius = await page
+      .locator("#ctx .swpip")
+      .first()
+      .evaluate((el) => getComputedStyle(el).borderRadius);
+    await page.keyboard.press("Escape");
+    return pipRadius === "0px";
+  },
+);
 
 await check("A21", "Invoice_scan.pdf.exe renames to Invoice_scan.pdf, and it sticks", async () => {
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
@@ -2028,8 +2048,9 @@ await check(
   async () => {
     await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(300);
-    // The panel opens by its own button (I17); selection then feeds it.
-    await page.locator("#insBtn").click();
+    // The panel opens by its own button (I17); selection then feeds it. The choice
+    // persists now (N29), so a run that left it open finds it open.
+    if (!(await page.locator("#inspector").isVisible())) await page.locator("#insBtn").click();
     await page.locator('[data-view="history"]').click();
     await page.waitForTimeout(150);
     await page
@@ -2212,35 +2233,87 @@ await check(
   },
 );
 
-await check(
-  "D2",
-  "Restoring an orphaned file asks, defaulting to the nearest ancestor",
-  async () => {
-    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForTimeout(300);
-    await page.locator('[data-view="deleted"]').click();
-    await page.waitForTimeout(150);
-    // A file whose folder survives restores silently.
-    await page.locator('#rows tr[data-key="x:901"]').click({ button: "right" });
-    await page.locator('#ctx button[data-dcmd="restore"]').click();
-    await page.waitForTimeout(200);
-    if (await page.locator("#newDocWash .dialog").isVisible()) return false;
-    // The orphaned one asks, and the default names the nearest surviving ancestor.
-    await page.locator('#rows tr[data-key="x:902"]').click({ button: "right" });
-    await page.locator('#ctx button[data-dcmd="restore"]').click();
-    await page.waitForTimeout(200);
-    const dialog = page.locator("#newDocWash .dialog");
-    if (!(await dialog.isVisible())) return false;
-    const near = dialog.locator('input[name="rddest"][value="near"]');
-    if (!(await near.isChecked())) return false;
-    if (!/Discovery/.test(await near.evaluate((el) => el.closest("label").innerText))) return false;
-    await dialog.locator('[data-rd="yes"]').click();
-    await page.waitForTimeout(200);
-    await page.locator('.tnode[data-tree="discovery"]').first().click();
-    await waitForAggregates();
-    return (await page.locator("#rows tr").filter({ hasText: "Old Site Photos" }).count()) === 1;
-  },
-);
+await check("D2b", "Every restore asks in what manner, and can follow the file home", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('[data-view="deleted"]').click();
+  await page.waitForTimeout(150);
+  const dialog = page.locator("#newDocWash .dialog");
+  // An INTACT file asks too now (extends D2): default is its original location,
+  // and the follow checkbox is there.
+  await page.locator('#rows tr[data-key="x:901"]').click({ button: "right" });
+  await page.locator('#ctx button[data-dcmd="restore"]').click();
+  await page.waitForTimeout(200);
+  if (!(await dialog.isVisible())) return false;
+  const back = dialog.locator('input[name="rdmode"][value="back"]');
+  if (!(await back.isChecked())) return false;
+  if (!/original location/i.test(await back.evaluate((el) => el.closest("label").innerText)))
+    return false;
+  if ((await dialog.locator("#rdFollow").count()) !== 1) return false;
+  await dialog.locator('[data-rd="no"]').click();
+  await page.waitForTimeout(150);
+  // The orphaned one defaults to the nearest surviving ancestor, NAMED.
+  await page.locator('#rows tr[data-key="x:902"]').click({ button: "right" });
+  await page.locator('#ctx button[data-dcmd="restore"]').click();
+  await page.waitForTimeout(200);
+  if (!(await dialog.isVisible())) return false;
+  const near = dialog.locator('input[name="rdmode"][value="back"]');
+  if (!(await near.isChecked())) return false;
+  const nearLabel = await near.evaluate((el) => el.closest("label").innerText);
+  if (!/nearest surviving ancestor/i.test(nearLabel)) return false;
+  if (!/Discovery/.test(nearLabel)) return false;
+  // Follow the restore: the view goes where the file landed, with it selected.
+  await dialog.locator("#rdFollow").check();
+  await dialog.locator('[data-rd="yes"]').click();
+  await page.waitForTimeout(250);
+  if (!/Discovery/.test(await page.locator("#crumbs").innerText())) return false;
+  const row = page.locator("#rows tr").filter({ hasText: "Old Site Photos" }).first();
+  return (await row.getAttribute("aria-selected")) === "true";
+});
+
+await check("P12d", "A deleted zip browses unrestored; a member restores OUT of it", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('[data-view="deleted"]').click();
+  await page.waitForTimeout(150);
+  // Right-click carries Browse Inside; browsing needs no restore.
+  await page.locator('#rows tr[data-key="x:902"]').click({ button: "right" });
+  await page.locator('#ctx button[data-dcmd="browse"]').click();
+  await page.waitForTimeout(200);
+  if (!(await page.locator(".archbar").isVisible())) return false;
+  if (!/Deleted/.test(await page.locator(".archbar").innerText())) return false;
+  if ((await page.locator("#rows tr[data-member]").count()) < 3) return false;
+  // A member's right-click offers Restore — an EXTRACTION into the live matter.
+  await page.locator("#rows tr[data-member]").first().click({ button: "right" });
+  const item = page.locator('#ctx [data-acmd="one"]');
+  if (!/Restore This File/.test(await item.innerText())) return false;
+  await item.click();
+  await page.waitForTimeout(200);
+  const dialog = page.locator("#newDocWash .dialog");
+  if (!(await dialog.isVisible())) return false;
+  const text = await dialog.innerText();
+  // The model, stated: a copy extracts into the matter; the zip stays deleted; the
+  // destination is the settled choice, defaulting to the nearest surviving ancestor.
+  if (!/stays deleted/.test(text)) return false;
+  if (!(await dialog.locator('input[name="mrdest"][value="near"]').isChecked())) return false;
+  if (!/Discovery/.test(text)) return false;
+  if ((await dialog.locator("#mrFollow").count()) !== 1) return false;
+  // The write waits on the extraction engine, and says so.
+  const go = dialog.locator('[data-mr="yes"]');
+  if (!(await go.isDisabled())) return false;
+  if (!/Soon/.test(await go.innerText())) return false;
+  await dialog.locator('[data-mr="no"]').click();
+  await page.waitForTimeout(150);
+  // Double-click enters too; leaving lands back in Deleted Files, the zip still deleted.
+  await page.locator("#archLeave").click();
+  await page.waitForTimeout(150);
+  await page.locator('#rows tr[data-key="x:902"]').dblclick();
+  await page.waitForTimeout(150);
+  if (!(await page.locator(".archbar").isVisible())) return false;
+  await page.locator("#archLeave").click();
+  await page.waitForTimeout(150);
+  return (await page.locator('#rows tr[data-key="x:902"]').count()) === 1;
+});
 
 await check(
   "F12",
@@ -2674,14 +2747,14 @@ await check("N26", "History's From and To are two columns, sortable and filterab
     .locator("#rows tr[data-hist]")
     .evaluateAll((rows, i) => rows.map((r) => r.cells[i].innerText.trim()), idxes[0]);
   if (vals.length < 5) return false;
-  const sorted = [...vals].sort((a, b) => a.localeCompare(b));
+  const sorted = [...vals].toSorted((a, b) => a.localeCompare(b));
   return vals.every((v, i) => v === sorted[i]);
 });
 
 await check("N27", "History's actor column is Source, in the header and the panel", async () => {
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(300);
-  await page.locator("#insBtn").click();
+  if (!(await page.locator("#inspector").isVisible())) await page.locator("#insBtn").click();
   await page.locator('[data-view="history"]').click();
   await page.waitForTimeout(150);
   const heads = (await page.locator("#headRow th").allInnerTexts()).map((h) =>
@@ -2774,8 +2847,10 @@ await check("L46", "Date Created, in the column header and the Details row", asy
   await page.locator('.tnode[data-tree="pleadings"]').first().click();
   await page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Motion" }).first().click();
   await page.waitForTimeout(150);
-  const dts = (await page.locator("#inspector .facts dt").allInnerTexts()).map((t) => t.trim());
-  return dts.includes("Date Created") && !dts.includes("Created");
+  const dts = new Set(
+    (await page.locator("#inspector .facts dt").allInnerTexts()).map((t) => t.trim()),
+  );
+  return dts.has("Date Created") && !dts.has("Created");
 });
 
 await check("I49", "Verify All runs the record check across every version", async () => {
@@ -2841,32 +2916,50 @@ await check(
   },
 );
 
-await check("L47", "The Safety cell speaks the severity word, glyphs unchanged", async () => {
-  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(300);
-  const safetyCell = async (needle) => {
+await check(
+  "L47b",
+  "The Safety column's value set: Error / Warning / Info / Not scanned",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    const safetyCell = async (needle) => {
+      const idx = await page
+        .locator("#headRow th")
+        .evaluateAll((ths) => ths.findIndex((th) => th.dataset.col === "safety"));
+      const row = page.locator("#rows tr").filter({ hasText: needle }).first();
+      return await row.evaluate((r, i) => r.cells[i].innerText.trim(), idx);
+    };
+    // Flagged — a signature match and a type mismatch alike — reads Error.
+    if ((await safetyCell("Invoice_scan")) !== "Error") return false;
+    // The unscanned file states the plain fact: "Not scanned" — never "Warning".
+    await page.locator('.tnode[data-tree="depositions"]').first().click();
+    if ((await safetyCell("Deposition Video")) !== "Not scanned") return false;
+    // A still-processing upload sits in the Warning band; "Processing" is outside the set.
+    await page.locator('.tnode[data-tree="written"]').first().click();
+    if ((await safetyCell("Answers to Requests")) !== "Warning") return false;
+    // Info: a clean file with no document type — the deleted zip is the fixture's.
+    await page.locator('[data-view="deleted"]').click();
+    await page.waitForTimeout(150);
+    if ((await safetyCell("Old Site Photos")) !== "Info") return false;
+    // Clean keeps the bare I42 circle-check: a glyph, no text.
+    await page.locator("#railHome").click();
+    await page.waitForTimeout(150);
+    await page.locator('.tnode[data-tree="pleadings"]').first().click();
     const idx = await page
       .locator("#headRow th")
       .evaluateAll((ths) => ths.findIndex((th) => th.dataset.col === "safety"));
-    const row = page.locator("#rows tr").filter({ hasText: needle }).first();
-    return await row.evaluate((r, i) => r.cells[i].innerText.trim(), idx);
-  };
-  // Flagged — a signature match and a type mismatch alike — reads Error.
-  if ((await safetyCell("Invoice_scan")) !== "Error") return false;
-  await page.locator('.tnode[data-tree="experts"]').first().click();
-  if ((await safetyCell("Expert Report")) !== "Error") return false;
-  // Never scanned reads Warning.
-  await page.locator('.tnode[data-tree="depositions"]').first().click();
-  if ((await safetyCell("Deposition Video")) !== "Warning") return false;
-  // Clean keeps the bare I42 circle-check: a glyph, no text.
-  await page.locator('.tnode[data-tree="pleadings"]').first().click();
-  const idx = await page
-    .locator("#headRow th")
-    .evaluateAll((ths) => ths.findIndex((th) => th.dataset.col === "safety"));
-  const clean = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Motion" }).first();
-  if ((await clean.evaluate((r, i) => r.cells[i].innerText.trim(), idx)) !== "") return false;
-  return (await clean.locator(".okmark .cleanmark").count()) === 1;
-});
+    const clean = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: "Motion" }).first();
+    if ((await clean.evaluate((r, i) => r.cells[i].innerText.trim(), idx)) !== "") return false;
+    if ((await clean.locator(".okmark .cleanmark").count()) !== 1) return false;
+    // Folder aggregates speak the SAME words: "Finding Beneath" and its kin are gone.
+    await page.locator("#railHome").click();
+    await waitForAggregates();
+    const body = await page.locator("#rows").innerText();
+    if (/finding beneath|not all scanned/i.test(body)) return false;
+    if ((await safetyCell("Expert Reports")) !== "Error") return false;
+    return (await safetyCell("Discovery")) === "Warning";
+  },
+);
 
 await check("L48", "Created By everywhere the label appears — an upload is creation", async () => {
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
@@ -2987,7 +3080,7 @@ await check(
 await check("N28", "A folder move is one row; its impact expands; files inherit it", async () => {
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(300);
-  await page.locator("#insBtn").click(); // the panel, for the presentation half
+  if (!(await page.locator("#inspector").isVisible())) await page.locator("#insBtn").click(); // the panel, for the presentation half
   await page.locator('[data-view="history"]').click();
   await page.waitForTimeout(150);
   // One act, one row: no synthetic per-file Moved rows flood the list.
@@ -3082,6 +3175,37 @@ await check("S19", "Search can take in deleted files, and marks what it finds", 
   return (await page.locator('#rows tr[data-key^="x:"]').count()) === 0;
 });
 
+await check(
+  "S20",
+  "The results header reads as the view's header, not a centered field",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator("#searchViewRow").click();
+    await page.waitForTimeout(250);
+    // The field still lives in the header (S12 stands), composed as the view's own bar —
+    // left-aligned like the archive bar, never a floating centered element.
+    const head = page.locator(".reshead");
+    if ((await head.count()) !== 1) return false;
+    if (/Results for/i.test(await head.innerText())) return false;
+    const [headBox, fieldBox] = [
+      await head.boundingBox(),
+      await page.locator("#resInput").boundingBox(),
+    ];
+    if (fieldBox.x - headBox.x > 48) return false; // starts at the bar's left edge
+    // One row: the count reads beside the field, not beneath it.
+    const countBox = await head.locator(".sub").boundingBox();
+    if (countBox === null) return false;
+    if (
+      Math.abs(countBox.y + countBox.height / 2 - (fieldBox.y + fieldBox.height / 2)) >
+      countBox.height
+    )
+      return false;
+    // The ready empty state still hands the field focus (S17b).
+    return (await page.evaluate(() => document.activeElement?.id)) === "resInput";
+  },
+);
+
 await check("F14", "Analysis right-click ignores in bulk, by severity, reversibly", async () => {
   await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(300);
@@ -3129,6 +3253,40 @@ await check("F14", "Analysis right-click ignores in bulk, by severity, reversibl
   await page.waitForTimeout(200);
   return (await chipCount("info")) === infoCount;
 });
+
+await check(
+  "N29",
+  "Selecting never opens a closed details panel, and the choice persists",
+  async () => {
+    // The owner's cross-surface ruling: a click on a row only selects. The panel opens by
+    // its explicit toggle, and the open/closed choice survives leaving the screen.
+    await page.evaluate(() => localStorage.removeItem("docket.inspectorOpen"));
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    if (await page.locator("#inspector").isVisible()) return false;
+    await page.locator('#rows tr[data-key^="d:"]').first().click();
+    await page.waitForTimeout(150);
+    if (await page.locator("#inspector").isVisible()) return false;
+    // Open by the toggle; selection feeds it while open (A14's scope).
+    await page.locator("#insBtn").click();
+    if (!(await page.locator("#inspector").isVisible())) return false;
+    // Close it explicitly: selecting again must NOT reopen it.
+    await page.locator("#inspector .ins-close").click();
+    await page.waitForTimeout(120);
+    if (await page.locator("#inspector").isVisible()) return false;
+    await page.locator('#rows tr[data-key^="d:"]').first().click();
+    await page.waitForTimeout(150);
+    if (await page.locator("#inspector").isVisible()) return false;
+    // The closed choice persists across a reload.
+    if ((await page.evaluate(() => localStorage.getItem("docket.inspectorOpen"))) !== "0")
+      return false;
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    if (await page.locator("#inspector").isVisible()) return false;
+    await page.locator("#insBtn").click();
+    return (await page.evaluate(() => localStorage.getItem("docket.inspectorOpen"))) === "1";
+  },
+);
 
 await check(
   "JS",
