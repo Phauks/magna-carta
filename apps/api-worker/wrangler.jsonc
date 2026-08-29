@@ -64,6 +64,17 @@
     // than left to the code default so changing the posture is this one line. It has no effect once
     // TURNSTILE_SECRET_KEY is set — from then on a missing or bad solution is refused either way.
     "HUMAN_VERIFICATION_POSTURE": "fail-open",
+    // The switch that selects the Cloudflare Email Service adapter over the logging one
+    // (src/app.ts emailAdapterForEnv). magnacarta.esq is onboarded for Email Sending, and the send
+    // paths are guarded now: a refusal answers a retryable 503 carrying an Error ID rather than
+    // failing its route, and the sends Better Auth owns are caught at the port and counted. While
+    // Email Sending is in beta a destination may still need verifying in the account before it will
+    // accept a send — that shows up as email.delivery_failed, not as a broken route.
+    "EMAIL_FROM": "no-reply@magnacarta.esq",
+    // The origin for the passes that have NO request to derive one from, and now also what Better
+    // Auth resolves its baseURL against — without it the library warns that callbacks and redirects
+    // may not work, because it is left inferring the origin per request.
+    "APP_BASE_URL": "https://magnacarta.esq",
   },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
