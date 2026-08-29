@@ -100,6 +100,27 @@ const ConfirmRegistrationResponse = z
 // enough that an old link in a mailbox is not a standing key.
 const CONFIRMATION_LIFETIME_HOURS = 24;
 
+// Where the emailed link lands: the screen that reads `?token=` into its field and spends it only
+// on a deliberate press (apps/web/src/routes/register/confirm/+page.svelte) — a link fetched by a
+// mail client's preview cannot burn the token, because opening the URL spends nothing.
+const CONFIRMATION_SCREEN_PATH = "/register/confirm";
+
+/**
+ * The confirmation mail's whole body: a clickable link first, the typed code as the fallback for a
+ * mail client that will not open links. `origin` comes from the request that asked for the mail —
+ * request-serving paths derive their own origin (APP_BASE_URL exists only for background passes
+ * that have no request, e.g. notifications/digest-send-port.ts).
+ */
+export function confirmationEmailText(origin: string, token: string): string {
+  const confirmationLink = `${origin}${CONFIRMATION_SCREEN_PATH}?token=${encodeURIComponent(token)}`;
+  return (
+    `Open this link to confirm your new Magna Carta workspace:\n\n${confirmationLink}\n\n` +
+    `Or enter this confirmation code at ${origin}${CONFIRMATION_SCREEN_PATH}:\n\n${token}\n\n` +
+    `The link and the code expire in ${CONFIRMATION_LIFETIME_HOURS} hours. ` +
+    `If you did not request this, no action is needed.`
+  );
+}
+
 export const startRegistrationMeta: RouteMeta = {
   operationId: "registrations.start",
   // The anonymous surface: no session, no firm, no cookie. The chokepoint skips its
@@ -300,7 +321,7 @@ export function registerRegistrationRoutes(
         await sendEmailForEnv(c.env)({
           to: email,
           subject: "Confirm your Magna Carta workspace",
-          text: token,
+          text: confirmationEmailText(new URL(c.req.url).origin, token),
           messageClass: "registration-confirmation",
         });
       } else {

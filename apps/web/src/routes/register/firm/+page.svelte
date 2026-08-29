@@ -23,7 +23,11 @@
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import FoundFirmScreen from "$lib/auth/screens/found-firm-screen.svelte";
   import RegisterDetailsScreen from "$lib/auth/screens/register-details-screen.svelte";
-  import { REGISTRATION_REFUSED, joiningErrorMessage } from "../joining-messages.ts";
+  import {
+    REGISTRATION_REFUSED,
+    joiningErrorMessage,
+    joiningSupportErrorId,
+  } from "../joining-messages.ts";
 
   let step = $state<"firm" | "details" | "sent">("firm");
   let firmName = $state("");
@@ -34,6 +38,7 @@
   let agreedToPrivacy = $state(false);
   let pending = $state(false);
   let rejection = $state<string | null>(null);
+  let supportErrorId = $state<string | null>(null);
   let sentAt = $state(new Date());
 
   let firmNameFieldReference = $state<HTMLInputElement | null>(null);
@@ -56,6 +61,7 @@
     if (pending) return;
     pending = true;
     rejection = null;
+    supportErrorId = null;
     const outcome = await startRegistration(fetch, {
       role: "foundFirm",
       // One display name is what the registration row holds; the two fields exist because that is
@@ -67,6 +73,7 @@
     pending = false;
     if (outcome.kind !== "ok") {
       rejection = joiningErrorMessage(outcome, REGISTRATION_REFUSED);
+      supportErrorId = joiningSupportErrorId(outcome);
       return;
     }
     sentAt = new Date();
@@ -95,10 +102,12 @@
       firmName={firmName.trim()}
       {pending}
       {rejection}
+      {supportErrorId}
       onSubmit={register}
       back={() => {
         step = "firm";
         rejection = null;
+        supportErrorId = null;
       }}
     />
   {:else}

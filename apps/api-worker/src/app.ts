@@ -95,6 +95,7 @@ import { registerSupportDiagnosticsRoute } from "./routes/support-diagnostics.ts
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
 import { registerDevSeedRoute } from "./routes/dev-seed.ts";
+import { devControlPlaneMigrationMiddleware } from "./dev-control-plane-bootstrap.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerInvitationRoutes } from "./routes/invitations.ts";
@@ -520,6 +521,13 @@ export function createApp(options: CreateAppOptions = {}) {
   // payload-derived header set untouched, while the app origin, API, Better Auth, health, and the SPA
   // shell — every private, firm-scoped surface this Worker serves — are kept out of search indexes.
   app.use("*", noindexResponseMiddleware());
+
+  // Local development only: bring the control-plane schema to head before the first API request.
+  // `wrangler dev` fires no cron, so without this a fresh Miniflare database answers every route —
+  // registration and sign-in first among them — with a 500 until the scheduled handler is curled by
+  // hand. Inert in production (gated on the same fail-closed dev signal as the dev seed route) and a
+  // ledger-read no-op once the schema is at head. Reasoning: dev-control-plane-bootstrap.ts.
+  app.use("/api/*", devControlPlaneMigrationMiddleware);
 
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through

@@ -11,6 +11,7 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import type { SendEmail } from "./email-port.ts";
+import { passwordResetEmailText, passwordResetScreenLink } from "./password-reset-link.ts";
 
 // Better Auth model name -> identifiers-registry entity type, for minting prefixed handles
 // (usr_/ses_/acc_/ver_/twf_). Unknown models fail loud below: silently minting some
@@ -131,11 +132,21 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       // 4xxes; users are provisioned through the invitation flow instead.
       disableSignUp: true,
       requireEmailVerification: true,
-      sendResetPassword: async ({ user, url }) => {
+      // The mailed link goes straight at the screen that spends the token, never at the library's
+      // own redirect endpoint (which spends it on a bare GET — a mail client's link preview would
+      // burn it). Origin selection and the reasoning live in password-reset-link.ts. `request` is
+      // present on the HTTP path and absent when a queue consumer asks (the firm-provision
+      // owner-activation mail), which is what APP_BASE_URL is for.
+      sendResetPassword: async ({ user, token }, request) => {
+        const link = passwordResetScreenLink({
+          token,
+          requestUrl: request?.url,
+          appBaseUrl: env.APP_BASE_URL,
+        });
         await sendEmail({
           to: user.email,
           subject: "Set your Magna Carta password",
-          text: url,
+          text: passwordResetEmailText(link),
           messageClass: "password-reset",
         });
       },

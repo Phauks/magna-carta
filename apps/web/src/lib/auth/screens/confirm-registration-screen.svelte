@@ -3,11 +3,10 @@
    * Confirm Your Email Address — the screen the registration token is spent on, and the moment the
    * firm actually starts being built.
    *
-   * IT ACCEPTS A TYPED CODE, NOT ONLY A FOLLOWED LINK. Today that is the only way in: the
-   * confirmation mail carries the bare token as its whole body, so there is nothing to click
-   * (../joining-availability.ts, "confirm-registration"). The page also reads a token out of the
-   * address bar, so the day the mail carries a URL this screen already answers it — and even then a
-   * link that will not open in the reader's mail client is never a dead end.
+   * IT ACCEPTS A TYPED CODE, NOT ONLY A FOLLOWED LINK. The confirmation mail carries both: a link
+   * that lands here with `?token=` filled in, and the bare code for a mail client that will not
+   * open links (../joining-availability.ts, "confirm-registration") — so a link that will not open
+   * in the reader's mail client is never a dead end.
    *
    * THE TOKEN IS PASSED THROUGH UNTOUCHED except for trimming. Unlike the invitation code, the
    * server does NOT normalize it — apps/api-worker/src/joining-secrets.ts hashes the trimmed string
@@ -29,12 +28,15 @@
     token = $bindable(""),
     pending = false,
     rejection = null,
+    supportErrorId = null,
     tokenFieldReference = $bindable(null),
     onSubmit,
   }: {
     token?: string;
     pending?: boolean;
     rejection?: string | null;
+    /** The correlated Error ID for a server fault, to quote to support. Null for a refusal. */
+    supportErrorId?: string | null;
     tokenFieldReference?: HTMLInputElement | null;
     onSubmit: (event: SubmitEvent) => void;
   } = $props();
@@ -69,7 +71,7 @@
         {pending ? "Confirming…" : "Confirm Email Address"}
       </Button>
 
-      <CredentialNotice message={rejection} subject="this registration" />
+      <CredentialNotice message={rejection} errorId={supportErrorId} subject="this registration" />
     </form>
   {/snippet}
 </AuthPanel>

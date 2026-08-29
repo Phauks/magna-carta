@@ -17,7 +17,12 @@
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import RedeemInvitationScreen from "$lib/auth/screens/redeem-invitation-screen.svelte";
   import { goto } from "$app/navigation";
-  import { REDEMPTION_REFUSED, joiningErrorMessage, lockoutFrom } from "../joining-messages.ts";
+  import {
+    REDEMPTION_REFUSED,
+    joiningErrorMessage,
+    joiningSupportErrorId,
+    lockoutFrom,
+  } from "../joining-messages.ts";
 
   let step = $state<"redeem" | "sent">("redeem");
   let code = $state("");
@@ -25,6 +30,7 @@
   let dateOfBirth = $state("");
   let pending = $state(false);
   let rejection = $state<string | null>(null);
+  let supportErrorId = $state<string | null>(null);
   let attemptsRemaining = $state<number | null>(null);
   let lockoutSeconds = $state<number | null>(null);
   let redeemedAddress = $state("");
@@ -41,6 +47,7 @@
     if (pending) return;
     pending = true;
     rejection = null;
+    supportErrorId = null;
     const outcome = await redeemInvitation(fetch, {
       code: code.trim(),
       lastName: lastName.trim(),
@@ -58,6 +65,7 @@
        * firm, which for a law firm's client list is the confidential fact itself.
        */
       rejection = joiningErrorMessage(outcome, REDEMPTION_REFUSED);
+      supportErrorId = joiningSupportErrorId(outcome);
       attemptsRemaining =
         outcome.kind === "problem" ? (outcome.problem.attemptsRemaining ?? null) : null;
       lockoutSeconds = outcome.kind === "problem" ? lockoutFrom(outcome.problem) : null;
@@ -83,6 +91,7 @@
       bind:codeFieldReference
       {pending}
       {rejection}
+      {supportErrorId}
       {attemptsRemaining}
       {lockoutSeconds}
       onSubmit={redeem}

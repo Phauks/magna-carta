@@ -58,7 +58,11 @@ export function compareDocuments(
       break;
     }
     case "fileType": {
-      comparison = (a.sniffedContentType ?? "~").localeCompare(b.sniffedContentType ?? "~");
+      // Compare what the column shows. A file with no extension at all sorts after every file that
+      // has one, rather than bubbling blanks to the top.
+      const aType = fileTypeExtension(a);
+      const bType = fileTypeExtension(b);
+      comparison = (aType === "" ? "~" : aType).localeCompare(bType === "" ? "~" : bType);
       break;
     }
     case "safety": {
@@ -103,29 +107,33 @@ export function sortDocuments(
   return documents.toSorted((a, b) => compareDocuments(a, b, key, direction));
 }
 
-/** The file's kind in the reader's words. The media type is exact but nobody scans a table for it. */
-export function friendlyFileType(document: DocumentSummary): string {
-  const type = document.sniffedContentType;
-  if (type === null) return "Not known yet";
-  const known = FRIENDLY_TYPES[type];
-  if (known !== undefined) return known;
-  const extension = document.name.includes(".")
-    ? document.name.slice(document.name.lastIndexOf(".") + 1).toUpperCase()
-    : null;
-  return extension ?? type;
+/**
+ * The file's type is its real extension — "pdf", "docx", "mp4" — never a category word like
+ * "Video" or "Document". The extension is what the file actually is; a category is our paraphrase
+ * of it, and the owner has ruled the paraphrase out. A file whose name carries no extension falls
+ * back to the extension its sniffed media type implies, and failing that reads as blank rather
+ * than as a placeholder word.
+ */
+export function fileTypeExtension(document: DocumentSummary): string {
+  const dotIndex = document.name.lastIndexOf(".");
+  if (dotIndex > 0 && dotIndex < document.name.length - 1) {
+    return document.name.slice(dotIndex + 1).toLowerCase();
+  }
+  if (document.sniffedContentType === null) return "";
+  return EXTENSION_BY_CONTENT_TYPE[document.sniffedContentType] ?? "";
 }
 
-const FRIENDLY_TYPES: Record<string, string> = {
-  "application/pdf": "PDF",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word",
-  "application/msword": "Word 97-2003",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Spreadsheet",
-  "application/vnd.ms-excel": "Spreadsheet 97-2003",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "Presentation",
-  "application/zip": "Archive",
-  "text/plain": "Text",
-  "image/jpeg": "Image",
-  "image/png": "Image",
-  "video/mp4": "Video",
-  "message/rfc822": "Email",
+const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "application/zip": "zip",
+  "text/plain": "txt",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "video/mp4": "mp4",
+  "message/rfc822": "eml",
 };

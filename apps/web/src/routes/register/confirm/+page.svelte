@@ -8,9 +8,9 @@
    * browser prefetch — would burn it and leave the owner staring at a link that says it has already
    * been used. One press costs a second and cannot be spent by a machine that never asked.
    *
-   * Today nothing arrives to click at all: the confirmation mail carries the bare token as its
-   * whole body, so the typed path is the only path. Both facts live in
-   * $lib/auth/joining-availability.ts under "confirm-registration", not in this comment alone.
+   * The confirmation mail carries a link that lands here with the field filled, plus the bare code
+   * for a mail client that will not open links. Both paths end at the same deliberate press; the
+   * step's reach is declared in $lib/auth/joining-availability.ts under "confirm-registration".
    *
    * The firm is NOT built by the time this answers. Provisioning creates a bucket and mints a key,
    * which is not work an anonymous request does inline, so the route queues it and answers
@@ -21,11 +21,16 @@
   import { confirmRegistration } from "$lib/auth/joining-api.ts";
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import ConfirmRegistrationScreen from "$lib/auth/screens/confirm-registration-screen.svelte";
-  import { CONFIRMATION_REFUSED, joiningErrorMessage } from "../joining-messages.ts";
+  import {
+    CONFIRMATION_REFUSED,
+    joiningErrorMessage,
+    joiningSupportErrorId,
+  } from "../joining-messages.ts";
 
   let token = $state(page.url.searchParams.get("token") ?? "");
   let pending = $state(false);
   let rejection = $state<string | null>(null);
+  let supportErrorId = $state<string | null>(null);
   let confirmedAddress = $state<string | null>(null);
   let confirmedAt = $state(new Date());
 
@@ -40,10 +45,12 @@
     if (pending || token.trim() === "") return;
     pending = true;
     rejection = null;
+    supportErrorId = null;
     const outcome = await confirmRegistration(fetch, token);
     pending = false;
     if (outcome.kind !== "ok") {
       rejection = joiningErrorMessage(outcome, CONFIRMATION_REFUSED);
+      supportErrorId = joiningSupportErrorId(outcome);
       return;
     }
     confirmedAt = new Date();
@@ -60,6 +67,7 @@
       bind:tokenFieldReference
       {pending}
       {rejection}
+      {supportErrorId}
       onSubmit={confirm}
     />
   {:else}
