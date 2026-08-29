@@ -43,9 +43,12 @@
     attemptsRemaining = null,
     lockoutSeconds = null,
     codeFieldReference = $bindable(null),
+    backLabel = "Back",
     onSubmit,
     back,
   }: {
+    /** Names where back goes — this screen is reached from two places that are not each other. */
+    backLabel?: string;
     code?: string;
     lastName?: string;
     /** A calendar date in YYYY-MM-DD form — what the date field submits and the route takes. */
@@ -80,7 +83,7 @@
   }
 </script>
 
-<AuthPanel title="Your Invitation" {back} backLabel="Back to the three choices">
+<AuthPanel title="Your Invitation" {back} {backLabel}>
   {#snippet meta()}Your firm sent you a link. You can type the code from it instead.{/snippet}
 
   {#snippet children()}

@@ -1,8 +1,8 @@
 /*
  * The owner-settled copy on the joining screens, pinned to the screens themselves.
  *
- * Every sentence asserted here was decided once and is expensive to re-litigate: the three doors are
- * the sentences a person would say about themselves rather than a list of role nouns; the founding
+ * Every sentence asserted here was decided once and is expensive to re-litigate: registration asks
+ * about a person and never about a firm, which is the ordering the whole surface turns on; the founding
  * details screen is titled for the person being registered and not for a rank; the button names the
  * act it performs rather than the journey it begins; and the invitation code field carries no
  * generated prefix, because the generator emits none and one typed in would normalize into the
@@ -32,25 +32,46 @@ function stripComments(source: string): string {
     .replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
 }
 
-describe("the three doors", () => {
-  const source = stripComments(screenSource("register-screen.svelte"));
+describe("the account screen", () => {
+  const source = stripComments(screenSource("register-account-screen.svelte"));
 
-  it("reads in the owner's words, in order", () => {
-    const positions = [
-      "I am a client at a law firm",
-      "I work at a law firm",
-      "I want to start a new law firm",
-    ].map((door) => source.indexOf(door));
-    expect(positions.every((position) => position >= 0)).toBe(true);
-    expect(positions).toEqual(positions.toSorted((left, right) => left - right));
+  it("asks nothing about a firm", () => {
+    // THE reflow, pinned. This screen registers a PERSON, so it carries no field and no choice
+    // about a firm: that question is put afterwards, signed in, once there is somebody to ask it
+    // of. Mentioning a firm in prose is fine and is not what this guards — the closing line
+    // promises what comes next. What must never return is an INPUT or a control.
+    const fields =
+      source.match(/<Input[\s\S]*?\/>|<Label[\s\S]*?<\/Label>|<Button[\s\S]*?>/g) ?? [];
+    expect(fields.length).toBeGreaterThan(0);
+    expect(fields.filter((field) => /firm/i.test(field))).toEqual([]);
   });
 
-  it("sends both invited doors to the same place", () => {
-    // Only the founding door creates anything; membership of an existing firm is that firm's
-    // decision, so a second destination here would be a second way into somebody else's firm.
-    expect(source).toContain('role: "clientOfFirm"');
-    expect(source).toContain('role: "firmMember"');
-    expect(source).toContain('role: "foundFirm"');
+  it("names what pressing the button does, rather than the journey it begins", () => {
+    expect(source).toContain("Send Confirmation Email");
+    expect(source).not.toContain("Create Account<");
+  });
+
+  it("collects no credential", () => {
+    // The password is set from the emailed link, which is the act that proves the mailbox. A
+    // password field here would mint a credential before anybody had proven anything.
+    expect(source).not.toContain('type="password"');
+  });
+});
+
+describe("the joining choice screen", () => {
+  const source = stripComments(screenSource("joining-choice-screen.svelte"));
+
+  it("offers exactly the two things the server can do", () => {
+    expect(source).toContain("Start a new law firm");
+    expect(source).toContain("I have an invitation code");
+  });
+
+  it("renders what is unbuilt from the register, never as a control", () => {
+    // A control that cannot work is worse than an absent one, and worse still than a present one
+    // that says why it is inert. The sentences come from joining-availability.ts so that the day a
+    // gap closes, one entry moves and this screen follows.
+    expect(source).toContain("JOINING_STEPS");
+    expect(source).toContain('reach === "unbuilt"');
   });
 });
 

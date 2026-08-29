@@ -1,7 +1,7 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { OutboxRow } from "@magna-carta/data-access/outbox-relay";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
-import type { RegistrationId } from "@magna-carta/identifiers/types";
+import type { RegistrationId, UserId } from "@magna-carta/identifiers/types";
 import { authForEnv, type Bindings } from "./app.ts";
 import { isFirmActivationConflict, isUserEmailConflict } from "./control-plane-conflicts.ts";
 import { provisionFirm, type FirmProvisionerDependencies } from "./firm-provisioner.ts";
@@ -32,7 +32,11 @@ import { resourceProviderForEnv } from "./firm-provisioner-wiring.ts";
 interface FirmProvisionPayload {
   readonly registrationId: RegistrationId;
   readonly firmDisplayName: string;
-  readonly owner: { readonly email: string; readonly name: string };
+  // `userId` is present when the founder already HAS an account — the account-first door, where a
+  // signed-in person asks for a firm. Provisioning then adopts that account as the owner instead of
+  // creating one, and sends no activation mail: they already hold a credential, and mailing them a
+  // password-reset link at the moment their workspace arrives would read as a security alert.
+  readonly owner: { readonly email: string; readonly name: string; readonly userId?: UserId };
 }
 
 // A malformed payload THROWS rather than being skipped: the relay counts the attempt and
@@ -44,7 +48,7 @@ function parseFirmProvisionPayload(row: OutboxRow): FirmProvisionPayload {
     const parsed = JSON.parse(row.payload) as {
       registrationId?: unknown;
       firmDisplayName?: unknown;
-      owner?: { email?: unknown; name?: unknown };
+      owner?: { email?: unknown; name?: unknown; userId?: unknown };
     };
     if (
       typeof parsed.firmDisplayName !== "string" ||
@@ -56,7 +60,16 @@ function parseFirmProvisionPayload(row: OutboxRow): FirmProvisionPayload {
     return {
       registrationId: assertIdentifier(parsed.registrationId, "registration"),
       firmDisplayName: parsed.firmDisplayName,
-      owner: { email: parsed.owner.email, name: parsed.owner.name },
+      owner: {
+        email: parsed.owner.email,
+        name: parsed.owner.name,
+        // Absent on every message the anonymous confirmation path writes, including one already in
+        // flight across the deploy that introduced this field — which is why it is optional rather
+        // than a second topic.
+        ...(parsed.owner.userId === undefined
+          ? {}
+          : { userId: assertIdentifier(parsed.owner.userId, "user") }),
+      },
     };
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : String(caught);
@@ -113,9 +126,12 @@ export async function consumeFirmProvision(env: Bindings, row: OutboxRow): Promi
       if (!isUserEmailConflict(caught) && !isFirmActivationConflict(caught)) throw caught;
       activated = false;
     }
-    if (activated) {
+    if (activated && payload.owner.userId === undefined) {
       // The owner's activation link — the password reset that creates their credential and, in
-      // completing, marks the address verified. Sent only by the pass that actually activated, so a
+      // completing, marks the address verified. NOT sent when the founder already had an account
+      // (the account-first door): there is no credential to create, the mailbox was proven before
+      // the account existed, and an unasked-for reset link is what a takeover looks like. Sent only
+      // by the pass that actually activated, so a
       // redelivery or a lost race does not mail a second link at somebody who may already have set
       // a password. After the commit, the same accepted seam the two other activation paths take: a
       // send that throws leaves an active firm whose owner recovers by asking for a fresh link from

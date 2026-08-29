@@ -3,9 +3,11 @@ import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-st
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
+import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { isUserEmailConflict } from "../control-plane-conflicts.ts";
 import type { SendEmail } from "../email-port.ts";
 import {
   enforceHumanVerification,
@@ -51,15 +53,20 @@ import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 // chokepoint applies is the other half of the defence and is sized to stand alone, which is what
 // makes the dormant state survivable.
 
-const RegistrationRole = z.enum(["clientOfFirm", "firmMember", "foundFirm"]).openapi({
+const RegistrationRole = z.enum(["account", "clientOfFirm", "firmMember", "foundFirm"]).openapi({
   description:
-    "Which door the visitor came through: a client of a law firm, someone who works at one, or " +
-    "someone starting a new one. The first two are joined by invitation; only the third creates a firm.",
+    "What is being registered. `account` — the default, and the only value the joining surface " +
+    "sends — registers a PERSON: confirming it creates their account, and which firm they belong " +
+    "to is settled afterwards, signed in. The other three are the superseded role fork, kept so a " +
+    "registration started before the reflow still completes: `clientOfFirm` and `firmMember` are " +
+    "joined by invitation, and `foundFirm` builds a firm at confirmation.",
 });
 
 const StartRegistrationRequest = z
   .object({
-    role: RegistrationRole,
+    // Optional, defaulting to the account door. A body that names no role is registering a person,
+    // which is what the joining surface now sends and what a new caller should mean.
+    role: RegistrationRole.optional(),
     email: z.email(),
     name: z.string().trim().min(1).max(200),
     // Only read for the founding door. Trimmed and Unicode-composed so the same typed name is the
@@ -90,9 +97,12 @@ const ConfirmRegistrationRequest = z
 const ConfirmRegistrationResponse = z
   .object({
     email: z.string(),
-    // The firm is built in the background, so a confirmation answers "accepted and under way"
-    // rather than handing back a firm that does not exist yet.
-    status: z.literal("provisioning"),
+    // What the spent token bought. `accountCreated` — the account now exists and the link that
+    // sets its password has been sent; which firm it belongs to is decided afterwards, signed in.
+    // `provisioning` — a registration from the superseded founding door, whose firm is built in
+    // the background, so it answers "accepted and under way" rather than handing back a firm that
+    // does not exist yet.
+    status: z.enum(["accountCreated", "provisioning"]),
   })
   .openapi("ConfirmRegistrationResponse");
 
@@ -111,10 +121,16 @@ const CONFIRMATION_SCREEN_PATH = "/register/confirm";
  * request-serving paths derive their own origin (APP_BASE_URL exists only for background passes
  * that have no request, e.g. notifications/digest-send-port.ts).
  */
-export function confirmationEmailText(origin: string, token: string): string {
+export function confirmationEmailText(
+  origin: string,
+  token: string,
+  // What confirming actually produces, so the mail describes the thing the press creates. An
+  // account-first registration makes an ACCOUNT; the superseded founding door makes a workspace.
+  produces: "account" | "workspace" = "account",
+): string {
   const confirmationLink = `${origin}${CONFIRMATION_SCREEN_PATH}?token=${encodeURIComponent(token)}`;
   return (
-    `Open this link to confirm your new Magna Carta workspace:\n\n${confirmationLink}\n\n` +
+    `Open this link to confirm your new Magna Carta ${produces}:\n\n${confirmationLink}\n\n` +
     `Or enter this confirmation code at ${origin}${CONFIRMATION_SCREEN_PATH}:\n\n${token}\n\n` +
     `The link and the code expire in ${CONFIRMATION_LIFETIME_HOURS} hours. ` +
     `If you did not request this, no action is needed.`
@@ -236,6 +252,11 @@ export function registerRegistrationRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
   sendEmailForEnv: (env: Bindings) => SendEmail,
+  // Confirming an account-first registration ends by sending the link that sets the new account's
+  // password, which is Better Auth's own reset flow — the same activation invitation redemption
+  // uses. Passed in on the terms invitations.ts takes it: the instance's lifetime belongs to the
+  // app, one per isolate.
+  authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
   humanVerification: HumanVerificationGateOptions = {},
 ): void {
   app.openapi(
@@ -254,8 +275,9 @@ export function registerRegistrationRoutes(
       // Lowercased for the same reason every other write path lowercases: Better Auth's own lookups
       // do, and the activation that eventually finds this person has to find the row we wrote.
       const email = request.email.trim().toLowerCase();
+      const role = request.role ?? "account";
 
-      if (request.role !== "foundFirm") {
+      if (role === "clientOfFirm" || role === "firmMember") {
         // Joining an existing firm is that firm's decision. Nothing is written and nothing is
         // looked up — in particular the address is NOT checked against the user table, because a
         // lookup here would be an oracle with a timing signature even if its result were discarded.
@@ -293,12 +315,18 @@ export function registerRegistrationRoutes(
               c.env.DB_CONTROL.prepare(
                 "INSERT INTO registration (id, role, email, display_name, firm_display_name, " +
                   "confirmation_hash, status, expires_at, created_at) " +
-                  "VALUES (?1, 'foundFirm', ?2, ?3, ?4, ?5, 'pending', ?6, ?7)",
+                  "VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8)",
               ).bind(
                 newIdentifier("registration"),
+                // The row carries the door, and CONFIRMATION branches on the row rather than on
+                // anything a caller says later — which is what lets a registration started under
+                // the superseded founding door still complete under its own rules.
+                role,
                 email,
                 request.name,
-                request.firmName ?? request.name,
+                // Only the founding door names a firm. An account-first registration names none,
+                // because there is no firm yet to name; the person names one afterwards, signed in.
+                role === "foundFirm" ? (request.firmName ?? request.name) : null,
                 confirmationHash,
                 expiresAt,
                 nowInstant,
@@ -310,7 +338,7 @@ export function registerRegistrationRoutes(
                 // is labels only — the address is the one thing that must not be logged, since this
                 // row would otherwise become the enumeration list the endpoint refuses to be.
                 userId: null,
-                metadata: { role: "foundFirm" },
+                metadata: { role },
                 now: nowInstant,
               }),
             ],
@@ -318,10 +346,11 @@ export function registerRegistrationRoutes(
           },
           { now: () => nowInstant },
         );
+        const produces = role === "foundFirm" ? "workspace" : "account";
         await sendEmailForEnv(c.env)({
           to: email,
-          subject: "Confirm your Magna Carta workspace",
-          text: confirmationEmailText(new URL(c.req.url).origin, token),
+          subject: `Confirm your Magna Carta ${produces}`,
+          text: confirmationEmailText(new URL(c.req.url).origin, token, produces),
           messageClass: "registration-confirmation",
         });
       } else {
@@ -372,6 +401,58 @@ export function registerRegistrationRoutes(
           detail:
             "This confirmation link cannot be used. Start again to have a new one sent, or sign in if the workspace already exists.",
         });
+      }
+
+      // THE ACCOUNT DOOR. Spending the token creates the person and nothing else: a `user` row
+      // carrying NO firm, unverified and credential-less, exactly the shape invitation redemption
+      // writes — and the password-setting link that follows is what creates the credential and, in
+      // completing, marks the address verified. No bucket, no key, no firm, no queue. Which firm
+      // this person belongs to is a decision they make afterwards, signed in, on the joining
+      // screen; that is the whole point of registering a person before a relationship.
+      if (row.role === "account") {
+        const createdUserId = newIdentifier("user");
+        let created = true;
+        try {
+          await commitEffectBatch(
+            c.env.DB_CONTROL,
+            {
+              statements: [
+                c.env.DB_CONTROL.prepare(
+                  "UPDATE registration SET status = 'confirmed', confirmed_at = ?2 WHERE id = ?1 AND status = 'pending'",
+                ).bind(row.id, nowInstant),
+                c.env.DB_CONTROL.prepare(
+                  'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) ' +
+                    "VALUES (?1, ?2, ?3, 0, ?4, ?4, NULL)",
+                ).bind(createdUserId, row.display_name, row.email, Date.now()),
+                insertAuthAuditStatement(c.env.DB_CONTROL, {
+                  id: newIdentifier("authAudit"),
+                  event: "registration.confirmed",
+                  userId: createdUserId,
+                  metadata: { registrationId: row.id },
+                  now: nowInstant,
+                }),
+              ],
+              outboxMessages: [],
+            },
+            { now: () => nowInstant },
+          );
+        } catch (caught) {
+          // The address already has an account — a second registration confirmed after the first,
+          // or a token spent twice across a retry. Not an error to report: whoever holds this token
+          // holds the mailbox it was sent to, so the right thing is the same thing, which is to
+          // send them the link that gets them in. The batch rolled back whole, so the registration
+          // row is untouched and nothing partial was written.
+          if (!isUserEmailConflict(caught)) throw caught;
+          created = false;
+        }
+
+        // The activation link, on both paths. A fresh account has no credential and this creates
+        // it; an address that already had one gets the ordinary recovery. Sent AFTER the commit, on
+        // the same accepted seam every other activation path takes: a send that throws leaves a
+        // real account whose owner recovers with Reset Password from the sign-in screen.
+        await authForEnv(c.env).api.requestPasswordReset({ body: { email: row.email } });
+        if (created) scheduleRequestPathSweep(c.executionCtx, c.env);
+        return c.json({ email: row.email, status: "accountCreated" as const }, 200);
       }
 
       // The firm is NOT built here. Provisioning creates a bucket, mints a key, and spends the

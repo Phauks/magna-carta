@@ -12,6 +12,7 @@ import selfServeRegistrationAndInvitationsSql from "@magna-carta/database/drizzl
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry —
 // add the new import alongside its journal entry, keyed by its monotonic timestamp id.
 import naturalLanguageSearchInstanceSql from "@magna-carta/database/drizzle/control-plane/20260816T152908_natural-language-search-instance.sql";
+import firmlessAccountSql from "@magna-carta/database/drizzle/control-plane/20260829T101500_firmless-account.sql";
 
 export function controlPlaneMigrations(): Migration[] {
   return migrationsFromJournal(controlPlaneJournal, {
@@ -22,6 +23,7 @@ export function controlPlaneMigrations(): Migration[] {
     "20260811T224252_self-serve-registration-and-invitations":
       selfServeRegistrationAndInvitationsSql,
     "20260816T152908_natural-language-search-instance": naturalLanguageSearchInstanceSql,
+    "20260829T101500_firmless-account": firmlessAccountSql,
   });
 }
 

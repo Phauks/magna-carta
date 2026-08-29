@@ -3,10 +3,12 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import {
+  optionalChokepointFirmId,
   requireChokepointFirmContext,
   requireChokepointFirmId,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
+import { readJoiningState } from "../joining-state.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { Problem } from "../contracts/problem.ts";
@@ -16,13 +18,28 @@ import { evaluateCatalog, isReleaseChannel, type ReleaseChannel } from "@magna-c
 import { resolveFlagEvaluator } from "../flags/flag-evaluator.ts";
 import type { FirmId } from "@magna-carta/identifiers/types";
 
+const JoiningState = z
+  .object({
+    state: z.enum(["chooseFirm", "firmProvisioning"]).openapi({
+      description:
+        "What this person still has to do: choose how they join a firm, or wait while the firm " +
+        "they asked for is built.",
+    }),
+  })
+  .openapi("JoiningState");
+
 const MeResponse = z
   .object({
     user: z.object({ id: z.string(), name: z.string(), email: z.string() }),
-    firm: z.object({ id: z.string(), name: z.string() }),
+    // NULL for a person who belongs to no firm — an account that exists and has not yet founded a
+    // firm or redeemed an invitation. Nullable rather than absent so a consumer has to read it.
+    firm: z.object({ id: z.string(), name: z.string() }).nullable(),
     permissions: z.array(z.string()),
     channel: z.enum(["stable", "beta", "alpha"]),
     flags: z.record(z.string(), z.boolean()),
+    // Present only alongside a null firm: what the joining surface should show. Server-held, so a
+    // person who closes the tab while their firm is building reopens it on the waiting screen.
+    joining: JoiningState.optional(),
   })
   .openapi("MeResponse");
 
@@ -41,13 +58,18 @@ export const meMeta: RouteMeta = {
   audited: false,
   idempotency: "optional",
   rateLimit: "default",
+  // The bootstrap has to answer for a person who has no firm yet, because the answer is what tells
+  // the app to send them to the joining screen rather than into a workspace they do not have.
+  firmlessSession: "allow",
 };
 
 export const meRoute = defineOpenAPIRoute(meMeta, {
   method: "get",
   path: "/api/v1/me",
   description:
-    "The session user, their firm, and their effective permissions — the SPA's bootstrap call.",
+    "The session user, their firm, and their effective permissions — the SPA's bootstrap call. A " +
+    "person who has not yet joined a firm answers with a null firm, no permissions, and what the " +
+    "joining surface should show them next.",
   responses: {
     200: {
       description: "The session user, firm, and effective permissions",
@@ -112,8 +134,6 @@ export function registerMeRoute(
 ): void {
   app.openapi({ ...meRoute, middleware: chokepointMiddleware(chokepoint, meRoute) }, async (c) => {
     const userId = requireChokepointUserId(c);
-    const firmId = requireChokepointFirmId(c);
-    const firmContext = requireChokepointFirmContext(c);
 
     const userRow = await c.env.DB_CONTROL.prepare('SELECT name, email FROM "user" WHERE id = ?1')
       .bind(userId)
@@ -126,6 +146,27 @@ export function registerMeRoute(
       );
     }
 
+    // A person who belongs to no firm. There is no firm context to read, no member row to resolve
+    // permissions from, and no firm whose release channel or flags could apply — so the answer is
+    // the person, an explicit null, and what the joining surface should do about it. The empty
+    // permission list is not a degraded read: a principal with no firm genuinely holds no
+    // capability anywhere, which is what the reserved 404 on every other route already enforces.
+    if (optionalChokepointFirmId(c) === undefined) {
+      return c.json(
+        {
+          user: { id: userId, name: userRow.name, email: userRow.email },
+          firm: null,
+          permissions: [],
+          channel: "stable" as const,
+          flags: {},
+          joining: { state: await readJoiningState(c.env.DB_CONTROL, userRow.email) },
+        },
+        200,
+      );
+    }
+
+    const firmId = requireChokepointFirmId(c);
+    const firmContext = requireChokepointFirmContext(c);
     const permissions = await loadEffectivePermissions(firmContext.firmDatabase, userId);
 
     const { channel, flags } = await resolveChannelAndFlags(c.env, userId, firmId);

@@ -6,11 +6,8 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
-import {
-  attemptLadderKey,
-  type AttemptBudget,
-  type AttemptLadder,
-} from "../auth-attempt-budget.ts";
+import { attemptLadderKey, type AttemptLadder } from "../auth-attempt-budget.ts";
+import { neutralRedemptionRefusal, resolveInvitationRedemption } from "../invitation-redemption.ts";
 import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -130,43 +127,6 @@ const RedeemInvitationResponse = z
   .openapi("RedeemInvitationResponse");
 
 const DEFAULT_INVITATION_LIFETIME_DAYS = 14;
-
-/** How many redemption attempts one invitation allows before it locks itself. */
-export const INVITATION_ATTEMPT_LIMIT = 5;
-
-/** How long an invitation stays locked once its attempts are spent. */
-export const INVITATION_LOCKOUT_SECONDS = 900;
-
-// The single sentence every failed redemption gets, whatever went wrong.
-const NEUTRAL_REDEMPTION_DETAIL =
-  "That invitation could not be redeemed. Check the code, surname and date of birth against the " +
-  "invitation, or ask the firm that invited you to send a new one.";
-
-// An invitation id no row can hold, for the balancing write below. Every id is a generated
-// identifier, so the empty string matches nothing — the same device as UNMATCHABLE_VERIFIER_HASH,
-// applied to a write instead of a comparison.
-const UNMATCHABLE_INVITATION_ID = "";
-
-/**
- * THE refusal — the one and only construction of a failed redemption's answer.
- *
- * Everything in it is a constant except the budget, and the budget comes from the caller's own
- * ladder, which the caller already knows and which does not move when the lookup finds something.
- * Nothing read off an invitation row may be passed in here: a value that varies with what was found
- * is an oracle whatever the sentence beside it says.
- */
-function neutralRedemptionRefusal(c: Context, budget: AttemptBudget): ProblemResponse<422> {
-  return problemJson(c, {
-    type: "invitation-not-redeemable",
-    status: 422,
-    title: "That invitation could not be redeemed",
-    detail: NEUTRAL_REDEMPTION_DETAIL,
-    attemptsRemaining: budget.remaining,
-    ...(budget.lockoutSecondsRemaining !== null && {
-      retryAfterSeconds: budget.lockoutSecondsRemaining,
-    }),
-  });
-}
 
 export const issueInvitationMeta: RouteMeta = {
   operationId: "invitations.issue",
@@ -420,78 +380,20 @@ export function registerInvitationRoutes(
 
       const request = c.req.valid("json");
       const nowInstant = new Date().toISOString();
-
-      // The caller's ladder, read before anything is looked up. A caller whose own budget is spent
-      // is refused here, and this return is decided ENTIRELY by caller state — no code has been
-      // hashed and no row has been read — so it cannot vary with what an invitation row would have
-      // said. Refusing before the lookup also stops a locked-out prober from continuing to burn a
-      // real invitation's attempts on the way past.
       const ladderKey = attemptLadderKey(c);
-      const standing = redemptionAttemptLadder.read(ladderKey);
-      if (standing.lockoutSecondsRemaining !== null) {
-        return neutralRedemptionRefusal(c, standing);
-      }
 
-      // BOTH digests are computed BEFORE anything is looked up, and both are computed on every
-      // path. The point is that the work this handler does must not depend on what it finds: a
-      // wrong code and a wrong birthday take the same two hashes and the same one comparison.
-      const [codeHash, presentedVerifier] = await Promise.all([
-        invitationCodeHash(request.code),
-        invitationVerifierHash({
-          code: request.code,
-          lastName: request.lastName,
-          dateOfBirth: request.dateOfBirth,
-        }),
-      ]);
-
-      const row = await c.env.DB_CONTROL.prepare(
-        "SELECT id, firm_id, kind, email, display_name, verifier_hash, status, attempt_count, " +
-          "locked_until, expires_at FROM invitation WHERE code_hash = ?1",
-      )
-        .bind(codeHash)
-        .first<InvitationRow>();
-
-      // The comparison runs even with no row, against a digest nothing can equal. An early return
-      // here would make "no such code" measurably faster than "wrong date of birth", which is the
-      // same oracle rebuilt out of a stopwatch instead of a status code.
-      const verifierMatches = digestsMatch(
-        row?.verifier_hash ?? UNMATCHABLE_VERIFIER_HASH,
-        presentedVerifier,
+      // The lookup, both budgets and the ONE refusal — in ../invitation-redemption.ts, because the
+      // signed-in redemption route redeems the same invitations and must answer identically. What
+      // stays here is only what is different: this route CREATES the account as it redeems.
+      const outcome = await resolveInvitationRedemption(
+        c,
+        c.env.DB_CONTROL,
+        redemptionAttemptLadder,
+        request,
+        ladderKey,
       );
-      const locked = row !== null && row.locked_until !== null && row.locked_until > nowInstant;
-      const live = row !== null && row.status === "pending" && row.expires_at > nowInstant;
-
-      if (!verifierMatches || !live || locked) {
-        // The invitation's own ladder, spent when a real, live invitation was aimed at and missed.
-        // It is what bounds DEPTH against a code somebody genuinely holds, and it stays exactly as
-        // it was — the defect was never that this counter is kept, only that it was reported.
-        const spendingRow = row !== null && live && !locked ? row : null;
-        const spent = spendingRow !== null ? spendingRow.attempt_count + 1 : 0;
-        const lockedUntil =
-          spendingRow !== null && spent >= INVITATION_ATTEMPT_LIMIT
-            ? new Date(Date.now() + INVITATION_LOCKOUT_SECONDS * 1000).toISOString()
-            : null;
-        // ONE write on every refusal, whatever was found. When there is nothing to spend against
-        // the same statement runs against an id no row holds: zero rows changed, one round trip to
-        // the control plane, the same cost. A conditional write would leave the difference the body
-        // no longer carries sitting in a stopwatch instead — the same reasoning as comparing
-        // against the unmatchable digest rather than returning early.
-        await c.env.DB_CONTROL.prepare(
-          "UPDATE invitation SET attempt_count = ?2, locked_until = ?3 WHERE id = ?1",
-        )
-          .bind(spendingRow?.id ?? UNMATCHABLE_INVITATION_ID, spent, lockedUntil)
-          .run();
-
-        // ONE problem type, ONE title, ONE detail, ONE status, ONE budget — for a code that does
-        // not exist, a code aimed at the wrong person, a surname that does not match, a date of
-        // birth that does not match, an invitation already redeemed, revoked, expired or locked.
-        // The budget is the CALLER's, spent here and read back from their own ladder, so the answer
-        // to "was there an invitation behind this code" is not in it.
-        return neutralRedemptionRefusal(c, redemptionAttemptLadder.spend(ladderKey));
-      }
-
-      // Past here the row is non-null and every fact matched.
-      const invitation = row;
+      if (outcome.kind === "refused") return outcome.response;
+      const invitation = outcome.invitation;
       const nowEpochMilliseconds = Date.now();
       const invitedUserId = newIdentifier("user");
 

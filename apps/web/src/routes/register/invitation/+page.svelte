@@ -95,7 +95,8 @@
       {attemptsRemaining}
       {lockoutSeconds}
       onSubmit={redeem}
-      back={() => goto("/register")}
+      backLabel="Back to sign in"
+      back={() => goto("/login")}
     />
   {:else}
     <CheckEmailScreen

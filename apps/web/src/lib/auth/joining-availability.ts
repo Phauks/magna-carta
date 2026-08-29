@@ -1,5 +1,8 @@
 /*
- * The joining surface's honest inventory of what each step actually does.
+ * The joining surface's honest inventory of what each step actually does — across BOTH halves of
+ * joining, the signed-out one (registering a person) and the signed-in one (settling which firm
+ * they belong to), because they are one act and a reader asking "how far does this carry" is asking
+ * about the whole of it.
  *
  * Same rule as the sign-in surface's register of unbuilt capabilities
  * (apps/web/src/lib/auth/unbuilt-capabilities.ts) and the Documents surface's loop inventory
@@ -22,40 +25,48 @@ export interface JoiningStep {
   /**
    * `live` — the route answers and the step finishes where the person expects.
    * `partial` — the route answers, but something outside it is missing, so the step lands short.
+   * `unbuilt` — there is no route at all. Rendered as a sentence, never as a control.
    */
-  reach: "live" | "partial";
+  reach: "live" | "partial" | "unbuilt";
   /** One sentence: what actually happens when this step is taken, stated without euphemism. */
   behaviour: string;
 }
 
 export const JOINING_STEPS: readonly JoiningStep[] = [
   {
-    id: "choose-role",
-    label: "Say which of the three you are",
+    id: "register-account",
+    label: "Create an account",
     reach: "live",
     behaviour:
-      "A client of a firm and someone who works at one both go to invitation redemption; only founding a firm goes anywhere else. The fork is decided in the browser rather than by a round trip, because the answer is a constant the registration route would only repeat.",
-  },
-  {
-    id: "found-firm",
-    label: "Start a new law firm",
-    reach: "live",
-    behaviour:
-      "Records the registration and mails the address a confirmation token. A taken address and a free one answer identically; the difference is in the mail, which goes to the address in question.",
+      "Records the registration and mails the address a confirmation token. Nothing is asked about a firm, because a person does not have one yet. A taken address and a free one answer identically; the difference is in the mail, which goes to the address in question.",
   },
   {
     id: "confirm-registration",
     label: "Confirm the registration from the email",
     reach: "live",
     behaviour:
-      "Spending the token is real — the firm's build is queued and the owner is sent the link that sets their password. The mail carries a link that lands on the confirmation screen with the field filled, plus the bare code for a mail client that will not open links; either way the token is spent only on a deliberate press, never by a link preview.",
+      "Spending the token creates the account and sends the link that sets its password. The mail carries a link that lands on the confirmation screen with the field filled, plus the bare code for a mail client that will not open links; either way the token is spent only on a deliberate press, never by a link preview.",
+  },
+  {
+    id: "found-firm",
+    label: "Start a new law firm",
+    reach: "live",
+    behaviour:
+      "Queues the firm's build with the signed-in account as its owner, and answers that it is under way rather than that it is ready. The bootstrap call reports when it has arrived; a second press never starts a second firm.",
   },
   {
     id: "redeem-invitation",
     label: "Redeem an invitation",
     reach: "live",
     behaviour:
-      "Checks the code, surname and date of birth against one digest over all three and, when they match, creates the account and sends the link that sets its password. Every unsuccessful combination is one identical refusal.",
+      "Checks the code, surname and date of birth against one digest over all three and, when they match, joins the signed-in account to the inviting firm. The invitation must name this account's own address, which is what the mailed password link used to prove. Every unsuccessful combination is one identical refusal.",
+  },
+  {
+    id: "join-firm-by-asking",
+    label: "Ask a firm to let you in",
+    reach: "unbuilt",
+    behaviour:
+      "Nothing publishes which firms exist, and nothing should — a directory of a platform's law firms is a customer list. A firm brings people in by issuing an invitation, so ask whoever invited you for a code.",
   },
   {
     id: "agreements",

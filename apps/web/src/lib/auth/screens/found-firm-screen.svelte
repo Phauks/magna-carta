@@ -16,23 +16,41 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import AuthPanel from "../auth-panel.svelte";
+  import CredentialNotice from "../credential-notice.svelte";
 
   let {
     firmName = $bindable(""),
     firmNameFieldReference = $bindable(null),
+    pending = false,
+    rejection = null,
+    supportErrorId = null,
+    submitLabel = "Continue",
+    backLabel = "Back",
     onContinue,
     back,
   }: {
     firmName?: string;
     firmNameFieldReference?: HTMLInputElement | null;
+    pending?: boolean;
+    /** The refusal sentence, already chosen by the caller. Null on the door that only navigates. */
+    rejection?: string | null;
+    /** The correlated Error ID for a server fault, to quote to support. Null for a refusal. */
+    supportErrorId?: string | null;
+    /**
+     * The button names what pressing it DOES, and that differs by caller: on the joining screen
+     * this submit starts the firm being built, and on the superseded founding door it only moves to
+     * the next form. A single word here would have to be wrong for one of them.
+     */
+    submitLabel?: string;
+    backLabel?: string;
     onContinue: (event: SubmitEvent) => void;
     back?: () => void;
   } = $props();
 
-  const canContinue = $derived(firmName.trim() !== "");
+  const canContinue = $derived(!pending && firmName.trim() !== "");
 </script>
 
-<AuthPanel title="Start a New Law Firm" {back} backLabel="Back to the three choices">
+<AuthPanel title="Start a New Law Firm" {back} {backLabel}>
   {#snippet children()}
     <form onsubmit={onContinue} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
@@ -45,15 +63,18 @@
           bind:value={firmName}
           autocomplete="organization"
           placeholder="Firm Name"
+          disabled={pending}
           required
         />
       </div>
 
       <Button type="submit" variant="primary" size="lg" class="w-full" disabled={!canContinue}>
-        Continue
+        {pending ? "Starting…" : submitLabel}
       </Button>
 
       <!-- Below the button, so the card grows downward and the primary action never moves. -->
+      <CredentialNotice message={rejection} errorId={supportErrorId} subject="firm" />
+
       <p class="text-sm text-text-muted">
         Your firm starts on the free tier. You can move to a paid tier later from inside the
         workspace.

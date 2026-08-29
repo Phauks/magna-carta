@@ -40,12 +40,20 @@ export type MeResponse = {
     firm: {
         id: string;
         name: string;
-    };
+    } | null;
     permissions: Array<string>;
     channel: 'stable' | 'beta' | 'alpha';
     flags: {
         [key: string]: boolean;
     };
+    joining?: JoiningState;
+};
+
+export type JoiningState = {
+    /**
+     * What this person still has to do: choose how they join a firm, or wait while the firm they asked for is built.
+     */
+    state: 'chooseFirm' | 'firmProvisioning';
 };
 
 export type MetaVersionsResponse = {
@@ -568,9 +576,9 @@ export type StartRegistrationResponse = {
 
 export type StartRegistrationRequest = {
     /**
-     * Which door the visitor came through: a client of a law firm, someone who works at one, or someone starting a new one. The first two are joined by invitation; only the third creates a firm.
+     * What is being registered. `account` — the default, and the only value the joining surface sends — registers a PERSON: confirming it creates their account, and which firm they belong to is settled afterwards, signed in. The other three are the superseded role fork, kept so a registration started before the reflow still completes: `clientOfFirm` and `firmMember` are joined by invitation, and `foundFirm` builds a firm at confirmation.
      */
-    role: 'clientOfFirm' | 'firmMember' | 'foundFirm';
+    role?: 'account' | 'clientOfFirm' | 'firmMember' | 'foundFirm';
     email: string;
     name: string;
     firmName?: string;
@@ -578,7 +586,7 @@ export type StartRegistrationRequest = {
 
 export type ConfirmRegistrationResponse = {
     email: string;
-    status: 'provisioning';
+    status: 'accountCreated' | 'provisioning';
 };
 
 export type ConfirmRegistrationRequest = {
@@ -618,6 +626,25 @@ export type RedeemInvitationResponse = {
 };
 
 export type RedeemInvitationRequest = {
+    code: string;
+    lastName: string;
+    dateOfBirth: string;
+};
+
+export type FoundFirmResponse = {
+    status: 'provisioning';
+};
+
+export type FoundFirmRequest = {
+    firmName: string;
+};
+
+export type RedeemIntoAccountResponse = {
+    firmId: string;
+    kind: 'firmMember' | 'clientOfFirm';
+};
+
+export type RedeemIntoAccountRequest = {
     code: string;
     lastName: string;
     dateOfBirth: string;
@@ -8682,6 +8709,80 @@ export type InvitationsRedeemResponses = {
 };
 
 export type InvitationsRedeemResponse = InvitationsRedeemResponses[keyof InvitationsRedeemResponses];
+
+export type OnboardingFoundFirmData = {
+    body: FoundFirmRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/firm';
+};
+
+export type OnboardingFoundFirmErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session already belongs to a firm (absent, never an existence oracle) — a person belongs to exactly one firm, so there is no second one to found
+     */
+    404: Problem;
+    /**
+     * The request body is malformed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded; the body carries the remaining budget and the retry window
+     */
+    429: Problem;
+};
+
+export type OnboardingFoundFirmError = OnboardingFoundFirmErrors[keyof OnboardingFoundFirmErrors];
+
+export type OnboardingFoundFirmResponses = {
+    /**
+     * The firm is being built
+     */
+    202: FoundFirmResponse;
+};
+
+export type OnboardingFoundFirmResponse = OnboardingFoundFirmResponses[keyof OnboardingFoundFirmResponses];
+
+export type OnboardingRedeemInvitationData = {
+    body: RedeemIntoAccountRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/invitation-redemptions';
+};
+
+export type OnboardingRedeemInvitationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session already belongs to a firm (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination; the attempt budget it carries counts the caller's own attempts, never any invitation's
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded; the body carries the remaining budget and the retry window
+     */
+    429: Problem;
+};
+
+export type OnboardingRedeemInvitationError = OnboardingRedeemInvitationErrors[keyof OnboardingRedeemInvitationErrors];
+
+export type OnboardingRedeemInvitationResponses = {
+    /**
+     * The invitation was redeemed and the account now belongs to the firm
+     */
+    200: RedeemIntoAccountResponse;
+};
+
+export type OnboardingRedeemInvitationResponse = OnboardingRedeemInvitationResponses[keyof OnboardingRedeemInvitationResponses];
 
 export type PlatformSetFirmReleaseChannelData = {
     body: PlatformSetReleaseChannelRequest;

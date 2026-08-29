@@ -176,11 +176,15 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         });
       },
     },
-    // Every user belongs to exactly one tenant firm; input: false keeps the field out of every
-    // request body — only server-side code (the invitation flow) ever sets it.
+    // The one tenant firm this person belongs to; input: false keeps the field out of every
+    // request body — only server-side code (the joining paths) ever sets it. required: false
+    // because an account exists before it has a firm: the joining surface creates the person, and
+    // the firm is attached afterwards by founding one or by redeeming an invitation. A session
+    // carrying no firm is admitted by exactly three routes and answered with the reserved 404
+    // everywhere else (chokepoint/chokepoint.ts).
     user: {
       additionalFields: {
-        firmId: { type: "string", required: true, input: false },
+        firmId: { type: "string", required: false, input: false },
       },
     },
     advanced: {

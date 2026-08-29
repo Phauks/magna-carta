@@ -56,7 +56,12 @@ export interface ProvisionFirmInput {
   // are not unique in the world, and a unique one would refuse the second Smith Law, let a stranger
   // probe for any firm by trying to register its name, and make squatting cost one email address.
   readonly displayName?: string;
-  readonly owner: { readonly email: string; readonly name: string };
+  // `userId` names an account that ALREADY EXISTS and is founding this firm from inside the app —
+  // the account-first door. Absent for the two doors where the owner has no account yet (the
+  // operator door and a registration started under the superseded founding door), where the
+  // activation batch creates one. The difference is one statement in step 3 and one mail the
+  // caller does not send; everything else about provisioning is identical.
+  readonly owner: { readonly email: string; readonly name: string; readonly userId?: UserId };
 }
 
 export interface FirmProvisionerDependencies {
@@ -200,7 +205,8 @@ export async function provisionFirm(
   // carrying the Owner/Admin role, the activation fence, and the status flip that also records
   // the owner. One batch: 'active' implies the owner exists AND is recorded, which is what makes
   // status the step-3 guard and owner_user_id the already-active branch's owner of record.
-  const ownerUserId = newIdentifier("user");
+  const adoptedOwnerUserId = input.owner.userId;
+  const ownerUserId = adoptedOwnerUserId ?? newIdentifier("user");
   const nowEpochMilliseconds = Date.now();
   return {
     kind: "ready-to-activate",
@@ -209,11 +215,37 @@ export async function provisionFirm(
     ownerEmail,
     finalWrite: {
       statements: [
-        database
-          .prepare(
-            'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
-          )
-          .bind(ownerUserId, input.owner.name, ownerEmail, nowEpochMilliseconds, firmId),
+        // The owner. Either created here — unverified and account-less, activated afterwards
+        // through the password-reset flow — or ADOPTED, when the person founding the firm already
+        // has an account and is signed in as they ask for it.
+        //
+        // The adoption is two statements because a guarded UPDATE cannot abort a D1 batch at zero
+        // rows. The first is a FENCE in the shape the activation fence below already uses: it
+        // inserts a row colliding with this user's own primary key unless the account still belongs
+        // to no firm, so a second pass over the same account — a redelivered outbox row, or a
+        // person who founded a firm and redeemed an invitation in the same minute — aborts the
+        // whole batch instead of quietly moving them between firms.
+        ...(adoptedOwnerUserId === undefined
+          ? [
+              database
+                .prepare(
+                  'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
+                )
+                .bind(ownerUserId, input.owner.name, ownerEmail, nowEpochMilliseconds, firmId),
+            ]
+          : [
+              database
+                .prepare(
+                  "INSERT INTO \"user\" (id, name, email, firm_id) SELECT ?1, '', '', NULL " +
+                    'WHERE (SELECT firm_id FROM "user" WHERE id = ?1) IS NOT NULL',
+                )
+                .bind(adoptedOwnerUserId),
+              database
+                .prepare(
+                  'UPDATE "user" SET firm_id = ?2, updated_at = ?3 WHERE id = ?1 AND firm_id IS NULL',
+                )
+                .bind(adoptedOwnerUserId, firmId, nowEpochMilliseconds),
+            ]),
         insertAuthAuditStatement(database, {
           id: newIdentifier("authAudit"),
           event: "firm.provisioned",
