@@ -5,6 +5,8 @@
 **Prompted by:** the owner's GitHub Actions minutes reaching their budget limit (CI austerity active as of 2026-08-05; merges temporarily backed by local verification), plus an owner-supplied Reddit link.
 **Purpose:** This is **research, not a spec and not a decision.** Nothing here is built or committed. The binding decision in this area is **ADR-0075 as amended** — Cloudflare Workers Builds is the build-and-deploy pipeline — and nothing in this document changes it. Items labelled a recommendation are recommendations only; items labelled owner-decision are requests for one.
 
+> **Superseded in one premise, 2026-08-29.** This document reasons throughout from a deploy that is a separate deliberate act (`git push origin main:release`). The owner has since moved `magna-carta` and `magna-carta-web` onto `main`, so **a merge to `main` deploys within minutes**. The evaluation's conclusion is unaffected — it turns on price per minute and on what Workers Builds can run, not on which branch triggers it — but its framing of the deploy is stale wherever it appears below. The live branch model is in [`operations.md`](../conventions/operations.md) under _Cloudflare Workers Builds_. The change also sharpens §1's recommendation: with the merge and the deploy now one event, an unblocked pull-request gate is the only thing standing between a defect and production.
+
 ---
 
 ## 1. Summary — the recommendation, stated plainly
@@ -36,6 +38,8 @@ The owner supplied a Reddit link. **It could not be read, and no attempt will su
 ## 3. What we already have (so the question is narrower than it looks)
 
 Worth stating before evaluating anything, because it changes what "move CI to Cloudflare" would even mean: **the deploy pipeline is already on Cloudflare.** Per [`operations.md`](../conventions/operations.md), seven Workers are connected to the GitHub repository through Workers Builds, each building and deploying on a push to its production branch — which is **`release`, not `main`**. A push or merge to `main` deploys nothing; a deploy is the deliberate `git push origin main:release`.
+
+> _Two facts in that paragraph have since been corrected, and neither changes this document's answer: the connected count is **twelve**, not seven (API-verified 2026-08-24), and `magna-carta` and `magna-carta-web` build from **`main`** as of 2026-08-29, so a merge deploys. What stands is the sentence the section exists for — the CD half is already on Cloudflare, so the question is only about the CI half._
 
 So the question is not "should we use Cloudflare for CI/CD" — we do, for the CD half. The question is precisely: **can the CI half — the quality gate — move there too?** That is a narrower and more answerable question, and it has a cleaner answer, because Workers Builds is built for the CD half and shows it.
 

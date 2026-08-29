@@ -138,11 +138,17 @@ Magna Carta, and neither can be done from a session:
 
 1. **GitHub Actions has been blocked account-side since 2026-08-05** — a billing step. The gate of
    record has not run since. Every merge in that window landed on local verification alone.
-2. **Production deploys are deliberate and owner-only** (`git push origin main:release`; the Workers
-   Builds production branch is `release`, not `main`). Two projects also need their root directory
-   repointed in the Cloudflare dashboard.
+2. ~~**Production deploys are deliberate and owner-only**~~ — **no longer true, and it inverted on
+   2026-08-29**: the owner moved `magna-carta` and `magna-carta-web` onto `main`, so **a merge
+   deploys within minutes**. This document was written on 2026-08-24, when a deploy was a separate
+   deliberate act and this was a blocker; it is now the opposite of a blocker and the opposite of a
+   safety margin. The dashboard root-directory repoints it named are also done (2026-08-27). The
+   branch model lives in [`operations.md`](../conventions/operations.md) under _Cloudflare Workers
+   Builds_.
 
-Both, with the exact steps, are in [`docs/deploy-queue.md`](../deploy-queue.md). Read it before
+Item 1 stands, and matters more than it did — with the merge and the deploy now one event, the
+blocked gate is the only thing that was standing between a defect and real users. The account-side
+steps are in [`docs/deploy-queue.md`](../deploy-queue.md). Read it before
 telling the owner anything is ready to use.
 
 The design behind the missing methods is already written —

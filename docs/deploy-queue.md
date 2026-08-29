@@ -1,37 +1,28 @@
-# Deploy queue — owner actions pending
+# Owner action queue — the steps no session can perform
 
-Production deploys are deliberate (`git push origin main:release`) and are
-**never made by the orchestration session**. This document accumulates what is
-waiting on the owner: the undeployed merge queue plus the account-side
-dashboard steps that no session can perform. Kept current by the
-orchestration stream; check `git log release..main` for the live commit delta.
+**There is no queue of undeployed code any more.** On 2026-08-29 the owner moved both `magna-carta` (the API Worker) and `magna-carta-web` (the SPA) onto **`main`** as their Workers Builds production branch, so **a merge to `main` builds and deploys within minutes** — the deliberate `git push origin main:release` is gone, `release` survives only as history, and `git log release..main` is no longer a meaningful reading of anything. The branch model and what still needs verifying about the other ten connected projects are in [`operations.md`](conventions/operations.md) under _Cloudflare Workers Builds_; this file does not restate them.
 
-_Last updated: 2026-08-25 — **37 commits undeployed** (`git log release..main`). `main` is green. The ten merges since the last refresh are an API-contract pass and repository hygiene: every list endpoint is now either cursor-paged or recorded with what bounds it, three capped reads stopped cutting their answers silently, and the build register's trend series was repaired and started moving again. **Two of those changed the API contract** (#394, #396) — `openapi.json` and the generated client both moved, and no screen reads the affected endpoints yet, so nothing in the SPA changes with them. **One shipped no change at all** (#392): it verified against `main` that the PDF scrub leaves document JavaScript and open-actions intact, and wrote the analysis behind a question that was already open on the Decision Desk — the posture is a security call and was not taken here. The dashboard-repoint sentence this paragraph once carried is superseded by the 2026-08-27 note below: the owner has done them. The GitHub Actions billing block still gates every merge, not only every deploy._
+What this document is for now: **the account-side actions that no session can perform** — Cloudflare dashboard steps, DNS, R2 lifecycle rules, secrets, account entitlements, repository settings, and the GitHub Actions billing block. Every one of them is a step the repository cannot take on its own no matter what merges. Kept current by the orchestration stream.
 
-_2026-08-24 — production turned out newer than this file believed: `release` was pushed to `19d02cf` (#363) on 2026-08-21 and every connected project built green from it. The owner confirmed `magna-carta-ocr` exists (see the tools-catalog entry below), and
-clarified the Actions block's real blast radius: deploys ride Cloudflare Workers Builds, which do
-not involve GitHub Actions, so a `git push origin main:release` builds and deploys regardless of the
-billing block — what the block silences is the gate of record, meaning such a deploy ships on local
-verification alone._
+**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and the gate of record is still blocked account-side (the first entry below), so that verification is the scoped local gate plus whatever tests the change carries. **The billing step is now the single most consequential item on this list**, not the housekeeping item it was when a deliberate push stood between a merge and production.
 
-_2026-08-24, later — the read-only Cloudflare credentials the queue asked for are in the Claude Code
-cloud environment and work: the token verifies active (expires 2026-10-31), and Workers Scripts,
-Workers Builds, R2 and Queues all answer reads. This is the first API-verified pass over the queue;
-every claim below marked "API-confirmed 2026-08-24" carries that evidence. The headline findings:
-**twelve** Workers Builds projects are connected (not the seven `operations.md` §12 records — the
-convert, discovery, ocr, sign and web workers are all connected too), every one's production branch
-is `release`, every one's build caching is on, and every one's latest build is green from `19d02cf`
-(2026-08-21). All thirteen production queue pairs exist, deadletters included. `operations.md` §12's
-connection list, its `magna-carta-edit` branch claim, and §14's placeholder roster are stale against
-this; the next docs pass owns reconciling them._
+_Position, 2026-08-29: `main` is production. The last API-verified read of the account was 2026-08-24 (a read-only Cloudflare token, valid to 2026-10-31); claims below marked "API-confirmed 2026-08-24" carry that evidence, and anything about the account **after** the branch move is unverified — a fresh read of the Workers Builds configuration and the deployed scripts is what would settle it._
+
+_What that 2026-08-24 pass found, since it is the evidentiary floor for this whole file:_ **twelve** _Workers Builds projects are connected (`operations.md` §12 had said seven), every one's build caching was on, and every one's latest build was green from `19d02cf` (2026-08-21). All thirteen production queue pairs exist, deadletters included. The stale claims it exposed — the connection list, the_ `magna-carta-edit` _branch, §14's placeholder roster — are reconciled in `operations.md` as of this pass._
 
 _2026-08-27 — the owner fixed the dashboard items that pass raised, and a session re-read the live
 configuration to confirm every one: the `magna-carta` deploy command now filters
 `@magna-carta/api-worker`, its watch paths again cover `packages/*` and `apps/web/*`, and the
-file-repair, recovery and edit inclusion lists are corrected. The next `main:release` push is no
-longer blocked on any dashboard step. Still open account-side: the `conversions/` and
-`templates/staging/` lifecycle rules, the platform seal secrets, and everything below that never
-depended on the token._
+file-repair, recovery and edit inclusion lists are corrected. Still open account-side: the
+`conversions/` and `templates/staging/` lifecycle rules, the platform seal secrets, and everything
+below that never depended on the token._
+
+_2026-08-29 — the control-plane migration ledger was stalled, which is why `registration` did not
+exist and every signup answered 500. The owner resolved it by dropping the control-plane tables; the
+`*/5` cron then applied the current lineage. The diagnosis, the recognition rule that produced the
+refusal, and the improvement it argues for are recorded once, in
+[`operations.md`](conventions/operations.md) under_ Control-plane database migrations _— read that
+before diagnosing any "the code creates this table and production does not have it" report._
 
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
@@ -58,9 +49,12 @@ single step in that time. The diagnosis and its evidence are in
 has no logs to fetch; a job that genuinely ran reports a real runner id. That check is the subject of
 the recognition rule in `operations.md`, and it is the only way to tell this outage from a red build.
 
-**What it is costing.** Every merge since 2026-08-05 has landed on the strength of local verification
-alone. Two specific checks are CI-authoritative and remain unanswered — see the scan-policy item under
-_Deferred — operational setup_ in [`ROADMAP.md`](../ROADMAP.md).
+**What it is costing, and it went up on 2026-08-29.** Every merge since 2026-08-05 has landed on the
+strength of local verification alone. Since the branch move, every merge also **deploys** on the
+strength of local verification alone — the gate of record and the deploy gate were two separate
+safety nets and now neither one is standing. Two specific checks are CI-authoritative and remain
+unanswered — see the scan-policy item under _Deferred — operational setup_ in
+[`ROADMAP.md`](../ROADMAP.md).
 
 A third cost surfaced on 2026-08-25 and is now paid forward rather than accruing: the build register's
 trend series (`docs/register-history.json`) advances only when the per-merge assembly workflow runs, so
@@ -72,6 +66,28 @@ this block clears brings the series current by itself, with no direct push and n
 verified against GitHub's current runner reference; `ubuntu-slim` is generally available. The outage
 reproduces identically on `ubuntu-latest`, and predates `ubuntu-slim` entering the repository.
 
+## Reconcile the production branch on the other ten projects — a new item, created by the 2026-08-29 move
+
+The move to `main` named `magna-carta` and `magna-carta-web`. The other ten connected projects — scan,
+bundle, convert, recovery, file-repair, discovery, ocr, sign, status, edit — were on `release` at the
+last verified read (2026-08-24) and **nobody has read them since**, so the fleet may be split across two
+branches.
+
+**Why that is worth a pass rather than a shrug.** A split fleet breaks cross-Worker changes silently:
+a merge deploys the app Worker immediately while a sibling change sits on a branch nothing builds, so
+the app Worker runs against an engine that has not shipped its half. Nothing errors at merge time; the
+symptom is a runtime fault in whichever engine lagged.
+
+**The step.** For each project, dashboard → the Worker → **Settings → Build → Branch control**, or read
+all twelve in one pass with `GET /accounts/{account_id}/builds/workers/{script_tag}` (the read-only
+token in the Claude Code cloud environment can do the reading; only the write needs the owner). Decide
+deliberately rather than by default: **`main` on everything** keeps the fleet in step and is the
+simplest rule to hold, but it also means an engine container image rebuilds on merges it does not care
+about — Watch Paths, not the branch, are what stop that, and every project already has them. The one
+project with a reason to think twice is `magna-carta-scan`, whose nightly deploy hook rebuilds its
+production branch to refresh signatures; on `release` that hook refreshed signatures without shipping
+untested trunk code, and on `main` it ships whatever the trunk holds.
+
 ## Tools catalog — what the 2026-08-21 push settled, and what remains
 
 From the audit in [`docs/research/2026-08-15-tools-reality-check.md`](research/2026-08-15-tools-reality-check.md),
@@ -82,10 +98,13 @@ email-capture steps already on this queue.
 1. **`magna-carta-ocr` is real — API-confirmed 2026-08-24.** The owner's report now has evidence
    behind it: the worker exists on the account, it is connected to Workers Builds with root
    directory `apps/ocr-worker` and watch paths covering `containers/ocr/*` and the OCR crates, its
-   production branch is `release`, its latest build is green (2026-08-21, from `19d02cf`), and the
+   production branch was `release` at that read, its latest build is green (2026-08-21, from
+   `19d02cf`), and the
    deployed script carries the `OCR_ENGINE -> OcrEngineContainer` Durable Object binding — the real
-   worker, not a placeholder. Nothing about OCR blocks an app-worker deploy, and nothing here needs
-   a dashboard glance any more.
+   worker, not a placeholder. Nothing about OCR blocks an app-worker deploy. One thing does still
+   want a dashboard glance, and it is the fleet-wide branch question rather than anything about OCR:
+   whether this project was moved to `main` with the app worker on 2026-08-29, or still builds only
+   from `release`.
 
 2. **`magna-carta-scan` deployed carrying `/identify` on 2026-08-21.** The deploy this step waited
    on has happened: `release` @ `19d02cf` contains the route (`containers/scan/src/lib.rs`,
@@ -149,7 +168,8 @@ already exists, alongside every other production queue.)
 **A new container is its own Workers Build**, and the order matters because each step
 depends on the one before it:
 
-1. **Connect `magna-carta-search` to Workers Builds on `release`** and let it build the
+1. **Connect `magna-carta-search` to Workers Builds** — production branch `main`, matching
+   `magna-carta` — and let it build the
    container image (`containers/search/Dockerfile`, build context = repository root).
    It declares the `SEARCH_INDEX` Durable Object binding, migration tag `v1`, and an
    `APP_WORKER` service binding to `magna-carta`. No secret, no queue, no R2 binding —
@@ -312,9 +332,10 @@ nothing in production moves, and no Durable Object namespace is affected. What t
   artefacts), which is exactly the shape `operations.md` §12 records; rooting it at
   `apps/api-worker` would break the build, not fix it. The earlier instruction here was wrong.
 - **The deploy command is fixed** — API-confirmed 2026-08-27: it now reads
-  `pnpm --filter @magna-carta/api-worker exec wrangler deploy`, so the package rename riding the
-  next `main:release` push resolves cleanly. (It read `--filter @magna-carta/worker` until then,
-  which would have failed the deploy step the moment the rename shipped.)
+  `pnpm --filter @magna-carta/api-worker exec wrangler deploy`, so the package rename resolves
+  cleanly. (It read `--filter @magna-carta/worker` until then, which would have failed the deploy
+  step the moment the rename shipped — and under the current model that failure would have landed
+  on a merge, in production.)
 - **The watch paths are broadened** — same confirmation: the inclusion list now reads
   `apps/api-worker/*`, `packages/*`, `apps/web/*` with the standard excludes (`docs/*`,
   `containers/*`, `spikes/*`, `*.md`), so package and SPA changes rebuild the app worker again.
@@ -323,22 +344,25 @@ One residual gap in that inclusion list, small and dashboard-only: it names no `
 `pnpm-lock.yaml`/`pnpm-workspace.yaml`. The app worker's build bakes WASM from `crates/pdf-core` and
 `crates/decryption-core`, so a push touching only a crate — or only a dependency bump — would not
 rebuild it. §12's recorded shape (include `*`, exclude the four patterns) covered both; adding
-`crates/*`, `pnpm-lock.yaml` and `pnpm-workspace.yaml` to the includes closes it just as well. The
-next release push is safe either way (Workers Builds always builds a push of 20+ commits, and 27
-are queued).
+`crates/*`, `pnpm-lock.yaml` and `pnpm-workspace.yaml` to the includes closes it just as well.
+**This gap matters more than it did:** a merge that touches only a crate or only a lockfile now
+silently does not deploy, and there is no later push to sweep it up. The large-push exemption that
+used to cover it (Workers Builds always builds a push of 20+ commits) does not apply to the
+one-merge pushes `main` now receives. **Still open — the one dashboard step in this entry.**
 
 The `magna-carta-edit` half of the old "repoint both in one pass" is **done** — API-confirmed
-2026-08-24: root `apps/edit-worker`, production branch `release`, latest builds green. Its
+2026-08-24: root `apps/edit-worker`, latest builds green. Its
 watch-path drift is gone too: the inclusion entry reads `apps/edit-worker/*` since 2026-08-27.
 
-## Behaviour changes — shipped by the 2026-08-21 push (no dashboard step)
+## Behaviour already in production — no owner action, kept as the record of what changed
 
-**These are live, not pending.** Every migration and endpoint named below is at `release` @
-`19d02cf` — verified against the deployed tree on 2026-08-24, when the API pass surfaced the
-2026-08-21 push this file had not recorded — so the "before the push" heads-ups below are current
-duties, and the counters named are worth reading now. The one exception inside the permissions
-entry is also resolved: `magna-carta-edit` deployed in the same push, so the editor frame the entry
-says "stays blank" should now fill.
+**Nothing in this section is pending.** Every migration and endpoint named below shipped with the
+2026-08-21 push, was verified against the deployed tree on 2026-08-24, and is live on `main` today.
+The entries are written in the future tense of a push that has since happened — read every "before
+the push" and "after the push" as a description of behaviour that is **already running**, and the
+counters named as things worth reading now. The one exception inside the permissions entry is also
+resolved: `magna-carta-edit` deployed in the same push, so the editor frame the entry says "stays
+blank" should now fill.
 
 - **Twenty list endpoints changed the SHAPE of their answer.** The campaign
   behind `pnpm run lint:list-pagination` worked the unpaged-listing baseline from
@@ -478,32 +502,16 @@ review-load-record` — deliberately a different class from the
   migration — there is still no surface by which a firm can grant a permission
   itself, which is the standing gap behind all of this.
 
-## Position
+## Position — what is live
 
-- Production is `release` @ `a4f2724` (2026-08-29, "Registration works end to end" #404).
-  The owner recreated `release` from `main` on 2026-08-29 (deleted and recreated to heal a
-  history divergence), which triggered Workers Builds across the connected projects at
-  once. API-verified the same night: **eleven of the twelve projects built green from
-  `a4f2724`**, `magna-carta` and every container project included, all within ~25 minutes
-  of the push. `main` and `release` are identical — the undeployed queue is empty. Two
-  exceptions from that build wave, both accounted for:
-  - **`magna-carta-convert` did not build.** Its build from `a4f2724` was terminated two
-    seconds into initialization with a Cloudflare **internal error** ("An internal error
-    occurred. Please retry your build.") — a platform fault, not a build-config or code
-    fault. The remedy is one dashboard retry on the convert project's latest build; a
-    read-only token cannot perform it. The 2026-08-21 convert deploy (from `19d02cf`)
-    stays live meanwhile, so nothing regressed.
-  - **`magna-carta-web` received no push-triggered build from `a4f2724`** — the push at
-    01:56 UTC fired the other eleven, not it. The green build it shows from that night is
-    a manual retry of the old 2026-08-21 build, so the standalone web worker serves the
-    `19d02cf` assets until a fresh trigger (a new push to `release`, or a manual dashboard
-    build — a retry can only rebuild the old commit). Low stakes while it stands alone:
-    the app is served from the `magna-carta` worker's own `assets` block, which is on
-    `a4f2724`.
-- Previous position: `release` @ `19d02cf` (2026-08-21, "Next Batch" #363). This file carried
-  `0988844` (2026-07-04) until the API pass on 2026-08-24 found all twelve Workers Builds
-  projects green from the newer push — the owner had deployed and the queue had not
-  recorded it.
+**`main` is live**, for `magna-carta` and `magna-carta-web`, within minutes of any merge. There is nothing to record here per push and no commit delta to track; the trunk is the answer.
+
+Two items survive from the 2026-08-29 build wave that preceded the branch move, both **unverified since**:
+
+- **`magna-carta-convert` did not build** from `a4f2724`. Its build was terminated two seconds into initialization with a Cloudflare **internal error** ("An internal error occurred. Please retry your build.") — a platform fault, not a build-config or code fault. The 2026-08-21 convert deploy (from `19d02cf`) stayed live, so nothing regressed. Whether a later push has since built it green is unknown; a read of the convert project's latest build settles it, and a dashboard retry is the remedy if not (a read-only token cannot perform one).
+- **`magna-carta-web` served the `19d02cf` assets** as of 2026-08-29, having received no push-triggered build from `a4f2724`. **The branch move is expected to have resolved this by itself** — the project now builds from `main`, so the first merge after the move should have deployed current assets. Expected, not confirmed: check the project's latest build before treating the standalone web worker as current. Low stakes either way while it stands alone, because the application is served from the `magna-carta` worker's own `assets` block.
+
+_History, so the file's earlier readings are not mistaken for the present:_ `release` @ `a4f2724` (2026-08-29, #404), before that `release` @ `19d02cf` (2026-08-21, #363). This file carried `0988844` (2026-07-04) until the API pass on 2026-08-24 found all twelve projects green from the newer push — the owner had deployed and the queue had not recorded it.
 
 ## `magna-carta-edit` — deployed 2026-08-21; the screen it gated should now fill
 
