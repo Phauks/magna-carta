@@ -1,3 +1,4 @@
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import pdfWasmModule from "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm";
 import { decodeSealRequest, encodeSealResponse } from "@magna-carta/signing";
 
@@ -19,6 +20,8 @@ function json(body: unknown, status: number): Response {
 // the caller before it forwards here. The response is the SealPort wire shape.
 export default {
   async fetch(request, env): Promise<Response> {
+    // The build-identity read the app worker's aggregate version endpoint probes over this binding.
+    if (isVersionRequest(request)) return versionResponse();
     const url = new URL(request.url);
     if (request.method !== "POST" || url.pathname !== "/seal") {
       return json({ error: "not-found" }, 404);

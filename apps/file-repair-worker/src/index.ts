@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { forwardFileRepair } from "./forward.ts";
 
 // The file-repair worker's runtime bindings. Stateless: no D1, R2, or Queues. The only binding is the
@@ -26,6 +27,8 @@ export default {
   // service binding) and forwards it to the engine Container, returning its JSON response verbatim.
   // No auth: the service binding is the trust boundary (not reachable from the public internet).
   async fetch(request: Request, env: Bindings): Promise<Response> {
+    // The build-identity read the app worker's aggregate version endpoint probes over this binding.
+    if (isVersionRequest(request)) return versionResponse();
     const url = new URL(request.url);
     if (request.method === "POST" && OPERATIONS.has(url.pathname)) {
       return forwardFileRepair(

@@ -48,6 +48,25 @@ export type MeResponse = {
     };
 };
 
+export type MetaVersionsResponse = {
+    api: {
+        commit: string;
+        commitTime: string | null;
+        buildTime: string | null;
+    };
+    services: Array<ServiceVersion>;
+    observedAt: string;
+};
+
+export type ServiceVersion = {
+    id: string;
+    label: string;
+    state: 'reported' | 'unbound' | 'unreachable' | 'unreported';
+    commit: string | null;
+    commitTime: string | null;
+    buildTime: string | null;
+};
+
 export type FirmUsageResponse = {
     storage: {
         totalBytes: number;
@@ -6030,6 +6049,39 @@ export type MeGetResponses = {
 };
 
 export type MeGetResponse = MeGetResponses[keyof MeGetResponses];
+
+export type MetaVersionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meta/versions';
+};
+
+export type MetaVersionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MetaVersionsError = MetaVersionsErrors[keyof MetaVersionsErrors];
+
+export type MetaVersionsResponses = {
+    /**
+     * The deployment's build identities
+     */
+    200: MetaVersionsResponse;
+};
+
+export type MetaVersionsResponse2 = MetaVersionsResponses[keyof MetaVersionsResponses];
 
 export type FirmUsageGetData = {
     body?: never;

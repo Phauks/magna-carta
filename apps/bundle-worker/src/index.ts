@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { BundleContainer } from "./bundle-container.ts";
 import { forwardBuild } from "./forward-build.ts";
 import { handleBundleR2 } from "./outbound-r2.ts";
@@ -43,6 +44,8 @@ export default {
   // for ?stream=1). No authentication is performed here — the service binding is the trust boundary
   // (only the app worker can reach this worker; it is not reachable from the public internet).
   async fetch(request: Request, env: Bindings): Promise<Response> {
+    // The build-identity read the app worker's aggregate version endpoint probes over this binding.
+    if (isVersionRequest(request)) return versionResponse();
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/build") {
       return forwardBuild(request, getContainer(env.BUNDLE_CONTAINER, "bundle"));

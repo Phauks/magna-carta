@@ -97,6 +97,7 @@ import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
 import { registerDevSeedRoute } from "./routes/dev-seed.ts";
 import { devControlPlaneMigrationMiddleware } from "./dev-control-plane-bootstrap.ts";
 import { registerMeRoute } from "./routes/me.ts";
+import { registerMetaVersionsRoute } from "./routes/meta-versions.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerInvitationRoutes } from "./routes/invitations.ts";
 import { registerRegistrationRoutes } from "./routes/registrations.ts";
@@ -559,6 +560,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // public firms route additionally mounts the platform-admin secret guard as route-specific
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
+  registerMetaVersionsRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
   registerToolsConnectionRoute(app, chokepoint);
   registerToolsTurnCredentialsRoute(app, chokepoint);

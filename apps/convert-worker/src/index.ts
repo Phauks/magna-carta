@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { type EngineTarget, engineTargetFor } from "./engine-dispatch.ts";
 import { forwardConvert } from "./forward-convert.ts";
 
@@ -50,6 +51,8 @@ export default {
   // public internet). An engine id with no Container here is 501 — the app worker's resolver keeps
   // unbuilt engines deferred, so this is a guard, not a working path.
   async fetch(request: Request, env: Bindings): Promise<Response> {
+    // The build-identity read the app worker's aggregate version endpoint probes over this binding.
+    if (isVersionRequest(request)) return versionResponse();
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/convert") {
       const target = engineTargetFor(request.headers.get("x-engine-id"));
