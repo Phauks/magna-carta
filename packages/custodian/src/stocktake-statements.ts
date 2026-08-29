@@ -274,19 +274,30 @@ export function selectCustodyStocktakeSightingsStatement(
     .bind(stocktakeId, limit);
 }
 
+export interface CustodyStocktakeSightingPage {
+  readonly rows: CustodyStocktakeSightingRow[];
+  /** True when the count recorded more observations than the requested limit and the tail is absent. */
+  readonly capped: boolean;
+}
+
+// Reads one row past the limit purely to learn whether there was one. The extra row is discarded;
+// what it buys is the difference between "the count observed exactly this much" and "the count
+// observed more and the rest of the answer is missing" — which a caller cannot otherwise tell, and
+// which matters here because a truncated count reads as a complete count that found fewer things.
 export async function readCustodyStocktakeSightings(
   database: SqlDatabase,
   stocktakeId: CustodyStocktakeId,
   limit: number,
   order: CustodyStocktakeSightingOrder = "oldest-first",
-): Promise<CustodyStocktakeSightingRow[]> {
+): Promise<CustodyStocktakeSightingPage> {
   const { results } = await selectCustodyStocktakeSightingsStatement(
     database,
     stocktakeId,
-    limit,
+    limit + 1,
     order,
   ).all<CustodyStocktakeSightingRow>();
-  return results;
+  const capped = results.length > limit;
+  return { rows: capped ? results.slice(0, limit) : results, capped };
 }
 
 export interface CustodyExpectedPacketRow {

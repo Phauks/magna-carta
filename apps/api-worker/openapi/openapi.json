@@ -1119,10 +1119,14 @@
             "items": {
               "$ref": "#/components/schemas/AutoFileDecisionEntry"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "AutoFileDecisionEntry": {
@@ -3427,10 +3431,17 @@
             "items": {
               "$ref": "#/components/schemas/MatterAssignmentRecord"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "MatterAssignmentRecord": {
@@ -12960,10 +12971,17 @@
             "items": {
               "$ref": "#/components/schemas/MatterAssetValuationDetail"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "MatterAssetValuationDetail": {
@@ -28713,7 +28731,7 @@
     },
     "/api/v1/emails/{emailMessageId}/auto-file-decisions": {
       "get": {
-        "description": "Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped.",
+        "description": "Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped. `capped` is true when the message recorded more decisions than the answer names; it is about the read's own ceiling and never about the access filter, which removes rows silently by design.",
         "operationId": "emails.autoFileDecisions",
         "tags": [
           "emails"
@@ -34674,7 +34692,7 @@
     },
     "/api/v1/matters/{id}/assignments": {
       "get": {
-        "description": "Lists the matter's staffing assignments, every recorded window included. The responsible attorney is not among them: that fact lives on the matter record itself.",
+        "description": "Lists the matter's staffing assignments, every recorded window included, a page at a time. The responsible attorney is not among them: that fact lives on the matter record itself. Ordered by role, then by when the window was recorded.",
         "operationId": "matters.listAssignments",
         "tags": [
           "matters"
@@ -34700,6 +34718,14 @@
             "required": true,
             "name": "id",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
@@ -48922,7 +48948,7 @@
     },
     "/api/v1/custody/reminders": {
       "get": {
-        "description": "Everything the register is waiting on, in one list, oldest first: review dates that have come round and check-outs that have not come back. This is the single place those two are decided, so a reminder that arrives by any other route says the same thing this one does.",
+        "description": "What the register is waiting on, in one list, oldest first: review dates that have come round and check-outs that have not come back. This is the single place those two are decided, so a reminder that arrives by any other route says the same thing this one does. Each reason is capped rather than paged — the merge of the two has no single sort column a cursor could seek on — and `capped` is true when either reason has more due than the answer names.",
         "operationId": "custody.listReminders",
         "tags": [
           "custody"
@@ -48963,10 +48989,14 @@
                       "items": {
                         "$ref": "#/components/schemas/CustodyReminder"
                       }
+                    },
+                    "capped": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "data"
+                    "data",
+                    "capped"
                   ]
                 }
               }
@@ -49752,7 +49782,7 @@
         }
       },
       "get": {
-        "description": "Every observation recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed.",
+        "description": "The observations recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed. Capped at `limit` rather than paged — a count's observations are read against the reconciliation of the same count, and half a count reconciles to a wrong answer rather than a short one. `capped` is true when the count recorded more than the answer names.",
         "operationId": "custody.listSightings",
         "tags": [
           "custody"
@@ -49803,10 +49833,14 @@
                       "items": {
                         "$ref": "#/components/schemas/CustodySighting"
                       }
+                    },
+                    "capped": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "data"
+                    "data",
+                    "capped"
                   ]
                 }
               }
@@ -51665,7 +51699,7 @@
     },
     "/api/v1/matter-assets/{assetId}/valuations": {
       "get": {
-        "description": "The asset's whole value history, newest date first. Corrections are shown AS corrections, naming the entry they replace — a figure somebody corrected stays visible, because the record's worth in a dispute is that nothing could be quietly rewritten after the fact.",
+        "description": "The asset's whole value history, newest date first, a page at a time. Corrections are shown AS corrections, naming the entry they replace — a figure somebody corrected stays visible, because the record's worth in a dispute is that nothing could be quietly rewritten after the fact. Two assertions about the same date read newest-recorded first, which is what makes a correction the current figure.",
         "operationId": "matterAssets.listValuations",
         "tags": [
           "matterAssets"
@@ -51691,6 +51725,14 @@
             "required": true,
             "name": "assetId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {

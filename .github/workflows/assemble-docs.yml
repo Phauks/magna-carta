@@ -57,7 +57,11 @@ jobs:
           node tooling/doc-fragments/build-decisions.mjs
           node tooling/doc-fragments/build-changelog.mjs
           node tooling/doc-fragments/build-status.mjs
-          node tooling/doc-fragments/build-register.mjs
+          # --ref=origin/main names the trunk explicitly. The register's history reconstruction walks
+          # the trunk and nothing else, and it decides what the trunk is from the ref's NAME — so a
+          # checkout that left HEAD detached would make this decline, and decline quietly. Naming the
+          # remote-tracking ref removes the assumption; it points at this very push.
+          node tooling/doc-fragments/build-register.mjs --ref=origin/main
 
       # The assemblers can produce output the formatter rejects — e.g. build-decisions rewrites
       # `ADR-<slug>` references to `ADR-NNNN`, which changes text width inside Markdown tables and breaks

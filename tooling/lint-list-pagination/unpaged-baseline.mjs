@@ -1,41 +1,20 @@
 /*
- * The list endpoints that answer with a bare array and no cursor, as of the day this gate was added.
+ * The list endpoints that answer with a bare array and no cursor.
  *
  * The platform HAS a pagination contract, and its own module says so: "every list query returns the
  * uniform cursor-paginated envelope (cursor-based, never offset)". Forty-seven endpoints did not,
- * and nothing said so, because nothing was checking. Two of them — a matter's costs and a matter's
- * time — read a record that grows for as long as the matter runs, with no LIMIT at any layer; those
- * two are fixed and are absent from this list.
+ * and nothing said so, because nothing was checking. THE CARRIED-OVER LIST IS NOW EMPTY: every one
+ * of the forty-seven was either paginated or traced to its statement and recorded below with what
+ * bounds it.
  *
- * This is a SHRINK-ONLY baseline, not an approval. Nothing here is asserted to be safe. Some of these
- * read a firm-configured vocabulary and are bounded by construction; others read a table that grows
- * with the firm's activity and are the same defect the two fixed ones were. Telling those apart means
- * tracing each route to the statement behind it, which is the campaign this list exists to make
- * finite and visible. An entry leaves by being either paginated or verified bounded and moved to
- * BOUNDED_BY_CONSTRUCTION below with the reason; the gate refuses a list that has grown.
+ * The empty array is not the end of the rule, it is the rule at rest. A new list endpoint that
+ * answers with an array and no cursor lands in `added` and is refused, and the only two ways out
+ * are the two that were used to empty this: page it, or write a claim under
+ * BOUNDED_BY_CONSTRUCTION that a reader can check at a named place.
  */
 
 /** Operation ids that answer with `{ data: [...] }` and no `nextCursor`. Only ever remove from this. */
-export const UNPAGED_LIST_OPERATIONS = [
-  "custody.listReminders",
-  "custody.listSightings",
-  "documentTypes.list",
-  "emails.autoFileDecisions",
-  "emails.autoFileReview",
-  "emails.listAutoFileRules",
-  "emails.listCaptureAddresses",
-  "locations.list",
-  "matterAssets.listAssetClasses",
-  "matterAssets.listAssetTypes",
-  "matterAssets.listValuations",
-  "matterTypes.list",
-  "matters.listAssignments",
-  "narrativeTemplates.list",
-  "narrativeTemplates.recentNarratives",
-  "nonBillableCategories.list",
-  "rateCards.list",
-  "utbmsCodes.list",
-];
+export const UNPAGED_LIST_OPERATIONS = [];
 
 /**
  * Endpoints whose answer is bounded by something other than a page size, with what bounds it. An
@@ -43,6 +22,111 @@ export const UNPAGED_LIST_OPERATIONS = [
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
+  // --- The firm's own configured vocabularies -------------------------------------------------
+  //
+  // Six tables with the same shape and the same argument, so the claim is the same one six times:
+  // a row appears when a PERSON adds a kind of thing the firm works with, through a route behind a
+  // manage permission, and by no other path. Each table has exactly ONE insert statement in the
+  // workspace, named below, and none of them is reachable from a queue consumer, a cron sweep, an
+  // import, or the ingest pipeline — which is what separates a vocabulary from a record. A
+  // vocabulary grows with the firm's decisions and stops; a record grows with the firm's activity
+  // and does not.
+  "matterTypes.list":
+    "The firm's matter-type vocabulary. Rows come only from the create route of the shared " +
+    "classification-type factory (apps/api-worker/src/routes/classification-type-routes.ts), " +
+    "which is behind matters:manageTypes and writes through the single insert statement in " +
+    "packages/matters/src/matter-type-statements.ts. A type is deactivated, never deleted, so the " +
+    "row count is the number of kinds of matter the firm has ever decided it runs.",
+  "documentTypes.list":
+    "The firm's document-type vocabulary, through the SAME factory as matterTypes.list and with " +
+    "the same bound — one insert statement, in " +
+    "packages/file-manager/src/document-type-statements.ts, reached only from that factory's " +
+    "create route.",
+  "matterAssets.listAssetTypes":
+    "The firm's asset-type catalog. One insert statement " +
+    "(insertMatterAssetTypeStatement in packages/matter-assets/src/asset-type-statements.ts), " +
+    "reached from the manage route; a type is deactivated rather than deleted so every asset " +
+    "filed under one keeps its meaning. Grouped under the fixed class registry below, which is " +
+    "what keeps the catalog a picker rather than a listing.",
+  "locations.list":
+    "The firm's offices. Bounded by the physical thing it models, the way custody.listLocations " +
+    "is: rows come only from locations.create (permission-gated in " +
+    "apps/api-worker/src/routes/locations.ts), and a firm opens offices one at a time. Read " +
+    "whole on purpose — a matter's number is scoped to its location, so a picker missing an " +
+    "office says the office does not exist.",
+  "rateCards.list":
+    "The firm's rate cards, archived ones excluded (listRateCardsStatement in " +
+    "packages/timekeeping/src/rate-statements.ts). One insert statement in that same module, " +
+    "reached from the manage route. A card is a pricing decision a person makes; the RATES on a " +
+    "card are the row set that grows, and they are a separate read.",
+  "nonBillableCategories.list":
+    "The firm's non-billable categories, archived ones excluded " +
+    "(listNonBillableCategoriesStatement in " +
+    "packages/timekeeping/src/non-billable-category-statements.ts). One insert statement in that " +
+    "module, reached from the manage route. It is the picker on the time-entry form.",
+  "narrativeTemplates.list":
+    "The firm's narrative template library, archived ones excluded " +
+    "(listNarrativeTemplatesStatement in " +
+    "packages/timekeeping/src/narrative-template-statements.ts). One insert statement in that " +
+    "module, reached from the manage route — a template is written by a person, never derived " +
+    "from the time entries that use it.",
+
+  // --- Fixed catalogs the firm cannot add to ---------------------------------------------------
+  "matterAssets.listAssetClasses":
+    "A CONSTANT, not a query: the handler maps MATTER_ASSET_CLASS_REGISTRY " +
+    "(packages/matter-assets/src/classes.ts, twelve declarations) and touches no database at " +
+    "all. The classes are the platform's, not the firm's — a firm extends the type catalog " +
+    "underneath them instead.",
+  "utbmsCodes.list":
+    "One ABA code set at a time from a catalog the firm cannot add to: every row is seeded from " +
+    "utbmsSeedData (packages/timekeeping/src/utbms-catalog.ts — 15 task, 11 activity, 10 " +
+    "expense) by INSERT OR IGNORE, and the only other write is the active flag. There is no " +
+    "insert route: setUtbmsCodeActiveStatement matches by id, so an unknown id changes nothing " +
+    "and a firm can never invent an ABA code through this path.",
+
+  // --- Reads whose subject is one thing, and the schema says how many ---------------------------
+  "emails.autoFileReview":
+    "One row per RULE that acted in the window, not one per message: the counts are SQL " +
+    "aggregates over the links (readAutomaticRuleTallies), so the row set is the firm's own rule " +
+    "set narrowed to the matters the caller may open. The matters it scans are capped at " +
+    "REVIEW_MATTER_LIMIT and the response says so on `matterScopeCapped` — the one thing that " +
+    "must never be silent here, because this is the screen a firm reads before trusting a rule " +
+    "to file without confirmation.",
+  "emails.autoFileDecisions":
+    "The decisions recorded for ONE message, capped at MESSAGE_DECISION_LIMIT " +
+    "(apps/api-worker/src/routes/auto-file-rules.ts), with the response's `capped` flag saying " +
+    "when the message recorded more. The real bound is the rule set that could have matched that " +
+    "message, and the cap is the belt on it. Not paged: a message's filing decisions are read as " +
+    "one account of why it landed where it did.",
+  "emails.listAutoFileRules":
+    "One matter's auto-file rules, capped at MATTER_RULE_LIMIT " +
+    "(apps/api-worker/src/routes/auto-file-rules.ts) rather than trusting that a matter holds " +
+    "few. Rules are written by a person through the manage route; nothing derives one.",
+  "emails.listCaptureAddresses":
+    "The capture addresses minted for ONE matter. Each is minted deliberately and rotated rather " +
+    "than accumulated, through the routes in apps/api-worker/src/routes/capture-addresses.ts — " +
+    "no path mints one in response to a message arriving, which is what would make this grow " +
+    "with the matter's mail.",
+  "narrativeTemplates.recentNarratives":
+    "At most 50 rows, and the ceiling is on the REQUEST: the route's own query schema is " +
+    "z.number().int().positive().max(50) (apps/api-worker/src/routes/narrative-templates.ts), " +
+    "and recentNarrativesStatement binds it as the SQL LIMIT. It is the one-tap re-pick picker " +
+    "over a timekeeper's own distinct narratives, not a walk through their time entries.",
+
+  // --- Capped reads whose cap is real, and whose SILENCE about it is filed separately ----------
+  "custody.listSightings":
+    "Capped at the caller's `limit`, default 500 and schema-capped at 1000 " +
+    "(apps/api-worker/src/routes/custody.ts), with the response's `capped` flag saying when the " +
+    "count recorded more — readCustodyStocktakeSightings reads one row past the limit to learn " +
+    "it. Not cursor-paged: a count's observations are read against the reconciliation of the same " +
+    "count, and half a count reconciles to a wrong answer rather than a short one.",
+  "custody.listReminders":
+    "Two independently-bounded reads merged: readCustodyReviewsDue and " +
+    "readOverdueCustodyCheckouts each take DEFAULT_PAGE_SIZE in " +
+    "packages/custodian/src/reminders.ts, so the answer is at most 100 rows, and `capped` is true " +
+    "when EITHER reason has more due than the answer names. Not cursor-paged because the merge " +
+    "has no single sort column a keyset could seek on — a cursor over it would page one arm and " +
+    "lose the other. It answers what the register is waiting on NOW.",
   "directory.search":
     "Capped at NAME_SEARCH_LIMIT in packages/directory/src/search.ts, and the response's `capped` " +
     "flag says when the firm holds more. Not cursor-paged on purpose: the ordering key is bm25, a " +

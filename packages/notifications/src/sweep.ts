@@ -338,7 +338,10 @@ async function collectCustodyFindings(database: SqlDatabase, now: string): Promi
   const reminders = await collectCustodyReminders(database, civilDate, {
     limit: MAX_COMPARISON_FINDINGS_PER_KIND + 1,
   });
-  const { kept, clamped } = clamp(reminders);
+  // The register's own `capped` answers a DIFFERENT question from this clamp — it says a reason hit
+  // its per-reason ceiling, where the clamp says this sweep will not materialize more than its own
+  // per-kind ceiling. The clamp is the one this pass acts on, and it is charged below.
+  const { kept, clamped } = clamp(reminders.reminders);
   return {
     // The register caps both reasons in one read and reports one combined list, so a clamp cannot be
     // attributed to a reason without asking it a second question. It is charged to the review point,

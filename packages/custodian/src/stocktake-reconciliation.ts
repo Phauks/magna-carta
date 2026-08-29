@@ -150,14 +150,15 @@ export async function reconcileAgainstRegister(
 
   // One row past the cap on each read, purely to learn whether there was one. The extra row is
   // discarded; what it buys is the difference between "the register holds exactly this much" and
-  // "the register holds more than this and the rest of the answer is missing".
+  // "the register holds more than this and the rest of the answer is missing". The sightings read
+  // does that probe itself and answers with the flag; the expected-packets read still does it here.
   const [expectedRead, sightingsRead] = await Promise.all([
     readCustodyExpectedPackets(database, scopeLocationIds, rowLimit + 1),
-    readCustodyStocktakeSightings(database, stocktake.id, rowLimit + 1, "newest-first"),
+    readCustodyStocktakeSightings(database, stocktake.id, rowLimit, "newest-first"),
   ]);
-  const truncated = expectedRead.length > rowLimit || sightingsRead.length > rowLimit;
+  const truncated = expectedRead.length > rowLimit || sightingsRead.capped;
   const expected = expectedRead.slice(0, rowLimit);
-  const sightings = sightingsRead.slice(0, rowLimit);
+  const sightings = sightingsRead.rows;
 
   const inScope = scopeLocationIds === undefined ? undefined : new Set(scopeLocationIds);
 

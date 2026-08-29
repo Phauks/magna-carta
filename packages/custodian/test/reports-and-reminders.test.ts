@@ -227,13 +227,39 @@ describe("the reminder emission point", () => {
       options,
     );
 
-    const reminders = await collectCustodyReminders(database, "2026-08-04");
+    const { reminders } = await collectCustodyReminders(database, "2026-08-04");
     expect(reminders.map((reminder) => reminder.reason)).toEqual([
       "review-due",
       "checkout-overdue",
     ]);
     expect(reminders[0]).toMatchObject({ dueOn: "2026-05-01", bucket: "over-90d" });
     expect(reminders[1]).toMatchObject({ dueOn: "2026-07-20", bucket: "8-30d" });
+  });
+
+  it("says when a reason has more due than the answer names", async () => {
+    const { database, safe } = await scaffold();
+    // Three packets due for review against a ceiling of two. A firm reading this list is deciding
+    // what its backlog IS, so "two" and "two of three" cannot be the same answer.
+    for (let index = 0; index < 3; index += 1) {
+      const packet = await logPacket(database, safe, SMITH);
+      const patch = await updateCustodyPacket(
+        database,
+        packet.packetId,
+        { reviewOn: "2026-05-01" },
+        options,
+      );
+      await commit(database, patch.effect);
+    }
+
+    const clipped = await collectCustodyReminders(database, "2026-08-04", { limit: 2 });
+    expect(clipped.reminders).toHaveLength(2);
+    expect(clipped.capped).toBe(true);
+
+    // The ceiling is PER REASON, so a limit that clears the review arm reports uncapped even though
+    // the other arm contributed nothing — the flag is about what was cut, not about the total.
+    const whole = await collectCustodyReminders(database, "2026-08-04", { limit: 3 });
+    expect(whole.reminders).toHaveLength(3);
+    expect(whole.capped).toBe(false);
   });
 
   it("carries no owner, borrower, or description — only the object and why it surfaced", async () => {
@@ -247,7 +273,7 @@ describe("the reminder emission point", () => {
     );
     await commit(database, patch.effect);
 
-    const [reminder] = await collectCustodyReminders(database, "2026-08-04");
+    const [reminder] = (await collectCustodyReminders(database, "2026-08-04")).reminders;
     expect(Object.keys(reminder ?? {}).toSorted()).toEqual([
       "bucket",
       "custodyNumber",

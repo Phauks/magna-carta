@@ -6,9 +6,9 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-24 — **27 commits undeployed** (`git log release..main`). `main` is green. **Production is newer than this file believed: `release` was pushed to `19d02cf` (#363) on 2026-08-21 and every connected project built green from it** — see the position note. Of the two dashboard repoints this file carried, `magna-carta-edit`'s is done and `magna-carta`'s turns out to be a deploy-command fix, not a root-directory one — see the amended entry. The GitHub Actions billing block still gates every merge, not only every deploy._
+_Last updated: 2026-08-25 — **37 commits undeployed** (`git log release..main`). `main` is green. The ten merges since the last refresh are an API-contract pass and repository hygiene: every list endpoint is now either cursor-paged or recorded with what bounds it, three capped reads stopped cutting their answers silently, and the build register's trend series was repaired and started moving again. **Two of those changed the API contract** (#394, #396) — `openapi.json` and the generated client both moved, and no screen reads the affected endpoints yet, so nothing in the SPA changes with them. **One shipped no change at all** (#392): it verified against `main` that the PDF scrub leaves document JavaScript and open-actions intact, and wrote the analysis behind a question that was already open on the Decision Desk — the posture is a security call and was not taken here. The dashboard-repoint sentence this paragraph once carried is superseded by the 2026-08-27 note below: the owner has done them. The GitHub Actions billing block still gates every merge, not only every deploy._
 
-_2026-08-24 — the owner confirmed `magna-carta-ocr` exists (see the tools-catalog entry below), and
+_2026-08-24 — production turned out newer than this file believed: `release` was pushed to `19d02cf` (#363) on 2026-08-21 and every connected project built green from it. The owner confirmed `magna-carta-ocr` exists (see the tools-catalog entry below), and
 clarified the Actions block's real blast radius: deploys ride Cloudflare Workers Builds, which do
 not involve GitHub Actions, so a `git push origin main:release` builds and deploys regardless of the
 billing block — what the block silences is the gate of record, meaning such a deploy ships on local
@@ -61,6 +61,12 @@ the recognition rule in `operations.md`, and it is the only way to tell this out
 **What it is costing.** Every merge since 2026-08-05 has landed on the strength of local verification
 alone. Two specific checks are CI-authoritative and remain unanswered — see the scan-policy item under
 _Deferred — operational setup_ in [`ROADMAP.md`](../ROADMAP.md).
+
+A third cost surfaced on 2026-08-25 and is now paid forward rather than accruing: the build register's
+trend series (`docs/register-history.json`) advances only when the per-merge assembly workflow runs, so
+it sat frozen from 2026-08-17. The two defects that would have kept it frozen even with a working
+runner are fixed, and the workflow now names the trunk explicitly — so the first assembly run after
+this block clears brings the series current by itself, with no direct push and no step for the owner.
 
 **Do not "fix" this by editing the workflow.** The runner labels in `gate.yml` are correct and were
 verified against GitHub's current runner reference; `ubuntu-slim` is generally available. The outage

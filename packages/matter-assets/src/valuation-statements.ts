@@ -1,3 +1,10 @@
+import {
+  DEFAULT_PAGE_SIZE,
+  assembleCompositePage,
+  compositeKeysetClause,
+  decodeCompositeCursor,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   FileId,
@@ -101,33 +108,47 @@ export async function readMatterAssetValuation(
   return results[0];
 }
 
-// The full history for one asset, newest assertion first. Corrections are RETURNED, not hidden: a
-// reader has to be able to see that a figure was corrected and what it was corrected from, which is
-// the whole reason a correction is a row rather than an edit.
-export function selectMatterAssetValuationsStatement(
+// The full history for one asset, newest assertion first, one page at a time. Corrections are
+// RETURNED, not hidden: a reader has to be able to see that a figure was corrected and what it was
+// corrected from, which is the whole reason a correction is a row rather than an edit.
+//
+// THIS IS THE ONLY WAY TO READ THE HISTORY. The read it replaced took a `limit` defaulting to 200
+// and returned a bare array, so an asset past that many assertions answered "the asset's whole
+// value history" with its most recent slice and no way to tell. A second, ceiling-bounded read
+// would put that back.
+//
+// The keyset carries all three sort columns. Two assertions about the same as_of_date are ordered
+// by which was RECORDED later — that is what makes a correction read as the current figure — so
+// collapsing the middle column into an identifier tiebreak to fit a two-part cursor would order a
+// figure and its correction at random. See packages/data-access/src/cursor-pagination.ts.
+export async function pageMatterAssetValuations(
   database: SqlDatabase,
   assetId: MatterAssetId,
-  limit: number,
-): SqlStatement {
-  return database
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<MatterAssetValuationRow>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const cursor = decodeCompositeCursor(options.cursor);
+  const bindings: unknown[] = [assetId];
+  const keyset = compositeKeysetClause(
+    bindings,
+    cursor,
+    { primary: "as_of_date", secondary: "recorded_at", id: "id" },
+    false,
+  );
+  const { results } = await database
     .prepare(
       `SELECT ${VALUATION_COLUMNS} FROM ${MATTER_ASSET_VALUATION_TABLE} WHERE asset_id = ?1 ` +
-        `ORDER BY as_of_date DESC, recorded_at DESC, id DESC LIMIT ?2`,
+        `${keyset}ORDER BY as_of_date DESC, recorded_at DESC, id DESC ` +
+        `LIMIT ${String(pageSize + 1)}`,
     )
-    .bind(assetId, limit);
-}
-
-export async function readMatterAssetValuations(
-  database: SqlDatabase,
-  assetId: MatterAssetId,
-  limit = 200,
-): Promise<MatterAssetValuationRow[]> {
-  const { results } = await selectMatterAssetValuationsStatement(
-    database,
-    assetId,
-    limit,
-  ).all<MatterAssetValuationRow>();
-  return results;
+    .bind(...bindings)
+    .all<MatterAssetValuationRow>();
+  return assembleCompositePage(
+    results,
+    pageSize,
+    (row) => ({ primary: row.as_of_date, secondary: row.recorded_at, id: row.id }),
+    (row) => row,
+  );
 }
 
 // THE as-of resolution: for one asset, the valuation whose as_of_date is the latest at or before the

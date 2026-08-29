@@ -35,9 +35,9 @@ describe("one snapshot", () => {
     expect(Object.keys(counts)).toEqual(LEDGER_STATUSES);
   });
 
-  it("keeps two numbers per area, which is what the movement table reads", () => {
+  it("keeps the whole-node pair and the unit pair per area, which is what the movement table reads", () => {
     expect(countAreas(areas(["trust.md", "shipped", "planned"]))).toEqual([
-      { name: "trust.md", total: 2, shipped: 1 },
+      { name: "trust.md", total: 2, shipped: 1, units: 2, unitsShipped: 1 },
     ]);
   });
 
@@ -72,7 +72,9 @@ describe("the history file", () => {
       snapshots: [snapshot("a", "2026-07-14", ["trust.md", "shipped"], ["ai.md", "cut"])],
     });
     expect(text).toContain('"statuses": {"shipped":1,');
-    expect(text).toContain('        {"name":"trust.md","total":1,"shipped":1},\n');
+    expect(text).toContain(
+      '        {"name":"trust.md","total":1,"shipped":1,"units":1,"unitsShipped":1},\n',
+    );
     expect(text.endsWith("}\n")).toBe(true);
   });
 

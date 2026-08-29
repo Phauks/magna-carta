@@ -4,7 +4,7 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import {
   composeCreateMatterAssignment,
   composeEndMatterAssignment,
-  listMatterAssignments,
+  pageMatterAssignments,
 } from "@magna-carta/matters/matter-assignment";
 import {
   composeSetMatterCourtCase,
@@ -27,6 +27,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
@@ -54,9 +55,7 @@ const AssignmentRecord = z
   })
   .openapi("MatterAssignmentRecord");
 
-const AssignmentListResponse = z
-  .object({ data: z.array(AssignmentRecord) })
-  .openapi("MatterAssignmentListResponse");
+const AssignmentListResponse = paginated(AssignmentRecord).openapi("MatterAssignmentListResponse");
 
 const CreateAssignmentRequest = z
   .object({
@@ -229,9 +228,10 @@ const listAssignmentsRoute = defineOpenAPIRoute(readMeta("listAssignments"), {
   method: "get",
   path: "/api/v1/matters/{id}/assignments",
   description:
-    "Lists the matter's staffing assignments, every recorded window included. The responsible " +
-    "attorney is not among them: that fact lives on the matter record itself.",
-  request: { params: matterParam },
+    "Lists the matter's staffing assignments, every recorded window included, a page at a time. " +
+    "The responsible attorney is not among them: that fact lives on the matter record itself. " +
+    "Ordered by role, then by when the window was recorded.",
+  request: { params: matterParam, query: cursorQuery },
   responses: {
     200: {
       description: "The matter's assignments",
@@ -423,8 +423,14 @@ export function registerMatterRecordsRoutes(app: MatterRecordsApp, chokepoint: C
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
-      const data = await listMatterAssignments(firm.firmDatabase, id);
-      return c.json({ data } as z.infer<typeof AssignmentListResponse>, 200);
+      const { cursor } = c.req.valid("query");
+      const page = await pageMatterAssignments(firm.firmDatabase, id, { cursor });
+      return c.json(
+        { data: [...page.data], nextCursor: page.nextCursor } as z.infer<
+          typeof AssignmentListResponse
+        >,
+        200,
+      );
     },
   );
 

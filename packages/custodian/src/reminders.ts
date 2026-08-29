@@ -44,28 +44,53 @@ export interface CollectCustodyRemindersOptions {
   readonly limit?: number;
 }
 
+export interface CustodyReminderCollection {
+  readonly reminders: CustodyReminder[];
+  /**
+   * True when EITHER reason hit its ceiling and the rest of what is due is not in this answer.
+   * Per-reason rather than per-list on purpose: a firm with sixty overdue check-outs and no reviews
+   * has a truncated answer even though the combined list is under the combined ceiling.
+   */
+  readonly capped: boolean;
+}
+
 const MILLISECONDS_PER_DAY = 86_400_000;
 
 export async function collectCustodyReminders(
   database: SqlDatabase,
   asOfDate: string,
   options: CollectCustodyRemindersOptions = {},
-): Promise<CustodyReminder[]> {
+): Promise<CustodyReminderCollection> {
   const limit = options.limit ?? DEFAULT_PAGE_SIZE;
   const asOf = calendarDate(asOfDate);
+  // One row past the ceiling on each read, purely to learn whether there was one. A backlog a firm
+  // has never looked at is exactly the case this read exists to surface, and it is also the case
+  // where the ceiling bites — so "fifty" and "fifty of three hundred" must not look the same.
   const [reviews, overdue] = await Promise.all([
-    readCustodyReviewsDue(database, asOf, limit),
-    readOverdueCustodyCheckouts(database, asOf, limit),
+    readCustodyReviewsDue(database, asOf, limit + 1),
+    readOverdueCustodyCheckouts(database, asOf, limit + 1),
   ]);
-  const dueReviews = reviews.map((row) =>
-    reminderFor("review-due", row.packet_id, row.item_id, row.custody_number, row.review_on, asOf),
-  );
-  const dueCheckouts = overdue.map((row) =>
-    reminderFor("checkout-overdue", row.packetId, null, row.custodyNumber, row.dueBackOn, asOf),
-  );
+  const capped = reviews.length > limit || overdue.length > limit;
+  const dueReviews = reviews
+    .slice(0, limit)
+    .map((row) =>
+      reminderFor(
+        "review-due",
+        row.packet_id,
+        row.item_id,
+        row.custody_number,
+        row.review_on,
+        asOf,
+      ),
+    );
+  const dueCheckouts = overdue
+    .slice(0, limit)
+    .map((row) =>
+      reminderFor("checkout-overdue", row.packetId, null, row.custodyNumber, row.dueBackOn, asOf),
+    );
   // Both reads already come back oldest first, so the combined list is a merge rather than a sort —
   // linear, stable, and it cannot disagree with the order the two underlying reads promised.
-  return mergeByDueDate(dueReviews, dueCheckouts);
+  return { reminders: mergeByDueDate(dueReviews, dueCheckouts), capped };
 }
 
 function mergeByDueDate(

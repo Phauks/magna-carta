@@ -66,7 +66,14 @@ export function build(argv = []) {
   // Cheap by construction: it reads only the commits its file does not already hold, normally none
   // or one. Pass --rebuild-history to recompute the whole series — what to run after a change to the
   // ledger parser, since a commit that used to be unreadable may have become readable.
-  const history = buildHistory(argv.includes("--rebuild-history") ? ["--rebuild"] : []);
+  // `--ref=` is forwarded rather than swallowed so a caller can name the trunk explicitly. CI is the
+  // caller that needs it: the reconstruction refuses to walk anything but the trunk, and it decides
+  // that from the ref's NAME, so a checkout that leaves HEAD detached would make every scheduled run
+  // decline — and decline quietly, which is how the series sat frozen for a week.
+  const history = buildHistory([
+    ...(argv.includes("--rebuild-history") ? ["--rebuild"] : []),
+    ...argv.filter((argument) => argument.startsWith("--ref=")),
+  ]);
   const { register, page, desk } = render(areas, history);
   writeFileSync(REGISTER, register);
   writeFileSync(REGISTER_PAGE, page);
