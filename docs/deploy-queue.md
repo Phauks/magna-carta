@@ -464,11 +464,30 @@ review-load-record` — deliberately a different class from the
 
 ## Position
 
-- Production is `release` @ `19d02cf` (2026-08-21, "Next Batch" #363). This file carried
+- Production is `release` @ `a4f2724` (2026-08-29, "Registration works end to end" #404).
+  The owner recreated `release` from `main` on 2026-08-29 (deleted and recreated to heal a
+  history divergence), which triggered Workers Builds across the connected projects at
+  once. API-verified the same night: **eleven of the twelve projects built green from
+  `a4f2724`**, `magna-carta` and every container project included, all within ~25 minutes
+  of the push. `main` and `release` are identical — the undeployed queue is empty. Two
+  exceptions from that build wave, both accounted for:
+  - **`magna-carta-convert` did not build.** Its build from `a4f2724` was terminated two
+    seconds into initialization with a Cloudflare **internal error** ("An internal error
+    occurred. Please retry your build.") — a platform fault, not a build-config or code
+    fault. The remedy is one dashboard retry on the convert project's latest build; a
+    read-only token cannot perform it. The 2026-08-21 convert deploy (from `19d02cf`)
+    stays live meanwhile, so nothing regressed.
+  - **`magna-carta-web` received no push-triggered build from `a4f2724`** — the push at
+    01:56 UTC fired the other eleven, not it. The green build it shows from that night is
+    a manual retry of the old 2026-08-21 build, so the standalone web worker serves the
+    `19d02cf` assets until a fresh trigger (a new push to `release`, or a manual dashboard
+    build — a retry can only rebuild the old commit). Low stakes while it stands alone:
+    the app is served from the `magna-carta` worker's own `assets` block, which is on
+    `a4f2724`.
+- Previous position: `release` @ `19d02cf` (2026-08-21, "Next Batch" #363). This file carried
   `0988844` (2026-07-04) until the API pass on 2026-08-24 found all twelve Workers Builds
   projects green from the newer push — the owner had deployed and the queue had not
-  recorded it. `main` is 27 commits ahead; anything merged before #363 is live, and
-  "the next deploy" below means the next `main:release` push.
+  recorded it.
 
 ## `magna-carta-edit` — deployed 2026-08-21; the screen it gated should now fill
 
