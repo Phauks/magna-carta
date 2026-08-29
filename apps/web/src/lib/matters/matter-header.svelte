@@ -13,7 +13,7 @@
    * visible and disabled, marked "Soon", never omitted and never fake-live. They go live with the
    * wired matters surface.
    */
-  import Badge, { type BadgeVariant } from "@magna-carta/design-system/badge";
+  import Badge from "@magna-carta/design-system/badge";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Masthead from "@magna-carta/design-system/masthead";
@@ -22,16 +22,9 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
+  import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
 
   let { matter }: { matter: MatterRecord } = $props();
-
-  // The status seal, in the subtle badge register. Closed is archived-but-additive — a matter
-  // can still accrue record after closing — so it reads quiet neutral, never destructive red.
-  const STATUS_SEAL: Record<MatterRecord["status"], { label: string; variant: BadgeVariant }> = {
-    prospective: { label: "Prospective", variant: "info" },
-    open: { label: "Open", variant: "success" },
-    closed: { label: "Closed", variant: "neutral" },
-  };
 
   // One lifecycle action per status: the single next step the matter's life offers. Closing
   // archives (Archive, not a destructive glyph — the record stays additive after close).
@@ -44,7 +37,9 @@
     closed: { label: "Reopen", icon: RotateCcw },
   };
 
-  const seal = $derived(STATUS_SEAL[matter.status]);
+  // The status seal comes from the one matter-status register, so the header and the docket's
+  // status column can never disagree about what "Closed" looks like.
+  const seal = $derived(matterStatusPresentation(matter.status));
   const lifecycle = $derived(LIFECYCLE_ACTION[matter.status]);
 
   // The citation line's entries in reading order, nulls dropped — a consultation simply has a
