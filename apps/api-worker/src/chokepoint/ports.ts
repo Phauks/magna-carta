@@ -93,10 +93,23 @@ function makeResolveFirmContext(): (
   session: ResolvedSession,
 ) => Promise<FirmContext | null> {
   return async (c, session) => {
+    // A session that carries no firm has no firm context, which is this port's own definition of
+    // absence. The chokepoint already answers such a session before asking (its firmless-admission
+    // step), so this is not a path production traffic takes — it is stated because the port is
+    // callable on its own and must not be readable as "no firm means fall back to something".
+    if (session.firmId === null) return null;
     const env = (c as Context<{ Bindings: Bindings }>).env;
-    const firmRow = await env.DB_CONTROL.prepare("SELECT name, bucket_name FROM firm WHERE id = ?1")
+    // THE NAME PEOPLE READ IS `display_name`, and `name` is only sometimes it. A firm created
+    // through the operator door is named by a human typing one, so the two agree. A SELF-SERVE firm
+    // is not: `firm.name` there is the registration's own handle, because firm names are not unique
+    // in the world and a UNIQUE column over them would let a stranger probe for any firm by trying
+    // to register its name — so the readable name lives in `display_name` and `name` is machinery.
+    // Resolving `name` alone put that handle on screen for every self-serve firm.
+    const firmRow = await env.DB_CONTROL.prepare(
+      "SELECT name, display_name, bucket_name FROM firm WHERE id = ?1",
+    )
       .bind(session.firmId)
-      .first<{ name: string; bucket_name: string | null }>();
+      .first<{ name: string; display_name: string | null; bucket_name: string | null }>();
     if (firmRow === null) return null;
 
     // Every firm is reachable by name through its per-firm FirmDatabase Durable Object; the stub
@@ -112,7 +125,11 @@ function makeResolveFirmContext(): (
     const memberStatus = memberStatusResult.results[0]?.status;
     if (memberStatus !== undefined && memberStatus !== "active") return null;
 
-    return { firmDatabase, firmName: firmRow.name, bucketName: firmRow.bucket_name };
+    return {
+      firmDatabase,
+      firmName: firmRow.display_name ?? firmRow.name,
+      bucketName: firmRow.bucket_name,
+    };
   };
 }
 

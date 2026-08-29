@@ -132,6 +132,10 @@ describe("routeMetaOf", () => {
       rateLimit: "default",
       tags: ["matters"],
       deprecated: false,
+      // The closed default: a route that says nothing about a session carrying no firm refuses
+      // one. Every route in the platform but the joining ones leaves this unset, so the value
+      // resolved here is the one almost the whole surface runs on.
+      firmlessSession: "reject",
     });
   });
 

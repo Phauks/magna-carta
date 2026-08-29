@@ -18,7 +18,7 @@ import {
   normalizeLastName,
   UNMATCHABLE_VERIFIER_HASH,
 } from "../src/joining-secrets.ts";
-import { INVITATION_ATTEMPT_LIMIT } from "../src/routes/invitations.ts";
+import { INVITATION_ATTEMPT_LIMIT } from "../src/invitation-redemption.ts";
 import { ATTEMPT_LIMIT } from "../src/auth-attempt-budget.ts";
 
 // THE ATTACK THESE TESTS RUN. Everything below is written from the position of somebody who has no

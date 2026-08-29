@@ -26,8 +26,10 @@
   import ConfirmRegistrationScreen from "$lib/auth/screens/confirm-registration-screen.svelte";
   import FoundFirmScreen from "$lib/auth/screens/found-firm-screen.svelte";
   import RedeemInvitationScreen from "$lib/auth/screens/redeem-invitation-screen.svelte";
+  import FirmBuildingScreen from "$lib/auth/screens/firm-building-screen.svelte";
+  import JoiningChoiceScreen from "$lib/auth/screens/joining-choice-screen.svelte";
+  import RegisterAccountScreen from "$lib/auth/screens/register-account-screen.svelte";
   import RegisterDetailsScreen from "$lib/auth/screens/register-details-screen.svelte";
-  import RegisterScreen from "$lib/auth/screens/register-screen.svelte";
   import { REDEMPTION_REFUSED } from "../../register/joining-messages.ts";
   import RecoveryCodeScreen from "$lib/auth/screens/recovery-code-screen.svelte";
   import SignInScreen from "$lib/auth/screens/sign-in-screen.svelte";
@@ -503,18 +505,67 @@
       <div class="flex max-w-prose flex-col gap-8">
         <h2 class="text-lg font-semibold">Register</h2>
         <p class="text-sm text-text-muted">
-          Three doors, and two of them lead to the same place: membership of an existing firm is
-          that firm's decision, so only founding a firm creates anything. The wording is the whole
-          explanation, which is why nothing sits under the choices — and why they are set at the
-          body size rather than the small one.
+          One form, and it asks nothing about a firm. Registration makes a PERSON; which firm they
+          belong to is settled afterwards, signed in, on the joining screen below. The role fork
+          that used to stand here asked a visitor to classify themselves before anything about them
+          existed.
         </p>
       </div>
 
       <ScreenSpecimen
-        name="The three doors"
-        note="Equally weighted. The two invited doors navigate rather than asking the server a question whose answer is a constant."
+        name="Create Your Account"
+        note="The button names what pressing it does — it sends a confirmation email; the account is created when the link is followed. No password field and no passkey button: the credential is set from that link, which is the act that proves the mailbox."
+        caveat={AGREEMENTS_GAP}
       >
-        <RegisterScreen onChoose={noop} back={noop} />
+        <RegisterAccountScreen onSubmit={swallow} back={noop} />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Registration refused"
+        note="Only a malformed form reaches this. A taken address and a free one both answer 202 — the difference is in the mail, never on the screen."
+      >
+        <RegisterAccountScreen
+          rejection="Those details could not be accepted. Check the email address and try again."
+          onSubmit={swallow}
+          back={noop}
+        />
+      </ScreenSpecimen>
+    </section>
+
+    <section class="flex flex-col gap-24">
+      <div class="flex max-w-prose flex-col gap-8">
+        <h2 class="text-lg font-semibold">Welcome — settling what an account is</h2>
+        <p class="text-sm text-text-muted">
+          The dedicated signed-in screen, reached with a real session and no firm. Two choices,
+          because two are what the server can actually do; what is not built is a sentence rather
+          than a control. Founding is asynchronous, so it has a waiting state that polls the
+          bootstrap rather than remembering anything in the browser.
+        </p>
+      </div>
+
+      <ScreenSpecimen
+        name="The two choices"
+        note="Neither is the recommended answer. Founding carries the primary weight because it is the act that creates something, not because it is expected."
+      >
+        <JoiningChoiceScreen
+          name="Trevor Goldsmith"
+          onFoundFirm={noop}
+          onRedeemInvitation={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Building your workspace"
+        note="No progress bar: nothing here measures a fraction of anything, and a bar at a made-up percentage is a claim about how far along the work is."
+      >
+        <FirmBuildingScreen firmName="Goldsmith and Associates" onCheckAgain={noop} />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Still checking"
+        note="The manual check disables itself while it is in flight, so a second press cannot stack a second request behind the poll."
+      >
+        <FirmBuildingScreen firmName="Goldsmith and Associates" checking onCheckAgain={noop} />
       </ScreenSpecimen>
     </section>
 

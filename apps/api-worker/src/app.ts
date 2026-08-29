@@ -101,6 +101,7 @@ import { registerMetaVersionsRoute } from "./routes/meta-versions.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerInvitationRoutes } from "./routes/invitations.ts";
 import { registerRegistrationRoutes } from "./routes/registrations.ts";
+import { registerOnboardingRoutes } from "./routes/onboarding.ts";
 import { attemptBudgetMiddleware, createAttemptLadder } from "./auth-attempt-budget.ts";
 import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
@@ -649,7 +650,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // redeeming an invitation. Not the confirmation route: its emailed token is the only credential
   // its caller can hold, and a link opened out of a mailbox has no form to carry a challenge.
   const humanVerification = options.humanVerification ?? {};
-  registerRegistrationRoutes(app, chokepoint, emailAdapterForEnv, humanVerification);
+  registerRegistrationRoutes(app, chokepoint, emailAdapterForEnv, authForEnv, humanVerification);
   registerInvitationRoutes(
     app,
     chokepoint,
@@ -657,6 +658,9 @@ export function createApp(options: CreateAppOptions = {}) {
     invitationRedemptionLadder,
     humanVerification,
   );
+  // The joining surface's signed-in half: the two routes a person with an account and no firm can
+  // reach. Same ladder as the anonymous redemption route, so signing in buys no second allowance.
+  registerOnboardingRoutes(app, chokepoint, invitationRedemptionLadder);
   registerPlatformReleaseChannelRoute(app, chokepoint);
   registerPlatformStatusRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);

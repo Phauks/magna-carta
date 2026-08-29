@@ -1,6 +1,12 @@
 <script lang="ts">
   /*
-   * Start a new law firm — the founding door, all three of its steps on ONE URL.
+   * Start a new law firm — the SUPERSEDED founding door, all three of its steps on ONE URL.
+   *
+   * NOTHING LINKS HERE ANY MORE. Joining is account-first: /register makes a person, and founding a
+   * firm happens afterwards from /welcome, signed in. This route stays reachable because a
+   * confirmation token minted under the old flow lives for 24 hours and its owner may have this
+   * page open or bookmarked — breaking a joining flow that works is worse than leaving an unlinked
+   * one standing. It is removable once no such registration is outstanding.
    *
    * The steps are held in component state and the address bar never changes, the same posture the
    * sign-in surface takes: a /register/firm/details path would be bookmarkable and reloadable into
@@ -89,7 +95,8 @@
       bind:firmName
       bind:firmNameFieldReference
       onContinue={continueToDetails}
-      back={() => goto("/register")}
+      backLabel="Back to sign in"
+      back={() => goto("/login")}
     />
   {:else if step === "details"}
     <RegisterDetailsScreen

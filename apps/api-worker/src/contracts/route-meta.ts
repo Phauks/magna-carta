@@ -34,6 +34,22 @@ export interface RouteMeta {
   // not emitted into the contract (an internal routing fact, not part of the public API surface).
   idempotencyStore?: "firm" | "control";
   rateLimit: RateLimitBucket;
+  // What this route does with a session that carries NO firm — the state a person is in between
+  // making an account and resolving what it is (founding a firm, or redeeming an invitation).
+  // Defaults to "reject", so every route that does not think about it fails CLOSED: a firmless
+  // session gets the same reserved absence a cross-firm request gets.
+  //   "reject" — the reserved 404. Every route in the platform but the joining ones.
+  //   "allow"  — admitted with no firm context and no capability check; a session that HAS a firm
+  //              is resolved exactly as always. For a read that must answer both (the bootstrap).
+  //   "only"   — admitted with no firm context; a session that HAS a firm gets the reserved 404.
+  //              This is what makes an authenticated mutation legal with permission: null — a
+  //              principal with no firm holds no capability in any firm, so there is none to name,
+  //              and "only" earns that by making the route unreachable for anybody who has one.
+  // Read only by the chokepoint, and deliberately not emitted into the contract — like
+  // idempotencyStore, it routes a request inside this Worker rather than describing the wire. What
+  // a caller observes is already in the document: the reserved 404 every one of these routes
+  // declares.
+  firmlessSession?: "reject" | "allow" | "only";
   tags?: string[]; // default: [operationId namespace] — applied when absent OR empty
   deprecated?: boolean;
 }
@@ -43,6 +59,7 @@ export interface RouteMeta {
 export interface ResolvedRouteMeta extends RouteMeta {
   tags: string[];
   deprecated: boolean;
+  firmlessSession: "reject" | "allow" | "only";
 }
 
 const OPERATION_ID_PATTERN = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/;
@@ -185,7 +202,13 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
   if (
     isMutatingMethod(routeConfig.method) &&
     meta.authenticated === true &&
-    meta.permission === null
+    meta.permission === null &&
+    // The one exemption, and it is structural rather than a waiver: a "only"-firmless route is
+    // unreachable for any session that HAS a firm (the chokepoint answers those the reserved 404),
+    // so "any logged-in user" cannot mean "any member of any firm" here. The principal it does
+    // admit belongs to no firm and therefore holds no capability in any firm — there is nothing to
+    // name. "allow" gets no exemption: such a route serves firm-holding sessions too.
+    meta.firmlessSession !== "only"
   ) {
     throw new TypeError(
       `Route ${JSON.stringify(meta.operationId)} is an authenticated ${routeConfig.method.toUpperCase()} ` +
@@ -220,6 +243,7 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     ...meta,
     tags: meta.tags?.length ? meta.tags : [namespace],
     deprecated: meta.deprecated ?? false,
+    firmlessSession: meta.firmlessSession ?? "reject",
   };
   const documentedConfig =
     meta.idempotency === "required"

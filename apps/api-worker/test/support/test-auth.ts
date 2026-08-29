@@ -124,6 +124,42 @@ export async function seedCredentialedUser(
   return { userId: assertIdentifier(user.id, "user"), firmId };
 }
 
+// A credentialed user who belongs to NO firm — the account-before-a-firm state the joining surface
+// creates between making a person and settling which firm they are part of. Seeded through the same
+// adapter as above, minus the firm: `user.firm_id` is nullable, and NULL is what every gate reads as
+// "resolve no firm" rather than "resolve some firm".
+export async function seedFirmlessCredentialedUser(
+  email: string,
+  options?: { readonly userName?: string },
+): Promise<{ readonly userId: UserId }> {
+  const auth = createTestAuth();
+  const context = await auth.$context;
+  const now = new Date();
+  const user = await context.adapter.create<Record<string, unknown>, { id: string }>({
+    model: "user",
+    data: {
+      name: options?.userName ?? "Firmless Test User",
+      email,
+      emailVerified: true,
+      createdAt: now,
+      updatedAt: now,
+      firmId: null,
+    },
+  });
+  await context.adapter.create({
+    model: "account",
+    data: {
+      accountId: user.id,
+      providerId: "credential",
+      userId: user.id,
+      password: await context.password.hash(PASSWORD),
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  return { userId: assertIdentifier(user.id, "user") };
+}
+
 // Requests a password reset through a capturing email port and parses the reset token out of the
 // emailed link — the activation path (Path A) every invitee travels. Returns the auth instance
 // (resetPassword must run against the same control plane), the token, and the captured emails for

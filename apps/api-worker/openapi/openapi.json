@@ -140,7 +140,10 @@
             ]
           },
           "firm": {
-            "type": "object",
+            "type": [
+              "object",
+              "null"
+            ],
             "properties": {
               "id": {
                 "type": "string"
@@ -173,6 +176,9 @@
             "additionalProperties": {
               "type": "boolean"
             }
+          },
+          "joining": {
+            "$ref": "#/components/schemas/JoiningState"
           }
         },
         "required": [
@@ -181,6 +187,22 @@
           "permissions",
           "channel",
           "flags"
+        ]
+      },
+      "JoiningState": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "chooseFirm",
+              "firmProvisioning"
+            ],
+            "description": "What this person still has to do: choose how they join a firm, or wait while the firm they asked for is built."
+          }
+        },
+        "required": [
+          "state"
         ]
       },
       "MetaVersionsResponse": {
@@ -2418,11 +2440,12 @@
           "role": {
             "type": "string",
             "enum": [
+              "account",
               "clientOfFirm",
               "firmMember",
               "foundFirm"
             ],
-            "description": "Which door the visitor came through: a client of a law firm, someone who works at one, or someone starting a new one. The first two are joined by invitation; only the third creates a firm."
+            "description": "What is being registered. `account` — the default, and the only value the joining surface sends — registers a PERSON: confirming it creates their account, and which firm they belong to is settled afterwards, signed in. The other three are the superseded role fork, kept so a registration started before the reflow still completes: `clientOfFirm` and `firmMember` are joined by invitation, and `foundFirm` builds a firm at confirmation."
           },
           "email": {
             "type": "string",
@@ -2440,7 +2463,6 @@
           }
         },
         "required": [
-          "role",
           "email",
           "name"
         ]
@@ -2454,6 +2476,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "accountCreated",
               "provisioning"
             ]
           }
@@ -2578,6 +2601,75 @@
         ]
       },
       "RedeemInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOfBirth": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "lastName",
+          "dateOfBirth"
+        ]
+      },
+      "FoundFirmResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "provisioning"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "FoundFirmRequest": {
+        "type": "object",
+        "properties": {
+          "firmName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "firmName"
+        ]
+      },
+      "RedeemIntoAccountResponse": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "firmMember",
+              "clientOfFirm"
+            ]
+          }
+        },
+        "required": [
+          "firmId",
+          "kind"
+        ]
+      },
+      "RedeemIntoAccountRequest": {
         "type": "object",
         "properties": {
           "code": {
@@ -26162,7 +26254,7 @@
     },
     "/api/v1/me": {
       "get": {
-        "description": "The session user, their firm, and their effective permissions — the SPA's bootstrap call.",
+        "description": "The session user, their firm, and their effective permissions — the SPA's bootstrap call. A person who has not yet joined a firm answers with a null firm, no permissions, and what the joining surface should show them next.",
         "operationId": "me.get",
         "tags": [
           "me"
@@ -32629,6 +32721,172 @@
           },
           "503": {
             "description": "The request could not be verified; the body carries the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/firm": {
+      "post": {
+        "description": "Starts building a firm for the signed-in account, which becomes its owner. The firm is built in the background, so this answers that the build is under way; the bootstrap call reports when it has arrived. Answers the same way when a build is already under way, so a second press never starts a second firm.",
+        "operationId": "onboarding.foundFirm",
+        "tags": [
+          "onboarding"
+        ],
+        "x-mc-operationId": "onboarding.foundFirm",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "onboarding"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FoundFirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The firm is being built",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoundFirmResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session already belongs to a firm (absent, never an existence oracle) — a person belongs to exactly one firm, so there is no second one to found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/invitation-redemptions": {
+      "post": {
+        "description": "Redeems an invitation into the signed-in account, joining it to the inviting firm. The invitation must name this account's own address. Every unsuccessful combination — an unknown code, a wrong surname, a wrong date of birth, an invitation already used or expired, or one addressed to somebody else — answers with one identical refusal, so the form cannot be used to discover who was invited where.",
+        "operationId": "onboarding.redeemInvitation",
+        "tags": [
+          "onboarding"
+        ],
+        "x-mc-operationId": "onboarding.redeemInvitation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "onboarding"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemIntoAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The invitation was redeemed and the account now belongs to the firm",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedeemIntoAccountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session already belongs to a firm (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination; the attempt budget it carries counts the caller's own attempts, never any invitation's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -77716,6 +77974,9 @@
     },
     {
       "name": "ocr"
+    },
+    {
+      "name": "onboarding"
     },
     {
       "name": "platform"

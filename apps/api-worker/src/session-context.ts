@@ -23,7 +23,10 @@ export interface SupportPrincipal {
 
 export interface SessionContext {
   readonly userId: UserId;
-  readonly firmId: FirmId;
+  // NULL while this person belongs to no firm — the state the joining surface creates between
+  // making an account and resolving what it is. Every route rejects such a session with the
+  // reserved 404 unless it declares firmlessSession; see chokepoint/chokepoint.ts.
+  readonly firmId: FirmId | null;
   readonly support?: SupportPrincipal;
 }
 
@@ -39,10 +42,14 @@ export async function resolveSession(
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (session === null) return null;
   // The handles are asserted, not cast: a session row carrying a malformed id is corruption and
-  // must fail loud, never flow onward as a branded identifier.
+  // must fail loud, never flow onward as a branded identifier. An ABSENT firm is not corruption —
+  // it is the account-before-a-firm state — so it passes through as null and the chokepoint decides
+  // what the route makes of it. Absent and empty are the same fact; a firm handle is never "".
+  const rawFirmId: unknown = session.user.firmId;
+  const firmless = rawFirmId === null || rawFirmId === undefined || rawFirmId === "";
   return {
     userId: assertIdentifier(session.user.id, "user"),
-    firmId: assertIdentifier(session.user.firmId, "firm"),
+    firmId: firmless ? null : assertIdentifier(rawFirmId, "firm"),
   };
 }
 

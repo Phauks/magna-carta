@@ -39,8 +39,13 @@ export type JoiningOutcome<T> =
   | { kind: "problem"; problem: JoiningProblem }
   | { kind: "transport" };
 
-/** Which of the three doors the visitor came through. */
-export type RegistrationRole = "clientOfFirm" | "firmMember" | "foundFirm";
+/**
+ * What is being registered. `account` registers a PERSON and is what this surface sends: confirming
+ * it creates their account, and which firm they belong to is settled afterwards, signed in, on the
+ * joining screen. The other three are the superseded role fork, kept only so a registration started
+ * before the reflow still completes.
+ */
+export type RegistrationRole = "account" | "clientOfFirm" | "firmMember" | "foundFirm";
 
 export interface StartedRegistration {
   /** Where the surface goes next. Identical for every outcome within a door. */
@@ -49,8 +54,12 @@ export interface StartedRegistration {
 
 export interface ConfirmedRegistration {
   email: string;
-  /** The firm is built off the request, so a confirmation reports "under way", not "here". */
-  status: "provisioning";
+  /**
+   * What the spent token bought. `accountCreated` — the account exists and the link that sets its
+   * password is on its way. `provisioning` — a registration from the superseded founding door,
+   * whose firm is built off the request, so it reports "under way", not "here".
+   */
+  status: "accountCreated" | "provisioning";
 }
 
 export interface RedeemedInvitation {
@@ -109,7 +118,8 @@ async function postJson<T>(
 }
 
 export interface StartRegistrationInput {
-  readonly role: RegistrationRole;
+  /** Omitted by the account door, which is what this surface sends. */
+  readonly role?: RegistrationRole;
   readonly email: string;
   /** The person's own name, as one string — one display name is what the row holds. */
   readonly name: string;
@@ -149,4 +159,76 @@ export function redeemInvitation(
   input: RedeemInvitationInput,
 ): Promise<JoiningOutcome<RedeemedInvitation>> {
   return postJson(fetchImplementation, "/api/v1/invitations/redemptions", input);
+}
+
+/*
+ * THE SIGNED-IN HALF. Everything above is reached with no session at all; everything below is
+ * reached by somebody who has an account and does not yet belong to a firm. They share this module
+ * because they are one act — joining — and splitting them by whether a cookie happens to be present
+ * would put the two halves of one flow in two places.
+ */
+
+/** What the bootstrap says about somebody who has not joined a firm yet. */
+export interface JoiningStatus {
+  /** `chooseFirm` — nothing is under way. `firmProvisioning` — their firm is being built. */
+  state: "chooseFirm" | "firmProvisioning";
+}
+
+export interface Bootstrap {
+  user: { id: string; name: string; email: string };
+  /** Null for a person who belongs to no firm — the state the joining screen exists for. */
+  firm: { id: string; name: string } | null;
+  joining?: JoiningStatus;
+}
+
+/**
+ * The bootstrap read, as the joining surface needs it: who this is, and whether they have a firm
+ * yet. The signed-in screens poll this rather than a status endpoint of their own, so a person who
+ * closes the tab while their firm builds reopens onto the same waiting screen.
+ */
+export async function readBootstrap(
+  fetchImplementation: typeof fetch,
+): Promise<JoiningOutcome<Bootstrap>> {
+  let response: Response;
+  try {
+    response = await fetchImplementation("/api/v1/me", { headers: { accept: "application/json" } });
+  } catch {
+    return { kind: "transport" };
+  }
+  if (!response.ok) return { kind: "problem", problem: await readProblem(response) };
+  try {
+    return { kind: "ok", value: (await response.json()) as Bootstrap };
+  } catch {
+    return { kind: "transport" };
+  }
+}
+
+export interface FoundFirmStarted {
+  /** The firm is built off the request, so this reports "under way", never "here". */
+  status: "provisioning";
+}
+
+/** Ask for a firm, with the signed-in account as its owner. */
+export function foundFirm(
+  fetchImplementation: typeof fetch,
+  firmName: string,
+): Promise<JoiningOutcome<FoundFirmStarted>> {
+  return postJson(fetchImplementation, "/api/v1/me/firm", { firmName: firmName.trim() });
+}
+
+export interface RedeemedIntoAccount {
+  firmId: string;
+  kind: "firmMember" | "clientOfFirm";
+}
+
+/**
+ * Redeem an invitation into the account already signed in. The three facts travel together and come
+ * back as ONE answer, exactly as on the anonymous door: the row holds a single digest over all of
+ * them, so there is no per-field verdict to receive and none to render.
+ */
+export function redeemInvitationIntoAccount(
+  fetchImplementation: typeof fetch,
+  input: RedeemInvitationInput,
+): Promise<JoiningOutcome<RedeemedIntoAccount>> {
+  return postJson(fetchImplementation, "/api/v1/me/invitation-redemptions", input);
 }

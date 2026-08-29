@@ -1,29 +1,114 @@
 <script lang="ts">
   /*
-   * Register — the role fork's page, and the entry point the sign-in card's "Register" link opens.
+   * Register — one form, and the entry point the sign-in card's "Register" link opens.
+   *
+   * IT MAKES A PERSON AND NOTHING ELSE. The three-way role fork that used to live here is gone: it
+   * asked a visitor to classify themselves — a client of a firm, somebody who works at one,
+   * somebody founding one — before anything about them existed, which is a question about a
+   * relationship put to somebody who is not yet a party to one. What firm this person belongs to is
+   * settled afterwards, signed in, on the joining screen at /welcome.
    *
    * It lives OUTSIDE the (app) route group, beside /login, because everything here happens before
    * anybody has a session; the auth frame is the only chrome a visitor gets.
    *
-   * THE TWO INVITED DOORS NAVIGATE, they do not call the API. Both answer `redeemInvitation` from
-   * the registration route no matter what, because membership of an existing firm is that firm's
-   * decision and nothing a stranger says changes it — so asking costs a round trip and a slice of
-   * the anonymous rate-limit budget to be told a constant, and would put the front door of the
-   * platform behind the API's availability. The reasoning is written at the fork itself, in
-   * $lib/auth/screens/register-screen.svelte.
+   * AN INVITATION CODE IN THE QUERY STRING IS CARRIED FORWARD, not consumed here. Somebody who
+   * follows a link holding a code and makes an account first would otherwise have to keep the code
+   * in their head across three screens and a mailbox, so it is stashed per-tab and the joining
+   * screen opens on redemption with the field filled. Only the CODE travels: the surname and date of
+   * birth are the two facts that make a code worth anything, and they are typed once, at the moment
+   * of redemption. Somebody who would rather redeem it without making an account first still can —
+   * /register/invitation is unchanged and still works.
+   *
+   * A TAKEN ADDRESS AND A FREE ONE ANSWER IDENTICALLY, and this page must keep it that way. The
+   * server sends different MAIL in the two cases — to the address in question, which is a channel
+   * the person filling this form does not necessarily control — and returns the same body either
+   * way. There is nothing here to branch on, and adding a branch would be inventing the
+   * account-existence oracle the route was built to deny.
    */
   import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
-  import type { RegistrationRole } from "$lib/auth/joining-api.ts";
-  import RegisterScreen from "$lib/auth/screens/register-screen.svelte";
+  import { startRegistration } from "$lib/auth/joining-api.ts";
+  import { rememberInvitationCode } from "$lib/auth/pending-invitation.ts";
+  import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
+  import RegisterAccountScreen from "$lib/auth/screens/register-account-screen.svelte";
+  import {
+    REGISTRATION_REFUSED,
+    joiningErrorMessage,
+    joiningSupportErrorId,
+  } from "./joining-messages.ts";
 
-  async function choose(role: RegistrationRole): Promise<void> {
-    await goto(role === "foundFirm" ? "/register/firm" : "/register/invitation");
+  let step = $state<"details" | "sent">("details");
+  let firstName = $state("");
+  let lastName = $state("");
+  let email = $state("");
+  let agreedToTerms = $state(false);
+  let agreedToPrivacy = $state(false);
+  let pending = $state(false);
+  let rejection = $state<string | null>(null);
+  let supportErrorId = $state<string | null>(null);
+  let sentAt = $state(new Date());
+
+  let firstNameFieldReference = $state<HTMLInputElement | null>(null);
+
+  // The form opens with focus in its first field, so the keyboard never has to catch up.
+  $effect(() => {
+    if (step === "details") firstNameFieldReference?.focus();
+  });
+
+  // Stash a code the visitor arrived with, once, before anything else can navigate.
+  $effect(() => {
+    rememberInvitationCode(page.url.searchParams.get("invitation"));
+  });
+
+  async function register(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (pending) return;
+    pending = true;
+    rejection = null;
+    supportErrorId = null;
+    const outcome = await startRegistration(fetch, {
+      // One display name is what the registration row holds; the two fields exist because that is
+      // how a person reads their own name back, not because the server stores them apart.
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      email: email.trim(),
+    });
+    pending = false;
+    if (outcome.kind !== "ok") {
+      rejection = joiningErrorMessage(outcome, REGISTRATION_REFUSED);
+      supportErrorId = joiningSupportErrorId(outcome);
+      return;
+    }
+    sentAt = new Date();
+    step = "sent";
   }
 </script>
 
 <svelte:head><title>Register · Magna Carta</title></svelte:head>
 
 <AuthFrame>
-  <RegisterScreen onChoose={choose} back={() => goto("/login")} />
+  {#if step === "details"}
+    <RegisterAccountScreen
+      bind:firstName
+      bind:lastName
+      bind:email
+      bind:agreedToTerms
+      bind:agreedToPrivacy
+      bind:firstNameFieldReference
+      {pending}
+      {rejection}
+      {supportErrorId}
+      onSubmit={register}
+      back={() => goto("/login")}
+    />
+  {:else}
+    <CheckEmailScreen
+      address={email.trim()}
+      instruction="Open the link we sent, or type the confirmation code from that email. Your account is created once that is done."
+      {sentAt}
+      remedy="If it does not arrive, check the spam folder, then register again — a second registration replaces the first, and the newest code is the one that works."
+      onEnterCode={() => goto("/register/confirm")}
+      enterCodeLabel="Enter the Confirmation Code"
+    />
+  {/if}
 </AuthFrame>

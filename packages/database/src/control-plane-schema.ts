@@ -110,9 +110,13 @@ export const user = sqliteTable("user", {
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
   // The twoFactor plugin's user flag — optional in Better Auth's reference, defaults false.
   twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).default(false),
-  // OUR additional field: every user belongs to exactly one tenant firm.
+  // OUR additional field: the one tenant firm this person belongs to — NULL while they belong to
+  // none. An account is created before it has a firm (the joining surface makes a person first and
+  // resolves what they are afterwards), so "no firm yet" has to be representable; NULL is the
+  // honest representation, and it is the one that fails CLOSED. A surface that forgets to ask
+  // resolves no firm and answers the reserved cross-firm 404 rather than resolving somebody else's
+  // firm — see the firmless-session admission in apps/api-worker/src/chokepoint/chokepoint.ts.
   firmId: text("firm_id")
-    .notNull()
     .$type<FirmId>()
     .references(() => firm.id),
 });
