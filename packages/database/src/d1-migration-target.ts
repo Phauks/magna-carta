@@ -33,5 +33,22 @@ export function d1MigrationTarget(
       );
       await database.batch(statements);
     },
+
+    async supersedeAppliedMigrations(
+      supersededTags: readonly string[],
+      replacementTag: string,
+    ): Promise<void> {
+      // Ledger rewrite only — no schema SQL. One batch() = one transaction, so the removals and the
+      // replacement row land together or not at all.
+      const statements = supersededTags.map((tag) =>
+        database.prepare("DELETE FROM _migrations WHERE tag = ?1").bind(tag),
+      );
+      statements.push(
+        database
+          .prepare("INSERT INTO _migrations (tag, applied_at) VALUES (?1, ?2)")
+          .bind(replacementTag, now()),
+      );
+      await database.batch(statements);
+    },
   };
 }
