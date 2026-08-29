@@ -64,16 +64,6 @@
     // than left to the code default so changing the posture is this one line. It has no effect once
     // TURNSTILE_SECRET_KEY is set — from then on a missing or bad solution is refused either way.
     "HUMAN_VERIFICATION_POSTURE": "fail-open",
-    // The switch that selects the Cloudflare Email Service adapter over the logging one
-    // (src/app.ts emailAdapterForEnv). magnacarta.esq is onboarded for Email Sending, so real mail
-    // now carries the joining codes that used to reach a person only through the Worker's log.
-    // While Email Sending is in beta a destination may need verifying in the account before it will
-    // accept a send; a send that throws fails its route, so unsetting this line is the way back.
-    "EMAIL_FROM": "no-reply@magnacarta.esq",
-    // The origin for the passes that have NO request to derive one from — the firm-provision
-    // consumer's activation mail is the one a joining person actually waits on. Request-serving
-    // paths keep deriving their own origin and never read this.
-    "APP_BASE_URL": "https://magnacarta.esq",
   },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
