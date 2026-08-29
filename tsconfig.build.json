@@ -56,6 +56,9 @@
       "path": "packages/billing/tsconfig.build.json"
     },
     {
+      "path": "packages/build-identity/tsconfig.build.json"
+    },
+    {
       "path": "packages/calendar/tsconfig.build.json"
     },
     {

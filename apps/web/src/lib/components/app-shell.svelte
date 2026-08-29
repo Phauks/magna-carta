@@ -36,6 +36,7 @@
   import Star from "@lucide/svelte/icons/star";
   import Timer from "@lucide/svelte/icons/timer";
   import CommandPalette from "$lib/components/command-palette.svelte";
+  import VersionChip from "$lib/versions/version-chip.svelte";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import MaturityDot from "$lib/maturity/maturity-dot.svelte";
   import ProfileMenu from "$lib/components/profile-menu.svelte";
@@ -436,6 +437,11 @@
           {SEARCH_PLACEHOLDER}
         </TopBar.Search>
         <TopBar.Actions>
+          <!-- The version chip — always-visible build identity (the owner's "what version am I
+               on" answer). The chip is this build's own commit, baked in at build time, so it
+               renders even when the API is down; its overlay reads the aggregate version
+               endpoint and reports every part honestly. -->
+          <VersionChip />
           <!-- The notification bell — a real surface with an honest empty state (no fake items,
                no count badge). Its popover states the truth and offers the center; live alerts
                arrive with the notifications machinery. -->

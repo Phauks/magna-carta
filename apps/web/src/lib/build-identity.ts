@@ -7,6 +7,8 @@
  */
 export const BUILD_IDENTITY = {
   commit: __MC_BUILD_COMMIT__,
+  // The commit's own (committer) timestamp; null when git could not answer at build time.
+  committedAt: __MC_BUILD_COMMIT_TIME__,
   builtAt: __MC_BUILD_TIME__,
   mode: import.meta.env.MODE,
 } as const;

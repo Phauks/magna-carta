@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { engineOperationOf, forwardEngineOperation, pokeContainer } from "./forward-search.ts";
 import { searchShardNameForFirm } from "./search-shard.ts";
 
@@ -42,6 +43,8 @@ export default {
   // from the public internet), and the engine's own reach into R2 is bounded by the capability token the
   // app worker minted for that single operation.
   async fetch(request: Request, env: Bindings): Promise<Response> {
+    // The build-identity read the app worker's aggregate version endpoint probes over this binding.
+    if (isVersionRequest(request)) return versionResponse();
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/ready") {
       await pokeContainer(getContainer(env.SEARCH_INDEX, searchShardNameForFirm(null)));

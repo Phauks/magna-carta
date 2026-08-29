@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { forwardIdentify } from "./forward-identify.ts";
 import { forwardScan } from "./forward-scan.ts";
 import { forwardHistogram } from "./forward-histogram.ts";
@@ -45,6 +46,8 @@ export default {
   // shards so concurrent scans run in parallel instead of queueing behind one instance, while the two
   // instance-agnostic reads stay on the warm primary shard.
   async fetch(request: Request, env: Bindings): Promise<Response> {
+    // The build-identity read the app worker's aggregate version endpoint probes over this binding.
+    if (isVersionRequest(request)) return versionResponse();
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/scan") {
       return forwardScan(request, getContainer(env.SCAN_CONTAINER, scanShardNameForRequest(url)));

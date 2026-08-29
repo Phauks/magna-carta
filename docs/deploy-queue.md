@@ -283,6 +283,22 @@ answering `503`, and no visitor is being told it is their fault.
   the bound platform bucket). Fixed on `main`; do not deploy any pre-fix commit
   with real presigning credentials.
 
+## Version visibility — one Watch Paths addition per sibling Worker
+
+The version chip and `GET /api/v1/meta/versions` ship with every Worker's `build` script prepending
+the build-identity stamp (`packages/build-identity` — the shared version route each sibling now
+serves and the app worker probes). Two dashboard facts follow:
+
+- **Add `packages/build-identity/*` to every sibling Worker's Build Watch Paths** (scan, bundle,
+  convert, file-repair, recovery, ocr, sign, discovery, search, and the `magna-carta` project's
+  existing `packages/*` already covers it). Each Worker bundles the package, so a change to the
+  version route should rebuild them; until the path is added, a change there simply does not
+  redeploy the siblings and their `/__version` answer lags — visible, not broken.
+- **No new secrets, vars, or bindings.** The stamp runs inside the existing `pnpm run build`
+  commands; a Worker deployed before its next build honestly reports `dev` (or 404s the version
+  route, which the aggregate read reports as "Not reporting"), and the overlay renders that as
+  what it is rather than a failure.
+
 ## The `magna-carta` project — the repoint this file asked for was the wrong fix; the deploy filter is the real one
 
 `apps/worker` is now `apps/api-worker` on `main`, and the package inside it is now

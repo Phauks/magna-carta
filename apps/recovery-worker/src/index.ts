@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { routeRequest } from "./forward-recovery.ts";
 
 // The recovery worker's runtime bindings. Stateless: no D1, R2, or Queues.
@@ -23,6 +24,8 @@ export default {
   // No authentication is performed here — the service binding provides the trust boundary
   // (only the app worker can reach this worker; it is not reachable from the public internet).
   async fetch(request: Request, env: Bindings): Promise<Response> {
+    // The build-identity read the app worker's aggregate version endpoint probes over this binding.
+    if (isVersionRequest(request)) return versionResponse();
     return routeRequest(request, (id) => getContainer(env.RECOVERY_ENGINE, id));
   },
 } satisfies ExportedHandler<Bindings>;
