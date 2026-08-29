@@ -7,7 +7,8 @@
    * drag-reorder (anchored columns lead), pinning at measured sticky offsets, resize grips with
    * double-click fit, the Docket's selection model (click / Ctrl / Shift / Ctrl+A scoped to the
    * table / arrows / click-empty-clears), activation as its own event, the scope-honest totals
-   * row, and the filtered-empty state that says why.
+   * row, the filtered-empty state that says why, and the row groups and row marks (pinned items
+   * above a rule; the pin, clipboard and quiet marks) the state's grid-rows model defines.
    *
    * Rendering stays the consumer's: the `cell` snippet supplies each cell (status chips and the
    * like are the surface's business); without it, cells render the column model's typed text.
@@ -17,12 +18,14 @@
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
+  import Pin from "@lucide/svelte/icons/pin";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import Button from "../button/index.ts";
   import Skeleton from "../skeleton/index.ts";
   import type { GridCellContext, GridColumn } from "./grid-columns.ts";
   import { gridCellText, gridColumnAlign } from "./grid-columns.ts";
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
+  import { gridRowMarkAttributes } from "./grid-rows.ts";
   import GridColumnFilter from "./data-table-grid-filter.svelte";
 
   type Props = {
@@ -386,17 +389,26 @@
           </td>
         </tr>
       {:else}
-        {#each grid.rowsInView as row (rowKeyOf(row))}
+        {#each grid.rowsInView as row, rowIndex (rowKeyOf(row))}
           {@const key = rowKeyOf(row)}
+          {@const mark = grid.markFor(row)}
+          {#if grid.pinnedRowCount > 0 && rowIndex === grid.pinnedRowCount}
+            <!-- The rule that separates the pinned block from the list: pinned items sit above
+                 EVERYTHING, not above their own kind, and the rule is what says so. -->
+            <tr class="mc-table-grid-pin-rule">
+              <td colspan={grid.visibleColumns.length}></td>
+            </tr>
+          {/if}
           <tr
             class="mc-table-row"
             data-grid-row={key}
             data-state={grid.isSelected(key) ? "selected" : undefined}
+            {...gridRowMarkAttributes(mark)}
             onclick={(event) => rowClick(event, key)}
             ondblclick={() => rowDoubleClick(key)}
             oncontextmenu={(event) => rowContextMenu(event, row)}
           >
-            {#each grid.visibleColumns as column (column.id)}
+            {#each grid.visibleColumns as column, columnIndex (column.id)}
               {@const pinned = pinnedAttributes(column.id)}
               {@const text = gridCellText(column, row)}
               <td
@@ -406,6 +418,10 @@
                 data-pinned-edge={pinned["data-pinned-edge"]}
                 style={pinned.style}
               >
+                {#if columnIndex === 0 && mark?.pinned === true}
+                  <!-- One pin glyph everywhere the pin state shows; fill is the only difference. -->
+                  <Pin class="mc-table-grid-row-pin" fill="currentColor" aria-hidden="true" />
+                {/if}
                 {#if cell}
                   {@render cell({ row, column, text })}
                 {:else if text === ""}

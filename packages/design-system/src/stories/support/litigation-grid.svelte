@@ -118,12 +118,16 @@
   import Badge from "../../lib/components/badge/index.ts";
   import * as DataTable from "../../lib/components/data-table/index.ts";
   import { createDataTableGrid } from "../../lib/components/data-table/index.ts";
+  import type { GridRowMark } from "../../lib/components/data-table/index.ts";
 
   type Props = {
     rows?: TimeEntry[];
     loading?: boolean;
     density?: "comfortable" | "compact";
     zebra?: boolean;
+    /** Pinned row ids, in the member's own arranged order (never the table's sort). */
+    pinnedRowKeys?: readonly string[];
+    rowMark?: (row: TimeEntry) => GridRowMark | undefined;
     onActivate?: (row: TimeEntry) => void;
     onSelectionChange?: (keys: readonly string[], rows: readonly TimeEntry[]) => void;
   };
@@ -132,6 +136,8 @@
     loading = false,
     density = "comfortable",
     zebra = false,
+    pinnedRowKeys = [],
+    rowMark,
     onActivate,
     onSelectionChange,
   }: Props = $props();
@@ -140,6 +146,8 @@
     columns: () => TIME_COLUMNS,
     rows: () => rows,
     rowKey: (row) => row.id,
+    pinnedRowKeys: () => pinnedRowKeys,
+    rowMark: (row) => rowMark?.(row),
     initialSort: { columnId: "workDate", direction: "descending" },
     // Voids never count toward totals — a withdrawn line is not part of any sum.
     totalIncludes: (row) => row.status !== "Void",

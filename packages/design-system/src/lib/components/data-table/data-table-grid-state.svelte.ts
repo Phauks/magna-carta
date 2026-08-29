@@ -23,6 +23,8 @@ import {
   gridSetFilterCounts,
   rowPassesGridFilters,
 } from "./grid-filters.ts";
+import type { GridRowGrouping, GridRowMark } from "./grid-rows.ts";
+import { groupedGridRows } from "./grid-rows.ts";
 import type { GridClickModifiers, GridSelection } from "./grid-selection.ts";
 import {
   emptyGridSelection,
@@ -51,6 +53,17 @@ export interface DataTableGridOptions<TRow> {
   itemNoun?: GridItemNoun;
   /** Zebra striping on at first render (the columns menu toggles it). */
   zebra?: boolean;
+  /**
+   * Row keys pinned to the top, in the member's OWN arranged order — pinning is an act of
+   * arranging, so the table's sort never reorders the block. A thunk so the grid tracks a
+   * reactive source; the surface owns what pinning means and where it persists.
+   */
+  pinnedRowKeys?: () => readonly string[];
+  /**
+   * What the list says about a row before its data: the pin, a clipboard mark, a quieter voice.
+   * One vocabulary across every surface, so two lists cannot disagree about what a mark means.
+   */
+  rowMark?: (row: TRow) => GridRowMark | undefined;
   /** Selection changed — the grid emits, the surface decides what presenting it means. */
   onSelectionChange?: (keys: readonly string[], rows: readonly TRow[]) => void;
   /** A row was activated (double-click / Enter) — distinct from selection. */
@@ -116,12 +129,29 @@ export class DataTableGridState<TRow> {
     this.rows.filter((row) => rowPassesGridFilters(this.columns, this.filters, row)),
   );
 
-  /** The rows in view — filtered, then stably sorted. */
-  rowsInView = $derived.by((): readonly TRow[] => {
+  sortedRows = $derived.by((): readonly TRow[] => {
     const column = this.sortColumnId === null ? undefined : this.columnById(this.sortColumnId);
     if (!column) return this.filteredRows;
     return sortGridRows(this.filteredRows, column, this.sortDirection, this.options.rowKey);
   });
+
+  /**
+   * The rows in view — filtered, stably sorted, then grouped so pinned items lead in their own
+   * arranged order. `pinnedCount` is where the grid draws the rule that separates the two.
+   */
+  rowGrouping = $derived.by(
+    (): GridRowGrouping<TRow> =>
+      groupedGridRows(this.sortedRows, this.options.pinnedRowKeys?.() ?? [], this.options.rowKey),
+  );
+
+  rowsInView = $derived.by((): readonly TRow[] => this.rowGrouping.rows);
+  /** How many leading rows are pinned; 0 when nothing is pinned and no rule renders. */
+  pinnedRowCount = $derived.by((): number => this.rowGrouping.pinnedCount);
+
+  /** The row's mark — the pin, a clipboard mark, a quieter voice — or undefined for a plain row. */
+  markFor(row: TRow): GridRowMark | undefined {
+    return this.options.rowMark?.(row);
+  }
 
   rowKeysInView = $derived.by((): readonly string[] =>
     this.rowsInView.map((row) => this.options.rowKey(row)),

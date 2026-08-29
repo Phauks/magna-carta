@@ -64,6 +64,12 @@ export {
   rowPassesGridFilters,
 } from "./grid-filters.ts";
 export {
+  type GridRowGrouping,
+  type GridRowMark,
+  gridRowMarkAttributes,
+  groupedGridRows,
+} from "./grid-rows.ts";
+export {
   type GridClickModifiers,
   type GridSelection,
   emptyGridSelection,

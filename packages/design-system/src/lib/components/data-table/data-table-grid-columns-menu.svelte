@@ -2,13 +2,16 @@
   /*
    * DataTable.GridColumnsMenu — the grid's columns control: a checkbox row per column (an
    * anchored column shows checked and disabled — it always shows), each row carrying the pin
-   * toggle at its end (filled pin while pinned, sticky under horizontal scroll), and the display
-   * settings beneath a hairline (zebra striping). Place it wherever the surface's chrome puts its
-   * controls (the tabs row, a toolbar) — it drives the same shared grid state as the table.
+   * toggle at its end (sticky under horizontal scroll), and the display settings beneath a
+   * hairline (zebra striping). Place it wherever the surface's chrome puts its controls (the tabs
+   * row, a toolbar) — it drives the same shared grid state as the table.
+   *
+   * The pin is ONE glyph everywhere the pin state shows — pinned rows and pinned columns alike —
+   * and FILL is the only difference between pinned and not. A second geometry (the crossed-out
+   * pin) reads as a different thing and was the settled defect here.
    */
   import Columns3 from "@lucide/svelte/icons/columns-3";
   import Pin from "@lucide/svelte/icons/pin";
-  import PinOff from "@lucide/svelte/icons/pin-off";
   import * as Popover from "../popover/index.ts";
   import Checkbox from "../checkbox/index.ts";
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
@@ -53,11 +56,11 @@
             grid.togglePinned(column.id);
           }}
         >
-          {#if grid.isPinned(column.id)}
-            <Pin class="mc-table-grid-pin-icon" aria-hidden="true" fill="currentColor" />
-          {:else}
-            <PinOff class="mc-table-grid-pin-icon" aria-hidden="true" />
-          {/if}
+          <Pin
+            class="mc-table-grid-pin-icon"
+            aria-hidden="true"
+            fill={grid.isPinned(column.id) ? "currentColor" : "none"}
+          />
         </button>
       </label>
     {/each}

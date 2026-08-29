@@ -27,6 +27,11 @@
   /** The rendered body rows (the totals row lives in tfoot and is not among these). */
   const bodyRows = (table: HTMLElement): HTMLElement[] =>
     Array.from(table.querySelectorAll("tbody tr"));
+
+  // The row-groups fixture: two entries pinned in a deliberate arrangement (the OLDER one first,
+  // so the block cannot be mistaken for the sort), and two rows waiting on the clipboard.
+  const PINNED_ROW_KEYS = ["t12", "t05"];
+  const CLIPBOARD_MARKS: Record<string, "cut" | "copy" | undefined> = { t04: "cut", t07: "copy" };
 </script>
 
 <!--
@@ -194,19 +199,36 @@
       await waitFor(() => expect(body.getByText("Filter Status", { selector: "p" })).toBeVisible());
       const draftRow = (await body.findByRole("checkbox", { name: "Draft" })).closest("label")!;
       await expect(within(draftRow as HTMLElement).getByText("3")).toBeVisible();
-      // No filter engaged yet, so no clear affordance exists — absence is the signal.
+    });
+
+    await step("Every ghost text is the FIELD'S NAME, never an instruction", async () => {
+      // The narrow field above the checkboxes carries the column's own name — no "Type to…" hint.
+      const narrow = body.getByRole("searchbox", { name: "Narrow the Status choices" });
+      await expect(narrow).toHaveAttribute("placeholder", "Status");
+    });
+
+    await step("A set filter carries NO clear control — everything selected IS no filter", async () => {
       await expect(body.queryByRole("button", { name: /Clear This Filter/ })).toBeNull();
     });
 
-    await step("Deselecting Select all selects NONE, and the table says why it is empty", async () => {
-      const selectAll = body.getByRole("checkbox", { name: "Select all" });
-      await userEvent.click(selectAll);
-      await expect(selectAll).not.toBeChecked();
+    await step("The select control is ONE control that says what pressing it will do", async () => {
+      // Everything is on, so the one control offers the act that is available: select none.
+      const toggle = body.getByRole("button", { name: "Select none" });
+      await expect(body.queryByRole("button", { name: "Select all" })).toBeNull();
+      await userEvent.click(toggle);
+      // Nothing is on now, so the SAME control reads the other way.
+      await waitFor(() => expect(body.getByRole("button", { name: "Select all" })).toBeVisible());
+      await expect(body.queryByRole("button", { name: "Select none" })).toBeNull();
+    });
+
+    await step("Selecting none empties the list, and the table says why", async () => {
       await waitFor(() =>
         expect(within(table).getByText(/No entries match the filter on Status/)).toBeVisible(),
       );
       await expect(within(table).getByText(/All 12 entries are hidden/)).toBeVisible();
       await expect(canvas.getByRole("button", { name: /Filtered:/ })).toHaveAttribute("data-active", "true");
+      // Even with a filter in play, a SET filter still carries no clear control of its own.
+      await expect(body.queryByRole("button", { name: /Clear This Filter/ })).toBeNull();
     });
 
     await step("Checking one value keeps its rows and the footer counts n of m", async () => {
@@ -219,12 +241,13 @@
       await expect(within(table).getByText("7.0 h")).toBeVisible();
     });
 
-    await step("Clear This Filter exists only while the filter is in play, and clears it", async () => {
-      const clear = body.getByRole("button", { name: /Clear This Filter/ });
-      await userEvent.click(clear);
+    await step("Select all returns the whole set, which is no filter at all", async () => {
+      await userEvent.click(body.getByRole("button", { name: "Select all" }));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(12));
-      await expect(body.queryByRole("button", { name: /Clear This Filter/ })).toBeNull();
       await expect(within(table).getByText("Total")).toBeVisible();
+      await expect(canvas.getByRole("button", { name: "Filter Status" })).not.toHaveAttribute(
+        "data-active",
+      );
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
     });
@@ -232,10 +255,16 @@
     await step("The numeric range filter keeps rows inside its bounds", async () => {
       await openFunnel("Hours");
       const from = await body.findByRole("spinbutton", { name: "From" });
+      // "From" and "To" ARE the fields' names, so they stand as ghost text.
+      await expect(from).toHaveAttribute("placeholder", "From");
       await userEvent.type(from, "2");
       await waitFor(() => expect(bodyRows(table)).toHaveLength(6));
       await waitFor(() => expect(body.getByText("In hours, as billed.")).toBeVisible());
+      // A range filter DOES carry a clear control, and only while the filter is in play.
       await userEvent.click(body.getByRole("button", { name: /Clear This Filter/ }));
+      await waitFor(() =>
+        expect(body.queryByRole("button", { name: /Clear This Filter/ })).toBeNull(),
+      );
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
     });
@@ -253,6 +282,8 @@
     await step("The text filter matches on containment", async () => {
       await openFunnel("Title");
       const contains = await body.findByRole("searchbox", { name: "Filter Title" });
+      // The ghost text is the field's name, not a description of the matching rule.
+      await expect(contains).toHaveAttribute("placeholder", "Title");
       await userEvent.type(contains, "motion");
       await waitFor(() => expect(bodyRows(table)).toHaveLength(3));
       // Clear All Filters from the footer clears every filter at once.
@@ -319,6 +350,20 @@
       await expect(timekeeperHead.style.insetInlineStart).not.toBe("");
     });
 
+    await step("The pin is ONE glyph; fill is the only difference between pinned and not", async () => {
+      const glyphOf = (name: RegExp): SVGSVGElement =>
+        body.getByRole("button", { name }).querySelector("svg")!;
+      const pinnedGlyph = glyphOf(/^Unpin: Timekeeper/);
+      const unpinnedGlyph = glyphOf(/^Pin Title /);
+      // classList matching is exact per token, so `lucide-pin-off` could never satisfy it.
+      await expect(pinnedGlyph.classList.contains("lucide-pin")).toBe(true);
+      await expect(unpinnedGlyph.classList.contains("lucide-pin")).toBe(true);
+      // Same geometry, so the drawn paths are identical; only the fill differs.
+      await expect(pinnedGlyph.innerHTML).toBe(unpinnedGlyph.innerHTML);
+      await expect(pinnedGlyph).toHaveAttribute("fill", "currentColor");
+      await expect(unpinnedGlyph).toHaveAttribute("fill", "none");
+    });
+
     await step("Zebra striping is the columns menu's display setting", async () => {
       await userEvent.click(body.getByRole("checkbox", { name: "Shade alternate rows" }));
       await expect(table).toHaveAttribute("data-zebra", "on");
@@ -327,6 +372,87 @@
 >
   {#snippet template()}
     <LitigationGrid />
+  {/snippet}
+</Story>
+
+<!--
+  Row groups and row marks: pinned items sit above EVERYTHING, separated by a rule, in the
+  member's own arranged order rather than the table's sort. The marks are one vocabulary — the
+  filled pin, a clipboard mark while a row waits on a cut or copy, and a quieter voice for a row
+  that is present but not of the list's own kind.
+-->
+<Story
+  name="Row groups and marks"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const table = canvas.getByRole("table");
+    const dataRows = (): HTMLElement[] =>
+      Array.from(table.querySelectorAll("tbody tr[data-grid-row]"));
+
+    await step("Pinned rows lead, above everything, in the arranged order", async () => {
+      const keys = dataRows().map((row) => row.getAttribute("data-grid-row"));
+      // t12 is the fixture's OLDEST entry and the table sorts newest-first, so its place at the
+      // top can only come from the pin — and t05 follows it because that is how they were arranged.
+      await expect(keys.slice(0, 2)).toEqual(["t12", "t05"]);
+      await expect(dataRows()[0]).toHaveAttribute("data-row-pinned", "true");
+      await expect(dataRows()[2]).not.toHaveAttribute("data-row-pinned");
+    });
+
+    await step("A rule separates the pinned block from the list beneath it", async () => {
+      const bodyChildren = Array.from(table.querySelectorAll("tbody tr"));
+      const ruleIndex = bodyChildren.findIndex((row) =>
+        row.classList.contains("mc-table-grid-pin-rule"),
+      );
+      // Exactly one rule, and it sits directly after the two pinned rows.
+      await expect(table.querySelectorAll(".mc-table-grid-pin-rule")).toHaveLength(1);
+      await expect(ruleIndex).toBe(2);
+      await expect(bodyChildren[ruleIndex]?.querySelector("td")).toHaveAttribute("colspan");
+    });
+
+    await step("A pinned row carries the filled Lucide pin in its first cell", async () => {
+      const glyph = dataRows()[0]!.querySelector("td svg")!;
+      await expect(glyph.classList.contains("lucide-pin")).toBe(true);
+      await expect(glyph).toHaveAttribute("fill", "currentColor");
+      // An unpinned row carries no pin at all.
+      await expect(dataRows()[2]!.querySelector(".mc-table-grid-row-pin")).toBeNull();
+    });
+
+    await step("A row waiting on the clipboard says which act it is waiting on", async () => {
+      const marked = dataRows().filter((row) => row.hasAttribute("data-clipboard"));
+      await expect(marked).toHaveLength(2);
+      await expect(marked.map((row) => row.getAttribute("data-clipboard")).toSorted()).toEqual([
+        "copy",
+        "cut",
+      ]);
+    });
+
+    await step("A row that is not of the list's own kind reads quieter", async () => {
+      const quiet = dataRows().filter((row) => row.getAttribute("data-quiet") === "true");
+      await expect(quiet).toHaveLength(1);
+      await expect(quiet[0]).toHaveTextContent("Draft meet-and-confer letter");
+    });
+
+    await step("Selection and activation still walk the grouped order", async () => {
+      await userEvent.click(dataRows()[0]!);
+      await expect(dataRows()[0]).toHaveAttribute("data-state", "selected");
+      const region = canvas.getByRole("group", { name: "Time entries" });
+      await fireEvent.keyDown(region, { key: "ArrowDown" });
+      // The next row down is the second PINNED row, not the sort's second row.
+      await expect(dataRows()[1]).toHaveAttribute("data-state", "selected");
+      await expect(dataRows()[1]).toHaveAttribute("data-grid-row", "t05");
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid
+      pinnedRowKeys={PINNED_ROW_KEYS}
+      rowMark={(row) => ({
+        pinned: PINNED_ROW_KEYS.includes(row.id),
+        clipboard: CLIPBOARD_MARKS[row.id],
+        // A void entry stands in here for the shape a deleted match or an inherited event takes.
+        quiet: row.status === "Void",
+      })}
+    />
   {/snippet}
 </Story>
 
