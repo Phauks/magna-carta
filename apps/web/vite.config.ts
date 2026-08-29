@@ -18,10 +18,22 @@ function gitCommit(): string {
   }
 }
 
+// The commit's own timestamp (committer time, ISO 8601) — shown beside the commit in the version
+// overlay so "which build" also answers "how old". Null when git cannot answer: an honest absence
+// renders as such, never as a fabricated date.
+function gitCommitTime(): string | null {
+  try {
+    return execSync("git show --no-patch --format=%cI HEAD", { encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+}
+
 export default defineConfig({
   plugins: runningInPackageDir ? [tailwindcss(), sveltekit()] : [],
   define: {
     __MC_BUILD_COMMIT__: JSON.stringify(runningInPackageDir ? gitCommit() : "unknown"),
+    __MC_BUILD_COMMIT_TIME__: JSON.stringify(runningInPackageDir ? gitCommitTime() : null),
     __MC_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
   // dev convenience: proxy /api to a running `wrangler dev`

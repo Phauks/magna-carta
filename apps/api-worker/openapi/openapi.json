@@ -183,6 +183,96 @@
           "flags"
         ]
       },
+      "MetaVersionsResponse": {
+        "type": "object",
+        "properties": {
+          "api": {
+            "type": "object",
+            "properties": {
+              "commit": {
+                "type": "string"
+              },
+              "commitTime": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "buildTime": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "commit",
+              "commitTime",
+              "buildTime"
+            ]
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceVersion"
+            }
+          },
+          "observedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "api",
+          "services",
+          "observedAt"
+        ]
+      },
+      "ServiceVersion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "reported",
+              "unbound",
+              "unreachable",
+              "unreported"
+            ]
+          },
+          "commit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "commitTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buildTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "state",
+          "commit",
+          "commitTime",
+          "buildTime"
+        ]
+      },
       "FirmUsageResponse": {
         "type": "object",
         "properties": {
@@ -26096,6 +26186,69 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meta/versions": {
+      "get": {
+        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for each dedicated service worker it is bound to. A service that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.",
+        "operationId": "meta.versions",
+        "tags": [
+          "meta"
+        ],
+        "x-mc-operationId": "meta.versions",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "meta"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The deployment's build identities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaVersionsResponse"
                 }
               }
             }
@@ -77536,6 +77689,9 @@
     },
     {
       "name": "members"
+    },
+    {
+      "name": "meta"
     },
     {
       "name": "metadata"

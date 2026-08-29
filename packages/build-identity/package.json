@@ -1,0 +1,19 @@
+{
+  "name": "@magna-carta/build-identity",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./build-identity": "./src/build-identity.ts",
+    "./version-route": "./src/version-route.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@magna-carta/tsconfig": "workspace:*",
+    "vitest": "catalog:"
+  }
+}

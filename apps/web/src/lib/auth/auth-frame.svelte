@@ -11,6 +11,7 @@
   import type { Snippet } from "svelte";
   import BrandMark from "@magna-carta/design-system/brand-mark";
   import * as TopBar from "@magna-carta/design-system/top-bar";
+  import VersionChip from "$lib/versions/version-chip.svelte";
   import { ECOSYSTEM_SITES } from "../navigation/ecosystem-sites.ts";
 
   let { children }: { children: Snippet } = $props();
@@ -41,6 +42,16 @@
   <TopBar.Root class="ps-16">
     <BrandMark />
     <TopBar.Actions>
+      <!-- "Which version am I on" is asked most often by someone who cannot get in, so the chip
+           belongs on this side of the door too. The public scope shows this build's own identifier
+           (already in the bundle the visitor downloaded) and reads nothing from the API, which
+           needs a session.
+
+           IT LEADS THE ACTIONS CLUSTER, to the INLINE-START of the buttons beside it (owner
+           correction, 2026-08-29: "put build versions to the left of those buttons"), which is
+           where the app shell already seats it. Both surfaces place it from the same rule, so the
+           chip does not move when a visitor signs in. -->
+      <VersionChip scope="public" />
       <nav aria-label="Magna Carta" class="flex items-center gap-4">
         {#each CHROME_NAVIGATION as destination (destination.id)}
           {#if destination.href}
