@@ -636,19 +636,391 @@ RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer
 
 ## Blocked-in-environment owner chores
 
-- Stale remote branch deletion. The git proxy denies ref deletions: a
-  `git push --delete` returns 403 for every branch, not just some. Safe to delete:
-  `osv-scanner-audit-gate`, `fix-assembly-format-output`,
-  `fix-assembly-push-no-verify`, `fix-pnpm-audit-endpoint-retirement`,
-  `docs-assembly-retrigger`, `claude/docs-sync-routine-setup-c3hy7m`,
-  `lint-scope-ignore-workflow-yaml`, plus any branch whose pull request has
-  since merged (`docs-sync/2026-07-20` after #41's closure).
+- Stale remote branch deletion — the definitive sweep, 2026-08-29. The git proxy denies ref
+  deletions (a `git push --delete` returns 403 for every branch, not just some), so a session can
+  classify but never delete; deletion happens in the web UI from
+  <https://github.com/Phauks/magna-carta/branches>. Every remote branch was classified with the
+  durable landing test in `tooling/branch-landing/` (where did the content land — an answer that
+  survives squash-merges and never expires), cross-checked against GitHub pull-request merge
+  records. Of 345 candidate branches (everything except `main`, `release`, and the stream that
+  wrote this): **319 are safe to delete**, 4 are live, and 22 hold work that never landed and need
+  an owner's judgment. This list replaces the shorter 2026-08-24 one, whose every entry it
+  re-verified.
 
   **The one-time fix is a repository setting, not a chore.** Turning on GitHub's
-  _Automatically delete head branches_ (Settings → General → Pull Requests)
-  retires this item permanently: every future merge cleans up after itself, and
-  no session needs a permission it cannot have. Worth doing before the next
-  batch sweep rather than after, so the sweep is the last one.
+  _Automatically delete head branches_ (Settings → General → Pull Requests) retires this item
+  permanently: every future merge cleans up after itself, no session needs a permission it cannot
+  have, and this list never regrows. Worth doing before the deletion pass, so this sweep is the
+  last one.
+
+  **Do not delete — live right now (4):**
+  - `claude/community-board` — open PR #213 awaits the owner's two decisions
+  - `claude/passive-dev-orchestrator-m7f9jw` — open PR #319; active stream in the registry
+  - `docs-sync/2026-08-24` — open PR #382 (the pending docs-sync run)
+  - `slice-0-7b-app-shell` — active stream in the registry (App Shell / auth UI, status building)
+
+  **Owner to judge — never landed, deleting loses the work (22).** Each still holds content
+  `main` does not have; delete only what is consciously abandoned:
+  - `claude/worker-decoupling` — holds the merged squashes of #368 (auth-wiring split), #371 (PDF
+    engine extraction) and #372 (decryption extraction); none of that is on `main`
+    (`apps/api-worker/src/auth-wiring.ts` and `packages/pdf/src/service.ts` are absent there). The
+    head of the undelivered extraction stack.
+  - `claude/api-worker-rename` — PR #367 closed unmerged (the rename itself re-landed via
+    `claude/api-worker-rename-v2` in `e5766cb8b`, #378), but it carries #368's squash, which never
+    reached `main`
+  - `claude/last-wasm-extractions` — follow-on to the extraction stack (2026-08-22), no PR
+  - `claude/always-commit-ingest` — ingest fix (2026-08-22), no PR, nothing on `main`
+  - `claude/sign-worker-wasm-build` — sign-Worker wasm build fix (2026-08-21), no PR
+  - `claude/archive-reader-spec` — archive-reader design spec (2026-08-22), no PR, not on `main`
+  - `claude/file-api-gaps` — file-manager API-gaps design (2026-08-22), no PR; stacked on the
+    unlanded rename, so its diff is huge but its own content is the design docs
+  - `claude/file-api-gaps-build` — the matching build (2026-08-22), no PR, same stack
+  - `claude/file-manager-unknowns` — "six questions answered" doc (2026-08-22), no PR
+  - `claude/ui-file-manager` — file-manager screen stream note (2026-08-21), no PR, same stack;
+    likely superseded by the file-manager work that landed in #404, but not provably
+  - `claude/vocabulary-listing-bounds` — (2026-08-21) same subject as what landed in `1c381258e`
+    (#373); probably superseded, not provably
+  - `claude/ui-workflow-research` — research decision (2026-08-11), no PR, its files not on `main`
+  - `claude/github-actions-minutes-optimization-z0sfc1` — CI-minutes work (2026-07-17), no PR;
+    likely superseded by the later CI austerity and gate-tiering merges
+  - `docs-sync/2026-08-17` — PR #301 closed unmerged; its window is re-claimed by open PR #382, so
+    it becomes safe the moment #382 merges
+  - `file-surface-web` — its own registry note says abandoned, partly landed, superseded; judge
+  - `file-inspector-spec` (2026-07-10), `ocr-raster-cap-and-skip-gate` (2026-07-12),
+    `property-links-assessor` (2026-06-16), `safe-custody-design` (2026-06-16),
+    `slice-3-5-operating-general-ledger` (2026-07-09), `subject-erasure-orchestrator` (2026-07-09),
+    `whois-report-enrichment` (2026-07-12) — parked pre-August workspaces, no PRs, never landed
+
+  **Safe to delete — the branch holds nothing `main` or a surviving branch lacks (11):**
+  - `claude/discovery-5-1-2` — tip is a commit already on `main`
+  - `claude/green-main-batch` — tip is a commit already on `main`
+  - `claude/r2-matter-dimension` — tip is a commit already on `main`
+  - `claude/sign-in-screen` — tip is a commit already on `main`
+  - `claude/teardown-race` — held only its own registry note; the fix landed via
+    `claude/teardown-fix` in `c96df603b` (#231)
+  - `claude/decryption-engine-extraction` — PR #372 merged into `claude/worker-decoupling`
+    2026-08-22; its content lives there (delete only together with a decision on that branch)
+  - `claude/pdf-engine-extraction` — PR #371 merged into `claude/worker-decoupling` 2026-08-22;
+    same dependency
+  - `claude/discovery-search-index` — tip is an ancestor of `claude/search-write-pipeline`, which
+    landed in `0d72292e8` (#61)
+  - `docs-assembly` — bot workspace, force-pushed anew by `assemble-docs.yml` each run; latest
+    PR #172 closed 2026-08-12
+  - `docs-sync/2026-07-20` — PR #41 closed unmerged 2026-08-04; window re-claimed by later merged
+    runs
+  - `docs-sync/2026-08-10` — PR #186 closed unmerged 2026-08-12; window re-claimed by the merged
+    2026-08-12 run
+
+  **Safe to delete — landed (308; the named commit is where the branch's content entered
+  `main`):**
+  - `claude/2-5-analysis-prep-0n2kxw` — landed in `679841052` (#58)
+  - `claude/account-role-widening` — landed in `b2d1cd328` (#401)
+  - `claude/active-work-sweep` — landed in `6ea04e8f0` (#200)
+  - `claude/advisories` — landed in `d5dd7199f` (#212)
+  - `claude/advisory-resolution` — landed in `c69ece9c5` (#77)
+  - `claude/ai-search-1` — landed in `314856235` (#290)
+  - `claude/ai-search-wall-experiment` — landed in `ffe04e0f0` (#176)
+  - `claude/api-worker-rename-v2` — landed in `e5766cb8b` (#378)
+  - `claude/assets-next` — landed in `067cd52f1` (#286)
+  - `claude/auth-routes` — landed in `1194c26d1` (#203)
+  - `claude/auto-file-management` — landed in `80f9e186d` (#325)
+  - `claude/auto-file-review-exact-counts` — landed in `37e682b13` (#355)
+  - `claude/auto-file-rules-design` — landed in `707f7c706` (#134)
+  - `claude/auto-file-rules-slice-1` — landed in `57a0b6795` (#142)
+  - `claude/auto-file-wiring` — landed in `6ff4a7ee3` (#166)
+  - `claude/automation-conditionals-slice` — landed in `a98c78dfa` (#100)
+  - `claude/automation-consent-refinements` — landed in `08efa6035` (#94)
+  - `claude/automation-directory-role-sources` — landed in `31d189510` (#121)
+  - `claude/automation-letterhead-custom-fields` — landed in `6f422b1d3` (#109)
+  - `claude/automation-protected-value-binding` — landed in `645f20476` (#129)
+  - `claude/automation-tail` — landed in `c277d8293` (#214)
+  - `claude/awaiting-owner-sweep` — landed in `d35ae5161` (#260)
+  - `claude/billing-3-4-2-trust-application` — landed in `d0d12791f` (#161)
+  - `claude/billing-3-4-design` — landed in `5e611bea7` (#135)
+  - `claude/billing-automations-design` — landed in `d17b40fb1` (#293)
+  - `claude/billing-fee-models` — landed in `846dbd4e2` (#185)
+  - `claude/billing-listing-bounds` — landed in `6655e73bc` (#350)
+  - `claude/billing-slice-1` — landed in `c97d8bdd6` (#143)
+  - `claude/bound-the-unbounded-reads` — landed in `21642d0ed` (#344)
+  - `claude/bounded-matter-listings` — landed in `53b529d6c` (#342)
+  - `claude/build-register` — landed in `12cf5e1c1` (#230)
+  - `claude/calendar-listing-bounds` — landed in `d88b6f3d6` (#353)
+  - `claude/calendar-slice-2` — landed in `681f4b987` (#187)
+  - `claude/calendar-slice-2-design` — landed in `8dd7764db` (#179)
+  - `claude/case-calendar-design` — landed in `c63d92650` (#131)
+  - `claude/case-calendar-slice-1` — landed in `7bee08017` (#144)
+  - `claude/catalog-follow-ups` — landed in `5f0f26839` (#182)
+  - `claude/catalog-slices-2-4` — landed in `8d98eca03` (#177)
+  - `claude/check-order` — landed in `cc5479fdb` (#281)
+  - `claude/ci-austerity` — landed in `0c18ef102` (#103)
+  - `claude/ci-cost-reduction` — landed in `6b684e8c4` (#47)
+  - `claude/ci-fail-fast` — landed in `a4f2724b5` (#404)
+  - `claude/ci-runner` — landed in `51d46e4c7` (#275)
+  - `claude/clean-squash-merge` — landed in `c32fcee03` (#221)
+  - `claude/closure-and-batch-bounds` — landed in `fcb7fad7a` (#269)
+  - `claude/cloudflare-agents-research` — landed in `1efee24c3` (#91)
+  - `claude/cloudflare-ai-search-research` — landed in `40a87ac4c` (#155)
+  - `claude/cloudflare-ci-evaluation` — landed in `7596e91b6` (#104)
+  - `claude/community-design` — landed in `60d5b0bf6` (#201)
+  - `claude/community-slice-1` — landed in `bc01a6932` (#209)
+  - `claude/composite-text-extraction` — landed in `b7e015475` (#140)
+  - `claude/conflicts-4` — landed in `e01afeeaf` (#291)
+  - `claude/conflicts-deepening` — landed in `8fcdb8aef` (#217)
+  - `claude/conflicts-slice-1` — landed in `a71fdef10` (#220)
+  - `claude/conflicts-slice-2` — landed in `e104255df` (#226)
+  - `claude/conflicts-traversal` — landed in `5995edb01` (#268)
+  - `claude/conformance-inventory` — landed in `1c381258e` (#373)
+  - `claude/console-ban` — landed in `ec8500e1d` (#276)
+  - `claude/content-controls` — landed in `ff1f49e36` (#255)
+  - `claude/credit-notes` — landed in `ee1d92bf6` (#215)
+  - `claude/cron-trigger-bypass` — landed in `4adf7d543` (#365)
+  - `claude/custodian-4-2-4-stocktake` — landed in `c2dac01b7` (#118)
+  - `claude/custodian-build-slice-1` — landed in `c3e260ab9` (#86)
+  - `claude/custodian-build-slice-2` — landed in `a97e0bf76` (#98)
+  - `claude/custodian-build-slice-3` — landed in `f03fb4d52` (#110)
+  - `claude/custodian-design` — landed in `93435534f` (#81)
+  - `claude/custodian-destruction-c8-catalog` — landed in `946e42bcf` (#138)
+  - `claude/custody-listing-bounds` — landed in `86e99a07e` (#346)
+  - `claude/dead-seams` — landed in `67f393333` (#263)
+  - `claude/decision-register-repair` — landed in `ccdb05f05` (#84)
+  - `claude/dependency-refresh` — landed in `f08d57cfb` (#48)
+  - `claude/deploy-queue-0825` — landed in `3df57822c` (#400)
+  - `claude/deploy-queue-2026-08-24` — landed in `d31c2dc66` (#389)
+  - `claude/deploy-queue-pagination-envelopes` — landed in `0832f34d6` (#352)
+  - `claude/deploy-queue-refresh` — landed in `36c38e6be` (#377)
+  - `claude/deploy-unblock` — landed in `54f8d5861` (#357)
+  - `claude/directory-pronouns` — landed in `953e9a0c4` (#196)
+  - `claude/discovery-5-1-1` — landed in `0377a9b9f` (#150)
+  - `claude/discovery-5-1-4` — landed in `528d2a8d8` (#321)
+  - `claude/discovery-5-1-design` — landed in `75d948f8f` (#136)
+  - `claude/discovery-5-2-1` — landed in `1e73ca7ed` (#195)
+  - `claude/discovery-5-2-design` — landed in `bda5eb48c` (#184)
+  - `claude/discovery-listing-bounds` — landed in `45a606826` (#348)
+  - `claude/discovery-processing` — landed in `477158b38` (#272)
+  - `claude/discovery-remainder` — landed in `cd1f54361` (#287)
+  - `claude/doc-and-tooling-fixes` — landed in `a888b038d` (#256)
+  - `claude/docs-pipeline-followups` — landed in `ff3676b0f` (#72)
+  - `claude/docs-sync-routine-setup-c3hy7m` — landed in `79ecde769` (direct commit: fix(ci): assembly fails loudly on missing PR permissions;...)
+  - `claude/document-automation-design` — landed in `b3d2a1313` (#78)
+  - `claude/document-automation-slice-1` — landed in `3573106da` (#88)
+  - `claude/document-surface` — landed in `c164cc0c1` (#204)
+  - `claude/drizzle-snapshot-repair` — landed in `fec8e67f1` (#102)
+  - `claude/edit-worker-rename` — landed in `d728f1348` (#359)
+  - `claude/email-add-in-client-api` — landed in `6f39969ae` (#123)
+  - `claude/email-capabilities-analysis-y06ji3` — landed in `623443f92` (#31)
+  - `claude/email-capture-mint-route` — landed in `c31485390` (#56)
+  - `claude/email-filing-capture-slice-1-h03vp5` — landed in `645be7a15` (#37)
+  - `claude/email-filing-fast-follows` — landed in `5ae076e7a` (#106)
+  - `claude/escheat-research` — landed in `380ef0fe1` (#181)
+  - `claude/evidence-absence-rule` — landed in `6a5dc585c` (#258)
+  - `claude/exhibit-lists` — landed in `2aa79d24a` (#202)
+  - `claude/expression-aggregates` — landed in `18c239158` (#111)
+  - `claude/expression-grammar-design` — landed in `f3d0ae2d3` (#92)
+  - `claude/extraction-rubric-home` — landed in `b628d3aa4` (#369)
+  - `claude/field-input-infrastructure` — landed in `f320eeadf` (#87)
+  - `claude/file-manager-error-view` — landed in `aefcf3655` (#384)
+  - `claude/file-manager-in-the-app` — landed in `acd14e24b` (#386)
+  - `claude/file-manager-live-fixes` — landed in `a4f2724b5` (#404)
+  - `claude/file-manager-residue` — landed in `5c286837a` (#75)
+  - `claude/file-manager-round-eight` — landed in `80340a131` (#385)
+  - `claude/file-manager-round-seven` — landed in `ad72a8f6d` (#380)
+  - `claude/file-manager-rulings` — landed in `ecfddb838` (#375)
+  - `claude/file-manager-search` — landed in `7b3233db2` (#381)
+  - `claude/file-version-uploader-pii` — landed in `f88203e55` (#370)
+  - `claude/financial-reporting` — landed in `7db7f6500` (#216)
+  - `claude/financial-reporting-1` — landed in `cb9225bb5` (#248)
+  - `claude/fitness-gate` — landed in `cda21cea6` (#288)
+  - `claude/fix-batch-r1-financial` — landed in `927526d06` (#154)
+  - `claude/fix-batch-r2-operational` — landed in `1dc729667` (#157)
+  - `claude/fix-custom-fields-value-integrity` — landed in `06188cbdd` (#51)
+  - `claude/fix-directory-merge-integrity` — landed in `67799cac2` (#52)
+  - `claude/fix-editing-wopi-guards` — landed in `dbba9bc6b` (#55)
+  - `claude/fix-federation-typecheck` — landed in `7293f289e` (#194)
+  - `claude/fix-ingest-custody` — landed in `b44b5d067` (#60)
+  - `claude/fix-matters-numbering` — landed in `4914686ee` (#57)
+  - `claude/fix-metadata-scrub-hardening` — landed in `64fed3ead` (#53)
+  - `claude/fix-pdf-core-annots` — landed in `aa9223557` (#49)
+  - `claude/fix-scoped-autofix-vp-test` — landed in `50d53aa6f` (#114)
+  - `claude/fix-shipping-whois` — landed in `d36fa5e50` (#62)
+  - `claude/fix-tenancy-shipping-uploads` — landed in `06f14facf` (#45)
+  - `claude/fix-usage-bundle-scan-trio` — landed in `7231610cd` (#44)
+  - `claude/format-main-six` — landed in `7c3ef7054` (#193)
+  - `claude/gate-collection-audit` — landed in `2e5f1ee6e` (#119)
+  - `claude/gate-integrity` — landed in `81d66c190` (#296)
+  - `claude/gate-yml-review-e5q19j` — landed in `a4f2724b5` (#404)
+  - `claude/general-ledger-design` — landed in `aeb7ce208` (#309)
+  - `claude/handover-verify-recipe` — landed in `a4f2724b5` (#404)
+  - `claude/harness-honesty` — landed in `e5d60bd0d` (#313)
+  - `claude/honest-signals` — landed in `e003ea13a` (#311)
+  - `claude/idempotency-audit-load-profile` — landed in `15f46deb1` (#112)
+  - `claude/index-fixes` — landed in `8eed71c61` (#243)
+  - `claude/index-scope-key-widening` — landed in `aae4ece25` (#147)
+  - `claude/intake-design` — landed in `85140ca76` (#257)
+  - `claude/invitation-oracle` — landed in `dab17fe3b` (#207)
+  - `claude/invoice-delivery` — landed in `1161e54ce` (#303)
+  - `claude/kitesurf-assessment` — landed in `82589900e` (#190)
+  - `claude/ledger-accuracy` — landed in `d54995918` (#249)
+  - `claude/ledger-flag-visibility` — landed in `f8c294ef0` (#320)
+  - `claude/ledger-staleness` — landed in `4feb0ed56` (#238)
+  - `claude/ledger-status-reconciliation` — landed in `c006c9a58` (#324)
+  - `claude/ledger-verification-sweep` — landed in `6e4af19c0` (#323)
+  - `claude/legacy-form-fields` — landed in `489d4225a` (#251)
+  - `claude/libreoffice-engine-build` — landed in `5a4338c81` (#66)
+  - `claude/libreoffice-engine-design` — landed in `f65a8f809` (#59)
+  - `claude/lint-dependency-fanout` — landed in `97233438a` (#132)
+  - `claude/linter-evaluation-yugrzm` — landed in `84a3bde67` (#32)
+  - `claude/linter-ruleset-reconciled` — landed in `d76330925` (#80)
+  - `claude/load-profile-gap` — landed in `e3ab95ed9` (#241)
+  - `claude/login-polish` — landed in `9b24c67d9` (#358)
+  - `claude/magnus-design` — landed in `15e4aee84` (#156)
+  - `claude/magnus-slice-1` — landed in `8fd3ea9ae` (#159)
+  - `claude/matter-assets-design` — landed in `0703e8195` (#130)
+  - `claude/matter-assets-slice-1` — landed in `324664c94` (#149)
+  - `claude/matter-calendar-reachable` — landed in `8b9af7818` (#338)
+  - `claude/matter-costs-reachable` — landed in `64bf9f44f` (#335)
+  - `claude/matter-parties-reachable` — landed in `f5429ecba` (#330)
+  - `claude/matter-read-widening` — landed in `c666062a0` (#331)
+  - `claude/matter-screens-handover` — landed in `5c47ffc77` (#387)
+  - `claude/matter-sections-stale-state` — landed in `187ab189d` (#340)
+  - `claude/matter-time-reachable` — landed in `4d69bb56b` (#333)
+  - `claude/merge-field-catalog-design` — landed in `f98d503fc` (#127)
+  - `claude/merge-field-catalog-slice-1` — landed in `dd078b99c` (#146)
+  - `claude/missing-ledger-nodes` — landed in `6beeb58ef` (#265)
+  - `claude/model-pin-rot` — landed in `c692886aa` (#240)
+  - `claude/nevada-court-forms` — landed in `af86c70bb` (#247)
+  - `claude/nevada-trust-corpus` — landed in `132b66145` (#174)
+  - `claude/nevada-will-custody-research` — landed in `d6a95737c` (#128)
+  - `claude/notes-and-tasks-design` — landed in `dd2ac00dc` (#259)
+  - `claude/notification-dedupe` — landed in `5ac8797ec` (#305)
+  - `claude/notifications-2` — landed in `04a49fc94` (#273)
+  - `claude/notifications-3` — landed in `9da23568b` (#278)
+  - `claude/notifications-4` — landed in `f5a327458` (#284)
+  - `claude/notifications-delivery-1` — landed in `450038142` (#175)
+  - `claude/notifications-delivery-design` — landed in `37ea40c92` (#162)
+  - `claude/ocr-creation-next-steps-6yko0b` — landed in `014938a4b` (#30)
+  - `claude/one-core-runners` — landed in `5077a2e54` (#107)
+  - `claude/overnight-small-batch` — landed in `04ff6c5da` (#93)
+  - `claude/owner-answered-batch` — landed in `f4b90ecad` (#236)
+  - `claude/owner-docket-answers` — landed in `110003ea8` (direct commit: docs: record the owner's complete decision-docket answers...)
+  - `claude/payments-design` — landed in `5184145ef` (#254)
+  - `claude/pdf-active-content-analysis` — landed in `a4f2724b5` (#404)
+  - `claude/pdf-form-templates` — landed in `39e1a9ec8` (#299)
+  - `claude/pii-registry-email-tables` — landed in `08544e221` (#43)
+  - `claude/pin-prefer-set-has` — landed in `a4f2724b5` (#404)
+  - `claude/public-roadmap` — landed in `3022b4b3e` (#227)
+  - `claude/push-progress-websockets` — landed in `10344b98b` (#101)
+  - `claude/reconciliation-defects` — landed in `41ca91033` (#246)
+  - `claude/register-artifact` — landed in `db62ca519` (#298)
+  - `claude/register-history` — landed in `112c13a37` (#245)
+  - `claude/register-history-rebuild` — landed in `a62656648` (#398)
+  - `claude/register-missing-nodes` — landed in `3efca761e` (#250)
+  - `claude/registration-screens` — landed in `90e175edb` (#206)
+  - `claude/registry-liveness` — landed in `fc110f24a` (#271)
+  - `claude/replace-office-crypto` — landed in `3239d7839` (#95)
+  - `claude/repo-status-roadmap-xhdvyb` — landed in `eb5522105` (#54)
+  - `claude/retire-account-role-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-auto-file-review-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-billing-listing-bounds` — landed in `a4f2724b5` (#404)
+  - `claude/retire-bounded-listings-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-calendar-listing-bounds` — landed in `a4f2724b5` (#404)
+  - `claude/retire-costs-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-custody-listing-bounds` — landed in `a4f2724b5` (#404)
+  - `claude/retire-discovery-listing-bounds` — landed in `a4f2724b5` (#404)
+  - `claude/retire-discovery-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-landed-notes` — landed in `a4f2724b5` (#404)
+  - `claude/retire-landed-notes-0825` — landed in `8fcf94d84` (#393)
+  - `claude/retire-matter-calendar-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-matter-read-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-parties-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-register-history-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-silent-caps-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-stale-state-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-time-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-ui-loop-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-unbounded-reads-note` — landed in `a4f2724b5` (#404)
+  - `claude/retire-unpaged-note` — landed in `a4f2724b5` (#404)
+  - `claude/review-campaign-2-automation` — landed in `78ab265e9` (#152)
+  - `claude/review-campaign-2-financial` — landed in `120367c23` (#153)
+  - `claude/review-campaign-2-operational` — landed in `ad6721dd3` (#151)
+  - `claude/roadmap-condense` — landed in `b779e5d41` (#252)
+  - `claude/roadmap-currency` — landed in `556bb001c` (#280)
+  - `claude/save-new-version-analysis` — landed in `c9832cc2e` (#383)
+  - `claude/search-compaction` — landed in `5eaa67525` (#223)
+  - `claude/search-perf-stats` — landed in `801f4233c` (#222)
+  - `claude/search-r2-adapter` — landed in `f30366ad0` (#232)
+  - `claude/search-write-pipeline` — landed in `0d72292e8` (#61)
+  - `claude/self-serve-tier-design` — landed in `a48a02c58` (#191)
+  - `claude/semantic-convergence` — landed in `dc5083194` (#235)
+  - `claude/shipment-refusal` — landed in `07e3e6d1f` (#266)
+  - `claude/sign-in-password-placeholder` — landed in `c33b5683f` (#364)
+  - `claude/sign-in-transposition` — landed in `d1305300e` (#198)
+  - `claude/signals-that-lie` — landed in `f9fba9448` (#270)
+  - `claude/silent-caps` — landed in `de295a5ff` (#396)
+  - `claude/small-fixes` — landed in `769c0c38c` (#239)
+  - `claude/snapshot-format` — landed in `a4f2724b5` (#404)
+  - `claude/snapshot-gate` — landed in `ef7f59508` (#279)
+  - `claude/snapshot-provenance` — landed in `eb1129f27` (#242)
+  - `claude/spa-worker-split-design` — landed in `fdfeee638` (#360)
+  - `claude/stale-absence-comments` — landed in `6a6e5f6e5` (#262)
+  - `claude/stale-branch-report` — landed in `8f3c4ecad` (#391)
+  - `claude/stale-truths` — landed in `4ccc82292` (#307)
+  - `claude/statement-import-design` — landed in `5be4e097c` (#244)
+  - `claude/status-page-uptime` — landed in `f325b2e88` (#192)
+  - `claude/status-pointers` — landed in `e4a09ce2e` (#283)
+  - `claude/status-render-gate` — landed in `74b33d5be` (#253)
+  - `claude/stub-masked-wiring` — landed in `1a2d3f1d0` (#267)
+  - `claude/teardown-fix` — landed in `c96df603b` (#231)
+  - `claude/telemetry-runtime-batch` — landed in `d42cdeadb` (#74)
+  - `claude/telemetry-sweep-ledger` — landed in `4e2c941e9` (#64)
+  - `claude/test-race-pair` — landed in `a55502c4f` (#180)
+  - `claude/test-typecheck` — landed in `905cad042` (#282)
+  - `claude/tooling-friction` — landed in `1760fb520` (#302)
+  - `claude/tooling-hygiene-batch` — landed in `13534cd48` (#82)
+  - `claude/tooling-seams-batch` — landed in `e2f95b812` (#68)
+  - `claude/tools-reality-check` — landed in `9bd40bd75` (#264)
+  - `claude/translation-services-design` — landed in `f96a7e0f1` (#188)
+  - `claude/trust-3-2-2-movements` — landed in `3031ed5f4` (#115)
+  - `claude/trust-accounting-analysis` — landed in `26cfcce52` (#97)
+  - `claude/trust-authority` — landed in `bafaf62d8` (#199)
+  - `claude/trust-authority-design` — landed in `b3c99fdb1` (#189)
+  - `claude/trust-authorization-policy` — landed in `93eee6c50` (#178)
+  - `claude/trust-follow-ups` — landed in `f3285e9af` (#183)
+  - `claude/trust-ledger-slice-1` — landed in `a0130bbf3` (#105)
+  - `claude/trust-matter-close-precondition` — landed in `c83525c3c` (#124)
+  - `claude/trust-reconciliation` — landed in `f4a6b84e2` (#139)
+  - `claude/trust-routes` — landed in `9b6018ef2` (#210)
+  - `claude/trust-tier1` — landed in `e19cb99d1` (#208)
+  - `claude/trust-two-person-authorization` — landed in `4cf722bd0` (#137)
+  - `claude/tsconfig-refs-fix` — landed in `a4f2724b5` (#404)
+  - `claude/turnstile` — landed in `3a75b0315` (#274)
+  - `claude/typecheck-gap` — landed in `fe7ba53a1` (#277)
+  - `claude/ui-build-loop` — landed in `fd50acaf6` (#328)
+  - `claude/undeclared-body-contract-fix` — landed in `3b4f6301c` (#117)
+  - `claude/ungranted-permissions` — landed in `456468672` (#327)
+  - `claude/unified-identity` — landed in `a9ddc965d` (#219)
+  - `claude/unpaged-listings-remainder` — landed in `7f3f5e2ea` (#394)
+  - `claude/unwritable-settings` — landed in `5b40f7518` (#326)
+  - `claude/vpn-assessment` — landed in `0b8b69b0a` (#197)
+  - `claude/waiting-on-you-order` — landed in `45396f306` (#261)
+  - `claude/web-lib-alias` — landed in `a4f2724b5` (#404)
+  - `claude/web-worker-split` — landed in `efe965f38` (#361)
+  - `claude/worker-first-routing` — landed in `cb190170e` (#362)
+  - `claude/worker-followups-batch` — landed in `7cbfb2034` (#69)
+  - `claude/worker-topology-spec` — landed in `444a9aa0c` (#366)
+  - `claude/worker-typecheck` — landed in `3724983f8` (#285)
+  - `conflicts-co-party-hits` — landed in `20036e4db` (#33)
+  - `deps/coupled-major-bumps` — landed in `a2d8194da` (#15)
+  - `docs-sync/2026-08-04` — landed in `31f5b5f79` (#63)
+  - `docs-sync/2026-08-12` — landed in `a4f2724b5` (#404)
+  - `fix-assembly-format-output` — landed in `91b857323` (direct commit: fix(ci): format assembled docs output before opening the ...)
+  - `fix-assembly-push-no-verify` — landed in `a4f2724b5` (#404)
+  - `fix-pnpm-audit-endpoint-retirement` — landed in `9b87b7211` (direct commit: fix(ci): use pnpm's --ignore-registry-errors instead of a...)
+  - `lint-scope-ignore-workflow-yaml` — landed in `0ee43b8a9` (#39)
+  - `osv-gate-hardening` — landed in `62b1aec78` (direct commit: security: harden the osv-scanner audit gate and retire lo...)
+  - `osv-scanner-audit-gate` — landed in `8358f9274` (direct commit: feat(ci): audit both supply chains with osv-scanner (npm ...)
+  - `remediate-lopdf-advisory` — landed in `ed2723b6b` (#35)
+  - `slice-4-1-conflicts` — landed in `1500135bd` (#22)
+  - `sweep-active-work-conflicts-co-party` — landed in `a4f2724b5` (#404)
 
 ## Before the first firm goes live — verify the trust authorization posture
 
