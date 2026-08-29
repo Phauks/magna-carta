@@ -440,7 +440,12 @@
           <!-- The version chip — always-visible build identity (the owner's "what version am I
                on" answer). The chip is this build's own commit, baked in at build time, so it
                renders even when the API is down; its overlay reads the aggregate version
-               endpoint and reports every part honestly. -->
+               endpoint and reports every part honestly.
+
+               IT LEADS THE ACTIONS CLUSTER, to the inline-start of the bell, the timer and the
+               profile menu (owner correction, 2026-08-29: "put build versions to the left of
+               those buttons"). The signed-out frame ($lib/auth/auth-frame.svelte) seats it by the
+               same rule, so the chip does not move when a visitor signs in. -->
           <VersionChip />
           <!-- The notification bell — a real surface with an honest empty state (no fake items,
                no count badge). Its popover states the truth and offers the center; live alerts

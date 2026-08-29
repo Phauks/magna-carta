@@ -182,6 +182,24 @@ describe("where the public chip is mounted", () => {
     );
   });
 
+  it("leads the actions cluster on BOTH surfaces, so it does not move on sign-in", () => {
+    /*
+     * Owner correction, 2026-08-29: "put build versions to the left of those buttons." The chip is
+     * the FIRST thing in the trailing cluster on the signed-out frame and on the app shell alike —
+     * the buttons beside it differ (ecosystem links there, bell/timer/profile here) but its seat
+     * does not. Asserted on both files together because the defect this prevents is the two
+     * drifting apart, which no single-file check would see.
+     */
+    for (const path of ["lib/auth/auth-frame.svelte", "lib/components/app-shell.svelte"]) {
+      const actions = /<TopBar\.Actions>([\s\S]*?)<\/TopBar\.Actions>/.exec(
+        stripComments(source(path)),
+      );
+      expect(actions, path).not.toBeNull();
+      const firstElement = /<([A-Za-z][\w.]*)/.exec(actions?.[1] ?? "");
+      expect(firstElement?.[1], path).toBe("VersionChip");
+    }
+  });
+
   it("is the frame every signed-out surface is cut from", () => {
     const surfaces = [
       "routes/login/+page.svelte",
