@@ -7,12 +7,17 @@
    * "Create Account" would be describing the end of a journey while performing its first step, and
    * the person would then sit on a screen wondering why nothing had been created.
    *
-   * NO CREDENTIAL IS CHOSEN HERE — no password field, no passkey button. The password is set
-   * afterwards, through the link this sends, which is the same act that proves the mailbox belongs
-   * to the person who typed it; a password collected on this form would be a credential minted
-   * before anybody had proven anything. The passkey-or-password choice the design calls for is a
-   * real design decision waiting on a real route — ../joining-availability.ts holds both facts, and
-   * ../unbuilt-capabilities.ts holds the passkey gap itself.
+   * THE PASSWORD IS CHOSEN HERE, and nothing is minted by choosing it: the server hashes it in this
+   * request and holds it with the pending registration, and the credential comes into being only
+   * when the emailed token is spent — the act that proves the mailbox belongs to the person who
+   * typed it. The ordering the earlier design protected is intact; what is gone is the second mail
+   * and the password-reset round trip that used to stand between somebody and their first sign-in.
+   * The passkey-or-password choice the design calls for is still a real design decision waiting on a
+   * real route — ../joining-availability.ts holds that fact, and ../unbuilt-capabilities.ts holds
+   * the passkey gap itself.
+   *
+   * ONE PASSWORD FIELD WITH A REVEAL, not a confirm pair — the same reading as the account door
+   * beside it (register-account-screen.svelte) and the reset screen.
    *
    * BOTH ACKNOWLEDGEMENTS GATE THE SUBMIT, and they are two acts of consent because they are two
    * documents. The gate is honest — nothing is sent until both are ticked — but it stops at this
@@ -28,6 +33,7 @@
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import PasswordInput from "@magna-carta/design-system/password-input";
   import AuthPanel from "../auth-panel.svelte";
   import CredentialNotice from "../credential-notice.svelte";
   import { QUIET_LINK } from "../quiet-link.ts";
@@ -36,6 +42,8 @@
     firstName = $bindable(""),
     lastName = $bindable(""),
     email = $bindable(""),
+    password = $bindable(""),
+    minimumPasswordLength,
     agreedToTerms = $bindable(false),
     agreedToPrivacy = $bindable(false),
     firmName,
@@ -49,6 +57,9 @@
     firstName?: string;
     lastName?: string;
     email?: string;
+    password?: string;
+    /** The shortest password the server accepts, stated up front rather than discovered by refusal. */
+    minimumPasswordLength: number;
     agreedToTerms?: boolean;
     agreedToPrivacy?: boolean;
     /** The firm being founded, echoed so the person can see what they are about to create. */
@@ -67,6 +78,7 @@
     firstName.trim() !== "" &&
       lastName.trim() !== "" &&
       email.trim() !== "" &&
+      password.length >= minimumPasswordLength &&
       agreedToTerms &&
       agreedToPrivacy,
   );
@@ -124,6 +136,20 @@
           disabled={pending}
           required
         />
+      </div>
+
+      <div class="flex flex-col gap-8">
+        <Label for="register-details-password">Password</Label>
+        <PasswordInput
+          id="register-details-password"
+          name="new-password"
+          size="lg"
+          bind:value={password}
+          autocomplete="new-password"
+          placeholder="Password"
+          disabled={pending}
+        />
+        <p class="text-sm text-text-muted">At least {minimumPasswordLength} characters.</p>
       </div>
 
       <!--

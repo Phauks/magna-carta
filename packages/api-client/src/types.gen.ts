@@ -581,12 +581,17 @@ export type StartRegistrationRequest = {
     role?: 'account' | 'clientOfFirm' | 'firmMember' | 'foundFirm';
     email: string;
     name: string;
+    /**
+     * The password the person is choosing, 8-128 characters. Required for the doors that create an account (`account`, `foundFirm`); ignored by the two invitation doors, which create nothing.
+     */
+    password?: string;
     firmName?: string;
 };
 
 export type ConfirmRegistrationResponse = {
     email: string;
     status: 'accountCreated' | 'provisioning';
+    next: 'signIn' | 'checkEmail';
 };
 
 export type ConfirmRegistrationRequest = {
@@ -8573,7 +8578,7 @@ export type RegistrationsStartErrors = {
      */
     429: Problem;
     /**
-     * The request could not be verified; the body carries the retry window
+     * The request could not be verified, or the confirmation email could not be sent; the body carries the retry window and an Error ID. Nothing the request committed is lost — retrying supersedes it and sends a fresh mail.
      */
     503: Problem;
 };
@@ -8611,7 +8616,7 @@ export type RegistrationsConfirmError = RegistrationsConfirmErrors[keyof Registr
 
 export type RegistrationsConfirmResponses = {
     /**
-     * The registration is confirmed and the firm is being built
+     * The registration is confirmed; `next` says whether the account can be signed in to now
      */
     200: ConfirmRegistrationResponse;
 };

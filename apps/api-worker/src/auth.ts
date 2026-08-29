@@ -108,6 +108,16 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
   const twoFactorPatchByHookContext = new WeakMap<object, boolean>();
   return betterAuth({
     secret: env.AUTH_SECRET,
+    // THE PUBLIC ORIGIN THIS DEPLOYMENT IS REACHED AT. Left unset, Better Auth derives it from each
+    // incoming request and warns that callbacks and redirects may not work — which is not a cosmetic
+    // warning here: the same value is what a request-less path (a queue consumer sending mail) has
+    // no way to derive at all, and a link built against the wrong origin is a link that goes
+    // nowhere. Set from APP_BASE_URL when the deployment declares one, and left to the
+    // request-derived default when it does not, so local development and the test pool — which are
+    // reached at whatever host they happen to be served on — keep working unconfigured.
+    ...(env.APP_BASE_URL !== undefined && env.APP_BASE_URL !== ""
+      ? { baseURL: env.APP_BASE_URL }
+      : {}),
     // The encryption-key ROTATION ARRAY. Better Auth uses this same keyset to encrypt at-rest
     // credentials it owns outside the firm-keyed chokepoint — most importantly the TOTP seed (the
     // twoFactor plugin's symmetricEncrypt of the secret). A TOTP seed is a USER credential read at
@@ -151,10 +161,21 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         });
       },
       // Completing a reset proves control of the mailbox (the token only ever travels by email) —
-      // the same possession proof email verification asks for, so the flag flips here. This is
-      // also what activates invited users: the invite flow (members.invite) inserts them
-      // unverified with no credential account, and the reset link is their activation link;
-      // without this flip, requireEmailVerification would lock every invitee out at sign-in.
+      // the same possession proof email verification asks for, so the flag flips here.
+      //
+      // IT IS NO LONGER HOW SOMEBODY GETS THEIR FIRST PASSWORD, on the door most people arrive
+      // through: a person registering chooses their password then, and confirming the emailed token
+      // commits the credential with the account (routes/registrations.ts). Reset is back to being
+      // what its name says — replacing a password you already have.
+      //
+      // It IS still the activation link on the two doors that cannot collect a password: invitation
+      // redemption, where the mailed link is the only proof of the mailbox, and the operator door,
+      // where an admin types a name and there is no password to have chosen. Both insert the user
+      // unverified with no credential account, and Better Auth's reset endpoint creates the missing
+      // credential account before setting the password (verified against the installed 1.6.22:
+      // api/routes/password.mjs inserts one when findAccounts turns up no credential provider).
+      // Without this flip, requireEmailVerification would then lock every such person out at
+      // sign-in.
       onPasswordReset: async ({ user }) => {
         await env.DB_CONTROL.prepare(
           'UPDATE "user" SET email_verified = 1, updated_at = ?2 WHERE id = ?1',

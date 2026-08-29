@@ -21,6 +21,10 @@ import {
 import { INVITATION_ATTEMPT_LIMIT } from "../src/invitation-redemption.ts";
 import { ATTEMPT_LIMIT } from "../src/auth-attempt-budget.ts";
 
+// The password a registering visitor now chooses on the form. Registration commits it with the
+// account at confirmation, so every body that opens an account-creating door carries one.
+const TEST_PASSWORD = "a-sufficiently-long-test-password";
+
 // THE ATTACK THESE TESTS RUN. Everything below is written from the position of somebody who has no
 // account and wants to learn something they are not entitled to: whether a named person banks with
 // this platform, whether a named person was invited to a named firm, or whether a guessed date of
@@ -399,12 +403,14 @@ describe("registration does not reveal whether an address is taken", () => {
       role: "foundFirm",
       email: "registration-free@example.com",
       name: "Dana Okafor",
+      password: TEST_PASSWORD,
       firmName: "Okafor Legal",
     });
     const takenAnswer = await postAnonymous("/api/v1/registrations", {
       role: "foundFirm",
       email: takenEmail,
       name: "Dana Okafor",
+      password: TEST_PASSWORD,
       firmName: "Okafor Legal",
     });
 
@@ -420,6 +426,7 @@ describe("registration does not reveal whether an address is taken", () => {
       role: "foundFirm",
       email: takenEmail,
       name: "Someone Else",
+      password: TEST_PASSWORD,
       firmName: "Someone Else Law",
     });
 
@@ -447,6 +454,7 @@ describe("registration does not reveal whether an address is taken", () => {
       role: "foundFirm",
       email,
       name: "Rafa Iglesias",
+      password: TEST_PASSWORD,
       firmName: "Iglesias and Partners",
     });
     const stored = await env.DB_CONTROL.prepare(

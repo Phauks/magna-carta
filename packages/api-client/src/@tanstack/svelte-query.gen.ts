@@ -1066,7 +1066,7 @@ export const firmsProvisionMutation = (options?: Partial<Options<FirmsProvisionD
 };
 
 /**
- * Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to invitation redemption; a visitor founding a firm is emailed a confirmation link, and the firm is built only once that link is followed. Every outcome within a door answers identically, so the response never reveals whether an address already has an account.
+ * Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to invitation redemption; anyone creating an account chooses their password here and is emailed a confirmation link, and the account — with that password already set — is created only once that link is followed. Every outcome within a door answers identically, so the response never reveals whether an address already has an account.
  */
 export const registrationsStartMutation = (options?: Partial<Options<RegistrationsStartData>>): MutationOptions<RegistrationsStartResponse, RegistrationsStartError, Options<RegistrationsStartData>> => {
     const mutationOptions: MutationOptions<RegistrationsStartResponse, RegistrationsStartError, Options<RegistrationsStartData>> = {
@@ -1083,7 +1083,7 @@ export const registrationsStartMutation = (options?: Partial<Options<Registratio
 };
 
 /**
- * Completes a registration by presenting the emailed token: the firm's build is queued and the owner is sent the link that sets their password. An unknown, spent or expired token answers one refusal that does not distinguish between them.
+ * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration, so the person can sign in immediately, and a founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
  */
 export const registrationsConfirmMutation = (options?: Partial<Options<RegistrationsConfirmData>>): MutationOptions<RegistrationsConfirmResponse, RegistrationsConfirmError, Options<RegistrationsConfirmData>> => {
     const mutationOptions: MutationOptions<RegistrationsConfirmResponse, RegistrationsConfirmError, Options<RegistrationsConfirmData>> = {
@@ -1117,7 +1117,7 @@ export const invitationsIssueMutation = (options?: Partial<Options<InvitationsIs
 };
 
 /**
- * Redeems an invitation with its code, the invitee's surname and their date of birth, and sends the link that sets their password. Every unsuccessful combination — an unknown code, a wrong surname, a wrong date of birth, an invitation already used or expired — answers with one identical refusal, so the form cannot be used to discover who was invited where.
+ * Redeems an invitation with its code, the invitee's surname and their date of birth, and sends the link that sets their password — the link is what proves control of the mailbox, which redemption itself does not, so no password is collected here. Every unsuccessful combination — an unknown code, a wrong surname, a wrong date of birth, an invitation already used or expired — answers with one identical refusal, so the form cannot be used to discover who was invited where.
  */
 export const invitationsRedeemMutation = (options?: Partial<Options<InvitationsRedeemData>>): MutationOptions<InvitationsRedeemResponse, InvitationsRedeemError, Options<InvitationsRedeemData>> => {
     const mutationOptions: MutationOptions<InvitationsRedeemResponse, InvitationsRedeemError, Options<InvitationsRedeemData>> = {

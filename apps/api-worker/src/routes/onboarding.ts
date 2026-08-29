@@ -34,9 +34,10 @@ import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 // these routes admit belongs to no firm, so there is no firm in which they could hold a capability,
 // and the routes are structurally unreachable for everybody who could.
 //
-// NEITHER SENDS MAIL. The account arrived here by proving its mailbox twice — the confirmation token
-// and the password-setting link — so there is nothing left for a third mail to prove, and the person
-// is standing in front of the screen.
+// NEITHER SENDS MAIL. The account arrived here by proving its mailbox — spending the confirmation
+// token that was sent to it — and it already holds the password its owner chose when they
+// registered, so there is nothing left for another mail to prove and the person is standing in front
+// of the screen.
 
 const FoundFirmRequest = z
   .object({

@@ -8,7 +8,14 @@ import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { isUserEmailConflict } from "../control-plane-conflicts.ts";
+import { sendMessage, type EmailDelivery } from "../email-delivery.ts";
 import type { SendEmail } from "../email-port.ts";
+import {
+  hashChosenPassword,
+  insertCredentialAccountStatement,
+  PASSWORD_MAXIMUM_LENGTH,
+  PASSWORD_MINIMUM_LENGTH,
+} from "../joining-credentials.ts";
 import {
   enforceHumanVerification,
   humanVerificationTokenHeader,
@@ -69,6 +76,26 @@ const StartRegistrationRequest = z
     role: RegistrationRole.optional(),
     email: z.email(),
     name: z.string().trim().min(1).max(200),
+    // The password the visitor chooses, here rather than through a second mail. Hashed in this
+    // request and never stored, logged or queued in the clear; what is kept until the token is
+    // spent is the scrypt verifier, on a row that expires in 24 hours.
+    //
+    // OPTIONAL AT THE SCHEMA LAYER, REQUIRED BY THE TWO DOORS THAT CREATE SOMETHING. The bounds
+    // below are Better Auth's own configured rule, so a password that is present is refused by a
+    // published rule rather than opaquely; absence is the handler's 422, which lets the two
+    // invitation doors — which create nothing and are redeemed elsewhere — keep answering a body
+    // that has no password in it at all, including from a client built before this field existed.
+    password: z
+      .string()
+      .min(PASSWORD_MINIMUM_LENGTH)
+      .max(PASSWORD_MAXIMUM_LENGTH)
+      .optional()
+      .openapi({
+        description:
+          `The password the person is choosing, ${PASSWORD_MINIMUM_LENGTH}-${PASSWORD_MAXIMUM_LENGTH} ` +
+          "characters. Required for the doors that create an account (`account`, `foundFirm`); " +
+          "ignored by the two invitation doors, which create nothing.",
+      }),
     // Only read for the founding door. Trimmed and Unicode-composed so the same typed name is the
     // same name; NOT unique and never used as a lookup key — see firm.display_name.
     firmName: z
@@ -97,18 +124,44 @@ const ConfirmRegistrationRequest = z
 const ConfirmRegistrationResponse = z
   .object({
     email: z.string(),
-    // What the spent token bought. `accountCreated` — the account now exists and the link that
-    // sets its password has been sent; which firm it belongs to is decided afterwards, signed in.
-    // `provisioning` — a registration from the superseded founding door, whose firm is built in
-    // the background, so it answers "accepted and under way" rather than handing back a firm that
-    // does not exist yet.
+    // What the spent token bought. `accountCreated` — the account now exists, with the password
+    // chosen at registration already attached; which firm it belongs to is decided afterwards,
+    // signed in. `provisioning` — a registration from the superseded founding door, whose firm is
+    // built in the background, so it answers "accepted and under way" rather than handing back a
+    // firm that does not exist yet.
     status: z.enum(["accountCreated", "provisioning"]),
+    // Where the person goes, which is a fact about whether they already hold a password:
+    //
+    //   signIn        — the credential exists. The ordinary answer now: they chose the password at
+    //                   registration and it was committed with the account.
+    //   checkEmail    — a registration started BEFORE passwords were chosen at registration, which
+    //                   carries no password to attach; the reset link that creates one has been
+    //                   asked for instead.
+    //
+    // THERE IS DELIBERATELY NO "the mail did not send" VALUE on this response, and its absence is a
+    // fact about the library rather than an omission: the reset mail is sent from inside Better
+    // Auth, whose runInBackgroundOrAwait awaits the send and then swallows whatever it throws into
+    // its own logger, so the endpoint resolves identically whether or not a mail left. A value here
+    // would be a promise this route cannot keep. The failure is instead caught at the PORT, one
+    // layer down (app.ts), where it is counted and correlated — visible to an operator, which is the
+    // most this path can honestly offer until the reset token is minted by us rather than by the
+    // library.
+    next: z.enum(["signIn", "checkEmail"]),
   })
   .openapi("ConfirmRegistrationResponse");
 
 // How long a confirmation link lives. Long enough to survive a mail queue and an evening, short
 // enough that an old link in a mailbox is not a standing key.
 const CONFIRMATION_LIFETIME_HOURS = 24;
+
+// How long a caller is told to wait after a send that would not go through. Long enough for a
+// transient provider fault to clear, short enough that somebody standing at the front door is not
+// told to come back later than they will.
+const MAIL_RETRY_AFTER_SECONDS = 30;
+
+// The closed label this handler counts a mail failure under. A route template, so the counter
+// answers "which door stopped mailing" without a dimension anything caller-supplied can reach.
+const START_REGISTRATION_SURFACE = "POST /api/v1/registrations";
 
 // Where the emailed link lands: the screen that reads `?token=` into its field and spends it only
 // on a deliberate press (apps/web/src/routes/register/confirm/+page.svelte) — a link fetched by a
@@ -163,9 +216,10 @@ export const startRegistrationRoute = defineOpenAPIRoute(startRegistrationMeta, 
   path: "/api/v1/registrations",
   description:
     "Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to " +
-    "invitation redemption; a visitor founding a firm is emailed a confirmation link, and the firm " +
-    "is built only once that link is followed. Every outcome within a door answers identically, so " +
-    "the response never reveals whether an address already has an account.",
+    "invitation redemption; anyone creating an account chooses their password here and is emailed a " +
+    "confirmation link, and the account — with that password already set — is created only once " +
+    "that link is followed. Every outcome within a door answers identically, so the response never " +
+    "reveals whether an address already has an account.",
   request: {
     headers: humanVerificationTokenHeader,
     body: { content: { "application/json": { schema: StartRegistrationRequest } }, required: true },
@@ -190,7 +244,10 @@ export const startRegistrationRoute = defineOpenAPIRoute(startRegistrationMeta, 
       content: { "application/problem+json": { schema: Problem } },
     },
     503: {
-      description: "The request could not be verified; the body carries the retry window",
+      description:
+        "The request could not be verified, or the confirmation email could not be sent; the body " +
+        "carries the retry window and an Error ID. Nothing the request committed is lost — retrying " +
+        "supersedes it and sends a fresh mail.",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -211,8 +268,9 @@ export const confirmRegistrationRoute = defineOpenAPIRoute(confirmRegistrationMe
   method: "post",
   path: "/api/v1/registrations/confirmations",
   description:
-    "Completes a registration by presenting the emailed token: the firm's build is queued and the " +
-    "owner is sent the link that sets their password. An unknown, spent or expired token answers " +
+    "Completes a registration by presenting the emailed token: the account is created with the " +
+    "password chosen at registration, so the person can sign in immediately, and a founding " +
+    "registration additionally queues its firm's build. An unknown, spent or expired token answers " +
     "one refusal that does not distinguish between them.",
   request: {
     body: {
@@ -222,7 +280,8 @@ export const confirmRegistrationRoute = defineOpenAPIRoute(confirmRegistrationMe
   },
   responses: {
     200: {
-      description: "The registration is confirmed and the firm is being built",
+      description:
+        "The registration is confirmed; `next` says whether the account can be signed in to now",
       content: { "application/json": { schema: ConfirmRegistrationResponse } },
     },
     422: {
@@ -246,15 +305,19 @@ interface RegistrationRow {
   readonly confirmation_hash: string;
   readonly status: string;
   readonly expires_at: string;
+  // The password chosen at registration, hashed. Null for a registration started before the column
+  // existed — the one branch that still owes an activation mail.
+  readonly credential_hash: string | null;
 }
 
 export function registerRegistrationRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
   sendEmailForEnv: (env: Bindings) => SendEmail,
-  // Confirming an account-first registration ends by sending the link that sets the new account's
-  // password, which is Better Auth's own reset flow — the same activation invitation redemption
-  // uses. Passed in on the terms invitations.ts takes it: the instance's lifetime belongs to the
+  // Better Auth is reached for two things here: its configured password hasher (the one sign-in
+  // verifies against, so the credential this route writes is the credential that route reads), and
+  // — only for a registration started before passwords were chosen at registration — its reset
+  // flow. Passed in on the terms invitations.ts takes it: the instance's lifetime belongs to the
   // app, one per isolate.
   authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
   humanVerification: HumanVerificationGateOptions = {},
@@ -284,12 +347,41 @@ export function registerRegistrationRoutes(
         return c.json({ next: "redeemInvitation" as const }, 202);
       }
 
+      // The two doors that CREATE an account need the password now, because the account is created
+      // with it. Refused as a field-level 422 naming the rule rather than a bare rejection — the
+      // schema publishes the bounds, and this publishes the requirement.
+      if (request.password === undefined) {
+        return problemJson(c, {
+          type: "validation",
+          status: 422,
+          title: "Validation failed",
+          errors: [
+            {
+              path: "password",
+              code: "required",
+              detail:
+                `Choose a password of ${PASSWORD_MINIMUM_LENGTH}-${PASSWORD_MAXIMUM_LENGTH} ` +
+                "characters. It is set when you confirm, so there is no second email to wait for.",
+            },
+          ],
+        });
+      }
+
+      // Hashed HERE, in the only request the plaintext exists in, with Better Auth's own hasher.
+      // Nothing downstream ever sees the password itself: the row carries the verifier, and the
+      // batch at confirmation moves it onto the credential account.
+      const credentialHash = await hashChosenPassword(authForEnv(c.env), request.password);
+
       const token = generateConfirmationToken();
       const confirmationHash = await confirmationTokenHash(token);
       const nowInstant = new Date().toISOString();
       const expiresAt = new Date(
         Date.now() + CONFIRMATION_LIFETIME_HOURS * 60 * 60 * 1000,
       ).toISOString();
+
+      // Whether the one mail this endpoint owes actually went out. Declared here because both
+      // branches below set it and the answer they share is decided once, after them.
+      let delivery: EmailDelivery;
 
       // Is the address already spoken for? The ANSWER never reaches the caller — it only decides
       // which mail goes to the address itself, which is a channel the caller does not necessarily
@@ -314,8 +406,8 @@ export function registerRegistrationRoutes(
               ).bind(email),
               c.env.DB_CONTROL.prepare(
                 "INSERT INTO registration (id, role, email, display_name, firm_display_name, " +
-                  "confirmation_hash, status, expires_at, created_at) " +
-                  "VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8)",
+                  "confirmation_hash, status, expires_at, created_at, credential_hash) " +
+                  "VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8, ?9)",
               ).bind(
                 newIdentifier("registration"),
                 // The row carries the door, and CONFIRMATION branches on the row rather than on
@@ -330,6 +422,7 @@ export function registerRegistrationRoutes(
                 confirmationHash,
                 expiresAt,
                 nowInstant,
+                credentialHash,
               ),
               insertAuthAuditStatement(c.env.DB_CONTROL, {
                 id: newIdentifier("authAudit"),
@@ -347,21 +440,59 @@ export function registerRegistrationRoutes(
           { now: () => nowInstant },
         );
         const produces = role === "foundFirm" ? "workspace" : "account";
-        await sendEmailForEnv(c.env)({
-          to: email,
-          subject: `Confirm your Magna Carta ${produces}`,
-          text: confirmationEmailText(new URL(c.req.url).origin, token, produces),
-          messageClass: "registration-confirmation",
+        delivery = await sendMessage({
+          send: sendEmailForEnv(c.env),
+          surface: START_REGISTRATION_SURFACE,
+          logger: c.get("logger"),
+          correlationId: c.get("correlationId") ?? "",
+          message: {
+            to: email,
+            subject: `Confirm your Magna Carta ${produces}`,
+            text: confirmationEmailText(new URL(c.req.url).origin, token, produces),
+            messageClass: "registration-confirmation",
+          },
         });
       } else {
         // The address already has an account. Telling the CALLER would be the oracle; telling the
         // ACCOUNT HOLDER is the opposite — it is how somebody finds out their address is being
         // used, and it costs an attacker nothing they did not already know.
-        await sendEmailForEnv(c.env)({
-          to: email,
-          subject: "Someone tried to create a Magna Carta workspace with your address",
-          text: "Your address already has an account. If this was you, sign in instead; if it was not, no action is needed.",
-          messageClass: "registration-address-in-use",
+        delivery = await sendMessage({
+          send: sendEmailForEnv(c.env),
+          surface: START_REGISTRATION_SURFACE,
+          logger: c.get("logger"),
+          correlationId: c.get("correlationId") ?? "",
+          message: {
+            to: email,
+            subject: "Someone tried to create a Magna Carta workspace with your address",
+            text: "Your address already has an account. If this was you, sign in instead; if it was not, no action is needed.",
+            messageClass: "registration-address-in-use",
+          },
+        });
+      }
+
+      // NO MAIL, NO 202. Answering "check your email" when nothing was sent points somebody at an
+      // inbox that will never receive anything, and they have no way to discover that — it is the
+      // worst of the three available answers, worse than a refusal and worse than an outage.
+      //
+      // A 503, NOT A 500, for the reason the human-verification gate states in the same words: this
+      // is a live dependency that would not answer, the caller CAN act on it, and retrying is a real
+      // remedy here — a second registration for the same address supersedes the first and sends a
+      // fresh mail, which is the operation's documented behaviour rather than a special case built
+      // for this refusal.
+      //
+      // BOTH BRANCHES ANSWER IDENTICALLY, which is not incidental: the address-in-use branch and the
+      // fresh-registration branch send to the same address through the same adapter, so they fail
+      // together, and answering differently would turn a mail outage into the account-existence
+      // oracle the whole endpoint is arranged to deny.
+      if (!delivery.delivered) {
+        return problemJson(c, {
+          type: "mail-undeliverable",
+          status: 503,
+          title: "The confirmation email could not be sent",
+          detail:
+            "We could not send the confirmation email just now. Try again shortly — nothing was lost.",
+          retryAfterSeconds: MAIL_RETRY_AFTER_SECONDS,
+          errorId: delivery.errorId,
         });
       }
 
@@ -379,7 +510,7 @@ export function registerRegistrationRoutes(
       const presentedHash = await confirmationTokenHash(token);
       const row = await c.env.DB_CONTROL.prepare(
         "SELECT id, role, email, display_name, firm_display_name, confirmation_hash, status, " +
-          "expires_at FROM registration WHERE confirmation_hash = ?1",
+          "expires_at, credential_hash FROM registration WHERE confirmation_hash = ?1",
       )
         .bind(presentedHash)
         .first<RegistrationRow>();
@@ -403,14 +534,17 @@ export function registerRegistrationRoutes(
         });
       }
 
-      // THE ACCOUNT DOOR. Spending the token creates the person and nothing else: a `user` row
-      // carrying NO firm, unverified and credential-less, exactly the shape invitation redemption
-      // writes — and the password-setting link that follows is what creates the credential and, in
-      // completing, marks the address verified. No bucket, no key, no firm, no queue. Which firm
-      // this person belongs to is a decision they make afterwards, signed in, on the joining
-      // screen; that is the whole point of registering a person before a relationship.
+      // THE ACCOUNT DOOR. Spending the token creates the person and the credential they chose, and
+      // nothing else: a `user` row carrying NO firm, its address VERIFIED — the token travelled by
+      // mail and spending it is the possession proof verification asks for — and the credential
+      // `account` row holding the password from the registration, committed in the SAME batch. No
+      // bucket, no key, no firm, no queue, and no second mail: a person who has been given an
+      // account can sign in with it immediately. Which firm they belong to is a decision they make
+      // afterwards, signed in, on the joining screen; that is the whole point of registering a
+      // person before a relationship.
       if (row.role === "account") {
         const createdUserId = newIdentifier("user");
+        const nowEpochMilliseconds = Date.now();
         let created = true;
         try {
           await commitEffectBatch(
@@ -422,8 +556,28 @@ export function registerRegistrationRoutes(
                 ).bind(row.id, nowInstant),
                 c.env.DB_CONTROL.prepare(
                   'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) ' +
-                    "VALUES (?1, ?2, ?3, 0, ?4, ?4, NULL)",
-                ).bind(createdUserId, row.display_name, row.email, Date.now()),
+                    "VALUES (?1, ?2, ?3, ?5, ?4, ?4, NULL)",
+                ).bind(
+                  createdUserId,
+                  row.display_name,
+                  row.email,
+                  nowEpochMilliseconds,
+                  // Verified only where a credential proves the mailbox was reached AND a password
+                  // exists to sign in with. A legacy row carries no password, so it keeps the
+                  // unverified shape its own activation mail completes.
+                  row.credential_hash === null ? 0 : 1,
+                ),
+                // The credential, in the same batch as the person. Committing the user without it
+                // is the state that made a mail failure an account nobody could ever sign in to.
+                ...(row.credential_hash === null
+                  ? []
+                  : [
+                      insertCredentialAccountStatement(c.env.DB_CONTROL, {
+                        userId: createdUserId,
+                        passwordHash: row.credential_hash,
+                        nowEpochMilliseconds,
+                      }),
+                    ]),
                 insertAuthAuditStatement(c.env.DB_CONTROL, {
                   id: newIdentifier("authAudit"),
                   event: "registration.confirmed",
@@ -446,13 +600,37 @@ export function registerRegistrationRoutes(
           created = false;
         }
 
-        // The activation link, on both paths. A fresh account has no credential and this creates
-        // it; an address that already had one gets the ordinary recovery. Sent AFTER the commit, on
-        // the same accepted seam every other activation path takes: a send that throws leaves a
-        // real account whose owner recovers with Reset Password from the sign-in screen.
-        await authForEnv(c.env).api.requestPasswordReset({ body: { email: row.email } });
         if (created) scheduleRequestPathSweep(c.executionCtx, c.env);
-        return c.json({ email: row.email, status: "accountCreated" as const }, 200);
+
+        // THE ORDINARY ANSWER, and the point of the whole reflow: the account exists and already
+        // holds the password this person chose, so there is no mail to wait for and nowhere to go
+        // but sign-in.
+        if (created && row.credential_hash !== null) {
+          return c.json(
+            { email: row.email, status: "accountCreated" as const, next: "signIn" as const },
+            200,
+          );
+        }
+
+        // TWO CASES REACH HERE AND BOTH WANT A RESET LINK RATHER THAN A CREDENTIAL WRITTEN FROM
+        // THIS ROW. `!created` means the address already had an account: whoever holds this token
+        // holds the mailbox, so the right thing is the ordinary recovery — and silently replacing a
+        // standing password with one typed into a registration form would be an account takeover
+        // wearing a registration's clothes. A null credential_hash means a registration started
+        // before passwords were chosen at registration, which has no password to attach and
+        // completes the way it began.
+        // Awaited but never inspected: the send's outcome is recorded at the port (app.ts), which
+        // is the only layer that can see it.
+        await authForEnv(c.env).api.requestPasswordReset({ body: { email: row.email } });
+
+        // NOT a 503, and not a report of whether the mail went: the token has been spent, so "try
+        // again" is advice that cannot work, and the library gives this handler no way to know
+        // whether the send succeeded (see the note on `next`). The screen's own remedy — Reset
+        // Password from the sign-in screen — covers the case where nothing arrives.
+        return c.json(
+          { email: row.email, status: "accountCreated" as const, next: "checkEmail" as const },
+          200,
+        );
       }
 
       // The firm is NOT built here. Provisioning creates a bucket, mints a key, and spends the
@@ -499,7 +677,20 @@ export function registerRegistrationRoutes(
       // at-least-once guarantee, exactly as members.invite and firms.provision treat it.
       scheduleRequestPathSweep(c.executionCtx, c.env);
 
-      return c.json({ email: row.email, status: "provisioning" as const }, 200);
+      // The credential travels on the registration row, not in the message — the consumer reads it
+      // back by registration id and commits it with the owner. A password verifier has no business
+      // in a queue payload that outlives the row it came from and is read by a different consumer.
+      return c.json(
+        {
+          email: row.email,
+          status: "provisioning" as const,
+          // The owner's credential is created by the provisioning batch from the password they
+          // chose, so sign-in is where they go once the workspace is up. A registration started
+          // before that column existed still gets the activation mail the consumer sends.
+          next: row.credential_hash === null ? ("checkEmail" as const) : ("signIn" as const),
+        },
+        200,
+      );
     },
   );
 }

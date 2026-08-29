@@ -29,6 +29,7 @@
   import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
   import { startRegistration } from "$lib/auth/joining-api.ts";
+  import { MINIMUM_PASSWORD_LENGTH } from "$lib/auth/password-rule.ts";
   import { rememberInvitationCode } from "$lib/auth/pending-invitation.ts";
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import RegisterAccountScreen from "$lib/auth/screens/register-account-screen.svelte";
@@ -42,6 +43,7 @@
   let firstName = $state("");
   let lastName = $state("");
   let email = $state("");
+  let password = $state("");
   let agreedToTerms = $state(false);
   let agreedToPrivacy = $state(false);
   let pending = $state(false);
@@ -72,6 +74,9 @@
       // how a person reads their own name back, not because the server stores them apart.
       name: `${firstName.trim()} ${lastName.trim()}`,
       email: email.trim(),
+      // NOT trimmed. Leading and trailing spaces are part of a password — trimming one here would
+      // hash something the person never typed and lock them out of their own account at sign-in.
+      password,
     });
     pending = false;
     if (outcome.kind !== "ok") {
@@ -92,6 +97,8 @@
       bind:firstName
       bind:lastName
       bind:email
+      bind:password
+      minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
       bind:agreedToTerms
       bind:agreedToPrivacy
       bind:firstNameFieldReference
@@ -104,7 +111,7 @@
   {:else}
     <CheckEmailScreen
       address={email.trim()}
-      instruction="Open the link we sent, or type the confirmation code from that email. Your account is created once that is done."
+      instruction="Open the link we sent, or type the confirmation code from that email. Your account is created once that is done, with the password you chose."
       {sentAt}
       remedy="If it does not arrive, check the spam folder, then register again — a second registration replaces the first, and the newest code is the one that works."
       onEnterCode={() => goto("/register/confirm")}

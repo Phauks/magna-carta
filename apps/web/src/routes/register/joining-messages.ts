@@ -18,6 +18,14 @@
 import type { JoiningOutcome, JoiningProblem } from "$lib/auth/joining-api.ts";
 
 /**
+ * The problem type the API stamps on a 503 whose cause is a mail that would not send
+ * (apps/api-worker/src/contracts/problem-types.ts). Matched as a STRING rather than imported,
+ * because apps/web does not depend on the worker — the same arrangement the request shapes in
+ * $lib/auth/joining-api.ts are under, and the contract snapshot is what keeps the two honest.
+ */
+const MAIL_UNDELIVERABLE_PROBLEM_TYPE = "https://api.magnacarta.esq/problems/mail-undeliverable";
+
+/**
  * Every unsuccessful redemption, whatever went wrong: an unknown code, a surname that does not
  * match, a date of birth that does not match, an invitation already used, revoked, expired, or
  * locked. One sentence, because the platform is structurally incapable of telling them apart — and
@@ -40,6 +48,16 @@ export const REGISTRATION_REFUSED =
 /** Server-side rate limiting — not a verdict on what was entered. */
 export const TOO_MANY_ATTEMPTS = "Too many attempts. Wait a minute, then try again.";
 
+/**
+ * The confirmation email could not be sent — the server's own 503 on the registration route, which
+ * it answers rather than a cheerful "check your email" pointing at an inbox that will receive
+ * nothing. Distinct from JOINING_UNAVAILABLE because the remedy is precise and the reassurance is
+ * true: nothing was lost, and pressing the button again really does send a fresh one.
+ */
+export const CONFIRMATION_MAIL_UNAVAILABLE =
+  "We could not send the confirmation email just now. Nothing was lost — try again in a moment, " +
+  "and if it keeps happening, contact support with the ID below.";
+
 /** The service could not be reached, or failed. Says nothing about what was typed. */
 export const JOINING_UNAVAILABLE =
   "That could not be completed just now. Try again, and if it keeps happening, ask the firm that " +
@@ -52,6 +70,12 @@ export const JOINING_UNAVAILABLE =
 export function joiningErrorMessage(outcome: JoiningOutcome<unknown>, refusal: string): string {
   if (outcome.kind !== "problem") return JOINING_UNAVAILABLE;
   if (outcome.problem.status === 429) return TOO_MANY_ATTEMPTS;
+  // A mail that would not send is a 5xx with a REMEDY, so it is separated out ahead of the generic
+  // one: the person can press the button again and it really will send a fresh mail, which is worth
+  // saying and which the vaguer sentence below would talk them out of.
+  if (outcome.problem.type === MAIL_UNDELIVERABLE_PROBLEM_TYPE) {
+    return CONFIRMATION_MAIL_UNAVAILABLE;
+  }
   if (outcome.problem.status >= 500) return JOINING_UNAVAILABLE;
   return refusal;
 }

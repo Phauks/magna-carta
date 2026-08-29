@@ -262,6 +262,13 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     "x-mc-audited": resolvedMeta.audited,
     "x-mc-idempotency": resolvedMeta.idempotency,
     "x-mc-rateLimit": resolvedMeta.rateLimit,
+    // Emitted because it is the admission rule for the routes an account with no firm may reach,
+    // and on those it stands where a permission would: every permission is firm-scoped, so a
+    // firmless caller has none to name. A reader of the contract that could not see this would
+    // find an authenticated mutation naming no permission and no reason.
+    ...(resolvedMeta.firmlessSession === undefined
+      ? {}
+      : { "x-mc-firmlessSession": resolvedMeta.firmlessSession }),
     "x-mc-tags": resolvedMeta.tags,
     "x-mc-deprecated": resolvedMeta.deprecated,
   });

@@ -4,7 +4,7 @@ Joining happens in two steps, in this order: you **make an account**, and then y
 
 ## What it does
 
-**Registering creates a person.** You give your first and last name and an email address, agree to the Terms of Service and the Privacy Policy, and an email is sent to you. Your account is not created when you fill the form in — it is created when you follow the link in that email, which is how the platform knows the address is really yours. You then set a password and sign in.
+**Registering creates a person.** You give your first and last name, an email address and the password you want to use, agree to the Terms of Service and the Privacy Policy, and an email is sent to you. Your account is not created when you fill the form in — it is created when you follow the link in that email, which is how the platform knows the address is really yours. The password you chose is set on it at that moment, so you can sign in straight away.
 
 **The welcome screen decides what your account is.** The first time you sign in you land on a screen with two choices:
 
@@ -18,12 +18,14 @@ Nobody can add themselves to a firm that already exists. Who belongs to a firm i
 ### Create your account
 
 1. On the sign-in screen, select **Register**.
-2. Enter your first and last name and your email address.
+2. Enter your first and last name, your email address, and the password you want to use (at least eight characters).
 3. Tick the Terms of Service and the Privacy Policy, then select **Send Confirmation Email**.
 4. Open the email that arrives. Either follow the link in it, or select **Enter the Confirmation Code** and paste the code.
-5. A second email arrives with a link that sets your password. Open it, choose a password, and sign in.
+5. The screen says your account is ready. Select **Sign In** and sign in with the password you chose.
 
 You are now signed in with an account that does not belong to a firm yet, and the welcome screen is waiting.
+
+**If the confirmation email does not arrive**, register again with the same address — a second registration replaces the first, and the newest code is the one that works. If the screen tells you the email could not be sent, nothing was lost: wait a moment and try again, and quote the ID it shows if it keeps happening.
 
 ### Start a new firm
 
@@ -44,7 +46,7 @@ There are two ways in, and both work:
 
 **If you already have an account,** sign in, select **I have an invitation code** on the welcome screen, and enter the three details. You are taken straight into the firm — no further email.
 
-**If you do not have an account,** you do not need to make one first. Go to the invitation screen, enter the same three details, and an email arrives with a link that sets your password.
+**If you do not have an account,** you do not need to make one first. Go to the invitation screen, enter the same three details, and an email arrives with a link that sets your password. That link is deliberate: the code, surname and date of birth you type do not prove the mailbox is yours, and the emailed link does.
 
 Either way: type the code in capitals or lowercase, with the hyphens or without — the field groups it in fours as you type, and none of that spacing matters. The code is deliberately made of characters that are hard to mistype: you will never see a capital I, a lowercase l, a one, a capital O or a zero in one.
 
@@ -66,7 +68,7 @@ Either way: type the code in capitals or lowercase, with the hyphens or without 
 
 **A confirmation code works once.** If you use it twice, the second attempt is refused. If you register twice before confirming, only the most recent code works.
 
-**Nothing you fill in creates an account until you confirm.** No password is asked for while you register: you set it afterwards, from the link that is emailed to you, which is also how the platform knows the address is yours.
+**Nothing you fill in creates an account until you confirm.** The password you choose while registering is scrambled the moment you send it and is never stored or shown in readable form; nothing exists as an account until you open the link that is emailed to you, which is also how the platform knows the address is yours.
 
 **If you started a registration and the email has not arrived,** check the spam folder first, then register again — a second registration replaces the first, and the new code is the one that works. There is no "send again" button, because registering again is what actually sends a new one.
 

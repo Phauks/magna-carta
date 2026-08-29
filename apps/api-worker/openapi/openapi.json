@@ -2456,6 +2456,12 @@
             "minLength": 1,
             "maxLength": 200
           },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128,
+            "description": "The password the person is choosing, 8-128 characters. Required for the doors that create an account (`account`, `foundFirm`); ignored by the two invitation doors, which create nothing."
+          },
           "firmName": {
             "type": "string",
             "minLength": 1,
@@ -2479,11 +2485,19 @@
               "accountCreated",
               "provisioning"
             ]
+          },
+          "next": {
+            "type": "string",
+            "enum": [
+              "signIn",
+              "checkEmail"
+            ]
           }
         },
         "required": [
           "email",
-          "status"
+          "status",
+          "next"
         ]
       },
       "ConfirmRegistrationRequest": {
@@ -26224,6 +26238,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "health"
         ],
@@ -26267,6 +26282,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "allow",
         "x-mc-tags": [
           "me"
         ],
@@ -26330,6 +26346,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "meta"
         ],
@@ -26393,6 +26410,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "firmUsage"
         ],
@@ -26466,6 +26484,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "toolsConnection"
         ],
@@ -26529,6 +26548,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "toolsTurnCredentials"
         ],
@@ -26612,6 +26632,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "whois"
         ],
@@ -26707,6 +26728,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "safeBrowse"
         ],
@@ -26810,6 +26832,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "decryption"
         ],
@@ -26914,6 +26937,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "decryption"
         ],
@@ -27023,6 +27047,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "decryption"
         ],
@@ -27127,6 +27152,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "decryption"
         ],
@@ -27209,6 +27235,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "decryption"
         ],
@@ -27276,6 +27303,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "fileIntegrity"
         ],
@@ -27379,6 +27407,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "fileIntegrity"
         ],
@@ -27480,6 +27509,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "fileType"
         ],
@@ -27643,6 +27673,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emailInspector"
         ],
@@ -28075,6 +28106,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28148,6 +28180,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28223,6 +28256,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28308,6 +28342,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28439,6 +28474,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28523,6 +28559,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28653,6 +28690,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28765,6 +28803,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28877,6 +28916,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -28989,6 +29029,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29073,6 +29114,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29136,6 +29178,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29287,6 +29330,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29369,6 +29413,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29460,6 +29505,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29544,6 +29590,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29637,6 +29684,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29720,6 +29768,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29822,6 +29871,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -29895,6 +29945,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -30016,6 +30067,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -30090,6 +30142,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -30222,6 +30275,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -30315,6 +30369,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -30386,6 +30441,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "emails"
         ],
@@ -30510,6 +30566,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "fileRepair"
         ],
@@ -30611,6 +30668,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "fileRepair"
         ],
@@ -30722,6 +30780,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "fileRepair"
         ],
@@ -30833,6 +30892,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "fileRepair"
         ],
@@ -31004,6 +31064,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "fileRepair"
         ],
@@ -31172,6 +31233,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "ocr"
         ],
@@ -31402,6 +31464,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "ocr"
         ],
@@ -31514,6 +31577,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "esign"
         ],
@@ -31722,6 +31786,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "aiDetection"
         ],
@@ -31815,6 +31880,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "metadata"
         ],
@@ -31915,6 +31981,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "metadata"
         ],
@@ -32018,6 +32085,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "members"
         ],
@@ -32142,6 +32210,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "firm"
         ],
@@ -32266,6 +32335,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "firms"
         ],
@@ -32357,7 +32427,7 @@
     },
     "/api/v1/registrations": {
       "post": {
-        "description": "Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to invitation redemption; a visitor founding a firm is emailed a confirmation link, and the firm is built only once that link is followed. Every outcome within a door answers identically, so the response never reveals whether an address already has an account.",
+        "description": "Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to invitation redemption; anyone creating an account chooses their password here and is emailed a confirmation link, and the account — with that password already set — is created only once that link is followed. Every outcome within a door answers identically, so the response never reveals whether an address already has an account.",
         "operationId": "registrations.start",
         "tags": [
           "registrations"
@@ -32370,6 +32440,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "registrations"
         ],
@@ -32438,7 +32509,7 @@
             }
           },
           "503": {
-            "description": "The request could not be verified; the body carries the retry window",
+            "description": "The request could not be verified, or the confirmation email could not be sent; the body carries the retry window and an Error ID. Nothing the request committed is lost — retrying supersedes it and sends a fresh mail.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -32452,7 +32523,7 @@
     },
     "/api/v1/registrations/confirmations": {
       "post": {
-        "description": "Completes a registration by presenting the emailed token: the firm's build is queued and the owner is sent the link that sets their password. An unknown, spent or expired token answers one refusal that does not distinguish between them.",
+        "description": "Completes a registration by presenting the emailed token: the account is created with the password chosen at registration, so the person can sign in immediately, and a founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.",
         "operationId": "registrations.confirm",
         "tags": [
           "registrations"
@@ -32465,6 +32536,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "registrations"
         ],
@@ -32481,7 +32553,7 @@
         },
         "responses": {
           "200": {
-            "description": "The registration is confirmed and the firm is being built",
+            "description": "The registration is confirmed; `next` says whether the account can be signed in to now",
             "content": {
               "application/json": {
                 "schema": {
@@ -32528,6 +32600,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "invitations"
         ],
@@ -32639,7 +32712,7 @@
     },
     "/api/v1/invitations/redemptions": {
       "post": {
-        "description": "Redeems an invitation with its code, the invitee's surname and their date of birth, and sends the link that sets their password. Every unsuccessful combination — an unknown code, a wrong surname, a wrong date of birth, an invitation already used or expired — answers with one identical refusal, so the form cannot be used to discover who was invited where.",
+        "description": "Redeems an invitation with its code, the invitee's surname and their date of birth, and sends the link that sets their password — the link is what proves control of the mailbox, which redemption itself does not, so no password is collected here. Every unsuccessful combination — an unknown code, a wrong surname, a wrong date of birth, an invitation already used or expired — answers with one identical refusal, so the form cannot be used to discover who was invited where.",
         "operationId": "invitations.redeem",
         "tags": [
           "invitations"
@@ -32652,6 +32725,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "invitations"
         ],
@@ -32747,6 +32821,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "only",
         "x-mc-tags": [
           "onboarding"
         ],
@@ -32830,6 +32905,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "only",
         "x-mc-tags": [
           "onboarding"
         ],
@@ -32913,6 +32989,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "platform"
         ],
@@ -33036,6 +33113,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "platformStatus"
         ],
@@ -33119,6 +33197,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "platformStatus"
         ],
@@ -33212,6 +33291,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "platformStatus"
         ],
@@ -33305,6 +33385,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "platformStatus"
         ],
@@ -33388,6 +33469,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "platformStatus"
         ],
@@ -33471,6 +33553,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "incident-report",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "incidents"
         ],
@@ -33564,6 +33647,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "uploads"
         ],
@@ -33688,6 +33772,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "uploads"
         ],
@@ -33772,6 +33857,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "uploads"
         ],
@@ -33875,6 +33961,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "uploads"
         ],
@@ -33979,6 +34066,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "uploads"
         ],
@@ -34073,6 +34161,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -34195,6 +34284,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -34326,6 +34416,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -34409,6 +34500,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -34481,6 +34573,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -34614,6 +34707,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -34737,6 +34831,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -34860,6 +34955,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -34983,6 +35079,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -35116,6 +35213,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -35196,6 +35294,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -35329,6 +35428,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -35461,6 +35561,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -35533,6 +35634,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -35666,6 +35768,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -35738,6 +35841,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matters"
         ],
@@ -35871,6 +35975,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "members"
         ],
@@ -35943,6 +36048,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "members"
         ],
@@ -36076,6 +36182,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterTypes"
         ],
@@ -36198,6 +36305,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterTypes"
         ],
@@ -36261,6 +36369,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterTypes"
         ],
@@ -36394,6 +36503,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterTypes"
         ],
@@ -36517,6 +36627,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documentTypes"
         ],
@@ -36639,6 +36750,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documentTypes"
         ],
@@ -36702,6 +36814,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documentTypes"
         ],
@@ -36835,6 +36948,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documentTypes"
         ],
@@ -36958,6 +37072,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37080,6 +37195,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37143,6 +37259,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37215,6 +37332,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37348,6 +37466,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37471,6 +37590,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37602,6 +37722,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37725,6 +37846,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37858,6 +37980,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "locations"
         ],
@@ -37991,6 +38114,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "numbering"
         ],
@@ -38062,6 +38186,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "numbering"
         ],
@@ -38186,6 +38311,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "numbering"
         ],
@@ -38279,6 +38405,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "folders"
         ],
@@ -38351,6 +38478,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "folders"
         ],
@@ -38475,6 +38603,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "folders"
         ],
@@ -38606,6 +38735,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "folders"
         ],
@@ -38729,6 +38859,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "files"
         ],
@@ -38841,6 +38972,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "files"
         ],
@@ -38913,6 +39045,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "files"
         ],
@@ -39044,6 +39177,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "files"
         ],
@@ -39167,6 +39301,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "files"
         ],
@@ -39249,6 +39384,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "files"
         ],
@@ -39337,6 +39473,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "files"
         ],
@@ -39411,6 +39548,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "downloads"
         ],
@@ -39533,6 +39671,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documents"
         ],
@@ -39617,6 +39756,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documents"
         ],
@@ -39691,6 +39831,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documents"
         ],
@@ -39795,6 +39936,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documents"
         ],
@@ -39889,6 +40031,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documents"
         ],
@@ -39983,6 +40126,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "documents"
         ],
@@ -40067,6 +40211,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "scan"
         ],
@@ -40148,6 +40293,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "scan"
         ],
@@ -40212,6 +40358,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "scanPolicy"
         ],
@@ -40283,6 +40430,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "scanPolicy"
         ],
@@ -40407,6 +40555,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "scanPolicy"
         ],
@@ -40480,6 +40629,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "downloads"
         ],
@@ -40564,6 +40714,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "downloads"
         ],
@@ -40651,6 +40802,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -40775,6 +40927,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -40849,6 +41002,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -40982,6 +41136,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41106,6 +41261,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41180,6 +41336,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41313,6 +41470,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41446,6 +41604,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41547,6 +41706,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41671,6 +41831,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41795,6 +41956,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41919,6 +42081,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -41992,6 +42155,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -42075,6 +42239,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -42199,6 +42364,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -42321,6 +42487,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -42405,6 +42572,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "directory"
         ],
@@ -42528,6 +42696,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "conflicts"
         ],
@@ -42652,6 +42821,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "conflicts"
         ],
@@ -42736,6 +42906,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "conflicts"
         ],
@@ -42830,6 +43001,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "conflicts"
         ],
@@ -42963,6 +43135,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -43114,6 +43287,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -43204,6 +43378,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -43337,6 +43512,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -43419,6 +43595,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -43552,6 +43729,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -43712,6 +43890,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -43858,6 +44037,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -43943,6 +44123,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -44067,6 +44248,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -44200,6 +44382,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -44333,6 +44516,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -44466,6 +44650,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -44599,6 +44784,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -44732,6 +44918,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -44865,6 +45052,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -44998,6 +45186,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -45121,6 +45310,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -45252,6 +45442,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -45376,6 +45567,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -45458,6 +45650,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -45591,6 +45784,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -45724,6 +45918,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -45832,6 +46027,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -45956,6 +46152,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -46089,6 +46286,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -46201,6 +46399,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -46325,6 +46524,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -46456,6 +46656,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -46579,6 +46780,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -46703,6 +46905,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -46826,6 +47029,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -46959,6 +47163,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "calendar"
         ],
@@ -47053,6 +47258,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -47135,6 +47341,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -47259,6 +47466,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -47373,6 +47581,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -47505,6 +47714,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -47629,6 +47839,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -47711,6 +47922,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -47825,6 +48037,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -47958,6 +48171,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -48081,6 +48295,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -48214,6 +48429,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -48345,6 +48561,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -48437,6 +48654,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -48570,6 +48788,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -48693,6 +48912,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -48826,6 +49046,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -48922,6 +49143,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49025,6 +49247,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49129,6 +49352,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49239,6 +49463,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49372,6 +49597,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49471,6 +49697,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49571,6 +49798,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49655,6 +49883,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49756,6 +49985,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49878,6 +50108,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -49991,6 +50222,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -50075,6 +50307,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -50206,6 +50439,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -50315,6 +50549,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -50399,6 +50634,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -50532,6 +50768,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -50648,6 +50885,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -50754,6 +50992,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -50878,6 +51117,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -51001,6 +51241,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -51134,6 +51375,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -51267,6 +51509,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "custody"
         ],
@@ -51362,6 +51605,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -51532,6 +51776,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -51665,6 +51910,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -51766,6 +52012,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -51897,6 +52144,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52020,6 +52268,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52123,6 +52372,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52213,6 +52463,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52346,6 +52597,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52451,6 +52703,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52575,6 +52828,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52648,6 +52902,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52741,6 +52996,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -52874,6 +53130,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -53007,6 +53264,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -53149,6 +53407,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -53282,6 +53541,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -53405,6 +53665,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -53538,6 +53799,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -53670,6 +53932,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -53803,6 +54066,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -53896,6 +54160,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54000,6 +54265,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54120,6 +54386,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54235,6 +54502,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54345,6 +54613,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54474,6 +54743,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54595,6 +54865,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54718,6 +54989,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54831,6 +55103,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "magnus"
         ],
@@ -54938,6 +55211,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -55042,6 +55316,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -55155,6 +55430,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -55270,6 +55546,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -55374,6 +55651,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -55505,6 +55783,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -55645,6 +55924,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -55770,6 +56050,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -55895,6 +56176,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -56006,6 +56288,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -56138,6 +56421,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -56261,6 +56545,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -56383,6 +56668,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -56495,6 +56781,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -56599,6 +56886,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -56779,6 +57067,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -56893,6 +57182,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57004,6 +57294,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57098,6 +57389,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57208,6 +57500,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57339,6 +57632,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57441,6 +57735,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57564,6 +57859,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57687,6 +57983,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57797,6 +58094,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -57928,6 +58226,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -58051,6 +58350,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -58161,6 +58461,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -58292,6 +58593,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -58396,6 +58698,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "discovery"
         ],
@@ -58519,6 +58822,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -58643,6 +58947,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -58776,6 +59081,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -58909,6 +59215,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59042,6 +59349,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59165,6 +59473,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59288,6 +59597,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59409,6 +59719,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59483,6 +59794,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59616,6 +59928,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59730,6 +60043,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59863,6 +60177,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -59996,6 +60311,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -60129,6 +60445,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -60262,6 +60579,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -60385,6 +60703,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -60508,6 +60827,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -60630,6 +60950,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -60754,6 +61075,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -60828,6 +61150,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "customFields"
         ],
@@ -60919,6 +61242,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61043,6 +61367,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61165,6 +61490,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61274,6 +61600,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61356,6 +61683,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61489,6 +61817,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61612,6 +61941,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61735,6 +62065,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61868,6 +62199,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -61991,6 +62323,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -62122,6 +62455,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "costs"
         ],
@@ -62245,6 +62579,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -62369,6 +62704,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -62491,6 +62827,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -62585,6 +62922,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -62708,6 +63046,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -62841,6 +63180,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -62974,6 +63314,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63055,6 +63396,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63179,6 +63521,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63303,6 +63646,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63406,6 +63750,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63528,6 +63873,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63622,6 +63968,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63716,6 +64063,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63830,6 +64178,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -63954,6 +64303,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64076,6 +64426,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64170,6 +64521,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64264,6 +64616,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64358,6 +64711,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64491,6 +64845,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64623,6 +64978,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64746,6 +65102,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64868,6 +65225,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -64962,6 +65320,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -65086,6 +65445,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -65210,6 +65570,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "reports"
         ],
@@ -65355,6 +65716,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -65458,6 +65820,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -65582,6 +65945,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -65715,6 +66079,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -65848,6 +66213,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "trust"
         ],
@@ -65942,6 +66308,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -66064,6 +66431,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -66179,6 +66547,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -66312,6 +66681,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -66444,6 +66814,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -66586,6 +66957,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -66719,6 +67091,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -66852,6 +67225,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -66976,6 +67350,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67100,6 +67475,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67223,6 +67599,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67345,6 +67722,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67428,6 +67806,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67522,6 +67901,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67616,6 +67996,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67710,6 +68091,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67841,6 +68223,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -67935,6 +68318,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -68066,6 +68450,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -68168,6 +68553,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -68310,6 +68696,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -68443,6 +68830,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -68576,6 +68964,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -68689,6 +69078,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -68822,6 +69212,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -68945,6 +69336,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69039,6 +69431,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69120,6 +69513,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69244,6 +69638,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69375,6 +69770,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69477,6 +69873,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69608,6 +70005,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69702,6 +70100,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69835,6 +70234,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -69937,6 +70337,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -70070,6 +70471,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -70203,6 +70605,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "billing"
         ],
@@ -70297,6 +70700,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -70419,6 +70823,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -70546,6 +70951,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -70628,6 +71034,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -70761,6 +71168,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -70844,6 +71252,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -70968,6 +71377,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -71091,6 +71501,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -71214,6 +71625,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -71347,6 +71759,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timeEntries"
         ],
@@ -71470,6 +71883,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timer"
         ],
@@ -71574,6 +71988,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timer"
         ],
@@ -71678,6 +72093,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timer"
         ],
@@ -71782,6 +72198,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timer"
         ],
@@ -71886,6 +72303,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timer"
         ],
@@ -71990,6 +72408,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timer"
         ],
@@ -72063,6 +72482,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "timer"
         ],
@@ -72187,6 +72607,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "rateCards"
         ],
@@ -72309,6 +72730,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "rateCards"
         ],
@@ -72382,6 +72804,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "rates"
         ],
@@ -72515,6 +72938,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "rates"
         ],
@@ -72648,6 +73072,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "utbmsCodes"
         ],
@@ -72736,6 +73161,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "utbmsCodes"
         ],
@@ -72860,6 +73286,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "utbmsCodes"
         ],
@@ -72984,6 +73411,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "nonBillableCategories"
         ],
@@ -73106,6 +73534,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "nonBillableCategories"
         ],
@@ -73179,6 +73608,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "nonBillableCategories"
         ],
@@ -73312,6 +73742,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "nonBillableCategories"
         ],
@@ -73435,6 +73866,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "narrativeTemplates"
         ],
@@ -73557,6 +73989,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "narrativeTemplates"
         ],
@@ -73630,6 +74063,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "narrativeTemplates"
         ],
@@ -73723,6 +74157,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "myDay"
         ],
@@ -73816,6 +74251,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notifications"
         ],
@@ -73943,6 +74379,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notifications"
         ],
@@ -74006,6 +74443,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notifications"
         ],
@@ -74090,6 +74528,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notifications"
         ],
@@ -74174,6 +74613,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notifications"
         ],
@@ -74257,6 +74697,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notificationPreferences"
         ],
@@ -74328,6 +74769,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notificationPreferences"
         ],
@@ -74452,6 +74894,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notificationPreferences"
         ],
@@ -74523,6 +74966,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "notificationPreferences"
         ],
@@ -74647,6 +75091,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "firmNotificationPolicy"
         ],
@@ -74718,6 +75163,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "firmNotificationPolicy"
         ],
@@ -74842,6 +75288,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "conversions"
         ],
@@ -74915,6 +75362,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "conversions"
         ],
@@ -75008,6 +75456,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "conversions"
         ],
@@ -75092,6 +75541,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "conversions"
         ],
@@ -75179,6 +75629,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -75278,6 +75729,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -75400,6 +75852,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -75513,6 +75966,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -75646,6 +76100,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -75749,6 +76204,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -75843,6 +76299,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -75936,6 +76393,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -76030,6 +76488,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "templates"
         ],
@@ -76113,6 +76572,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "assemblies"
         ],
@@ -76236,6 +76696,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "assemblies"
         ],
@@ -76339,6 +76800,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "supportGrants"
         ],
@@ -76430,6 +76892,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "supportGrants"
         ],
@@ -76493,6 +76956,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "supportGrants"
         ],
@@ -76576,6 +77040,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "supportGrants"
         ],
@@ -76659,6 +77124,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "supportSessions"
         ],
@@ -76783,6 +77249,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "supportDiagnostics"
         ],
@@ -76856,6 +77323,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "shipping"
         ],
@@ -76988,6 +77456,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "shipping"
         ],
@@ -77102,6 +77571,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "shipping"
         ],
@@ -77226,6 +77696,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "shipping"
         ],
@@ -77349,6 +77820,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "shipping"
         ],
@@ -77501,6 +77973,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "shipping"
         ],
@@ -77584,6 +78057,7 @@
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "shipping"
         ],
@@ -77707,6 +78181,7 @@
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "shipping"
         ],

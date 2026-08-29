@@ -26,8 +26,16 @@
 // and not a long lockout.
 import type { Context, MiddlewareHandler } from "hono";
 
-/** How many credential failures the shared ladder allows before the lockout. */
-export const ATTEMPT_LIMIT = 5;
+// How many credential failures the shared ladder allows before the lockout. Fifteen rather than a
+// tighter number because of what the ladder actually costs the honest visitor: it is keyed on the
+// client address, spans the password, the two-factor code and the recovery code together, and the
+// lockout REPLACES the credential answer — so a person who mistypes a few times, then tries a
+// recovery code, then types the right password is told the same thing either way and cannot tell
+// they were ever locked out rather than wrong. An office behind one egress shares the ladder, which
+// spends it faster still. Fifteen keeps the ceiling low enough to be worthless to a guesser at one
+// address (the window ages failures out at 900 seconds, so it is not fifteen per day) while leaving
+// room for the ordinary bad afternoon.
+export const ATTEMPT_LIMIT = 15;
 
 /** How long the lockout lasts once the budget is spent. */
 export const LOCKOUT_SECONDS = 300;

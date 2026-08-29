@@ -606,6 +606,14 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "notifications.markAllRead",
     ]);
 
+    // The two doors a signed-in account with no firm may push on, and the only mutating operations
+    // that legitimately name no permission while being authenticated. Adding a third is a decision
+    // about who may act before belonging anywhere, not a line to append quietly.
+    const FIRMLESS_JOINING_OPERATIONS = new Set([
+      "onboarding.foundFirm",
+      "onboarding.redeemInvitation",
+    ]);
+
     for (const { operation, label } of mutatingV1) {
       if (!NON_MUTATING_POST_ALLOW_LIST.has(operation["operationId"] as string)) {
         expect(operation["x-mc-audited"], label).toBe(true);
@@ -628,6 +636,18 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
         continue;
       }
       expect(operation["x-mc-authenticated"], label).toBe(true);
+      // The third shape, and the newest: authenticated, but held by an account that belongs to no
+      // firm yet. Every permission in the registry is firm-scoped, so there is no true one to name
+      // — a firmless caller has no role anywhere. Naming one anyway would be the same misleading
+      // contract the anonymous branch above refuses. What stands in its place is stricter than a
+      // permission and is asserted here: the route admits ONLY a firmless session, so an account
+      // that already has a firm cannot reach it at all, and it rides the tightest bucket.
+      if (FIRMLESS_JOINING_OPERATIONS.has(operation["operationId"] as string)) {
+        expect(operation["x-mc-permission"], label).toBeNull();
+        expect(operation["x-mc-firmlessSession"], label).toBe("only");
+        expect(operation["x-mc-rateLimit"], label).toBe("auth");
+        continue;
+      }
       const permission = operation["x-mc-permission"];
       expect(typeof permission, label).toBe("string");
       expect(isPermission(permission as string), `${label} permission ${String(permission)}`).toBe(

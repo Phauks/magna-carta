@@ -12,10 +12,18 @@
    * account, which is created when the link in that mail is followed. A button reading "Create
    * Account" would describe the end of a journey while performing its first step.
    *
-   * NO CREDENTIAL IS CHOSEN HERE — no password field, no passkey button. The password is set
-   * afterwards through the link this sends, which is the same act that proves the mailbox belongs to
-   * the person who typed it; a password collected on this form would be a credential minted before
-   * anybody had proven anything. ../joining-availability.ts holds that fact and the passkey gap.
+   * THE PASSWORD IS CHOSEN HERE, and nothing is minted by choosing it. It is hashed by the server in
+   * this request and held with the pending registration; the credential comes into being only when
+   * the emailed token is spent, which is the act that proves the mailbox belongs to the person who
+   * typed it. So the ordering the earlier design protected is intact — nothing exists before the
+   * mailbox is proven — while the person is spared a second mail and a password-reset round trip
+   * standing between them and their first sign-in. (Passkeys are still a gap:
+   * ../joining-availability.ts.)
+   *
+   * ONE PASSWORD FIELD WITH A REVEAL, not a confirm pair, matching the reset screen beside it
+   * (reset-password-set-screen.svelte): being able to READ what you typed is what the second field
+   * existed to compensate for, and a mistyped password here is recoverable through Reset Password
+   * rather than fatal.
    *
    * BOTH ACKNOWLEDGEMENTS GATE THE SUBMIT, and they are two acts of consent because they are two
    * documents. The gate is honest — nothing is sent until both are ticked — but it stops at this
@@ -29,6 +37,7 @@
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import PasswordInput from "@magna-carta/design-system/password-input";
   import AuthPanel from "../auth-panel.svelte";
   import CredentialNotice from "../credential-notice.svelte";
   import { QUIET_LINK } from "../quiet-link.ts";
@@ -37,6 +46,8 @@
     firstName = $bindable(""),
     lastName = $bindable(""),
     email = $bindable(""),
+    password = $bindable(""),
+    minimumPasswordLength,
     agreedToTerms = $bindable(false),
     agreedToPrivacy = $bindable(false),
     pending = false,
@@ -49,6 +60,9 @@
     firstName?: string;
     lastName?: string;
     email?: string;
+    password?: string;
+    /** The shortest password the server accepts, stated up front rather than discovered by refusal. */
+    minimumPasswordLength: number;
     agreedToTerms?: boolean;
     agreedToPrivacy?: boolean;
     pending?: boolean;
@@ -65,6 +79,7 @@
     firstName.trim() !== "" &&
       lastName.trim() !== "" &&
       email.trim() !== "" &&
+      password.length >= minimumPasswordLength &&
       agreedToTerms &&
       agreedToPrivacy,
   );
@@ -120,6 +135,20 @@
         />
       </div>
 
+      <div class="flex flex-col gap-8">
+        <Label for="register-password">Password</Label>
+        <PasswordInput
+          id="register-password"
+          name="new-password"
+          size="lg"
+          bind:value={password}
+          autocomplete="new-password"
+          placeholder="Password"
+          disabled={pending}
+        />
+        <p class="text-sm text-text-muted">At least {minimumPasswordLength} characters.</p>
+      </div>
+
       <!--
         The two documents do not exist yet, so both hrefs are placeholders and open nothing. They
         are links rather than plain text because that is what they become the day the pages are
@@ -164,9 +193,9 @@
       <CredentialNotice message={rejection} errorId={supportErrorId} subject="registration" />
 
       <p class="text-sm text-text-muted">
-        You will set your password from the link in that email, which is also how we know the
-        address is yours. Once you are signed in, you can start a law firm or join one you have
-        been invited to.
+        Your account is created when you open the link in that email, which is how we know the
+        address is yours — then sign in with the password you just chose. Once you are signed in,
+        you can start a law firm or join one you have been invited to.
       </p>
     </form>
   {/snippet}

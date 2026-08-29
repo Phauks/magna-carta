@@ -15,6 +15,7 @@ import { noindexResponseMiddleware } from "./crawler-directives.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
+import { deliverEmail } from "./email-delivery.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerAssembliesRoutes } from "./routes/assemblies.ts";
@@ -421,10 +422,39 @@ function emailAdapterForEnv(env: Bindings): SendEmail {
 export function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
   let auth = authInstanceByEnv.get(env);
   if (auth === undefined) {
-    auth = createAuth(env, emailAdapterForEnv(env));
+    // THE PORT IS GUARDED BEFORE IT REACHES BETTER AUTH, and it has to be guarded HERE rather than
+    // around the calls, because the library will not let a caller see a send fail. Its
+    // `runInBackgroundOrAwait` awaits the send and then swallows whatever it throws into its own
+    // logger (verified against the installed 1.6.22, context/create-context.mjs), so
+    // `api.requestPasswordReset` resolves successfully whether or not a mail went out and a
+    // try/catch at the call site is dead code. Wrapping the port is the only place the failure is
+    // observable at all — so this is where it becomes a counted, correlated fact instead of a line
+    // in a third-party logger that nothing aggregates.
+    auth = createAuth(env, countingEmailPort(emailAdapterForEnv(env), env));
     authInstanceByEnv.set(env, auth);
   }
   return auth;
+}
+
+/**
+ * Wrap a send so a failure is counted and correlated on its way past, then rethrown unchanged. The
+ * rethrow matters: Better Auth catches it (see above), while a direct caller that awaits the port
+ * still sees the throw and can answer for it.
+ */
+function countingEmailPort(send: SendEmail, env: Bindings): SendEmail {
+  return async (message) => {
+    const delivery = await deliverEmail({
+      attempt: () => send(message),
+      messageClass: message.messageClass ?? "unspecified",
+      // Not a route: this guard sits under every Better Auth-originated send, and which endpoint
+      // asked is not knowable from here. The message class is what distinguishes them.
+      surface: "better-auth",
+      logger: defaultLoggerForEnv(env),
+    });
+    if (!delivery.delivered) {
+      throw new Error(`email send failed (${message.messageClass ?? "unspecified"})`);
+    }
+  };
 }
 
 // One Workers logger per env (the env object is stable within an isolate), built over the optional

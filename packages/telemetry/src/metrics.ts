@@ -434,6 +434,19 @@ export const notificationsDigestRefusedEscalation = defineMetric(
   ["cadence"] as const,
 );
 
+// A transactional email that did NOT go out, by the path that asked for it and the class of message
+// it was. The `email.sent` event already records a failed outcome at the adapter, but only the
+// adapter that has a real binding emits one — a deployment whose mail is not switched on resolves
+// the logging adapter and reports nothing at all, which is exactly the deployment where nobody is
+// receiving anything. This counter is raised by the CALLER instead, so "a person was not mailed" is
+// a number on every path and in every environment. `surface` is a route template or a consumer
+// name; `messageClass` is the port's own non-content tag. There is deliberately no dimension an
+// address, a subject, a link or a body could occupy.
+export const emailDeliveryFailed = defineMetric("email.delivery_failed", [
+  "surface",
+  "messageClass",
+] as const);
+
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
@@ -500,6 +513,7 @@ const CATALOG: readonly MetricDefinition[] = [
   notificationsDigestUnavailable,
   notificationsDigestRecipientsClamped,
   notificationsDigestRefusedEscalation,
+  emailDeliveryFailed,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

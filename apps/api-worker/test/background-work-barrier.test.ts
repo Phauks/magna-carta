@@ -5,6 +5,10 @@ import { settleBackgroundWork } from "./support/settle-background-work.ts";
 import { backgroundWorkStatus } from "../src/background.ts";
 import { confirmationTokenHash, generateConfirmationToken } from "../src/joining-secrets.ts";
 
+// The password a registering visitor now chooses on the form. Registration commits it with the
+// account at confirmation, so every body that opens an account-creating door carries one.
+const TEST_PASSWORD = "a-sufficiently-long-test-password";
+
 // The barrier that keeps every other file in this suite honest, asserted on directly.
 //
 // Routes start work that outlives their response, and the environment is torn down as soon as the
@@ -41,6 +45,7 @@ it("sees the background work a request starts, and waits for it to finish", asyn
     role: "foundFirm",
     email,
     name: "Barrier Tester",
+    password: TEST_PASSWORD,
     firmName: "Barrier and Company",
   });
   expect(started.status).toBe(202);

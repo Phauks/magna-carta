@@ -4,7 +4,7 @@
 
 **Scope (single home for):** keeping **build time** fast — the developer feedback loop and everything that builds repeatedly in the cloud (Worker bundles, the SvelteKit SPA, Container images, Rust crates, generated artifacts). This is about how fast the build _runs_, not how fast the product runs at request time — that is runtime performance, which lives in [`performance.md`](performance.md) and golden rule 10.
 
-**The build/deploy pipeline is Cloudflare Workers Builds**, not GitHub Actions — it builds and deploys each Worker on push to its **production branch, which is `release`, not `main`** (a push or merge to `main` builds nothing; a deploy is a deliberate `git push origin main:release`). The operator runbook (connect repo, build/deploy commands, branch control, enabling the settings below) lives in [`operations.md`](operations.md); this file is the principles and the why.
+**The build/deploy pipeline is Cloudflare Workers Builds**, not GitHub Actions — it builds and deploys each Worker on push to its **production branch, which for `magna-carta` and `magna-carta-web` has been `main` since 2026-08-29**: a merge to `main` deploys, within minutes, with no second gesture. The operator runbook (connect repo, build/deploy commands, branch control, enabling the settings below) lives in [`operations.md`](operations.md); this file is the principles and the why. **That move changed what the tiering below can assume** — several of its soundness arguments used to rest on a deliberate `git push origin main:release` standing between a merge and production, and no such gesture exists any more. Each of those arguments is corrected where it appears; none of them should be reused in its old form.
 
 **Why this is a foundation, not a measure-first optimization.** Build caching and fast build steps are the canonical _cheap-from-the-getgo, expensive-to-retrofit_ work: you add them up front because fast feedback compounds across every push and every contributor. This sits under the **"Build when in the area"** principle (root [`CLAUDE.md`](../../CLAUDE.md), _How we work_; ADR-0078), **not** under golden rule 10's measure-first gate — you do not wait for a profile to justify a cache. The distinction is deliberate: golden rule 10 governs runtime optimization (optimize against evidence); this file governs build foundations (add them by default).
 
@@ -583,12 +583,12 @@ times: on its pull request, on the push that merges it, and again on the nightly
 identical full battery each time buys nothing — the second and third runs re-derive a result the first
 already produced. So each trigger runs the pass that **only it** can run:
 
-| Trigger        | Type-aware lint                          | Test battery | What it is for                                                                                                           |
-| -------------- | ---------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `pull_request` | full closure **minus the fan-out sinks** | full         | The tier a human waits on — optimized for latency.                                                                       |
-| `push` to main | full closure **including the sinks**     | skipped      | The whole-repo type-check plus the sink lint: exactly what the pull request deliberately did not do.                     |
-| `schedule`     | **whole repo**, unscoped, cold           | full         | Nightly backstop for anything the per-change tiers could miss, landing long before a deliberate `git push main:release`. |
-| `merge_group`  | full closure including the sinks         | full         | Full proof of a queued merge's real post-merge tree, if a merge queue is enabled.                                        |
+| Trigger        | Type-aware lint                          | Test battery | What it is for                                                                                                    |
+| -------------- | ---------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `pull_request` | full closure **minus the fan-out sinks** | full         | The tier a human waits on — optimized for latency.                                                                |
+| `push` to main | full closure **including the sinks**     | skipped      | The whole-repo type-check plus the sink lint: exactly what the pull request deliberately did not do.              |
+| `schedule`     | **whole repo**, unscoped, cold           | full         | Nightly backstop for anything the per-change tiers could miss. It now lands **after** the deploy, not before one. |
+| `merge_group`  | full closure including the sinks         | full         | Full proof of a queued merge's real post-merge tree, if a merge queue is enabled.                                 |
 
 ### TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset
 
@@ -655,7 +655,7 @@ turns; confirm a job reports a real `runner_id` first):
    sweep equivalent** — the same dispatch is the sweep, since its empty diff resolves to "run
    everything, lint `ALL`" — to catch anything the window missed. Fix what it finds before treating
    `main` as gate-green again.
-4. Only then treat a `git push origin main:release` as backed by the usual evidence.
+4. Only then treat a merge to `main` — which is a deploy — as backed by the usual evidence.
 
 The rest of this section describes the standing design, which resumes unchanged when the triggers do.
 
@@ -665,8 +665,13 @@ full battery against exactly the tree that lands, so re-running it re-proves a p
 is narrow and specific — two branches that merge in quick succession and interact _semantically_ without
 touching the same files, which no path filter can see. That gap is closed at its source by enabling a
 merge queue (the `merge_group` trigger is already wired for it) and caught after the fact by the nightly
-sweep. It is never a release risk: `main` is not the deploy branch, so nothing reaches production until
-somebody deliberately pushes `main:release`, and the nightly full run always intervenes first.
+sweep. **The clause that used to close this argument is now false and must not be reused:** it read
+"never a release risk, because `main` is not the deploy branch and the nightly full run always
+intervenes first." Since 2026-08-29 `main` **is** the deploy branch, so the nightly sweep intervenes
+after production has already shipped the tree, and the two-branches-in-quick-succession gap is a
+production gap for however long it takes the sweep to run. The pull-request tier is what stands
+between a defect and real users; the merge queue is the fix that restores the old argument's force,
+and it is not enabled.
 
 **Why deferring the fan-out sinks is sound.** Which tier pays for a package's dependent re-lint is a
 cost dial, not a correctness one, because the _undeferred_ closure still runs before anything can ship
@@ -782,8 +787,12 @@ other trigger passes no such flag and lints them. A sink the change itself touch
 
 **Why that is a move and not a hole.** Type-aware findings in a sink can only flip through what the
 sink imports, so deferring them delays a class of finding, it does not discard it: the undeferred
-closure runs on the merge push, on the nightly sweep, and on a merge-queue build, all before a
-deliberate `git push main:release` can turn anything into a deploy. Two invariants make that argument
+closure runs on the merge push, on the nightly sweep, and on a merge-queue build. **Two of those three
+now run after the deploy rather than before it** — the merge push and the deploy are the same event
+since 2026-08-29 — so the delay this defers a finding by is a delay in production, not in a staging
+window. It is still a move rather than a hole, because the finding is a type-aware lint result in a
+package the change did not touch, not a test failure; but the old phrasing, which leaned on a
+deliberate deploy push arriving last, no longer holds. Two invariants make that argument
 mechanical rather than rhetorical, and
 [`scope-fitness.mjs`](../../tooling/affected-lint/scope-fitness.mjs) (`pnpm run lint:affected-scope`,
 wired into the gate's `governance` job) asserts both for a simulated change to **every** workspace

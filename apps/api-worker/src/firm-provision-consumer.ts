@@ -85,10 +85,25 @@ export async function consumeFirmProvision(env: Bindings, row: OutboxRow): Promi
     rootKekBase64: env.ROOT_KEK,
   };
 
+  // THE PASSWORD THE OWNER CHOSE, read back from the registration rather than carried on the
+  // message. The verifier belongs to the row that expires with it; a queue payload is durable,
+  // replayable and read by a consumer that has no business holding one. Null for a registration
+  // started before the column existed — that owner is created account-less and still gets the
+  // activation mail below, which is the only branch that sends one.
+  const registration = await env.DB_CONTROL.prepare(
+    "SELECT credential_hash FROM registration WHERE id = ?1",
+  )
+    .bind(payload.registrationId)
+    .first<{ credential_hash: string | null }>();
+  const credentialHash = registration?.credential_hash ?? undefined;
+
   const outcome = await provisionFirm(dependencies, {
     name: payload.registrationId,
     displayName: payload.firmDisplayName,
-    owner: payload.owner,
+    owner: {
+      ...payload.owner,
+      ...(credentialHash === undefined ? {} : { credentialHash }),
+    },
   });
 
   if (outcome.kind === "name-conflict") {
@@ -126,16 +141,29 @@ export async function consumeFirmProvision(env: Bindings, row: OutboxRow): Promi
       if (!isUserEmailConflict(caught) && !isFirmActivationConflict(caught)) throw caught;
       activated = false;
     }
-    if (activated && payload.owner.userId === undefined) {
-      // The owner's activation link — the password reset that creates their credential and, in
-      // completing, marks the address verified. NOT sent when the founder already had an account
-      // (the account-first door): there is no credential to create, the mailbox was proven before
-      // the account existed, and an unasked-for reset link is what a takeover looks like. Sent only
-      // by the pass that actually activated, so a
-      // redelivery or a lost race does not mail a second link at somebody who may already have set
-      // a password. After the commit, the same accepted seam the two other activation paths take: a
-      // send that throws leaves an active firm whose owner recovers by asking for a fresh link from
-      // the sign-in screen.
+    if (activated && payload.owner.userId === undefined && credentialHash === undefined) {
+      // NO MAIL IS SENT ON THIS PATH ANY MORE, except for one shrinking case. An owner who
+      // registered chose their password then, and the activation batch above committed it with
+      // their user row — so the workspace and the way into it arrive together and there is nothing
+      // to wait for. Nor is one sent when the founder already had an account (the account-first
+      // door): an unasked-for reset link is what a takeover looks like.
+      //
+      // What remains is a registration started BEFORE passwords were chosen at registration, whose
+      // owner has no credential and no way to make one without this link. It is sent only by the
+      // pass that actually activated, so a redelivery or a lost race does not mail a second link.
+      //
+      // A FAILURE HERE NEITHER THROWS NOR IS VISIBLE TO THIS FUNCTION, and both halves are
+      // deliberate. Better Auth awaits the send and swallows what it throws into its own logger
+      // (runInBackgroundOrAwait, context/create-context.mjs), so this call resolves either way and a
+      // try/catch around it would be dead code — the failure is caught one layer down, at the port
+      // app.ts hands the library, where it is counted and correlated.
+      //
+      // That is also the right outcome for a consumer, because the queue's retry cannot fix it: a
+      // redelivery finds the firm already active, takes the `already-active` branch, and never
+      // reaches this line. Throwing would burn the relay's attempts, skip the registration → firm
+      // write below, and still mail nobody. The firm is real and the owner's recovery is Reset
+      // Password from the sign-in screen; what this path owes is that somebody KNOWS, which is the
+      // counter one layer down.
       await authForEnv(env).api.requestPasswordReset({ body: { email: outcome.ownerEmail } });
     }
   }

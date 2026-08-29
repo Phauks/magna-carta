@@ -121,7 +121,15 @@ const RedeemInvitationResponse = z
     // The redeemer sets a password through the link that has just been sent, so redemption ends by
     // pointing at a mailbox rather than by handing back a session. That also means a redemption
     // cannot be turned into an account takeover by someone who guessed all three facts but does not
-    // hold the mailbox.
+    // hold the mailbox — which is why redemption does NOT collect a password the way registration
+    // does: registration proves the mailbox by mailing a token and having it spent, and this path
+    // has no such proof to lean on. The mailed link is the proof.
+    //
+    // THERE IS NO "the mail did not send" VALUE, and its absence is a fact about the library: the
+    // reset mail leaves from inside Better Auth, whose runInBackgroundOrAwait swallows a failing
+    // send into its own logger, so this endpoint resolves identically either way and a value here
+    // would be a promise it cannot keep. The failure is caught at the PORT instead (app.ts), where
+    // it is counted and correlated for an operator.
     next: z.literal("checkEmail"),
   })
   .openapi("RedeemInvitationResponse");
@@ -214,7 +222,8 @@ export const redeemInvitationRoute = defineOpenAPIRoute(redeemInvitationMeta, {
   path: "/api/v1/invitations/redemptions",
   description:
     "Redeems an invitation with its code, the invitee's surname and their date of birth, and sends " +
-    "the link that sets their password. Every unsuccessful combination — an unknown code, a wrong " +
+    "the link that sets their password — the link is what proves control of the mailbox, which " +
+    "redemption itself does not, so no password is collected here. Every unsuccessful combination — an unknown code, a wrong " +
     "surname, a wrong date of birth, an invitation already used or expired — answers with one " +
     "identical refusal, so the form cannot be used to discover who was invited where.",
   request: {
@@ -464,8 +473,10 @@ export function registerInvitationRoutes(
       // the mistypes that got them here should not follow them to a second invitation.
       redemptionAttemptLadder.clear(ladderKey);
 
-      // After the commit, by design and for the same accepted reason members.invite states: a send
-      // that throws leaves a committed redemption whose recovery is requesting a fresh link.
+      // After the commit, by design: the membership is real before the mail, and it stays real if
+      // the mail will not go. The send's outcome is recorded at the port (app.ts) — the only layer
+      // that can observe it — so a mail that does not leave is a counted, correlated fact even
+      // though this response cannot carry it.
       await authForEnv(c.env).api.requestPasswordReset({ body: { email: invitation.email } });
       scheduleRequestPathSweep(c.executionCtx, c.env);
 
