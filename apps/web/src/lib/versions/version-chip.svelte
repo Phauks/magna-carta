@@ -38,6 +38,7 @@
     formatVersionTimestamp,
     isRealCommit,
     readsServiceAggregate,
+    serviceStateDescription,
     serviceStateLabel,
     versionChipLabel,
     SIGNED_OUT_ESTATE_NOTICE,
@@ -160,12 +161,20 @@
   buildTime: string | null;
 })}
   {@const stateLabel = serviceStateLabel(part.state)}
+  {@const stateDescription = serviceStateDescription(part.state)}
   {@const metaLine = metaLineFor(part.commitTime, part.buildTime)}
   <div class="flex items-center justify-between gap-8 py-4">
     <div class="flex min-w-0 flex-col">
       <span class="text-sm text-text-default">{part.label}</span>
+      <!-- One second line, and the two cases never coexist: a reported row has timestamps and no
+           badge to explain, a non-answering row has a badge and no timestamps. The sentence is
+           what separates "this deployment has no such service" from "it is not answering" from
+           "it answers, but its build predates the question" — three facts the badges alone read
+           as one outage. -->
       {#if metaLine !== null}
         <span class="text-xs text-text-muted">{metaLine}</span>
+      {:else if stateDescription !== null}
+        <span class="text-xs text-text-muted">{stateDescription}</span>
       {/if}
     </div>
     {#if part.state === "reported" && part.commit !== null}

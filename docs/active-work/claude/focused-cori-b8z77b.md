@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta (remote session)
 area: file-manager round-nine review corrections (mockup + app parity) + login/registration readiness
 status: building
-touches: docs/conventions/file-manager-rulings.md, tooling/file-manager-rulings/, tooling/lint-one-ui/, packages/design-system/src/lib/components/record-window/, packages/design-system/src/lib/components/event-rail/, packages/design-system/src/lib/components/print-sheet/, packages/design-system/package.json, apps/web/src/lib/file-manager/, apps/web/src/lib/auth/, apps/web/src/lib/matters/, apps/web/src/lib/members/, apps/web/src/lib/settings/, apps/web/src/lib/components/, apps/web/src/routes/(app)/matters/, apps/api-worker/src, apps/api-worker/openapi/openapi.json, packages/api-client/, packages/access-control/src/registry.ts, packages/data-access/src/member-statements.ts, packages/database/drizzle/per-firm/, tooling/lint-list-pagination/, docs/deploy-queue.md, changelog.d/, docs/user/features/
+touches: docs/conventions/file-manager-rulings.md, tooling/file-manager-rulings/, tooling/lint-one-ui/, packages/design-system/src/lib/components/record-window/, packages/design-system/src/lib/components/event-rail/, packages/design-system/src/lib/components/print-sheet/, packages/design-system/package.json, apps/web/src/lib/file-manager/, apps/web/src/lib/auth/, apps/web/src/lib/matters/, apps/web/src/lib/members/, apps/web/src/lib/settings/, apps/web/src/lib/components/, apps/web/src/lib/versions/, packages/build-identity/, docs/conventions/operations.md, apps/web/src/routes/(app)/matters/, apps/api-worker/src, apps/api-worker/openapi/openapi.json, packages/api-client/, packages/access-control/src/registry.ts, packages/data-access/src/member-statements.ts, packages/database/drizzle/per-firm/, tooling/lint-list-pagination/, docs/deploy-queue.md, changelog.d/, docs/user/features/
 ---
 
 Applying the owner's ninth round of file-manager corrections: The Docket mockup revised and
@@ -72,3 +72,13 @@ no-domain-symbol assertions. Owned files:
 their story files, `tooling/lint-one-ui/**`, and the three matching `exports` entries in
 `packages/design-system/package.json`. Concurrent streams should stay out of those three component
 directories until this lands.
+
+**Added 2026-08-30 — the version chip's non-answers say which non-answer they are.** Every service
+row in the overlay was reading "Not reporting" or "Not deployed", and both were true: the bound
+sibling Workers are deployed from builds that predate the `/__version` route, so they 404 the probe,
+and Keyword Search has no binding at all. The surface stays honest and gains the sentence that
+separates the three states; the stamp gains a fallback to the build runner's commit variable, and
+the skew call compares commits by prefix. The remedy for the stale siblings is dashboard-side and is
+written down in `docs/deploy-queue.md` (_Version visibility_) and `docs/conventions/operations.md`.
+Owned files: `apps/web/src/lib/versions/**`, `apps/web/test/version-overlay.test.ts`,
+`packages/build-identity/scripts/generate-build-identity.mjs`, `packages/build-identity/CLAUDE.md`.
