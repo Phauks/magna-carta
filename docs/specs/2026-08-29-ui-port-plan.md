@@ -735,6 +735,20 @@ A gate that claims more than it delivers is worse than none, so:
 - **Rule 9 will have false positives.** A legitimate placeholder could read as a phrase. The
   documented escape is the existing `fitness-allow: <justification>` convention, which feeds an
   asserted inventory — every allowance is a reviewed edit, exactly as the off-token gate works.
+- **Rule 4's word list must match identifiers, not prose.** Found while building the shell: the
+  domain vocabulary includes ordinary English (`cost`, `fee`, `matter`, `time`), so a scan over raw
+  file text fires on a comment saying a long tab "costs the window nothing" — and a check that
+  fires on its own component's prose is a check somebody switches off within a week. The scan
+  strips comments and string literals and matches identifier-shaped occurrences. What it therefore
+  cannot catch: a domain type imported under an innocuous alias. That is review's job, not the
+  gate's.
+- **Event order is the caller's, and nothing checks the caller.** `EventRail` renders events exactly
+  as handed over rather than sorting them, because two events can share an instant and the recorded
+  order is then the only truth about which came first — and because specific events are ruled to be
+  first regardless (the entry event; the reclassification event), which a tie-breaking sort would
+  silently reorder. The consequence is that a consumer handing it newest-first renders newest-first
+  and no scan will say so. This is a **harness check at the consumer**, not a source rule: each
+  surface that mounts a rail asserts its first event is the oldest.
 
 ---
 
