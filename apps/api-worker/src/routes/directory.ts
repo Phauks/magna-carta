@@ -22,6 +22,7 @@ import {
   MAX_ENTITY_DISPLAY_NAME_LOOKUP,
   readEntityDisplayNames,
 } from "@magna-carta/directory/entity-display";
+import { readEntityListing } from "@magna-carta/directory/entity-listing";
 import {
   assignCategory,
   createCategory,
@@ -570,6 +571,51 @@ const EntityDisplayNamesResponse = z
   .object({ data: z.array(EntityDisplayName) })
   .openapi("DirectoryEntityDisplayNamesResponse");
 
+// ---- the index: the whole directory, in name order ----
+
+// One row of the firm's directory as an index reads it. The same display-identity discipline the
+// naming read above carries: no identifier, no contact row, nothing a list of names could become.
+const DirectoryEntityListing = z
+  .object({
+    entityId: z.string(),
+    entityKind: z.enum(ENTITY_KINDS),
+    displayName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "What to call the record, or null where the directory holds no name for it at all. A " +
+          "caller shows the gap rather than printing the handle.",
+      }),
+    legalName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "An organization's legal name where it differs from what the firm calls it; null for a " +
+          "person, and null where the two are the same word.",
+      }),
+    recordedAt: z.string().openapi({ description: "When the firm wrote the record down." }),
+  })
+  .openapi("DirectoryEntityListing");
+
+// The page envelope plus the size of the whole record. `total` is what separates a listing from a
+// capped answer: a page of fifty out of two thousand and a page of fifty that IS the directory are
+// indistinguishable without it, and a firm that has entered twenty clients expects to be told it
+// holds twenty.
+const DirectoryEntityListingPage = paginated(DirectoryEntityListing)
+  .extend({
+    total: z
+      .number()
+      .int()
+      .openapi({
+        description:
+          "How many records the firm holds under these filters — every page of the walk, not the " +
+          "rows on this one.",
+      }),
+  })
+  .openapi("DirectoryEntityListingPage");
+
 // ---- an entity's edges, matters, categories, and the identifiers it holds ----
 
 const DirectoryEdgeEntry = z
@@ -973,6 +1019,42 @@ const listNamesRoute = defineOpenAPIRoute(readMeta("listNames", null), {
     401: authErrors[401],
     404: authErrors[404],
     422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+// The index. It names no permission beyond an authenticated session, on the same reasoning the name
+// search carries: it discloses display identity and nothing else, which is what any member already
+// meets on every matter they can open.
+const listEntitiesRoute = defineOpenAPIRoute(readMeta("listEntities", null), {
+  method: "get",
+  path: "/api/v1/directory/entities",
+  description:
+    "Lists the firm's directory — every person and organization it holds, in name order and " +
+    "cursor-paged, with `total` giving the size of the whole record. People and organizations are " +
+    "ONE sequence: the directory is one book, and `kind` narrows it rather than splitting it. " +
+    "Deleted records and records folded into another by a merge are excluded — a folded record " +
+    "still answers a search and still resolves to its survivor, but listing it beside that " +
+    "survivor would show one client as two. This is the read that answers 'show me everyone'; the " +
+    "ranked search answers a name and is capped, and neither can stand in for the other.",
+  request: {
+    query: cursorQuery.extend({
+      kind: z
+        .enum(ENTITY_KINDS)
+        .optional()
+        .openapi({
+          param: { name: "kind", in: "query" },
+          description: "Narrows to one side of the directory. Omitted, both are listed together.",
+        }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "A page of the directory in name order, with the size of the whole record",
+      content: { "application/json": { schema: DirectoryEntityListingPage } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
     429: authErrors[429],
   },
 });
@@ -1622,6 +1704,17 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       const { cursor } = c.req.valid("query");
       const page = await readNames(firm.firmDatabase, id as EntityId, { cursor });
       return c.json(page as unknown as z.infer<typeof DirectoryNamePage>, 200);
+    },
+  );
+
+  // GET /api/v1/directory/entities — the index, both kinds in one sequence
+  app.openapi(
+    { ...listEntitiesRoute, middleware: chokepointMiddleware(chokepoint, listEntitiesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { cursor, kind } = c.req.valid("query");
+      const page = await readEntityListing(firm.firmDatabase, { cursor, kind: kind ?? "all" });
+      return c.json(page as unknown as z.infer<typeof DirectoryEntityListingPage>, 200);
     },
   );
 

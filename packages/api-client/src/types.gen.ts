@@ -1644,6 +1644,32 @@ export type DirectoryNameEntry = {
     recordedAt: string;
 };
 
+export type DirectoryEntityListingPage = {
+    data: Array<DirectoryEntityListing>;
+    nextCursor: string | null;
+    /**
+     * How many records the firm holds under these filters — every page of the walk, not the rows on this one.
+     */
+    total: number;
+};
+
+export type DirectoryEntityListing = {
+    entityId: string;
+    entityKind: 'person' | 'organization';
+    /**
+     * What to call the record, or null where the directory holds no name for it at all. A caller shows the gap rather than printing the handle.
+     */
+    displayName: string | null;
+    /**
+     * An organization's legal name where it differs from what the firm calls it; null for a person, and null where the two are the same word.
+     */
+    legalName: string | null;
+    /**
+     * When the firm wrote the record down.
+     */
+    recordedAt: string;
+};
+
 export type DirectoryEntityDisplayNamesResponse = {
     data: Array<DirectoryEntityDisplayName>;
 };
@@ -12743,6 +12769,45 @@ export type DirectoryChangeNameResponses = {
 };
 
 export type DirectoryChangeNameResponse = DirectoryChangeNameResponses[keyof DirectoryChangeNameResponses];
+
+export type DirectoryListEntitiesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        /**
+         * Narrows to one side of the directory. Omitted, both are listed together.
+         */
+        kind?: 'person' | 'organization';
+    };
+    url: '/api/v1/directory/entities';
+};
+
+export type DirectoryListEntitiesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListEntitiesError = DirectoryListEntitiesErrors[keyof DirectoryListEntitiesErrors];
+
+export type DirectoryListEntitiesResponses = {
+    /**
+     * A page of the directory in name order, with the size of the whole record
+     */
+    200: DirectoryEntityListingPage;
+};
+
+export type DirectoryListEntitiesResponse = DirectoryListEntitiesResponses[keyof DirectoryListEntitiesResponses];
 
 export type DirectoryEntityNamesData = {
     body?: never;

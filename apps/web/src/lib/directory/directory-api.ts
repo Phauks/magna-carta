@@ -6,8 +6,11 @@
  *
  * WHAT THE CONTRACT ANSWERS, AND WHAT IT DOES NOT. Stated here so a caller never goes looking:
  *
- *   - There is no listing. `searchDirectory` is the only way to reach an entity, and it needs at
- *     least three characters of a name. The directory is searched, never browsed.
+ *   - THERE ARE TWO WAYS IN AND THEY ANSWER DIFFERENT QUESTIONS. `listDirectoryEntities` is the
+ *     index: every record the firm holds, in name order, cursor-paged, with the size of the whole
+ *     record beside the page. `searchDirectory` answers a name: ranked, tolerant of a typo, and
+ *     CAPPED. Neither substitutes for the other, and a caller must not present one as the other —
+ *     a capped best-of is not an index, and an index is not an answer to "who is this".
  *   - Reading an identifier's VALUE is a decrypt: permission-gated and written to the firm's audit
  *     log before any plaintext exists. That is why nothing here reads one eagerly, and why
  *     `readDirectoryIdentifierRecords` — which says what the firm holds without saying what any of
@@ -86,6 +89,25 @@ export interface DirectoryOrganizationDetail {
 export type DirectoryEntityDetail =
   | { kind: "person"; person: DirectoryPersonDetail }
   | { kind: "organization"; organization: DirectoryOrganizationDetail };
+
+/** One row of the directory's index — display identity, and nothing about what the record holds. */
+export interface DirectoryEntityListing {
+  entityId: string;
+  entityKind: DirectoryEntityKind;
+  /** What to call the record, or null where the directory holds no name for it. Show the gap. */
+  displayName: string | null;
+  /** An organization's legal name where it differs from what the firm calls it; null otherwise. */
+  legalName: string | null;
+  recordedAt: string;
+}
+
+/** A page of the index, carrying the size of the whole record rather than of the page. */
+export interface DirectoryEntityListingPage {
+  data: DirectoryEntityListing[];
+  nextCursor: string | null;
+  /** How many records the firm holds under these filters, across every page of the walk. */
+  total: number;
+}
 
 /** One hit from the firm's own ranked search. */
 export interface DirectorySearchHit {
@@ -234,10 +256,34 @@ export const MAX_ENTITY_NAME_LOOKUP = 100;
 // ---- reads -----------------------------------------------------------------------------------
 
 /**
- * The firm's ranked name search — the only way into the directory.
+ * The firm's directory as an INDEX: everyone it holds, in name order, one page at a time.
+ *
+ * People and organizations arrive in one sequence, because the directory is one book and a reader
+ * looking for a name does not know in advance which side of it the firm filed. `kind` narrows that
+ * sequence rather than splitting it into two screens.
+ *
+ * Deleted records are out, and so are records folded into another by a merge: a folded record still
+ * answers a search and still resolves to its survivor, but listing it beside that survivor would
+ * show one client as two.
+ */
+export function listDirectoryEntities(
+  fetchImpl: typeof fetch,
+  options: { kind?: DirectoryEntityKind; cursor?: string } = {},
+): Promise<ApiOutcome<DirectoryEntityListingPage>> {
+  const search = new URLSearchParams();
+  if (options.kind !== undefined) search.set("kind", options.kind);
+  if (options.cursor !== undefined) search.set("cursor", options.cursor);
+  const query = search.toString();
+  return requestJson(fetchImpl, `/api/v1/directory/entities${query === "" ? "" : `?${query}`}`);
+}
+
+/**
+ * The firm's ranked name search — the way to reach a record whose spelling nobody is sure of.
  *
  * Trigram matching over every name row the firm holds, current and former alike, tolerant of a
  * typo. Merged-away records are excluded from the hits and still resolve through their survivor.
+ * The answer is CAPPED and in relevance order, which is why it is never presented as the index:
+ * `listDirectoryEntities` is that.
  */
 export function searchDirectory(
   fetchImpl: typeof fetch,

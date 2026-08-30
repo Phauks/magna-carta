@@ -145,4 +145,10 @@ export type {
 } from "./party.ts";
 export { readEntityDisplayNames, MAX_ENTITY_DISPLAY_NAME_LOOKUP } from "./entity-display.ts";
 export type { EntityDisplayName } from "./entity-display.ts";
+export { readEntityListing } from "./entity-listing.ts";
+export type {
+  DirectoryEntityListingKind,
+  DirectoryEntityListingPage,
+  DirectoryEntityListingRow,
+} from "./entity-listing.ts";
 export { migrateClientDisplayFields } from "./client-migration.ts";

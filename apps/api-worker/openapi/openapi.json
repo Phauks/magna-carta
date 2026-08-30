@@ -6568,6 +6568,72 @@
           "recordedAt"
         ]
       },
+      "DirectoryEntityListingPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryEntityListing"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "How many records the firm holds under these filters — every page of the walk, not the rows on this one."
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor",
+          "total"
+        ]
+      },
+      "DirectoryEntityListing": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What to call the record, or null where the directory holds no name for it at all. A caller shows the gap rather than printing the handle."
+          },
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An organization's legal name where it differs from what the firm calls it; null for a person, and null where the two are the same word."
+          },
+          "recordedAt": {
+            "type": "string",
+            "description": "When the firm wrote the record down."
+          }
+        },
+        "required": [
+          "entityId",
+          "entityKind",
+          "displayName",
+          "legalName",
+          "recordedAt"
+        ]
+      },
       "DirectoryEntityDisplayNamesResponse": {
         "type": "object",
         "properties": {
@@ -42376,6 +42442,94 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entities": {
+      "get": {
+        "description": "Lists the firm's directory — every person and organization it holds, in name order and cursor-paged, with `total` giving the size of the whole record. People and organizations are ONE sequence: the directory is one book, and `kind` narrows it rather than splitting it. Deleted records and records folded into another by a merge are excluded — a folded record still answers a search and still resolves to its survivor, but listing it beside that survivor would show one client as two. This is the read that answers 'show me everyone'; the ranked search answers a name and is capped, and neither can stand in for the other.",
+        "operationId": "directory.listEntities",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listEntities",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "person",
+                "organization"
+              ],
+              "description": "Narrows to one side of the directory. Omitted, both are listed together."
+            },
+            "required": false,
+            "description": "Narrows to one side of the directory. Omitted, both are listed together.",
+            "name": "kind",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the directory in name order, with the size of the whole record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityListingPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
