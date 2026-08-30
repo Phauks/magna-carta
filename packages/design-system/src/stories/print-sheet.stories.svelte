@@ -259,6 +259,15 @@
       await waitFor(() => expect(body.queryByText("Time Entry")).toBeNull());
       await expect(body.getByText("Deposition preparation")).toBeVisible();
     });
+
+    // The record goes away too. Every one of these stories shares one state object and one document,
+    // so a story that leaves a dialog standing leaves the body under a scrim — and a scrim sets
+    // `pointer-events: none`, which makes the NEXT story's trigger unclickable for a reason that
+    // reads as a defect in the component rather than as debris from the story before it.
+    await step("And the record itself closes, leaving nothing standing", async () => {
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByText("Deposition preparation")).toBeNull());
+    });
   }}
 />
 
@@ -284,6 +293,11 @@
       const sheet = await body.findByRole("dialog");
       await waitFor(() => expect(sheet).toBeVisible());
       await expect(body.getByText("Nothing has been recorded here yet.")).toBeVisible();
+    });
+
+    await step("The sheet is put away, leaving the next reader an unobstructed page", async () => {
+      await userEvent.click(body.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(body.queryByRole("dialog")).toBeNull());
     });
   }}
 />
@@ -313,6 +327,11 @@
       // Print and Close buttons cannot be pushed off the bottom of a long record.
       expect(sheet.clientHeight).toBeLessThanOrEqual(window.innerHeight);
       await expect(body.getByRole("button", { name: "Print" })).toBeVisible();
+    });
+
+    await step("The sheet is put away", async () => {
+      await userEvent.click(body.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(body.queryByRole("dialog")).toBeNull());
     });
   }}
 />
