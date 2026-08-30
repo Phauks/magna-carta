@@ -37,15 +37,16 @@
     /* Stated here rather than inherited from the dialog, because rule 1 above depends on it: a
        window whose height came from anywhere but its content would scroll a record that fits. */
     block-size: fit-content;
-    /* How wide a record opens before it stops growing. A named dimension rather than a utility,
-       because it is the same measure on every record type and belongs where the other named layout
-       widths live. It is wider than the record itself is allowed to be, on purpose — see the body
-       below, where the width past the record's own measure goes to the pane beside it. */
-    max-inline-size: var(--mc-size-record-window);
-  }
-  /* Expanded ignores the measure entirely: filling the screen IS the gesture. */
-  .mc-record-window[data-expanded="true"] {
-    max-inline-size: none;
+    /*
+     * HOW WIDE A RECORD OPENS IS NOT DECLARED HERE, AND THAT IS DELIBERATE. It rides the element
+     * as `max-w-record-window`, a utility fed by the same token. A recipe cannot win it: the
+     * dialog panel this dresses already carries a default cap as a Tailwind utility, and utilities
+     * outrank the components layer whatever the selector, so a `max-inline-size` written here is
+     * overridden silently and the token governs nothing. (It did exactly that until it was
+     * measured in a browser.) The cap is wider than the record itself is allowed to be, on
+     * purpose — see the body below, where the width past the record's own measure goes to the pane
+     * beside it.
+     */
   }
 
   /* --- the header band ------------------------------------------------------------------- */

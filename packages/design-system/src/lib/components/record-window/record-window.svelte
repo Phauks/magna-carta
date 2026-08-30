@@ -266,7 +266,10 @@
     data-editing={editing ? "true" : "false"}
     class={mergeClasses(
       "mc-record-window",
-      isExpanded ? "h-screen w-screen" : "max-h-screen w-full",
+      // Width and height are utilities, never the recipe: the dialog panel underneath arrives
+      // wearing its own default cap as a utility, and only another utility can replace it.
+      // Expanded drops the cap entirely, because filling the screen IS the gesture.
+      isExpanded ? "h-screen w-screen max-w-none" : "max-h-screen w-full max-w-record-window",
       className,
     )}
   >

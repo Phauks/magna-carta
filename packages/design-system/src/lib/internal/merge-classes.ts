@@ -18,7 +18,10 @@ import { extendTailwindMerge } from "tailwind-merge";
  *   font-weight medium/semibold, leading, tracking.
  * Registered below because the default validators miss them:
  *   shadow elevation-0..3, ease standard/decelerate/accelerate, font-weight regular,
- *   duration instant/fast/normal/slow, z base/dropdown/sticky/overlay/modal/toast.
+ *   duration instant/fast/normal/slow, z base/dropdown/sticky/overlay/modal/toast, and the
+ *   named layout widths in the `container` scale (which is what feeds `max-w-*`) — without
+ *   them a panel carrying its own token-fed cap keeps the default cap it was given as well,
+ *   and the two both survive with the wrong one winning.
  * Duration and z are registered via `classGroups`, not `theme`: tailwind-merge's theme
  * extension only accepts the scale keys it models (its fromTheme set — no duration, no z),
  * and the default groups validate only numeral-suffixed duration and z classes (which the
@@ -31,6 +34,7 @@ const tailwindMergeWithTokenNamespaces = extendTailwindMerge({
       shadow: ["elevation-0", "elevation-1", "elevation-2", "elevation-3"],
       ease: ["standard", "decelerate", "accelerate", "settle", "travel"],
       "font-weight": ["regular"],
+      container: ["record-window"],
     },
     classGroups: {
       duration: [{ duration: ["instant", "fast", "normal", "slow", "signature"] }],

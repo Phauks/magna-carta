@@ -85,6 +85,10 @@ const NAMESPACE_CASES: Record<string, { utility: (token: string) => string; cano
   text: { utility: (token) => `text-${token}`, canonical: "text-base" },
   leading: { utility: (token) => `leading-${token}`, canonical: "leading-none" },
   tracking: { utility: (token) => `tracking-${token}`, canonical: "tracking-widest" },
+  // --container-* feeds the `max-w-*` (and `w-*`/`min-w-*`) named widths. The canonical here is a
+  // default cap a panel might already be carrying: the whole point of registering the namespace is
+  // that a token-fed cap REPLACES it rather than sitting beside it.
+  container: { utility: (token) => `max-w-${token}`, canonical: "max-w-lg" },
   ease: { utility: (token) => `ease-${token}`, canonical: "ease-linear" },
   // --transition-duration-* feeds `duration-*` utilities; --z-index-* feeds `z-*`
   // (Tailwind v4 theme-key names, verified against tailwindcss 4.3.0).
