@@ -8,8 +8,8 @@
    * action bar of fixed geometry. The panel itself clips, and the two panes inside the body do the
    * scrolling — that is what caps the window at the viewport instead of letting a long record push
    * the close control past the bottom of the screen, and it is what lets a long tab (a history that
-   * grows for years) cost the window nothing. The panel's own width and height are layout, so they
-   * ride utilities on the element; only the look lives here.
+   * grows for years) scroll inside itself instead of stretching the window. The panel's own width
+   * and height are layout, so they ride utilities on the element; only the look lives here.
    */
   .mc-record-window {
     padding: var(--mc-space-0);

@@ -18,6 +18,6 @@ export interface RecordWindowTab {
    * — a tab whose content is one continuous thing has no count to give.
    */
   readonly count?: number;
-  /** The tab's panel. It scrolls inside the tab, so length costs the window nothing. */
+  /** The tab's panel. It scrolls inside the tab, so its length never stretches the window. */
   readonly content: Snippet;
 }

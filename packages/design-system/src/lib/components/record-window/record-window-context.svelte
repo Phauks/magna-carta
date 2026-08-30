@@ -13,6 +13,7 @@
    * to the first tab otherwise.
    */
   import * as Tabs from "../tabs/index.ts";
+  import { openingTabKey } from "./opening-tab.ts";
   import type { RecordWindowTab } from "./types.ts";
 
   let {
@@ -25,12 +26,7 @@
 
   let chosenTab = $state<string | undefined>(undefined);
 
-  const openingTab = $derived(
-    defaultTab !== undefined && tabs.some((tab) => tab.key === defaultTab)
-      ? defaultTab
-      : (tabs[0]?.key ?? ""),
-  );
-  const selectedTab = $derived(chosenTab ?? openingTab);
+  const selectedTab = $derived(chosenTab ?? openingTabKey(tabs, defaultTab));
 </script>
 
 <Tabs.Root

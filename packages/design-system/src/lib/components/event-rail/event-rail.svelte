@@ -74,6 +74,13 @@
   );
 </script>
 
+<!--
+  A scrolling region whose content is prose carries no focusable child, so a keyboard alone could
+  never reach the part of a long history that is out of view. Making the region itself focusable and
+  naming it is the accepted remedy, and it is why the tabindex sits on a non-interactive role here:
+  reaching content is not the same thing as operating a control.
+-->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   bind:this={ref}
   role="region"
