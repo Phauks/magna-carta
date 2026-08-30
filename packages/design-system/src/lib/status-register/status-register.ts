@@ -1,0 +1,235 @@
+/*
+ * The status register — the one place a status word is given its label, its tone and its meaning.
+ *
+ * WHY THIS IS DATA AND NOT A COMPONENT. Every surface that shows a status already has a component
+ * for it: `Badge`, in its pale-tint register. What the surfaces were each inventing was the
+ * VOCABULARY — which word, which colour, and what the word means on hover. A second chip component
+ * would have solved the wrong half of the problem and created a new one, so this module ships the
+ * vocabulary alone and the surfaces keep rendering `Badge`.
+ *
+ * ONE KEY SPACE, NOT ONE PER SURFACE. Draft appears in the workflow chain and in an invoice's
+ * standing; Paid appears in an invoice's standing and on a charge that rides it. Those are the SAME
+ * word and they carry the SAME tone wherever they appear, which is only true by construction if
+ * there is exactly one entry for each. The vocabularies below are therefore ordered lists of keys
+ * into this one map, never their own copies of it.
+ *
+ * HOW A SURFACE USES IT:
+ *
+ *   const entry = statusEntry("partially-paid");
+ *   <Badge variant={entry.tone} title={entry.meaning}>{entry.label}</Badge>
+ *
+ * or, spreading the whole set of chip attributes at once:
+ *
+ *   <Badge {...statusBadgeAttributes("partially-paid")}>{statusEntry("partially-paid").label}</Badge>
+ *
+ * THREE RULES THIS MODULE EXISTS TO HOLD, none of which a surface may re-decide:
+ *
+ *   1. A withdrawn record renders through the chip ALONE. There is no strikethrough and no opacity
+ *      dimming for `void` (or for `credited`) anywhere, which is why no entry here carries a row
+ *      treatment of any kind: there is nothing for a surface to reach for.
+ *   2. What a status MEANS rides the hover. `meaning` is a tooltip, never a sentence printed under
+ *      the chip. The one printed statement in the product is a locked record's single lock line,
+ *      which the record chain owns.
+ *   3. One chip per row. The chip is workflow status; anything else a row wants to say about money
+ *      or disposition says it in its own column.
+ *
+ * ADDING A STATUS: give it a row in STATUS_REGISTER and a place in the vocabulary that speaks it.
+ * If the word already exists in another vocabulary, reuse the key rather than minting a second one.
+ */
+import type { BadgeVariant } from "../components/badge/index.ts";
+
+/** Every status word the product speaks, across all four vocabularies. */
+export type StatusKey =
+  // The work-in-progress chain, shared by time entries, fees and costs.
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "billed"
+  | "void"
+  // An invoice's derived standing. Draft and Void are the same words as the chain's.
+  | "unpaid"
+  | "partially-paid"
+  | "paid"
+  // A charge read off the invoice it rides. Paid is the same word as the invoice's.
+  | "finalized"
+  | "credited"
+  // The file manager's safety verdict.
+  | "error"
+  | "warning"
+  | "info"
+  | "not-scanned"
+  | "clean";
+
+/**
+ * How a status shows itself.
+ *
+ * Almost every status is a `chip` — a `Badge` in the tone this register gives it. `mark` is the one
+ * exception: a scanned, typed, clean file carries the filled circle-check and no chip at all,
+ * because a column that says "Clean" on most of its rows says nothing at all. A mark still has a
+ * label, which is its accessible name.
+ */
+export type StatusPresentation = "chip" | "mark";
+
+export interface StatusEntry {
+  /** The word itself, exactly as it is rendered. */
+  label: string;
+  /** The `Badge` variant this word wears. The pale-tint register; never a solid one. */
+  tone: BadgeVariant;
+  /** What the word means, for the hover. Never printed beneath the status. */
+  meaning: string;
+  /** Whether the word renders as a chip or as the bare mark. */
+  presentation: StatusPresentation;
+}
+
+export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
+  draft: {
+    label: "Draft",
+    tone: "neutral",
+    meaning: "Editable, and committed to nothing.",
+    presentation: "chip",
+  },
+  submitted: {
+    label: "Submitted",
+    tone: "warning",
+    meaning: "Waiting on review. Sending it back to draft reopens it for editing.",
+    presentation: "chip",
+  },
+  approved: {
+    label: "Approved",
+    tone: "success",
+    meaning: "Cleared for billing. Sending it back to draft reopens it for editing.",
+    presentation: "chip",
+  },
+  billed: {
+    label: "Billed",
+    tone: "info",
+    meaning: "Evidence on a finalized invoice. A correction is a credit note beside the bill.",
+    presentation: "chip",
+  },
+  void: {
+    label: "Void",
+    tone: "danger",
+    meaning: "Withdrawn. It stays on the record and carries no value.",
+    presentation: "chip",
+  },
+  unpaid: {
+    label: "Unpaid",
+    tone: "warning",
+    meaning: "Finalized, with no payment applied.",
+    presentation: "chip",
+  },
+  "partially-paid": {
+    label: "Partially Paid",
+    tone: "info",
+    meaning: "Some payment has been applied. A balance remains.",
+    presentation: "chip",
+  },
+  paid: {
+    label: "Paid",
+    tone: "success",
+    meaning: "Paid in full. No balance remains.",
+    presentation: "chip",
+  },
+  finalized: {
+    label: "Finalized",
+    tone: "info",
+    meaning: "On a finalized invoice that has not been paid.",
+    presentation: "chip",
+  },
+  credited: {
+    label: "Credited",
+    tone: "danger",
+    meaning: "Reversed by a credit note recorded beside the bill.",
+    presentation: "chip",
+  },
+  error: {
+    label: "Error",
+    tone: "danger",
+    meaning: "A signature match or a type mismatch.",
+    presentation: "chip",
+  },
+  warning: {
+    label: "Warning",
+    tone: "warning",
+    meaning: "Nothing to grade yet: no committed version to scan.",
+    presentation: "chip",
+  },
+  info: {
+    label: "Info",
+    tone: "info",
+    meaning: "Scanned clean, with no document type recorded.",
+    presentation: "chip",
+  },
+  "not-scanned": {
+    label: "Not scanned",
+    tone: "neutral",
+    meaning: "No scan has run on this file.",
+    presentation: "chip",
+  },
+  clean: {
+    label: "Clean",
+    tone: "success",
+    meaning: "Scanned clean, with a document type recorded.",
+    presentation: "mark",
+  },
+};
+
+/**
+ * The four vocabularies, each an ORDERED list of keys into the register above.
+ *
+ * Order is the reading order a column filter, a legend and the record chain all take, so it is a
+ * fact about the vocabulary rather than something each of them sorts for itself.
+ */
+export const STATUS_VOCABULARIES = {
+  /** Time entries, fees and costs, as they move through the firm. */
+  workflowChain: ["draft", "submitted", "approved", "billed", "void"],
+  /** An invoice's standing, derived from what has been paid against it. */
+  invoiceStanding: ["draft", "unpaid", "partially-paid", "paid", "void"],
+  /** A charge, read off the invoice it rides. */
+  chargeStanding: ["finalized", "paid", "credited"],
+  /** The file manager's safety column, and the analysis severities that feed it. */
+  safety: ["error", "warning", "info", "not-scanned", "clean"],
+} as const satisfies Readonly<Record<string, readonly StatusKey[]>>;
+
+export type StatusVocabulary = keyof typeof STATUS_VOCABULARIES;
+
+/** One status word, by key. */
+export function statusEntry(key: StatusKey): StatusEntry {
+  return STATUS_REGISTER[key];
+}
+
+/** The words of one vocabulary, in reading order, as whole entries. */
+export function statusVocabulary(vocabulary: StatusVocabulary): readonly StatusEntry[] {
+  return STATUS_VOCABULARIES[vocabulary].map(statusEntry);
+}
+
+/**
+ * The attributes a `Badge` takes for a status, ready to spread. `variant` carries the tone and
+ * `title` carries the meaning, which is what puts the explanation on the hover instead of on the
+ * surface. The label is deliberately not in here: it is the badge's child, not an attribute.
+ */
+export function statusBadgeAttributes(key: StatusKey): { variant: BadgeVariant; title: string } {
+  const entry = statusEntry(key);
+  return { variant: entry.tone, title: entry.meaning };
+}
+
+/** The recipe class for the bare mark: the circle-check, filled, with the check knocked out. */
+export function statusMarkClasses(): string {
+  return "mc-status-mark";
+}
+
+/**
+ * Whether showing this status beside the given heading would say the same word twice.
+ *
+ * A record with no number yet is NAMED by its standing, so "Draft Bill" plus a Draft chip states
+ * draft twice in one glance. The chip is dropped exactly there and kept in every state where it
+ * adds a fact, so a finalized invoice still shows Unpaid, Partially Paid or Paid. The rule lives
+ * here rather than in each window because a surface that has to remember it will not.
+ */
+export function statusRepeatsHeading(key: StatusKey, heading: string): boolean {
+  const words = new Set(heading.toLowerCase().split(/[^a-z]+/i));
+  return statusEntry(key)
+    .label.toLowerCase()
+    .split(" ")
+    .every((word) => words.has(word));
+}

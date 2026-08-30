@@ -22,6 +22,14 @@
     {
       "name": "PrintSheet",
       "home": "packages/design-system/src/lib/components/print-sheet"
+    },
+    {
+      "name": "RecordChain",
+      "home": "packages/design-system/src/lib/components/record-chain"
+    },
+    {
+      "name": "RecordAttachments",
+      "home": "packages/design-system/src/lib/components/record-attachments"
     }
   ]
 }

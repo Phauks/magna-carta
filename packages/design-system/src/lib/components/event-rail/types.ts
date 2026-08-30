@@ -7,7 +7,9 @@
  * undisturbed, but it is an alias and not a second declaration — two structurally identical types
  * drift the moment one of them grows a form the other does not accept.
  */
-export type { Instant as EventInstant } from "../../formatters/instant.ts";
+import type { Instant } from "../../formatters/instant.ts";
+
+export type EventInstant = Instant;
 
 /**
  * One recorded event on an EventRail: what happened, when, what caused it, and any detail that was
