@@ -58,12 +58,12 @@
     {
       "rule": "status-tone",
       "file": "apps/web/src/lib/matters/cost-api.ts",
-      "reason": "predates the status register; its statusLabel/statusTone pair is the workflow chain written a second time, and it already disagrees (Void reads warning here, danger in the register). Folds into the register when the costs slice next opens."
+      "reason": "a real disagreement, not stale code, and it needs the owner rather than a tidy-up. This module tones ONLY void and argues for it in writing — the rest are ordinary progress, so a column of costs does not become a traffic light over information nobody needs coloured. The register tones all five. Both readings are defensible and they cannot both ship: folding this in changes what the costs table looks like, which is the owner's call. Raised; do not resolve by editing this file."
     },
     {
       "rule": "status-tone",
       "file": "apps/web/src/lib/matters/time-api.ts",
-      "reason": "predates the status register; the same second copy of the workflow chain as cost-api.ts, with the same Void disagreement. Folds into the register when the time slice next opens."
+      "reason": "the same deliberate disagreement as cost-api.ts, on the surface a timekeeper reads most often. Only void is toned here, on the stated argument that a column of times must not read as a traffic light; the register tones all five. The owner decides which, and the two files move together — a time table and a cost table disagreeing about what Submitted looks like is worse than either answer."
     },
     {
       "rule": "status-tone",
