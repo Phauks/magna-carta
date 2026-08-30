@@ -49,6 +49,13 @@ single step in that time. The diagnosis and its evidence are in
 has no logs to fetch; a job that genuinely ran reports a real runner id. That check is the subject of
 the recognition rule in `operations.md`, and it is the only way to tell this outage from a red build.
 
+**Last confirmed still blocked: 2026-08-30**, by running exactly that check. Run 33282129484 was
+re-run on pull request #414; attempt 2 reproduced attempt 1 exactly — `changes` and `governance`
+completed in two seconds, no job reported a runner, and no log was fetchable on either attempt. The
+block also shows in the shape of the whole history rather than one run: every gate run on every
+branch back through `docs-sync/2026-08-24` finishes inside twenty seconds. Re-confirming costs one
+re-run, so date the observation here rather than repeating it per branch.
+
 **What it is costing, and it went up on 2026-08-29.** Every merge since 2026-08-05 has landed on the
 strength of local verification alone. Since the branch move, every merge also **deploys** on the
 strength of local verification alone — the gate of record and the deploy gate were two separate
