@@ -39,13 +39,13 @@ it came from.
 
 What changes in a port is the **wiring**, never the appearance or the interaction model:
 
-| Changes                                     | Does not change                                            |
-| ------------------------------------------- | ---------------------------------------------------------- |
-| Hand-rolled JS → Svelte 5 runes             | Markup structure and element order                         |
-| `innerHTML` string building → components    | Class names' semantic intent, spacing, type, colour         |
-| Module-scope mutable fixtures → real API    | What a control does, when it appears, what it says          |
+| Changes                                      | Does not change                                            |
+| -------------------------------------------- | ---------------------------------------------------------- |
+| Hand-rolled JS → Svelte 5 runes              | Markup structure and element order                         |
+| `innerHTML` string building → components     | Class names' semantic intent, spacing, type, colour        |
+| Module-scope mutable fixtures → real API     | What a control does, when it appears, what it says         |
 | `document.getElementById` → bound references | Keyboard model, focus order, hover and active treatments   |
-| `localStorage` reads → the preference seam  | Copy, verbatim, including tooltip and disabled-reason text  |
+| `localStorage` reads → the preference seam   | Copy, verbatim, including tooltip and disabled-reason text |
 
 A porting agent's default is to **transcribe**, not to re-derive. Where a mockup's CSS rule has a
 token equivalent it uses the token; where the mockup already used a token value it uses the same
@@ -154,15 +154,15 @@ filtered-empty state that says why, and the footer with counts, filter state, se
 
 **Extensions the port requires:**
 
-| Extension                                                                                                             | Binding rulings          |
-| --------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| **Conformance fixes to what shipped** (see §2.1a — four settled rulings the landed filter contradicts)                 | L1, L2, L3               |
-| **Row groups above a rule** — pinned items sit above everything, separated by a rule, in user-arranged order            | L11, P10, L38            |
-| **Row marks** — a `rowMarks` seam for the pin glyph, clipboard cut/copy marking, and quieter deleted/inherited rows     | L11b, L24, L38, S19, N28 |
-| **The Scale control** — labelled-by-tooltip slider, 50–200%, scaling row height, row icons and the file area's text     | L39b                     |
-| **Row-level expansion** — a row states its impact in-line and expands to the affected list                              | N28, A22                 |
-| **A totals-row/footer `end` grammar** that renders identically across four tabs from labelled figures                   | L8, TL12, TL13           |
-| **Icon-view sibling surface** sharing the same selection state and Ctrl+A scope (a layout, not a second table)          | L26, L43, A23            |
+| Extension                                                                                                           | Binding rulings          |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| **Conformance fixes to what shipped** (see §2.1a — four settled rulings the landed filter contradicts)              | L1, L2, L3               |
+| **Row groups above a rule** — pinned items sit above everything, separated by a rule, in user-arranged order        | L11, P10, L38            |
+| **Row marks** — a `rowMarks` seam for the pin glyph, clipboard cut/copy marking, and quieter deleted/inherited rows | L11b, L24, L38, S19, N28 |
+| **The Scale control** — labelled-by-tooltip slider, 50–200%, scaling row height, row icons and the file area's text | L39b                     |
+| **Row-level expansion** — a row states its impact in-line and expands to the affected list                          | N28, A22                 |
+| **A totals-row/footer `end` grammar** that renders identically across four tabs from labelled figures               | L8, TL12, TL13           |
+| **Icon-view sibling surface** sharing the same selection state and Ctrl+A scope (a layout, not a second table)      | L26, L43, A23            |
 
 **Consumers (nine, and every one of them is this component):** file browse, Deleted Files, Search
 Results, History, archive members, Time, Fees, Costs, Billing, the Time Sheet, and the review list's
@@ -560,13 +560,13 @@ never applied here), P5, golden rule 4.
 
 Small, but each is a ruling that will otherwise be re-implemented per surface.
 
-| Module               | Rule                                                                                                                    | Rulings          |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `formatDuration`     | **BOTH forms, wherever a duration renders**: decimal leads, clock form beside it, quieter and smaller                    | M8               |
-| `formatInstant`      | The viewer's **local** time on every surface; stored instants are UTC; never "Just now"                                  | I44, L23, TL8    |
-| `formatVersion`      | Bare numbers — "12", never "v12"; tabular figures off; "version 12" where a bare number would dangle in prose            | I43, I35, P9     |
-| `personName`         | The person's name, always; **never "You"**; a former member's name is history, not a join against current membership     | L14, L14b, TK1   |
-| `placeholderOf`      | Every ghost text is the FIELD'S NAME, never a description or an instruction                                              | L2               |
+| Module           | Rule                                                                                                                 | Rulings        |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `formatDuration` | **BOTH forms, wherever a duration renders**: decimal leads, clock form beside it, quieter and smaller                | M8             |
+| `formatInstant`  | The viewer's **local** time on every surface; stored instants are UTC; never "Just now"                              | I44, L23, TL8  |
+| `formatVersion`  | Bare numbers — "12", never "v12"; tabular figures off; "version 12" where a bare number would dangle in prose        | I43, I35, P9   |
+| `personName`     | The person's name, always; **never "You"**; a former member's name is history, not a join against current membership | L14, L14b, TK1 |
+| `placeholderOf`  | Every ghost text is the FIELD'S NAME, never a description or an instruction                                          | L2             |
 
 ---
 
@@ -589,15 +589,15 @@ site independently, names its dependencies, and ships its deviation list (§0.3)
 
 ### Phase A — the shared components (no screen ships in this phase)
 
-| #   | Slice                                                                                                                                    | Size | Depends on |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------- |
+| #   | Slice                                                                                                                                                     | Size | Depends on |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------- |
 | A1  | **Grid conformance + row groups + row marks.** Fix §2.1a's four defects; add the pinned-rows-above-a-rule group, the row-mark seam, and the Scale control | M    | —          |
-| A2  | **`RecordWindow` shell + `EventRail` + `PrintSheet`.** The shell knows no domain; the fitness function (§5) lands **with it**, not after   | L    | —          |
-| A3  | **`RecordAttachments`.** Both sources, detach-is-not-delete, opens-on-that-tab                                                             | M    | A2         |
-| A4  | **Status register + `RecordChain` + `SoonAffordance`.** One map, one stepper, one honest-dependency composition                            | M    | —          |
-| A5  | **Formatters and vocabulary** (§2.6). Small, pure, unit-tested, and the earliest possible landing so nothing re-implements them            | S    | —          |
-| A6  | **`Combobox` conformance.** L6's no-ring rule, L2 placeholders, filter-and-add, the anchored-flyout composition                            | M    | A5         |
-| A7  | **The dev gallery route** — `/developer-console/record-window`, joining the `table-states` precedent, every state of A2–A4 on one surface  | S    | A2–A4      |
+| A2  | **`RecordWindow` shell + `EventRail` + `PrintSheet`.** The shell knows no domain; the fitness function (§5) lands **with it**, not after                  | L    | —          |
+| A3  | **`RecordAttachments`.** Both sources, detach-is-not-delete, opens-on-that-tab                                                                            | M    | A2         |
+| A4  | **Status register + `RecordChain` + `SoonAffordance`.** One map, one stepper, one honest-dependency composition                                           | M    | —          |
+| A5  | **Formatters and vocabulary** (§2.6). Small, pure, unit-tested, and the earliest possible landing so nothing re-implements them                           | S    | —          |
+| A6  | **`Combobox` conformance.** L6's no-ring rule, L2 placeholders, filter-and-add, the anchored-flyout composition                                           | M    | A5         |
+| A7  | **The dev gallery route** — `/developer-console/record-window`, joining the `table-states` precedent, every state of A2–A4 on one surface                 | S    | A2–A4      |
 
 **Why A7 matters:** the standing direction forbids a second implementation for review, and permits
 exactly this — "where a screen needs a reviewable state that real data cannot reach, build the
@@ -605,38 +605,38 @@ dev-only gallery beside it". It is also where the translated harness checks run 
 
 ### Phase B — the file manager (the larger ledger, and the one the owner called "really good")
 
-| #   | Slice                                                                                                       | Size | Depends on            |
-| --- | ----------------------------------------------------------------------------------------------------------- | ---- | --------------------- |
-| B1  | **`FileIcon` I50 correction + `FolderTree` extension** (colour/icon flyouts, drag-move, counts setting)      | M    | A1, A5                |
-| B2  | **Browse: the list, the columns, the footer, selection, the menus.** The port's first real screen             | L    | A1, A4, A5, B1, S4    |
-| B3  | **The inspector**: tabs, Details, Preview, Version History                                                    | L    | A5, B2                |
-| B4  | **Safety + Hashes**: `SafetyPanel`, `HashPanel`, the signature sheet built on the public decode               | L    | B3                    |
-| B5  | **Actions**: rename with `NameValidation`, copy/cut/paste, delete with the A22 dialog, `DestinationPicker`    | L    | B2, D2, D5            |
-| B6  | **Undo/redo** with the footer controls and the history dropdown                                               | M    | B5                    |
-| B7  | **Views**: Deleted Files, History (with N28's child-awareness), File Analysis                                 | L    | B2, **server S4, S6** |
-| B8  | **Search**: the field, the scope dropdown, the index status, the results view in the `#viewbar` slot          | L    | B2, **server S7**     |
-| B9  | **Archive browsing** + the error pane                                                                        | M    | B2, B7                |
+| #   | Slice                                                                                                      | Size | Depends on            |
+| --- | ---------------------------------------------------------------------------------------------------------- | ---- | --------------------- |
+| B1  | **`FileIcon` I50 correction + `FolderTree` extension** (colour/icon flyouts, drag-move, counts setting)    | M    | A1, A5                |
+| B2  | **Browse: the list, the columns, the footer, selection, the menus.** The port's first real screen          | L    | A1, A4, A5, B1, S4    |
+| B3  | **The inspector**: tabs, Details, Preview, Version History                                                 | L    | A5, B2                |
+| B4  | **Safety + Hashes**: `SafetyPanel`, `HashPanel`, the signature sheet built on the public decode            | L    | B3                    |
+| B5  | **Actions**: rename with `NameValidation`, copy/cut/paste, delete with the A22 dialog, `DestinationPicker` | L    | B2, D2, D5            |
+| B6  | **Undo/redo** with the footer controls and the history dropdown                                            | M    | B5                    |
+| B7  | **Views**: Deleted Files, History (with N28's child-awareness), File Analysis                              | L    | B2, **server S4, S6** |
+| B8  | **Search**: the field, the scope dropdown, the index status, the results view in the `#viewbar` slot       | L    | B2, **server S7**     |
+| B9  | **Archive browsing** + the error pane                                                                      | M    | B2, B7                |
 
 ### Phase C — the financial tabs
 
-| #   | Slice                                                                                                | Size | Depends on                     |
-| --- | ---------------------------------------------------------------------------------------------------- | ---- | ------------------------------ |
-| C1  | **`WipLedgerSurface` template + `DetailsPanel`**, mounted once on Time as the proof                   | L    | A1–A6                          |
-| C2  | **The Time record window** (left pane, tabs, action bar, the M7 one-line arithmetic)                  | L    | A2, A3, C1, **server S1, S2**  |
-| C3  | **Fees**, off the same template — the corrected model (F1: a fee is a directly recorded flat charge)  | M    | C1, C2, **server S3**          |
-| C4  | **Costs**, off the same template — no hard/soft classes anywhere (C1), payee optional                 | M    | C1, C2, **server S3**          |
-| C5  | **`ReviewList`** for Time and Costs, behind the default-off gate                                      | M    | C1, C4, **server S5**          |
-| C6  | **`ReclassifyDialog`**                                                                                | M    | C2–C4, **server S8**           |
-| C7  | **Billing**: the invoice list, the footer figures, the invoice window on `RecordWindow`               | XL   | A2, C1, **server S9**          |
+| #   | Slice                                                                                                | Size | Depends on                    |
+| --- | ---------------------------------------------------------------------------------------------------- | ---- | ----------------------------- |
+| C1  | **`WipLedgerSurface` template + `DetailsPanel`**, mounted once on Time as the proof                  | L    | A1–A6                         |
+| C2  | **The Time record window** (left pane, tabs, action bar, the M7 one-line arithmetic)                 | L    | A2, A3, C1, **server S1, S2** |
+| C3  | **Fees**, off the same template — the corrected model (F1: a fee is a directly recorded flat charge) | M    | C1, C2, **server S3**         |
+| C4  | **Costs**, off the same template — no hard/soft classes anywhere (C1), payee optional                | M    | C1, C2, **server S3**         |
+| C5  | **`ReviewList`** for Time and Costs, behind the default-off gate                                     | M    | C1, C4, **server S5**         |
+| C6  | **`ReclassifyDialog`**                                                                               | M    | C2–C4, **server S8**          |
+| C7  | **Billing**: the invoice list, the footer figures, the invoice window on `RecordWindow`              | XL   | A2, C1, **server S9**         |
 
 ### Phase D — the Time Sheet
 
-| #   | Slice                                                                                             | Size | Depends on              |
-| --- | ------------------------------------------------------------------------------------------------- | ---- | ----------------------- |
-| D1  | **The sheet**: rows, in-place cell editing, the day's totals, full table machinery                 | XL   | A1, A5, **server S10**  |
-| D2  | **`SaveStateIndicator` + auto-save wiring** (idempotent create on a client-minted row id)          | L    | D1, **server S10**      |
-| D3  | **The stacked entry dialog** — `RecordWindow` above the sheet modal, both viewport-capped          | M    | A2, D1                  |
-| D4  | **The timer chip and its manager**, and the time-entry↔file association                            | L    | D1, **server S11, S12** |
+| #   | Slice                                                                                     | Size | Depends on              |
+| --- | ----------------------------------------------------------------------------------------- | ---- | ----------------------- |
+| D1  | **The sheet**: rows, in-place cell editing, the day's totals, full table machinery        | XL   | A1, A5, **server S10**  |
+| D2  | **`SaveStateIndicator` + auto-save wiring** (idempotent create on a client-minted row id) | L    | D1, **server S10**      |
+| D3  | **The stacked entry dialog** — `RecordWindow` above the sheet modal, both viewport-capped | M    | A2, D1                  |
+| D4  | **The timer chip and its manager**, and the time-entry↔file association                   | L    | D1, **server S11, S12** |
 
 ### The server slices that must precede specific screens
 
@@ -644,21 +644,21 @@ Named from the ledgers' own consolidated registers and the six recent specs. **A
 server capability** — each of these is a real vertical slice (schema → data-access → API → tests),
 and the screens above are blocked on them or ship the fact Soon-disabled.
 
-| #   | Server slice                                                                                                          | Blocks   | Source                        |
-| --- | --------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------- |
-| S1  | **The listing enrichments**: `createdAt` (entered date), dual attribution, resolved rate, activity code, categories, disposition beyond a boolean, invoice linkage + invoice number | C2       | time gaps 1, 2, 4, 23         |
-| S2  | **Entry numbers** — a matter-scoped sequence on the record via `@magna-carta/sequence-numbering`                        | C2       | time gap 3; TL7               |
-| S3  | **The memo column** — nullable `memo` TEXT on all three tables, served and settable, **excluded by construction** from every client-facing projection (invoice render model, LEDES, print sheet, portal) | C2–C4    | time gap 20; M6               |
-| S4  | **Status-history endpoint** — the audit events an entry's History tab renders                                          | C2, B7   | time gap 6                    |
-| S5  | **Review-gate firm setting** (`reviewGateEnabled`), plus **unsubmit**, **un-approve**, **optional kick-back reason**, **delete-draft**, **enterer-may-work-a-draft** | C5       | time gaps 5, 7, 8, 9, 10, 17  |
-| S6  | **The many-attachment relation** — attach + **detach** (detach must not delete), counts on the listing, and the by-reference variant that records which it was | A3, B7   | time gaps 19, 22; M3, M9      |
-| S7  | **Deleted-files reads** — `deleted_by`, `deleted_from_path`, the partial index, the deleted listing and the restore route; the search index's deleted facet (tag-and-filter, not removal-on-delete) | B7, B8   | deleted-files design §7; S19  |
-| S8  | **Reclassification** — its own route, not a `PATCH` of a kind field: delete-and-insert in one transaction, the entry number carried across a table whose sequence never minted it, the audit event, and the refusals the client cannot be trusted to enforce; plus `reclassified_from` provenance and the `incomplete` flag | C6       | time gap 21; R1–R5            |
-| S9  | **The billing reads** — per-matter invoice listing, application history, attribution and events, draft claims, unbilled entries, display names without N+1. **Plus the pending ADR** that revises finalized-is-immutable before BM1's adjustment routes exist | C7       | billing gaps 1–6; time gap 12 |
-| S10 | **The sheet's contract** — the cross-matter per-person **range listing** with denormalized matter title, period totals, and the save-with-nothing changes (`matter_id` nullable, `narrative` loses `min(1)`, zero duration legal pre-completion, a completeness predicate gating every downstream consumer, and the provisional `TMP-nnnn` code beside its permanent replacement) | D1, D2   | timesheet §7; timer §9.8      |
-| S11 | **The timer DO slims to tick state** — one live feed with an entry-id pointer                                          | D4       | timer §9.2                    |
-| S12 | **`time_entry_file`** — the entry↔file association table, served as `{fileId, name}` pairs, constrained to the entry's matter | D4, A3   | timer §9.8                    |
-| S13 | **Cross-matter refile** — its own route with its own permission; it is a cross-matter write, not a `PATCH` of `matterId` | C2 (L4)  | time gap 18                   |
+| #   | Server slice                                                                                                                                                                                                                                                                                                                                                                      | Blocks  | Source                        |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------------------------- |
+| S1  | **The listing enrichments**: `createdAt` (entered date), dual attribution, resolved rate, activity code, categories, disposition beyond a boolean, invoice linkage + invoice number                                                                                                                                                                                               | C2      | time gaps 1, 2, 4, 23         |
+| S2  | **Entry numbers** — a matter-scoped sequence on the record via `@magna-carta/sequence-numbering`                                                                                                                                                                                                                                                                                  | C2      | time gap 3; TL7               |
+| S3  | **The memo column** — nullable `memo` TEXT on all three tables, served and settable, **excluded by construction** from every client-facing projection (invoice render model, LEDES, print sheet, portal)                                                                                                                                                                          | C2–C4   | time gap 20; M6               |
+| S4  | **Status-history endpoint** — the audit events an entry's History tab renders                                                                                                                                                                                                                                                                                                     | C2, B7  | time gap 6                    |
+| S5  | **Review-gate firm setting** (`reviewGateEnabled`), plus **unsubmit**, **un-approve**, **optional kick-back reason**, **delete-draft**, **enterer-may-work-a-draft**                                                                                                                                                                                                              | C5      | time gaps 5, 7, 8, 9, 10, 17  |
+| S6  | **The many-attachment relation** — attach + **detach** (detach must not delete), counts on the listing, and the by-reference variant that records which it was                                                                                                                                                                                                                    | A3, B7  | time gaps 19, 22; M3, M9      |
+| S7  | **Deleted-files reads** — `deleted_by`, `deleted_from_path`, the partial index, the deleted listing and the restore route; the search index's deleted facet (tag-and-filter, not removal-on-delete)                                                                                                                                                                               | B7, B8  | deleted-files design §7; S19  |
+| S8  | **Reclassification** — its own route, not a `PATCH` of a kind field: delete-and-insert in one transaction, the entry number carried across a table whose sequence never minted it, the audit event, and the refusals the client cannot be trusted to enforce; plus `reclassified_from` provenance and the `incomplete` flag                                                       | C6      | time gap 21; R1–R5            |
+| S9  | **The billing reads** — per-matter invoice listing, application history, attribution and events, draft claims, unbilled entries, display names without N+1. **Plus the pending ADR** that revises finalized-is-immutable before BM1's adjustment routes exist                                                                                                                     | C7      | billing gaps 1–6; time gap 12 |
+| S10 | **The sheet's contract** — the cross-matter per-person **range listing** with denormalized matter title, period totals, and the save-with-nothing changes (`matter_id` nullable, `narrative` loses `min(1)`, zero duration legal pre-completion, a completeness predicate gating every downstream consumer, and the provisional `TMP-nnnn` code beside its permanent replacement) | D1, D2  | timesheet §7; timer §9.8      |
+| S11 | **The timer DO slims to tick state** — one live feed with an entry-id pointer                                                                                                                                                                                                                                                                                                     | D4      | timer §9.2                    |
+| S12 | **`time_entry_file`** — the entry↔file association table, served as `{fileId, name}` pairs, constrained to the entry's matter                                                                                                                                                                                                                                                     | D4, A3  | timer §9.8                    |
+| S13 | **Cross-matter refile** — its own route with its own permission; it is a cross-matter write, not a `PATCH` of `matterId`                                                                                                                                                                                                                                                          | C2 (L4) | time gap 18                   |
 
 **Also carried, honestly Soon rather than blocking:** P1 (always-store-and-commit, spec written not
 built), P2 (archive entry and extraction — D3 and A18's dependency), the conversion engine (A18),
@@ -669,20 +669,20 @@ controls).
 
 ## 4. What is real, what is Soon, what needs a server slice — per screen
 
-| Screen              | Real today                                                             | Named Soon                                                            | Blocked on                |
-| ------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------- |
-| File browse         | Folders, files, versions, upload, delete (soft), the scan pipeline      | Convert (A18), Share (A26), version compare (I25), save-new-version (P6) | —                         |
-| Deleted Files       | Soft delete exists                                                     | —                                                                     | **S7**                    |
-| History             | The audit trail is written                                             | Deleted-row Restore keeps its existing Soon                           | **S4**                    |
-| Search Results      | The text index exists                                                  | —                                                                     | **S7** (the deleted facet) |
-| File Analysis       | Findings exist; **re-run is real** (the pipeline exists — F13 needed no Soon) | —                                                                | —                         |
-| Archive browsing    | Reading a zip                                                          | Extraction writes (P2), and D3's restore-into-matter                  | —                         |
-| Time                | Listing, capture, void, kick-back (submitted only)                     | Internal memo until S3                                                | **S1, S2, S4, S13**       |
-| Fees                | The arrangement read/write exists in full                              | —                                                                     | **S3** and the fee routes  |
-| Costs               | Listing, capture, void                                                 | Vendor inline-create until CP1's route                                | **S1, S3, S4**            |
-| Review              | Per-entry submit/approve/kick-back                                     | —                                                                     | **S5**                    |
-| Billing             | Invoice reads exist, filtered by client and status                     | Record Payment, Print/PDF/LEDES, credit-note numbering                | **S9**                    |
-| Time Sheet          | Per-entry create/PATCH; `grid-batch` for bulk create                   | Spell-check; internal memo                                            | **S10, S11, S12**         |
+| Screen           | Real today                                                                    | Named Soon                                                               | Blocked on                 |
+| ---------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------- |
+| File browse      | Folders, files, versions, upload, delete (soft), the scan pipeline            | Convert (A18), Share (A26), version compare (I25), save-new-version (P6) | —                          |
+| Deleted Files    | Soft delete exists                                                            | —                                                                        | **S7**                     |
+| History          | The audit trail is written                                                    | Deleted-row Restore keeps its existing Soon                              | **S4**                     |
+| Search Results   | The text index exists                                                         | —                                                                        | **S7** (the deleted facet) |
+| File Analysis    | Findings exist; **re-run is real** (the pipeline exists — F13 needed no Soon) | —                                                                        | —                          |
+| Archive browsing | Reading a zip                                                                 | Extraction writes (P2), and D3's restore-into-matter                     | —                          |
+| Time             | Listing, capture, void, kick-back (submitted only)                            | Internal memo until S3                                                   | **S1, S2, S4, S13**        |
+| Fees             | The arrangement read/write exists in full                                     | —                                                                        | **S3** and the fee routes  |
+| Costs            | Listing, capture, void                                                        | Vendor inline-create until CP1's route                                   | **S1, S3, S4**             |
+| Review           | Per-entry submit/approve/kick-back                                            | —                                                                        | **S5**                     |
+| Billing          | Invoice reads exist, filtered by client and status                            | Record Payment, Print/PDF/LEDES, credit-note numbering                   | **S9**                     |
+| Time Sheet       | Per-entry create/PATCH; `grid-batch` for bulk create                          | Spell-check; internal memo                                               | **S10, S11, S12**          |
 
 ---
 
@@ -699,27 +699,27 @@ expand / close." That check ports.
 
 ### 5.1 What is mechanically detectable, and the rule for each
 
-| #   | Rule                                                                                                                                                             | Detection                                                                                                                                            |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **No `<table>` outside the design system.** A tabular surface is `DataTable.Grid`.                                                                                | Scan `apps/web/src/**/*.svelte` for `<table`, `<thead`, `<tbody`, `<th`, `role="grid"`, `role="columnheader"`. Allow-list: none. Failure names the file and points at `DataTable.Grid`. |
-| 2   | **No second record window.** A record opens in `RecordWindow`.                                                                                                    | Any `Dialog.Root` in `apps/web` whose subtree contains two panes, a tab strip **and** a footer action bar — detected structurally as a `Dialog.Content` containing both a `data-record-tabs` marker and an action-bar class. Simpler and stricter: a naming rule — a `.svelte` file matching `*-modal.svelte` / `*-window.svelte` under a matter area must import `RecordWindow`. |
-| 3   | **The record window's header set is exactly four, in order.** Edit, Print, expand, close.                                                                         | Parse `record-window.svelte` and assert the header renders exactly those four controls in that order. This is an assertion on the component, not a scan of consumers — the one place it can be wrong. |
-| 4   | **No domain symbol inside the shell.** The shell knows nothing of time, fees, costs, invoices, files.                                                             | Scan `packages/design-system/src/lib/components/record-window/**` for the domain vocabulary (`timeEntry`, `invoice`, `cost`, `fee`, `matter`, `narrative`, `timekeeper`). A hit is a leak. |
-| 5   | **No hand-rolled select.** Every dropdown is `Combobox` (or `Select` where the set is closed and short).                                                          | Scan `apps/web/src/**/*.svelte` for `<select`. Zero tolerance; the design system's own `Select` wraps the native element and is the only legitimate home. |
-| 6   | **No raw `<dialog>` and no hand-built overlay.** Dialogs come from the design system.                                                                             | Scan for `<dialog`, and for a `position: fixed` + `inset: 0` pair in a component's `<style>` block (a hand-rolled scrim).                             |
-| 7   | **No hand-drawn glyphs.** I15 binds the app.                                                                                                                     | Scan `apps/web` and `packages/design-system` for `<svg` carrying a `<path d=` outside `packages/design-system/src/lib/components/brand-mark/`. Icons come from `@lucide/svelte/icons/*`. |
-| 8   | **One status register.** No surface invents a tone.                                                                                                              | Scan for `Badge` usages whose `variant` is a literal in a file that does not import the status register; require the register's mapper.               |
-| 9   | **L2, the global placeholder ruling.** Every ghost text is the field's name.                                                                                     | Scan `placeholder="…"` values: fail any containing a verb phrase marker (a leading imperative verb from a small list — Type, Enter, Select, Choose, Search, Add), a trailing `…` after a preposition, or more than three words. This is the mockup's own verifier sweep, ported. |
-| 10  | **The one-implementation registry.** Every component in §2 is declared once.                                                                                     | A manifest (`tooling/lint-one-ui/registry.json`) mapping component name → its single home path. The check fails if a second file exports a symbol of that name, and fails if a registry home is missing. This is what makes the contract enforceable rather than aspirational. |
-| 11  | **No `document.getElementById` / `innerHTML` in ported surfaces.** The mockups' idiom must not survive the port.                                                  | Scan `apps/web/src/lib/{file-manager,wip,matters}/**` for `getElementById`, `querySelector` outside an `$effect` measuring pass, and `innerHTML`.     |
+| #   | Rule                                                                                                             | Detection                                                                                                                                                                                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **No `<table>` outside the design system.** A tabular surface is `DataTable.Grid`.                               | Scan `apps/web/src/**/*.svelte` for `<table`, `<thead`, `<tbody`, `<th`, `role="grid"`, `role="columnheader"`. Allow-list: none. Failure names the file and points at `DataTable.Grid`.                                                                                                                                                                                           |
+| 2   | **No second record window.** A record opens in `RecordWindow`.                                                   | Any `Dialog.Root` in `apps/web` whose subtree contains two panes, a tab strip **and** a footer action bar — detected structurally as a `Dialog.Content` containing both a `data-record-tabs` marker and an action-bar class. Simpler and stricter: a naming rule — a `.svelte` file matching `*-modal.svelte` / `*-window.svelte` under a matter area must import `RecordWindow`. |
+| 3   | **The record window's header set is exactly four, in order.** Edit, Print, expand, close.                        | Parse `record-window.svelte` and assert the header renders exactly those four controls in that order. This is an assertion on the component, not a scan of consumers — the one place it can be wrong.                                                                                                                                                                             |
+| 4   | **No domain symbol inside the shell.** The shell knows nothing of time, fees, costs, invoices, files.            | Scan `packages/design-system/src/lib/components/record-window/**` for the domain vocabulary (`timeEntry`, `invoice`, `cost`, `fee`, `matter`, `narrative`, `timekeeper`). A hit is a leak.                                                                                                                                                                                        |
+| 5   | **No hand-rolled select.** Every dropdown is `Combobox` (or `Select` where the set is closed and short).         | Scan `apps/web/src/**/*.svelte` for `<select`. Zero tolerance; the design system's own `Select` wraps the native element and is the only legitimate home.                                                                                                                                                                                                                         |
+| 6   | **No raw `<dialog>` and no hand-built overlay.** Dialogs come from the design system.                            | Scan for `<dialog`, and for a `position: fixed` + `inset: 0` pair in a component's `<style>` block (a hand-rolled scrim).                                                                                                                                                                                                                                                         |
+| 7   | **No hand-drawn glyphs.** I15 binds the app.                                                                     | Scan `apps/web` and `packages/design-system` for `<svg` carrying a `<path d=` outside `packages/design-system/src/lib/components/brand-mark/`. Icons come from `@lucide/svelte/icons/*`.                                                                                                                                                                                          |
+| 8   | **One status register.** No surface invents a tone.                                                              | Scan for `Badge` usages whose `variant` is a literal in a file that does not import the status register; require the register's mapper.                                                                                                                                                                                                                                           |
+| 9   | **L2, the global placeholder ruling.** Every ghost text is the field's name.                                     | Scan `placeholder="…"` values: fail any containing a verb phrase marker (a leading imperative verb from a small list — Type, Enter, Select, Choose, Search, Add), a trailing `…` after a preposition, or more than three words. This is the mockup's own verifier sweep, ported.                                                                                                  |
+| 10  | **The one-implementation registry.** Every component in §2 is declared once.                                     | A manifest (`tooling/lint-one-ui/registry.json`) mapping component name → its single home path. The check fails if a second file exports a symbol of that name, and fails if a registry home is missing. This is what makes the contract enforceable rather than aspirational.                                                                                                    |
+| 11  | **No `document.getElementById` / `innerHTML` in ported surfaces.** The mockups' idiom must not survive the port. | Scan `apps/web/src/lib/{file-manager,wip,matters}/**` for `getElementById`, `querySelector` outside an `$effect` measuring pass, and `innerHTML`.                                                                                                                                                                                                                                 |
 
 ### 5.2 What is not mechanically detectable, stated honestly
 
 A gate that claims more than it delivers is worse than none, so:
 
 - **"Is this the same behavior?"** cannot be scanned. Two surfaces can both use `DataTable.Grid` and
-  still disagree about what a right-click offers. Rules 1–11 stop a second *implementation*; only the
-  translated harness checks (§6) catch a second *behavior*.
+  still disagree about what a right-click offers. Rules 1–11 stop a second _implementation_; only the
+  translated harness checks (§6) catch a second _behavior_.
 - **Visual duplication** — a hand-composed panel that looks like `DetailsPanel` but is not it — is
   only caught by rule 10's registry if the author names it something recognizable. An author who
   names it `matter-side-thing.svelte` and composes it from primitives defeats the scan. The
@@ -805,13 +805,13 @@ footer saying what will be undone (A15b); History's child-aware single row with 
 
 Stated honestly rather than quietly dropped. Each one names its replacement.
 
-| Group                                                                                                   | Why it cannot port                                                                                                                | Replacement                                                                        |
-| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Checks asserting the **absence of a mockup artifact** (N19: drop the tree/breadcrumb/version-id mock state toggles) | The artifact does not exist                                                                                                       | None needed; the ruling is satisfied by construction                               |
-| Checks over **fixture-specific data** (Motion to Compel version 3 deliberately mismatches; the x:902 orphaned path; Site Photographs' eight photographs) | The fixture is the mockup's                                                                                                       | The gallery fixture reproduces the same **shapes**, and the check moves with it; where it cannot, the ruling moves to an integration test against seeded data |
-| Checks over **hand-rolled machinery** (the JS keydown handler's Escape branch ordering; the `ICONS.plus` undefined defect; the aggregate-fill re-render eating an open rename) | They assert defects in an implementation that is being deleted                                                                    | The **ruling** survives as a behavior test; the **defect check** does not          |
-| Checks that assert **`localStorage` persistence directly** (N29's persisted panel state)                | The app persists through the preference seam, not raw storage                                                                     | A test against the seam, plus the behavior test that the panel state survives a remount |
-| Checks whose ruling is **still open** (I15 was open, then settled by I50; A10 template picking at scale; P8 concurrent authorship credit; P6 save-new-version awaiting a decision) | There is nothing settled to assert                                                                                                | They stay in the ledger as `open`; no test is written for an undecided thing        |
+| Group                                                                                                                                                                              | Why it cannot port                                             | Replacement                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Checks asserting the **absence of a mockup artifact** (N19: drop the tree/breadcrumb/version-id mock state toggles)                                                                | The artifact does not exist                                    | None needed; the ruling is satisfied by construction                                                                                                          |
+| Checks over **fixture-specific data** (Motion to Compel version 3 deliberately mismatches; the x:902 orphaned path; Site Photographs' eight photographs)                           | The fixture is the mockup's                                    | The gallery fixture reproduces the same **shapes**, and the check moves with it; where it cannot, the ruling moves to an integration test against seeded data |
+| Checks over **hand-rolled machinery** (the JS keydown handler's Escape branch ordering; the `ICONS.plus` undefined defect; the aggregate-fill re-render eating an open rename)     | They assert defects in an implementation that is being deleted | The **ruling** survives as a behavior test; the **defect check** does not                                                                                     |
+| Checks that assert **`localStorage` persistence directly** (N29's persisted panel state)                                                                                           | The app persists through the preference seam, not raw storage  | A test against the seam, plus the behavior test that the panel state survives a remount                                                                       |
+| Checks whose ruling is **still open** (I15 was open, then settled by I50; A10 template picking at scale; P8 concurrent authorship credit; P6 save-new-version awaiting a decision) | There is nothing settled to assert                             | They stay in the ledger as `open`; no test is written for an undecided thing                                                                                  |
 
 **The `time-tab-rulings` ledger has no harness today** — round six and seven record verification "by
 measurement" performed ad hoc. Phase C should build one on the same shape as it goes, pointed at the
@@ -896,36 +896,36 @@ slice, and never in the same merge window as another of them.
 
 ## Appendix — the component contract at a glance
 
-| Component               | Home                                    | Kind    | Consumers                                                   |
-| ----------------------- | --------------------------------------- | ------- | ----------------------------------------------------------- |
-| `DataTable.Grid`        | design-system/data-table                | EXTEND  | 9 table surfaces + review list                              |
-| `GridColumnsMenu`       | design-system/data-table                | EXTEND  | all table surfaces                                          |
-| `GridColumnFilter`      | design-system/data-table                | EXTEND  | all table surfaces                                          |
-| `RecordWindow`          | design-system/record-window             | NEW-DS  | time, fee, cost, invoice, Time Sheet                        |
-| `RecordAttachments`     | design-system/record-window             | NEW-DS  | all 4 record types + Time Sheet                             |
-| `StatusChip` + register | design-system/badge                     | EXTEND  | all surfaces                                                |
-| `RecordChain`           | design-system/record-window             | NEW-DS  | 4 record types                                              |
-| `EventRail`             | design-system                           | NEW-DS  | all record windows, version + safety history, History view  |
-| `PrintSheet`            | design-system                           | NEW-DS  | 4 record types, row menus, details panel                    |
-| `WipLedgerSurface`      | web/lib/wip                             | NEW-APP | Time, Fees, Costs                                           |
-| `DetailsPanel`          | web/lib/wip                             | NEW-APP | 4 financial tabs, inspector host, History                   |
-| `ReviewList`            | web/lib/wip                             | NEW-APP | Time, Costs                                                 |
-| `RecordMenu`            | web/lib/wip                             | NEW-APP | all table surfaces                                          |
-| `SoonAffordance`        | web/lib/maturity                        | EXTEND  | everywhere                                                  |
-| `TotalsBar`             | design-system/data-table                | NEW-DS  | 4 financial tabs + file manager footer                      |
-| `Combobox`              | design-system/combobox                  | EXTEND  | every dropdown on every surface                             |
-| `DestinationPicker`     | web/lib/file-manager                    | NEW-APP | upload, folder delete, restore, extraction                  |
-| `SaveStateIndicator`    | design-system                           | NEW-DS  | Time Sheet                                                  |
-| `UndoRedo`              | web/lib/file-manager                    | NEW-APP | file manager, Time Sheet                                    |
-| `NameValidation`        | web/lib/file-manager                    | NEW-APP | new folder, rename ×3, paste, upload                        |
-| `ReclassifyDialog`      | web/lib/wip                             | NEW-APP | Time, Fees, Costs                                           |
-| `FolderTree`            | design-system/tree                      | EXTEND  | file manager rail                                           |
-| `InspectorTabs`         | web/lib/file-manager                    | NEW-APP | file manager                                                |
-| `SafetyPanel`           | web/lib/file-manager                    | NEW-APP | inspector, File Analysis                                    |
-| `HashPanel`             | web/lib/file-manager                    | NEW-APP | inspector                                                   |
-| `FileAnalysis`          | web/lib/file-manager                    | NEW-APP | file manager                                                |
-| `MatterSearch`          | web/lib/file-manager                    | NEW-APP | matter chrome + results view                                |
-| `FileIcon`              | design-system/file-icon                 | EXTEND  | every file surface                                          |
-| `ArchiveBar`            | web/lib/file-manager                    | NEW-APP | archive browsing                                            |
-| `ErrorPane`             | web/lib/file-manager                    | NEW-APP | file manager                                                |
-| Formatters (§2.6)       | design-system                           | NEW-DS  | everywhere                                                  |
+| Component               | Home                        | Kind    | Consumers                                                  |
+| ----------------------- | --------------------------- | ------- | ---------------------------------------------------------- |
+| `DataTable.Grid`        | design-system/data-table    | EXTEND  | 9 table surfaces + review list                             |
+| `GridColumnsMenu`       | design-system/data-table    | EXTEND  | all table surfaces                                         |
+| `GridColumnFilter`      | design-system/data-table    | EXTEND  | all table surfaces                                         |
+| `RecordWindow`          | design-system/record-window | NEW-DS  | time, fee, cost, invoice, Time Sheet                       |
+| `RecordAttachments`     | design-system/record-window | NEW-DS  | all 4 record types + Time Sheet                            |
+| `StatusChip` + register | design-system/badge         | EXTEND  | all surfaces                                               |
+| `RecordChain`           | design-system/record-window | NEW-DS  | 4 record types                                             |
+| `EventRail`             | design-system               | NEW-DS  | all record windows, version + safety history, History view |
+| `PrintSheet`            | design-system               | NEW-DS  | 4 record types, row menus, details panel                   |
+| `WipLedgerSurface`      | web/lib/wip                 | NEW-APP | Time, Fees, Costs                                          |
+| `DetailsPanel`          | web/lib/wip                 | NEW-APP | 4 financial tabs, inspector host, History                  |
+| `ReviewList`            | web/lib/wip                 | NEW-APP | Time, Costs                                                |
+| `RecordMenu`            | web/lib/wip                 | NEW-APP | all table surfaces                                         |
+| `SoonAffordance`        | web/lib/maturity            | EXTEND  | everywhere                                                 |
+| `TotalsBar`             | design-system/data-table    | NEW-DS  | 4 financial tabs + file manager footer                     |
+| `Combobox`              | design-system/combobox      | EXTEND  | every dropdown on every surface                            |
+| `DestinationPicker`     | web/lib/file-manager        | NEW-APP | upload, folder delete, restore, extraction                 |
+| `SaveStateIndicator`    | design-system               | NEW-DS  | Time Sheet                                                 |
+| `UndoRedo`              | web/lib/file-manager        | NEW-APP | file manager, Time Sheet                                   |
+| `NameValidation`        | web/lib/file-manager        | NEW-APP | new folder, rename ×3, paste, upload                       |
+| `ReclassifyDialog`      | web/lib/wip                 | NEW-APP | Time, Fees, Costs                                          |
+| `FolderTree`            | design-system/tree          | EXTEND  | file manager rail                                          |
+| `InspectorTabs`         | web/lib/file-manager        | NEW-APP | file manager                                               |
+| `SafetyPanel`           | web/lib/file-manager        | NEW-APP | inspector, File Analysis                                   |
+| `HashPanel`             | web/lib/file-manager        | NEW-APP | inspector                                                  |
+| `FileAnalysis`          | web/lib/file-manager        | NEW-APP | file manager                                               |
+| `MatterSearch`          | web/lib/file-manager        | NEW-APP | matter chrome + results view                               |
+| `FileIcon`              | design-system/file-icon     | EXTEND  | every file surface                                         |
+| `ArchiveBar`            | web/lib/file-manager        | NEW-APP | archive browsing                                           |
+| `ErrorPane`             | web/lib/file-manager        | NEW-APP | file manager                                               |
+| Formatters (§2.6)       | design-system               | NEW-DS  | everywhere                                                 |

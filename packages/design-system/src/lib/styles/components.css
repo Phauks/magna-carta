@@ -69,3 +69,6 @@
 /* RecordWindow dresses the Dialog panel and hosts a Tabs strip, so it must follow both of those
    recipes: at equal specificity the later declaration is the one that wins. */
 @import "../components/record-window/record-window.css";
+/* PrintSheet layers above a record window, and its print rules undo the Dialog panel's centring
+   and its cap, so it follows both of those recipes for the same reason. */
+@import "../components/print-sheet/print-sheet.css";

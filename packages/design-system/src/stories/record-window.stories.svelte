@@ -95,7 +95,11 @@
   template={plainTemplate}
   play={async ({ canvas, step }) => {
     const body = within(document.body);
-    await userEvent.click(canvas.getByRole("button", { name: "Open the record" }));
+    // A previous story's panel locks the page (`pointer-events: none` on the body) until its exit
+    // settles, so wait for this story's trigger to be live before pressing it.
+    const trigger = canvas.getByRole("button", { name: "Open the record" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
     const dialog = await body.findByRole("dialog");
     // The panel scale-fades in, so poll until the entrance settles rather than reading frame one.
     await waitFor(() => expect(dialog).toBeVisible());
@@ -131,11 +135,12 @@
     });
 
     await step("The first tab opens, and its panel is the one showing", async () => {
-      await expect(body.getByRole("tab", { name: /Attachments/ })).toHaveAttribute(
+      const panel = within(dialog);
+      await expect(panel.getByRole("tab", { name: /Attachments/ })).toHaveAttribute(
         "data-state",
         "active",
       );
-      await expect(body.getByText(/Two files ride this record/)).toBeVisible();
+      await expect(panel.getByRole("tabpanel")).toHaveTextContent(/Two files ride this record/);
     });
   }}
 />
@@ -169,15 +174,20 @@
   template={chosenTabTemplate}
   play={async ({ canvas, step }) => {
     const body = within(document.body);
-    await userEvent.click(canvas.getByRole("button", { name: "Open the record" }));
-    await body.findByRole("dialog");
+    // The previous story's panel keeps the page locked until its exit settles; wait it out.
+    const trigger = canvas.getByRole("button", { name: "Open the record" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    // Scoped to THIS window: a previous story's panel can still be in the document while its exit
+    // presence settles, and an unscoped text query would read that one instead.
+    const panel = within(await body.findByRole("dialog"));
 
     await step("The caller's chosen tab is the one in front of the reader", async () => {
-      await expect(body.getByRole("tab", { name: /History/ })).toHaveAttribute(
+      await expect(panel.getByRole("tab", { name: /History/ })).toHaveAttribute(
         "data-state",
         "active",
       );
-      await expect(body.getByText(/oldest first/)).toBeVisible();
+      await expect(panel.getByRole("tabpanel")).toHaveTextContent(/oldest first/);
     });
   }}
 />
@@ -208,11 +218,14 @@
   template={editRefusedTemplate}
   play={async ({ canvas, step }) => {
     const body = within(document.body);
-    await userEvent.click(canvas.getByRole("button", { name: "Open the record" }));
-    await body.findByRole("dialog");
+    // The previous story's panel keeps the page locked until its exit settles; wait it out.
+    const trigger = canvas.getByRole("button", { name: "Open the record" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = within(await body.findByRole("dialog"));
 
     await step("Edit is present and disabled, and says why", async () => {
-      const edit = body.getByRole("button", {
+      const edit = panel.getByRole("button", {
         name: "Edit: Only the person who entered this record may work it",
       });
       await expect(edit).toBeDisabled();
@@ -223,7 +236,7 @@
     });
 
     await step("Print stays available, because printing is not editing", async () => {
-      await expect(body.getByRole("button", { name: "Print" })).toBeEnabled();
+      await expect(panel.getByRole("button", { name: "Print" })).toBeEnabled();
     });
   }}
 />

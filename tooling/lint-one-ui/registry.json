@@ -1,0 +1,27 @@
+{
+  "comment": [
+    "The one-implementation registry: every shared component the product has agreed to build once,",
+    "and the single directory it lives in. An entry here is a promise that no second file exports a",
+    "symbol of that name, and the check enforces both halves — the home exists, and nothing else",
+    "claims the name. Add a component here the moment its contract is agreed, not once it is built:",
+    "the whole value is that the name is taken before somebody else takes it.",
+    "",
+    "`pending` marks a home that is being written right now. Its absence is a notice rather than a",
+    "failure, and the mark must come off the moment the home lands — an entry excused forever is an",
+    "entry nobody re-reads."
+  ],
+  "components": [
+    {
+      "name": "RecordWindow",
+      "home": "packages/design-system/src/lib/components/record-window"
+    },
+    {
+      "name": "EventRail",
+      "home": "packages/design-system/src/lib/components/event-rail"
+    },
+    {
+      "name": "PrintSheet",
+      "home": "packages/design-system/src/lib/components/print-sheet"
+    }
+  ]
+}
