@@ -1,0 +1,256 @@
+@layer components {
+  /*
+   * RecordAttachments — the files riding a record, presented inside a record window's context pane.
+   *
+   * This is a WORK SURFACE, not chrome: it sits beside the record a person is reading, so it stays
+   * calm. Hairlines between rows, one weight of ink for the name and a quieter one for who attached
+   * it and when, and no fill anywhere. The identity of this product lives on the window that frames
+   * this pane, never on the pane's own data.
+   *
+   * The pane it lives in already scrolls, so nothing here scrolls inside itself: a record with
+   * thirty files makes the tab longer, not this list shorter. That is what keeps the two attach
+   * sources reachable by scrolling rather than stranded under a nested scrollbar.
+   */
+  .mc-record-attachments {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-default);
+  }
+
+  /* --- the files themselves ---------------------------------------------------------------- */
+
+  .mc-record-attachments-list {
+    display: flex;
+    flex-direction: column;
+    margin: var(--mc-space-0);
+    padding: var(--mc-space-0);
+    list-style: none;
+  }
+  /*
+   * A hairline BETWEEN rows rather than under each one: a rule under the last row would read as the
+   * start of something that is not there.
+   */
+  .mc-record-attachments-item + .mc-record-attachments-item {
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+  }
+  .mc-record-attachments-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+  }
+  .mc-record-attachments-item-icon {
+    flex: none;
+    color: var(--mc-text-muted);
+  }
+  .mc-record-attachments-item-text {
+    display: flex;
+    flex: auto;
+    flex-direction: column;
+    gap: var(--mc-space-0);
+    min-inline-size: var(--mc-space-0);
+  }
+  /*
+   * The name is the way in to the document, so it is a control — but a quiet one. It takes the link
+   * colour only under the pointer and on focus; at rest a list of files should read as a list of
+   * files rather than a wall of links.
+   */
+  .mc-record-attachments-item-name {
+    display: block;
+    padding: var(--mc-space-0);
+    border-style: none;
+    background-color: transparent;
+    color: var(--mc-text-default);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    transition-property: color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-record-attachments-item-name:hover {
+    color: var(--mc-text-link);
+    text-decoration-line: underline;
+  }
+  .mc-record-attachments-item-name:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /* The same name where there is nowhere to open it: no control, so no affordance either. */
+  .mc-record-attachments-item-name-text {
+    display: block;
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    overflow-wrap: anywhere;
+  }
+  /* Who attached it and when. One quiet line; the instant is absolute and in the reader's own zone. */
+  .mc-record-attachments-item-meta {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-record-attachments-item-separator {
+    margin-inline: var(--mc-space-4);
+    color: var(--mc-text-subtle);
+  }
+  /*
+   * Detaching. A quiet icon control that lifts to the default ink under the pointer — deliberately
+   * NOT the danger colour, because ending an association destroys nothing and a red control would
+   * say otherwise before the reader had read a word.
+   */
+  .mc-record-attachments-detach {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--mc-density-control-sm);
+    min-block-size: var(--mc-density-control-sm);
+    padding: var(--mc-space-4);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-record-attachments-detach:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-record-attachments-detach:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /* After the hover rule, so a refused control reads muted at REST and not only under the pointer. */
+  .mc-record-attachments-detach:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-record-attachments-detach-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /* --- while it is loading, and when it could not be read ----------------------------------- */
+
+  .mc-record-attachments-placeholder-icon {
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-radius: var(--mc-radius-sm);
+  }
+  .mc-record-attachments-placeholder-line {
+    block-size: var(--mc-space-12);
+    border-radius: var(--mc-radius-sm);
+  }
+  .mc-record-attachments-error-message {
+    display: block;
+  }
+  /* The reference a person quotes when they report the failure. Set apart so it can be read out. */
+  .mc-record-attachments-error-identifier {
+    display: block;
+    margin-block-start: var(--mc-space-4);
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+  }
+  .mc-record-attachments-error-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-block-start: var(--mc-space-12);
+  }
+
+  /* --- the two ways to attach one ----------------------------------------------------------- */
+
+  .mc-record-attachments-sources {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+  }
+  /* The first source wears the secondary button, with its glyph held to the leading edge. */
+  .mc-record-attachments-source {
+    justify-content: flex-start;
+    gap: var(--mc-space-8);
+  }
+  .mc-record-attachments-source-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  /* Why a source is refused, stated once beneath both of them rather than only in a hover. */
+  .mc-record-attachments-refusal {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+
+  /* --- the picker over the matter's own documents -------------------------------------------- */
+
+  /*
+   * The panel reuses the Popover surface and the Command listbox whole; only the row's shape and the
+   * sentence shown when there is nothing left to offer need anything of their own.
+   */
+  .mc-record-attachments-picker-note {
+    margin: var(--mc-space-0);
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-16);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-record-attachments-picker-item {
+    gap: var(--mc-space-8);
+  }
+  .mc-record-attachments-picker-item-icon {
+    flex: none;
+    color: var(--mc-text-muted);
+  }
+  /* One line per document: the name takes the room, and a long one is cut rather than wrapped. */
+  .mc-record-attachments-picker-item-name {
+    flex: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* --- what is attached, seen rather than named ---------------------------------------------- */
+
+  .mc-record-attachments-preview {
+    padding-block-start: var(--mc-space-12);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+  }
+
+  /* --- the confirmation ---------------------------------------------------------------------- */
+
+  .mc-record-attachments-confirm-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--mc-space-8);
+    margin-block-start: var(--mc-space-16);
+  }
+}
