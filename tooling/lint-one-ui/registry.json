@@ -31,5 +31,131 @@
       "name": "RecordAttachments",
       "home": "packages/design-system/src/lib/components/record-attachments"
     }
+  ],
+
+  "allowancesComment": [
+    "Pre-existing debt, declared out loud. Every entry here is a REAL violation that predates the",
+    "rule catching it: the status register and the placeholder ruling both landed after the code",
+    "below was written, and the files belong to slices that are open right now. An allowance is not",
+    "a way to make a rule quiet — it is a way to let the rule bite on new work while the debt stays",
+    "on screen, printed on every run.",
+    "",
+    "Two things keep the list honest, and they are checked: every entry carries a reason, and an",
+    "entry whose violation is gone is itself a failure. So fixing one of these means deleting its",
+    "line here in the same commit, and the list can never fill up with entries nobody re-reads.",
+    "",
+    "An entry matches on rule + file + text (line numbers move; the violation does not). For a",
+    "placeholder the `text` is the ghost text itself, so changing the wording re-arms the rule.",
+    "The alternative escape, for a NEW placeholder that is genuinely right, is the repository's",
+    "inline `fitness-allow: <justification>` comment on the line above — a reviewed edit in the",
+    "file itself, which is where an argument about one field's wording belongs."
+  ],
+  "allowances": [
+    {
+      "rule": "status-tone",
+      "file": "apps/web/src/lib/matters/cost-api.ts",
+      "reason": "predates the status register; its statusLabel/statusTone pair is the workflow chain written a second time, and it already disagrees (Void reads warning here, danger in the register). Folds into the register when the costs slice next opens."
+    },
+    {
+      "rule": "status-tone",
+      "file": "apps/web/src/lib/matters/time-api.ts",
+      "reason": "predates the status register; the same second copy of the workflow chain as cost-api.ts, with the same Void disagreement. Folds into the register when the time slice next opens."
+    },
+    {
+      "rule": "status-tone",
+      "file": "apps/web/src/routes/developer-console/table-states/+page.svelte",
+      "reason": "predates the status register; the dev gallery holds its own STATUS_BADGE map so the grid states have something to render. It should read the register instead, which is also what would make the gallery show the real tones."
+    },
+
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/components/recipient-picker.svelte",
+      "text": "Search colleagues…",
+      "reason": "predates the placeholder ruling; the field's name is Colleague."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/developer/modules/appearance/appearance-module.svelte",
+      "text": "Select a theme",
+      "reason": "predates the placeholder ruling; the field's name is Theme."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/developer/modules/appearance/appearance-module.svelte",
+      "text": "Select a mode",
+      "reason": "predates the placeholder ruling; the field's name is Mode."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/developer/modules/appearance/appearance-module.svelte",
+      "text": "Select a density",
+      "reason": "predates the placeholder ruling; the field's name is Density."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/developer/modules/appearance/appearance-module.svelte",
+      "text": "Select a motion level",
+      "reason": "predates the placeholder ruling; the field's name is Motion level."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/developer/modules/motion/motion-module.svelte",
+      "text": "Choose a surface",
+      "reason": "predates the placeholder ruling; the field's name is Surface."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/developer/modules/motion/motion-module.svelte",
+      "text": "Choose an entrance",
+      "reason": "predates the placeholder ruling; the field's name is Entrance."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/documents/new-document-dialog.svelte",
+      "text": "Choose a template",
+      "reason": "predates the placeholder ruling; the field's name is Template."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/documents/new-document-dialog.svelte",
+      "text": "Choose a format",
+      "reason": "predates the placeholder ruling; the field's name is Format."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/lib/settings/components/request-change-dialog.svelte",
+      "text": "Search colleagues…",
+      "reason": "predates the placeholder ruling; the field's name is Colleague."
+    },
+    {
+      "rule": "placeholder",
+      "file": "apps/web/src/routes/(app)/forms/assemble/+page.svelte",
+      "text": "Choose a template",
+      "reason": "predates the placeholder ruling; the field's name is Template."
+    },
+    {
+      "rule": "placeholder",
+      "file": "packages/design-system/src/lib/components/data-table/data-table-column-filter.svelte",
+      "text": "Contains…",
+      "reason": "predates the placeholder ruling; the trailing ellipsis is what fails it, and the field's name is Contains."
+    },
+    {
+      "rule": "placeholder",
+      "file": "packages/design-system/src/lib/components/data-table/data-table-column-filter.svelte",
+      "text": "Search values…",
+      "reason": "predates the placeholder ruling; the field's name is Value."
+    },
+    {
+      "rule": "placeholder",
+      "file": "packages/design-system/src/lib/components/data-table/data-table-search.svelte",
+      "text": "Search…",
+      "reason": "predates the placeholder ruling; a search box's field name IS Search, so only the trailing ellipsis fails it. This is the default prop value, not an attribute, which is why it is worth deciding once here rather than at every caller."
+    },
+    {
+      "rule": "placeholder",
+      "file": "packages/design-system/src/lib/components/merge-field-picker/merge-field-picker.svelte",
+      "text": "Choose a merge field",
+      "reason": "predates the placeholder ruling; the field's name is Merge field."
+    }
   ]
 }

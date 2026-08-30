@@ -749,6 +749,58 @@ A gate that claims more than it delivers is worse than none, so:
   silently reorder. The consequence is that a consumer handing it newest-first renders newest-first
   and no scan will say so. This is a **harness check at the consumer**, not a source rule: each
   surface that mounts a rail asserts its first event is the oldest.
+- **Every rule here reads source text, so anything assembled at runtime escapes all of them.**
+  Found while building rules 5–7: `document.createElement("select")`, a scrim whose `inset` arrives
+  from a variable, and a glyph whose geometry sits in a constant are each invisible to a scan that
+  reads what is written. The rules are worth having anyway — the mockups' idiom, and the idiom of
+  somebody in a hurry, is to write the thing out — but "the scan is green" means "nobody wrote it
+  down", not "it is not there".
+- **Rule 6 reads a component's `<style>` block, and nothing else.** A hand-rolled scrim written as
+  an inline `style="position:fixed;inset:0"` attribute, or as a Tailwind `fixed inset-0` pair, is
+  not caught. The `<style>` form was chosen because the design system's own overlay recipes
+  legitimately pin to every edge and live in `components.css`, where they belong; a `<style>` block
+  inside a component is the shape that means somebody built a second one. The utility-class form is
+  a real gap and the honest answer to it is review, because `fixed inset-0` is also how a legitimate
+  full-bleed layout is written.
+- **Rule 7 fires on LITERAL path geometry only, and that is deliberate.** A chart computes its `d`
+  from data (`d={area}` in the bandwidth sparkline; a cubic built from control points in the easing
+  graph), and both would fail a rule written as "any `<svg>` with a `<path d=`" — the two plotted
+  surfaces in `apps/web` were the whole test population when the rule was written. A path whose
+  geometry is a constant is a drawing; a path whose geometry is computed is a picture of data. The
+  cost of drawing the line there: **a hand-drawn glyph whose geometry is held in a constant
+  (`d={SHIELD_PATH}`) is not caught.**
+- **Rule 8 as originally prescribed catches almost nothing, and the useful form is a different
+  scan.** "A `Badge` whose `variant` is a literal in a file that does not import the register" was
+  written against the mockups, where a status chip is inline markup. In the ported code every real
+  second register renders through an EXPRESSION — `<Badge variant={statusTone(cost.status)}>` over a
+  local `statusTone()` — so the prescribed scan sees none of them, while the literal-variant badges
+  it does see are mostly `Soon` and other non-status chips it must not fire on. The implemented rule
+  keeps the prescribed form (narrowed: the badge's text must be a word the register owns) and adds
+  the one that bites: **a file that names two or more of the register's own status words beside a
+  tone name, and does not import the register, is a second register.** Both read the words and the
+  tones off `STATUS_REGISTER` itself rather than a copy. Still not caught: **a mapper keyed on
+  status codes alone** (`"paid" -> "success"`, with the labels fetched from somewhere else), because
+  nothing in that file spells a status word.
+- **Rule 9 is implemented by calling the product's own predicate, and its escape is an asserted
+  inventory in the tool rather than only an inline comment.** `readsAsFieldName`
+  (`packages/design-system/src/lib/formatters/placeholder.ts`) is the single home of the judgement
+  and the scan imports it, so the rule cannot drift from the ruling. Both escapes exist: the inline
+  `fitness-allow: <justification>` comment above the line, for a new placeholder somebody argues
+  for, and a recorded entry in `tooling/lint-one-ui/registry.json` for pre-existing debt. Recorded
+  entries name the file AND the exact ghost text, are printed on every run, and **fail the check
+  once the violation is gone** — so the list cannot quietly outlive what it excuses. Not caught: a
+  placeholder that is not a literal (`placeholder={hint}` — already the right answer), and a
+  placeholder that reads as a field's name but names the WRONG field. The predicate answers shape,
+  never meaning.
+- **Rule 11 enumerates three names, not the imperative DOM surface.** `getElementById`, `innerHTML`
+  and `querySelector` (the last exempt inside an `$effect`, which is where measuring legitimately
+  happens) are the mockups' actual idiom. `outerHTML`, `insertAdjacentHTML`, `document.write` and
+  the rest are not listed, because a rule that enumerates everything is a rule that fires on
+  ordinary code and gets switched off.
+- **Rules 1 and 2 are specified above and NOT built.** The screens they govern mostly do not exist
+  yet, and rule 2's structural form is heuristic by the plan's own account. `pnpm run lint:one-ui`
+  therefore does not check for a `<table>` in an app screen or for a second record window, and its
+  own "Not caught" line says so on every run. They belong in the tool when Phase B and C land.
 
 ---
 

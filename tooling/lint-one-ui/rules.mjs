@@ -10,16 +10,34 @@
  * place and not the other, and by then two surfaces disagree about something a reader was told was
  * settled. Review does not scale to catching that; a scan does.
  *
- * Three rules live here, each the narrowest form of its question that still bites:
+ * Each rule is the narrowest form of its question that still bites:
  *
- *   header-set  — the record window's header carries exactly Edit, Print, expand and close, in that
- *                 order. This is an assertion about the component itself, not a sweep of its
- *                 callers, because the component is the one place it can be wrong.
- *   domain-leak — nothing inside the record window's home names a kind of record. The shell serves
- *                 every kind, so the moment it learns about one of them the next kind needs its own
- *                 window and the reader has two things to learn instead of one.
- *   registry    — every shared component named in registry.json has exactly one home on disk, and
- *                 no other file exports a symbol of its name.
+ *   header-set      — the record window's header carries exactly Edit, Print, expand and close, in
+ *                     that order. This is an assertion about the component itself, not a sweep of
+ *                     its callers, because the component is the one place it can be wrong.
+ *   domain-leak     — nothing inside the record window's home names a kind of record. The shell
+ *                     serves every kind, so the moment it learns about one of them the next kind
+ *                     needs its own window and the reader has two things to learn instead of one.
+ *   registry        — every shared component named in registry.json has exactly one home on disk,
+ *                     and no other file exports a symbol of its name.
+ *   native-select   — no hand-rolled `<select>` in an app screen. Every dropdown is the design
+ *                     system's, so keyboard behaviour, typeahead and the popover layer are decided
+ *                     once.
+ *   hand-built-dialog — no raw `<dialog>`, and no hand-built scrim. A second overlay mechanism is a
+ *                     second set of answers about focus, dismissal and z-order.
+ *   hand-drawn-glyph — no glyph drawn as SVG geometry outside the brand mark. Icons come from
+ *                     Lucide, at the sizes the theme defines.
+ *   status-tone     — no surface invents a tone for a status word. The status register is the one
+ *                     place a word is given its label, its tone and its meaning.
+ *   placeholder     — every ghost text is the field's own name. The judgement is NOT re-implemented
+ *                     here: the predicate is injected, and its one home is the design system's
+ *                     `readsAsFieldName`.
+ *   imperative-dom  — no `getElementById`, no `innerHTML`, and no `querySelector` outside a
+ *                     measuring `$effect`, in the ported surfaces. The mockups reached into the
+ *                     document by hand; the ported screens are declarative Svelte.
+ *   allowance       — every recorded allowance still describes a real violation. An allowance that
+ *                     has outlived its violation is a failure, on the same discipline the registry's
+ *                     `pending` mark uses: a list nobody re-reads is how a gate goes quiet.
  */
 
 // --- rule: the record window's header set ----------------------------------------------------
@@ -153,6 +171,21 @@ export function scriptBlocksOnly(source) {
     result = result.slice(0, bodyStart) + match[1] + result.slice(bodyStart + match[1].length);
   }
   return result;
+}
+
+/** The `<style>` blocks of a Svelte file, blanked elsewhere so line numbers survive. */
+export function styleBlocksOnly(source) {
+  let result = blank(source);
+  for (const match of source.matchAll(/<style\b[^>]*>([^]*?)<\/style>/g)) {
+    const bodyStart = match.index + match[0].indexOf(">") + 1;
+    result = result.slice(0, bodyStart) + match[1] + result.slice(bodyStart + match[1].length);
+  }
+  return result;
+}
+
+/** The 1-based line a character index falls on, so a problem points at a line a reader can open. */
+export function lineOf(text, index) {
+  return text.slice(0, index).split("\n").length;
 }
 
 /** Split an identifier into its lowercase parts across camelCase, snake_case and kebab-case. */
@@ -324,4 +357,383 @@ export function exportsName(source, name) {
 /** The kebab-case spelling of a component name, which is also its file and folder spelling here. */
 export function kebabCase(name) {
   return name.replaceAll(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+// --- rule: no hand-rolled select -------------------------------------------------------------
+
+/**
+ * A native `<select>` in an app screen.
+ *
+ * Lowercase only, deliberately: `<Select` is the design system's component and `<select` is the
+ * browser's element, and the case is the whole difference. The design system's own `Select` wraps
+ * the native element in one place, which is where every answer about keyboard behaviour, typeahead,
+ * the anchored layer and the disabled look is decided — a second one decides them again, differently.
+ */
+export function findHandRolledSelects(filePath, source) {
+  const text = stripComments(source);
+  return [...text.matchAll(/<select\b/g)].map((match) => ({
+    rule: "native-select",
+    file: filePath,
+    line: lineOf(text, match.index),
+    detail:
+      "renders a native `<select>`. Every dropdown in this product is `Combobox`, or `Select` " +
+      "where the set is closed and short — the design system's `Select` is the one wrapper around " +
+      "the native element, so keyboard behaviour, typeahead and the anchored layer are settled once",
+  }));
+}
+
+// --- rule: no raw dialog, and no hand-built scrim ---------------------------------------------
+
+/** `inset: 0` as the shorthand, which is how a full-viewport scrim is nearly always written. */
+const FULL_INSET = /\binset\s*:\s*0(?:px|rem|em|%)?\s*(?:!important)?\s*(?:;|$)/;
+
+/** The logical pair, and the four physical sides — the same rectangle spelled out longhand. */
+const LOGICAL_INSET_PAIR = [/\binset-block\s*:\s*0/, /\binset-inline\s*:\s*0/];
+const PHYSICAL_SIDES = [/\btop\s*:\s*0/, /\bright\s*:\s*0/, /\bbottom\s*:\s*0/, /\bleft\s*:\s*0/];
+
+function coversTheViewport(declarations) {
+  if (FULL_INSET.test(declarations)) return true;
+  if (LOGICAL_INSET_PAIR.every((pattern) => pattern.test(declarations))) return true;
+  return PHYSICAL_SIDES.every((pattern) => pattern.test(declarations));
+}
+
+/**
+ * A dialog built by hand rather than taken from the design system.
+ *
+ * Two shapes, because a hand-built overlay arrives as either. The raw `<dialog>` element is the
+ * obvious one. The quieter one is the scrim: a rule that is both `position: fixed` and pinned to
+ * every edge is a full-viewport overlay, and an overlay carries its own answers about focus
+ * trapping, dismissal, scroll locking and z-order — the four things `Dialog` exists to answer once.
+ *
+ * The scrim half reads only `<style>` blocks. The design system's own recipes legitimately pin an
+ * overlay to every edge, and they live in `components.css` where they belong; a `<style>` block in
+ * a component is a second home for the same decision.
+ */
+export function findHandBuiltDialogs(filePath, source) {
+  const text = stripComments(source);
+  const problems = [];
+
+  for (const match of text.matchAll(/<dialog\b/g)) {
+    problems.push({
+      rule: "hand-built-dialog",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        "renders a raw `<dialog>`. Dialogs come from the design system — `Dialog`, `AlertDialog` " +
+        "or `Sheet` — which is where focus trapping, dismissal, the scroll lock and the anchored " +
+        "layer are decided; the native element answers none of them the way the rest of the " +
+        "product does",
+    });
+  }
+
+  const styles = styleBlocksOnly(text);
+  for (const rule of styles.matchAll(/\{([^{}]*)\}/g)) {
+    const declarations = rule[1];
+    if (!/position\s*:\s*fixed\b/.test(declarations)) continue;
+    if (!coversTheViewport(declarations)) continue;
+    problems.push({
+      rule: "hand-built-dialog",
+      file: filePath,
+      line: lineOf(styles, rule.index),
+      detail:
+        "pins a `position: fixed` element to every edge — that is a scrim, and a scrim is the " +
+        "visible half of an overlay whose other half is focus trapping, dismissal and scroll " +
+        "locking. Use the design system's `Dialog`, `AlertDialog` or `Sheet`, which bring all four",
+    });
+  }
+
+  return problems.toSorted((first, second) => first.line - second.line);
+}
+
+// --- rule: no hand-drawn glyphs ---------------------------------------------------------------
+
+/**
+ * A `<path>` whose geometry is written out as a literal string — a glyph somebody drew.
+ *
+ * The literal is the discriminator, and it is the honest one. A chart computes its geometry from
+ * data (`d={area}`), so its path is a picture OF something rather than a picture somebody drew; a
+ * glyph's geometry is a constant, because a glyph is a constant. Matching literals only is what
+ * keeps this rule off the plotted surfaces it has no business on.
+ */
+const LITERAL_GEOMETRY = /<path\b[^>]*?\bd\s*=\s*(["'])((?:\\.|(?!\1).)*)\1/g;
+
+export function findHandDrawnGlyphs(filePath, source) {
+  const text = stripComments(source);
+  if (!/<svg\b/.test(text)) return [];
+  return [...text.matchAll(LITERAL_GEOMETRY)].map((match) => ({
+    rule: "hand-drawn-glyph",
+    file: filePath,
+    line: lineOf(text, match.index),
+    detail:
+      "draws a glyph as literal SVG geometry. Icons are Lucide, imported one deep path at a time " +
+      "(`@lucide/svelte/icons/<name>`), so the whole product's iconography has one weight, one " +
+      "grid and one set of sizes. The only hand-drawn mark is the brand mark, which is not an icon",
+  }));
+}
+
+// --- rule: one status register ----------------------------------------------------------------
+
+/** How a file says it is using the register, in either the package or the relative spelling. */
+const REGISTER_IMPORT = /status-register/;
+
+/**
+ * How few status words a file needs to be speaking a vocabulary rather than using a word.
+ *
+ * Two, because one status label in a file is a label and two with a tone beside them is a mapping —
+ * and because on the repository as it stands two produced no false positive at all while catching
+ * every second register that exists.
+ */
+const SECOND_REGISTER_THRESHOLD = 2;
+
+const STRING_LITERAL = /(["'])((?:\\.|(?!\1).)*)\1/g;
+
+/** Every distinct string literal in a source file. */
+function stringLiterals(source) {
+  return new Set([...source.matchAll(STRING_LITERAL)].map((match) => match[2]));
+}
+
+/** `<Badge …>text</Badge>`, as its attributes and the text between the tags. */
+const BADGE_USAGE = /<Badge\b([^>]*)>([^<]*)</g;
+
+/**
+ * A surface that has decided for itself what a status word looks like.
+ *
+ * Two shapes, because inventing a tone arrives as either.
+ *
+ *   1. A `Badge` whose `variant` is a LITERAL and whose text is a word the register already owns.
+ *      That is the shape the port plan prescribes, and it is the one an author writes inline.
+ *   2. A file that pairs two or more of the register's own words with a tone name, and does not
+ *      import the register. That is a second register: a `Record<Status, BadgeVariant>` or a
+ *      `statusTone()` written locally. It matters more than the first shape, because it renders
+ *      through an expression and so is invisible to a scan for literals — and it is where every
+ *      disagreement found on this repository actually lives.
+ *
+ * `labels` and `tones` are passed in rather than listed here: they are read off the register itself,
+ * so this rule cannot drift from the thing it is enforcing.
+ */
+export function findInventedStatusTones(filePath, source, { labels, tones }) {
+  if (REGISTER_IMPORT.test(source)) return [];
+
+  const text = stripComments(source);
+  const problems = [];
+  const labelSet = new Set(labels);
+
+  for (const usage of text.matchAll(BADGE_USAGE)) {
+    const variant = /\bvariant\s*=\s*"([a-z-]+)"/.exec(usage[1]);
+    const word = usage[2].trim();
+    if (variant === null || !labelSet.has(word)) continue;
+    problems.push({
+      rule: "status-tone",
+      file: filePath,
+      line: lineOf(text, usage.index),
+      detail:
+        `hands the status word \`${word}\` a tone (\`${variant[1]}\`) of its own. The status ` +
+        "register is the one place a status word is given its label, its tone and its meaning — " +
+        "take them from `statusEntry(key)` or `statusBadgeAttributes(key)`",
+    });
+  }
+
+  const literals = stringLiterals(text);
+  const spoken = labels.filter((label) => literals.has(label));
+  const invented = tones.filter((tone) => literals.has(tone));
+  if (spoken.length >= SECOND_REGISTER_THRESHOLD && invented.length > 0) {
+    problems.push({
+      rule: "status-tone",
+      file: filePath,
+      detail:
+        `names ${spoken.length} of the register's own status words (${spoken.join(", ")}) beside ` +
+        `the tone(s) ${invented.join(", ")}, and does not import the register. That is a second ` +
+        "status register, and two registers disagree the moment either one is corrected — take " +
+        "the words and the tones from `@magna-carta/design-system/status-register` instead",
+    });
+  }
+
+  return problems;
+}
+
+// --- rule: every ghost text is the field's name ------------------------------------------------
+
+const PLACEHOLDER_ATTRIBUTE = /\bplaceholder\s*=\s*(["'])((?:\\.|(?!\1).)*)\1/g;
+
+/** The repository's documented escape, read off the source line rather than a list in this tool. */
+const INLINE_ALLOWANCE = /fitness-allow:/;
+
+/**
+ * Ghost text that is not the field's own name.
+ *
+ * The JUDGEMENT is not made here. `readsAsFieldName` is injected, and its one home is
+ * `packages/design-system/src/lib/formatters/placeholder.ts` — the same predicate the product's own
+ * `placeholderOf` is documented against. A second copy of that judgement in this tool would be two
+ * predicates that disagree, which is strictly worse than one imperfect one.
+ *
+ * Only literal placeholders are read. `placeholder={label}` is already the right answer: it is the
+ * field's name, arriving from the one place the field's name lives.
+ */
+export function findPlaceholderProblems(filePath, source, readsAsFieldName) {
+  const text = stripComments(source);
+  const rawLines = source.split("\n");
+  const problems = [];
+
+  for (const match of text.matchAll(PLACEHOLDER_ATTRIBUTE)) {
+    const ghostText = match[2];
+    if (readsAsFieldName(ghostText)) continue;
+    const line = lineOf(text, match.index);
+    const nearby = `${rawLines[line - 1] ?? ""}\n${rawLines[line - 2] ?? ""}`;
+    if (INLINE_ALLOWANCE.test(nearby)) continue;
+    problems.push({
+      rule: "placeholder",
+      file: filePath,
+      line,
+      text: ghostText,
+      detail:
+        `the ghost text "${ghostText}" is a description or an instruction, not the field's name. ` +
+        "Ghost text disappears exactly when someone starts typing, which is the moment an " +
+        'instruction would be needed — so a placeholder carries the field\'s NAME ("Theme", not ' +
+        '"Select a theme"), and anything a person must be told goes in an inline hint under the ' +
+        "field, where it stays. Pass the field's own label through `placeholderOf`",
+    });
+  }
+
+  return problems;
+}
+
+// --- rule: no imperative DOM in the ported surfaces --------------------------------------------
+
+/** `$effect`, `$effect.pre` and friends, with the extent of the body each one opens. */
+export function effectRegions(text) {
+  const regions = [];
+  for (const match of text.matchAll(/\$effect(?:\.\w+)?\s*\(/g)) {
+    const open = text.indexOf("{", match.index);
+    if (open === -1) continue;
+    let depth = 0;
+    for (let at = open; at < text.length; at += 1) {
+      if (text[at] === "{") depth += 1;
+      else if (text[at] === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          regions.push([match.index, at]);
+          break;
+        }
+      }
+    }
+  }
+  return regions;
+}
+
+/**
+ * The mockups' idiom, which must not survive the port.
+ *
+ * `getElementById` and `innerHTML` have no legitimate form here at all: the first reaches around
+ * Svelte's own binding to find a node by a global name, and the second hands the browser a string
+ * to parse as markup, which is both an injection surface and the thing that makes a component's
+ * rendered output unreviewable.
+ *
+ * `querySelector` gets ONE exemption, and it is narrow: measuring. A component that has to read a
+ * laid-out size does it in an `$effect`, after the DOM exists, and there is no declarative way to
+ * ask. Anywhere else, a `bind:this` says the same thing without a selector string that silently
+ * stops matching when a class is renamed.
+ */
+export function findImperativeDomUse(filePath, source) {
+  const text = stripStringLiterals(stripComments(source));
+  const regions = effectRegions(text);
+  const problems = [];
+
+  const forbid = (pattern, detail) => {
+    for (const match of text.matchAll(pattern)) {
+      problems.push({
+        rule: "imperative-dom",
+        file: filePath,
+        line: lineOf(text, match.index),
+        detail,
+      });
+    }
+  };
+
+  forbid(
+    /\bgetElementById\b/g,
+    "reaches for a node by id. A ported screen is declarative Svelte: bind the element with " +
+      "`bind:this` and hold it in state — an id is a global name, and two screens that both use " +
+      "one are one copy-paste away from finding each other's nodes",
+  );
+  forbid(
+    /\binnerHTML\b/g,
+    "assigns markup as a string. That is an injection surface and it makes the rendered output " +
+      "unreviewable — render the markup as Svelte, or, for genuinely untrusted content, sanitize " +
+      "it deliberately and say so where it is done",
+  );
+
+  for (const match of text.matchAll(/\bquerySelector(?:All)?\b/g)) {
+    const inside = regions.some(([start, end]) => match.index > start && match.index < end);
+    if (inside) continue;
+    problems.push({
+      rule: "imperative-dom",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        "queries the document by selector outside an `$effect`. The one legitimate use is " +
+        "measuring a laid-out element, which happens in an effect because that is when the DOM " +
+        "exists; everywhere else `bind:this` names the node without a selector string that stops " +
+        "matching the day a class is renamed",
+    });
+  }
+
+  return problems.toSorted((first, second) => first.line - second.line);
+}
+
+// --- rule: an allowance may not outlive its violation ------------------------------------------
+
+/** The identity of one violation, for matching an allowance to the thing it excuses. */
+export function allowanceKey({ rule, file, text }) {
+  return `${rule} ${file} ${text ?? ""}`;
+}
+
+/**
+ * Apply the recorded allowances to what the scan found, and check the allowances themselves.
+ *
+ * An allowance is pre-existing debt, declared out loud: it names a rule, a file, optionally the
+ * exact text, and the reason it stands. It is NOT a way to make a rule quiet. Two things keep it
+ * honest — every allowance carries a reason, and an allowance whose violation is gone is itself a
+ * failure, so the list cannot fill up with entries nobody re-reads. That is the same discipline the
+ * registry's `pending` mark already uses here.
+ */
+export function applyAllowances(problems, allowances) {
+  const byKey = new Map(allowances.map((allowance) => [allowanceKey(allowance), allowance]));
+  const used = new Set();
+  const remaining = [];
+  const excused = [];
+
+  for (const problem of problems) {
+    const key = allowanceKey(problem);
+    const allowance = byKey.get(key);
+    if (allowance === undefined) {
+      remaining.push(problem);
+      continue;
+    }
+    used.add(key);
+    excused.push({ problem, allowance });
+  }
+
+  for (const allowance of allowances) {
+    if (String(allowance.reason ?? "").trim() === "") {
+      remaining.push({
+        rule: "allowance",
+        file: allowance.file,
+        detail:
+          `the allowance for \`${allowance.rule}\` carries no reason — say what it stands on, or ` +
+          "take it out and let the violation fail",
+      });
+      continue;
+    }
+    if (used.has(allowanceKey(allowance))) continue;
+    remaining.push({
+      rule: "allowance",
+      file: allowance.file,
+      detail:
+        `is allowed for \`${allowance.rule}\`${allowance.text === undefined ? "" : ` ("${allowance.text}")`}` +
+        ", and no longer violates it. Take the allowance out — an entry that has outlived its " +
+        "violation is how a list stops being read",
+    });
+  }
+
+  return { problems: remaining, excused };
 }

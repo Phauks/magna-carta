@@ -8,8 +8,14 @@
  * screens start disagreeing about something a reader was told was settled. Review does not scale
  * to catching that across dozens of surfaces; a scan does.
  *
- * Three rules run here. Their reasoning, and the pure functions that decide them, are in rules.mjs;
- * the registry of what may exist once is registry.json.
+ * Nine rules run here. Their reasoning, and the pure functions that decide them, are in rules.mjs;
+ * the registry of what may exist once — and the recorded allowances — are in registry.json.
+ *
+ * TWO OF THE RULES BORROW THE PRODUCT'S OWN JUDGEMENT rather than restating it. The placeholder
+ * rule calls `readsAsFieldName` from the design system, and the status rule reads its words and
+ * tones off the status register itself. A second copy of either would be two authorities that
+ * disagree the first time one is corrected, which is the exact defect this whole tool exists to
+ * stop — so both are imported, and the import failing is a loud failure rather than a quiet skip.
  *
  * WHAT THIS DOES NOT CATCH, stated plainly, because a gate that claims more than it delivers is
  * worse than none:
@@ -24,16 +30,42 @@
  *   - The domain scan reads a file's comments for nothing: they are stripped first, deliberately,
  *     so ordinary English ("no matter which tab", "it costs nothing") cannot trip it. A leak that
  *     exists only in a comment is a wording problem, not a duplication problem.
+ *   - A dropdown, dialog or glyph assembled at RUNTIME — `createElement("select")`, a scrim whose
+ *     inset arrives from a variable, a glyph whose geometry sits in a constant — is invisible to a
+ *     text scan. Every rule here reads source, not behaviour.
+ *   - A placeholder that is not a literal (`placeholder={hint}`) is not read, and a placeholder
+ *     that reads as a field's name but names the WRONG field passes. The predicate answers shape,
+ *     never meaning.
+ *   - A status word rendered through a locally written mapper is only caught when the file also
+ *     spells the register's words out; a mapper keyed on codes alone (`"paid" -> "success"`, with
+ *     the label fetched elsewhere) escapes.
+ *   - The imperative-DOM rule reads three names. `document.body.append`, `outerHTML`, `insertAdjacentHTML`
+ *     and the rest of the imperative surface are not enumerated — the three named are the mockups'
+ *     actual idiom, and a list of everything would be noise.
+ *   - NO RULE HERE LOOKS AT `<table>` IN AN APP SCREEN, or at a second record window found by file
+ *     name. Those are the port plan's rules 1 and 2, and they are not built: the screens they
+ *     govern mostly do not exist yet, and rule 2's structural form is documented as heuristic.
+ *     They belong here when those screens land.
+ *   - A violation carried in one of registry.json's ALLOWANCES is not caught, by construction. The
+ *     list is printed on every run and an entry that outlives its violation fails — but a rule with
+ *     a standing allowance is a rule that is not yet true of this repository, and the run says so.
  *
  * Run: `pnpm run lint:one-ui`.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  applyAllowances,
   exportsName,
   findDomainLeaks,
+  findHandBuiltDialogs,
+  findHandDrawnGlyphs,
+  findHandRolledSelects,
   findHeaderSetProblems,
+  findImperativeDomUse,
+  findInventedStatusTones,
+  findPlaceholderProblems,
   findRegistryProblems,
   kebabCase,
   stripReExports,
@@ -48,6 +80,26 @@ const RECORD_WINDOW_SHELL = `${RECORD_WINDOW_HOME}/record-window.svelte`;
 /** Where a second implementation could be written. */
 const SEARCH_ROOTS = ["apps", "packages"];
 
+/** The app's own source, and the design system's — the two halves the port plan governs. */
+const APP_SOURCE = "apps/web/src";
+const DESIGN_SYSTEM_SOURCE = "packages/design-system/src";
+
+/** The one place a mark is drawn by hand, because it is a mark and not an icon. */
+const BRAND_MARK_HOME = "packages/design-system/src/lib/components/brand-mark";
+
+/** The status register's own home, which is allowed to be the status register. */
+const STATUS_REGISTER_HOME = "packages/design-system/src/lib/status-register";
+
+/**
+ * The ported surfaces, where the mockups' imperative idiom must not survive. `wip` has no directory
+ * yet; the walk over a missing root is empty, which is the correct answer until the slice lands.
+ */
+const PORTED_SURFACES = [
+  "apps/web/src/lib/file-manager",
+  "apps/web/src/lib/wip",
+  "apps/web/src/lib/matters",
+];
+
 const SKIPPED_DIRECTORIES = new Set([
   "node_modules",
   ".git",
@@ -55,6 +107,7 @@ const SKIPPED_DIRECTORIES = new Set([
   ".svelte-kit",
   ".wrangler",
   ".vite",
+  ".tsbuild",
   "dist",
   "build",
   "coverage",
@@ -63,6 +116,13 @@ const SKIPPED_DIRECTORIES = new Set([
   "storybook-static",
   "visual-regression",
 ]);
+
+/**
+ * Storybook stories are demonstration code, and the demonstration is the point: a story's ghost
+ * text shows what a placeholder looks like, and its badges show every tone the component has. The
+ * rules below are about PRODUCT surfaces, and lint:icon-sizes already draws this same line.
+ */
+const STORIES = /(?:^|\/)stories\//;
 
 const MODULE_FILE = /\.(?:ts|mts|cts|mjs|cjs|js)$/;
 
@@ -170,20 +230,171 @@ const { problems: registryProblems, notices } = findRegistryProblems(entries, {
 });
 problems.push(...registryProblems);
 
+// --- the authorities the last two rules borrow ------------------------------------------------
+
+/**
+ * Load one of the product's own modules and use ITS answer.
+ *
+ * These are TypeScript, loaded by Node's own type stripping (Node 22.18+ / 23.6+, where it is on by
+ * default). If that is not available the rule cannot run, and the honest response is to say so and
+ * fail — a rule that quietly skips is a rule that reports nothing forever.
+ */
+async function authority(modulePath, description) {
+  try {
+    return await import(pathToFileURL(join(ROOT, modulePath)).href);
+  } catch (error) {
+    console.error(
+      `\nlint:one-ui: could not load ${modulePath}, which is ${description}.\n` +
+        `      ${error.message}\n` +
+        "      This tool reads the product's own judgement rather than restating it, which means " +
+        "loading a\n      TypeScript module from plain Node (type stripping, Node 22.18 or newer). " +
+        "If the module moved,\n      move this reference with it.\n",
+    );
+    process.exit(1);
+  }
+}
+
+const { readsAsFieldName } = await authority(
+  "packages/design-system/src/lib/formatters/placeholder.ts",
+  "the one home of what reads as a field's name",
+);
+const { STATUS_REGISTER } = await authority(
+  "packages/design-system/src/lib/status-register/status-register.ts",
+  "the one home of every status word, its tone and its meaning",
+);
+
+/** The register's own words and its own tones — never a copy of them kept in this tool. */
+const statusLabels = Object.values(STATUS_REGISTER).map((entry) => entry.label);
+const statusTones = [...new Set(Object.values(STATUS_REGISTER).map((entry) => entry.tone))];
+
+// --- the source sweeps ------------------------------------------------------------------------
+
+const isStory = (path) => STORIES.test(path);
+const isSvelte = (path) => path.endsWith(".svelte");
+
+/**
+ * Run one rule over one set of roots, and report how many files it actually read.
+ *
+ * The count is not decoration. A sweep that reads nothing passes forever and says so cheerfully,
+ * which is how a scan drifts into vacuity when a directory is renamed — so the caller asserts it,
+ * on the same discipline the header-set rule uses when its action group has gone missing.
+ */
+function sweep(roots, decide, { svelteOnly = true, skipStories = true } = {}) {
+  let read = 0;
+  for (const root of roots) {
+    for (const absolute of walk(join(ROOT, root))) {
+      const path = repositoryPath(absolute);
+      if (skipStories && isStory(path)) continue;
+      if (svelteOnly && !isSvelte(path)) continue;
+      read += 1;
+      problems.push(...decide(path, readFileSync(absolute, "utf8")));
+    }
+  }
+  return read;
+}
+
+/** A sweep that read nothing is a broken check, not a clean repository. */
+function mustHaveRead(count, what, roots) {
+  if (count > 0) return;
+  problems.push({
+    rule: "sweep",
+    file: roots.join(", "),
+    detail:
+      `the ${what} sweep read no files at all. That is a broken check rather than a clean ` +
+      "repository — the root moved, and this rule has been passing vacuously ever since. Point it " +
+      "at where the source lives now",
+  });
+}
+
+const BOTH_SIDES = [APP_SOURCE, DESIGN_SYSTEM_SOURCE];
+
+// Rule: no hand-rolled select. App screens only — the design system's Select is the one legitimate
+// wrapper around the native element, and it lives on the other side of that line.
+mustHaveRead(sweep([APP_SOURCE], findHandRolledSelects), "hand-rolled select", [APP_SOURCE]);
+
+// Rule: no raw dialog and no hand-built scrim, on both sides of the line. A second overlay
+// mechanism inside the design system would be as expensive as one outside it.
+mustHaveRead(sweep(BOTH_SIDES, findHandBuiltDialogs), "hand-built dialog", BOTH_SIDES);
+
+// Rule: no hand-drawn glyphs, except the brand mark, which is a mark rather than an icon.
+mustHaveRead(
+  sweep(BOTH_SIDES, (path, source) =>
+    path.startsWith(`${BRAND_MARK_HOME}/`) ? [] : findHandDrawnGlyphs(path, source),
+  ),
+  "hand-drawn glyph",
+  BOTH_SIDES,
+);
+
+// Rule: one status register. Modules as well as components — the second registers that exist on
+// this repository are `.ts` files holding a label map and a tone map side by side.
+mustHaveRead(
+  sweep(
+    BOTH_SIDES,
+    (path, source) =>
+      path.startsWith(`${STATUS_REGISTER_HOME}/`)
+        ? []
+        : findInventedStatusTones(path, source, { labels: statusLabels, tones: statusTones }),
+    { svelteOnly: false },
+  ),
+  "status register",
+  BOTH_SIDES,
+);
+
+// Rule: every ghost text is the field's name, judged by the product's own predicate.
+mustHaveRead(
+  sweep(BOTH_SIDES, (path, source) => findPlaceholderProblems(path, source, readsAsFieldName)),
+  "placeholder",
+  BOTH_SIDES,
+);
+
+// Rule: no imperative DOM in the ported surfaces. `wip` has no directory yet, so this asserts only
+// that SOME ported surface was read — not every one of them.
+mustHaveRead(
+  sweep(PORTED_SURFACES, findImperativeDomUse, { svelteOnly: false }),
+  "imperative DOM",
+  PORTED_SURFACES,
+);
+
+// --- the recorded allowances ------------------------------------------------------------------
+
+const { problems: unexcused, excused } = applyAllowances(problems, registry.allowances ?? []);
+
 // --- report ---------------------------------------------------------------------------------
 
 for (const notice of notices) console.log(`lint:one-ui: ${notice}`);
 
-if (problems.length > 0) {
+/*
+ * The standing allowances, grouped so the count is impossible to miss and the run stays readable.
+ * Each one's reason is in registry.json beside it — the point of printing them here is that nobody
+ * can believe the repository is clean when it is only excused.
+ */
+if (excused.length > 0) {
+  const byRule = new Map();
+  for (const { problem } of excused) {
+    const at = problem.line === undefined ? problem.file : `${problem.file}:${problem.line}`;
+    byRule.set(problem.rule, [...(byRule.get(problem.rule) ?? []), at]);
+  }
+  console.log(
+    `lint:one-ui: ${excused.length} standing allowance(s) — real violations that predate their ` +
+      "rule, recorded in tooling/lint-one-ui/registry.json with the reason each one stands on. " +
+      "They are debt, not exemptions: fixing one means deleting its entry, and an entry that " +
+      "outlives its violation fails this check.",
+  );
+  for (const [rule, places] of [...byRule].toSorted()) {
+    console.log(`    ${rule} (${places.length}): ${places.join(", ")}`);
+  }
+}
+
+if (unexcused.length > 0) {
   console.error(
     "\nlint:one-ui: the product's shared UI surfaces are one component each, and one of them is not.\n",
   );
-  for (const problem of problems) {
+  for (const problem of unexcused) {
     const at = problem.line === undefined ? problem.file : `${problem.file}:${problem.line}`;
     console.error(`  [${problem.rule}] ${at}\n      ${problem.detail}\n`);
   }
   console.error(
-    `${problems.length} problem(s). The rulings these rules serve live in ` +
+    `${unexcused.length} problem(s). The rulings these rules serve live in ` +
       "docs/conventions/design-corrections.md and the per-surface ledgers beside it; the rules " +
       "themselves, and what they deliberately do not catch, are documented in " +
       "tooling/lint-one-ui/index.mjs.",
@@ -193,9 +404,19 @@ if (problems.length > 0) {
 
 console.log(
   `lint:one-ui: the record window's header set is exactly Edit, Print, expand, close; nothing in ` +
-    `its shell names a kind of record; ${entries.length} registered component(s) each have one home.`,
+    `its shell names a kind of record; ${entries.length} registered component(s) each have one ` +
+    "home; no app screen rolls its own select, dialog, scrim or glyph; and the ported surfaces " +
+    "reach for no node by id, selector or markup string." +
+    (excused.length === 0
+      ? " No surface outside the register gives a status word a tone, and every literal" +
+        " placeholder reads as a field's name."
+      : ` Every status tone and every literal placeholder is either the register's own or one of` +
+        ` the ${excused.length} allowance(s) above — nothing new.`),
 );
 console.log(
-  "  Not caught: the same component behaving differently on two screens, a domain fact arriving " +
-    "through a generically named prop, and a look-alike panel nobody named recognizably.",
+  "  Not caught: the same component behaving differently on two screens; a domain fact arriving " +
+    "through a generically named prop; a look-alike panel nobody named recognizably; a select, " +
+    "scrim or glyph assembled at runtime rather than written out; a placeholder that is not a " +
+    "literal, or that names the wrong field; a status mapper keyed on codes with its labels " +
+    "elsewhere; and imperative DOM beyond the three names the mockups actually used.",
 );
