@@ -2,8 +2,13 @@
   /*
    * Combobox (Tier 4, Bits UI). An editable Input that filters a floating listbox; the dropdown reuses
    * the mc-select-content surface + the Select option rows (shared bits components). Only the input
-   * control is dressed here: a bordered box (the single focus shape on :focus-within) holding the
-   * borderless Input and a trailing chevron Trigger. The listbox height is the VirtualList's concern.
+   * control and the add row are dressed here: a bordered box (the single focus shape on :focus-within)
+   * holding the borderless Input and a trailing chevron Trigger.
+   *
+   * Where the focus ring lives, and where it deliberately does not: the input box IS a control, it
+   * takes the tab focus, and it wears the same merged focus edge every other field wears. The rows in
+   * the listbox are not controls and carry no ring at all — the reasoning is written out beside the
+   * .mc-select-item recipe, which is the row both this component and Select render.
    */
   .mc-combobox-input-wrapper {
     display: flex;
@@ -55,5 +60,18 @@
   .mc-combobox-trigger-icon {
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
+  }
+  /*
+   * The add row: the last row of a listbox over a vocabulary the firm owns, which adds whatever is
+   * currently typed instead of sending the person somewhere else to add it. It is a real option row —
+   * same recipe, same fill-only highlight, same keyboard reach — separated from the choices by a
+   * hairline and set in the medium weight, because it does something rather than being something.
+   */
+  .mc-combobox-add-option {
+    margin-block-start: var(--mc-space-4);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+    font-weight: var(--mc-weight-medium);
   }
 }

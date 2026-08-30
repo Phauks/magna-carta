@@ -76,9 +76,24 @@
     overflow-y: auto;
   }
   /*
-   * An option row. Bits sets data-highlighted on the hovered/keyboard-active row and data-disabled on
-   * a disabled one; the recipe keys its highlight/disabled looks off those. The leading indicator box
-   * holds the check for the selected row (mirrors the DropdownMenu.CheckboxItem indicator).
+   * An option row, shared by the Select listbox and the Combobox listbox (Bits builds both out of
+   * these same parts). Bits sets data-highlighted on the hovered/keyboard-active row and
+   * data-disabled on a disabled one; the recipe keys its highlight/disabled looks off those. The
+   * leading indicator box holds the check for the selected row (mirrors the DropdownMenu.CheckboxItem
+   * indicator).
+   *
+   * NO RING AROUND A ROW — neither a focus ring nor a selection ring. This is the one place the
+   * platform's "every focusable control shows the same focus shape" rule deliberately does not reach,
+   * and the two rules do not actually collide: that rule is about CONTROLS, things that take the tab
+   * focus, where the ring answers "where am I on the page". A listbox row never takes focus. The
+   * input or the trigger keeps it and names the active row through aria-activedescendant, so a ring
+   * drawn here would be a SECOND focus shape, around an element the browser never focused, sitting a
+   * few pixels from the control that genuinely has focus — two answers to one question.
+   *
+   * So the active row is shown by FILL alone, and the pointer path and the keyboard path share that
+   * one fill: a row somebody hovered and a row somebody arrowed onto are the same row in the same
+   * state, and must not read as two different things. Outline and shadow are suppressed at rest AND
+   * under :focus-visible, so a user-agent default or a later utility cannot quietly restore one.
    */
   .mc-select-item {
     display: flex;
@@ -94,9 +109,16 @@
     cursor: pointer;
     user-select: none;
     outline-style: none;
+    box-shadow: none;
+  }
+  .mc-select-item:focus-visible {
+    outline-style: none;
+    box-shadow: none;
   }
   .mc-select-item[data-highlighted] {
     background-color: var(--mc-action-secondary);
+    outline-style: none;
+    box-shadow: none;
   }
   .mc-select-item[data-disabled] {
     color: var(--mc-action-disabled-foreground);

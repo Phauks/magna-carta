@@ -162,7 +162,16 @@
     font-size: var(--mc-font-size-xs);
     font-variant-numeric: tabular-nums;
   }
+  /*
+   * A COLUMN, not a plain block, so a panel whose whole body is one scrolling thing works without
+   * the caller wrapping it. A history rail is built to fill the space it is given and scroll inside
+   * it; dropped into a block it is simply as tall as its content, so the panel scrolls and the rail
+   * never does — which reads as the rail's contract being false rather than as a missing display
+   * mode here. The panel keeps its own overflow for the ordinary case of a tab that is just long.
+   */
   .mc-record-window-tab-panel {
+    display: flex;
+    flex-direction: column;
     flex: auto;
     min-block-size: var(--mc-space-0);
     overflow-y: auto;

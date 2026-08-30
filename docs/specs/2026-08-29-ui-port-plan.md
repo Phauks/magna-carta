@@ -392,7 +392,11 @@ must not reflow the footer), L42, L44.
 The design system's `Combobox` exists and already documents the data-safe controlled-input pattern.
 The port's job is to make it **the one dropdown**, not to add a second.
 
-**Rulings:** TC1, X4 (capture and edit forms, Amend, delivery and credit-note dialogs — all of
+**Rulings** — and read the L-series here in [`time-tab-rulings.md`](../conventions/time-tab-rulings.md),
+**not** in the file manager's ledger, where the same three ids name entirely different rulings (there
+L2 is per-column filters, L3 user-selectable columns, L6 a file-type column). A11 and I27c/I27d below
+**are** the file manager's. An agent that reads the wrong ledger builds the wrong thing and its tests
+pass: TC1, X4 (capture and edit forms, Amend, delivery and credit-note dialogs — all of
 them), L3 (the "Type to narrow the choices" hint is struck), L6 (**no focus or selection ring around
 dropdown entries** — highlight by fill alone, in both the hover and the keyboard path), L2 (the
 placeholder is the field's name), CP1 (the payee combobox is firm-directory-backed with an inline

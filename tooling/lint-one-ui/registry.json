@@ -30,6 +30,10 @@
     {
       "name": "RecordAttachments",
       "home": "packages/design-system/src/lib/components/record-attachments"
+    },
+    {
+      "name": "Combobox",
+      "home": "packages/design-system/src/lib/components/combobox"
     }
   ],
 

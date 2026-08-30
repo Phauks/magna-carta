@@ -44,6 +44,7 @@
     "./verification-code-input": "./src/lib/components/verification-code-input/index.ts",
     "./popover": "./src/lib/components/popover/index.ts",
     "./print-sheet": "./src/lib/components/print-sheet/index.ts",
+    "./print-sheet/projection": "./src/lib/components/print-sheet/projection.ts",
     "./progress": "./src/lib/components/progress/index.ts",
     "./progress-steps": "./src/lib/components/progress-steps/index.ts",
     "./radio-group": "./src/lib/components/radio-group/index.ts",
