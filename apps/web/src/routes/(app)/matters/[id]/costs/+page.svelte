@@ -17,12 +17,13 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Plus from "@lucide/svelte/icons/plus";
+  import { statusBadgeAttributes } from "@magna-carta/design-system/status-register";
   import {
+    costStatusKey,
     costTotals,
     disbursementLabel,
     listMatterCosts,
     statusLabel,
-    statusTone,
     type CostSummary,
   } from "$lib/matters/cost-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -135,7 +136,8 @@
             </DataTable.Cell>
             <DataTable.Cell>{disbursementLabel(cost.disbursementClass)}</DataTable.Cell>
             <DataTable.Cell>
-              <Badge variant={statusTone(cost.status)}>{statusLabel(cost.status)}</Badge>
+              {@const status = statusBadgeAttributes(costStatusKey(cost.status))}
+              <Badge variant={status.variant} title={status.title}>{statusLabel(cost.status)}</Badge>
             </DataTable.Cell>
             <DataTable.Cell data-align="end">
               {DataTable.formatMoney(cost.amountMinor / 100)}

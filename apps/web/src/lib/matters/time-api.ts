@@ -2,6 +2,7 @@
  * The matter Time section's response shapes and calls. Mirrors the time-entry operations in
  * apps/api-worker/openapi/openapi.json; the transport envelope lives in $lib/api/request.ts.
  */
+import { statusEntry, type StatusKey } from "@magna-carta/design-system/status-register";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 export type TimeEntryStatus = "draft" | "submitted" | "approved" | "billed" | "void";
@@ -40,30 +41,23 @@ export function listMatterTimeEntries(
 }
 
 /*
- * How a status reads on screen. Not every one of these is a state a person put the entry in --
- * "billed" is where an invoice left it, "void" is where a correction left it -- so the labels say
- * what happened rather than naming the enum.
+ * How a status reads on screen: the word, its tone and its meaning all come from the product's one
+ * status register. This module used to hold a second answer — labels of its own, and a tone map
+ * that coloured only "void" — on the argument that a column of times must not read as a traffic
+ * light. That argument lost: an entry's standing is the same fact on a time ledger, a cost ledger
+ * and an invoice, and two surfaces that colour it differently teach a reader something untrue. The
+ * chain's five words are all toned, and there is exactly one place that decides how.
+ *
+ * The wire enum and the register's workflow-chain keys are the same five words, so a status crosses
+ * from one to the other unchanged; this function is the seam that says so in the type system.
  */
-const STATUS_LABELS: Record<TimeEntryStatus, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  approved: "Approved",
-  billed: "Billed",
-  void: "Void",
-};
-
-export function statusLabel(status: TimeEntryStatus): string {
-  return STATUS_LABELS[status];
+export function timeEntryStatusKey(status: TimeEntryStatus): StatusKey {
+  return status;
 }
 
-/**
- * The status colour register. Only "void" earns a warning tone: it is the one status that means
- * the line does NOT count, and a reader scanning a column of times has to see that without
- * reading. The rest are ordinary progress and stay neutral, so the table does not turn into a
- * traffic light over information nobody needs coloured.
- */
-export function statusTone(status: TimeEntryStatus): "neutral" | "warning" {
-  return status === "void" ? "warning" : "neutral";
+/** The word a status wears, taken from the register rather than spelled a second time here. */
+export function statusLabel(status: TimeEntryStatus): string {
+  return statusEntry(timeEntryStatusKey(status)).label;
 }
 
 /** Minutes as hours, to one decimal, the way a timesheet reads. */

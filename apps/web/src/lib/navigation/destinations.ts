@@ -210,8 +210,10 @@ export const DESTINATIONS: readonly Destination[] = [
     icon: Users,
     description: "Clients, parties, counsel, and courts in one book.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // Alpha, not ready: the record is searched rather than browsed, and three of its panes render
+    // their shape while their reads are built.
+    stage: "alpha",
     defaultStarred: true,
   },
   {
@@ -271,8 +273,11 @@ export const DESTINATIONS: readonly Destination[] = [
     icon: Vault,
     description: "Evidence and holdings in the firm's stewardship, tracked end to end.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The register reads: what is held, where, for whom, what is overdue and what is under hold.
+    // Logging a packet and recording a movement have no form behind them yet, and each control
+    // says so where it stands.
+    stage: "alpha",
     defaultStarred: true,
   },
   // Money (draft order: Time, Billing, Trust)
