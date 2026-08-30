@@ -1,7 +1,18 @@
 export { default } from "./file-icon.svelte";
 export {
   resolveFileIcon,
-  resolveFileCategory,
-  type FileCategory,
+  resolveFileIconPresentation,
   type FileIconComponent,
+  type FileIconInput,
+  type FileIconPresentation,
 } from "./resolve.ts";
+export {
+  extensionOf,
+  resolveFileCategory,
+  resolveFileIconTone,
+  resolveFileTypeBadge,
+  type FileCategory,
+  type FileIconTone,
+  type FileTypeBadge,
+} from "./file-types.ts";
+export { fileIconClasses, type FileIconSize } from "./variants.ts";
