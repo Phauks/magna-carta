@@ -40,6 +40,7 @@
 @import "../components/avatar/avatar.css";
 @import "../components/progress/progress.css";
 @import "../components/progress-steps/progress-steps.css";
+@import "../components/event-rail/event-rail.css";
 @import "../components/accordion/accordion.css";
 @import "../components/tooltip/tooltip.css";
 @import "./recipes/presence.css";
@@ -65,3 +66,19 @@
 @import "../components/merge-field-chip/merge-field-chip.css";
 @import "../components/merge-field-picker/merge-field-picker.css";
 @import "../components/merge-field-review-list/merge-field-review-list.css";
+/* RecordWindow dresses the Dialog panel and hosts a Tabs strip, so it must follow both of those
+   recipes: at equal specificity the later declaration is the one that wins. */
+@import "../components/record-window/record-window.css";
+/* PrintSheet layers above a record window, and its print rules undo the Dialog panel's centring
+   and its cap, so it follows both of those recipes for the same reason. */
+@import "../components/print-sheet/print-sheet.css";
+/* The status register's one recipe (the clean file's filled circle-check) and the record chain,
+   which reads its step labels out of that same register. */
+@import "../status-register/status-register.css";
+@import "../components/record-chain/record-chain.css";
+/* The attachments tab dresses rows inside a record window's context pane and hosts a Popover with a
+   Command listbox in it, so it follows all three: at equal specificity the later rule wins. */
+@import "../components/record-attachments/record-attachments.css";
+/* The file manager left rail, dressed over the tree recipe it extends, so its rules win where
+   the two meet. */
+@import "../components/folder-tree/folder-tree.css";

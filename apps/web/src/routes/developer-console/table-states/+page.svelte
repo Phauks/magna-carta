@@ -156,6 +156,18 @@
   const selectionGrid = specimenGrid();
   selectionGrid.rowClick("t01");
   selectionGrid.rowClick("t04", { shift: true });
+  // Pinned in a deliberate arrangement — the older entry first, so the block cannot be read as
+  // the sort — with two rows marked for the clipboard and one standing in for a quieter row.
+  const PINNED_ROW_KEYS = ["t12", "t05"];
+  const CLIPBOARD_MARKS: Record<string, "cut" | "copy" | undefined> = { t04: "cut", t07: "copy" };
+  const markedGrid = specimenGrid({
+    pinnedRowKeys: () => PINNED_ROW_KEYS,
+    rowMark: (row) => ({
+      pinned: PINNED_ROW_KEYS.includes(row.id),
+      clipboard: CLIPBOARD_MARKS[row.id],
+      quiet: row.status === "Void",
+    }),
+  });
   const zebraGrid = specimenGrid({ zebra: true });
   const compactGrid = specimenGrid();
   const loadingGrid = specimenGrid();
@@ -294,6 +306,27 @@
       </div>
       <DataTable.Grid grid={selectionGrid} caption="Time entries, selection" cell={statusCell} />
       <DataTable.GridFooter grid={selectionGrid} />
+    </section>
+
+    <section class="flex flex-col gap-12">
+      <div class="flex max-w-prose flex-col gap-4">
+        <h2 class="text-lg font-semibold">Row groups and row marks</h2>
+        <p class="text-sm text-text-muted">
+          Pinned items sit above everything, separated by a rule, in the order the member arranged
+          them rather than the table's sort: the first row here is the fixture's oldest entry, so
+          only the pin can have put it there. The marks are one vocabulary across every surface —
+          the filled pin, a dashed edge while a row waits on a cut or a copy (a cut row speaks
+          quieter, because it is leaving), and the same quieter voice for a row present but not of
+          the list's own kind: a deleted match among live results, an event a row inherited from a
+          folder act.
+        </p>
+      </div>
+      <DataTable.Grid
+        grid={markedGrid}
+        caption="Time entries, pinned and marked"
+        cell={statusCell}
+      />
+      <DataTable.GridFooter grid={markedGrid} />
     </section>
 
     <section class="flex flex-col gap-12">

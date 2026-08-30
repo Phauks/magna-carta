@@ -1,0 +1,318 @@
+@layer components {
+  /*
+   * PrintSheet — a sheet of paper, shown on a screen and then sent to a printer unchanged.
+   *
+   * Two readings of one element. On screen it is a page of paper lying on a dull surface inside a
+   * dialog: the paper takes the light surface and a soft edge, the tray behind it is sunken so the
+   * paper reads as an object rather than as the dialog's own background, and the tray is the only
+   * thing that scrolls, so the actions never leave the reader's reach. At print time the same
+   * element becomes the page itself — the dialog's centring, its cap, its tray, its edge and its
+   * shadow all come off, and everything on the screen that is not this sheet is taken away.
+   *
+   * The paper is a WORK SURFACE, and a printed one at that: no accent, no status colour, no fills.
+   * The only voice it raises is the document's own name, set in the display face, because the
+   * heading of a printed instrument is the one place the firm's hand belongs.
+   */
+  .mc-print-sheet-page {
+    /* The dialog panel holds the tray and the actions; neither the panel nor the paper's ancestors
+       scroll, so a long sheet cannot push the actions off the bottom of the screen. */
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-0);
+    padding: var(--mc-space-0);
+    overflow: hidden;
+    background-color: var(--mc-surface-raised);
+  }
+  .mc-print-sheet-scroll {
+    display: flex;
+    justify-content: center;
+    flex: auto;
+    /* The zero minimum is what lets the tray shrink below its content inside the flex panel;
+       without it the panel would grow to the paper's full height and the cap would do nothing. */
+    min-block-size: var(--mc-space-0);
+    overflow-y: auto;
+    padding: var(--mc-space-24);
+    background-color: var(--mc-surface-sunken);
+  }
+  .mc-print-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-24);
+    /* A sheet of paper does not stretch to the tray: it keeps its own height and its own edges. */
+    block-size: fit-content;
+    padding-inline: var(--mc-space-40);
+    padding-block: var(--mc-space-40);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    box-shadow: var(--mc-elevation-1);
+  }
+
+  /* The masthead: what the document is, its own number, and what it belongs to. Each said once. */
+  .mc-print-sheet-masthead {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    padding-block-end: var(--mc-space-16);
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-strong);
+  }
+  .mc-print-sheet-heading {
+    font-family: var(--mc-font-display);
+    font-size: var(--mc-font-size-2xl);
+    font-weight: var(--mc-weight-display);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  /* The record's own number. Set in the mono face because it is a reference somebody will read
+     back character by character, or type into something else. */
+  .mc-print-sheet-reference {
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  .mc-print-sheet-subtitle {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+
+  .mc-print-sheet-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+  }
+  .mc-print-sheet-section-title {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    letter-spacing: var(--mc-tracking-caps);
+    text-transform: uppercase;
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+
+  /*
+   * The facts: a two-column grid whose labels and values are its own children, so every value in a
+   * section starts at the same place and the eye can run straight down them. The label column takes
+   * what it needs and no more. A wrapper around each pair would have to span both tracks to keep
+   * that alignment, and it would buy nothing the pairs do not already give.
+   */
+  .mc-print-sheet-fields {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--mc-space-24);
+    row-gap: var(--mc-space-8);
+  }
+  .mc-print-sheet-field-label {
+    /* A stated fact does not break across two pieces of paper. */
+    break-inside: avoid;
+    break-after: avoid;
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  .mc-print-sheet-field-value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--mc-space-8);
+    break-inside: avoid;
+    margin-inline-start: var(--mc-space-0);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-default);
+    overflow-wrap: break-word;
+  }
+  /*
+   * The same value in its other literacy, beside the one that leads. Quieter and smaller, because
+   * it is a second reading of one figure and must never be mistaken for a second figure.
+   */
+  .mc-print-sheet-field-secondary {
+    font-size: var(--mc-font-size-xs);
+    color: var(--mc-text-muted);
+  }
+
+  /* The text the client reads. It wraps and grows: the line somebody is charged against is never
+     clipped, never ellipsised, never put behind a scrollbar. */
+  .mc-print-sheet-text {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-relaxed);
+    color: var(--mc-text-default);
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  /* The history, oldest first, as a plain numbered account. Paper cannot scroll, so it is set as a
+     list that runs on rather than as the rail's scrolling region. */
+  .mc-print-sheet-events {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-12);
+    list-style: none;
+    padding-inline: var(--mc-space-0);
+  }
+  .mc-print-sheet-event {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    break-inside: avoid;
+  }
+  .mc-print-sheet-event-action {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  .mc-print-sheet-event-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--mc-space-4);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  .mc-print-sheet-event-separator {
+    color: var(--mc-text-subtle);
+  }
+  /* Somebody's own words, set apart from the platform's account of what happened by a hairline
+     down the edge rather than by a box or a tint. */
+  .mc-print-sheet-event-detail {
+    padding-inline-start: var(--mc-space-8);
+    border-inline-start-style: solid;
+    border-inline-start-width: var(--mc-border-width-default);
+    border-inline-start-color: var(--mc-border-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-style: italic;
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-subtle);
+  }
+  .mc-print-sheet-empty {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+
+  .mc-print-sheet-footer {
+    padding-block-start: var(--mc-space-16);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+
+  /* The actions sit under the tray, in the dialog's own chrome, so they stay put while the paper
+     scrolls past them. They are chrome, so the printer never sees them. */
+  .mc-print-sheet-actions {
+    display: flex;
+    flex: none;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding: var(--mc-space-16);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+  }
+  .mc-print-sheet-print-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /*
+   * PRINTING — the same sheet, handed over.
+   *
+   * Nothing here builds a second page for the printer. These rules take the dialog off the sheet:
+   * everything that is not the sheet is removed from the printed document, and the sheet stops
+   * being a panel floating over a page and becomes the page.
+   */
+  @media print {
+    /*
+     * Everything else on the page goes. Written against the panel's own presence, so it applies
+     * only while a sheet is open and printing anything else is untouched: any top-level box that
+     * neither is the panel nor contains it is not part of this document. That covers the
+     * application behind the sheet, the record window it was opened from, and the washes over
+     * both of them, without naming any of them.
+     */
+    body:has(.mc-print-sheet-page) > *:not(.mc-print-sheet-page):not(:has(.mc-print-sheet-page)) {
+      display: none;
+    }
+    /*
+     * The panel stops being a panel. The compound selector is deliberate: it must outrank the
+     * dialog recipe's own centring, which is written for a floating surface and is exactly wrong
+     * for a page. Height and width caps are lifted by utilities on the element, which sit in a
+     * later cascade layer than this one.
+     */
+    .mc-dialog-content.mc-print-sheet-page {
+      position: static;
+      overflow: visible;
+      background-color: transparent;
+      border-style: none;
+      border-radius: var(--mc-radius-none);
+      box-shadow: none;
+    }
+    .mc-print-sheet-scroll {
+      display: block;
+      overflow: visible;
+      padding: var(--mc-space-0);
+      background-color: transparent;
+    }
+    /*
+     * The paper. Its screen presentation — the light surface, the edge, the shadow — was standing
+     * in for paper; on paper it is redundant, and an edge drawn around the page would print as a
+     * box around the whole document.
+     */
+    .mc-print-sheet {
+      block-size: auto;
+      padding: var(--mc-space-0);
+      background-color: transparent;
+      border-style: none;
+      box-shadow: none;
+    }
+    /*
+     * Ink, not theme. The neutral ramp is the one part of the palette that means the same thing in
+     * every theme and in both light and dark: a reader working at night still gets black text on
+     * white paper, where the screen's own colours would print as pale ink on nothing.
+     */
+    .mc-print-sheet,
+    .mc-print-sheet-heading,
+    .mc-print-sheet-field-value,
+    .mc-print-sheet-text,
+    .mc-print-sheet-event-action {
+      color: var(--mc-color-neutral-1000);
+    }
+    .mc-print-sheet-reference,
+    .mc-print-sheet-subtitle,
+    .mc-print-sheet-section-title,
+    .mc-print-sheet-field-label,
+    .mc-print-sheet-field-secondary,
+    .mc-print-sheet-event-meta,
+    .mc-print-sheet-event-separator,
+    .mc-print-sheet-event-detail,
+    .mc-print-sheet-empty,
+    .mc-print-sheet-footer {
+      color: var(--mc-color-neutral-600);
+    }
+    .mc-print-sheet-masthead,
+    .mc-print-sheet-footer,
+    .mc-print-sheet-event-detail {
+      border-color: var(--mc-color-neutral-400);
+    }
+  }
+}

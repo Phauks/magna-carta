@@ -1,0 +1,162 @@
+@layer components {
+  /*
+   * EventRail — a history, presented.
+   *
+   * The rail is a WORK SURFACE, not chrome: it is read closely, often at length, usually while the
+   * reader is deciding something. So it stays quiet — no fills behind the events, no rules boxing
+   * them in, no colour carrying meaning. The only accent in the whole component is the single
+   * filled marker on the latest event, which is the one thing the eye should find first.
+   *
+   * The hairline is built from real elements rather than an absolutely positioned pseudo-element:
+   * the marker column is a flex column holding the marker and, beneath it, a connector that grows
+   * to fill whatever is left of the row. Two markers are therefore always joined, whatever the
+   * event beside them is worth in height, and nothing needs a half-pixel offset to line up.
+   * The connector is omitted on the latest event, so the rail ends at the marker rather than
+   * trailing off past it.
+   */
+  .mc-event-rail {
+    display: flex;
+    flex-direction: column;
+    /*
+     * A history gets long; its host must not. The rail takes the block space it is given and
+     * scrolls inside it, so it can be a tab's entire body without ever growing that tab. The zero
+     * minimum is what lets it shrink below its content inside a flex parent — without it, a flex
+     * item's automatic minimum size is its content and the whole pane would grow instead.
+     */
+    flex: auto;
+    min-block-size: var(--mc-space-0);
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* Non-interactive prose that scrolls still has to be reachable by keyboard, so it is focusable
+       and shows the house focus shape when a keyboard brings it there. */
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-event-rail:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-event-rail-empty {
+    padding-block: var(--mc-space-16);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  /* No gap between events: the connector is what runs through the space between two markers, so a
+     gap would cut the hairline into segments. Each event carries its own trailing space instead. */
+  .mc-event-rail-events {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    padding-inline: var(--mc-space-0);
+  }
+  .mc-event-rail-event {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--mc-space-12);
+    padding-block-end: var(--mc-space-16);
+  }
+  .mc-event-rail-event:last-child {
+    padding-block-end: var(--mc-space-0);
+  }
+  .mc-event-rail-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  /*
+   * The marker box is as tall as the action line's own line box, so the dot sits on that line's
+   * optical centre without a hand-tuned offset — and stays there when the action wraps.
+   */
+  .mc-event-rail-marker {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-20);
+  }
+  .mc-event-rail-dot {
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-strong);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-default);
+  }
+  /*
+   * The latest event is the one a reader is looking for, so its marker is filled where every
+   * earlier one is hollow. This is the accent's whole appearance in the component: one dot, at the
+   * scale of a check mark, never a wash across the events.
+   */
+  .mc-event-rail-event[data-latest="true"] .mc-event-rail-dot {
+    border-color: var(--mc-accent-strong);
+    background-color: var(--mc-accent-strong);
+  }
+  .mc-event-rail-connector {
+    flex: auto;
+    inline-size: var(--mc-border-width-default);
+    background-color: var(--mc-border-default);
+  }
+  .mc-event-rail-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    /* Long recorded text wraps rather than widening the rail, which would put the whole history on
+       a horizontal scrollbar. */
+    min-inline-size: var(--mc-space-0);
+    overflow-wrap: break-word;
+  }
+  /* What happened leads the event, and is the only line set in the reading weight. */
+  .mc-event-rail-action {
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+  }
+  /* When, and what caused it: one line, one voice, quieter than the action it annotates. */
+  .mc-event-rail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--mc-space-4);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-event-rail-separator {
+    color: var(--mc-text-subtle);
+  }
+  /*
+   * Recorded text, quoted: somebody's own words, so it is set apart from the platform's account of
+   * what happened by a hairline down its edge rather than by a box or a tint.
+   */
+  .mc-event-rail-detail {
+    margin-block-start: var(--mc-space-4);
+    padding-inline-start: var(--mc-space-8);
+    border-inline-start-style: solid;
+    border-inline-start-width: var(--mc-border-width-default);
+    border-inline-start-color: var(--mc-border-default);
+    color: var(--mc-text-subtle);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-style: italic;
+    line-height: var(--mc-leading-normal);
+  }
+  /* The loading stand-ins: the same rail geometry, so the real events land where the eye already
+     is instead of shifting the reader's place when they arrive. */
+  .mc-event-rail-dot-placeholder {
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+  }
+  .mc-event-rail-line-placeholder {
+    block-size: var(--mc-space-12);
+  }
+}

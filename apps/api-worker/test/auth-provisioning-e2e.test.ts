@@ -317,6 +317,11 @@ describe("end-to-end", () => {
         "firm:manageReleaseChannel",
         "firm:manageScanPolicy",
         "firm:manageSecrets",
+        // The roster read, seeded to every default role including Read-only — the same universal
+        // shape as notifications:read below, and the deliberate opposite of firm:manageMembers
+        // above (20260829T120000_seed-read-members-permission). Knowing who one's colleagues are is
+        // not the privilege of adding one.
+        "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
         "incidents:viewDescription",

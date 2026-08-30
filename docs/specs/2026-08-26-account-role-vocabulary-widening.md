@@ -63,7 +63,7 @@ enforced that way. There are **142 `IN (…)` vocabulary `CHECK`s** across that 
 inconsistency; changing all of them is a schema-wide project with a migration per table, which is a
 larger and more destructive undertaking than the thing it avoids.
 
-The convention stays. What is worth deciding is *when* the widening happens, not *whether* it is a
+The convention stays. What is worth deciding is _when_ the widening happens, not _whether_ it is a
 `CHECK`.
 
 ## Recommendation

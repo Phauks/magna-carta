@@ -1,0 +1,353 @@
+@layer components {
+  /*
+   * FolderTree — the file manager's left rail, dressed over Tree's own rows. Everything a row is
+   * (its height, its indent, its selected fill, its focus ring) is Tree's recipe; what is here is
+   * the rail around it: the palette, the two controls beside the root row, the counts, and the
+   * group of views beneath the rule.
+   *
+   * THE PALETTE'S FILLS live here as one block of aliases, so the eleven colours have one home and
+   * a folder row, a swatch and a menu pip cannot disagree about what "red" is. Four of them —
+   * orange, purple, pink, brown — have no ramp of their own in the token set and currently alias
+   * their nearest neighbour, which is why the palette reads with two colours it should not have.
+   * Adding those ramps replaces four lines in this block and nothing else.
+   */
+  .mc-folder-tree,
+  .mc-folder-tree-menu,
+  .mc-folder-tree-palette {
+    --mc-folder-color-red: var(--mc-color-red-500);
+    --mc-folder-color-orange: var(--mc-color-orange-500);
+    --mc-folder-color-yellow: var(--mc-color-amber-300);
+    --mc-folder-color-green: var(--mc-color-green-500);
+    --mc-folder-color-blue: var(--mc-color-blue-500);
+    --mc-folder-color-purple: var(--mc-color-purple-500);
+    --mc-folder-color-pink: var(--mc-color-pink-400);
+    --mc-folder-color-brown: var(--mc-color-brown-700);
+    --mc-folder-color-grey: var(--mc-color-neutral-500);
+    --mc-folder-color-black: var(--mc-color-neutral-1000);
+    --mc-folder-color-white: var(--mc-color-neutral-0);
+  }
+
+  .mc-folder-tree {
+    display: flex;
+    flex-direction: column;
+    min-block-size: var(--mc-space-0);
+    background-color: var(--mc-surface-default);
+    font-family: var(--mc-font-sans);
+  }
+  /*
+   * The rail's own scroll region. The gutter is reserved at all times, so the rows do not shift
+   * sideways the first time the tree grows past the fold, and the bar itself is the house one.
+   */
+  .mc-folder-tree-scroll {
+    flex: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-4);
+  }
+
+  /* The folder glyph takes the folder's own colour; an uncoloured folder keeps the row's ink. */
+  .mc-folder-tree-icon[data-folder-color="red"] {
+    color: var(--mc-folder-color-red);
+  }
+  .mc-folder-tree-icon[data-folder-color="orange"] {
+    color: var(--mc-folder-color-orange);
+  }
+  .mc-folder-tree-icon[data-folder-color="yellow"] {
+    color: var(--mc-folder-color-yellow);
+  }
+  .mc-folder-tree-icon[data-folder-color="green"] {
+    color: var(--mc-folder-color-green);
+  }
+  .mc-folder-tree-icon[data-folder-color="blue"] {
+    color: var(--mc-folder-color-blue);
+  }
+  .mc-folder-tree-icon[data-folder-color="purple"] {
+    color: var(--mc-folder-color-purple);
+  }
+  .mc-folder-tree-icon[data-folder-color="pink"] {
+    color: var(--mc-folder-color-pink);
+  }
+  .mc-folder-tree-icon[data-folder-color="brown"] {
+    color: var(--mc-folder-color-brown);
+  }
+  .mc-folder-tree-icon[data-folder-color="grey"] {
+    color: var(--mc-folder-color-grey);
+  }
+  .mc-folder-tree-icon[data-folder-color="black"] {
+    color: var(--mc-folder-color-black);
+  }
+  .mc-folder-tree-icon[data-folder-color="white"] {
+    color: var(--mc-folder-color-white);
+  }
+
+  /*
+   * The two controls at the root row's end. They are sized to the row's own glyph so the row that
+   * carries them is exactly as tall as every other row — the heading is a row, not a bar.
+   */
+  .mc-folder-tree-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    border-radius: var(--mc-radius-sm);
+    color: var(--mc-text-subtle);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-folder-tree-control:hover {
+    background-color: var(--mc-action-secondary-hover);
+    color: var(--mc-text-default);
+  }
+  .mc-folder-tree-control:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  /* Disabled reads at rest, not only under the pointer. */
+  .mc-folder-tree-control:disabled {
+    background-color: transparent;
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-folder-tree-control-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /* How many files a folder holds. Tabular so a column of counts does not shimmer as it changes. */
+  .mc-folder-tree-count {
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc-folder-tree-empty {
+    margin-block: var(--mc-space-4);
+    margin-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+
+  /* The rule between the folders and the views sits on the same rhythm as the rail's own padding. */
+  .mc-folder-tree-separator {
+    margin-block: var(--mc-space-4);
+  }
+  .mc-folder-tree-views {
+    list-style: none;
+    margin-block: var(--mc-space-0);
+    margin-inline: var(--mc-space-0);
+    padding-block: var(--mc-space-0);
+    padding-inline: var(--mc-space-0);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  /*
+   * A view row IS a tree row — it carries the tree's own row recipe, so the two groups cannot drift
+   * apart in height, indent or hover. Only what a button needs, and what "currently open" looks
+   * like, is added here.
+   */
+  .mc-folder-tree-view {
+    text-align: start;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+  }
+  .mc-folder-tree-view[aria-current="page"] {
+    background-color: var(--mc-surface-selected);
+    border-inline-start-color: var(--mc-accent-default);
+  }
+  .mc-folder-tree-view:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-folder-tree-view:disabled {
+    background-color: transparent;
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-folder-tree-view-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+  }
+  .mc-folder-tree-view-label {
+    overflow: hidden;
+    min-inline-size: var(--mc-space-0);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mc-folder-tree-loading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+  }
+  .mc-folder-tree-loading-row {
+    block-size: var(--mc-space-16);
+  }
+
+  /* --- the two flyouts ---------------------------------------------------------------------- */
+
+  /* A glyph beside a menu label, at the same size as a row's own. */
+  .mc-folder-tree-menu-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-folder-tree-menu-check {
+    margin-inline-start: auto;
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+  }
+
+  /*
+   * The pip beside the Color label, showing what the folder is now. It is a swatch like any other
+   * and takes the same square: the rounding a reader notices is the one that survives in the small
+   * copy nobody thought of as a swatch.
+   */
+  .mc-folder-tree-pip {
+    display: inline-block;
+    flex: none;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+    box-sizing: border-box;
+    border-radius: var(--mc-radius-none);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-strong);
+    background-color: transparent;
+  }
+  .mc-folder-tree-pip[data-folder-color="red"] {
+    background-color: var(--mc-folder-color-red);
+  }
+  .mc-folder-tree-pip[data-folder-color="orange"] {
+    background-color: var(--mc-folder-color-orange);
+  }
+  .mc-folder-tree-pip[data-folder-color="yellow"] {
+    background-color: var(--mc-folder-color-yellow);
+  }
+  .mc-folder-tree-pip[data-folder-color="green"] {
+    background-color: var(--mc-folder-color-green);
+  }
+  .mc-folder-tree-pip[data-folder-color="blue"] {
+    background-color: var(--mc-folder-color-blue);
+  }
+  .mc-folder-tree-pip[data-folder-color="purple"] {
+    background-color: var(--mc-folder-color-purple);
+  }
+  .mc-folder-tree-pip[data-folder-color="pink"] {
+    background-color: var(--mc-folder-color-pink);
+  }
+  .mc-folder-tree-pip[data-folder-color="brown"] {
+    background-color: var(--mc-folder-color-brown);
+  }
+  .mc-folder-tree-pip[data-folder-color="grey"] {
+    background-color: var(--mc-folder-color-grey);
+  }
+  .mc-folder-tree-pip[data-folder-color="black"] {
+    background-color: var(--mc-folder-color-black);
+  }
+  .mc-folder-tree-pip[data-folder-color="white"] {
+    background-color: var(--mc-folder-color-white);
+  }
+
+  /* The palette is one row, in the order the spectrum runs. */
+  .mc-folder-tree-palette {
+    display: flex;
+    flex-direction: row;
+    gap: var(--mc-space-4);
+  }
+  /*
+   * A swatch is a true square: equal sides, no corner radius, and the same rim on every one of them
+   * so the palest fills read against the menu behind them without any swatch being a different size
+   * from its neighbours.
+   */
+  .mc-folder-tree-swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    box-sizing: border-box;
+    padding-block: var(--mc-space-0);
+    padding-inline: var(--mc-space-0);
+    gap: var(--mc-space-0);
+    border-radius: var(--mc-radius-none);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-strong);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /*
+   * Under the pointer a swatch KEEPS ITS COLOUR — a wash over it would answer "which colour is
+   * this" with the menu's hover instead of with the swatch. The outline is what says it is under
+   * the pointer, and it is drawn outside the square so the square stays the size it was.
+   */
+  .mc-folder-tree-swatch[data-highlighted] {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-folder-tree-swatch[data-folder-color="red"] {
+    background-color: var(--mc-folder-color-red);
+  }
+  .mc-folder-tree-swatch[data-folder-color="orange"] {
+    background-color: var(--mc-folder-color-orange);
+  }
+  .mc-folder-tree-swatch[data-folder-color="yellow"] {
+    background-color: var(--mc-folder-color-yellow);
+  }
+  .mc-folder-tree-swatch[data-folder-color="green"] {
+    background-color: var(--mc-folder-color-green);
+  }
+  .mc-folder-tree-swatch[data-folder-color="blue"] {
+    background-color: var(--mc-folder-color-blue);
+  }
+  .mc-folder-tree-swatch[data-folder-color="purple"] {
+    background-color: var(--mc-folder-color-purple);
+  }
+  .mc-folder-tree-swatch[data-folder-color="pink"] {
+    background-color: var(--mc-folder-color-pink);
+  }
+  .mc-folder-tree-swatch[data-folder-color="brown"] {
+    background-color: var(--mc-folder-color-brown);
+  }
+  .mc-folder-tree-swatch[data-folder-color="grey"] {
+    background-color: var(--mc-folder-color-grey);
+  }
+  .mc-folder-tree-swatch[data-folder-color="black"] {
+    background-color: var(--mc-folder-color-black);
+  }
+  .mc-folder-tree-swatch[data-folder-color="white"] {
+    background-color: var(--mc-folder-color-white);
+  }
+  /*
+   * The chosen colour is a check INSIDE its square, in whichever ink reads against that fill. An
+   * indicator that never leaves the box cannot overlap the swatch beside it, which is what a raised
+   * halo does to a row of squares four pixels apart.
+   */
+  .mc-folder-tree-swatch-check {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+  .mc-folder-tree-swatch[data-folder-ink="light"] > .mc-folder-tree-swatch-check {
+    color: var(--mc-text-inverse);
+  }
+  .mc-folder-tree-swatch[data-folder-ink="dark"] > .mc-folder-tree-swatch-check {
+    color: var(--mc-text-default);
+  }
+}

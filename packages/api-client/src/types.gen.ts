@@ -531,6 +531,27 @@ export type MetadataScrubOptions = {
     imageMetadata: boolean;
 };
 
+export type FirmMemberListResponse = {
+    data: Array<FirmMemberSummary>;
+};
+
+export type FirmMemberSummary = {
+    userId: string;
+    displayName: string;
+    /**
+     * A deactivated member is still listed: they remain the responsible attorney on matters they carried and the author of what they filed, and dropping the row would print those cells as an unfilled gap rather than as the person who is no longer here.
+     */
+    status: 'active' | 'deactivated';
+    /**
+     * The names of the roles this member holds; empty where they hold none.
+     */
+    roleNames: Array<string>;
+    /**
+     * Whether a professional profile has been written for this member — the title, admissions and signature block a pleading states. False means unwritten, never unreadable.
+     */
+    hasProfessionalProfile: boolean;
+};
+
 export type InviteMemberResponse = {
     id: string;
     email: string;
@@ -8405,6 +8426,43 @@ export type MetadataScrubResponses = {
 };
 
 export type MetadataScrubResponse = MetadataScrubResponses[keyof MetadataScrubResponses];
+
+export type MembersListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/members';
+};
+
+export type MembersListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:readMembers
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersListError = MembersListErrors[keyof MembersListErrors];
+
+export type MembersListResponses = {
+    /**
+     * The firm's members, ordered by display name
+     */
+    200: FirmMemberListResponse;
+};
+
+export type MembersListResponse = MembersListResponses[keyof MembersListResponses];
 
 export type MembersInviteData = {
     body: InviteMemberRequest;

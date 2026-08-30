@@ -7,6 +7,10 @@
  *   - maturity.ts          — the model: the stages, and each stage's label + colour (this file).
  *   - maturity-badge.svelte — the labelled mark, where a badge fits (nav tabs, sidebar rows).
  *   - maturity-dot.svelte   — the colour dot, where a label won't fit (icon-only chrome).
+ *   - soon-affordance.ts / .svelte — the "soon" stage applied to a single CONTROL rather than a
+ *     surface: the control rendered for real, disabled, with the badge and the dependency. It is
+ *     part of this module because a Soon control is the same vocabulary as a Soon surface, and
+ *     letting call sites compose their own was how the two started to disagree.
  *
  * TO MARK A SURFACE: give its registry entry a `stage` (see MatterSection in matters/sections.ts
  * and Destination in navigation/destinations.ts for the field), then render <MaturityBadge> or

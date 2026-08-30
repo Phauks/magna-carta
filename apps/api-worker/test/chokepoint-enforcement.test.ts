@@ -1,6 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { BUCKETS } from "../src/chokepoint/rate-limiter.ts";
 
 // Slice 0·5b Task 8b: the chokepoint wired into the REAL app, proven through the Miniflare HTTP
 // surface (SELF) — metadata-DRIVEN enforcement, not per-handler discipline. The me/members/firms
@@ -39,11 +40,13 @@ async function postFirms(idempotencyKey: string): Promise<Response> {
 
 describe("chokepoint rate-limit gate (429 + Retry-After) through the wired app", () => {
   it("denies past the auth bucket's limit with a 429 problem carrying Retry-After", async () => {
-    // BUCKETS.auth.limit = 10: the first ten EXECUTE-path requests are allowed, the eleventh is
-    // denied. Distinct keys so each reaches the rate-limit gate (a repeated key would replay before
-    // it). The eleventh request — over the bucket — never reaches the handler.
+    // The first BUCKETS.auth.limit EXECUTE-path requests are allowed and the next one is denied,
+    // counted from the bucket rather than written out: the auth bucket sits above the credential
+    // ladder and moves with it, and a literal would stop reaching the gate the day it moved.
+    // Distinct keys so each reaches the rate-limit gate (a repeated key would replay before it).
+    // The over-the-bucket request never reaches the handler.
     let lastResponse: Response | undefined;
-    for (let request = 0; request < 11; request++) {
+    for (let request = 0; request < BUCKETS.auth.limit + 1; request++) {
       lastResponse = await postFirms(crypto.randomUUID());
     }
     expect(lastResponse?.status).toBe(429);

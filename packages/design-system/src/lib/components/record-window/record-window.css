@@ -1,0 +1,203 @@
+@layer components {
+  /*
+   * RecordWindow — the two-pane record window. It dresses the Dialog panel rather than replacing
+   * it, so this recipe is imported AFTER dialog.css in styles/components.css and its overrides win
+   * at equal specificity.
+   *
+   * The panel is a three-band column: a header band that never moves, a body that scrolls, and an
+   * action bar of fixed geometry. The panel itself clips, and the two panes inside the body do the
+   * scrolling — that is what caps the window at the viewport instead of letting a long record push
+   * the close control past the bottom of the screen, and it is what lets a long tab (a history that
+   * grows for years) scroll inside itself instead of stretching the window. The panel's own width
+   * and height are layout, so they ride utilities on the element; only the look lives here.
+   */
+  .mc-record-window {
+    padding: var(--mc-space-0);
+    gap: var(--mc-space-0);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- the header band ------------------------------------------------------------------- */
+
+  .mc-record-window-header {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--mc-space-16);
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-24);
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+  }
+  .mc-record-window-identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-record-window-heading {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-lg);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  /* The subtitle is the reference number's one home, so it stays legible rather than decorative. */
+  .mc-record-window-subtitle {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  .mc-record-window-header-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+  }
+  /*
+   * The four header controls, one shape between them: quiet icon buttons that lift to the default
+   * ink on hover. They frame the work rather than being part of it, so they carry no fill and no
+   * chrome of their own; the disabled one mutes its colour at rest, not only under the pointer.
+   */
+  .mc-record-window-header-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--mc-density-control-sm);
+    min-block-size: var(--mc-density-control-sm);
+    padding: var(--mc-space-4);
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-record-window-header-action:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-record-window-header-action:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-record-window-header-action[aria-pressed="true"] {
+    color: var(--mc-text-default);
+  }
+  /* After the hover and pressed rules, so it wins at equal specificity. */
+  .mc-record-window-header-action:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-record-window-header-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /* --- the body: the record beside its context --------------------------------------------- */
+
+  .mc-record-window-body {
+    flex: auto;
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    min-block-size: var(--mc-space-0);
+    overflow: hidden;
+  }
+  /*
+   * The record pane. Top-aligned and dense: the reader's eye starts at the first fact, never below
+   * a band of empty space, and the pane does not stretch its rows to fill a tall window.
+   */
+  .mc-record-window-record {
+    justify-content: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-12);
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-24);
+    overflow-y: auto;
+    min-inline-size: var(--mc-space-0);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  /*
+   * The context pane sits on the quieter surface behind the record, and takes the hairline that
+   * separates the two. It clips; its tab panel is what scrolls.
+   */
+  .mc-record-window-context {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: var(--mc-space-0);
+    overflow: hidden;
+    background-color: var(--mc-surface-sunken);
+    border-inline-start-style: solid;
+    border-inline-start-width: var(--mc-border-width-default);
+    border-inline-start-color: var(--mc-border-default);
+  }
+  .mc-record-window-tabs {
+    flex: auto;
+    min-block-size: var(--mc-space-0);
+    gap: var(--mc-space-0);
+  }
+  .mc-record-window-tab-strip {
+    flex: none;
+    padding-inline: var(--mc-space-16);
+    overflow-x: auto;
+  }
+  .mc-record-window-tab-count {
+    margin-inline-start: var(--mc-space-4);
+    color: var(--mc-text-subtle);
+    font-size: var(--mc-font-size-xs);
+    font-variant-numeric: tabular-nums;
+  }
+  /*
+   * A COLUMN, not a plain block, so a panel whose whole body is one scrolling thing works without
+   * the caller wrapping it. A history rail is built to fill the space it is given and scroll inside
+   * it; dropped into a block it is simply as tall as its content, so the panel scrolls and the rail
+   * never does — which reads as the rail's contract being false rather than as a missing display
+   * mode here. The panel keeps its own overflow for the ordinary case of a tab that is just long.
+   */
+  .mc-record-window-tab-panel {
+    display: flex;
+    flex-direction: column;
+    flex: auto;
+    min-block-size: var(--mc-space-0);
+    overflow-y: auto;
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-16);
+  }
+
+  /* --- the action bar --------------------------------------------------------------------- */
+
+  /*
+   * Fixed geometry: the same band in the same place at the same height in every state, so an act a
+   * record's state refuses shows disabled with its reason and the bar never jumps under the hand
+   * that was reaching for it.
+   */
+  .mc-record-window-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--mc-space-8);
+    min-block-size: var(--mc-density-control-lg);
+    padding-block: var(--mc-space-12);
+    padding-inline: var(--mc-space-24);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+    background-color: var(--mc-surface-raised);
+  }
+}

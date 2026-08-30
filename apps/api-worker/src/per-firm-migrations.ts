@@ -73,6 +73,7 @@ import indexSplitCorpusScopeSql from "@magna-carta/database/drizzle/per-firm/202
 import indexAutomaticEmailLinksSql from "@magna-carta/database/drizzle/per-firm/20260819T123505_index-automatic-email-links.sql";
 import seedNotificationPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/20260819T140000_seed-notification-policy-permission.sql";
 import seedDocumentEditingAndToolsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260819T220000_seed-document-editing-and-tools-permissions.sql";
+import seedReadMembersPermissionSql from "@magna-carta/database/drizzle/per-firm/20260829T120000_seed-read-members-permission.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -157,6 +158,7 @@ export function perFirmMigrations(): Migration[] {
     "20260819T140000_seed-notification-policy-permission": seedNotificationPolicyPermissionSql,
     "20260819T220000_seed-document-editing-and-tools-permissions":
       seedDocumentEditingAndToolsPermissionsSql,
+    "20260829T120000_seed-read-members-permission": seedReadMembersPermissionSql,
   });
 }
 

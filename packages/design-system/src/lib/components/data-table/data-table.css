@@ -261,11 +261,30 @@
     color: var(--mc-text-default);
     cursor: pointer;
   }
-  /* "Select all" sits above the value list with a hairline divider, like a sheet's filter dropdown. */
+  /*
+   * The set filter's ONE reactive select control sits above the value list, under a hairline. It
+   * is a text control rather than a checkbox on purpose: a checkbox states what IS, and this must
+   * state what pressing it will DO ("Select none" while everything is on, "Select all" otherwise).
+   */
   .mc-table-filter-selectall {
+    display: flex;
     padding-block-end: var(--mc-space-8);
     border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
-    font-weight: var(--mc-weight-medium);
+  }
+  .mc-table-filter-selectall-toggle {
+    background-color: transparent;
+    color: var(--mc-text-link);
+    font: inherit;
+    font-size: var(--mc-font-size-sm);
+    cursor: pointer;
+    border-radius: var(--mc-radius-sm);
+  }
+  .mc-table-filter-selectall-toggle:hover {
+    text-decoration: underline;
+  }
+  .mc-table-filter-selectall-toggle:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
   }
   /* Date filter: a vertical list of quick-range presets (full-width, left-read), not a nested calendar. */
   .mc-table-filter-presets {
@@ -517,6 +536,39 @@
     .mc-table-row:nth-child(even):not(:hover):not([data-state="selected"])
     .mc-table-grid-cell[data-pinned] {
     background-color: var(--mc-surface-raised);
+  }
+  /*
+   * ---- Row groups and row marks ----
+   * The pinned block sits above EVERYTHING, and this rule is what tells a reader the block is a
+   * different thing from the list beneath it. It is a rule, not a row: no height, no padding, no
+   * hover, nothing to click.
+   */
+  .mc-table-grid-pin-rule td {
+    block-size: var(--mc-space-0);
+    padding: var(--mc-space-0);
+    border-block-end: var(--mc-focus-ring-width) solid var(--mc-border-strong);
+  }
+  /* The pin rides the row's first cell, the one elegant gold touch a work surface earns. */
+  .mc-table-grid-row-pin {
+    display: inline-block;
+    vertical-align: text-bottom;
+    margin-inline-end: var(--mc-space-4);
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+    color: var(--mc-accent-default);
+  }
+  /*
+   * A row waiting on a cut or a copy looks different while it waits: the dashed edge says
+   * "marked", and cut says "leaving" by speaking quieter. (The mockup dimmed a cut row with
+   * opacity; the token set has no opacity, and the muted-text register is the same reading.)
+   */
+  .mc-table-grid .mc-table-body .mc-table-row[data-clipboard] .mc-table-grid-cell:first-child {
+    outline: var(--mc-border-width-default) dashed var(--mc-border-strong);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-table-grid .mc-table-body .mc-table-row[data-clipboard="cut"],
+  .mc-table-grid .mc-table-body .mc-table-row[data-quiet="true"] {
+    color: var(--mc-text-subtle);
   }
   /*
    * The totals row: real sums pinned under the list, scope-honest. The strong top rule separates

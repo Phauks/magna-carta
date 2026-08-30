@@ -5,7 +5,10 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
+  selectFirmMembersStatement,
   selectMemberPermissionsStatements,
+  ROLE_NAME_SEPARATOR,
+  type FirmMemberRow,
 } from "../src/member-statements.ts";
 import { captured, stubD1 } from "./support/stub-d1.ts";
 
@@ -49,6 +52,15 @@ describe("member statements against real SQLite (replay no-op + read shape)", ()
         expires_at TEXT,
         granted_by TEXT NOT NULL,
         created_at TEXT NOT NULL
+      );
+      CREATE TABLE member_professional_profile (
+        member_user_id TEXT PRIMARY KEY,
+        title TEXT,
+        admissions TEXT,
+        direct_dial TEXT,
+        professional_email TEXT,
+        signature_block TEXT,
+        updated_at TEXT NOT NULL
       );`,
     );
     return database;
@@ -239,5 +251,73 @@ describe("member statements against real SQLite (replay no-op + read shape)", ()
 
     expect(rolePermissionRows).toEqual([]);
     expect(directGrantRows).toEqual([]);
+  });
+
+  // The roster read packs a member's roles into one column and asks whether a profile exists — two
+  // correlated subqueries the stub cannot evaluate. Real SQLite is what proves the column names, the
+  // separator, and the three shapes a row can take.
+  it("reads the whole roster in one row per member, roles packed and profile presence flagged", () => {
+    const database = setupDatabase();
+    const attorneyRoleId = newIdentifier("role");
+    const billingRoleId = newIdentifier("role");
+    for (const [id, name] of [
+      [attorneyRoleId, "Attorney"],
+      [billingRoleId, "Billing"],
+    ] as const) {
+      database
+        .prepare("INSERT INTO role (id, name, created_at) VALUES (?1, ?2, ?3)")
+        .run(id, name, "2026-06-10T00:00:00.000Z");
+    }
+
+    // Three members, deliberately inserted out of display order so the ORDER BY has to do work: one
+    // holding two roles with a profile, one departed with one role, one holding no role at all.
+    const twoRoles = newIdentifier("user");
+    const departed = newIdentifier("user");
+    const roleless = newIdentifier("user");
+    for (const [userId, displayName, status] of [
+      [twoRoles, "Zara Okonkwo", "active"],
+      [departed, "Cormac Vale", "deactivated"],
+      [roleless, "Bea Nightingale", "active"],
+    ] as const) {
+      database
+        .prepare(
+          "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, ?3, ?4)",
+        )
+        .run(userId, displayName, status, "2026-06-10T00:00:00.000Z");
+    }
+    for (const [memberUserId, roleId] of [
+      [twoRoles, attorneyRoleId],
+      [twoRoles, billingRoleId],
+      [departed, attorneyRoleId],
+    ] as const) {
+      database
+        .prepare("INSERT INTO member_role (id, member_user_id, role_id) VALUES (?1, ?2, ?3)")
+        .run(newIdentifier("memberRole"), memberUserId, roleId);
+    }
+    database
+      .prepare(
+        "INSERT INTO member_professional_profile (member_user_id, updated_at) VALUES (?1, ?2)",
+      )
+      .run(twoRoles, "2026-06-10T00:00:00.000Z");
+
+    const read = captured(selectFirmMembersStatement(stubD1().database));
+    const rows = database.prepare(read.sql).all() as unknown as FirmMemberRow[];
+
+    // Ordered by display name — a roster, not an arbitrary set.
+    expect(rows.map((row) => row.displayName)).toEqual([
+      "Bea Nightingale",
+      "Cormac Vale",
+      "Zara Okonkwo",
+    ]);
+    // A departed member is READ, with the status that says so: they still hold matters.
+    expect(rows[1]?.status).toBe("deactivated");
+
+    const packed = rows[2];
+    expect(packed?.roleNames?.split(ROLE_NAME_SEPARATOR).sort()).toEqual(["Attorney", "Billing"]);
+    expect(packed?.hasProfessionalProfile).toBe(1);
+    // No role at all is NULL, not an empty string — the caller reads that as an empty list rather
+    // than as one role with no name.
+    expect(rows[0]?.roleNames).toBeNull();
+    expect(rows[0]?.hasProfessionalProfile).toBe(0);
   });
 });

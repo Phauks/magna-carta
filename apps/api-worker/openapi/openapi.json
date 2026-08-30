@@ -2277,6 +2277,57 @@
           "imageMetadata"
         ]
       },
+      "FirmMemberListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FirmMemberSummary"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "FirmMemberSummary": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deactivated"
+            ],
+            "description": "A deactivated member is still listed: they remain the responsible attorney on matters they carried and the author of what they filed, and dropping the row would print those cells as an unfilled gap rather than as the person who is no longer here."
+          },
+          "roleNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The names of the roles this member holds; empty where they hold none."
+          },
+          "hasProfessionalProfile": {
+            "type": "boolean",
+            "description": "Whether a professional profile has been written for this member — the title, admissions and signature block a pleading states. False means unwritten, never unreadable."
+          }
+        },
+        "required": [
+          "userId",
+          "displayName",
+          "status",
+          "roleNames",
+          "hasProfessionalProfile"
+        ]
+      },
       "InviteMemberResponse": {
         "type": "object",
         "properties": {
@@ -32071,6 +32122,78 @@
       }
     },
     "/api/v1/members": {
+      "get": {
+        "description": "Lists the firm's members — display name, status, the roles held, and whether a professional profile has been written. Deactivated members are included: they still hold matters. Not paged; a firm's roster is bounded by its headcount rather than by its activity.",
+        "operationId": "members.list",
+        "tags": [
+          "members"
+        ],
+        "x-mc-operationId": "members.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:readMembers",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "members"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's members, ordered by display name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmMemberListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:readMembers",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "description": "Invites a member into the session firm: creates the (unverified, account-less) user, enqueues the per-firm member.provision outbox row, audits the invite — one atomic batch — then sends the activation email (a password-reset link; the reset creates the credential).",
         "operationId": "members.invite",

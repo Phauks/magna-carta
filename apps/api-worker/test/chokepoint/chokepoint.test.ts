@@ -15,7 +15,7 @@ import {
   type ResolvedSession,
 } from "../../src/chokepoint/chokepoint";
 import { defineOpenAPIRoute, type RouteMeta } from "../../src/contracts/route-meta";
-import { createInMemoryRateLimiter } from "../../src/chokepoint/rate-limiter";
+import { BUCKETS, createInMemoryRateLimiter } from "../../src/chokepoint/rate-limiter";
 
 // Branded-identifier fixtures: the chokepoint never validates these (the session resolver did), it
 // only scopes keys with them, so opaque branded values are enough.
@@ -538,11 +538,13 @@ describe("createChokepoint — real in-memory limiter integration", () => {
       rateLimiter,
     };
     const chokepoint = createChokepoint(ports);
-    // meta.rateLimit "auth" → limit 10. The eleventh request from the same firm is denied.
+    // The request one past meta.rateLimit's bucket ceiling is denied. The count comes from the
+    // bucket rather than a literal: the auth bucket is pinned above the credential ladder and moves
+    // whenever that does, and a literal would quietly stop reaching the gate the day it moved.
     const meta: RouteMeta = { ...authedMeta, rateLimit: "auth" };
     const app = mountedApp(chokepoint, meta, trace);
     let lastStatus = 0;
-    for (let request = 0; request < 11; request++) {
+    for (let request = 0; request < BUCKETS.auth.limit + 1; request++) {
       lastStatus = (await app.request("/api/v1/members", { method: "POST" })).status;
     }
     expect(lastStatus).toBe(429);

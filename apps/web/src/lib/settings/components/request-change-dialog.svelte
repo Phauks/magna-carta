@@ -8,12 +8,19 @@
    * construction — restricted settings never render for non-editors — so stating its current
    * value discloses nothing the member cannot already see.)
    *
-   * Recipients ride a SEARCH PICKER (owner-directed, v1 of a fuller routing workflow later):
-   * the combobox filters ONLY the administrators holding the section's edit right (the mock
-   * roster seam in settings-permissions.ts), each pick becomes its own removable chip, and the
-   * copied block carries the To: line so the request lands with the people who can act on it.
+   * Recipients ride a SEARCH PICKER (owner-directed, v1 of a fuller routing workflow later): the
+   * combobox offers the firm's own colleagues — the real roster, read from GET /api/v1/members —
+   * each with the role they hold beside their name, each pick becomes its own removable chip, and
+   * the copied block carries the To: line so the request lands with the people who can act on it.
    * The list starts EMPTY: with an explicit picker, adding someone is the deliberate act, and
    * the at-least-one-recipient gate (not preselection) prevents a request addressed to no one.
+   *
+   * It offers every active colleague rather than "the administrators for this area", and that is
+   * the honest shape rather than a regression. The roster answers what ROLES a member holds; it
+   * does not answer which settings surfaces their permissions reach, and nothing on the server does
+   * yet. The previous narrowing ran over an invented field on an invented roster. Showing the role
+   * line and letting the person choose states what is actually known — and the section's own edit
+   * right is still what the dialog is ABOUT, named in the sentence at the foot.
    *
    * Honesty rule: filing is not wired yet. The real "File Request" action renders disabled with
    * the Soon badge rather than being omitted — designed-but-not-wired actions keep their place
@@ -34,8 +41,8 @@
   import RecipientPicker from "$lib/components/recipient-picker.svelte";
   import { settingValueLabel, type SettingDefinition } from "$lib/settings/settings-definitions.ts";
   import { committedSettingValue } from "$lib/settings/settings-draft.svelte.ts";
-  import { SETTINGS_SECTIONS } from "$lib/settings/settings-sections.ts";
-  import { administratorsForPermissionArea } from "$lib/settings/settings-permissions.ts";
+  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
+  import { memberRoleLine } from "$lib/members/members-api.ts";
 
   let {
     open = $bindable(false),
@@ -45,13 +52,12 @@
     definition: SettingDefinition;
   } = $props();
 
-  // The section's edit right names the eligible recipients; a section without a declared area
-  // falls back to firm administration (whoever governs the firm governs its unclaimed areas).
-  const permissionArea = $derived(
-    SETTINGS_SECTIONS.find((section) => section.id === definition.sectionId)
-      ?.editPermissionArea ?? "firm",
-  );
-  const administrators = $derived(administratorsForPermissionArea(permissionArea));
+  // The firm's colleagues who are still here, read once and shared with the other composers. Asked
+  // for when the dialog opens: a settings page nobody is filing a request from needs no roster.
+  const recipientRoster = $derived(firmRoster.active);
+  $effect(() => {
+    if (open) void firmRoster.load(fetch);
+  });
 
   /*
    * Draft retention: the composition survives close/reopen FOR THE SAME SETTING (an accidental
@@ -131,9 +137,14 @@
   }
 
   async function copyRequest(): Promise<void> {
-    const recipients = administrators
-      .filter((administrator) => selectedRecipientIds.includes(administrator.id))
-      .map((administrator) => `${administrator.name} (${administrator.role})`)
+    const recipients = recipientRoster
+      .filter((member) => selectedRecipientIds.includes(member.userId))
+      .map((member) => {
+        const roleLine = memberRoleLine(member);
+        // The role is context for whoever reads the pasted request, and a colleague holding no
+        // role gets their name alone rather than an empty pair of brackets after it.
+        return roleLine === "" ? member.displayName : `${member.displayName} (${roleLine})`;
+      })
       .join(", ");
     const request = [
       "Magna Carta — settings change request",
@@ -171,13 +182,16 @@
     <div class="flex flex-col gap-4">
       <Label for="request-change-recipients">Send to</Label>
       <RecipientPicker
-        members={administrators}
+        members={recipientRoster}
         selectedIds={selectedRecipientIds}
         onAdd={addRecipient}
         onRemove={removeRecipient}
         inputId="request-change-recipients"
-        placeholder="Search administrators…"
+        placeholder="Search colleagues…"
       />
+      {#if firmRoster.failure !== null}
+        <p class="text-xs text-text-muted">{firmRoster.failure}</p>
+      {/if}
     </div>
 
     <div class="flex flex-col gap-4">

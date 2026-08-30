@@ -6,6 +6,11 @@
    * depth compounds naturally through the DOM nesting with no per-level length math. The focus ring
    * is the house flush shape, drawn on the row of the focused treeitem. Expansion is instant (the
    * design language forbids animating layout); only the twisty glyph swaps between chevrons.
+   *
+   * NO ROW CHANGES SIZE WITH ITS STATE. Every state that can turn on — selected, marked as the
+   * object of a drag or a menu — paints inside space the row already reserves: the inline-start
+   * edge is present and transparent at rest, and selection deliberately does not touch the label's
+   * weight, because a bolder label is a wider label and the rail would re-measure under the reader.
    */
   .mc-tree,
   .mc-tree-group {
@@ -40,6 +45,9 @@
     min-inline-size: var(--mc-space-0);
     padding-block: var(--mc-space-4);
     padding-inline: var(--mc-space-8);
+    border-inline-start-style: solid;
+    border-inline-start-width: var(--mc-border-width-default);
+    border-inline-start-color: transparent;
     border-radius: var(--mc-radius-sm);
     color: var(--mc-text-default);
     cursor: pointer;
@@ -52,11 +60,17 @@
   .mc-tree-item-row:hover {
     background-color: var(--mc-surface-sunken);
   }
-  /* Selected — a calm filled row with a slightly stronger label; no gold wash on the work surface. */
+  /* Selected — a calm filled row and the one thin gilt edge the work surface is allowed. The edge
+     occupies width the row already reserves, so selecting moves nothing. */
   .mc-tree-item[aria-selected="true"] > .mc-tree-item-row {
     background-color: var(--mc-surface-selected);
+    border-inline-start-color: var(--mc-accent-default);
     color: var(--mc-text-default);
-    font-weight: var(--mc-weight-medium);
+  }
+  /* The object of a gesture in progress: the row a drag is over, or the row a menu was opened on. */
+  .mc-tree-item[data-tree-marked="true"] > .mc-tree-item-row {
+    background-color: var(--mc-surface-sunken);
+    border-inline-start-color: var(--mc-accent-strong);
   }
   /* The house flush focus ring, on the focused treeitem's row. */
   .mc-tree-item:focus-visible > .mc-tree-item-row {
@@ -64,6 +78,7 @@
     outline-width: var(--mc-focus-ring-width);
   }
 
+  /* The twisty is its own press target: it expands and collapses, and never selects. */
   .mc-tree-item-twisty {
     display: inline-flex;
     align-items: center;
@@ -72,6 +87,9 @@
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
     color: var(--mc-text-subtle);
+  }
+  .mc-tree-item[aria-expanded] > .mc-tree-item-row > .mc-tree-item-twisty:hover {
+    color: var(--mc-text-default);
   }
   .mc-tree-item-twisty-icon {
     inline-size: var(--mc-space-16);
@@ -84,9 +102,18 @@
     color: var(--mc-text-muted);
   }
   .mc-tree-item-label {
+    flex: auto;
     overflow: hidden;
     min-inline-size: var(--mc-space-0);
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* Whatever the row states at its end — a count, a mark. Sized by its content, never by the label. */
+  .mc-tree-item-trailing {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    gap: var(--mc-space-4);
+    color: var(--mc-text-muted);
   }
 }

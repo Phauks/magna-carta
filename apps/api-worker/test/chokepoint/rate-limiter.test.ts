@@ -8,6 +8,7 @@
 // `remaining` are part of the verdict rather than something the chokepoint reconstructs.
 import { describe, expect, it } from "vitest";
 import { BUCKETS, createInMemoryRateLimiter } from "../../src/chokepoint/rate-limiter";
+import { ATTEMPT_LIMIT } from "../../src/auth-attempt-budget";
 
 // A controllable epoch-milliseconds clock, matching the repo's injected-function precedent
 // (packages/data-access commitEffectBatch takes `now: () => string`; here the limiter needs
@@ -26,10 +27,18 @@ describe("BUCKETS", () => {
   it("registers the buckets with their deferred-seam defaults", () => {
     expect(BUCKETS).toEqual({
       default: { limit: 100, windowSeconds: 60 },
-      auth: { limit: 10, windowSeconds: 60 },
+      auth: { limit: 20, windowSeconds: 60 },
       expensive: { limit: 10, windowSeconds: 60 },
       "incident-report": { limit: 5, windowSeconds: 300 },
     });
+  });
+
+  it("keeps the auth bucket above the credential ladder it shares a visitor with", () => {
+    // The two bound the same visitor by different means, and only the ladder is spoken aloud — the
+    // joining answers publish its remaining count. Whichever is lower is the one a visitor actually
+    // meets, so a bucket at or below the ladder turns that published number into a lie: the screen
+    // says three attempts left and the next request is refused by a limiter it never mentioned.
+    expect(BUCKETS.auth.limit).toBeGreaterThan(ATTEMPT_LIMIT);
   });
 });
 

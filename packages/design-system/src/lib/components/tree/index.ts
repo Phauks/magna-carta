@@ -1,2 +1,2 @@
 export { default } from "./tree.svelte";
-export type { TreeNode } from "./types.ts";
+export type { TreeItemContext, TreeNode } from "./types.ts";

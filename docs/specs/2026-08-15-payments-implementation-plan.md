@@ -32,6 +32,7 @@ motivated the work: billing shipped and a firm cannot record being paid.
    [`2026-08-26-account-role-vocabulary-widening.md`](2026-08-26-account-role-vocabulary-widening.md)
    before starting this task: it recommends one widening for all four roles, ahead of both slices,
    and names what has to be answered first.
+
 2. **Open the `payment` kind.** Remove `payment` from the refusal in
    `packages/billing/src/application.ts` and delete the `KINDS_WITH_A_WRITE_PATH` guard's comment
    about rails being a later slice. No schema change: the CHECK already admits the kind and

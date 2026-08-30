@@ -13,7 +13,7 @@
 --     the fence both account-creating paths rely on, so it is recreated in this same batch or the
 --     whole migration rolls back.
 -- Reviewed under the rebuild sentinel: the tag is listed in REVIEWED_REBUILDS
--- (tooling/migration-integrity/checks.mts).
+-- (packages/database/src/reviewed-rebuilds.ts).
 PRAGMA defer_foreign_keys = true;--> statement-breakpoint
 CREATE TABLE `__new_user` (
 	`id` text PRIMARY KEY NOT NULL,

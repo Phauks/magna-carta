@@ -5,13 +5,17 @@
    * of folders open) shows the structure and the selected state; a hidden "Keyboard navigation"
    * story exercises the roving tabindex — Up/Down, Right/Left to expand/collapse/descend/ascend,
    * Home/End, and first-character typeahead — because those semantics ARE the behaviour and are not
-   * visible on a static showcase. svelte-csf v5.
+   * visible on a static showcase. A second hidden story covers the seams a tree of things that are
+   * not all folders needs: its own glyph per row, its own content at a row's end, and a caret that
+   * opens a row without going to it. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
   import { expect, userEvent, waitFor } from "storybook/test";
+  import FileIcon from "@lucide/svelte/icons/file";
+  import FolderIcon from "@lucide/svelte/icons/folder";
   import Tree from "../lib/components/tree/index.ts";
-  import type { TreeNode } from "../lib/components/tree/index.ts";
+  import type { TreeItemContext, TreeNode } from "../lib/components/tree/index.ts";
 
   const MATTERS: TreeNode[] = [
     {
@@ -170,6 +174,67 @@
     await step("Enter selects the focused node", async () => {
       await userEvent.keyboard("{Enter}");
       await waitFor(() => expect(root).toHaveAttribute("aria-selected", "true"));
+    });
+  }}
+/>
+
+<!-- The seams a tree of things that are not all folders needs, and the caret that opens without
+     going. None of the three is visible on a static showcase. -->
+{#snippet rowIcon(context: TreeItemContext)}
+  {#if context.hasChildren}
+    <FolderIcon class="mc-tree-item-icon" data-row-glyph="branch" aria-hidden="true" />
+  {:else}
+    <FileIcon class="mc-tree-item-icon" data-row-glyph="leaf" aria-hidden="true" />
+  {/if}
+{/snippet}
+
+{#snippet rowTrailing(context: TreeItemContext)}
+  <span data-row-count="">{context.node.children?.length ?? 0}</span>
+{/snippet}
+
+{#snippet drawnRows(args: TreeStoryArgs)}
+  <div class="w-72">
+    <Tree {...args} icon={rowIcon} trailing={rowTrailing} />
+  </div>
+{/snippet}
+
+<Story
+  name="Rows a caller draws"
+  args={{ items: MATTERS, label: "Folders", expandedIds: ["matters"], expandOnActivate: false }}
+  template={drawnRows}
+  tags={["!dev", "!autodocs"]}
+  play={async ({ canvas, step }) => {
+    const acme = canvas.getByRole("treeitem", { name: "ACME v. Globex" });
+
+    await step("A caller's own glyph replaces the folder pair, on every row", async () => {
+      await expect(acme.querySelector("[data-row-glyph]")).toHaveAttribute(
+        "data-row-glyph",
+        "branch",
+      );
+      await expect(
+        canvas.getByRole("treeitem", { name: "Templates" }).querySelector("[data-row-glyph]"),
+      ).toHaveAttribute("data-row-glyph", "leaf");
+    });
+
+    await step("A caller's own content sits at the row's end", async () => {
+      await expect(acme.querySelector("[data-row-count]")).toHaveTextContent("2");
+    });
+
+    await step("The caret opens the row and selects nothing", async () => {
+      const caret = acme.querySelector("[data-tree-twisty]") as HTMLElement;
+      await userEvent.click(caret);
+      await waitFor(() => expect(acme).toHaveAttribute("aria-expanded", "true"));
+      await expect(acme).toHaveAttribute("aria-selected", "false");
+    });
+
+    await step("With expansion off the activate path, the row selects and stays open", async () => {
+      await userEvent.click(canvas.getByText("ACME v. Globex"));
+      await waitFor(() => expect(acme).toHaveAttribute("aria-selected", "true"));
+      await expect(acme).toHaveAttribute("aria-expanded", "true");
+    });
+
+    await step("A row nothing is acting on carries no mark", async () => {
+      await expect(acme).not.toHaveAttribute("data-tree-marked");
     });
   }}
 />

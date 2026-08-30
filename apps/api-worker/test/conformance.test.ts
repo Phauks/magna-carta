@@ -166,7 +166,19 @@ function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocum
     ) {
       violations.push(`${label}: mutating route must be x-mc-audited: true`);
     }
-    if (operation["x-mc-authenticated"] === true && operation["x-mc-permission"] == null) {
+    // A FIRMLESS-only route is the one authenticated shape that cannot name a permission, and the
+    // exemption is structural rather than a concession. Every permission in the registry is granted
+    // through a per-firm role or direct grant, so a caller who has no firm holds none of them by
+    // construction: naming one here would be naming a key that route's caller can never hold, which
+    // is a permanent 403 rather than a control. `firmlessSession: "only"` is what the chokepoint
+    // enforces instead — the route is reachable ONLY by a session with no firm, which is a narrower
+    // admission than any permission would be. The audit requirement above still binds, and does the
+    // work: these routes are how an account acquires a firm, and each one is recorded.
+    if (
+      operation["x-mc-authenticated"] === true &&
+      operation["x-mc-permission"] == null &&
+      operation["x-mc-firmlessSession"] !== "only"
+    ) {
       violations.push(
         `${label}: authenticated mutating route must name a non-null x-mc-permission`,
       );
@@ -1068,6 +1080,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matters.update",
       "me.get",
       "members.invite",
+      "members.list",
       "members.professionalProfile",
       "members.setProfessionalProfile",
       "meta.versions",
@@ -1095,6 +1108,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.set",
       "ocr.recognize",
       "ocr.searchable",
+      "onboarding.foundFirm",
+      "onboarding.redeemInvitation",
       "platform.setFirmReleaseChannel",
       "platformStatus.clearComponentOverride",
       "platformStatus.declareEvent",

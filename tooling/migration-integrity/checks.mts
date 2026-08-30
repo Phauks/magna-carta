@@ -13,20 +13,6 @@ import type { MigrationJournal } from "../../packages/database/src/migration.ts"
 export type Lineage = "control-plane" | "per-firm";
 export const LINEAGES: readonly Lineage[] = ["control-plane", "per-firm"];
 
-// Tags whose migration performs a reviewed SQLite table-rebuild (CREATE `__new_X` / copy / DROP /
-// RENAME — what drizzle emits for an in-place ALTER SQLite can't do). The collapsed baselines rebuild
-// nothing, so this list is empty. The sentinel FAILS on any rebuild not listed here, so a future
-// destructive rebuild is a conscious review decision (does it preserve every row? is the copy SELECT
-// correct?) — not a silent merge artifact. Adding a migration that rebuilds a table: audit it, then
-// add its timestamp tag here.
-export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
-  // `user`.`firm_id` widened to nullable, so an account can exist before it belongs to a firm.
-  // Audited: the copy is column-for-column over the whole table, the foreign key and the unique
-  // index on `email` are both carried across, and no row loses a value — the reasoning is written
-  // out in the migration's own `-- contract:` header.
-  "20260829T101500_firmless-account",
-]);
-
 export interface Artifacts {
   readonly journal: MigrationJournal;
   readonly sqlFiles: readonly string[];

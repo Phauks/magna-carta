@@ -3,10 +3,19 @@
    * DataTable.GridColumnFilter — the in-header filter for one grid column: the funnel that lives
    * INSIDE the header cell (flush at its end edge, one hover unit with the label, space always
    * reserved — the head recipe owns that geometry), opening the ONE filter mechanism parameterized
-   * by the column's type: contains-text, a checkbox set with counts (type-to-narrow above,
-   * select-all beneath), a numeric from/to range with its honest unit note, or a date from/to
-   * range. A filtered column's funnel is apparent (accent-subtle fill), and the clear affordance
-   * exists ONLY while the filter is in play — absence is the signal.
+   * by the column's type: contains-text, a checkbox set with counts, a numeric from/to range with
+   * its honest unit note, or a date from/to range. A filtered column's funnel is apparent
+   * (accent-subtle fill), and the clear affordance exists ONLY while the filter is in play —
+   * absence is the signal.
+   *
+   * Three settled rules shape the set filter in particular, and each was violated once already:
+   *   - Every ghost text is the FIELD'S NAME, never a description of what to do. The narrow field
+   *     and the contains field both carry the column's own label; a range's two fields carry
+   *     "From" and "To", which are their names.
+   *   - The select-all/none affordance is ONE reactive control that says what pressing it will
+   *     DO: everything on reads "Select none", anything off reads "Select all".
+   *   - A set filter with everything selected IS no filter, so a set filter carries NO clear
+   *     control at all — the one reactive control already says the same thing.
    */
   import Funnel from "@lucide/svelte/icons/funnel";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
@@ -22,7 +31,6 @@
     facetSelectionAfterToggleAll,
     isAllFacetsSelected,
     isFacetSelected,
-    isSomeFacetsSelected,
     type FacetSelection,
   } from "./facet-selection.ts";
 
@@ -57,6 +65,15 @@
     if (selection === undefined) grid.clearFilter(column.id);
     else grid.setFilter(column.id, { kind: "set", values: selection });
   }
+
+  // ONE control, reading the current state and naming the act it performs.
+  const everythingSelected = $derived(isAllFacetsSelected(setUniverse, setSelection()));
+  const selectAllLabel = $derived(everythingSelected ? "Select none" : "Select all");
+  const selectAllTitle = $derived(
+    everythingSelected
+      ? "Uncheck every choice; the list empties until something is chosen"
+      : "Check every choice: everything selected is no filter at all",
+  );
 
   const textQuery = (): string => {
     const current = grid.filterFor(column.id);
@@ -114,7 +131,7 @@
         <Input
           type="search"
           size="sm"
-          placeholder="Contains…"
+          placeholder={column.label}
           aria-label="Filter {column.label}"
           value={textQuery()}
           oninput={(event) =>
@@ -124,21 +141,20 @@
         <Input
           type="search"
           size="sm"
-          placeholder="Type to narrow the choices"
-          aria-label="Narrow the choices"
+          placeholder={column.label}
+          aria-label="Narrow the {column.label} choices"
           bind:value={setQuery}
         />
-        <label class="mc-table-filter-option mc-table-filter-selectall">
-          <Checkbox
-            bind:checked={
-              () => isAllFacetsSelected(setUniverse, setSelection()),
-              (checked) => applySetSelection(facetSelectionAfterToggleAll(checked))
-            }
-            indeterminate={isSomeFacetsSelected(setUniverse, setSelection())}
-            aria-label="Select all"
-          />
-          <span>Select all</span>
-        </label>
+        <div class="mc-table-filter-selectall">
+          <button
+            type="button"
+            class="mc-table-filter-selectall-toggle"
+            title={selectAllTitle}
+            onclick={() => applySetSelection(facetSelectionAfterToggleAll(!everythingSelected))}
+          >
+            {selectAllLabel}
+          </button>
+        </div>
         <div class="mc-table-filter-facets mc-scrollbar">
           {#each visibleSetValues as value (value)}
             <label class="mc-table-filter-option">
@@ -203,7 +219,7 @@
         {/if}
       {/if}
 
-      {#if active}
+      {#if active && kind !== "set"}
         <div class="mc-table-filter-actions">
           <Button
             variant="ghost"

@@ -12,6 +12,13 @@
    * Root takes an `items` (value/label) list: Bits unmounts the Item components when the listbox
    * closes, so the trigger's Value (and typeahead/autofill) reads the label from `items`, not the
    * unmounted rows — without it the trigger falls back to the raw value after closing. svelte-csf v5.
+   *
+   * Two things to know before reaching for this on a product screen. The dropdown a screen uses is
+   * the Combobox — every place somebody chooses from a set, they can type to narrow it — and Select
+   * is the primitive underneath it: these option rows ARE the Combobox's rows, so a change to how a
+   * row looks changes both. And the Value's ghost text is the FIELD'S NAME ("Matter", "Tags"), never
+   * an instruction to choose one: it disappears the moment there is a selection, which is the moment
+   * an instruction would still have been useful.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -62,7 +69,7 @@
 
     await step("Shows the placeholder until a selection is made", async () => {
       await expect(trigger).toHaveAttribute("data-placeholder");
-      await expect(trigger).toHaveTextContent("Select a matter");
+      await expect(trigger).toHaveTextContent("Matter");
     });
 
     await step("Clicking the trigger opens the listbox, portaled and visible", async () => {
@@ -107,7 +114,7 @@
       await userEvent.click(body.getByRole("option", { name: "Briar estate" }));
       await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
       await expect(trigger).toHaveAttribute("data-placeholder");
-      await expect(trigger).toHaveTextContent("Select a matter");
+      await expect(trigger).toHaveTextContent("Matter");
       await expect(canvasElement.querySelector('input[name="matter"]')).toHaveValue("");
     });
 
@@ -124,7 +131,7 @@
   {#snippet template(args: SelectStoryArgs)}
     <Select.Root {...args} items={MATTERS}>
       <Select.Trigger class="max-w-sm" aria-label="Matter">
-        <Select.Value placeholder="Select a matter" />
+        <Select.Value placeholder="Matter" />
       </Select.Trigger>
       <Select.Content>
         <Select.Group>
@@ -186,7 +193,7 @@
   {#snippet template(args: SelectStoryArgs)}
     <Select.Root {...args} items={TAGS}>
       <Select.Trigger class="max-w-sm" aria-label="Tags">
-        <Select.Value placeholder="Select tags" />
+        <Select.Value placeholder="Tags" />
       </Select.Trigger>
       <Select.Content>
         <Select.Item value="urgent" label="Urgent" />
@@ -227,7 +234,7 @@
   {#snippet template(args: SelectStoryArgs)}
     <Select.Root {...args} items={PHONETIC_ITEMS}>
       <Select.Trigger class="max-w-sm" aria-label="Code word">
-        <Select.Value placeholder="Select a code word" />
+        <Select.Value placeholder="Code word" />
       </Select.Trigger>
       <Select.Content>
         {#each PHONETIC as word (word)}

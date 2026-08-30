@@ -9,7 +9,10 @@
   import * as Combobox from "@magna-carta/design-system/combobox";
   import { badgeClasses } from "@magna-carta/design-system/badge";
   import X from "@lucide/svelte/icons/x";
-  import type { FirmMember } from "$lib/settings/settings-permissions.ts";
+  import {
+    memberRoleLine,
+    type FirmMemberSummary,
+  } from "$lib/members/members-api.ts";
 
   let {
     members,
@@ -19,8 +22,8 @@
     inputId,
     placeholder = "Search colleagues…",
   }: {
-    /** The roster this picker offers (the consumer scopes it — an area's admins, or everyone). */
-    members: readonly FirmMember[];
+    /** The roster this picker offers (the consumer scopes it — the active colleagues, or all). */
+    members: readonly FirmMemberSummary[];
     selectedIds: readonly string[];
     onAdd: (id: string) => void;
     onRemove: (id: string) => void;
@@ -32,19 +35,19 @@
   let query = $state("");
 
   const selectedMembers = $derived(
-    members.filter((member) => selectedIds.includes(member.id)),
+    members.filter((member) => selectedIds.includes(member.userId)),
   );
 
   // Only the not-yet-added remain pickable, narrowed by the typed query (name or role).
   const pickableMembers = $derived.by(() => {
     const needle = query.trim().toLowerCase();
     return members
-      .filter((member) => !selectedIds.includes(member.id))
+      .filter((member) => !selectedIds.includes(member.userId))
       .filter(
         (member) =>
           needle === "" ||
-          member.name.toLowerCase().includes(needle) ||
-          member.role.toLowerCase().includes(needle),
+          member.displayName.toLowerCase().includes(needle) ||
+          memberRoleLine(member).toLowerCase().includes(needle),
       );
   });
 
@@ -61,14 +64,14 @@
   <!-- Each recipient is their own removable chip — a button wearing the badge recipe (a badge
        labels; the remove action needs a real control). -->
   <div class="flex flex-wrap items-center gap-4">
-    {#each selectedMembers as member (member.id)}
+    {#each selectedMembers as member (member.userId)}
       <button
         type="button"
         class={badgeClasses({ variant: "neutral" })}
-        aria-label="Remove {member.name}"
-        onclick={() => onRemove(member.id)}
+        aria-label="Remove {member.displayName}"
+        onclick={() => onRemove(member.userId)}
       >
-        {member.name}
+        {member.displayName}
         <X class="size-12" aria-hidden="true" />
       </button>
     {/each}
@@ -81,7 +84,10 @@
 {#key selectedIds.join("|")}
   <Combobox.Root
     type="single"
-    items={pickableMembers.map((member) => ({ value: member.id, label: member.name }))}
+    items={pickableMembers.map((member) => ({
+      value: member.userId,
+      label: member.displayName,
+    }))}
     inputValue={query}
     onValueChange={addPicked}
   >
@@ -91,10 +97,16 @@
       oninput={(event) => (query = event.currentTarget.value)}
     />
     <Combobox.Content>
-      {#each pickableMembers as member (member.id)}
-        <Combobox.Item value={member.id} label={member.name}>
-          {member.name}
-          <span class="text-text-muted">— {member.role}</span>
+      {#each pickableMembers as member (member.userId)}
+        {@const roleLine = memberRoleLine(member)}
+        <Combobox.Item value={member.userId} label={member.displayName}>
+          {member.displayName}
+          <!-- The role line is what makes an unfiltered roster usable: a person picking whom to ask
+               reads the seat beside the name. A member holding no role shows the name alone rather
+               than a dash with nothing after it. -->
+          {#if roleLine !== ""}
+            <span class="text-text-muted">— {roleLine}</span>
+          {/if}
         </Combobox.Item>
       {/each}
     </Combobox.Content>

@@ -1,0 +1,87 @@
+@layer components {
+  /*
+   * RecordChain (Tier 1). A low row of marker + word, joined by hairlines, with the lock line
+   * beneath it.
+   *
+   * DELIBERATELY MONOCHROME. The chain sits inside a record that already carries a status chip, and
+   * a second coloured indicator saying the same word in a different register is how a reader learns
+   * to distrust both. So the steps are drawn in the surface's own text and border tones, and the
+   * only thing that separates reached from not-reached is whether the marker is filled. The colour
+   * for this vocabulary lives on the chip.
+   *
+   * The connector is a pseudo-element on every step after the first, so the run of hairlines cannot
+   * fall out of step with the run of markers, and a chain of any length draws itself.
+   */
+  .mc-record-chain {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+  }
+  .mc-record-chain-steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mc-space-8);
+    list-style: none;
+  }
+  .mc-record-chain-step {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-muted);
+  }
+  .mc-record-chain-step + .mc-record-chain-step::before {
+    content: "";
+    display: block;
+    flex: none;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-border-width-default);
+    background-color: var(--mc-border-default);
+  }
+  .mc-record-chain-marker {
+    display: block;
+    flex: none;
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-default);
+  }
+  /* Reached: filled at the border weight, so the run of them reads as a track that has been walked. */
+  .mc-record-chain-step[data-state="past"] .mc-record-chain-marker {
+    background-color: var(--mc-border-strong);
+    border-color: var(--mc-border-strong);
+  }
+  /* Where the record actually is: the one step in the reading colour, and the only bold word. */
+  .mc-record-chain-step[data-state="present"] {
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-record-chain-step[data-state="present"] .mc-record-chain-marker {
+    background-color: var(--mc-text-default);
+    border-color: var(--mc-text-default);
+  }
+  .mc-record-chain-lock {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-subtle);
+  }
+  .mc-record-chain-lock-icon {
+    flex: none;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+  .mc-record-chain-lock-link {
+    color: var(--mc-text-link);
+    text-decoration-line: underline;
+  }
+}

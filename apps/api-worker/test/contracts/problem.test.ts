@@ -67,6 +67,7 @@ describe("problem-type URI registry", () => {
         "not-implemented",
         "beta-consent-required",
         "service-unavailable",
+        "mail-undeliverable",
         "template-normalization-failed",
         "template-not-activatable",
         "template-macro-consent-required",

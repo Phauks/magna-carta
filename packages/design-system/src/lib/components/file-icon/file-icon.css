@@ -1,16 +1,93 @@
 @layer components {
   /*
-   * FileIcon (Tier 1). A fixed-size, calm file-type glyph for a file list. Sized by the recipe (not a
-   * prop) so every row's icon aligns; the colour is the muted work-surface tone so the type glyph
-   * informs without competing with the file name (identity lives at the edges, not on the data). A
-   * caller can recolour by setting text colour on the row — the glyph inherits nothing here beyond
-   * this default, and a utility class still wins.
+   * FileIcon (Tier 1). A calm file-type glyph for a file list, with a real-text badge riding it
+   * where the glyph alone cannot say which format this is.
+   *
+   * The wrapper is the component's box and the positioning context; the glyph fills it (`size-full`
+   * is a utility on the element, not a rule here — a percentage is not a token). Colour sits on the
+   * WRAPPER so a caller can still recolour the whole composite from the row, and the glyph inherits
+   * it; only a tone overrides that, and only one type carries a tone.
    */
   .mc-file-icon {
+    position: relative;
     display: inline-block;
     flex: none;
+    color: var(--mc-text-muted);
+  }
+  .mc-file-icon-sm {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-file-icon-md {
     inline-size: var(--mc-space-20);
     block-size: var(--mc-space-20);
-    color: var(--mc-text-muted);
+  }
+  .mc-file-icon-lg {
+    inline-size: var(--mc-space-24);
+    block-size: var(--mc-space-24);
+  }
+  .mc-file-icon-glyph {
+    display: block;
+    color: inherit;
+  }
+  /* An executable is the one file kind whose type is itself a caution, so it is the one glyph
+     that carries a hue. The deep same-hue text colour, not the saturated fill: this sits on a
+     work surface, and the fill is reserved for something that must interrupt. */
+  .mc-file-icon-glyph[data-tone="danger"] {
+    color: var(--mc-status-danger-subtle-foreground);
+  }
+
+  /*
+   * The band is the badge's positioning: pinned across the glyph's lower edge and centring its one
+   * child. It exists rather than centring the chip itself because a four-letter extension on a
+   * small icon is WIDER than the glyph, and a centred flex child overflows its line equally at both
+   * ends — where an absolutely positioned chip with auto margins is pushed to one side the moment
+   * those margins would have to go negative (measured: 2.2px off-centre at the small size).
+   */
+  .mc-file-icon-badge-band {
+    position: absolute;
+    inset-inline: var(--mc-space-0);
+    inset-block-end: var(--mc-space-0);
+    display: flex;
+    justify-content: center;
+  }
+
+  /*
+   * The badge itself.
+   *
+   * The type step is a dimension token rather than a font-size token on purpose: the smallest step
+   * in the type ramp is taller than the whole band this label sits in, and a micro-label set to the
+   * body ramp would cover the glyph it is meant to annotate. Sized once and held constant across
+   * the size axis, so the badge is exactly as legible on a small icon as on a large one; what
+   * changes with size is how much of the glyph it leaves showing.
+   *
+   * The chip hugs its word with no side padding of its own: at this scale a step of the spacing
+   * scale on each end would be a third of the chip again, and the letters' own sidebearings already
+   * hold it off the edge.
+   */
+  .mc-file-icon-badge {
+    flex: none;
+    border-radius: var(--mc-radius-sm);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-space-8);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    letter-spacing: var(--mc-tracking-tight);
+    white-space: nowrap;
+  }
+  /* The pale-tint register the status pills use — a same-hue tint behind deep same-hue text, both
+     sides of the AA-gated pair. Red for the portable document, blue for the word processor, green
+     for the spreadsheet: conventions a reader already holds. */
+  .mc-file-icon-badge[data-tone="danger"] {
+    background-color: var(--mc-status-danger-subtle);
+    color: var(--mc-status-danger-subtle-foreground);
+  }
+  .mc-file-icon-badge[data-tone="info"] {
+    background-color: var(--mc-status-info-subtle);
+    color: var(--mc-status-info-subtle-foreground);
+  }
+  .mc-file-icon-badge[data-tone="success"] {
+    background-color: var(--mc-status-success-subtle);
+    color: var(--mc-status-success-subtle-foreground);
   }
 }

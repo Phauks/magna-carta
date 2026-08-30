@@ -6,12 +6,12 @@ import {
   loadMigrationsFromDisk,
 } from "../../packages/database/src/node-sqlite.ts";
 import type { MigrationJournal } from "../../packages/database/src/migration.ts";
+import { REVIEWED_REBUILDS } from "../../packages/database/src/reviewed-rebuilds.ts";
 import {
   journalStructureViolations,
   rebuildViolations,
   snapshotLineageViolations,
   LINEAGES,
-  REVIEWED_REBUILDS,
   type Artifacts,
   type Lineage,
   type SnapshotHeader,

@@ -10,35 +10,41 @@
  *     leads, and it is never hidden. A matter that has not drawn one is a consultation, and the
  *     cell says "Consultation" — the same word the matter header prints for the same fact, rather
  *     than a blank that reads as missing data.
- *   - Practice area and Location arrive as identifiers and are resolved against the firm's own two
- *     vocabularies. An identifier that resolves to nothing renders EMPTY, never as the handle: a
- *     matter type that was deactivated and is no longer listed is an honest gap, and printing
- *     `matterType_01J…` at a person is not an answer.
+ *   - Practice area, Location and the responsible attorney arrive as identifiers and are resolved
+ *     against the firm's own vocabularies — its matter types, its offices, and its member roster.
+ *     An identifier that resolves to nothing renders EMPTY, never as the handle: a matter type that
+ *     was deactivated and is no longer listed is an honest gap, and printing `matterType_01J…` at a
+ *     person is not an answer. The same rule carries the responsible attorney: a member the roster
+ *     does not name is a blank cell, not a `user_…`.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import type { MatterSummary } from "./matters-api.ts";
 import { matterStatusLabel } from "./matter-status.ts";
 
-/** What a matter's type and Location identifiers resolve to, by identifier. */
+/** What a matter's type, Location and responsible-member identifiers resolve to, by identifier. */
 export interface MatterVocabulary {
   matterTypeNames: ReadonlyMap<string, string>;
   locationNames: ReadonlyMap<string, string>;
+  memberNames: ReadonlyMap<string, string>;
 }
 
-/** An empty vocabulary — what the screen has before the two lists land. */
+/** An empty vocabulary — what the screen has before the lists land. */
 export const EMPTY_MATTER_VOCABULARY: MatterVocabulary = {
   matterTypeNames: new Map(),
   locationNames: new Map(),
+  memberNames: new Map(),
 };
 
-/** Build the lookup a column model needs from the two list responses. */
+/** Build the lookup a column model needs from the three list responses. */
 export function matterVocabulary(
   matterTypes: readonly { id: string; name: string }[],
   locations: readonly { id: string; name: string }[],
+  members: readonly { userId: string; displayName: string }[] = [],
 ): MatterVocabulary {
   return {
     matterTypeNames: new Map(matterTypes.map((type) => [type.id, type.name])),
     locationNames: new Map(locations.map((location) => [location.id, location.name])),
+    memberNames: new Map(members.map((member) => [member.userId, member.displayName])),
   };
 }
 
@@ -105,6 +111,22 @@ export function matterColumns(vocabulary: MatterVocabulary): GridColumn<MatterSu
       label: "Practice Area",
       filter: "set",
       value: (matter) => resolvedName(vocabulary.matterTypeNames, matter.matterTypeId),
+    },
+    {
+      id: "responsibleAttorney",
+      label: "Responsible Attorney",
+      filter: "set",
+      // The listing answers a member identifier, resolved here against the firm's roster — the same
+      // client-side join practice area and Location already take, and for the same reason: one
+      // roster read per screen, never one request per row.
+      //
+      // A matter whose responsible member the roster cannot name renders EMPTY. That covers two
+      // real cases and treats them alike on purpose: the roster has not landed yet, and the row
+      // names somebody who is not in it. Neither is a fact worth asserting in a cell, and the one
+      // thing that must not happen is printing `user_01J…` at a person, or naming the signed-in
+      // member on their own matters and leaving everyone else's blank — which is the state that
+      // kept this column off the docket until the roster read existed.
+      value: (matter) => resolvedName(vocabulary.memberNames, matter.responsibleMemberId),
     },
     {
       id: "location",

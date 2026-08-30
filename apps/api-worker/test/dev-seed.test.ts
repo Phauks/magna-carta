@@ -112,6 +112,69 @@ describe("dev seed route", () => {
   });
 });
 
+// The seed's convergence guarantee, driven the way a developer hits it: warm `.wrangler` state that
+// already holds the dev user, but holds it WITHOUT a credential. That is not a contrived state — the
+// invite route creates a user and leaves the credential to the activation reset, and a run of this
+// route that failed between its two writes leaves the same thing behind. The old find-branch
+// returned early on the user row, so the second seed printed a password for an account that had
+// none: a success report for an account nobody can sign into.
+describe("dev seed route — a re-seed converges an unsignable account", () => {
+  it("re-creates a missing credential rather than skipping the existing user", async () => {
+    const first = await seed();
+
+    // Take the credential away, leaving exactly the shape a user-before-credential path leaves.
+    const userRow = await env.DB_CONTROL.prepare('SELECT id FROM "user" WHERE email = ?1')
+      .bind(first.credentials.email)
+      .first<{ id: string }>();
+    expect(userRow).not.toBeNull();
+    await env.DB_CONTROL.prepare(
+      "DELETE FROM account WHERE user_id = ?1 AND provider_id = 'credential'",
+    )
+      .bind(userRow?.id)
+      .run();
+
+    // Proving the setup bites: without a credential, sign-in fails.
+    const broken = await postJson(first.signInEndpoint, {
+      email: first.credentials.email,
+      password: first.credentials.password,
+    });
+    expect(broken.status).not.toBe(200);
+
+    // Re-seed, and the credentials the route prints work again — on the SAME user row, so the
+    // repair is a repair rather than a second account.
+    const second = await seed();
+    expect(second.firmId).toBe(first.firmId);
+    const repaired = await postJson(second.signInEndpoint, {
+      email: second.credentials.email,
+      password: second.credentials.password,
+    });
+    expect(repaired.status).toBe(200);
+
+    const userCount = await env.DB_CONTROL.prepare(
+      'SELECT COUNT(*) AS n FROM "user" WHERE email = ?1',
+    )
+      .bind(second.credentials.email)
+      .first<{ n: number }>();
+    expect(userCount?.n).toBe(1);
+  });
+
+  it("leaves a firmless existing account attached to the dev firm", async () => {
+    const first = await seed();
+    // `user.firm_id` is nullable — the joining surface makes a person before it resolves a firm — so
+    // a warm row can authenticate and then resolve no firm at all. A re-seed has to fix that too, or
+    // the developer signs in successfully and the app renders nothing.
+    await env.DB_CONTROL.prepare('UPDATE "user" SET firm_id = NULL WHERE email = ?1')
+      .bind(first.credentials.email)
+      .run();
+
+    const second = await seed();
+    const attached = await env.DB_CONTROL.prepare('SELECT firm_id FROM "user" WHERE email = ?1')
+      .bind(second.credentials.email)
+      .first<{ firm_id: string | null }>();
+    expect(attached?.firm_id).toBe(second.firmId);
+  });
+});
+
 // The single most important guarantee of this feature: the seed route creates a firm + owner with
 // NO authentication (it is the bootstrap), so it MUST be invisible in production. It is gated on the
 // same fail-closed signal the dev R2 route uses — the route is only wired when the real R2 S3

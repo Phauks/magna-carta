@@ -121,41 +121,95 @@ async function wrapNewFirmKey(env: Bindings): Promise<string> {
   return wrapFirmKey(rootKek, generateFirmKeyBytes());
 }
 
-// Finds the dev owner by email, or creates a verified user + credential account through the Better
-// Auth adapter (the same hasher sign-in verifies against). Public signup is disabled, so the user is
-// seeded straight through the adapter, exactly as the test-auth helper does.
+// Finds the dev owner by email, or creates them — and either way CONVERGES the account on the state
+// this route promises in its response: attached to the dev firm, verified, and holding a credential
+// whose password is the one printed to the developer.
+//
+// The find branch used to return early, and that is the bug this shape exists to close. A `user` row
+// with no `account` row is an account nobody can sign into, and it is easy to arrive at: any path
+// that creates a user before its credential (the invite route does exactly that, deliberately —
+// activation writes the credential through the password reset) leaves one behind, as does a run of
+// this route that failed between its two writes. Against warm `.wrangler` state the seeder would
+// then find the row, skip the credential, and print credentials that do not work — reporting success
+// for an account in precisely the unsignable state a day was lost to in production.
+//
+// So every field this route asserts is written on every run. Convergence, not creation: re-seeding a
+// healthy tenant rewrites the same values and changes nothing observable, and re-seeding a broken
+// one repairs it.
 async function ensureOwnerUser(env: Bindings, firmId: FirmId): Promise<UserId> {
-  const existing = await env.DB_CONTROL.prepare('SELECT id FROM "user" WHERE email = ?1')
-    .bind(DEV_OWNER_EMAIL)
-    .first<{ id: string }>();
-  if (existing !== null) return assertIdentifier(existing.id, "user");
-
   const auth = createAuth(env, () => Promise.resolve());
   const context = await auth.$context;
   const now = new Date();
-  const user = await context.adapter.create<Record<string, unknown>, { id: string }>({
-    model: "user",
-    data: {
-      name: DEV_OWNER_NAME,
-      email: DEV_OWNER_EMAIL,
-      emailVerified: true,
-      createdAt: now,
-      updatedAt: now,
-      firmId,
-    },
-  });
+  const passwordHash = await context.password.hash(DEV_OWNER_PASSWORD);
+
+  const existing = await env.DB_CONTROL.prepare('SELECT id FROM "user" WHERE email = ?1')
+    .bind(DEV_OWNER_EMAIL)
+    .first<{ id: string }>();
+
+  if (existing === null) {
+    const created = await context.adapter.create<Record<string, unknown>, { id: string }>({
+      model: "user",
+      data: {
+        name: DEV_OWNER_NAME,
+        email: DEV_OWNER_EMAIL,
+        emailVerified: true,
+        createdAt: now,
+        updatedAt: now,
+        firmId,
+      },
+    });
+    await createCredentialAccount(context, created.id, passwordHash, now);
+    return assertIdentifier(created.id, "user");
+  }
+
+  const userId = assertIdentifier(existing.id, "user");
+  // The user row itself. `firm_id` is nullable now — an account can exist before it belongs to a
+  // firm — so a row left behind by the joining surface would authenticate and then resolve no firm,
+  // which reads to a developer as a broken app rather than as an unfinished sign-up.
+  await env.DB_CONTROL.prepare(
+    'UPDATE "user" SET name = ?2, email_verified = 1, firm_id = ?3, updated_at = ?4 WHERE id = ?1',
+  )
+    .bind(userId, DEV_OWNER_NAME, firmId, now.getTime())
+    .run();
+
+  // The credential. Written through the adapter's own hasher either way, so what is stored is what
+  // sign-in verifies against — and rewritten rather than left alone, so changing DEV_OWNER_PASSWORD
+  // converges a warm tenant instead of printing a password that stopped working one seed ago.
+  const credential = await env.DB_CONTROL.prepare(
+    "SELECT id FROM account WHERE user_id = ?1 AND provider_id = 'credential'",
+  )
+    .bind(userId)
+    .first<{ id: string }>();
+  if (credential === null) {
+    await createCredentialAccount(context, userId, passwordHash, now);
+  } else {
+    await env.DB_CONTROL.prepare("UPDATE account SET password = ?2, updated_at = ?3 WHERE id = ?1")
+      .bind(credential.id, passwordHash, now.getTime())
+      .run();
+  }
+  return userId;
+}
+
+// The one place a credential row is written, so the create and the repair cannot drift apart in
+// what they store. `account_id` equals the user id for the credential provider — the shape Better
+// Auth's own sign-up writes and its sign-in looks up.
+async function createCredentialAccount(
+  context: Awaited<ReturnType<typeof createAuth>["$context"]>,
+  userId: string,
+  passwordHash: string,
+  now: Date,
+): Promise<void> {
   await context.adapter.create({
     model: "account",
     data: {
-      accountId: user.id,
+      accountId: userId,
       providerId: "credential",
-      userId: user.id,
-      password: await context.password.hash(DEV_OWNER_PASSWORD),
+      userId,
+      password: passwordHash,
       createdAt: now,
       updatedAt: now,
     },
   });
-  return assertIdentifier(user.id, "user");
 }
 
 // Mirrors the owner into the firm's member table and assigns the seeded Owner/Admin role. Both

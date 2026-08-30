@@ -95,7 +95,13 @@ describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 ref
     expect(columnOf(user, "two_factor_enabled").getSQLType()).toBe("integer"); // boolean mode
     expect(columnOf(user, "two_factor_enabled").notNull).toBe(false); // plugin field is optional
     const firmId = columnOf(user, "firm_id");
-    expect(firmId.notNull).toBe(true);
+    // NULLABLE, and that is the joining surface's whole shape: a person exists before what they
+    // belong to is resolved. Someone founding a firm has an account for the moments between proving
+    // who they are and the firm being provisioned, and someone redeeming an invitation is a person
+    // before they are a member. Requiring a firm here would mean either inventing a placeholder one
+    // or refusing to create the account until provisioning succeeded — the second of which makes a
+    // failed provision destroy a verified identity.
+    expect(firmId.notNull).toBe(false);
     expect(getTableConfig(user).foreignKeys).toHaveLength(1); // firm_id -> firm.id
   });
 

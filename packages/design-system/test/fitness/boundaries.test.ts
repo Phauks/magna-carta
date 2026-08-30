@@ -479,17 +479,29 @@ export function findUnitlessFlexMisuse(filePath: string, css: string): string[] 
     );
 }
 
-// The carved recipe files: each component's co-located <name>.css plus the shared recipes under
-// styles/recipes/. styles/components.css is now only the @import index (no declarations) and
-// styles/animations.css holds the non-token keyframes — both correctly excluded here.
-const RECIPE_CSS_FILES: readonly string[] = [
-  ...collectSourceFiles(join(REPOSITORY_ROOT, "packages/design-system/src/lib/components"), {
-    extensions: [".css"],
-  }).map((relativePath) => `packages/design-system/src/lib/components/${relativePath}`),
-  ...collectSourceFiles(join(REPOSITORY_ROOT, "packages/design-system/src/lib/styles/recipes"), {
-    extensions: [".css"],
-  }).map((relativePath) => `packages/design-system/src/lib/styles/recipes/${relativePath}`),
-];
+// EVERY stylesheet under src/lib, wherever it sits. The scan used to name two directories —
+// components/ and styles/recipes/ — which meant a recipe living anywhere else was unpoliced, and
+// the first one that did (a shared register that is data plus one class, so not a component)
+// escaped silently. A gate whose reach depends on a directory somebody remembered to add is a gate
+// that quietly stops covering the newest code, so the reach is now "all of it" and the three
+// deliberate exclusions are named below instead.
+//
+// Excluded on purpose, and each for a reason rather than because it was failing: components.css is
+// only the @import index (no declarations), animations.css holds the non-token keyframes, and
+// fonts.css is the self-hosted face imports. None of the three declares a recipe, so none has a
+// token to be pure about.
+const EXCLUDED_FROM_RECIPE_SCAN: ReadonlySet<string> = new Set([
+  "packages/design-system/src/lib/styles/components.css",
+  "packages/design-system/src/lib/styles/animations.css",
+  "packages/design-system/src/lib/styles/fonts.css",
+]);
+
+const RECIPE_CSS_FILES: readonly string[] = collectSourceFiles(
+  join(REPOSITORY_ROOT, "packages/design-system/src/lib"),
+  { extensions: [".css"] },
+)
+  .map((relativePath) => `packages/design-system/src/lib/${relativePath}`)
+  .filter((path) => !EXCLUDED_FROM_RECIPE_SCAN.has(path));
 
 describe("recipe-file token purity (golden rule 2, component-layer discipline)", () => {
   it("scans the carved recipe files (vacuity guard)", () => {
@@ -503,6 +515,11 @@ describe("recipe-file token purity (golden rule 2, component-layer discipline)",
     expect(RECIPE_CSS_FILES).toContain(
       "packages/design-system/src/lib/styles/recipes/presence.css",
     );
+    // A recipe outside components/ — the case the old two-directory scan walked straight past.
+    expect(RECIPE_CSS_FILES).toContain(
+      "packages/design-system/src/lib/status-register/status-register.css",
+    );
+    expect(RECIPE_CSS_FILES).not.toContain("packages/design-system/src/lib/styles/components.css");
     expect(RECIPE_CSS_FILES.length).toBeGreaterThanOrEqual(30);
   });
 
