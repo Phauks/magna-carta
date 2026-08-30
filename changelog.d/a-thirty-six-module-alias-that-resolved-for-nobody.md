@@ -21,6 +21,6 @@ suite's problem.
 The config now declares the alias itself, independent of SvelteKit and matching what the generated
 tsconfig maps. `create-document.test.ts` passes, 17 tests; the whole web project passes, 380.
 
-**A guard, not just a fix.** `test/lib-alias.test.ts` imports *through* the alias, so the hole
+**A guard, not just a fix.** `test/lib-alias.test.ts` imports _through_ the alias, so the hole
 cannot reopen quietly — verified to fail with `Cannot find module '$lib/api/request.ts'` when the
 alias is removed, and to pass when it is there.

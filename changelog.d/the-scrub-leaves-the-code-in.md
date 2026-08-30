@@ -34,7 +34,7 @@ already recognises JavaScript, auto-actions, launch actions and embedded files, 
 fallback for a compressed catalog, and records the finding as `active-content` on the verdict.
 Nothing is done with it: it blocks no upload unless firm policy flags the file for some other reason,
 and `scanAndGateStatements` activates a template version even on an `unscanned` verdict, discarding
-`verdict.activeContent`. Stripping is not free either, and the cost falls on fillable forms a *firm* uploaded: a
+`verdict.activeContent`. Stripping is not free either, and the cost falls on fillable forms a _firm_ uploaded: a
 court form uses field actions for validation and formatting, so a scrub that removes them hands back
 a form that looks right and computes nothing. The node's `awaiting-owner` line states the three
 answers — strip always, strip with an exception a firm marks at upload, or surface without removing — the last of which is

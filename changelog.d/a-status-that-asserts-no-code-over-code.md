@@ -10,20 +10,20 @@ claims the tree refutes, and they move on the same ground the evidence sentences
 previous pass. The register's headline shifts with them: Done 260 to 264, Part-built 103 to 111,
 Ahead 218 to 209, Parked 43 to 40, over an unchanged 624 units of work.
 
-| Node                                  | Was          | Now       |
-| ------------------------------------- | ------------ | --------- |
-| `custodian.stocktake`                 | `deferred`   | `partial` |
-| `custodian.retention-destruction`     | `designed`   | `partial` |
-| `custodian.will-reminders`            | `deferred`   | `partial` |
-| `documents.conversion.office`         | `planned`    | `shipped` |
-| `documents.conversion.searchable-pdf` | `not-started`| `shipped` |
-| `documents.pdf.manipulation`          | `not-started`| `shipped` |
-| `locations.usage.custodian`           | `designed`   | `shipped` |
-| `locations.usage.documents-billing`   | `not-started`| `partial` |
-| `notifications.digest`                | `deferred`   | `partial` |
-| `platform.time-model.zone-context`    | `not-started`| `partial` |
-| `product-updates.artifact`            | `not-started`| `partial` |
-| `user-docs.admin-docs`                | `not-started`| `partial` |
+| Node                                  | Was           | Now       |
+| ------------------------------------- | ------------- | --------- |
+| `custodian.stocktake`                 | `deferred`    | `partial` |
+| `custodian.retention-destruction`     | `designed`    | `partial` |
+| `custodian.will-reminders`            | `deferred`    | `partial` |
+| `documents.conversion.office`         | `planned`     | `shipped` |
+| `documents.conversion.searchable-pdf` | `not-started` | `shipped` |
+| `documents.pdf.manipulation`          | `not-started` | `shipped` |
+| `locations.usage.custodian`           | `designed`    | `shipped` |
+| `locations.usage.documents-billing`   | `not-started` | `partial` |
+| `notifications.digest`                | `deferred`    | `partial` |
+| `platform.time-model.zone-context`    | `not-started` | `partial` |
+| `product-updates.artifact`            | `not-started` | `partial` |
+| `user-docs.admin-docs`                | `not-started` | `partial` |
 
 **Three were found in this pass rather than the last one, all by the same search.**
 `documents.pdf.manipulation` read "No merge/split/rotate/flatten module in `crates/pdf-core/src`" —

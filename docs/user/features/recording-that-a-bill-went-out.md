@@ -25,13 +25,13 @@ written, and the client has not been given anything yet.
 
 You give five things:
 
-| Thing              | What it is                                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------------- |
-| How it went        | Post, by hand, email, the client's e-billing portal, or the client portal                     |
-| Who received it    | The address, mailbox, portal account, or the person you handed it to — in your own words       |
-| The date           | The day it reached the client, which is usually **not** today                                  |
-| A reference        | Optional: a tracking number, a submission reference, the message id of a mail you sent         |
-| Whether it arrived | Delivered, or failed — a letter that came back, a dead address, a rejected submission          |
+| Thing              | What it is                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| How it went        | Post, by hand, email, the client's e-billing portal, or the client portal                |
+| Who received it    | The address, mailbox, portal account, or the person you handed it to — in your own words |
+| The date           | The day it reached the client, which is usually **not** today                            |
+| A reference        | Optional: a tracking number, a submission reference, the message id of a mail you sent   |
+| Whether it arrived | Delivered, or failed — a letter that came back, a dead address, a rejected submission    |
 
 **The date is yours to state.** Record a delivery whenever you get round to it: a bill you posted last
 Tuesday carries last Tuesday's date, not the date you typed it in. The only date that is refused is
