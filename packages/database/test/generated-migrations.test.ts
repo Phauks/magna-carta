@@ -140,7 +140,7 @@ describe("collapsed migration baselines (committed artifacts)", () => {
     const roleSeeds = statements
       .filter((statement) => statement.includes("INSERT INTO `role`"))
       .map(parseSingleRowInsert);
-    const seededRoleNames = roleSeeds.map((seed) => String(seed.name)).sort();
+    const seededRoleNames = roleSeeds.map((seed) => String(seed.name)).toSorted();
     expect(seededRoleNames).toEqual([
       "Attorney",
       "Billing",
@@ -294,8 +294,8 @@ describe("migration ids stay monotonic and collision-free (fitness function)", (
         expect(tag, `${lineage} migration ${tag} is not a timestamp id`).toMatch(TIMESTAMP_TAG);
       }
 
-      const byIdx = [...entries].sort((a, b) => a.idx - b.idx).map((entry) => entry.tag);
-      const byTag = [...tags].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      const byIdx = [...entries].toSorted((a, b) => a.idx - b.idx).map((entry) => entry.tag);
+      const byTag = [...tags].toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0));
       expect(byTag, `${lineage} lexical tag order disagrees with idx order`).toEqual(byIdx);
     });
   }

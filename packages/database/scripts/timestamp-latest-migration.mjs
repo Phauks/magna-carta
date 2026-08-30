@@ -21,7 +21,7 @@ const journalPath = join(dir, "meta", "_journal.json");
 const journal = JSON.parse(readFileSync(journalPath, "utf8"));
 
 // The newest migration is the highest-idx journal entry.
-const latest = [...journal.entries].sort((a, b) => a.idx - b.idx).at(-1);
+const latest = [...journal.entries].toSorted((a, b) => a.idx - b.idx).at(-1);
 if (latest === undefined) {
   console.log(`${lineage}: journal empty, nothing to timestamp`);
   process.exit(0);

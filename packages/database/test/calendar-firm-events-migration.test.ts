@@ -291,7 +291,7 @@ describe("the migration is additive", () => {
     expect(MIGRATION).not.toMatch(/DROP TABLE/i);
     expect(MIGRATION).not.toMatch(/RENAME TO/i);
     const created = [...MIGRATION.matchAll(/CREATE TABLE `([a-z_]+)`/g)].map((match) => match[1]);
-    expect(created.sort()).toEqual([
+    expect(created.toSorted()).toEqual([
       "calendar_event_link",
       "firm_event",
       "firm_event_participant",
