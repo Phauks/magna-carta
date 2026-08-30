@@ -1,10 +1,13 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  DirectoryAddressId,
   DirectoryEmailId,
   DirectoryNameId,
   DirectoryOrganizationId,
   DirectoryPersonId,
+  DirectoryPhoneId,
   MatterPartyId,
+  UserId,
 } from "@magna-carta/identifiers/types";
 import { normalizedMatchKey, normalizedMatchKeyBare } from "./match-key.ts";
 import type { PronounSet } from "./pronouns.ts";
@@ -107,13 +110,81 @@ export function softDeleteMatterPartyStatement(
     .bind(row.id, row.deletedAt);
 }
 
+// ── Contact points: email, phone, address ────────────────────────────────────────────────────────
+//
+// The three tables stay three. A postal address has nine components and a telecommunication endpoint
+// has one, so a polymorphic contact-point table would put eight permanently null columns on every
+// phone row — and it would break directory_email_normalized_address_index, which the inbound-capture
+// reverse lookup depends on to resolve a correspondent to a matter in one statement.
+//
+// What they DO share is the preference and verification block, so its columns are named once here
+// and every builder below binds the same seven in the same order.
+
+export const DIRECTORY_PHONE_TABLE = "directory_phone";
+export const DIRECTORY_ADDRESS_TABLE = "directory_address";
+
+// The tables a contact preference can live in. The "at most one preferred contact point per entity"
+// rule spans all three, because "reach me by post" is one answer about every channel at once.
+export const CONTACT_POINT_TABLES = [
+  DIRECTORY_EMAIL_TABLE,
+  DIRECTORY_PHONE_TABLE,
+  DIRECTORY_ADDRESS_TABLE,
+] as const;
+
+// Whether the firm may use this contact point, whether it is the one the person asked to be reached
+// by, and whether the firm has confirmed it is still true. Common to all three tables.
+export interface ContactRowFields {
+  readonly contactPermitted: 0 | 1;
+  readonly contactPreferred: 0 | 1;
+  readonly contactNote: string | null;
+  readonly verificationStatus: string;
+  readonly verifiedAt: string | null;
+  readonly verifiedBy: UserId | null;
+  readonly verificationDetail: string | null;
+}
+
+// The seven shared columns, in the order every builder below binds them.
+const CONTACT_COLUMNS =
+  "contact_permitted, contact_preferred, contact_note, verification_status, verified_at, verified_by, verification_detail";
+
+function contactValues(fields: ContactRowFields): readonly (string | number | null)[] {
+  return [
+    fields.contactPermitted,
+    fields.contactPreferred,
+    fields.contactNote,
+    fields.verificationStatus,
+    fields.verifiedAt,
+    fields.verifiedBy,
+    fields.verificationDetail,
+  ];
+}
+
+// Demote every live PREFERRED contact point on an entity, across all three tables. Composed ahead of
+// an insert or update that sets a new preferred one, so the invariant holds inside the same atomic
+// batch. Three statements rather than one because the fact spans three tables and D1 has no
+// interactive transaction to hold them open between.
+export function demoteEntityPreferredContactStatements(
+  database: SqlDatabase,
+  entityId: string,
+  updatedAt: string,
+): SqlStatement[] {
+  return CONTACT_POINT_TABLES.map((table) =>
+    database
+      .prepare(
+        `UPDATE ${table} SET contact_preferred = 0, updated_at = ?2 WHERE entity_id = ?1 AND contact_preferred = 1 AND deleted_at IS NULL`,
+      )
+      .bind(entityId, updatedAt),
+  );
+}
+
 // An email address attached to an entity. `address` is stored as entered (trimmed); `normalized`
 // is the lowercased match key the reverse address -> entity lookup queries. valid_from/valid_to are
 // NULL at creation. The one home for the directory_email INSERT so the column list never drifts.
-export interface InsertEmailRow {
+export interface InsertEmailRow extends ContactRowFields {
   readonly id: DirectoryEmailId;
   readonly entityId: string;
   readonly label: string | null;
+  readonly contactUse: string | null;
   readonly address: string;
   readonly normalizedAddress: string;
   readonly isPrimary: 0 | 1;
@@ -123,15 +194,18 @@ export interface InsertEmailRow {
 export function insertEmailStatement(database: SqlDatabase, row: InsertEmailRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DIRECTORY_EMAIL_TABLE} (id, entity_id, label, address, normalized_address, is_primary, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, ?7, ?7, NULL)`,
+      `INSERT INTO ${DIRECTORY_EMAIL_TABLE} (id, entity_id, label, contact_use, address, normalized_address, is_primary, ${CONTACT_COLUMNS}, valid_from, valid_to, created_at, updated_at, deleted_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL, NULL, ?15, ?15, NULL)`,
     )
     .bind(
       row.id,
       row.entityId,
       row.label,
+      row.contactUse,
       row.address,
       row.normalizedAddress,
       row.isPrimary,
+      ...contactValues(row),
       row.createdAt,
     );
 }
@@ -152,8 +226,9 @@ export function demoteEntityPrimaryEmailsStatement(
 
 // The mutable fields an updateEmail rewrites in full (no dynamic column list): label, the as-entered
 // address, its normalized key, and the primary flag. Name/lifecycle columns are never touched here.
-export interface UpdateEmailFields {
+export interface UpdateEmailFields extends ContactRowFields {
   readonly label: string | null;
+  readonly contactUse: string | null;
   readonly address: string;
   readonly normalizedAddress: string;
   readonly isPrimary: 0 | 1;
@@ -167,9 +242,19 @@ export function updateEmailStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${DIRECTORY_EMAIL_TABLE} SET label = ?2, address = ?3, normalized_address = ?4, is_primary = ?5, updated_at = ?6 WHERE id = ?1`,
+      `UPDATE ${DIRECTORY_EMAIL_TABLE} SET label = ?2, contact_use = ?3, address = ?4, normalized_address = ?5, is_primary = ?6, ` +
+        `contact_permitted = ?7, contact_preferred = ?8, contact_note = ?9, verification_status = ?10, verified_at = ?11, verified_by = ?12, verification_detail = ?13, updated_at = ?14 WHERE id = ?1`,
     )
-    .bind(id, fields.label, fields.address, fields.normalizedAddress, fields.isPrimary, updatedAt);
+    .bind(
+      id,
+      fields.label,
+      fields.contactUse,
+      fields.address,
+      fields.normalizedAddress,
+      fields.isPrimary,
+      ...contactValues(fields),
+      updatedAt,
+    );
 }
 
 // Soft-delete an email row (this system never hard-deletes). Sets deleted_at and touches updated_at.
@@ -286,7 +371,8 @@ export function selectPersonStatement(database: SqlDatabase, id: DirectoryPerson
   return database
     .prepare(
       `SELECT id, name_prefix, name_given, name_middle, name_family, name_suffix, display_name, status, merged_into_id, ` +
-        `pronoun_subject, pronoun_object, pronoun_possessive_determiner, pronoun_possessive_pronoun, pronoun_reflexive, pronoun_verb_number ` +
+        `pronoun_subject, pronoun_object, pronoun_possessive_determiner, pronoun_possessive_pronoun, pronoun_reflexive, pronoun_verb_number, ` +
+        `date_of_birth, date_of_death, deceased ` +
         `FROM ${DIRECTORY_PERSON_TABLE} WHERE id = ?1`,
     )
     .bind(id);
@@ -339,6 +425,36 @@ export function updatePersonFieldsStatement(
       `UPDATE ${DIRECTORY_PERSON_TABLE} SET status = ?2, merged_into_id = ?3, updated_at = ?4 WHERE id = ?1`,
     )
     .bind(id, fields.status, fields.mergedIntoId, updatedAt);
+}
+
+// The dates of a person's life, written together and cleared together.
+//
+// A SEPARATE STATEMENT FROM the general field update, for the reason the pronoun write is separate:
+// the cleared state of each of these is legitimate — a firm records that it does not know a date of
+// birth by leaving it null — so "omit the field to keep it" cannot be the rule for a caller that also
+// needs to be able to send null.
+//
+// `deceased` and `date_of_death` are two columns because "known dead, date unknown" is a state
+// probate work meets constantly. The implication that a recorded date means deceased is held here,
+// in the one write path, rather than in a CHECK: a cross-column CHECK cannot be added to a table
+// that already holds rows without rebuilding it, and this schema is expand-contract only.
+export interface PersonLifeDates {
+  readonly dateOfBirth: string | null;
+  readonly dateOfDeath: string | null;
+  readonly deceased: 0 | 1;
+}
+
+export function updatePersonLifeDatesStatement(
+  database: SqlDatabase,
+  id: DirectoryPersonId,
+  dates: PersonLifeDates,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_PERSON_TABLE} SET date_of_birth = ?2, date_of_death = ?3, deceased = ?4, updated_at = ?5 WHERE id = ?1`,
+    )
+    .bind(id, dates.dateOfBirth, dates.dateOfDeath, dates.deceased, updatedAt);
 }
 
 // The caller-supplied organization status values; the table CHECK constrains the column to exactly these.
@@ -446,4 +562,232 @@ export function updateOrganizationNameStatement(
       `UPDATE ${DIRECTORY_ORGANIZATION_TABLE} SET legal_name = ?2, display_name = ?3, updated_at = ?4 WHERE id = ?1`,
     )
     .bind(id, fields.legalName, fields.displayName, updatedAt);
+}
+
+// ── directory_phone ──────────────────────────────────────────────────────────────────────────────
+
+// A telephone number attached to an entity. `number` is the number AS ENTERED and is never
+// rewritten; the structured columns beside it carry the split form and go null when the input could
+// not be split, so an unparseable number is still recorded and still displayed. `label` is not
+// written: it is the legacy free-text column the typed system/use columns replace.
+export interface InsertPhoneRow extends ContactRowFields {
+  readonly id: DirectoryPhoneId;
+  readonly entityId: string;
+  readonly number: string;
+  readonly contactSystem: string;
+  readonly contactUse: string | null;
+  readonly countryCallingCode: string | null;
+  readonly nationalNumber: string | null;
+  readonly extension: string | null;
+  readonly countryRegionCode: string | null;
+  readonly isPrimary: 0 | 1;
+  readonly createdAt: string;
+}
+
+export function insertPhoneStatement(database: SqlDatabase, row: InsertPhoneRow): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${DIRECTORY_PHONE_TABLE} (id, entity_id, label, number, contact_system, contact_use, country_calling_code, national_number, extension, country_region_code, is_primary, ${CONTACT_COLUMNS}, valid_from, valid_to, created_at, updated_at, deleted_at) ` +
+        `VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, NULL, NULL, ?18, ?18, NULL)`,
+    )
+    .bind(
+      row.id,
+      row.entityId,
+      row.number,
+      row.contactSystem,
+      row.contactUse,
+      row.countryCallingCode,
+      row.nationalNumber,
+      row.extension,
+      row.countryRegionCode,
+      row.isPrimary,
+      ...contactValues(row),
+      row.createdAt,
+    );
+}
+
+// The mutable fields an updatePhone rewrites in full (no dynamic column list). `label` is untouched:
+// it is read-only from the day the typed columns exist.
+export interface UpdatePhoneFields extends ContactRowFields {
+  readonly number: string;
+  readonly contactSystem: string;
+  readonly contactUse: string | null;
+  readonly countryCallingCode: string | null;
+  readonly nationalNumber: string | null;
+  readonly extension: string | null;
+  readonly countryRegionCode: string | null;
+  readonly isPrimary: 0 | 1;
+}
+
+export function updatePhoneStatement(
+  database: SqlDatabase,
+  id: DirectoryPhoneId,
+  fields: UpdatePhoneFields,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_PHONE_TABLE} SET number = ?2, contact_system = ?3, contact_use = ?4, country_calling_code = ?5, national_number = ?6, extension = ?7, country_region_code = ?8, is_primary = ?9, ` +
+        `contact_permitted = ?10, contact_preferred = ?11, contact_note = ?12, verification_status = ?13, verified_at = ?14, verified_by = ?15, verification_detail = ?16, updated_at = ?17 WHERE id = ?1`,
+    )
+    .bind(
+      id,
+      fields.number,
+      fields.contactSystem,
+      fields.contactUse,
+      fields.countryCallingCode,
+      fields.nationalNumber,
+      fields.extension,
+      fields.countryRegionCode,
+      fields.isPrimary,
+      ...contactValues(fields),
+      updatedAt,
+    );
+}
+
+export function demoteEntityPrimaryPhonesStatement(
+  database: SqlDatabase,
+  entityId: string,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_PHONE_TABLE} SET is_primary = 0, updated_at = ?2 WHERE entity_id = ?1 AND is_primary = 1 AND deleted_at IS NULL`,
+    )
+    .bind(entityId, updatedAt);
+}
+
+export function softDeletePhoneStatement(
+  database: SqlDatabase,
+  id: DirectoryPhoneId,
+  deletedAt: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${DIRECTORY_PHONE_TABLE} SET deleted_at = ?2, updated_at = ?2 WHERE id = ?1`)
+    .bind(id, deletedAt);
+}
+
+// ── directory_address ────────────────────────────────────────────────────────────────────────────
+
+// A postal address attached to an entity, in the international field set: recipient, organization,
+// two address lines, dependent locality, locality, administrative area, postal code, sorting code
+// and country. Nothing here assumes a state and a five-digit postal code — which fields a country
+// uses, what they are called and what order they read in are all properties of the country.
+export interface InsertAddressRow extends ContactRowFields {
+  readonly id: DirectoryAddressId;
+  readonly entityId: string;
+  readonly recipient: string | null;
+  readonly organizationName: string | null;
+  readonly street: string | null;
+  readonly streetTwo: string | null;
+  readonly dependentLocality: string | null;
+  readonly city: string | null;
+  readonly region: string | null;
+  readonly postal: string | null;
+  readonly sortingCode: string | null;
+  readonly country: string | null;
+  readonly addressUse: string | null;
+  readonly addressType: string;
+  readonly normalizedKey: string;
+  readonly isPrimary: 0 | 1;
+  readonly createdAt: string;
+}
+
+export function insertAddressStatement(database: SqlDatabase, row: InsertAddressRow): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${DIRECTORY_ADDRESS_TABLE} (id, entity_id, label, recipient, organization_name, street, street_two, dependent_locality, city, region, postal, sorting_code, country, address_use, address_type, normalized_key, is_primary, ${CONTACT_COLUMNS}, valid_from, valid_to, created_at, updated_at, deleted_at) ` +
+        `VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, NULL, NULL, ?24, ?24, NULL)`,
+    )
+    .bind(
+      row.id,
+      row.entityId,
+      row.recipient,
+      row.organizationName,
+      row.street,
+      row.streetTwo,
+      row.dependentLocality,
+      row.city,
+      row.region,
+      row.postal,
+      row.sortingCode,
+      row.country,
+      row.addressUse,
+      row.addressType,
+      row.normalizedKey,
+      row.isPrimary,
+      ...contactValues(row),
+      row.createdAt,
+    );
+}
+
+export interface UpdateAddressFields extends ContactRowFields {
+  readonly recipient: string | null;
+  readonly organizationName: string | null;
+  readonly street: string | null;
+  readonly streetTwo: string | null;
+  readonly dependentLocality: string | null;
+  readonly city: string | null;
+  readonly region: string | null;
+  readonly postal: string | null;
+  readonly sortingCode: string | null;
+  readonly country: string | null;
+  readonly addressUse: string | null;
+  readonly addressType: string;
+  readonly normalizedKey: string;
+  readonly isPrimary: 0 | 1;
+}
+
+export function updateAddressStatement(
+  database: SqlDatabase,
+  id: DirectoryAddressId,
+  fields: UpdateAddressFields,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_ADDRESS_TABLE} SET recipient = ?2, organization_name = ?3, street = ?4, street_two = ?5, dependent_locality = ?6, city = ?7, region = ?8, postal = ?9, sorting_code = ?10, country = ?11, address_use = ?12, address_type = ?13, normalized_key = ?14, is_primary = ?15, ` +
+        `contact_permitted = ?16, contact_preferred = ?17, contact_note = ?18, verification_status = ?19, verified_at = ?20, verified_by = ?21, verification_detail = ?22, updated_at = ?23 WHERE id = ?1`,
+    )
+    .bind(
+      id,
+      fields.recipient,
+      fields.organizationName,
+      fields.street,
+      fields.streetTwo,
+      fields.dependentLocality,
+      fields.city,
+      fields.region,
+      fields.postal,
+      fields.sortingCode,
+      fields.country,
+      fields.addressUse,
+      fields.addressType,
+      fields.normalizedKey,
+      fields.isPrimary,
+      ...contactValues(fields),
+      updatedAt,
+    );
+}
+
+export function demoteEntityPrimaryAddressesStatement(
+  database: SqlDatabase,
+  entityId: string,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_ADDRESS_TABLE} SET is_primary = 0, updated_at = ?2 WHERE entity_id = ?1 AND is_primary = 1 AND deleted_at IS NULL`,
+    )
+    .bind(entityId, updatedAt);
+}
+
+export function softDeleteAddressStatement(
+  database: SqlDatabase,
+  id: DirectoryAddressId,
+  deletedAt: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${DIRECTORY_ADDRESS_TABLE} SET deleted_at = ?2, updated_at = ?2 WHERE id = ?1`)
+    .bind(id, deletedAt);
 }

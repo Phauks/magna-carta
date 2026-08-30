@@ -1,7 +1,8 @@
 # The Directory Entity Model — People, Organizations, and Everything the Firm Records About Them
 
-**Date:** 2026-08-30 · **Status:** Draft for owner review — several decisions below are flagged as
-owner questions and are deliberately not settled here · **Subsystem:** Directory
+**Date:** 2026-08-30 · **Status:** Owner-reviewed; Phase A built. The open questions of §7 are
+**answered** — the owner's rulings are recorded there and every section they change has been rewritten
+to match, so this document no longer asks anything · **Subsystem:** Directory
 (`packages/directory`, `apps/api-worker/src/routes/directory.ts`, the thirteen `directory_*` tables
 in `packages/database/src/per-firm-schema.ts`) · **Primary consumer:** the conflicts checker
 (`packages/conflicts`), which is why most of this data exists at all.
@@ -82,12 +83,18 @@ in `packages/directory/src/statements.ts`, and in exactly two live consumers:
 `directory_phone` and `directory_address` have **no domain module at all**. There is not one
 statement anywhere in the repository that inserts a phone number or an address for a person.
 
-`apps/web/src/lib/directory/entity-sections.ts` lists seven panes — Names, Pronouns, Identifiers,
-Duplicates, Relationships, Matters, Categories. There is no Contact pane, because there is nothing
+`apps/web/src/lib/directory/entity-sections.ts` listed seven panes — Names, Pronouns, Identifiers,
+Duplicates, Relationships, Matters, Categories. There was no Contact pane, because there was nothing
 behind one.
 
 **So today a firm cannot record a client's telephone number.** That is the finding, and it is the
 first thing this design fixes.
+
+> **Fixed, 2026-08-30.** Phase A is built: `contact-phone.ts` and `contact-address.ts` exist,
+> `contact-email.ts` is a general write path rather than a capture-only one, thirteen routes reach the
+> three tables, and the record screen has a Contact pane. The paragraphs above are kept in the past
+> tense on purpose — they are the measurement that justified the work, and a design that quietly
+> rewrites its own finding once the work lands leaves the next reader unable to tell what was true.
 
 ### 1.5 The organization is thin, and the schema itself already suffers for it
 
@@ -218,7 +225,7 @@ dotted key does the same work and reads in a log.
 **Rejected:** FHIR's required, non-extensible `HumanName.use` value set adopted verbatim. `anonymous`
 and `temp` are clinical concerns; `dba` and `trading` are legal ones FHIR has no word for.
 
-### 2.3 NIEM — taken: birth, death, citizenship and other-identification as first-class person facts.
+### 2.3 NIEM — taken: birth, death and other-identification as first-class person facts. Citizenship dropped by the owner.
 
 `nc:PersonType` carries `PersonName [0..*]`, `PersonAlternateName [0..*]`, `PersonBirthDate`,
 `PersonBirthLocation`, `PersonDeathDate`, `PersonCitizenshipISO3166Alpha2Code [0..*]`,
@@ -231,7 +238,8 @@ defined".
 neighbour this platform has — puts birth date, death date and citizenship on the **person**, and
 puts SSN and passport in **identification**. It draws the line exactly where section 3.3 below
 draws it, and it does so having modelled criminal-justice information exchange for two decades.
-Citizenship is `[0..*]`: dual nationality is normal and a single column is wrong.
+NIEM also carries citizenship at `[0..*]`; **the owner dropped citizenship from this model**, so it is
+taken from NIEM neither as a column nor as a table.
 
 **Taken:** `PersonOtherIdentification` is the named escape hatch — the owner's "other identifying
 numbers" has an established shape, and it is a typed row with a scheme, not a free-text note.
@@ -366,13 +374,18 @@ capture depends on. FHIR itself keeps `Address` separate from `ContactPoint` for
 
 **`directory_phone` gains:**
 
-| Column             | Why                                                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `contact_system`   | `voice` \| `fax` \| `sms` \| `pager`. What technology answers this number. Registered catalog, open CHECK, fitness-enforced. |
-| `contact_use`      | `work` \| `home` \| `mobile` \| `other` \| `old` \| `temp`. What context. Orthogonal to system, per FHIR.                    |
-| `number_e164`      | Canonical `+<country><national>`, nullable. NULL means the input did not parse — recorded honestly, never guessed. Indexed.  |
-| `extension`        | Separate column. E.164 has no extension concept, and an extension inside the canonical string breaks dialling.               |
-| `country_code_iso` | The ISO 3166-1 alpha-2 region the number was parsed against, so a re-parse is reproducible.                                  |
+| Column                 | Why                                                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `contact_system`       | `voice` \| `fax` \| `sms` \| `pager`. What technology answers this number. Registered catalog, open CHECK, gated at the route.            |
+| `contact_use`          | `work` \| `home` \| `mobile` \| `other` \| `former` \| `temporary`. What context. Orthogonal to system, per FHIR.                         |
+| `country_calling_code` | Digits, no leading plus. NULL where the input carried no country — a national-form number says nothing about which country it belongs to. |
+| `national_number`      | Digits. NULL where the input could not be split at all. Indexed with the calling code, which is the pair a lookup seeks.                  |
+| `extension`            | Separate column. E.164 has no extension concept, and an extension inside a canonical string breaks dialling.                              |
+| `country_region_code`  | The ISO 3166-1 alpha-2 region the number was read against, so a re-parse is reproducible.                                                 |
+
+**Built without a `number_e164` column, deliberately.** The two columns above ARE the canonical
+number; a third holding them concatenated is a derived value to keep in step forever, and composing
+one string for a dialler is a line at the read (`internationalPhoneNumber` in `phone-number.ts`).
 
 `number` stays exactly as it is and keeps its meaning: **the number as entered**. A number the parser
 rejects is still stored and still displayed; only the canonical column goes null. `label` is retained
@@ -395,15 +408,38 @@ The temporal and primary machinery already handles multiple rows per entity.
 the two columns behind it. The storage is orthogonal because programs need it to be; the person
 entering a number never sees two dropdowns.
 
-**`directory_address` gains** `street_two` (a second delivery line — RFC 6350's `ADR` and FHIR's
-repeating `line` both allow it, and a suite number has nowhere to go today), `district` (county, which
-several courts caption on), `address_use` (`residential` \| `business` \| `postal` \| `registered` \|
-`service` \| `old` \| `temp`), `address_type` (`physical` \| `postal` \| `both`, per FHIR — a post
-office box cannot be personally served), and `normalized_key` (a lowercased, punctuation-stripped
-concatenation for duplicate detection, mirroring what `normalized_address` does for email).
+**`directory_address` gains the international field set, not a second American one.** The owner's
+direction was explicit: follow the address-internationalization patterns, because which fields a
+country uses, what they are called and what order they read in all change by country — so do NOT
+hardcode a state and a five-digit postal code. The columns are therefore named for their POSITION in
+an address: `recipient`, `organization_name`, `street` (first line), `street_two` (second line — a
+suite had nowhere to go), `dependent_locality` (neighbourhood, district, suburb, county), `city`
+(locality), `region` (administrative area), `postal`, `sorting_code` (France's CEDEX and its
+equivalents), `country`. Plus `address_use` (`residential` \| `business` \| `postal` \| `registered`
+\| `service` \| `former` \| `temporary`), `address_type` (`physical` \| `postal` \| `both`, per FHIR
+— a post office box cannot be personally served), and `normalized_key`.
+
+**`normalized_key` is a DUPLICATE key and not a canonical postal form.** It folds case, accents and
+punctuation and joins the parts with a separator, so a value crossing a field boundary cannot make two
+different addresses collide. It does not abbreviate Street to St or decide that Apartment and Unit are
+the same word: that is postal normalization, it is country-specific, and it is what a provider is for.
+Doing it badly in-house would produce a key whose meaning silently changes the day a real one arrives.
 
 **`directory_email` gains** `contact_use` on the same catalog as phone, and keeps `normalized_address`
 and its index untouched.
+
+### 3.1a Permission and preference — the owner's ruling
+
+**"We should be able to denote what methods a person can or should be contacted."** CAN and SHOULD are
+two facts and one flag holds neither well, so all three tables gain `contact_permitted` (default yes),
+`contact_preferred` (at most one per entity ACROSS the three tables, because "write to me" is one
+answer about every channel) and `contact_note`. `is_primary` is a third and different thing and is
+untouched: the CHANNEL's default row, where a message goes when the sender named no address.
+
+Withdrawing a permission is what the screen offers where deleting would otherwise be used — deleting
+loses the instruction along with the value, and the next member re-enters the number and rings it. The
+whole reasoning is in the ADR fragment
+[`a-contact-point-carries-a-permission-and-a-preference-and-they-are-two-facts`](../decisions/pending/a-contact-point-carries-a-permission-and-a-preference-and-they-are-two-facts.md).
 
 **Duplicates within one entity.** All three tables gain a partial unique index over the live rows —
 `(entity_id, normalized_address)`, `(entity_id, number_e164, extension)`, `(entity_id,
@@ -471,37 +507,47 @@ not a query.
 
 **Proposed on `directory_person`:**
 
-| Column          | Notes                                                                                                                                                                        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `date_of_birth` | ISO date, nullable. See the open question below — this is the one genuinely contested decision in this document.                                                             |
-| `date_of_death` | ISO date, nullable.                                                                                                                                                          |
-| `deceased`      | 0/1, default 0. Separate from the date, with a CHECK that a non-null date implies the flag. "Known dead, date unknown" is a real state and probate work meets it constantly. |
-| `birth_place`   | Free text, nullable. Passport and immigration work; no engine consumes it, so no catalog.                                                                                    |
+| Column          | Notes                                                                                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `date_of_birth` | Plain ISO calendar date, nullable, **in the clear**. Settled by the owner — see below.                                                                                                           |
+| `date_of_death` | Plain ISO calendar date, nullable.                                                                                                                                                               |
+| `deceased`      | 0/1, default 0. Separate from the date. "Known dead, date unknown" is a real state and probate work meets it constantly. The date-implies-the-flag rule lives in the write path, not in a CHECK. |
+
+**`birth_place` is deferred** rather than built: no engine consumes it, the owner's direction named
+the two dates, and a column nothing reads gets filled in inconsistently before anything depends on it.
+
+**The implication is enforced in the write path, not in a CHECK,** because a cross-column CHECK cannot
+be added to a populated table without rebuilding it and this schema is expand-contract only. Clearing
+the flag while a date of death stands is refused rather than silently corrected.
 
 There is already a consumer waiting: the schema carries `decedent_entity_id` pointing at
 `directory_person` for an estate. An estate matter whose decedent has no date of death anywhere in the
 system is the gap made concrete.
 
-**Citizenship** is `[0..*]` (dual nationality is ordinary), so it is a small side table
-`directory_person_citizenship` on ISO 3166-1 alpha-2 with the usual `valid_from`/`valid_to`. See open
-question O-2 — the custom-fields engine is a legitimate alternative for a firm that never touches
-immigration.
+**Citizenship is dropped.** The owner's ruling: not in this model, and not seamed for. A firm that
+needs it has `packages/custom-fields`. The proposed `directory_person_citizenship` table is withdrawn.
 
-**The contested decision, stated plainly rather than settled.** Moving date of birth out of
-`directory_identifier` and into a plaintext column trades confidentiality for queryability. The
-arguments for plaintext: a date of birth is printed in pleadings, discovery responses and court forms
-all day, so a permission-gated audited decrypt on every document render is both expensive and
-meaningless as a control; the pronoun columns beside it are ordinary personal data on exactly this
-reasoning; and the protected-field chokepoint exists for values whose leak is catastrophic _to a firm
-member_ — a category a date of birth on a file that member is already reading does not obviously join.
-The argument against: some state statutes name date of birth as a breach-notification element, and a
-plaintext column is a plaintext column.
+**Settled: the full date, in the clear.** The owner's ruling was "obviously date of birth needs a
+year, but wtf is wrong with our code that we cannot handle a date of birth", and it reads the defect
+correctly — the answer is that a date of birth was filed in the encrypted identifier table, which
+matches only by exact blind index, and a date of birth is too low-entropy to index safely, so the code
+deliberately refused. That is a filing mistake, not a capability limit.
 
-**A third option, and the one to weigh seriously:** keep the encrypted identifier row for the full
-date and add a plaintext `birth_year` column, which serves every range question above (minority,
-majority, age band) and is far weaker as a re-identification vector than a full date. This is the
-recommendation if the owner is uncomfortable with the full date in plaintext. **Owner decision
-required (O-1).**
+The **`birth_year` compromise is withdrawn**: a year answers "is this client a minor" and cannot fill
+in the date-of-birth field on a court form, so it would have left the original complaint standing while
+adding a second home for the same fact.
+
+The reasoning it stands on is the one the pronoun columns beside it already stand on: ordinary personal
+data, printed in documents all day, whose confidentiality is the file's confidentiality. A permission
+gate and an audit row on every document render buys nothing against a member who has the file open and
+costs enough that the practical result is a firm that stops recording the date. What the classification
+buys is registration in `packages/data-access/src/pii-registry.ts`, so erasure reaches it, and coverage
+by the standing redaction default, so no log line carries it. **Stated so it is decided rather than
+discovered:** several state breach statutes name a date of birth as a notifiable element, and this is a
+plaintext column in a per-firm database.
+
+A **calendar date and nothing else** — no time, no zone. The write path refuses a date that names no
+day (`2026-02-30` matches the shape and is not a date) and a date of death that precedes the birth.
 
 Whatever is decided, the new column is registered in `packages/data-access/src/pii-registry.ts` for
 subject erasure, and the `dob` identifier scheme is retained readable forever and closed to new
@@ -538,20 +584,20 @@ the conflicts class map above it.
 **`EDGE_TYPES` grows, with each new type classed in `edge-classes.ts` in the same change** — the
 existing coverage test enforces that, so this cannot land half-done:
 
-| New edge type                | Class         | Why it is its own type                                                     |
-| ---------------------------- | ------------- | -------------------------------------------------------------------------- |
-| `officer_of`                 | `control`     | Can bind the organization — Rule 4.2 comment [9], first and second limbs   |
-| `director_of`                | `control`     | Same                                                                       |
-| `partner_of`                 | `control`     | Same, and a partner's conduct is imputed                                   |
-| `trustee_of`                 | `control`     | Fiduciary control of an entity the firm may be adverse to                  |
-| `personal_representative_of` | `control`     | Acts for an estate                                                         |
-| `agent_of`                   | `control`     | Attorney-in-fact, power of attorney                                        |
-| `employment`                 | `constituent` | Cannot bind. Rule 4.2 reaches an employee only through the third limb      |
-| `member_of`                  | `constituent` | The owner's "people can be members of organizations"                       |
-| `shareholder_of`             | `constituent` | Ownership without control at ordinary holdings                             |
-| `beneficiary_of`             | `family`      | An interest, not a control                                                 |
-| `guardian_of`                | `family`      | A legal capacity over a person                                             |
-| `primary_contact_of`         | `constituent` | The owner's "multiple contacts" — who the firm talks to at an organization |
+| New edge type                | Class         | Why it is its own type                                                   |
+| ---------------------------- | ------------- | ------------------------------------------------------------------------ |
+| `officer_of`                 | `control`     | Can bind the organization — Rule 4.2 comment [9], first and second limbs |
+| `director_of`                | `control`     | Same                                                                     |
+| `partner_of`                 | `control`     | Same, and a partner's conduct is imputed                                 |
+| `trustee_of`                 | `control`     | Fiduciary control of an entity the firm may be adverse to                |
+| `personal_representative_of` | `control`     | Acts for an estate                                                       |
+| `agent_of`                   | `control`     | Attorney-in-fact, power of attorney                                      |
+| `employment`                 | `constituent` | Cannot bind. Rule 4.2 reaches an employee only through the third limb    |
+| `member_of`                  | `constituent` | The owner's "people can be members of organizations"                     |
+| `shareholder_of`             | `constituent` | Ownership without control at ordinary holdings                           |
+| `beneficiary_of`             | `family`      | An interest, not a control                                               |
+| `guardian_of`                | `family`      | A legal capacity over a person                                           |
+| `point_of_contact_for`       | `constituent` | The owner's "who the point person with an organization is" — see below   |
 
 `affiliation` **stays in the catalog** and stays classed `control`. Existing rows keep working and
 keep their traversal weight; nothing already recorded is reinterpreted. It becomes the legacy,
@@ -561,6 +607,17 @@ unclassified-membership value and the UI stops offering it.
 The distinction it draws is the one Rule 4.2 comment [9] draws: a constituent who can bind or direct
 the organization is a different traversal risk from one who cannot. Today the engine spends the same
 budget on both.
+
+**The point person is an edge type, not a flag on an employment edge, and the reason is that the
+point person is frequently not an employee.** The owner asked for "who the point person with an
+organization is"; the choice between the two shapes turns on the ordinary case, and the ordinary case
+is a court's clerk, an assigned adjuster at a third-party administrator, opposing counsel's paralegal,
+a registered agent for service, an outside accountant. A flag on an employment edge records none of
+them without first asserting an employment that is false — and a false edge is not cosmetic here,
+because `directory_edge` is the corpus the conflicts traversal walks and prints. A person who is both
+an employee and the contact carries two edges, which is right: an employment and an appointment as
+contact start and end at different times. The full reasoning is
+[`a-point-of-contact-is-an-edge-because-a-point-of-contact-need-not-be-an-employee`](../decisions/pending/a-point-of-contact-is-an-edge-because-a-point-of-contact-need-not-be-an-employee.md).
 
 **Representation is two different things and the model must not merge them.**
 
@@ -608,7 +665,19 @@ currently documents `legal`/`preferred`/`maiden`/`trading`, which no code has ev
 one column holding "Anne Marie" costs nothing anyone has felt, and a table costs a join on every name
 read. Documented as a known limitation instead.
 
-### 3.8 The organization
+### 3.8 The organization — deferred by the owner
+
+**Nothing in this section is built.** The owner's ruling is that an organization stays "a basic group
+combining individuals for now": no kind taxonomy, no jurisdiction of formation, no formation or
+dissolution lifecycle in this pass.
+
+It is kept here rather than deleted because the finding that prompted it is still true —
+`court_entity_id` and `estate_entity_id` still point into `directory_organization` and still cannot
+say what they point at, so a picker that must offer the courts has no column to filter on. That cost
+is being carried deliberately. What makes the deferral cheap is that every column below is a nullable
+`ALTER TABLE ADD COLUMN` against rows that stay valid, so building it later costs what building it now
+would; the one thing to avoid meanwhile is encoding a kind of organization into a name or a category
+label, because that is the shape that has to be unpicked rather than added to.
 
 | Column                          | Values / notes                                                                                                                                                                                                                                                                                      |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -644,6 +713,18 @@ read. Documented as a known limitation instead.
 - **Clio's convertible person/company contact.** It would corrupt every `matter_party`, edge and
   identifier pointing at the row.
 - **A repeating middle-name table.** A join on every name read for a problem nobody has hit.
+- **A `number_e164` column beside the split parts.** The country calling code and the national number
+  ARE the canonical number; a third column holding them joined is a derived value to keep in step
+  forever, and composing one string at the read costs a line.
+- **A canonical postal form in `normalized_key`.** That is a provider's job. A duplicate key whose
+  meaning changes when a real canonicalizer arrives silently invalidates every comparison made under
+  the old one.
+- **A phone-number metadata library.** Full per-region validation is hundreds of kilobytes that go
+  stale monthly, for a splitter this platform needs to be reproducible rather than exhaustive. The
+  E.164 assignment rule is the whole of what ships.
+- **A plaintext `birth_year` beside a retained sealed date of birth.** This document recommended it
+  and the owner overruled it: a year cannot fill in the date-of-birth field on a court form, so it
+  would have left the original complaint standing and added a second home for one fact.
 - **Auto-suppressing a conflicts hit on a jurisdiction mismatch.** See §6 — this one is important
   enough to be a rule rather than a rejection.
 - **LEDES as a source for the party model.** It models invoices.
@@ -656,22 +737,36 @@ Every step is additive DDL. Each hand-written migration is followed by a snapsho
 commit — `pnpm --filter @magna-carta/database run refresh-per-firm-snapshot`, verified by
 `check-snapshots`, which the scoped gate already runs when this package is touched.
 
-**Phase A — reach what exists (no schema change at all).** Domain modules for phone and address
-mirroring `contact-email.ts`; the email module lifted from capture-only to a general write path;
-routes under `/api/v1/directory/entities/{id}/emails`, `/phones`, `/addresses`, plus one
-`/contact-points` read that returns all three so a record screen makes one round trip; the Contact
-pane in `entity-sections.ts`. **This alone is the difference between a firm being able to record a
-telephone number and not.** It ships before any of the rest and needs nothing from it.
+**Phase A — reach what exists. BUILT, and it took Phases B, C and F with it.** Domain modules for
+phone (`contact-phone.ts`) and address (`contact-address.ts`) mirroring `contact-email.ts`; the email
+module lifted from capture-only to a general write path; routes under
+`/api/v1/directory/entities/{id}/emails`, `/phones`, `/addresses` with their update and remove twins,
+plus one `/contact-points` read that returns all three so a record screen makes one round trip; the
+Contact pane. **This alone is the difference between a firm being able to record a telephone number
+and not.**
 
-**Phase B — the typed contact columns.** `ALTER TABLE ADD COLUMN` for `contact_system`,
-`contact_use`, `number_e164`, `extension`, `country_code_iso` on phone; `contact_use` on email;
-`street_two`, `district`, `address_use`, `address_type`, `normalized_key` on address. All nullable.
-The write path populates them from the day they exist; `label` becomes read-only. Then the indexes on
-`number_e164` and `normalized_key`.
+**The plan said Phase A would need no schema change, and that was reversed on purpose.** Each of the
+owner's rulings on this same pass — a permission and a preference, a structured number, the
+international address field set, a recorded verification failure, a real date of birth — is a column,
+and each is a fact the ENTRY SURFACE has to be able to take. Landing the routes first and the columns
+second would have meant building the Contact pane twice. So one migration
+(`20260830T120000_directory-contact-points.sql`) carries all of it, additively, and the pane was built
+once against the shape it keeps.
 
-**Phase C — provenance.** The five provenance columns on all four tables, `verification_status`
-defaulting to `unverified`. Nothing existing changes meaning: a row with no recorded source is
-honestly unsourced.
+**Phase B — the typed contact columns. BUILT with Phase A**, as `contact_system`, `contact_use`,
+`country_calling_code`, `national_number`, `extension`, `country_region_code` on phone; `contact_use`
+on email; the international field set plus `address_use`, `address_type` and `normalized_key` on
+address; and `contact_permitted` / `contact_preferred` / `contact_note` on all three. All nullable or
+defaulted. The write path populates them from the day they exist; `label` is read-only from the same
+day. The indexes are on `(country_calling_code, national_number)` and on `normalized_key`.
+
+**Phase C — provenance. HALF built.** `verification_status`, `verified_at`, `verified_by` and
+`verification_detail` landed on the three contact tables with Phase A, because the owner's ruling that
+a failure notifies rather than blocks needs somewhere to record the failure. `source` and
+`source_detail` are **deferred**: they are the diligence half rather than the send half, and the
+surface that would supply a sensible default for them is the intake form rather than the contact pane.
+`directory_identifier` gains none of the four yet — sealing a value and confirming it are different
+acts, and the identifier surface has no verification gesture to hang them on.
 
 **Phase D — identifier jurisdiction and the scheme registry.** `jurisdiction`, `scheme_key`,
 `issuer_entity_id` on `directory_identifier`; the registry module; the fitness probe over stored
@@ -679,17 +774,19 @@ honestly unsourced.
 sees identical bytes. The new schemes (passport, the national tax-identifier family, the business
 registration numbers) become available at the same moment.
 
-**Phase E — organization depth.** The six columns of §3.8. Then a follow-up that makes
-`organization_kind` a required field in the _route contract_ while the column stays nullable, so
-existing rows are not invalidated.
+**Phase E — organization depth. DEFERRED by the owner** (§3.8). Not built, and not partially built.
 
-**Phase F — person attributes.** `date_of_birth` (or `birth_year`, per O-1), `date_of_death`,
-`deceased`, `birth_place`, and the citizenship table if O-2 says so. Register every new column in the
-PII registry in the same change.
+**Phase F — person attributes. BUILT with Phase A.** `date_of_birth`, `date_of_death` and `deceased`,
+all nullable and all in the clear, written through `setPersonLifeDates` and registered in the PII
+registry in the same change. `birth_place` is deferred (nothing reads it) and citizenship is dropped
+(the owner's ruling). The `dob` identifier type stays readable forever and is closed to new writes.
 
-**Phase G — the edge catalog and the fifth class.** New `EDGE_TYPES` entries and their
-`edge-classes.ts` classifications together, because the coverage test requires it. The new
-`constituent` class and its budget default. `affiliation` is untouched.
+**Phase G — the edge catalog and the fifth class. NOT BUILT, and it now carries a settled decision.**
+New `EDGE_TYPES` entries and their `edge-classes.ts` classifications land together, because the
+coverage test requires it — which is also why `point_of_contact_for` could not ship with the contact
+work: `packages/conflicts` was outside that stream's file ownership, and a type with no class beside it
+fails its own gate. The new `constituent` class and its budget default come with it. `affiliation` is
+untouched.
 
 **Phase H — representation and restriction.** `matter_party.represented_by_entity_id`; the
 `directory_contact_restriction` table; the derived no-contact surfacing.
@@ -758,45 +855,61 @@ adverse counsel, which is worth printing on a conflicts report and is not itself
 
 ---
 
-## 7. Open questions — owner decisions required
+## 7. The owner's rulings — every question of this section is answered
 
-**O-1 — Date of birth: plaintext column, plaintext birth year only, or unchanged?** Three options in
-§3.3. Full plaintext buys every range query and stops an audited decrypt on every document render;
-`birth_year` alone buys the range queries at a fraction of the exposure; unchanged keeps the seal and
-keeps the decrypt-and-compare. **Recommendation: `birth_year` plaintext plus the sealed full date, if
-the full plaintext date is uncomfortable — it is the option that concedes least and serves most.**
+The eight questions this document opened with were put to the owner on 2026-08-30 and answered. They
+are kept here, with their answers, because the reasoning behind a settled decision is the part that
+stops it being re-litigated. Where an answer contradicted what this document recommended, the
+document above was rewritten and the affected ADR fragment amended in the same change.
 
-**O-2 — Citizenship: a table, or the custom-fields engine?** A firm that never touches immigration
-will never fill it in, and `packages/custom-fields` exists precisely so a firm can add fields the
-platform did not ship. A table is right if citizenship is expected to be broadly useful; custom fields
-are right if it is one practice area's need.
+**O-1 — Date of birth. Answered: the full date, in the clear.** "Obviously date of birth needs a year,
+but wtf is wrong with our code that we cannot handle a date of birth." The `birth_year` compromise this
+document recommended is **withdrawn**: a year cannot fill in the date-of-birth field on a court form,
+so it would have left the complaint standing. §3.3 carries the reasoning and the exposure that comes
+with it. **Built.**
 
-**O-3 — How closed should `organization_kind` be?** The proposed list is sixteen values plus `other`.
-More granularity (professional corporation, limited partnership, series LLC, municipal corporation,
-tribal entity, foreign branch) is available and is jurisdiction-specific. Where is the line?
+**O-2 — Citizenship. Answered: dropped.** Not in the model, not seamed for, no table. A firm that needs
+it has `packages/custom-fields`. The proposed `directory_person_citizenship` is withdrawn.
 
-**O-4 — `issuer_entity_id` on an identifier: build now or leave the seam?** FHIR has `assigner` and the
-column is cheap, but nothing in the platform would read it on day one. "Build when in the area" argues
-for including it; "no consumer" argues against.
+**O-3 — How closed should `organization_kind` be? Answered: not now.** An organization stays "a basic
+group combining individuals for now". §3.8 is deferred whole, with the cost of deferring it stated
+there rather than lost.
 
-**O-5 — `primary_contact_of` as an edge type, or `is_primary` on the edge?** The owner's "multiple
-contacts" needs a way to say _who at this organization do we talk to_. An edge type is cleaner but
-means a person can be the primary contact of an organization only by being a second edge alongside
-their employment edge. A flag on the edge overloads the row. Recommendation is the edge type; the
-question is whether the duplication reads badly on the relationships pane.
+**O-4 — `issuer_entity_id` on an identifier. Not reached.** It belongs to the identifier-scheme phase,
+which this pass did not touch. It stays open as designed, and the argument on both sides is unchanged.
 
-**O-6 — Should a shared email domain propose an affiliation edge?** `jane@acme.example` implies a
-relationship with Acme. Proposing an edge for a member to confirm is useful and is emphatically not a
-conflicts hit. Free-mail domains would have to be excluded, and that exclusion list is a maintenance
-burden. Worth it?
+**O-5 — `point_of_contact_for` as an edge type, or a flag on the edge? Answered: an edge type,** and
+the owner supplied the deciding constraint — the point person must be recordable **without** being an
+employee. §3.5 and the ADR fragment carry it. The catalog entry itself is **not yet built**: a new
+`EDGE_TYPES` value must be classed in `packages/conflicts/src/edge-classes.ts` in the same change, and
+that file was outside the contact stream's ownership.
 
-**O-7 — Does a `failed` verification status suppress a send?** A bounced email address and a returned
-letter are recorded facts under §3.4. Should the platform _refuse_ to send to a `failed` channel, warn
-and allow, or record only? Refusing is safer and will occasionally be wrong (a temporary bounce).
+**O-6 — Should a shared email domain propose an affiliation edge? Not reached.** Untouched by this
+pass and still open.
 
-**O-8 — How much identifier format validation is wanted at entry?** A check-digit rule catches a
-transposed digit at the moment it is typed, which is the only moment it is cheap. It also refuses a
-value a client insists is correct. Hard refusal, warn-and-accept, or accept-and-flag?
+**O-7 — Does a `failed` verification suppress a send? Answered: no, and it never will.** "Failed
+address verification doesn't block a send but we notify users." The failure is recorded, it is surfaced
+to the member who is about to send, and the send proceeds — a bounce is frequently temporary, and a
+platform that refuses on a stale failure teaches its users that its warnings are noise. **Built:**
+`verification_status`, `verified_at`, `verified_by` and `verification_detail` are on all three contact
+tables, and nothing anywhere reads them as a gate.
+
+**O-8 — How much identifier format validation at entry? Not reached.** It belongs to the
+identifier-scheme phase. Still open.
+
+### The owner's ninth direction, which this document did not think to ask
+
+**"Addresses would likely do well paired with a mapping API of some kind for advanced
+functionality" — researched, and recommended rather than adopted.** A provider would buy four
+separable things (deliverability validation, canonical normalization, geocoding, a map view) worth very
+different amounts, at one shared cost: a client's address leaves the firm's tenancy. That is a privacy
+decision the owner makes explicitly, not a dependency an agent adds, so **this pass ships the seam and
+no provider**. The address model is already the international field set, `normalized_key` is
+deliberately a duplicate key rather than a canonical form, and the four verification columns are
+exactly where a provider's answer lands — so adopting one later is a writer of existing columns, not a
+migration. The options, the measured costs, the golden-rule-14 finding that libpostal is C with no
+pure-Rust port, and the recommendation are in
+[`an-address-provider-is-a-privacy-decision-so-the-seam-ships-before-the-provider`](../decisions/pending/an-address-provider-is-a-privacy-decision-so-the-seam-ships-before-the-provider.md).
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 slug: a-table-nothing-can-reach-is-not-a-feature-that-exists
-status: Proposed
+status: Accepted — built
 area: Directory
 date: 2026-08-30
 summary: "directory_email, directory_phone and directory_address have existed since the baseline migration, are registered for subject erasure, and are named in the schema with careful comments about temporality and primary enforcement. None of the twenty-five directory routes touches any of them. The email table has a write path built for inbound capture and reachable only from it; phone and address have no domain module at all, so not one statement anywhere in the repository inserts a telephone number or an address for a person. A firm therefore cannot record a client's phone number. Reaching the three tables is a phase of its own, ahead of every structural improvement and depending on none of them, because the structural work is worth nothing while the capability is zero. The three tables stay three: a postal address has seven components and a telecommunication endpoint has one, a polymorphic contact-point table would put six always-null columns on every phone row, and it would break the normalized-address index inbound email capture depends on."
@@ -28,12 +28,18 @@ system, and it is not visible from the schema, which is why it survived this lon
 structural improvement in the surrounding design and depending on none of them. Domain modules for
 phone and address mirroring `contact-email.ts`; the email module lifted from capture-only to a general
 write path; routes for emails, phones and addresses under the entity, plus one contact-points read
-returning all three so a record screen makes a single round trip; a Contact pane. No schema change at
-all.
+returning all three so a record screen makes a single round trip; a Contact pane.
 
-Everything else — the canonical phone form, the system and use columns, provenance and verification —
-lands afterwards on tables that are by then actually in use. The structural work is worth nothing while
-the capability is zero.
+**One thing changed between this decision and the build, and it is worth stating.** The plan was to
+reach the tables with **no schema change at all** and let the typed columns follow. That was reversed
+deliberately: the owner's rulings on the same pass — a contact point carries a permission and a
+preference, a failed verification notifies, a phone number is structured rather than one text column,
+an address is the international field set — are each a column, and every one of them is a fact the
+ENTRY SURFACE has to be able to take. Reaching the tables first and then adding the columns would have
+meant building the Contact pane twice: once against a value-and-a-label, and once against the shape it
+actually has to hold. So the columns landed in the same change as the modules and the routes, and the
+pane was built once, against the shape it keeps. The decision's own consequence section anticipated
+this cost and it was avoided rather than paid.
 
 **The three tables stay three.** A postal address has seven components and a telecommunication endpoint
 has one, so a polymorphic `directory_contact_point` would put six permanently null columns on every
@@ -48,8 +54,7 @@ because it captures addresses off real correspondence, and a person typing their
 told when it is malformed).
 
 **Consequences:** a firm can record and read a person's email addresses, telephone and fax numbers and
-postal addresses, with more than one of each and one primary. The reverse lookup gains a much larger
-corpus, so inbound email capture proposes matters correctly far more often — a second-order benefit
-that arrives free. The cost is that a first release of the Contact pane will be built against columns
-that the later phases restructure, so the pane is designed against the target shape from the start
-rather than against what phase one stores.
+postal addresses, with more than one of each, one default per channel, a permission and a preference
+on each, and a record of what happened the last time the firm tried to use one. The reverse lookup
+gains a much larger corpus, so inbound email capture proposes matters correctly far more often — a
+second-order benefit that arrives free.

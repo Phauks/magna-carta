@@ -1,6 +1,6 @@
 ---
 slug: a-contact-point-carries-where-it-came-from-and-when-it-was-last-true
-status: Proposed
+status: Accepted — the verification half is built, the source half is deferred
 area: Directory
 date: 2026-08-30
 summary: "Nothing records where an address came from or when it was last confirmed, and courts require proof of diligence before permitting substituted service — verification of a last-known address against postal forwarding records being the ordinary first step. Five columns go on every contact point and every identifier: a source on a closed catalog, a free-text source detail, a verification status of unverified, verified or failed, and who verified it when. The status that does the most work is failed, because returned mail, a bounced message and a disconnected line are the facts an affidavit of diligence turns on and there is nowhere to put any of them today. The columns go on the row rather than in a polymorphic side table keyed on table-and-id, because that would turn every contact read into a join and last-confirmed is exactly the fact a list renders inline; five columns on four tables is more DDL and less code, and the DDL is paid once."
@@ -21,7 +21,9 @@ confirmed cannot support the affidavit that rests on it.
 **Decision:** five columns, the same five, on all four tables — `source` (client stated, intake form,
 court filing, opposing counsel, public record, correspondence, third-party service, firm staff,
 imported), `source_detail`, `verification_status` (unverified by default, verified, failed),
-`verified_at`, and `verified_by`.
+`verified_at`, and `verified_by` — plus `verification_detail`, which carries what a failure actually
+said. The four verification columns ship with the contact work; the two source columns are deferred
+(see the consequences below).
 
 **`failed` is the column that earns the change.** Returned mail, a bounced message, a disconnected
 line: the three facts a firm most needs to have recorded and the three it has nowhere to record. A row
@@ -39,8 +41,27 @@ probe cannot report how much of the corpus is unverified); deriving verification
 party, and conflating them would let an incidental edit read as a verification); a boolean `verified`
 (it cannot express a failure, which is the state that matters most).
 
-**Consequences:** a firm can show which addresses were confirmed, by whom and when, and can produce
-that list for a diligence affidavit. A send path can be asked to warn on or refuse a `failed` channel
-— which of the three it does is an open question, because refusing is safer and will occasionally be
-wrong about a temporary bounce. The cost is twenty new columns across four tables and one more
-decision at every contact entry, mitigated by a default source the entering surface can supply.
+**The owner settled what a failure does, and it is not a gate.** "Failed address verification doesn't
+block a send but we notify users." So a `failed` status is recorded, is surfaced to the member who is
+about to send, and the send proceeds. The reasoning holds in both directions: a bounce or a returned
+envelope is frequently temporary, and a platform that refuses on a stale failure teaches its users
+that its warnings are noise — at which point the warning that mattered goes unread too. The place a
+failure earns its keep is the affidavit of diligence and the moment before the post, not a refusal.
+
+**What was built, and what was not.** The four verification columns — `verification_status`,
+`verified_at`, `verified_by`, `verification_detail` — landed on all three contact tables with the
+contact work, because they are what the owner's ruling needs to be true. `verification_detail` carries
+what the failure said in the words it said it, which is the sentence an affidavit quotes.
+`verified_at` and `verified_by` move only when the status itself moves, so an unrelated edit to a row
+can never read back later as a confirmation the firm never made.
+
+`source` and `source_detail` are **deferred**. They are the diligence half of this decision rather
+than the send half, they change nothing about what a firm can record today, and the entry surface that
+would supply a sensible default for them is the intake form rather than the contact pane. They land
+with the provenance pass, on tables that are by then in use. `directory_identifier` gains none of the
+four yet: sealing a value and confirming it are different acts, and the identifier surface has no
+verification gesture to hang them on.
+
+**Consequences:** a firm can show which addresses were confirmed and when, can quote what a carrier
+said when one came back, and is warned rather than blocked at the moment it matters. The cost is four
+new columns across three tables and one more thing a contact entry can say.

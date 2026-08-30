@@ -11,8 +11,8 @@ export type { NameIndexBackfillResult } from "./name-index-backfill.ts";
 export { nicknameCatalogueIsPopulated, readNicknameEquivalences } from "./nickname.ts";
 export type { NicknameEquivalence } from "./nickname.ts";
 export { createPerson, readPerson, updatePerson } from "./person.ts";
-export { setPersonPronouns } from "./person.ts";
-export type { Person } from "./person.ts";
+export { setPersonPronouns, setPersonLifeDates, InvalidPersonLifeDatesError } from "./person.ts";
+export type { Person, PersonLifeDatesInput } from "./person.ts";
 export {
   IncompletePronounSetError,
   isPronounVerbNumber,
@@ -128,6 +128,47 @@ export type {
   DirectoryEmailRow,
   DirectoryEmailMatch,
 } from "./contact-email.ts";
+export { InvalidEmailUseError } from "./contact-email.ts";
+export {
+  addPhone,
+  updatePhone,
+  removePhone,
+  readPhones,
+  InvalidPhoneNumberError,
+  InvalidPhoneClassificationError,
+  DirectoryPhoneNotFoundError,
+} from "./contact-phone.ts";
+export type { AddPhoneInput, UpdatePhoneInput, DirectoryPhoneRow } from "./contact-phone.ts";
+export {
+  addAddress,
+  updateAddress,
+  removeAddress,
+  readAddresses,
+  InvalidAddressClassificationError,
+  DirectoryAddressNotFoundError,
+  EmptyPostalAddressError,
+} from "./contact-address.ts";
+export type {
+  AddAddressInput,
+  UpdateAddressInput,
+  DirectoryAddressRow,
+} from "./contact-address.ts";
+export { readContactPoints } from "./contact-points.ts";
+export type { DirectoryContactPoints } from "./contact-points.ts";
+export {
+  contactPointStateFromRow,
+  resolveContactFields,
+  InvalidContactVerificationStatusError,
+} from "./contact-preference.ts";
+export type {
+  ContactPointState,
+  ContactPreferenceInput,
+  ContactVerificationInput,
+} from "./contact-preference.ts";
+export { normalizedAddressKey, postalAddressIsEmpty } from "./postal-address.ts";
+export type { PostalAddressParts } from "./postal-address.ts";
+export { structurePhoneNumber, internationalPhoneNumber } from "./phone-number.ts";
+export type { StructuredPhoneNumber } from "./phone-number.ts";
 export {
   linkMatterParty,
   unlinkMatterParty,

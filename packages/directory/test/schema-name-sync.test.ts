@@ -6,6 +6,7 @@ import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core";
 import {
   auditLog,
   customFieldValue,
+  directoryAddress,
   directoryCategory,
   directoryEdge,
   directoryEmail,
@@ -16,6 +17,7 @@ import {
   directoryOrganization,
   directoryPartyRole,
   directoryPerson,
+  directoryPhone,
   entityMerge,
   matter,
   matterParty,
@@ -57,6 +59,9 @@ const TOUCHED_TABLES: readonly SQLiteTable[] = [
   directoryCategory,
   directoryEntityCategory,
   directoryPartyRole,
+  directoryEmail,
+  directoryPhone,
+  directoryAddress,
   matterParty,
   entityMerge,
   matter,
@@ -172,6 +177,11 @@ const SANCTIONED_NON_SCHEMA = new Set<string>([
   "pending",
   // the nickname catalogue existence probe labels its constant 1 so a caller reads a row, not a column
   "present",
+  // the entity index labels the name it sorts on, and the size of the whole record beside the page.
+  // Both exist only on the wire: neither person nor organization has a sort_name column, and the
+  // total is a COUNT over the union rather than anything stored.
+  "sort_name",
+  "total",
   // FTS5 virtual table + content link pseudo-column
   "directory_name_fts",
   "rowid",

@@ -1,12 +1,30 @@
 ---
 slug: an-organization-has-a-kind-a-jurisdiction-and-a-life
-status: Proposed
+status: Proposed — deferred by the owner, 2026-08-30
 area: Directory
 date: 2026-08-30
 summary: "directory_organization holds a legal name, a display name, the merge-graph status and timestamps, against a directory_person carrying five name parts, a member mapping and a six-column pronoun declension. The thinness is already causing harm inside the same schema: court_entity_id and estate_entity_id both point at directory_organization and neither can filter for what it points at, so a picker that must offer the courts has no column to read. It gains an organization_kind on a registered catalog, a formation jurisdiction, formation and dissolution dates, an organization_lifecycle_status deliberately not named status because that column is the merge-graph state and overloading it would be a live bug, and the legal form as registered so the match key's legal-form strip stays recoverable. Two organizations of the same name in different states are different legal persons, and the formation jurisdiction lets a conflicts reviewer see that in a second — as an attribute on the evidence, never as a filter, because suppressing a hit converts a fast dismissal into a missed conflict."
 ---
 
 **An organization has a kind, a jurisdiction of formation, and a life with a beginning and an end.**
+
+**Deferred by the owner, 2026-08-30.** The direction was that an organization stays "a basic group
+combining individuals for now". So nothing below is built in this pass: no `organization_kind`
+taxonomy, no `formation_jurisdiction`, no formation or dissolution date, no lifecycle status, no
+`legal_form_text`.
+
+**Recorded rather than dropped, because the finding that prompted it is still true.** The two columns
+described below — `court_entity_id` and `estate_entity_id` — still point into
+`directory_organization` and still cannot say what they are pointing at, so a picker that must offer
+the courts has no column to filter on and a conflicts reviewer still has nothing to tell two
+identically named organizations apart. Those costs are being carried deliberately rather than
+overlooked.
+
+**What makes the deferral cheap.** Every column below is a nullable `ALTER TABLE ADD COLUMN` against a
+table whose existing rows stay valid, so building it later costs what building it now would cost.
+Nothing in the contact-point work depends on it and nothing in it depends on the contact-point work.
+The one thing to avoid meanwhile is encoding a kind of organization into a name or a category label,
+because that is the shape that has to be unpicked rather than added to.
 
 **Context:** `directory_organization` carries `legal_name`, `display_name`, the merge-graph `status`
 and `merged_into_id`, `needs_review` and timestamps. Nothing else. `directory_person` beside it

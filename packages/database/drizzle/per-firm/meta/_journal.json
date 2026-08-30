@@ -526,6 +526,13 @@
       "when": 1788091200000,
       "tag": "20260830T000000_conflicts-waiver-record",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "6",
+      "when": 1788134400000,
+      "tag": "20260830T120000_directory-contact-points",
+      "breakpoints": true
     }
   ]
 }
