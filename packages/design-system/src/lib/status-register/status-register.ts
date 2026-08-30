@@ -38,7 +38,7 @@
  */
 import type { BadgeVariant } from "../components/badge/index.ts";
 
-/** Every status word the product speaks, across all four vocabularies. */
+/** Every status word the product speaks, across all six vocabularies. */
 export type StatusKey =
   // The work-in-progress chain, shared by time entries, fees and costs.
   | "draft"
@@ -58,7 +58,20 @@ export type StatusKey =
   | "warning"
   | "info"
   | "not-scanned"
-  | "clean";
+  | "clean"
+  // What the firm physically holds, and what has become of it.
+  | "held"
+  | "out"
+  | "released"
+  | "destroyed"
+  | "lost"
+  | "superseded"
+  // How a conflict hit stands. Only the unanswered one asks for anything.
+  | "unanswered"
+  | "cleared"
+  | "waiver-obtained"
+  | "wall-erected"
+  | "representation-declined";
 
 /**
  * How a status shows itself.
@@ -172,6 +185,78 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     meaning: "Scanned clean, with a document type recorded.",
     presentation: "mark",
   },
+
+  // What the firm physically holds, and what has become of it.
+  held: {
+    label: "Held",
+    tone: "neutral",
+    meaning: "In the firm's safekeeping, at the location the register names.",
+    presentation: "chip",
+  },
+  out: {
+    label: "Out",
+    tone: "warning",
+    meaning: "Checked out. The ledger names who has it and when it is due back.",
+    presentation: "chip",
+  },
+  released: {
+    label: "Released",
+    tone: "info",
+    meaning: "Handed back. The ledger records the authority it left on and who collected it.",
+    presentation: "chip",
+  },
+  destroyed: {
+    label: "Destroyed",
+    tone: "danger",
+    meaning: "Destroyed after a request and a separate approval. It does not come back.",
+    presentation: "chip",
+  },
+  lost: {
+    label: "Lost",
+    tone: "danger",
+    meaning: "Recorded as not found. It stays on the record until somebody records finding it.",
+    presentation: "chip",
+  },
+  superseded: {
+    label: "Superseded",
+    tone: "neutral",
+    meaning: "Replaced by a later instrument. The firm still holds it.",
+    presentation: "chip",
+  },
+
+  // How a conflict hit was answered. Only the UNANSWERED state is loud: grading a lawyer's
+  // judgement is the one thing this register may not do, so every answer reads level with the
+  // others and none of them is coloured as the better outcome.
+  unanswered: {
+    label: "Unanswered",
+    tone: "warning",
+    meaning: "Surfaced by a check and not yet answered by anyone.",
+    presentation: "chip",
+  },
+  cleared: {
+    label: "Cleared",
+    tone: "neutral",
+    meaning: "Answered: examined and found not to be a conflict.",
+    presentation: "chip",
+  },
+  "waiver-obtained": {
+    label: "Waiver Obtained",
+    tone: "info",
+    meaning: "Answered: the affected party consented to the representation.",
+    presentation: "chip",
+  },
+  "wall-erected": {
+    label: "Wall Erected",
+    tone: "info",
+    meaning: "Answered: the firm screened the conflicted people from the matter.",
+    presentation: "chip",
+  },
+  "representation-declined": {
+    label: "Representation Declined",
+    tone: "neutral",
+    meaning: "Answered: the firm did not take the work.",
+    presentation: "chip",
+  },
 };
 
 /**
@@ -189,6 +274,19 @@ export const STATUS_VOCABULARIES = {
   chargeStanding: ["finalized", "paid", "credited"],
   /** The file manager's safety column, and the analysis severities that feed it. */
   safety: ["error", "warning", "info", "not-scanned", "clean"],
+  /** What the firm physically holds, and what has become of it. */
+  custody: ["held", "out", "released", "destroyed", "lost", "superseded"],
+  /**
+   * How a conflict hit stands. Unanswered leads because it is the only one that asks for
+   * something; the four answers follow in no order of preference, because there is none.
+   */
+  conflictHit: [
+    "unanswered",
+    "cleared",
+    "waiver-obtained",
+    "wall-erected",
+    "representation-declined",
+  ],
 } as const satisfies Readonly<Record<string, readonly StatusKey[]>>;
 
 export type StatusVocabulary = keyof typeof STATUS_VOCABULARIES;

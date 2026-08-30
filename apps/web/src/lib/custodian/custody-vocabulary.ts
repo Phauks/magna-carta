@@ -9,18 +9,14 @@
  * `released`, `lost` is a first-class recordable state and not an absence, and a register that
  * renamed either would be describing something the record does not say.
  *
- * WHERE THIS BELONGS. The one home for a status word's label, tone and meaning is the design
- * system's status register (packages/design-system/src/lib/status-register/status-register.ts),
- * whose whole point is that a word carries the same tone wherever it appears. It holds no custody
- * vocabulary yet, and this stream does not own that package — so the vocabulary is declared here in
- * the register's own `StatusEntry` shape, one place for the whole subsystem, and moving it is a
- * relocation rather than a rewrite. Nothing else in these surfaces decides a tone.
- *
- * The tone choices follow the register's own reading of its palette: neutral for a resting fact,
- * warning for something a person has to act on, danger for an irreversible end state, info for a
- * standing condition, success for property safely back where it belongs.
+ * WHERE THE STATUSES LIVE. Not here. A status word's label, tone and meaning belong to the design
+ * system's status register, whose whole point is that a word carries the same tone wherever it
+ * appears — so the six custody statuses were moved into it and this module reads them back. What
+ * stays below is deliberately everything that is NOT a status: movement kinds, hold kinds, borrower
+ * kinds, location kinds. Those are taxonomies that happen to have labels, and a status register
+ * that absorbed every labelled enumeration in the product would stop being about status.
  */
-import type { StatusEntry } from "@magna-carta/design-system/status-register";
+import { statusEntry, type StatusEntry } from "@magna-carta/design-system/status-register";
 
 /** A packet's status — the physical thing the firm holds and moves. */
 export type CustodyPacketStatus = "held" | "out" | "released" | "destroyed" | "lost";
@@ -69,53 +65,19 @@ export type CustodyLocationKind =
   | "offsite"
   | "bank";
 
-const ITEM_STATUS_REGISTER: Readonly<Record<CustodyItemStatus, StatusEntry>> = {
-  held: {
-    label: "Held",
-    tone: "neutral",
-    meaning: "In the firm's safekeeping, at the location the register names.",
-    presentation: "chip",
-  },
-  out: {
-    label: "Out",
-    tone: "warning",
-    meaning: "Checked out. The ledger names who has it and when it is due back.",
-    presentation: "chip",
-  },
-  released: {
-    label: "Released",
-    tone: "info",
-    meaning: "Handed back. The ledger records the authority it left on and who collected it.",
-    presentation: "chip",
-  },
-  destroyed: {
-    label: "Destroyed",
-    tone: "danger",
-    meaning: "Destroyed after a request and a separate approval. It does not come back.",
-    presentation: "chip",
-  },
-  lost: {
-    label: "Lost",
-    tone: "danger",
-    meaning: "Recorded as not found. It stays on the record until somebody records finding it.",
-    presentation: "chip",
-  },
-  superseded: {
-    label: "Superseded",
-    tone: "neutral",
-    meaning: "Replaced by a later instrument. The firm still holds it.",
-    presentation: "chip",
-  },
-};
+// The custody statuses now live in the design system's status register, where a word carries the
+// same tone wherever it appears. This module keeps the label-only vocabularies below — movement
+// kinds, hold kinds, borrower kinds, location kinds — because those are taxonomies rather than
+// statuses, and a status register that absorbed them would stop being about status.
 
 /** One packet status, as the register renders it. */
 export function packetStatusEntry(status: CustodyPacketStatus): StatusEntry {
-  return ITEM_STATUS_REGISTER[status];
+  return statusEntry(status);
 }
 
 /** One item status, as the register renders it. */
 export function itemStatusEntry(status: CustodyItemStatus): StatusEntry {
-  return ITEM_STATUS_REGISTER[status];
+  return statusEntry(status);
 }
 
 /** The packet statuses in reading order — what a filter offers and a legend lists. */
