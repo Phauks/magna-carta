@@ -75,19 +75,25 @@
     letter-spacing: var(--mc-tracking-tight);
     white-space: nowrap;
   }
-  /* The pale-tint register the status pills use — a same-hue tint behind deep same-hue text, both
-     sides of the AA-gated pair. Red for the portable document, blue for the word processor, green
-     for the spreadsheet: conventions a reader already holds. */
+  /* SOLID, the way every file manager a reader has ever used draws this badge — a saturated block
+     carrying knocked-out text. Red for the portable document, blue for the word processor, green
+     for the spreadsheet: conventions a reader already holds, and the reason to draw them the
+     conventional way is that a file type is recognized before it is read.
+     This is the one place the pale-tint default is set aside. The rule reserving solid for what
+     must interrupt governs STATUS — a thing that has changed and wants attention — and a file's
+     type is not a status: it never changes, it raises no alarm, and there are only ever a handful
+     on screen at once. Nothing here is a status word, so the register's own colours are not what
+     these are. */
   .mc-file-icon-badge[data-tone="danger"] {
-    background-color: var(--mc-status-danger-subtle);
-    color: var(--mc-status-danger-subtle-foreground);
+    background-color: var(--mc-status-danger);
+    color: var(--mc-status-danger-foreground);
   }
   .mc-file-icon-badge[data-tone="info"] {
-    background-color: var(--mc-status-info-subtle);
-    color: var(--mc-status-info-subtle-foreground);
+    background-color: var(--mc-status-info);
+    color: var(--mc-status-info-foreground);
   }
   .mc-file-icon-badge[data-tone="success"] {
-    background-color: var(--mc-status-success-subtle);
-    color: var(--mc-status-success-subtle-foreground);
+    background-color: var(--mc-status-success);
+    color: var(--mc-status-success-foreground);
   }
 }

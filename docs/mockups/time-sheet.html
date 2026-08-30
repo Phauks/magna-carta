@@ -1,0 +1,2444 @@
+<!doctype html><html><head><!-- frame-runtime --><base href="/_f/1788038500-b320/"><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
+<title>The Time Sheet — rapid time entry</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,400;9..144,460;9..144,600&family=UnifrakturMaguntia&display=swap">
+<style>
+:root {
+  --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
+  --mc-accent-subtle: var(--mc-color-accent-100);
+  --mc-accent-subtle-foreground: var(--mc-color-accent-700);
+  --mc-action-destructive: var(--mc-color-red-500);
+  --mc-action-destructive-foreground: var(--mc-color-neutral-0);
+  --mc-action-destructive-hover: var(--mc-color-red-700);
+  --mc-action-disabled: var(--mc-color-neutral-200);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-primary: var(--mc-color-brand-800);
+  --mc-action-primary-active: var(--mc-color-brand-900);
+  --mc-action-primary-foreground: var(--mc-color-neutral-0);
+  --mc-action-primary-hover: var(--mc-color-brand-700);
+  --mc-action-secondary: var(--mc-color-neutral-100);
+  --mc-action-secondary-foreground: var(--mc-color-neutral-900);
+  --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-focus: var(--mc-color-brand-600);
+  --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
+  --mc-chrome-accent: var(--mc-color-accent-400);
+  --mc-chrome-border: var(--mc-color-brand-800);
+  --mc-chrome-surface: var(--mc-color-brand-900);
+  --mc-chrome-surface-hover: var(--mc-color-brand-800);
+  --mc-chrome-text: var(--mc-color-neutral-300);
+  --mc-chrome-text-muted: var(--mc-color-neutral-400);
+  --mc-chrome-text-strong: var(--mc-color-neutral-0);
+  --mc-color-accent-100: oklch(95% 0.0378 85);
+  --mc-color-accent-300: oklch(83% 0.0896 85);
+  --mc-color-accent-400: oklch(72% 0.1148 85);
+  --mc-color-accent-700: oklch(42% 0.086 85);
+  --mc-color-accent-900: oklch(22% 0.045 85);
+  --mc-color-amber-100: oklch(94.57% 0.0577 85.01);
+  --mc-color-amber-300: oklch(83% 0.1 80);
+  --mc-color-amber-400: oklch(77% 0.12 80);
+  --mc-color-amber-500: oklch(70% 0.13 80);
+  --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
+  --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
+  --mc-color-blue-300: oklch(75% 0.1 240);
+  --mc-color-blue-400: oklch(65% 0.13 240);
+  --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
+  --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
+  --mc-color-brand-0: oklch(99% 0.0035 70);
+  --mc-color-brand-50: oklch(97.5% 0.0063 70);
+  --mc-color-brand-100: oklch(95% 0.0094 70);
+  --mc-color-brand-200: oklch(90% 0.0157 70);
+  --mc-color-brand-300: oklch(83% 0.0224 70);
+  --mc-color-brand-400: oklch(72% 0.0287 70);
+  --mc-color-brand-500: oklch(62% 0.035 70);
+  --mc-color-brand-600: oklch(52% 0.035 70);
+  --mc-color-brand-700: oklch(42% 0.0318 70);
+  --mc-color-brand-800: oklch(32% 0.0255 70);
+  --mc-color-brand-900: oklch(22% 0.0192 70);
+  --mc-color-brand-1000: oklch(13% 0.0126 70);
+  --mc-color-green-100: oklch(94% 0.06 150);
+  --mc-color-green-300: oklch(76% 0.09 150);
+  --mc-color-green-400: oklch(66% 0.11 150);
+  --mc-color-green-500: oklch(56% 0.12 150);
+  --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
+  --mc-color-neutral-0: oklch(99% 0.002 70);
+  --mc-color-neutral-50: oklch(97.5% 0.0025 70);
+  --mc-color-neutral-100: oklch(95% 0.0037 70);
+  --mc-color-neutral-200: oklch(90% 0.0063 70);
+  --mc-color-neutral-300: oklch(83% 0.0089 70);
+  --mc-color-neutral-400: oklch(72% 0.0114 70);
+  --mc-color-neutral-500: oklch(62% 0.014 70);
+  --mc-color-neutral-600: oklch(52% 0.014 70);
+  --mc-color-neutral-700: oklch(42% 0.0127 70);
+  --mc-color-neutral-800: oklch(32% 0.0102 70);
+  --mc-color-neutral-900: oklch(22% 0.0077 70);
+  --mc-color-neutral-1000: oklch(13% 0.005 70);
+  --mc-color-red-100: oklch(92.89% 0.0361 27.51);
+  --mc-color-red-300: oklch(75% 0.12 25);
+  --mc-color-red-400: oklch(65% 0.15 25);
+  --mc-color-red-500: oklch(55% 0.18 25);
+  --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
+  --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
+  --mc-control-lg: 40px;
+  --mc-control-md: 36px;
+  --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
+  --mc-duration-fast: 120ms;
+  --mc-duration-normal: 200ms;
+  --mc-duration-slow: 300ms;
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
+  --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
+  --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
+  --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-3xl: 2rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
+  --mc-leading-normal: 1.5;
+  --mc-leading-relaxed: 1.625;
+  --mc-leading-tight: 1.25;
+  --mc-radius-full: 9999px;
+  --mc-radius-lg: 10px;
+  --mc-radius-md: 7px;
+  --mc-radius-none: 0px;
+  --mc-radius-sm: 2px;
+  --mc-size-popover: 224px;
+  --mc-size-prose: 480px;
+  --mc-size-sidebar: 256px;
+  --mc-size-top-bar: 56px;
+  --mc-space-0: 0px;
+  --mc-space-4: 4px;
+  --mc-space-8: 8px;
+  --mc-space-12: 12px;
+  --mc-space-16: 16px;
+  --mc-space-20: 20px;
+  --mc-space-24: 24px;
+  --mc-space-32: 32px;
+  --mc-space-40: 40px;
+  --mc-space-48: 48px;
+  --mc-space-64: 64px;
+  --mc-space-96: 96px;
+  --mc-status-danger: var(--mc-color-red-500);
+  --mc-status-danger-foreground: var(--mc-color-neutral-0);
+  --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-info: var(--mc-color-blue-700);
+  --mc-status-info-foreground: var(--mc-color-neutral-0);
+  --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-success: var(--mc-color-green-700);
+  --mc-status-success-foreground: var(--mc-color-neutral-0);
+  --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-warning: var(--mc-color-amber-500);
+  --mc-status-warning-foreground: var(--mc-color-neutral-1000);
+  --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-overlay: var(--mc-color-neutral-0);
+  --mc-surface-raised: var(--mc-color-neutral-50);
+  --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
+  --mc-surface-sunken: var(--mc-color-neutral-100);
+  --mc-text-default: var(--mc-color-neutral-900);
+  --mc-text-inverse: var(--mc-color-neutral-0);
+  --mc-text-link: var(--mc-color-brand-600);
+  --mc-text-muted: var(--mc-color-neutral-700);
+  --mc-text-subtle: var(--mc-color-neutral-600);
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
+  --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
+  --mc-weight-medium: 500;
+  --mc-weight-regular: 400;
+  --mc-weight-semibold: 600;
+  --mc-z-dropdown: 1000;
+  --mc-z-modal: 1300;
+  --mc-z-overlay: 1200;
+  --mc-z-sticky: 1100;
+  --mc-z-toast: 1400;
+}
+
+/* Chancery light, committed single-theme for this mockup; the built screen inherits theme x mode. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--mc-surface-sunken); color: var(--mc-text-default); }
+body { font-family: "Atkinson Hyperlegible", var(--mc-font-sans); font-size: var(--mc-font-size-sm); line-height: var(--mc-leading-normal); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring); outline-offset: var(--mc-focus-ring-offset); }
+.caps { text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); font-size: var(--mc-font-size-xs); }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); }
+.muted { color: var(--mc-text-muted); }
+svg { flex: none; }
+[hidden] { display: none !important; }
+.scrollable { scrollbar-color: var(--mc-color-neutral-300) var(--mc-surface-raised); scrollbar-width: thin; }
+.scrollable::-webkit-scrollbar { width: 10px; height: 10px; }
+.scrollable::-webkit-scrollbar-track { background: var(--mc-surface-raised); }
+.scrollable::-webkit-scrollbar-thumb { background: var(--mc-color-neutral-300); border-radius: var(--mc-radius-full); border: 2px solid var(--mc-surface-raised); }
+
+/* ============ App shell ============ */
+.shell { flex: 1; display: grid; grid-template-columns: var(--mc-size-sidebar) 1fr; grid-template-rows: var(--mc-size-top-bar) 1fr; min-height: 0; background: var(--mc-chrome-surface); }
+.brandcorner { grid-column: 1; grid-row: 1; background: var(--mc-chrome-surface); display: flex; align-items: center; gap: var(--mc-space-12); padding: 0 var(--mc-space-16); }
+.brandcorner .m { font-family: var(--mc-font-blackletter); color: var(--mc-chrome-accent); font-size: var(--mc-font-size-2xl); }
+.brandcorner .wordmark { color: var(--mc-chrome-text-strong); letter-spacing: var(--mc-tracking-wordmark); font-size: var(--mc-font-size-xs); text-transform: uppercase; }
+.topbar { grid-column: 2; grid-row: 1; background: var(--mc-chrome-surface); display: flex; align-items: center; gap: var(--mc-space-12); padding: 0 var(--mc-space-16); }
+.topbar .gsearch { flex: none; width: 320px; display: flex; align-items: center; gap: var(--mc-space-8); color: var(--mc-chrome-text-muted); border: 1px solid var(--mc-chrome-border); border-radius: var(--mc-radius-md); padding: 0 var(--mc-space-12); height: var(--mc-control-sm); }
+.topbar .gsearch .kbd { margin-left: auto; font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); }
+.topbar .right { margin-left: auto; display: flex; align-items: center; gap: var(--mc-space-12); }
+.topbar .bell { color: var(--mc-chrome-text-muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--mc-radius-md); }
+.topbar .bell:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+.avatar { width: 30px; height: 30px; border-radius: var(--mc-radius-full); background: var(--mc-color-neutral-0); color: var(--mc-color-neutral-900); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: var(--mc-font-size-xs); }
+.sidebar { grid-column: 1; grid-row: 2; background: var(--mc-chrome-surface); display: flex; flex-direction: column; overflow-y: auto; padding: var(--mc-space-12) var(--mc-space-8) var(--mc-space-8); }
+.sidebar .grouplabel { color: var(--mc-chrome-text-muted); padding: var(--mc-space-12) var(--mc-space-12) var(--mc-space-4); }
+.sidebar .dest { display: flex; align-items: center; gap: var(--mc-space-8); color: var(--mc-chrome-text); padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-md); font-size: var(--mc-font-size-sm); width: 100%; }
+.sidebar .dest:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+.sidebar .dest[aria-current="true"] { color: var(--mc-chrome-text-strong); background: var(--mc-chrome-surface-hover); font-weight: 700; }
+.sidebar .dest[aria-current="true"] svg { color: var(--mc-chrome-accent); opacity: 1; }
+.sidebar .dest svg { width: 15px; height: 15px; opacity: 0.85; }
+.mbadge { margin-left: var(--mc-space-4); font-size: var(--mc-font-size-xs); border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); font-weight: 700; }
+.mbadge.alpha { background: var(--mc-color-blue-100); color: var(--mc-color-blue-700); }
+.mbadge.soon { background: var(--mc-color-neutral-100); color: var(--mc-color-neutral-700); }
+
+/* ============ The Time Sheet chip ============ */
+.timerchip { position: relative; display: flex; align-items: center; gap: var(--mc-space-8); color: var(--mc-chrome-text); border: 1px solid var(--mc-chrome-border); border-radius: var(--mc-radius-md); padding: var(--mc-space-4) var(--mc-space-8); font-size: var(--mc-font-size-xs); }
+.timerchip:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+.timerchip svg { width: 13px; height: 13px; }
+.timerchip.running { color: var(--mc-chrome-text-strong); border-color: var(--mc-chrome-accent); }
+.timerchip.running svg { color: var(--mc-chrome-accent); }
+.timerchip .livedot { width: 6px; height: 6px; border-radius: var(--mc-radius-full); background: var(--mc-chrome-accent); animation: tkpulse 2s ease-in-out infinite; }
+@keyframes tkpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .timerchip .livedot { animation: none; } }
+.timerchip .chipmatter { color: inherit; opacity: 0.85; }
+.timerchip .pending { display: inline-flex; align-items: center; gap: 3px; background: var(--mc-status-warning-subtle); color: var(--mc-status-warning-subtle-foreground); border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-4); font-weight: 700; font-size: 10px; line-height: 14px; }
+
+/* ============ Canvas placeholder ============ */
+.canvas { grid-column: 2; grid-row: 2; min-width: 0; display: flex; flex-direction: column; background: var(--mc-surface-default); overflow: hidden; border-top-left-radius: var(--mc-radius-lg); }
+.mockbar { position: relative; z-index: 1395; pointer-events: none; flex: none; display: flex; flex-wrap: wrap; gap: var(--mc-space-8); align-items: center; padding: var(--mc-space-4) var(--mc-space-24); background: var(--mc-surface-sunken); border-bottom: 1px dashed var(--mc-border-strong); }
+.mockbar button { pointer-events: auto; }
+.mockbar span { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.mockbar button { font-size: var(--mc-font-size-xs); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-full); padding: 1px var(--mc-space-8); color: var(--mc-text-muted); background: var(--mc-surface-default); }
+.mockbar button[aria-pressed="true"] { border-color: var(--mc-border-strong); color: var(--mc-text-default); font-weight: 700; }
+.canvasnote { flex: 1; display: flex; align-items: center; justify-content: center; }
+.canvasnote .inner { text-align: center; color: var(--mc-text-subtle); max-width: var(--mc-size-prose); padding: var(--mc-space-24); }
+.canvasnote .bigm { font-family: var(--mc-font-blackletter); font-size: 72px; color: var(--mc-accent-subtle); line-height: 1; }
+.canvasnote h2 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-lg); color: var(--mc-text-muted); margin-top: var(--mc-space-12); }
+.canvasnote p { margin-top: var(--mc-space-8); }
+
+/* ============ Shared control vocabulary ============ */
+.btn { display: inline-flex; align-items: center; gap: var(--mc-space-4); height: var(--mc-control-xs); padding: 0 var(--mc-space-8); border-radius: var(--mc-radius-md); font-weight: 700; font-size: var(--mc-font-size-xs); white-space: nowrap; }
+.btn.primary { background: var(--mc-action-primary); color: var(--mc-action-primary-foreground); }
+.btn.primary:hover { background: var(--mc-action-primary-hover); }
+.btn.secondary { background: var(--mc-action-secondary); color: var(--mc-action-secondary-foreground); border: 1px solid var(--mc-border-default); }
+.btn.secondary:hover { background: var(--mc-action-secondary-hover); }
+.btn:disabled { background: var(--mc-action-disabled); color: var(--mc-action-disabled-foreground); cursor: not-allowed; border: none; }
+.btn svg { width: 13px; height: 13px; }
+.iconbtn { width: 26px; height: 26px; border-radius: var(--mc-radius-md); color: var(--mc-text-muted); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.iconbtn:hover:not(:disabled) { background: var(--mc-surface-selected); color: var(--mc-text-default); }
+.iconbtn:disabled { color: var(--mc-action-disabled-foreground); cursor: default; }
+.iconbtn svg { width: 14px; height: 14px; }
+.iconbtn.filterclear.on { color: var(--mc-accent-default); outline: 1px solid var(--mc-accent-strong); outline-offset: -1px; }
+/* Undo/redo are split controls: the button steps, the caret opens the stack. */
+.histsplit { display: inline-flex; align-items: center; }
+.histsplit .iconbtn { border-radius: var(--mc-radius-md) 0 0 var(--mc-radius-md); }
+.histsplit .caret { width: 16px; border-radius: 0 var(--mc-radius-md) var(--mc-radius-md) 0; }
+.histsplit .caret svg { width: 11px; height: 11px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); font-size: var(--mc-font-size-xs); border: 1px solid; white-space: nowrap; }
+.chip.quiet { background: var(--mc-surface-raised); color: var(--mc-text-muted); border-color: var(--mc-border-default); }
+.chip.accent { background: var(--mc-accent-subtle); color: var(--mc-accent-subtle-foreground); border-color: var(--mc-accent-strong); }
+.chip .cdot { width: 6px; height: 6px; border-radius: var(--mc-radius-full); background: currentColor; }
+.chip.accent .cdot { animation: tkpulse 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .chip.accent .cdot { animation: none; } }
+
+/* ============ The Time Sheet modal ============ */
+.tkwash { position: fixed; inset: 0; background: var(--mc-surface-scrim); z-index: var(--mc-z-modal); display: flex; align-items: flex-start; justify-content: center; padding: 90px var(--mc-space-16) var(--mc-space-16); }
+.tkmodal { width: min(1560px, 97vw); height: calc(100vh - 106px); max-height: calc(100vh - 106px); display: flex; flex-direction: column; background: var(--mc-surface-default); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-lg); box-shadow: var(--mc-elevation-3); }
+/* Full-screen takeover (round five, item 12): "so it isn't so much a modal as it is the full
+   screen." The table gets all the height; Escape still closes; the toggle restores. */
+.tkwash.full { padding: 0; }
+.tkwash.full .tkmodal { width: 100vw; height: 100vh; max-height: 100vh; border: none; border-radius: 0; box-shadow: none; }
+body.tkfullscreen .mockbar { z-index: 100; }
+.tkmodal > header { flex: none; display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-12) var(--mc-space-12) var(--mc-space-8) var(--mc-space-24); flex-wrap: wrap; }
+.tkmodal > header h2 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-xl); }
+/* The date-scope control: which entries the sheet shows. Default today; ranges compose with
+   filters and the totals caption. */
+.tkscope { display: inline-flex; align-items: center; gap: var(--mc-space-4); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); padding: 0 var(--mc-space-8); height: var(--mc-control-xs); color: var(--mc-text-muted); }
+.tkscope:hover { background: var(--mc-surface-raised); color: var(--mc-text-default); }
+.tkscope svg { width: 13px; height: 13px; }
+.tkscope .lbl { font-weight: var(--mc-weight-semibold); }
+.tkmodal > header .spacer { flex: 1; }
+/* Search expands from its button (the file manager's S2 pattern); collapsed it is just "Search". */
+.tksearch { display: flex; align-items: center; gap: var(--mc-space-4); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); padding: 0 var(--mc-space-8); height: var(--mc-control-xs); color: var(--mc-text-subtle); }
+.tksearch input { border: none; background: transparent; font: inherit; color: var(--mc-text-default); width: 170px; outline: none; }
+.tksearch input::placeholder { color: var(--mc-text-subtle); }
+.tksearch.on { border-color: var(--mc-accent-strong); color: var(--mc-accent-default); }
+.tksearch svg { width: 13px; height: 13px; }
+.tksearch .clr { width: 18px; height: 18px; border-radius: var(--mc-radius-sm); display: inline-flex; align-items: center; justify-content: center; color: var(--mc-text-subtle); }
+.tksearch .clr:hover { color: var(--mc-text-default); background: var(--mc-surface-selected); }
+.tktablewrap { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; border-top: 1px solid var(--mc-border-default); }
+table { width: 100%; min-width: 1310px; border-collapse: collapse; font-size: var(--mc-font-size-sm); }
+thead th { position: relative; position: sticky; top: 0; background: var(--mc-surface-raised); z-index: 2; text-align: left; padding: 0; border-bottom: 1px solid var(--mc-border-default); white-space: nowrap; }
+thead th .hcell { display: flex; align-items: center; min-height: 28px; }
+thead th.right .hcell { justify-content: flex-end; }
+thead th .sortbtn { flex: 0 1 auto; display: flex; align-items: center; gap: var(--mc-space-4); color: var(--mc-text-subtle); font-weight: 400; text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); font-size: var(--mc-font-size-xs); padding: var(--mc-space-4) var(--mc-space-8); }
+thead th .hcell:hover { background: var(--mc-surface-selected); }
+thead th .hcell:hover .sortbtn { color: var(--mc-text-default); }
+thead th.right .sortbtn { justify-content: flex-end; }
+thead th .arrow { width: 10px; display: inline-flex; }
+thead th .filterbtn { width: 20px; height: 20px; margin-left: auto; margin-right: var(--mc-space-4); border-radius: var(--mc-radius-sm); color: var(--mc-text-subtle); display: inline-flex; visibility: hidden; align-items: center; justify-content: center; flex: none; }
+thead th.right .filterbtn { margin-left: 0; }
+thead th:hover .filterbtn, thead th:focus-within .filterbtn, thead th .filterbtn.active { visibility: visible; }
+thead th .filterbtn.active { background: var(--mc-accent-subtle); color: var(--mc-accent-subtle-foreground); }
+thead th .hcell:hover .filterbtn:not(.active) { color: var(--mc-text-default); }
+thead th .filterbtn svg { width: 11px; height: 11px; }
+thead th[draggable] { cursor: grab; }
+thead th.dragging { opacity: 0.4; }
+thead th.drop-before { box-shadow: inset 2px 0 0 0 var(--mc-border-focus); }
+thead th.drop-after { box-shadow: inset -2px 0 0 0 var(--mc-border-focus); }
+thead th .thgrip { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; z-index: 6; }
+thead th .thgrip::after { content: ""; position: absolute; left: 3px; top: 0; height: 100%; width: 1px; background: transparent; }
+thead th .thgrip:hover::after, thead th .thgrip.dragging::after { background: var(--mc-border-focus); width: 2px; }
+body.resizing { cursor: col-resize; user-select: none; }
+table.fixedcols { table-layout: fixed; }
+table.fixedcols td { overflow: hidden; }
+tbody td { padding: 1px var(--mc-space-8); vertical-align: middle; }
+tbody.rowg tr.l1 td { height: 29px; border-bottom: none; padding-bottom: 0; }
+tbody.rowg tr.l2 td { height: auto; min-height: 27px; border-bottom: 1px solid var(--mc-border-default); padding-top: 0; padding-bottom: 2px; }
+tbody.rowg:hover td { background: var(--mc-surface-raised); }
+tbody.rowg.tklive td { background: var(--mc-surface-raised); }
+tbody.rowg.tklocked td { color: var(--mc-text-muted); }
+/* The sheet ends in an add-a-row button — no blank row stands at rest. */
+.tkaddwrap td { padding: 0; }
+.tkaddrow { display: flex; align-items: center; gap: var(--mc-space-4); width: 100%; color: var(--mc-text-subtle); padding: var(--mc-space-8) var(--mc-space-12); font-size: var(--mc-font-size-xs); font-weight: var(--mc-weight-semibold); }
+.tkaddrow:hover { background: var(--mc-surface-raised); color: var(--mc-text-default); }
+.tkaddrow svg { width: 14px; height: 14px; }
+/* The status stripe: state at a glance on the row's left edge, both lines, semantic tokens.
+   Complete+saved = success · incomplete = warning · running = accent · chain-locked = info. */
+tbody.rowg tr td:first-child { box-shadow: inset 3px 0 0 var(--mc-border-default); }
+tbody.rowg.st-ok tr td:first-child { box-shadow: inset 3px 0 0 var(--mc-color-green-300); }
+tbody.rowg.st-warn tr td:first-child { box-shadow: inset 3px 0 0 var(--mc-status-warning); }
+tbody.rowg.st-live tr td:first-child { box-shadow: inset 3px 0 0 var(--mc-accent-strong); }
+tbody.rowg.st-lock tr td:first-child { box-shadow: inset 3px 0 0 var(--mc-status-info-subtle-border); }
+td.right, th.right { text-align: right; white-space: nowrap; }
+td.nowrap { white-space: nowrap; }
+/* An editable cell's input FILLS ITS CELL: the column's (resizable) width is the input's width,
+   so a long matter or description is never clipped by a field narrower than the space it has.
+   min-width:0 lets it shrink inside flex cells too. */
+.cellin { font: inherit; width: 100%; min-width: 0; border: 1px solid transparent; border-radius: var(--mc-radius-sm); background: transparent; color: inherit; padding: 2px var(--mc-space-4); height: 26px; }
+.tkwho .cellin { flex: 1 1 auto; width: auto; }
+.cellin:hover:not(:disabled) { border-color: var(--mc-border-default); }
+.cellin:focus { border-color: var(--mc-border-focus); background: var(--mc-surface-field); outline: none; }
+.cellin:disabled { color: var(--mc-text-subtle); cursor: default; }
+.cellin::placeholder { color: var(--mc-text-subtle); font-style: italic; }
+.cellin.num { font-variant-numeric: tabular-nums; }
+.cellin.right { text-align: right; }
+.cellin.ticking { color: var(--mc-accent-default); font-weight: 700; }
+td .lockedcell { display: block; padding: 2px var(--mc-space-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+td.totalcell { font-variant-numeric: tabular-nums; font-weight: var(--mc-weight-semibold); cursor: default; }
+/* The immutable time code: minted at creation, never edited. Provisional codes read provisional. */
+td .codecell { display: inline-block; font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); padding: 2px var(--mc-space-4); cursor: default; white-space: nowrap; }
+td .codecell.provisional { color: var(--mc-status-warning-subtle-foreground); border-bottom: 1px dashed var(--mc-status-warning-subtle-border); }
+.dbstate { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: var(--mc-radius-full); }
+.dbstate svg { width: 13px; height: 13px; }
+.dbstate.saved { color: var(--mc-status-success-subtle-foreground); }
+.dbstate.saving { color: var(--mc-text-subtle); }
+.dbstate.saving svg { animation: tkspin 0.9s linear infinite; }
+@keyframes tkspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dbstate.saving svg { animation: none; } }
+.dbstate.incomplete { color: var(--mc-status-warning-subtle-foreground); }
+.tkwho { display: flex; align-items: center; min-width: 0; }
+/* A delegated entry's enterer is marked; a self-entered one still names the person. */
+.tkwho.delegated .av { border-color: var(--mc-accent-strong); color: var(--mc-accent-default); }
+.tkwho .av { width: 20px; height: 20px; border-radius: var(--mc-radius-full); background: var(--mc-surface-sunken); border: 1px solid var(--mc-border-default); display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: var(--mc-text-muted); margin-right: var(--mc-space-4); flex: none; }
+.l2wrap { display: flex; align-items: flex-start; gap: var(--mc-space-8); }
+.l2wrap .cellin { flex: 1; }
+/* The memo reveal sits at the FAR RIGHT of the description line, at rest like every row control. */
+.memobtn { flex: none; width: 22px; height: 22px; border-radius: var(--mc-radius-sm); color: var(--mc-text-subtle); display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
+.memobtn svg { width: 13px; height: 13px; }
+.memobtn:hover { background: var(--mc-surface-selected); color: var(--mc-text-default); }
+.memobtn.on { color: var(--mc-accent-default); }
+/* The memo line: the description's treatment, marked unmistakably as the firm's own. */
+tbody.rowg tr.l3 td { height: auto; border-bottom: 1px solid var(--mc-border-default); padding-top: 0; padding-bottom: 3px; }
+tbody.rowg tr.l2:has(+ tr.l3) td { border-bottom: none; }
+.memowrap { align-items: flex-start; }
+.memowrap .memota { background: var(--mc-surface-sunken); border-color: var(--mc-border-default); border-style: dashed; color: var(--mc-text-muted); }
+.memowrap .memota:focus { background: var(--mc-surface-field); border-style: solid; color: var(--mc-text-default); }
+.memotag { flex: none; font-size: 10px; line-height: 18px; text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); color: var(--mc-text-subtle); background: var(--mc-surface-sunken); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); margin-top: 2px; }
+/* The wrapping description: grows to its content, never scrolls sideways. */
+.noteta { resize: none; overflow: hidden; min-height: 24px; height: 24px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; display: block; font: inherit; }
+/* File associations render as compact chips that open the document. */
+.filecell { display: inline-flex; gap: var(--mc-space-4); align-items: center; max-width: 100%; }
+.filechip { display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-full); background: var(--mc-surface-raised); color: var(--mc-text-muted); padding: 0 var(--mc-space-8); font-size: var(--mc-font-size-xs); max-width: 15ch; }
+.filechip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filechip:hover { color: var(--mc-text-default); border-color: var(--mc-border-strong); }
+.filechip svg { width: 11px; height: 11px; }
+.filechip .fx { width: 14px; height: 14px; border-radius: var(--mc-radius-sm); display: inline-flex; align-items: center; justify-content: center; color: var(--mc-text-subtle); }
+.filechip .fx:hover { color: var(--mc-status-danger-subtle-foreground); }
+.fileassoc { display: flex; flex-wrap: wrap; gap: var(--mc-space-4); }
+.fileassoc:empty { display: none; }
+.fileassoc .filechip { max-width: 32ch; }
+.rowacts { display: inline-flex; gap: 2px; justify-content: flex-end; }
+/* THE ACTIONS PIN TO THE ROW'S TRAILING EDGE (round seven, item 6): the sheet scrolls sideways
+   once every column is shown, and a control you have to scroll to reach is a control you do not
+   have. Sticky, opaque, and carrying a hairline so it reads as pinned rather than floating. The
+   header's own cell pins too, or the column would slide out from under its rows. */
+thead th.actscol { position: sticky; right: 0; top: 0; z-index: 5; background: var(--mc-surface-raised); }
+tbody.rowg td.actscol { position: sticky; right: 0; z-index: 3; background: var(--mc-surface-default); }
+thead th.actscol::before, tbody.rowg td.actscol::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--mc-border-default);
+}
+tbody.rowg:hover td.actscol, tbody.rowg.tklive td.actscol { background: var(--mc-surface-raised); }
+.emptyfiltered { padding: var(--mc-space-24); text-align: center; color: var(--mc-text-muted); }
+.emptyfiltered .btn { margin: var(--mc-space-8) auto 0; }
+.tkfoot { flex: none; display: flex; align-items: center; gap: var(--mc-space-8) var(--mc-space-16); padding: var(--mc-space-8) var(--mc-space-24) var(--mc-space-12); border-top: 1px solid var(--mc-border-default); flex-wrap: wrap; }
+.tkhonesty { display: flex; gap: var(--mc-space-8); flex-wrap: wrap; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.tkhonesty strong { color: var(--mc-text-muted); font-variant-numeric: tabular-nums; font-weight: var(--mc-weight-semibold); }
+.tkhonesty .unlogged { color: var(--mc-status-warning-subtle-foreground); }
+.tkhonesty .unlogged strong { color: var(--mc-status-warning-subtle-foreground); }
+.tkhonesty .sep { color: var(--mc-border-strong); }
+.tkfoot .spacer { flex: 1; }
+.tkfoot .quietnote { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+
+/* Menus */
+.menu { position: fixed; z-index: 1360; background: var(--mc-surface-overlay); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); box-shadow: var(--mc-elevation-2); min-width: 240px; padding: var(--mc-space-4); }
+.menu button { width: 100%; padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-sm); color: var(--mc-text-default); display: flex; align-items: baseline; gap: var(--mc-space-8); }
+.menu button:hover, .menu button.hot { background: var(--mc-surface-selected); }
+.menu .mhead { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); padding: var(--mc-space-4) var(--mc-space-12); }
+.menu .mnum { font-variant-numeric: tabular-nums; font-weight: var(--mc-weight-semibold); white-space: nowrap; }
+.menu .mtitle { color: var(--mc-text-muted); font-size: var(--mc-font-size-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu .rule { height: 1px; background: var(--mc-border-default); margin: var(--mc-space-4) 0; }
+.menu svg { width: 14px; height: 14px; color: var(--mc-text-subtle); }
+.menu label { display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-sm); }
+.menu label:hover { background: var(--mc-surface-selected); }
+.menu label .n { margin-left: auto; color: var(--mc-text-subtle); font-variant-numeric: tabular-nums; font-size: var(--mc-font-size-xs); }
+.menu .mnote { max-width: 260px; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); padding: var(--mc-space-4) var(--mc-space-12); }
+.menu .mnote.warn { color: var(--mc-status-warning-subtle-foreground); }
+.menu .rangerow { display: flex; gap: var(--mc-space-8); padding: var(--mc-space-4) var(--mc-space-12); align-items: center; }
+.menu .rangerow input { width: 128px; min-width: 0; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-sm); padding: var(--mc-space-4) var(--mc-space-8); background: var(--mc-surface-field); color: var(--mc-text-default); font-size: var(--mc-font-size-xs); font-family: inherit; }
+input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--mc-action-primary); }
+
+/* ============ The full entry dialog — stacked above the sheet ============ */
+/* The record window stacks ABOVE the sheet — and above the mockup's own scenario strip, which
+   otherwise clips its header. The toast (1400) still wins. */
+.dialogwash { position: fixed; inset: 0; background: var(--mc-surface-scrim); z-index: 1396; display: flex; align-items: center; justify-content: center; padding: var(--mc-space-16); }
+.dialog { width: min(780px, 94vw); max-height: calc(100vh - var(--mc-space-32)); display: flex; flex-direction: column; background: var(--mc-surface-default); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-lg); box-shadow: var(--mc-elevation-3); }
+.dialog > header { flex: none; display: flex; align-items: flex-start; gap: var(--mc-space-8); padding: var(--mc-space-16) var(--mc-space-12) var(--mc-space-4) var(--mc-space-20); }
+.dialog > header .htext { flex: 1; }
+.dialog > header h2 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-lg); }
+.dialog > header .fromrun { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); margin-top: 2px; }
+.dialog > .body { flex: 1 1 auto; overflow-y: auto; scrollbar-width: thin; padding: var(--mc-space-8) var(--mc-space-20) var(--mc-space-16); display: flex; flex-direction: column; gap: var(--mc-space-12); }
+.dialog footer { flex: none; display: flex; justify-content: flex-end; align-items: center; gap: var(--mc-space-8); padding: 0 var(--mc-space-20) var(--mc-space-16); }
+.dialog footer .foothint { margin-right: auto; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.dialog footer .btn { height: var(--mc-control-sm); padding: 0 var(--mc-space-12); font-size: var(--mc-font-size-sm); }
+.dialog .field { display: flex; flex-direction: column; gap: var(--mc-space-4); min-width: 0; }
+.dialog .field > label { color: var(--mc-text-muted); font-size: var(--mc-font-size-xs); }
+.dialog .field input, .dialog .field select, .dialog .field textarea { font: inherit; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); padding: var(--mc-space-8); background: var(--mc-surface-field); color: var(--mc-text-default); width: 100%; }
+.dialog .field textarea { resize: vertical; min-height: 40px; }
+.dialog .field textarea:disabled, .dialog .field input:disabled { background: var(--mc-surface-raised); color: var(--mc-text-subtle); cursor: not-allowed; }
+.dialog .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mc-space-12); }
+/* A typable combobox reads as a dropdown: the chevron shows everything, typing filters. */
+.combowrap { position: relative; display: block; }
+.combowrap .chev { position: absolute; right: var(--mc-space-8); top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--mc-text-subtle); pointer-events: none; }
+.dialog .field .combowrap input { padding-right: var(--mc-space-24); cursor: pointer; }
+.dialog .hint { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+/* ---- The two-pane record window: lifted from the shared WIP record modal so the Time Sheet and
+   the matter Time tab are ONE component, not two designs. Class names are kept verbatim. ---- */
+.dialog.xl { width: min(1080px, 96vw); height: min(92vh, 800px); max-height: min(92vh, 800px); position: relative; }
+.dialog.xl.twopane { height: min(92vh, 780px); }
+.dialog.xl.max { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; border: none; }
+.dialogwash.maxed { padding: 0; }
+.dialog .hdracts { position: absolute; top: var(--mc-space-12); right: var(--mc-space-12); display: flex; gap: var(--mc-space-4); z-index: 2; }
+.dialog.xl > header { padding: var(--mc-space-16) 150px var(--mc-space-8) var(--mc-space-20); display: block; }
+.dialog.xl > header .subtitle { display: block; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); margin-top: 2px; }
+.tp { flex: 1; display: flex; min-height: 0; }
+.tp .tpleft { flex: 1.25; min-width: 0; overflow-y: auto; padding: var(--mc-space-8) var(--mc-space-20) var(--mc-space-16); display: flex; flex-direction: column; gap: var(--mc-space-12); align-content: flex-start; border-right: 1px solid var(--mc-border-default); }
+.tp .tpright { flex: 1; min-width: 300px; display: flex; flex-direction: column; min-height: 0; }
+.mtabs { flex: none; display: flex; gap: var(--mc-space-4); padding: 0 var(--mc-space-16); border-bottom: 1px solid var(--mc-border-default); }
+.mtabs button { color: var(--mc-text-muted); padding: var(--mc-space-4) var(--mc-space-12); border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: var(--mc-font-size-sm); }
+.mtabs button:hover { color: var(--mc-text-default); }
+.mtabs button[aria-current="true"] { color: var(--mc-text-default); font-weight: 700; border-bottom-color: var(--mc-accent-strong); }
+.mtabs button .n { color: var(--mc-text-subtle); font-variant-numeric: tabular-nums; font-size: var(--mc-font-size-xs); margin-left: var(--mc-space-4); }
+.tp .tpright .tpbody { flex: 1; overflow-y: auto; padding: var(--mc-space-12) var(--mc-space-16) var(--mc-space-16); display: flex; flex-direction: column; gap: var(--mc-space-12); }
+.actbar { flex: none; display: flex; align-items: center; gap: var(--mc-space-8); min-height: 48px; padding: 0 var(--mc-space-20); border-top: 1px solid var(--mc-border-default); }
+.actbar .spacer { flex: 1; }
+.actbar .foothint { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.actbar .btn { height: var(--mc-control-sm); padding: 0 var(--mc-space-12); font-size: var(--mc-font-size-sm); }
+.dialog .field textarea.grow { resize: none; overflow: hidden; min-height: 34px; }
+/* The event rail: a marker per event on a hairline, absolute stamps, oldest first. */
+.hist { list-style: none; display: flex; flex-direction: column; margin: 0; padding: 0; }
+.hist li { position: relative; padding: 0 0 var(--mc-space-8) var(--mc-space-16); }
+.hist li::before { content: ""; position: absolute; left: 3px; top: 5px; width: 7px; height: 7px; border-radius: var(--mc-radius-full); background: var(--mc-surface-default); border: 2px solid var(--mc-border-strong); }
+.hist li.now::before { border-color: var(--mc-accent-strong); background: var(--mc-accent-strong); }
+.hist li::after { content: ""; position: absolute; left: 6px; top: 16px; bottom: -2px; width: 1px; background: var(--mc-border-default); }
+.hist li:last-child { padding-bottom: 0; }
+.hist li:last-child::after { display: none; }
+.hist .ev { font-size: var(--mc-font-size-sm); color: var(--mc-text-default); font-weight: var(--mc-weight-semibold); line-height: var(--mc-leading-tight); }
+.hist .evmeta { display: block; font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); margin-top: 1px; }
+.hist .evdetail { display: block; font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); border-left: 2px solid var(--mc-border-default); padding-left: var(--mc-space-8); margin-top: var(--mc-space-4); }
+.insfacts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--mc-space-4) var(--mc-space-12); font-size: var(--mc-font-size-sm); margin: 0; }
+.insfacts dt { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); padding-top: 2px; white-space: nowrap; }
+.insfacts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.notefact { font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); display: flex; gap: var(--mc-space-8); align-items: flex-start; }
+.notefact svg { width: 13px; height: 13px; margin-top: 1px; color: var(--mc-text-subtle); flex: none; }
+.notefact.warn, .notefact.warn svg { color: var(--mc-status-warning-subtle-foreground); }
+.attrow { display: flex; align-items: center; gap: var(--mc-space-8); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); padding: var(--mc-space-4) var(--mc-space-12); font-size: var(--mc-font-size-sm); }
+.attrow svg { width: 13px; height: 13px; color: var(--mc-text-subtle); flex: none; }
+.attrow .attname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attrow .iconbtn { width: 24px; height: 24px; }
+.attsrc { display: flex; gap: var(--mc-space-8); flex-wrap: wrap; align-items: center; }
+.docpick { display: flex; flex-direction: column; gap: var(--mc-space-4); margin-top: var(--mc-space-8); }
+.docpick .dprow { display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-4) var(--mc-space-8); border-radius: var(--mc-radius-sm); font-size: var(--mc-font-size-sm); width: 100%; }
+.docpick .dprow svg { width: 13px; height: 13px; color: var(--mc-text-subtle); flex: none; }
+.docpick .dprow:hover:not(:disabled) { background: var(--mc-surface-selected); }
+.docpick .dprow:disabled { color: var(--mc-text-subtle); cursor: default; }
+.docpick .dpname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ONE arithmetic relationship on ONE line: worked -> billed x rate = amount. */
+.arithstrip { display: flex; align-items: flex-end; gap: var(--mc-space-12); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); background: var(--mc-surface-raised); padding: var(--mc-space-8) var(--mc-space-12); flex-wrap: wrap; }
+.arithstrip .ai { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.arithstrip .alab { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.arithstrip .aval { font-weight: 700; font-variant-numeric: tabular-nums; }
+.arithstrip .aop { color: var(--mc-text-subtle); padding-bottom: 2px; }
+.arithnote { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.lnk { color: var(--mc-text-link); text-decoration: underline; text-underline-offset: 2px; }
+.printsheet { border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); padding: var(--mc-space-16); background: var(--mc-surface-default); }
+.printsheet h3 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-lg); margin-bottom: var(--mc-space-12); }
+.memoblock .memotag { margin-left: var(--mc-space-4); }
+.arith { border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); background: var(--mc-surface-raised); padding: var(--mc-space-8) var(--mc-space-12); display: flex; flex-direction: column; gap: var(--mc-space-4); }
+.arith .arow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1.1fr); gap: var(--mc-space-12); align-items: start; }
+.arith .amt { font-size: var(--mc-font-size-lg); font-weight: 700; font-variant-numeric: tabular-nums; padding-top: var(--mc-space-8); white-space: nowrap; }
+.arith .note { font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); }
+@media (max-height: 700px) {
+  .dialog > .body { gap: var(--mc-space-8); padding-bottom: var(--mc-space-12); }
+  .dialog footer { padding-bottom: var(--mc-space-12); }
+  .tkmodal > header { padding-top: var(--mc-space-8); }
+}
+
+#tkToast { position: fixed; left: 50%; bottom: var(--mc-space-24); transform: translateX(-50%) translateY(8px); background: var(--mc-chrome-surface); color: var(--mc-chrome-text-strong); padding: var(--mc-space-8) var(--mc-space-16); border-radius: var(--mc-radius-full); box-shadow: var(--mc-elevation-3); z-index: 1400; font-size: var(--mc-font-size-sm); opacity: 0; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease; display: flex; gap: var(--mc-space-12); align-items: center; }
+#tkToast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+#tkToast button { pointer-events: auto; color: var(--mc-chrome-accent); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { #tkToast { transition: none; } }
+</style>
+
+<div class="shell">
+  <div class="brandcorner"><span class="m">M</span><span class="wordmark">Magna Carta</span></div>
+  <div class="topbar">
+    <button class="gsearch">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+      Search&hellip;
+      <span class="kbd">Ctrl K</span>
+    </button>
+    <div class="right">
+      <button class="timerchip" id="tkChip" aria-haspopup="dialog" aria-expanded="false"></button>
+      <button class="bell" title="Notifications"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></button>
+      <div class="avatar">RO</div>
+    </div>
+  </div>
+
+  <nav class="sidebar scrollable" aria-label="Global">
+    <div class="grouplabel caps">Workspace</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Home<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>Notifications<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12h.01"/><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M22 13a18.15 18.15 0 0 1-20 0"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>Matters<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>Calendar<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>Documents<span class="mbadge soon">Soon</span></button>
+    <div class="grouplabel caps">Money</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Time<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>Billing<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>Trust<span class="mbadge soon">Soon</span></button>
+    <div class="grouplabel caps">Firm</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Reports<span class="mbadge soon">Soon</span></button>
+  </nav>
+
+  <div class="canvas">
+    <div class="mockbar" role="group" aria-label="Mockup controls">
+      <span>Scenario:</span>
+      <button data-scene="idle" aria-pressed="false">Chip idle</button>
+      <button data-scene="running" aria-pressed="false">Chip running</button>
+      <button data-scene="sheet" aria-pressed="true">Time sheet open</button>
+      <span style="margin-left:auto">The Time Sheet — round seven</span>
+    </div>
+    <div class="canvasnote">
+      <div class="inner">
+        <div class="bigm">M</div>
+        <h2>Any screen</h2>
+        <p>The Time Sheet lives in the top bar and opens over whatever the person is doing. Capture never forces navigation; the canvas behind stays exactly where it was.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- The Time Sheet — round six: the surface is named the Time Sheet; every editable cell's input
+     fills its (resizable) cell; Hours is typable and reconciles with Duration both ways; row
+     actions rest visible; every date preset's span matches its name; the scope widens itself
+     rather than hide a row the person just entered; a New entry button opens the single-entry
+     screen; the sheet ends in an add-a-row button instead of a standing blank row.
+     tk-prefixed ids for module extraction. -->
+<div class="tkwash" id="tkWash" hidden>
+  <div class="tkmodal" role="dialog" aria-label="Time Sheet" aria-modal="true">
+    <header>
+      <h2>Time Sheet</h2>
+      <button class="tkscope num" id="tkScopeBtn" title="Choose the date or range this sheet shows">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
+        <span class="lbl" id="tkScopeLabel"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <span class="spacer"></span>
+      <button class="btn primary" id="tkNewEntryBtn" title="Create an entry on the full single-entry screen — for when the whole form is wanted rather than the grid">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        New entry
+      </button>
+      <button class="iconbtn" id="tkSearchBtn" title="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></button>
+      <span class="tksearch" id="tkSearchWrap" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        <input id="tkSearch" placeholder="Search" aria-label="Search rows by description, matter, or person">
+        <button class="clr" id="tkSearchClear" title="Clear and close the search"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </span>
+      <!-- The button does the step; its dropdown lists the stack, so several steps can be seen and
+           jumped back through. What each step WAS is said in the list, never on the toolbar. -->
+      <span class="histsplit">
+        <button class="iconbtn" id="tkUndoBtn" title="Nothing to undo" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
+        <button class="iconbtn caret" id="tkUndoMore" title="Nothing to undo yet" aria-label="Undo history" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      </span>
+      <span class="histsplit">
+        <button class="iconbtn" id="tkRedoBtn" title="Nothing to redo" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg></button>
+        <button class="iconbtn caret" id="tkRedoMore" title="Nothing to redo yet" aria-label="Redo history" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      </span>
+      <button class="iconbtn filterclear" id="tkClearFilters" title="No filters are applied" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.531 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14v6a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341l.427-.473"/><path d="m16.5 3.5 5 5"/><path d="m21.5 3.5-5 5"/></svg></button>
+      <button class="iconbtn" id="tkColsBtn" title="Choose columns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg></button>
+      <button class="iconbtn" id="tkMaxBtn" title="Full screen" aria-label="Full screen"></button>
+      <button class="iconbtn" id="tkClose" title="Close" aria-label="Close the Time Sheet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </header>
+    <div class="tktablewrap scrollable" id="tkTablewrap">
+      <table id="tkTable">
+        <thead><tr id="tkHeadRow"></tr></thead>
+      </table>
+    </div>
+    <div class="tkfoot">
+      <div class="tkhonesty num" id="tkHonesty"></div>
+      <span class="spacer"></span>
+    </div>
+  </div>
+</div>
+
+<div class="menu" id="tkMatterMenu" hidden></div>
+<div class="menu" id="tkWhoMenu" hidden></div>
+<div class="menu" id="tkRateMenu" hidden></div>
+<div class="menu" id="tkFilterMenu" hidden></div>
+<div class="menu" id="tkColsMenu" hidden></div>
+<div class="menu" id="tkScopeMenu" hidden></div>
+<div class="menu" id="tkFileMenu" hidden></div>
+<div class="menu" id="tkDialogMenu" hidden></div>
+<div class="menu" id="tkHistMenu" hidden></div>
+
+<!-- THE RECORD WINDOW is rendered into this wash by tkRecordModal — the same two-pane shell the
+     matter Time tab uses (left: the record; right: History / Attachments / Billing in tabs; the
+     header carrying edit, print, full screen and close). Nothing static lives here. -->
+<div class="dialogwash" id="tkEntryWash" hidden></div>
+<div class="dialogwash" id="tkPrintWash" hidden></div>
+
+<div id="tkToast" role="status"></div>
+
+<script>
+"use strict";
+/* ---------- fixtures ---------- */
+const MATTERS = [
+  { num: "2026-0147", title: "Pemberton v. Hale Construction Co." },
+  { num: "2026-0153", title: "Whitfield — Estate Planning" },
+  { num: "2026-0112", title: "Marsh v. Delgado" },
+  { num: "2026-0139", title: "Karim — Adjustment of Status" },
+  { num: "2026-0121", title: "Okafor Holdings — Lease Review" },
+];
+const PEOPLE = [
+  { name: "Rosalind Osei", rate: 340 },
+  { name: "Marcus Reyes", rate: 220 },
+  { name: "Tomas Alvarez", rate: 290 },
+];
+const RATE_CARDS = [
+  { id: "standard", name: "Standard", rateFor: (who) => (PEOPLE.find((p) => p.name === who) ?? PEOPLE[0]).rate, note: "timekeeper rate" },
+  { id: "insurance", name: "Insurance-capped", rateFor: () => 295, note: "card default" },
+];
+const ME = "Rosalind Osei";
+const TODAY = "2026-08-26", YESTERDAY = "2026-08-25";
+/* The firm's week starts on this weekday (0 = Sunday, 1 = Monday) — a firm setting in the app.
+   The week preset reads it, so "This week" always spans the firm's whole week. */
+const FIRM_WEEK_START = 1;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dayOf = (iso) => new Date(iso + "T00:00:00Z");
+function shiftDays(iso, n) { const d = dayOf(iso); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function monthDay(iso) { return MONTHS[Number(iso.slice(5, 7)) - 1] + " " + Number(iso.slice(8, 10)); }
+function spanLabel(from, to) {
+  if (from === to) return monthDay(from);
+  if (from.slice(0, 7) === to.slice(0, 7)) return monthDay(from) + "–" + Number(to.slice(8, 10));
+  return monthDay(from) + "–" + monthDay(to);
+}
+/* ONE definition per preset: the name and the span are computed together and read from the same
+   place by the menu and by the handler, so a preset can never say "This week" over three days. */
+const SCOPE_PRESETS = ["today", "yesterday", "week"];
+function scopePreset(kind) {
+  if (kind === "today") return { from: TODAY, to: TODAY, label: "Today · " + monthDay(TODAY) };
+  if (kind === "yesterday") return { from: YESTERDAY, to: YESTERDAY, label: "Yesterday · " + monthDay(YESTERDAY) };
+  if (kind === "week") {
+    const back = (dayOf(TODAY).getUTCDay() - FIRM_WEEK_START + 7) % 7;
+    const from = shiftDays(TODAY, -back), to = shiftDays(from, 6);
+    return { from, to, label: "This week · " + spanLabel(from, to) };
+  }
+  return null;
+}
+const ENTRY_CATEGORIES = ["General billable", "Drafting", "Client communication", "Court appearance"];
+const ENTRY_ACTIVITIES = ["None", "A103 Draft/revise", "A104 Review/analyze", "A106 Communicate (with client)"];
+/* Each matter's documents — the pool a time entry's file associations pick from. */
+const MATTER_FILES = {
+  "2026-0147": ["Demand letter draft v2.docx", "Hale answer.pdf", "Site inspection photos.zip", "Counterclaim exhibits A-F.pdf"],
+  "2026-0153": ["Trust amendment v3.docx", "Signing checklist.pdf", "Whitfield estate inventory.xlsx"],
+  "2026-0112": ["Deposition outline.docx", "Delgado deposition notice.pdf", "Second amended complaint.pdf"],
+  "2026-0139": ["I-485 exhibit list.xlsx", "Adjustment packet cover.pdf"],
+  "2026-0121": ["Lease markup v4.docx", "Okafor term sheet.pdf"],
+};
+
+/* The immutable time code: minted the instant a row exists. A matterless row gets a PROVISIONAL
+   code (TMP-nnnn) at birth; the permanent matter-scoped code (matter.seq) mints when the matter
+   is set. Both are immutable once minted; a permanent code never changes even if the matter is
+   later edited. */
+let tmpSeq = 113;
+const matterSeq = { "2026-0147": 42, "2026-0153": 19, "2026-0112": 7, "2026-0139": 11, "2026-0121": 4 };
+function mintTmp() { tmpSeq += 1; return "TMP-0" + tmpSeq; }
+function mintPermanent(matterNum) {
+  matterSeq[matterNum] = (matterSeq[matterNum] ?? 0) + 1;
+  return matterNum + "." + String(matterSeq[matterNum]).padStart(4, "0");
+}
+const isProvisional = (code) => code.startsWith("TMP-");
+
+/* db: 'saving' | 'saved' (EVERYTHING persists — round five: "otherwise we risk data loss").
+   Completeness is a separate, honest fact. No approval fixtures: entries are just entries.
+
+   DUAL ATTRIBUTION: `who` is the timekeeper (whose work this is) and `via` is the ENTERER (who
+   typed it). Both are always present on a record — the enterer is not "the delegate when it
+   differs", it is a fact of every entry, and an entry a person records for themselves simply has
+   the same name in both. Delegation is `via !== who`, which is what the column auto-shows on. */
+function freshRows() {
+  return seedEvents([
+    { id: "t1", code: "2026-0147.0041", date: TODAY, entered: TODAY, matter: MATTERS[0], note: "Reviewed Hale answer and counterclaim", memo: "", sec: 2880, card: "standard", rate: 340, who: ME, via: ME, db: "saved", timer: null, wasTmp: null, files: ["Hale answer.pdf"] },
+    { id: "t2", code: "2026-0153.0018", date: TODAY, entered: TODAY, matter: MATTERS[1], note: "Email to A. Whitfield re: signing appointment", memo: "", sec: 1080, card: "standard", rate: 340, who: ME, via: "Marcus Reyes", db: "saved", timer: null, wasTmp: null, files: [] },
+    { id: "t3", code: "2026-0112.0007", date: TODAY, entered: TODAY, matter: MATTERS[2], note: "Deposition preparation for the Delgado examination: assembled and cross-referenced the exhibit binder against the second amended complaint, annotated the inconsistencies in the March site-visit testimony, and drafted a first pass of the impeachment outline with page-line citations for opposing counsel's productions", memo: "", sec: 5400, card: "standard", rate: 340, who: ME, via: ME, db: "saved", timer: null, wasTmp: null, files: ["Deposition outline.docx", "Delgado deposition notice.pdf"] },
+    { id: "t4", code: "2026-0147.0042", date: TODAY, entered: TODAY, matter: MATTERS[0], note: "Drafting demand letter to Hale", memo: "", sec: 2537, card: "standard", rate: 340, who: ME, via: ME, db: "saved", timer: "running", wasTmp: null, files: ["Demand letter draft v2.docx"] },
+    { id: "t5", code: "2026-0153.0019", date: TODAY, entered: TODAY, matter: MATTERS[1], note: "Call with A. Whitfield re: trust amendment", memo: "", sec: 3900, card: "standard", rate: 340, who: ME, via: ME, db: "saved", timer: "paused", wasTmp: null, files: [] },
+    { id: "t6", code: "TMP-0112", date: TODAY, entered: TODAY, matter: null, note: "Reviewed incoming discovery emails", memo: "", sec: 1440, card: "standard", rate: null, who: ME, via: ME, db: "saved", timer: "paused", wasTmp: null, files: [] },
+    { id: "t7", code: "TMP-0109", date: YESTERDAY, entered: YESTERDAY, matter: null, note: "Prepared I-485 exhibit list", memo: "", sec: 3060, card: "standard", rate: null, who: ME, via: ME, db: "saved", timer: null, wasTmp: null, files: [] },
+    { id: "t8", code: "2026-0121.0004", date: YESTERDAY, entered: YESTERDAY, matter: MATTERS[4], note: "", memo: "", sec: 720, card: "standard", rate: 340, who: ME, via: ME, db: "saved", timer: null, wasTmp: null, files: [] },
+  ]);
+}
+/* The fixture's records arrive with a history, because a real one would have one. */
+const SEEDED_EVENTS = {
+  t1: [["Entry created", "08/26/2026 09:14", ME], ["Description edited", "08/26/2026 09:31", ME], ["Hale answer.pdf attached", "08/26/2026 09:32", ME]],
+  t2: [["Entry created", "08/26/2026 10:02", "Marcus Reyes", "Entered for Rosalind Osei under the delegated-entry permission"], ["Duration set to 0:18", "08/26/2026 10:03", "Marcus Reyes"]],
+  t3: [["Entry created", "08/26/2026 11:20", ME], ["Two files attached", "08/26/2026 13:05", ME], ["Duration set to 1:30", "08/26/2026 13:40", ME]],
+  t4: [["Entry created", "08/26/2026 13:04", ME], ["Timer started", "08/26/2026 13:04", ME]],
+  t5: [["Entry created", "08/26/2026 08:40", ME], ["Timer paused at 1:05", "08/26/2026 09:45", ME]],
+  t6: [["Entry created", "08/26/2026 12:31", ME, "Saved with no matter — it keeps its provisional code until one is set"]],
+  t7: [["Entry created", "08/25/2026 15:52", ME, "Saved with no matter — it keeps its provisional code until one is set"]],
+  t8: [["Entry created", "08/25/2026 16:20", ME]],
+};
+function seedEvents(list) {
+  for (const r of list) {
+    r.events = (SEEDED_EVENTS[r.id] ?? []).map(([what, at, who, detail]) => ({ what, at, who, detail }));
+    /* An attachment is {name, docId}: docId names the matter's own document (the file itself, not
+       a copy), null for one uploaded straight onto the entry. */
+    r.files = r.files.map((name) => ({ name, docId: name }));
+    r.cat = r.cat ?? ENTRY_CATEGORIES[0];
+    r.act = r.act ?? "";
+  }
+  return list;
+}
+
+/* Every record carries its OWN event history — the History tab reads exactly this. Stamps are
+   absolute (never "just now"), each event naming what happened, when, and who did it. Undo does
+   NOT rewind history: an undo is itself a change, and the audit records it as one (§9.7). */
+function stampNow() { return usDate(TODAY) + " " + nowClock(); }
+function recordEvent(r, what, detail) {
+  r.events = r.events ?? [];
+  r.events.push({ what, at: stampNow(), who: ME, detail });
+}
+
+let rows = freshRows();
+let modalOpen = false;
+let scope = scopePreset("today");
+let runTick = Date.now();
+let seq = 8;
+/* Rows whose (empty) memo line the person has opened but not yet written in — transient, so an
+   abandoned empty memo collapses back to its button rather than leaving a blank line behind. */
+const memoOpen = new Set();
+let searchQ = "";
+let searchOpen = false;
+
+/* Matter and title are ONE column (round five): the cell presents number + name together and the
+   combobox matches either. Description stays the row's second line. */
+/* Each column carries a width from the start and the table lays out FIXED, so a cell's width is
+   a real, resizable quantity and the input inside it simply fills that width (round six, item 2).
+   Nothing is clipped by an input that is narrower than its column: every width below is measured
+   from its widest value AND its header — the Work date column from the native date input's own
+   intrinsic width, which is what was clipping it. */
+let columns = [
+  { key: "db", label: "", always: true },
+  { key: "code", label: "Time code", visible: true, sortable: true, width: 130, get: (r) => r.code },
+  { key: "date", label: "Work date", visible: true, sortable: true, width: 160, get: (r) => r.date },
+  { key: "entered", label: "Date entered", visible: false, sortable: true, width: 134, get: (r) => r.entered },
+  { key: "matter", label: "Matter", visible: true, sortable: true, ftype: "set", width: 366, get: (r) => r.matter ? r.matter.num : "No matter" },
+  { key: "dur", label: "Duration", visible: true, sortable: true, right: true, width: 98, get: (r) => liveSec(r) },
+  { key: "hours", label: "Hours", visible: true, sortable: true, right: true, width: 78, get: (r) => billedHours(liveSec(r)) },
+  { key: "rate", label: "Rate", visible: true, sortable: true, right: true, width: 80, get: (r) => r.rate ?? 0 },
+  { key: "total", label: "Total", visible: true, sortable: true, right: true, width: 98, get: (r) => rowTotal(r) },
+  { key: "files", label: "Files", visible: false, sortable: true, width: 160, get: (r) => (r.files ?? []).length },
+  { key: "who", label: "Recorded by", visible: true, sortable: true, ftype: "set", width: 152, get: (r) => r.who },
+  { key: "via", label: "Entered by", visible: false, sortable: true, width: 152, get: (r) => r.via },
+  { key: "acts", label: "", always: true, right: true },
+];
+let sortKey = null, sortDir = 1;
+let filters = {};
+let fixedCols = true;
+
+/* ---------- helpers ---------- */
+const $ = (id) => document.getElementById(id);
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+const clockBase = 13 * 3600 + 46 * 60 - Math.floor(Date.now() / 1000);
+function nowClock() {
+  const t = clockBase + Math.floor(Date.now() / 1000);
+  return Math.floor(t / 3600) % 24 + ":" + String(Math.floor(t / 60) % 60).padStart(2, "0");
+}
+function liveSec(r) { return r.timer === "running" ? r.sec + Math.floor((Date.now() - runTick) / 1000) : r.sec; }
+function fmtDur(sec, ticking) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  if (ticking) return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  return h + ":" + String(m).padStart(2, "0");
+}
+/* Durations parse as EITHER form (round five): "1:30" and "1.5" are the same ninety minutes. */
+function parseDur(text) {
+  const t = text.trim().toLowerCase();
+  if (t === "") return null;
+  if (/^\d+m$/.test(t)) return parseInt(t) * 60;
+  const parts = t.split(":");
+  if (parts.length === 3) return (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2] || 0);
+  if (parts.length === 2) return (+parts[0]) * 3600 + (+parts[1]) * 60;
+  const dec = parseFloat(t.replace(",", "."));
+  return Number.isFinite(dec) ? Math.round(dec * 3600) : null;
+}
+function billedHours(sec) { return sec <= 0 ? 0 : Math.max(1, Math.round(sec / 60 / 6)) * 0.1; }
+function hoursLabel(x) { return (Math.round(x * 10) / 10).toFixed(1); }
+function rowTotal(r) { return r.rate === null ? 0 : billedHours(liveSec(r)) * r.rate; }
+function money(x) { return "$" + x.toFixed(2); }
+/* ONE date format everywhere on this surface (round five): MM/DD/YYYY, matching the native
+   work-date inputs. */
+function usDate(d) { return d.slice(5, 7) + "/" + d.slice(8) + "/" + d.slice(0, 4); }
+function shortDate(d) { return d === TODAY ? "Aug 26" : d === YESTERDAY ? "Aug 25" : usDate(d); }
+function rateTitle(r) {
+  if (r.rate === null) return "Resolves when a matter is set";
+  if (r.card === "custom") return "Custom override for this entry (audited). Resolved would be " + money(RATE_CARDS[0].rateFor(r.who)) + "/h";
+  const card = RATE_CARDS.find((c) => c.id === r.card);
+  return "Resolved: " + card.name + " card — " + card.note + ". Click to choose a card or a custom override";
+}
+const rateLabel = (r) => r.rate === null ? "" : r.rate.toFixed(2);
+function matterDisplay(r) { return r.matter ? r.matter.num + " · " + r.matter.title : ""; }
+/* Chain locks would render honestly if an entry advanced elsewhere, but this surface carries no
+   approval affordances or fixtures — the owner: "we don't need a submitted for review kind of
+   vibe." Entries are just entries. */
+const locked = () => false;
+const runningRow = () => rows.find((r) => r.timer === "running") ?? null;
+function missingFacts(r) {
+  const missing = [];
+  if (r.matter === null) missing.push("a matter");
+  if (r.note.trim() === "") missing.push("a description");
+  if (liveSec(r) <= 0) missing.push("a duration");
+  return missing;
+}
+const isIncomplete = (r) => missingFacts(r).length > 0;
+const incompleteCount = () => rows.filter(isIncomplete).length;
+function toast(msg, action, onAction) {
+  const t = $("tkToast");
+  t.innerHTML = esc(msg) + (action ? ' <button id="tkToastAct">' + esc(action) + "</button>" : "");
+  t.classList.add("on");
+  clearTimeout(toast._h); toast._h = setTimeout(() => t.classList.remove("on"), 3400);
+  if (action) $("tkToastAct").addEventListener("click", () => { onAction(); t.classList.remove("on"); });
+}
+const colByKey = (k) => columns.find((c) => c.key === k);
+/* "Entered by" is a proper column (round five, item 10) — off by default, but it shows itself
+   automatically whenever a visible row is delegated, so dual attribution is never hidden. */
+const isDelegated = (r) => r.via !== null && r.via !== r.who;
+const anyDelegated = () => rows.some(isDelegated);
+const visibleColumns = () => columns.filter((c) => c.always || c.visible || (c.key === "via" && anyDelegated()));
+const initialsOf = (name) => name.split(" ").map((w) => w[0]).join("");
+
+/* ---------- icons ---------- */
+const I = {
+  timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  spinner: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
+  funnel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"/></svg>',
+  funnelx: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.531 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14v6a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341l.427-.473"/><path d="m16.5 3.5 5 5"/><path d="m21.5 3.5-5 5"/></svg>',
+  file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+  memo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 14h6"/><path d="M8 18h4"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>',
+  printer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+  paperclip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.234 20.252 21 12.3a3.5 3.5 0 0 0-4.95-4.95l-9.9 9.9a5.5 5.5 0 1 0 7.78 7.78l6.716-6.717"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg>',
+  maximize: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></svg>',
+  minimize: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></svg>',
+};
+
+/* ---------- history ---------- */
+let hist = { undo: [], redo: [] };
+function snapRows() { return rows.map((r) => ({ ...r })); }
+function pushHistory(label) {
+  hist.undo.push({ label, rows: snapRows() });
+  if (hist.undo.length > 40) hist.undo.shift();
+  hist.redo = [];
+  renderHistoryControls();
+}
+function restore(entry) {
+  rows = entry.rows.map((r) => ({ ...r }));
+  runTick = Date.now();
+}
+function undoOne() {
+  const top = hist.undo.pop();
+  if (!top) return null;
+  hist.redo.push({ label: top.label, rows: snapRows() });
+  restore(top);
+  return top.label;
+}
+function redoOne() {
+  const top = hist.redo.pop();
+  if (!top) return null;
+  hist.undo.push({ label: top.label, rows: snapRows() });
+  restore(top);
+  return top.label;
+}
+/* One step from the button, or several from the dropdown — the same walk either way. */
+function undo(steps) {
+  let label = null, done = 0;
+  for (let i = 0; i < (steps ?? 1); i += 1) { const l = undoOne(); if (l === null) break; label = l; done += 1; }
+  if (done === 0) return;
+  toast(done === 1 ? "Undid " + label : "Undid " + done + " steps, back through " + label);
+  render();
+}
+function redo(steps) {
+  let label = null, done = 0;
+  for (let i = 0; i < (steps ?? 1); i += 1) { const l = redoOne(); if (l === null) break; label = l; done += 1; }
+  if (done === 0) return;
+  toast(done === 1 ? "Redid " + label : "Redid " + done + " steps, up through " + label);
+  render();
+}
+function renderHistoryControls() {
+  const u = $("tkUndoBtn"), r = $("tkRedoBtn"), um = $("tkUndoMore"), rm = $("tkRedoMore");
+  u.disabled = hist.undo.length === 0;
+  u.title = hist.undo.length === 0 ? "Nothing to undo" : "Undo one step (Ctrl+Z)";
+  r.disabled = hist.redo.length === 0;
+  r.title = hist.redo.length === 0 ? "Nothing to redo" : "Redo one step (Ctrl+Y)";
+  um.disabled = hist.undo.length === 0;
+  um.title = hist.undo.length === 0 ? "Nothing to undo yet" : "Show the last " + hist.undo.length + " change" + (hist.undo.length > 1 ? "s" : "") + " and jump back through them";
+  rm.disabled = hist.redo.length === 0;
+  rm.title = hist.redo.length === 0 ? "Nothing to redo yet" : "Show the " + hist.redo.length + " undone change" + (hist.redo.length > 1 ? "s" : "") + " and jump forward through them";
+}
+/* The stack lives in the dropdown, not on the toolbar: each entry says what that step WAS, and
+   choosing the Nth walks all N steps at once. */
+function openHistMenu(kind) {
+  const stack = kind === "undo" ? hist.undo : hist.redo;
+  const items = stack.slice().reverse();
+  const menu = $("tkHistMenu");
+  menu.innerHTML = '<div class="mhead">' + (kind === "undo" ? "Undo — newest change first" : "Redo — next change first") + "</div>" +
+    (items.length === 0
+      ? '<div class="mnote">Nothing to ' + kind + ".</div>"
+      : items.map((e, i) => '<button data-hstep="' + (i + 1) + '" data-hkind="' + kind + '" title="' +
+        esc((kind === "undo" ? "Undo " : "Redo ") + (i === 0 ? "this one change" : "these " + (i + 1) + " changes, ending with this one")) + '">' +
+        '<span class="mnum">' + (i + 1) + "</span><span class=\"mtitle\">" + esc(e.label) + "</span></button>").join(""));
+  menu.hidden = false;
+  const rect = $(kind === "undo" ? "tkUndoMore" : "tkRedoMore").getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - 300, rect.left - 120)) + "px";
+  menu.style.top = rect.bottom + 4 + "px";
+}
+$("tkHistMenu").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-hstep]");
+  if (!b) return;
+  $("tkHistMenu").hidden = true;
+  const n = Number(b.dataset.hstep);
+  if (b.dataset.hkind === "undo") undo(n); else redo(n);
+});
+
+/* ---------- auto-save: EVERYTHING persists; completeness is a separate honest fact ---------- */
+const saveTimers = {};
+function autoSave(r) {
+  r.db = "saving";
+  updateDbCell(r);
+  clearTimeout(saveTimers[r.id]);
+  saveTimers[r.id] = setTimeout(() => {
+    if (r.db === "saving") { r.db = "saved"; updateDbCell(r); updateStripe(r); renderHonesty(); renderChip(); }
+  }, 600);
+}
+function dbCellHtml(r) {
+  if (r.db === "saving") return '<span class="dbstate saving" title="Saving&hellip;">' + I.spinner + "</span>";
+  if (isIncomplete(r)) return '<span class="dbstate incomplete" title="Saved — incomplete: needs ' + esc(missingFacts(r).join(", ")) + '. It stays here until completed.">' + I.alert + "</span>";
+  return '<span class="dbstate saved" title="Saved — ' + esc(r.code) + '">' + I.check + "</span>";
+}
+function updateDbCell(r) {
+  const td = document.querySelector('td[data-db="' + r.id + '"]');
+  if (td) td.innerHTML = dbCellHtml(r);
+}
+function stripeClass(r) {
+  if (r.timer === "running") return "st-live";
+  if (isIncomplete(r)) return "st-warn";
+  return "st-ok";
+}
+/* The memo button carries whether the row HAS a memo; the memo commits without a full re-render
+   (so focus survives), so the button is updated in place the way the save mark is. */
+function updateMemoBtn(r) {
+  const b = document.querySelector('.memobtn[data-id="' + r.id + '"]');
+  if (!b) return;
+  const has = r.memo.trim() !== "";
+  b.classList.toggle("on", has);
+  b.title = has
+    ? "This entry has an internal memo — the firm's own note, never on a bill. Click to go to it"
+    : "Add an internal memo — the firm's own note on this entry, never on a bill or a printed sheet";
+}
+function updateStripe(r) {
+  const tb = document.querySelector('tbody[data-row="' + r.id + '"]');
+  if (!tb) return;
+  tb.classList.remove("st-ok", "st-warn", "st-live", "st-lock");
+  const c = stripeClass(r);
+  if (c) tb.classList.add(c);
+}
+
+/* ---------- the chip ---------- */
+function renderChip() {
+  const chip = $("tkChip");
+  const live = runningRow();
+  const held = rows.filter((r) => r.timer === "paused");
+  const pend = incompleteCount();
+  const pendBadge = pend > 0 ? '<span class="pending" title="' + pend + " saved row" + (pend > 1 ? "s" : "") + ' still incomplete — missing a matter, description, or duration">&middot;' + pend + "</span>" : "";
+  chip.classList.toggle("running", live !== null);
+  if (live) {
+    chip.innerHTML = '<span class="livedot" aria-hidden="true"></span>' + I.timer + '<span class="num">' + fmtDur(liveSec(live), true) + '</span><span class="chipmatter num">' + esc(live.matter ? live.matter.num : "no matter") + "</span>" + pendBadge;
+    chip.title = "Timing " + (live.matter ? live.matter.num + " — " + live.matter.title : "with no matter yet") + ". Click to open the Time Sheet.";
+  } else if (held.length > 0) {
+    chip.innerHTML = I.pause + '<span class="num">' + fmtDur(held[0].sec, true) + "</span>" + pendBadge;
+    chip.title = "No timer is running. Click to open the Time Sheet.";
+  } else {
+    chip.innerHTML = I.timer + '<span class="num">0:00</span>' + pendBadge;
+    chip.title = "Click to open the Time Sheet.";
+  }
+  chip.setAttribute("aria-expanded", String(modalOpen));
+}
+
+/* ---------- head ---------- */
+function filterSummary(key) { return filters[key] ? [...filters[key]].join(", ") : ""; }
+function renderHead() {
+  $("tkHeadRow").innerHTML = visibleColumns().map((c) => {
+    if (c.key === "db") return '<th style="width:36px"><span class="hcell"><span class="sortbtn" style="cursor:default" title="Each row\'s state: saved, saving, or saved-but-incomplete"></span></span></th>';
+    if (c.key === "acts") return '<th class="right actscol" style="width:104px"><span class="hcell"><span class="sortbtn" style="cursor:default" title="Row actions — pinned to this edge, so they stay in reach when the sheet scrolls sideways">&nbsp;</span></span></th>';
+    const active = c.key === sortKey;
+    const filterActive = filters[c.key] !== undefined;
+    return '<th' + (c.right ? ' class="right"' : "") + ' data-col="' + c.key + '" draggable="true"><span class="hcell">' +
+      (c.sortable === false
+        ? '<span class="sortbtn" style="cursor:default">' + c.label + "</span>"
+        : '<button class="sortbtn" data-sortbtn="' + c.key + '" aria-sort="' + (active ? (sortDir === 1 ? "ascending" : "descending") : "none") + '" title="Sort by ' + c.label + '">' +
+          c.label + '<span class="arrow">' + (active ? (sortDir === 1 ? "↑" : "↓") : "") + "</span></button>") +
+      (c.ftype ? '<button class="filterbtn' + (filterActive ? " active" : "") + '" data-filterbtn="' + c.key + '" title="' +
+        (filterActive ? "Filtered: " + esc(filterSummary(c.key)) + ". Change or clear the filter" : "Filter " + c.label) + '">' + I.funnel + "</button>" : "") +
+      '</span><span class="thgrip" data-grip="' + c.key + '" title="Drag to resize the ' + c.label + ' column. Double-click fits it to its widest value"></span></th>';
+  }).join("");
+  applyWidths();
+  wireColumnReorder();
+  wireColumnResize();
+}
+let draggingColumn = null;
+function wireColumnReorder() {
+  $("tkHeadRow").querySelectorAll("th[draggable]").forEach((th) => {
+    th.addEventListener("dragstart", (e) => { draggingColumn = th.dataset.col; e.dataTransfer.effectAllowed = "move"; th.classList.add("dragging"); });
+    th.addEventListener("dragend", () => { draggingColumn = null; renderHead(); });
+    th.addEventListener("dragover", (e) => {
+      if (draggingColumn === null || th.dataset.col === draggingColumn) return;
+      e.preventDefault();
+      const r = th.getBoundingClientRect();
+      th.classList.toggle("drop-before", e.clientX < r.left + r.width / 2);
+      th.classList.toggle("drop-after", e.clientX >= r.left + r.width / 2);
+    });
+    th.addEventListener("dragleave", () => th.classList.remove("drop-before", "drop-after"));
+    th.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const after = th.classList.contains("drop-after");
+      th.classList.remove("drop-before", "drop-after");
+      tkMoveColumn(draggingColumn, th.dataset.col, after);
+    });
+  });
+}
+function tkMoveColumn(fromKey, toKey, after) {
+  if (fromKey === null || fromKey === toKey) return;
+  const from = columns.findIndex((c) => c.key === fromKey);
+  const moved = columns.splice(from, 1)[0];
+  let to = columns.findIndex((c) => c.key === toKey) + (after ? 1 : 0);
+  const first = columns.findIndex((c) => !c.always);
+  const last = columns.findIndex((c) => c.key === "acts");
+  to = Math.max(first, Math.min(last, to));
+  columns.splice(to, 0, moved);
+  renderHead(); renderRows();
+}
+window.tkMoveColumn = tkMoveColumn;
+function applyWidths() {
+  if (!fixedCols) return;
+  $("tkTable").classList.add("fixedcols");
+  for (const th of $("tkHeadRow").cells) {
+    const key = th.dataset.col;
+    if (!key) continue;
+    const c = colByKey(key);
+    if (c && c.width) th.style.width = c.width + "px";
+  }
+}
+function snapshotWidths() {
+  if (fixedCols) return;
+  for (const th of $("tkHeadRow").cells) {
+    const key = th.dataset.col;
+    if (key) colByKey(key).width = Math.round(th.getBoundingClientRect().width);
+  }
+  fixedCols = true;
+  applyWidths();
+}
+let measureCtx = null;
+function textWidthPx(text, font) {
+  if (measureCtx === null) measureCtx = document.createElement("canvas").getContext("2d");
+  measureCtx.font = font;
+  return measureCtx.measureText(text).width;
+}
+function fitWidthValue(col) {
+  const cs = getComputedStyle($("tkTable"));
+  const bodyFont = cs.fontSize + " " + cs.fontFamily;
+  let w = textWidthPx(col.label.toUpperCase(), "0.75rem " + cs.fontFamily) + col.label.length * 1.1 + 46;
+  for (const r of rows) {
+    const text = col.key === "total" ? money(rowTotal(r)) : col.key === "matter" ? matterDisplay(r) : String(col.get ? col.get(r) : "");
+    w = Math.max(w, textWidthPx(text, bodyFont) + (col.key === "who" ? 44 : 24));
+  }
+  return Math.round(w);
+}
+function wireColumnResize() {
+  $("tkHeadRow").querySelectorAll(".thgrip").forEach((grip) => {
+    const key = grip.dataset.grip;
+    grip.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      snapshotWidths();
+      const col = colByKey(key);
+      const th = grip.closest("th");
+      const startX = ev.clientX, startW = th.getBoundingClientRect().width;
+      grip.classList.add("dragging");
+      document.body.classList.add("resizing");
+      grip.setPointerCapture(ev.pointerId);
+      const move = (e) => { col.width = Math.max(56, Math.round(startW + e.clientX - startX)); th.style.width = col.width + "px"; };
+      const up = () => {
+        grip.classList.remove("dragging");
+        document.body.classList.remove("resizing");
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+    grip.addEventListener("dblclick", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      snapshotWidths();
+      colByKey(key).width = fitWidthValue(colByKey(key));
+      renderHead(); renderRows();
+    });
+  });
+}
+
+/* ---------- rows ---------- */
+/* There is no standing blank row (round six, item 8). A row is created deliberately — by the
+   add-a-row button at the end of the sheet, or by New entry at the top — and it is a REAL entry
+   from that instant: provisional code minted, persisted, incomplete until it is filled in. */
+function defaultNewDate() { return TODAY >= scope.from && TODAY <= scope.to ? TODAY : scope.to; }
+function createRow(date) {
+  seq += 1;
+  const r = { id: "t" + seq, code: mintTmp(), date: date ?? defaultNewDate(), entered: TODAY, matter: null, note: "", memo: "", sec: 0, card: "standard", rate: null, who: ME, via: ME, db: "saving", timer: null, wasTmp: null, files: [], events: [], cat: ENTRY_CATEGORIES[0], act: "" };
+  pushHistory("new entry");
+  rows.push(r);
+  recordEvent(r, "Entry created", "Saved with no matter — it keeps its provisional code until one is set");
+  autoSave(r);
+  return r;
+}
+/* The scope decides what shows — plus incomplete rows from ANY earlier date, which surface until
+   completed (they are the data-loss risk the save-with-nothing rule exists for). */
+function scopeRows() {
+  return rows.filter((r) => (r.date >= scope.from && r.date <= scope.to) || (isIncomplete(r) && r.date < scope.from));
+}
+function searchMatch(r) {
+  if (searchQ === "") return true;
+  const q = searchQ.toLowerCase();
+  /* The internal memo is searchable: this surface is the firm's own, and a memo you cannot find
+     is a memo you will write twice. It stays out of every client-facing rendering all the same. */
+  return r.note.toLowerCase().includes(q) || r.memo.toLowerCase().includes(q) ||
+    (r.matter !== null && (r.matter.num.toLowerCase().includes(q) || r.matter.title.toLowerCase().includes(q))) ||
+    r.code.toLowerCase().includes(q) ||
+    r.who.toLowerCase().includes(q) || r.via.toLowerCase().includes(q);
+}
+function filteredRows(list) {
+  return list.filter((r) => {
+    if (!searchMatch(r)) return false;
+    for (const [key, values] of Object.entries(filters)) {
+      const c = colByKey(key);
+      if (!values.has(String(c.get(r)))) return false;
+    }
+    return true;
+  });
+}
+function sortedRows(list) {
+  if (sortKey === null) return list;
+  const c = colByKey(sortKey);
+  return list.slice().sort((a, b) => {
+    const va = c.get(a), vb = c.get(b);
+    const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
+    return (cmp === 0 ? a.id.localeCompare(b.id) : cmp) * sortDir;
+  });
+}
+/* Every editable cell's input FILLS ITS CELL (round six, item 2): no input carries a width of its
+   own, so the resizable column's width IS the input's width and a long value is never clipped.
+   The table is laid out fixed with per-column widths, and .cellin is width:100%. */
+function cellHtml(c, r) {
+  switch (c.key) {
+    case "db": return '<td class="nowrap" style="width:36px; text-align:center" data-db="' + r.id + '">' + dbCellHtml(r) + "</td>";
+    case "code": {
+      const prov = isProvisional(r.code);
+      const title = prov
+        ? "Provisional code — minted at creation, immutable. The permanent matter-scoped code mints when the matter is set."
+        : "Time code — minted at creation, immutable" + (r.wasTmp ? " (was " + r.wasTmp + ")" : "");
+      return '<td class="nowrap"><span class="codecell' + (prov ? " provisional" : "") + '" title="' + esc(title) + '">' + esc(r.code) + "</span></td>";
+    }
+    case "date": return '<td class="nowrap"><input type="date" class="cellin num" data-cell="date" data-id="' + r.id + '" value="' + r.date + '" title="The day the work is FOR (the entry\'s work date)"></td>';
+    case "entered": return '<td class="nowrap"><span class="lockedcell num muted" title="The day the entry was recorded — automatic, never edited">' + usDate(r.entered) + "</span></td>";
+    case "matter": {
+      return '<td class="nowrap"><input class="cellin" data-cell="matter" data-id="' + r.id + '" value="' + esc(matterDisplay(r)) + '" placeholder="Matter" title="Matter — type the number or the name; either finds it" autocomplete="off" spellcheck="false"></td>';
+    }
+    case "dur": {
+      const running = r.timer === "running";
+      const shown = r.sec > 0 || running ? fmtDur(liveSec(r), running) : "";
+      return '<td class="right"><input class="cellin num right' + (running ? " ticking" : "") + '" data-cell="dur" data-id="' + r.id + '" value="' + shown + '" data-orig="' + shown + '" placeholder="Duration" title="' + (running ? "Ticking — editing pauses the timer" : "Type 1:30 or 1.5 — either form works; minutes as 45m") + '"></td>';
+    }
+    /* Hours is TYPABLE (round six, item 3) and reconciles with Duration BOTH WAYS: a duration
+       drives the billed hours, and typed hours drive the duration back to their exact equivalent.
+       Both forms parse — 1.5 and 1:30 are the same ninety minutes. */
+    case "hours": {
+      const running = r.timer === "running";
+      const shown = liveSec(r) > 0 ? hoursLabel(billedHours(liveSec(r))) : "";
+      return '<td class="right"><input class="cellin num right' + (running ? " ticking" : "") + '" data-cell="hours" data-id="' + r.id + '" data-hours="' + r.id + '" value="' + shown + '" data-orig="' + shown + '" placeholder="Hours" title="' +
+        (running ? "Ticking — editing pauses the timer" : "Billed hours — the duration rounded to the firm&#39;s 6-minute increment. Type 1.5 or 1:30; either form works, and the duration reconciles to match") + '"></td>';
+    }
+    case "rate": return '<td class="right"><input class="cellin num right" data-cell="rate" data-id="' + r.id + '" value="' + rateLabel(r) + '" data-orig="' + rateLabel(r) + '" placeholder="Rate" title="' + esc(rateTitle(r)) + '" autocomplete="off"></td>';
+    case "total": {
+      const t = rowTotal(r);
+      const arith = r.rate === null ? "Needs a matter to resolve a rate" : fmtDur(liveSec(r)) + " → " + hoursLabel(billedHours(liveSec(r))) + " h × $" + r.rate.toFixed(2) + " = " + money(t);
+      return '<td class="right totalcell" data-total="' + r.id + '" title="' + esc(arith) + '">' + (liveSec(r) > 0 && r.rate !== null ? money(t) : "") + "</td>";
+    }
+    case "files": {
+      const chips = (r.files ?? []).map((f) =>
+        '<button class="filechip" data-act="openfile" data-id="' + r.id + '" data-file="' + esc(f.name) + '" title="' + esc(f.name) + ' — opens the document">' + I.file + "<span>" + esc(f.name) + "</span></button>").join("");
+      return '<td class="nowrap"><span class="filecell">' + (chips || '<button class="lnk muted" data-act="attach" data-id="' + r.id + '" title="Attach a file on this entry&#39;s Attachments tab">&mdash;</button>') + "</span></td>";
+    }
+    /* The ENTERER is a fact of every entry, not only of a delegated one — so this column carries a
+       name on every row. Delegation is the case where it differs from the timekeeper, and that is
+       what the tooltip distinguishes and what auto-shows the column. */
+    case "via": {
+      const delegated = isDelegated(r);
+      const title = delegated
+        ? "Entered by " + r.via + " for " + r.who + " — delegated entry; both people stay on the entry"
+        : "Entered by " + r.via + ", who is also the timekeeper — recorded automatically";
+      return '<td class="nowrap"><span class="tkwho' + (delegated ? " delegated" : "") + '" title="' + esc(title) + '"><span class="av">' + initialsOf(r.via) + '</span><span class="lockedcell" style="padding:2px 0">' + esc(r.via) + "</span></span></td>";
+    }
+    case "who": {
+      return '<td class="nowrap"><span class="tkwho" title="' + esc(r.who + (isDelegated(r) ? " — entered by " + r.via : "")) + '"><span class="av">' + initialsOf(r.who) + '</span><input class="cellin" data-cell="who" data-id="' + r.id + '" value="' + esc(r.who) + '" placeholder="Timekeeper" autocomplete="off" spellcheck="false" title="The timekeeper — whose work this is. Changing it re-resolves the rate; the enterer is recorded automatically"></span></td>';
+    }
+    /* Row actions render AT REST on every row (round six, item 4 — the file manager's I4): never
+       hover-revealed, so the row never reflows under the pointer. */
+    case "acts": {
+      const running = r.timer === "running";
+      const timerBtn = running
+        ? '<button class="iconbtn" data-act="pause" data-id="' + r.id + '" title="Pause the timer" aria-label="Pause">' + I.pause + "</button>"
+        : '<button class="iconbtn" data-act="start" data-id="' + r.id + '" title="Start the timer on this row' + (runningRow() ? " — pauses " + (runningRow().matter ? runningRow().matter.num : "the running row") : "") + '" aria-label="Start timer">' + I.play + "</button>";
+      const openBtn = '<button class="iconbtn" data-act="open" data-id="' + r.id + '" title="Open the full entry (also: double-click the row)" aria-label="Open the full entry">' + I.open + "</button>";
+      const del = '<button class="iconbtn" data-act="delete" data-id="' + r.id + '" title="Delete this row (undo available)" aria-label="Delete">' + I.trash + "</button>";
+      return '<td class="right actscol"><span class="rowacts">' + timerBtn + openBtn + del + "</span></td>";
+    }
+  }
+}
+function rowGroupHtml(r) {
+  const cols = visibleColumns();
+  const cls = ["rowg", stripeClass(r), r.timer === "running" ? "tklive" : ""].filter(Boolean).join(" ");
+  const line1 = '<tr class="l1">' + cols.map((c) => cellHtml(c, r)).join("") + "</tr>";
+  /* The description WRAPS (round five, item 11): a self-sizing textarea, never horizontal
+     overflow — the row grows to fit and the status stripe spans the full wrapped height.
+     Native browser spellcheck is ON (item 14) — real squiggles, zero backend. */
+  const noteField = '<textarea class="cellin noteta" data-cell="note" data-id="' + r.id + '" rows="1" placeholder="Description" title="The description — the entry\'s billed text" spellcheck="true">' + esc(r.note) + "</textarea>";
+  /* The INTERNAL MEMO is the description's twin, on demand (round seven, item 1): a long line, so
+     it gets the same full-width wrapping treatment on a third line — but most rows never have one,
+     so it is not a column. The button at the far right of the description line adds or reveals it;
+     a row that HAS a memo always shows it, a row without shows only the button. */
+  const hasMemo = r.memo.trim() !== "";
+  const memoShown = hasMemo || memoOpen.has(r.id);
+  const memoBtn = '<button class="memobtn' + (hasMemo ? " on" : "") + '" data-act="memo" data-id="' + r.id + '" aria-pressed="' + memoShown + '" title="' +
+    (hasMemo ? "This entry has an internal memo — the firm's own note, never on a bill. Click to go to it"
+      : "Add an internal memo — the firm's own note on this entry, never on a bill or a printed sheet") + '">' + I.memo + "</button>";
+  const line2 = '<tr class="l2"><td style="width:36px"></td><td colspan="' + (cols.length - 1) + '"><span class="l2wrap">' + noteField + memoBtn + "</span></td></tr>";
+  /* data-internal-only marks every node that may render memo text — the machine-checkable form of
+     "nothing client-facing renders this". */
+  const line3 = memoShown
+    ? '<tr class="l3"><td style="width:36px"></td><td colspan="' + (cols.length - 1) + '" data-internal-only="true"><span class="l2wrap memowrap">' +
+      '<span class="memotag" title="Internal only — it never appears on a bill, an invoice, or a printed sheet">Internal</span>' +
+      '<textarea class="cellin noteta memota" data-cell="memo" data-id="' + r.id + '" rows="1" placeholder="Internal Memo" title="The internal memo — for the firm only. It never appears on a bill or a printed sheet" spellcheck="true">' + esc(r.memo) + "</textarea></span></td></tr>"
+    : "";
+  return '<tbody class="' + cls + '" data-row="' + r.id + '">' + line1 + line2 + line3 + "</tbody>";
+}
+function renderRows() {
+  const cols = visibleColumns().length;
+  const list = sortedRows(filteredRows(scopeRows()));
+  let html = "";
+  const anyNarrow = Object.keys(filters).length > 0 || searchQ !== "";
+  if (list.length === 0 && scopeRows().length > 0 && anyNarrow) {
+    html += '<tbody><tr><td colspan="' + cols + '"><div class="emptyfiltered">No rows match ' + (searchQ !== "" ? "the search" + (Object.keys(filters).length ? " and filters" : "") : "the filters in play") + "." +
+      '<button class="btn secondary" data-act="clearnarrow">' + I.funnelx + "Clear them</button></div></td></tr></tbody>";
+  } else {
+    html += list.map(rowGroupHtml).join("");
+  }
+  /* The sheet ENDS IN A BUTTON, not a standing blank row (round six, item 8): nothing empty sits
+     at rest, and one click creates the row and puts the cursor in it. */
+  html += '<tbody class="tkaddwrap"><tr><td colspan="' + cols + '">' +
+    '<button class="tkaddrow" data-act="addrow" title="Create a row on ' + esc(usDate(defaultNewDate())) + ' and start typing in it">' +
+    I.plus + "Add a row</button></td></tr></tbody>";
+  const table = $("tkTable");
+  [...table.querySelectorAll("tbody")].forEach((tb) => tb.remove());
+  table.insertAdjacentHTML("beforeend", html);
+}
+function renderBarStates() {
+  const filterCount = Object.keys(filters).length;
+  const fc = $("tkClearFilters");
+  fc.disabled = filterCount === 0;
+  fc.classList.toggle("on", filterCount > 0);
+  fc.title = filterCount === 0 ? "No filters are applied" : "Clear " + filterCount + " filter" + (filterCount > 1 ? "s" : "");
+  $("tkScopeLabel").textContent = scope.label;
+  $("tkSearchBtn").hidden = searchOpen;
+  $("tkSearchWrap").hidden = !searchOpen;
+  $("tkSearchWrap").classList.toggle("on", searchQ !== "");
+  renderHistoryControls();
+}
+function renderHonesty() {
+  const inScope = rows.filter((r) => r.date >= scope.from && r.date <= scope.to);
+  const workedSec = inScope.reduce((a, r) => a + liveSec(r), 0);
+  const billed = inScope.reduce((a, r) => a + (liveSec(r) > 0 ? billedHours(liveSec(r)) : 0), 0);
+  const value = inScope.reduce((a, r) => a + rowTotal(r), 0);
+  const pend = incompleteCount();
+  $("tkHonesty").innerHTML = "Worked <strong>" + fmtDur(workedSec) + "</strong>" +
+    '<span class="sep">&middot;</span>billed <strong>' + hoursLabel(billed) + " h</strong>" +
+    '<span class="sep">&middot;</span>value <strong>' + money(value) + "</strong>" +
+    '<span class="sep">&middot;</span><span class="muted">' + esc(scope.label) +
+      (scope.note ? " &mdash; " + esc(scope.note) : "") + "</span>" +
+    (pend > 0 ? '<span class="sep">&middot;</span><span class="unlogged">' + pend + " row" + (pend > 1 ? "s" : "") + " incomplete</span>" : "");
+}
+/* Self-sizing descriptions: each textarea grows to its wrapped content. The field is border-box,
+   so the border has to be added back or the last line loses its descenders. */
+function autoSizeNote(ta) {
+  ta.style.height = "24px";
+  const border = ta.offsetHeight - ta.clientHeight;
+  ta.style.height = Math.max(24, ta.scrollHeight + border) + "px";
+}
+function sizeNotes() { document.querySelectorAll(".noteta").forEach(autoSizeNote); }
+function render() { renderChip(); if (modalOpen) { renderHead(); renderRows(); sizeNotes(); renderBarStates(); renderHonesty(); } }
+function setModal(open) {
+  modalOpen = open;
+  $("tkWash").hidden = !open;
+  render();
+}
+/* Full-screen state: remembered for the session. */
+let maximized = false;
+try { maximized = sessionStorage.getItem("tkMaximized") === "1"; } catch { /* storage may be unavailable */ }
+function applyMaximize() {
+  $("tkWash").classList.toggle("full", maximized);
+  document.body.classList.toggle("tkfullscreen", maximized);
+  $("tkMaxBtn").innerHTML = maximized ? I.minimize : I.maximize;
+  $("tkMaxBtn").title = maximized ? "Restore the modal size" : "Full screen";
+  try { sessionStorage.setItem("tkMaximized", maximized ? "1" : "0"); } catch { /* ignore */ }
+}
+$("tkMaxBtn").addEventListener("click", () => { maximized = !maximized; applyMaximize(); });
+applyMaximize();
+
+/* Duration and Hours are two views of ONE quantity (round six, item 3): whenever it moves, both
+   cells re-read it — never the one the person is typing in — and the Total follows. */
+function syncQuantityCells(r, exceptEl) {
+  const running = r.timer === "running";
+  const dur = document.querySelector('[data-cell="dur"][data-id="' + r.id + '"]');
+  if (dur && dur !== exceptEl && document.activeElement !== dur) {
+    dur.value = r.sec > 0 || running ? fmtDur(liveSec(r), running) : "";
+    dur.dataset.orig = dur.value;
+    dur.classList.toggle("ticking", running);
+  }
+  const hrs = document.querySelector('[data-cell="hours"][data-id="' + r.id + '"]');
+  if (hrs && hrs !== exceptEl && document.activeElement !== hrs) {
+    hrs.value = liveSec(r) > 0 ? hoursLabel(billedHours(liveSec(r))) : "";
+    hrs.dataset.orig = hrs.value;
+    hrs.classList.toggle("ticking", running);
+  }
+  const total = document.querySelector('[data-total="' + r.id + '"]');
+  if (total) total.textContent = liveSec(r) > 0 && r.rate !== null ? money(rowTotal(r)) : "";
+}
+
+/* ---------- live tick ---------- */
+setInterval(() => {
+  const live = runningRow();
+  if (!live) return;
+  renderChip();
+  if (!modalOpen) return;
+  syncQuantityCells(live, null);
+  renderHonesty();
+}, 1000);
+
+/* ---------- timers ---------- */
+function settle(r) { r.sec = liveSec(r); }
+function pauseTimerOn(r) { if (r.timer === "running") { settle(r); r.timer = "paused"; recordEvent(r, "Timer paused at " + fmtDur(r.sec)); } }
+function startTimerOn(r) {
+  const cur = runningRow();
+  if (cur && cur.id !== r.id) pauseTimerOn(cur);
+  r.timer = "running";
+  runTick = Date.now();
+  recordEvent(r, "Timer started");
+  autoSave(r);
+  toast("Timer running on " + (r.matter ? r.matter.num : "this row") + (cur && cur.id !== r.id ? " — paused " + (cur.matter ? cur.matter.num : "the other row") : ""));
+  render();
+}
+
+/* ---------- comboboxes ---------- */
+let comboFor = null;
+function comboMenu(kind) { return $(kind === "matter" ? "tkMatterMenu" : kind === "who" ? "tkWhoMenu" : "tkRateMenu"); }
+function closeCombos() { ["tkMatterMenu", "tkWhoMenu", "tkRateMenu"].forEach((m) => { $(m).hidden = true; }); comboFor = null; }
+function placeMenu(menu, input) {
+  menu.hidden = false;
+  const rect = input.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - 360, rect.left - 20)) + "px";
+  menu.style.top = Math.min(window.innerHeight - 220, rect.bottom + 2) + "px";
+}
+function matterMatches(q) {
+  const t = q.trim().toLowerCase();
+  if (t === "") return MATTERS;
+  return MATTERS.filter((m) => m.num.toLowerCase().includes(t) || m.title.toLowerCase().includes(t));
+}
+function openMatterCombo(input) {
+  comboFor = { kind: "matter", id: input.dataset.id };
+  const r = rows.find((x) => x.id === input.dataset.id);
+  const query = input.value === matterDisplay(r) ? "" : input.value;
+  const menu = $("tkMatterMenu");
+  const list = matterMatches(query);
+  menu.innerHTML = list.length === 0
+    ? '<div class="mhead">No matter matches &ldquo;' + esc(input.value) + "&rdquo;</div>"
+    : list.map((m, i) => '<button data-pick="' + m.num + '"' + (i === 0 ? ' class="hot"' : "") + '><span class="mnum">' + esc(m.num) + '</span><span class="mtitle">' + esc(m.title) + "</span></button>").join("");
+  placeMenu(menu, input);
+}
+function whoMatches(q) {
+  const t = q.trim().toLowerCase();
+  if (t === "") return PEOPLE;
+  return PEOPLE.filter((p) => p.name.toLowerCase().includes(t));
+}
+function openWhoCombo(input) {
+  comboFor = { kind: "who", id: input.dataset.id };
+  const r = rows.find((x) => x.id === input.dataset.id);
+  const menu = $("tkWhoMenu");
+  const list = whoMatches(input.value === (r?.who ?? "") ? "" : input.value);
+  menu.innerHTML = '<div class="mhead">Timekeeper &mdash; whose work this is</div>' +
+    list.map((p, i) => '<button data-pick="' + esc(p.name) + '"' + (i === 0 ? ' class="hot"' : "") + '><span class="mnum">' + esc(p.name) + '</span><span class="mtitle num">$' + p.rate.toFixed(2) + "/h standard</span></button>").join("") +
+    '<div class="mnote">The enterer is recorded automatically; both people stay on the entry.</div>';
+  placeMenu(menu, input);
+}
+function openRateCombo(input) {
+  const r = rows.find((x) => x.id === input.dataset.id);
+  comboFor = { kind: "rate", id: input.dataset.id };
+  const menu = $("tkRateMenu");
+  menu.innerHTML = '<div class="mhead">Rate for this entry</div>' +
+    RATE_CARDS.map((c) => '<button data-pick="' + c.id + '"' + (r.card === c.id ? ' class="hot"' : "") + '><span class="mnum num">$' + c.rateFor(r.who).toFixed(2) + '</span><span class="mtitle">' + esc(c.name) + " card &mdash; " + esc(c.note) + "</span></button>").join("") +
+    '<button data-pick="custom"' + (r.card === "custom" ? ' class="hot"' : "") + '><span class="mnum">Custom&hellip;</span><span class="mtitle">type an hourly rate &mdash; overrides for this entry, audited</span></button>';
+  placeMenu(menu, input);
+}
+["tkMatterMenu", "tkWhoMenu", "tkRateMenu"].forEach((menuId) => {
+  $(menuId).addEventListener("pointerdown", (e) => {
+    const b = e.target.closest("button[data-pick]");
+    if (!b || comboFor === null) return;
+    e.preventDefault();
+    applyComboPick(comboFor, b.dataset.pick);
+    closeCombos();
+  });
+});
+function applyComboPick(target, pick) {
+  const r = rows.find((x) => x.id === target.id);
+  if (!r) return;
+  if (target.kind === "matter") {
+    const m = MATTERS.find((x) => x.num === pick);
+    if ((r.matter ? r.matter.num : null) === pick) { render(); return; }
+    pushHistory("edit of matter on " + r.code);
+    r.matter = m;
+    if (r.rate === null && m) { r.rate = RATE_CARDS[0].rateFor(r.who); r.card = "standard"; }
+    /* The permanent, matter-scoped code mints the moment the matter is set — and never changes
+       again, even if the matter is later edited. The provisional code is recorded. */
+    recordEvent(r, m ? "Matter set to " + m.num : "Matter cleared");
+    if (m && isProvisional(r.code)) {
+      r.wasTmp = r.code;
+      r.code = mintPermanent(m.num);
+      recordEvent(r, "Permanent time code " + r.code + " minted", "was " + r.wasTmp);
+      toast("Permanent time code " + r.code + " minted (was " + r.wasTmp + ")");
+    }
+    autoSave(r); render();
+  } else if (target.kind === "who") {
+    if (r.who === pick) { render(); return; }
+    pushHistory("change of timekeeper to " + pick);
+    r.who = pick;
+    r.via = ME; /* the actor is the enterer, always — delegation is via !== who */
+    recordEvent(r, "Timekeeper changed to " + pick, pick === ME ? undefined : "Delegated entry — " + ME + " recorded as the enterer");
+    if (r.card !== "custom" && r.matter !== null) {
+      r.rate = (RATE_CARDS.find((c) => c.id === r.card) ?? RATE_CARDS[0]).rateFor(pick);
+      toast("Timekeeper " + pick + " — rate re-resolved to $" + r.rate.toFixed(2) + "/h");
+    }
+    autoSave(r); render();
+  } else if (target.kind === "rate") {
+    if (pick === "custom") {
+      const input = document.querySelector('[data-cell="rate"][data-id="' + r.id + '"]');
+      if (input) { input.value = ""; input.placeholder = "$/h"; input.focus(); }
+      return;
+    }
+    const card = RATE_CARDS.find((c) => c.id === pick);
+    const newRate = card.rateFor(r.who);
+    if (r.card === pick && r.rate === newRate) { render(); return; }
+    pushHistory("edit of rate on " + r.code);
+    r.card = pick;
+    r.rate = newRate;
+    autoSave(r); render();
+  }
+}
+
+/* ---------- fresh row: SAVES THE MOMENT IT EXISTS (round five) ---------- */
+/* Creating a row and putting the cursor in it: the add-a-row button at the end of the sheet, and
+   the same act from anywhere else that needs a new row. */
+function addRowInline(focusCell) {
+  const r = createRow();
+  widenScopeFor(r.date, "row you just added");
+  render();
+  const input = document.querySelector('[data-cell="' + (focusCell ?? "matter") + '"][data-id="' + r.id + '"]');
+  if (input) { input.focus(); input.scrollIntoView({ block: "nearest" }); }
+  return r;
+}
+
+/* ---------- cell events ---------- */
+const rowsHost = () => $("tkTable");
+rowsHost().addEventListener("input", (e) => {
+  const input = e.target.closest(".cellin");
+  if (!input || !input.dataset.cell) return;
+  if (input.classList.contains("noteta")) autoSizeNote(input);
+  if (input.dataset.cell === "matter") { openMatterCombo(input); return; }
+  if (input.dataset.cell === "who") { openWhoCombo(input); return; }
+});
+rowsHost().addEventListener("focusin", (e) => {
+  const input = e.target.closest(".cellin");
+  if (!input || !input.dataset.cell) return;
+  const r = rows.find((x) => x.id === input.dataset.id);
+  /* Typing in a filled cell REPLACES its value rather than appending to it — a spreadsheet's
+     type-over, and the only behavior under which a combobox's filter can match. */
+  if (["matter", "who", "rate", "dur", "hours"].includes(input.dataset.cell)) input.select();
+  if (input.dataset.cell === "matter") openMatterCombo(input);
+  if (input.dataset.cell === "who") openWhoCombo(input);
+  if (input.dataset.cell === "rate") openRateCombo(input);
+  /* A cell cannot honestly hold a live feed and a hand edit at once — editing either quantity
+     pauses the timer first. */
+  if ((input.dataset.cell === "dur" || input.dataset.cell === "hours") && r.timer === "running") {
+    pauseTimerOn(r);
+    input.classList.remove("ticking");
+    input.value = input.dataset.cell === "dur" ? fmtDur(r.sec, true) : hoursLabel(billedHours(r.sec));
+    input.dataset.orig = input.value;
+    syncQuantityCells(r, input);
+    input.closest("tbody").classList.remove("tklive", "st-live");
+    input.closest("tbody").classList.add(stripeClass(r));
+    renderChip();
+    toast("Paused to edit — resume with the row's play button");
+  }
+});
+function commitCell(input) {
+  const r = rows.find((x) => x.id === input.dataset.id);
+  if (!r) return;
+  switch (input.dataset.cell) {
+    case "date": {
+      if (input.value && input.value !== r.date) {
+        pushHistory("edit of work date on " + r.code);
+        recordEvent(r, "Work date changed to " + usDate(input.value));
+        r.date = input.value;
+        widenScopeFor(r.date, "row you just re-dated");
+        autoSave(r); render();
+      }
+      break;
+    }
+    case "matter": {
+      if (input.value === matterDisplay(r)) break;
+      const q = input.value.trim();
+      const exact = MATTERS.find((m) => m.num === q || (m.num + " · " + m.title) === q);
+      const list = matterMatches(q);
+      const pick = exact ?? (q !== "" && list.length === 1 ? list[0] : null);
+      if (pick && (r.matter === null || r.matter.num !== pick.num)) applyComboPick({ kind: "matter", id: r.id }, pick.num);
+      else if (q === "" && r.matter !== null) {
+        pushHistory("edit of matter on " + r.code);
+        r.matter = null; autoSave(r); render();
+      } else input.value = matterDisplay(r);
+      break;
+    }
+    case "who": {
+      const list = whoMatches(input.value);
+      const exact = PEOPLE.find((p) => p.name.toLowerCase() === input.value.trim().toLowerCase());
+      const pick = exact ?? (input.value.trim() !== "" && list.length === 1 ? list[0] : null);
+      if (pick && pick.name !== r.who) applyComboPick({ kind: "who", id: r.id }, pick.name);
+      else input.value = r.who;
+      break;
+    }
+    case "note": {
+      if (input.value.trim() !== r.note) {
+        pushHistory("edit of description on " + r.code);
+        r.note = input.value.trim();
+        recordEvent(r, "Description edited");
+        autoSave(r); updateDbCell(r); updateStripe(r); renderHonesty(); renderChip(); renderHistoryControls();
+      }
+      break;
+    }
+    /* The internal memo commits exactly as the description does; emptying it collapses the line
+       back to its button, so an abandoned memo leaves no blank line behind. */
+    case "memo": {
+      const v = input.value.trim();
+      if (v !== r.memo) {
+        pushHistory("edit of internal memo on " + r.code);
+        r.memo = v;
+        recordEvent(r, v === "" ? "Internal memo cleared" : "Internal memo edited");
+        autoSave(r); updateDbCell(r); updateMemoBtn(r); renderHistoryControls();
+      }
+      if (r.memo === "") {
+        memoOpen.delete(r.id);
+        setTimeout(() => { if (!document.querySelector('[data-cell="memo"][data-id="' + r.id + '"]:focus')) render(); }, 150);
+      }
+      break;
+    }
+    case "dur": {
+      if (input.value.trim() === (input.dataset.orig ?? "").trim()) break;
+      const sec = parseDur(input.value);
+      if (sec !== null && sec !== r.sec) {
+        pushHistory("edit of duration on " + r.code);
+        if (r.timer === "running") pauseTimerOn(r);
+        r.sec = sec;
+        recordEvent(r, "Duration set to " + fmtDur(sec));
+        autoSave(r); render();
+      } else if (sec !== null && sec === r.sec) { input.value = r.sec > 0 ? fmtDur(r.sec) : ""; input.dataset.orig = input.value; }
+      else if (sec === null && input.value.trim() !== "") { input.value = r.sec > 0 ? fmtDur(r.sec) : ""; }
+      break;
+    }
+    /* Typed hours reconcile the OTHER way: the figure is snapped to the firm's increment and the
+       duration becomes its exact equivalent, so the two cells never disagree. */
+    case "hours": {
+      if (input.value.trim() === (input.dataset.orig ?? "").trim()) break;
+      const typed = parseDur(input.value);
+      if (typed === null) { input.value = liveSec(r) > 0 ? hoursLabel(billedHours(liveSec(r))) : ""; break; }
+      const snapped = typed <= 0 ? 0 : Math.max(0.1, Math.round(typed / 3600 * 10) / 10);
+      const sec = Math.round(snapped * 3600);
+      if (sec !== r.sec) {
+        pushHistory("edit of hours on " + r.code);
+        if (r.timer === "running") pauseTimerOn(r);
+        r.sec = sec;
+        recordEvent(r, "Hours set to " + hoursLabel(snapped), "the duration reconciled to " + fmtDur(sec));
+        autoSave(r); render();
+      } else { input.value = hoursLabel(snapped); input.dataset.orig = input.value; }
+      break;
+    }
+    case "rate": {
+      if (input.value.trim() === (input.dataset.orig ?? "").trim()) break;
+      const v = parseFloat(input.value.replace(/[$,]/g, ""));
+      if (Number.isFinite(v) && v >= 0 && (v !== r.rate || r.card !== "custom")) {
+        pushHistory("edit of rate on " + r.code);
+        r.rate = v; r.card = "custom";
+        recordEvent(r, "Rate overridden to $" + v.toFixed(2) + "/h", "resolved would be $" + RATE_CARDS[0].rateFor(r.who).toFixed(2) + "/h");
+        autoSave(r); render();
+        toast("Rate overridden for this entry — resolved would be $" + RATE_CARDS[0].rateFor(r.who).toFixed(2) + "/h");
+      } else if (input.value.trim() === "" && r.matter !== null) { input.value = rateLabel(r); }
+      break;
+    }
+  }
+}
+rowsHost().addEventListener("focusout", (e) => {
+  const input = e.target.closest(".cellin");
+  if (!input || !input.dataset.cell) return;
+  if (["matter", "who", "rate"].includes(input.dataset.cell)) {
+    setTimeout(() => { commitCell(input); closeCombos(); }, 140);
+  } else {
+    commitCell(input);
+  }
+});
+rowsHost().addEventListener("keydown", (e) => {
+  const input = e.target.closest(".cellin");
+  if (!input || !input.dataset.cell) return;
+  if (e.key === "Enter") {
+    const kind = input.dataset.cell;
+    if (kind === "note") { e.preventDefault(); input.blur(); return; } // one paragraph; Enter commits
+    if ((kind === "matter" || kind === "who") && comboFor !== null) {
+      const menu = comboMenu(kind);
+      if (!menu.hidden) {
+        const hot = menu.querySelector("button.hot") ?? menu.querySelector("button[data-pick]");
+        if (hot) { applyComboPick(comboFor, hot.dataset.pick); closeCombos(); e.preventDefault(); return; }
+      }
+    }
+    input.blur();
+  } else if (e.key === "Escape") { closeCombos(); input.blur(); e.stopPropagation(); }
+});
+rowsHost().addEventListener("click", (e) => {
+  const a = e.target.closest("[data-act]");
+  if (!a) return;
+  const r = rows.find((x) => x.id === a.dataset.id);
+  switch (a.dataset.act) {
+    case "start": startTimerOn(r); break;
+    case "pause": pauseTimerOn(r); toast("Paused — nothing is lost"); render(); break;
+    case "open": openEntry(r.id); break;
+    case "openfile": toast("Opens " + a.dataset.file + " (the Documents surface)"); break;
+    /* The file cell opens the record on its Attachments tab — a link that opened nothing would be
+       an inert control. */
+    case "attach": openEntry(r.id, "attachments"); break;
+    case "delete": {
+      pushHistory("delete of " + r.code + " · " + fmtDur(liveSec(r)));
+      rows = rows.filter((x) => x.id !== r.id);
+      toast("Deleted " + r.code + " — " + fmtDur(r.sec), "Undo", undo);
+      render();
+      break;
+    }
+    case "addrow": addRowInline("matter"); break;
+    case "memo": {
+      /* A row with a memo already shows it, so this goes to it; a row without reveals the line. */
+      memoOpen.add(r.id);
+      render();
+      const ta = document.querySelector('[data-cell="memo"][data-id="' + r.id + '"]');
+      if (ta) { ta.focus(); ta.scrollIntoView({ block: "nearest" }); }
+      break;
+    }
+    case "clearnarrow": filters = {}; searchQ = ""; $("tkSearch").value = ""; render(); break;
+  }
+});
+rowsHost().addEventListener("dblclick", (e) => {
+  if (e.target.closest(".cellin, button, input")) return;
+  const tb = e.target.closest("tbody.rowg");
+  if (!tb) return;
+  openEntry(tb.dataset.row);
+});
+
+/* ---------- head events ---------- */
+$("tkHeadRow").addEventListener("click", (ev) => {
+  const fb = ev.target.closest("[data-filterbtn]");
+  if (fb) {
+    const r = fb.getBoundingClientRect();
+    openFilterMenu(fb.dataset.filterbtn, r.left, r.bottom + 4);
+    return;
+  }
+  const sb = ev.target.closest("[data-sortbtn]");
+  if (sb) {
+    const key = sb.dataset.sortbtn;
+    if (sortKey === key) { if (sortDir === 1) sortDir = -1; else { sortKey = null; sortDir = 1; } }
+    else { sortKey = key; sortDir = 1; }
+    render();
+  }
+});
+$("tkHeadRow").addEventListener("pointerdown", (ev) => { if (ev.target.closest("[data-filterbtn]")) ev.stopPropagation(); });
+
+/* ---------- filter + columns + scope menus ---------- */
+function openFilterMenu(key, x, y) {
+  const c = colByKey(key);
+  const menu = $("tkFilterMenu");
+  const source = scopeRows();
+  const values = [...new Set(source.map((r) => String(c.get(r))))];
+  const counts = {};
+  for (const r of source) counts[String(c.get(r))] = (counts[String(c.get(r))] ?? 0) + 1;
+  const current = filters[key];
+  menu.innerHTML = '<div class="mhead">Filter ' + c.label + "</div>" +
+    values.map((v) => '<label><input type="checkbox" data-fv="' + esc(v) + '" ' + (current === undefined || current.has(v) ? "checked" : "") + ">" + esc(v) + '<span class="n">' + counts[v] + "</span></label>").join("") +
+    '<div class="rule"></div><button data-fclear="' + key + '">' + I.funnelx + "Clear this filter</button>";
+  menu.dataset.key = key;
+  menu.hidden = false;
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - 280, x)) + "px";
+  menu.style.top = Math.min(window.innerHeight - 240, y) + "px";
+}
+$("tkFilterMenu").addEventListener("click", (e) => {
+  const key = $("tkFilterMenu").dataset.key;
+  const clear = e.target.closest("[data-fclear]");
+  if (clear) { delete filters[key]; $("tkFilterMenu").hidden = true; render(); return; }
+  const cb = e.target.closest("input[data-fv]");
+  if (!cb) return;
+  const c = colByKey(key);
+  const all = [...new Set(scopeRows().map((r) => String(c.get(r))))];
+  const checked = [...$("tkFilterMenu").querySelectorAll("input[data-fv]")].filter((i) => i.checked).map((i) => i.dataset.fv);
+  if (checked.length === all.length) delete filters[key];
+  else filters[key] = new Set(checked);
+  render();
+  openFilterMenu(key, parseFloat($("tkFilterMenu").style.left), parseFloat($("tkFilterMenu").style.top));
+});
+function openColsMenu() {
+  const menu = $("tkColsMenu");
+  menu.innerHTML = '<div class="mhead">Columns</div>' +
+    columns.filter((c) => !c.always).map((c) =>
+      '<label><input type="checkbox" data-cv="' + c.key + '" ' + (c.visible ? "checked" : "") + ">" + c.label + "</label>").join("") +
+    '<div class="mnote">Entered by also shows itself whenever a visible row is delegated. The internal memo is not a column &mdash; it is a line on the row, opened from the button at the end of the description.</div>';
+  menu.hidden = false;
+  const r = $("tkColsBtn").getBoundingClientRect();
+  menu.style.left = Math.max(8, r.right - 220) + "px";
+  menu.style.top = r.bottom + 4 + "px";
+}
+$("tkColsMenu").addEventListener("click", (e) => {
+  const cb = e.target.closest("input[data-cv]");
+  if (!cb) return;
+  colByKey(cb.dataset.cv).visible = cb.checked;
+  render();
+});
+/* A row the person just created or re-dated is never hidden by the scope: if its work date falls
+   outside the range in view, the RANGE WIDENS to include it and the caption says so. Widening is
+   the only honest move — the alternative is a row that saved and then vanished. */
+function widenScopeFor(iso, why) {
+  if (!iso || (iso >= scope.from && iso <= scope.to)) return false;
+  const from = iso < scope.from ? iso : scope.from;
+  const to = iso > scope.to ? iso : scope.to;
+  scope = { from, to, label: spanLabel(from, to), note: "widened to include the " + why + " on " + monthDay(iso) };
+  toast("Scope widened to " + spanLabel(from, to) + " — the " + why + " stays in view");
+  return true;
+}
+/* The date scope: today, yesterday, this week, or a custom range. Incomplete older rows always
+   surface regardless — they are the reason save-with-nothing exists. */
+function openScopeMenu() {
+  const menu = $("tkScopeMenu");
+  menu.innerHTML = '<div class="mhead">Show entries for</div>' +
+    SCOPE_PRESETS.map((k) => {
+      const p = scopePreset(k);
+      return '<button data-scope="' + k + '"' + (scope.from === p.from && scope.to === p.to ? ' class="hot"' : "") +
+        ' title="' + esc(usDate(p.from) + (p.from === p.to ? "" : " to " + usDate(p.to))) + '">' + esc(p.label) + "</button>";
+    }).join("") +
+    '<div class="rule"></div><div class="mhead">Custom range</div>' +
+    '<div class="rangerow"><input type="date" id="tkScopeFrom" value="' + scope.from + '"><span class="muted">to</span><input type="date" id="tkScopeTo" value="' + scope.to + '"></div>' +
+    '<div class="mnote" id="tkRangeNote">The range applies as you pick it &mdash; a preset above returns to a named scope.</div>' +
+    '<div class="mnote">Incomplete rows from earlier days always show — they stay until completed.</div>';
+  menu.hidden = false;
+  const r = $("tkScopeBtn").getBoundingClientRect();
+  menu.style.left = r.left + "px";
+  menu.style.top = r.bottom + 4 + "px";
+  wireCustomRange();
+}
+/* THE CUSTOM RANGE APPLIES AS IT IS PICKED (round seven, item 4) — no Apply button. The menu
+   stays open while the range is adjusted, so the presets above it remain the visible way back. */
+function wireCustomRange() {
+  const apply = () => {
+    const f = $("tkScopeFrom").value, t = $("tkScopeTo").value;
+    const note = $("tkRangeNote");
+    if (!f || !t) { note.textContent = "Pick both a start and an end; the range applies as you pick it."; return; }
+    if (f > t) {
+      note.textContent = "The start is after the end — the range is not applied until it reads forwards.";
+      note.classList.add("warn");
+      return;
+    }
+    note.classList.remove("warn");
+    note.innerHTML = "Applied. A preset above returns to a named scope.";
+    scope = { from: f, to: t, label: f === t ? usDate(f) : usDate(f) + "–" + usDate(t) };
+    renderRows(); sizeNotes(); renderBarStates(); renderHonesty();
+  };
+  ["tkScopeFrom", "tkScopeTo"].forEach((id) => {
+    $(id).addEventListener("change", apply);
+    $(id).addEventListener("input", apply);
+  });
+}
+$("tkScopeMenu").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-scope]");
+  if (!b) return;
+  const preset = scopePreset(b.dataset.scope);
+  if (!preset) return;
+  scope = preset;
+  $("tkScopeMenu").hidden = true;
+  render();
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.isConnected) return;
+  const inCombo = e.target.closest("#tkMatterMenu, #tkWhoMenu, #tkRateMenu");
+  const inComboInput = e.target.closest(".cellin") && ["matter", "who", "rate"].includes(e.target.dataset.cell);
+  if (comboFor !== null && !inCombo && !inComboInput) closeCombos();
+  if (!$("tkFilterMenu").hidden && !e.target.closest("#tkFilterMenu") && !e.target.closest("[data-filterbtn]")) $("tkFilterMenu").hidden = true;
+  if (!$("tkColsMenu").hidden && !e.target.closest("#tkColsMenu") && !e.target.closest("#tkColsBtn")) $("tkColsMenu").hidden = true;
+  if (!$("tkScopeMenu").hidden && !e.target.closest("#tkScopeMenu") && !e.target.closest("#tkScopeBtn")) $("tkScopeMenu").hidden = true;
+  if (!$("tkHistMenu").hidden && !e.target.closest("#tkHistMenu") && !e.target.closest(".histsplit")) $("tkHistMenu").hidden = true;
+  /* The search collapses back to its button when left empty (S2's expand-from-icon pattern). */
+  if (searchOpen && searchQ === "" && !e.target.closest("#tkSearchWrap") && !e.target.closest("#tkSearchBtn")) { searchOpen = false; renderBarStates(); }
+});
+
+/* ---------- the record window's typable comboboxes ----------
+ * Every dropdown on this surface is a typable combobox (TC1/X4), the record window's included:
+ * typing filters, the chevron shows everything, Enter commits, Escape restores. The committed key
+ * lives in the field's data-value; the visible text is its label. The window re-renders, so these
+ * are wired per render rather than once at load. */
+const DIALOG_COMBOS = {
+  eMatter: {
+    placeholder: "Matter",
+    head: "Matter — type the number or the name",
+    options: () => [{ value: "", label: "No matter yet", note: "saved under its provisional code" }]
+      .concat(MATTERS.map((m) => ({ value: m.num, label: m.num + " · " + m.title, note: "" }))),
+    onPick: () => { const t = document.querySelector('[data-rtab="attachments"]'); if (t && t.getAttribute("aria-current") === "true") t.click(); },
+  },
+  eWho: {
+    placeholder: "Staff",
+    head: "Timekeeper — whose work this is",
+    options: () => PEOPLE.map((p) => ({ value: p.name, label: p.name, note: "$" + p.rate.toFixed(2) + "/h standard" })),
+  },
+  eCategory: { placeholder: "Category", head: "Category", options: () => ENTRY_CATEGORIES.map((c) => ({ value: c, label: c, note: "" })) },
+  eActivity: { placeholder: "Activity code", head: "Activity code", options: () => ENTRY_ACTIVITIES.map((a) => ({ value: a === "None" ? "" : a, label: a, note: "" })) },
+};
+let dialogComboFor = null;
+function comboValue(id) { return $(id).dataset.value ?? ""; }
+function setComboValue(id, value) {
+  const spec = DIALOG_COMBOS[id];
+  const opt = spec.options().find((o) => o.value === value) ?? spec.options()[0];
+  $(id).dataset.value = opt.value;
+  $(id).value = opt.label;
+}
+function openDialogCombo(input) {
+  const spec = DIALOG_COMBOS[input.id];
+  dialogComboFor = input.id;
+  const typed = input.value.trim().toLowerCase();
+  const current = spec.options().find((o) => o.value === comboValue(input.id));
+  const q = current && input.value === current.label ? "" : typed;
+  const list = spec.options().filter((o) => q === "" || o.label.toLowerCase().includes(q));
+  const menu = $("tkDialogMenu");
+  menu.innerHTML = '<div class="mhead">' + esc(spec.head) + "</div>" +
+    (list.length === 0
+      ? '<div class="mnote">Nothing matches &ldquo;' + esc(input.value) + "&rdquo;</div>"
+      : list.map((o, i) => '<button data-dpick="' + esc(o.value) + '"' + (i === 0 ? ' class="hot"' : "") + '><span class="mnum">' + esc(o.label) + "</span>" +
+        (o.note ? '<span class="mtitle">' + esc(o.note) + "</span>" : "") + "</button>").join(""));
+  menu.hidden = false;
+  const rect = input.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - 320, rect.left)) + "px";
+  menu.style.top = Math.min(window.innerHeight - 200, rect.bottom + 2) + "px";
+  menu.style.minWidth = Math.round(rect.width) + "px";
+}
+function closeDialogCombo(restore) {
+  if (restore && dialogComboFor && $(dialogComboFor)) setComboValue(dialogComboFor, comboValue(dialogComboFor));
+  $("tkDialogMenu").hidden = true;
+  dialogComboFor = null;
+}
+$("tkDialogMenu").addEventListener("pointerdown", (e) => {
+  const b = e.target.closest("button[data-dpick]");
+  if (!b || dialogComboFor === null) return;
+  e.preventDefault();
+  const id = dialogComboFor;
+  setComboValue(id, b.dataset.dpick);
+  closeDialogCombo(false);
+  if (DIALOG_COMBOS[id].onPick) DIALOG_COMBOS[id].onPick();
+});
+function wireDialogCombo(id) {
+  const input = $(id);
+  if (!input) return;
+  /* Focusing selects the committed label, so typing REPLACES it and filters — typing into a
+     filled combobox must never append to its own value and match nothing. */
+  input.addEventListener("focus", () => { input.select(); openDialogCombo(input); });
+  input.addEventListener("input", () => openDialogCombo(input));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const hot = $("tkDialogMenu").querySelector("button.hot") ?? $("tkDialogMenu").querySelector("button[data-dpick]");
+      if (hot && !$("tkDialogMenu").hidden) {
+        setComboValue(id, hot.dataset.dpick);
+        closeDialogCombo(false);
+        if (DIALOG_COMBOS[id].onPick) DIALOG_COMBOS[id].onPick();
+      }
+    } else if (e.key === "Escape" && !$("tkDialogMenu").hidden) {
+      /* Escape closes the open list first; with no list open it belongs to the window. */
+      closeDialogCombo(true); e.stopPropagation();
+    }
+  });
+  input.addEventListener("blur", () => setTimeout(() => { if (dialogComboFor === id) closeDialogCombo(true); }, 150));
+}
+
+/* ============ THE RECORD WINDOW ============
+ * Round seven, item 7 — the owner, binding and cross-surface: "the time entry screen we have here
+ * really should match the other time history screen with history and attachments and the like."
+ * This is the matter Time tab's record modal, not a second design: the two-pane shell, its tab
+ * set, and its header actions are lifted from the shared WIP template (the unified artifact's
+ * `recordModal`), so the app has ONE component to build. The Time Sheet's only genuine difference
+ * is that it is cross-matter, and that difference lives in the record's FIELD LIST — the Matter
+ * field — not in a different window.
+ *
+ * LEFT: the record — the changeable facts, dense and top-aligned.
+ * RIGHT: context in tabs — History (its own scrollable tab), Attachments, Billing.
+ * HEADER: edit, print, full screen, close. FOOTER: one action bar. */
+let entryOpenId = null;
+let recordSpec = null;
+let recordMaxOn = false;
+try { recordMaxOn = sessionStorage.getItem("tkRecordMax") === "1"; } catch { /* storage may be unavailable */ }
+
+function tkModalHeaderActs(o) {
+  return '<span class="hdracts">' +
+    (o.edit === undefined ? "" :
+      '<button class="iconbtn" id="rmEdit"' + (o.edit.can ? "" : " disabled") + ' title="' + esc(o.edit.why) + '" aria-label="Edit">' + I.pencil + "</button>") +
+    (o.print === undefined ? "" :
+      '<button class="iconbtn" id="rmPrint" title="' + esc(o.print.why) + '" aria-label="Print">' + I.printer + "</button>") +
+    '<button class="iconbtn" id="rmMax"></button>' +
+    '<button class="iconbtn" id="rmClose" title="Close" aria-label="Close">' + I.close + "</button></span>";
+}
+function wireTkModalHeaderActs(o) {
+  const wash = $("tkEntryWash");
+  const dlg = wash.querySelector(".dialog");
+  const sync = () => {
+    dlg.classList.toggle("max", recordMaxOn);
+    wash.classList.toggle("maxed", recordMaxOn);
+    const b = $("rmMax");
+    b.innerHTML = recordMaxOn ? I.minimize : I.maximize;
+    b.title = recordMaxOn ? "Restore the window to its usual size" : "Expand the window to the full screen";
+    b.setAttribute("aria-label", b.title);
+  };
+  $("rmMax").addEventListener("click", () => {
+    recordMaxOn = !recordMaxOn;
+    try { sessionStorage.setItem("tkRecordMax", recordMaxOn ? "1" : "0"); } catch { /* ignore */ }
+    sync();
+  });
+  $("rmClose").addEventListener("click", () => (o.onClose ?? closeEntry)());
+  const eb = $("rmEdit");
+  if (eb !== null && !eb.disabled && o.edit?.run) eb.addEventListener("click", o.edit.run);
+  const pb = $("rmPrint");
+  if (pb !== null && o.print?.run) pb.addEventListener("click", o.print.run);
+  sync();
+}
+
+/* The shell. One shape for every record: nothing here knows what a time entry is. */
+function tkRecordModal(spec) {
+  recordSpec = spec;
+  spec.state = spec.state ?? { tab: spec.defaultTab ?? spec.tabs[0]?.key ?? null };
+  const render = () => {
+    const tabBtns = spec.tabs.map((t) =>
+      '<button data-rtab="' + t.key + '"' + (spec.state.tab === t.key ? ' aria-current="true"' : "") + ' title="' + esc(t.title ?? t.label) + '">' + t.label +
+      (t.badge ? '<span class="n">' + t.badge + "</span>" : "") + "</button>").join("");
+    $("tkEntryWash").innerHTML =
+      '<div class="dialog xl twopane" role="dialog" aria-modal="true" aria-label="' + esc(spec.heading) + '">' +
+      tkModalHeaderActs(spec.headerActs) +
+      "<header><h2>" + spec.heading + '</h2><span class="subtitle">' + spec.subtitleHtml + "</span></header>" +
+      '<div class="tp">' +
+      '<div class="tpleft scrollable">' + spec.leftHtml + "</div>" +
+      '<div class="tpright"><div class="mtabs">' + tabBtns + '</div><div class="tpbody scrollable" id="rtBody"></div></div>' +
+      "</div>" +
+      '<div class="actbar">' + spec.footerHtml + "</div></div>";
+    $("tkEntryWash").hidden = false;
+    const renderTab = () => {
+      const t = spec.tabs.find((x) => x.key === spec.state.tab) ?? spec.tabs[0];
+      if (!t) return;
+      $("rtBody").innerHTML = t.render();
+      if (t.wire) t.wire();
+    };
+    document.querySelectorAll("[data-rtab]").forEach((b) => b.addEventListener("click", () => {
+      spec.state.tab = b.dataset.rtab;
+      document.querySelectorAll("[data-rtab]").forEach((x) => {
+        if (x.dataset.rtab === spec.state.tab) x.setAttribute("aria-current", "true");
+        else x.removeAttribute("aria-current");
+      });
+      renderTab();
+    }));
+    renderTab();
+    /* The header controls are the SHELL's, not the surface's — so no record window can be missing
+       one, or put them in a different order. */
+    wireTkModalHeaderActs(spec.headerActs);
+    spec.wire();
+  };
+  spec.rerender = render;
+  render();
+}
+
+/* ---- The History tab: the record's own events, oldest first, absolute stamps ---- */
+function tkHistoryTabHtml(evs) {
+  if (!evs || evs.length === 0) return '<div class="notefact">' + I.info + "<span>No events yet. Saving records the first one.</span></div>";
+  return '<ul class="hist">' + evs.map((ev, i) =>
+    "<li" + (i === evs.length - 1 ? ' class="now"' : "") + '><span class="ev">' + esc(ev.what) + "</span>" +
+    '<span class="evmeta num">' + esc(ev.at) + " &middot; " + esc(ev.who) + "</span>" +
+    (ev.detail === undefined || ev.detail === null ? "" : '<span class="evdetail">&ldquo;' + esc(ev.detail) + "&rdquo;</span>") +
+    "</li>").join("") + "</ul>";
+}
+
+/* ---- The Attachments tab: as many files as the work produced, each removable ----
+ * TWO SOURCES, in the shared template's order: most of the time the file is already in the matter,
+ * so associating the matter's own document is the first offer and uploading is the second.
+ * Detaching is not deleting — the file stays in the matter's documents. */
+function tkAttachmentsTabHtml(working, canEdit) {
+  const list = working.files.map((a, i) =>
+    '<div class="attrow">' + (a.docId === null ? I.paperclip : I.file) +
+    '<span class="attname" title="' + esc(a.name + (a.docId === null ? " — uploaded to this entry" : " — the matter's own file, associated to this entry")) + '">' + esc(a.name) + "</span>" +
+    '<button class="iconbtn" data-attopen="' + i + '" title="Open ' + esc(a.name) + ' in the matter&#39;s files" aria-label="Open">' + I.eye + "</button>" +
+    (canEdit ? '<button class="iconbtn" data-attremove="' + i + '" title="Remove ' + esc(a.name) + ' from this entry. The file stays in the matter&#39;s files" aria-label="Remove">' + I.close + "</button>" : "") +
+    "</div>").join("");
+  const m = working.matter;
+  const taken = new Set(working.files.map((a) => a.docId).filter((d) => d !== null));
+  const picker = m === null
+    ? '<div class="notefact warn">' + I.info + "<span>Choose a matter first — a file is associated from the matter's own documents.</span></div>"
+    : '<div class="attsrc">' +
+      '<button class="btn secondary" id="tkPickDoc" title="Associate a file already in this matter&#39;s documents — the same file, not a copy of it">' + I.file + "From the Matter&hellip;</button>" +
+      '<button class="btn secondary" id="tkAttachBtn" title="Upload a file from this computer. It lands in the matter&#39;s files and attaches to this entry">' + I.upload + "Upload&hellip;</button>" +
+      '<input type="file" id="tkAttachFile" multiple hidden></div>' +
+      '<div class="docpick" id="tkDocList" hidden>' +
+      (MATTER_FILES[m.num] ?? []).map((name) =>
+        '<button class="dprow' + (taken.has(name) ? " used" : "") + '" data-docid="' + esc(name) + '"' + (taken.has(name) ? " disabled" : "") +
+        ' title="' + (taken.has(name) ? "Already attached to this entry" : "Associate " + esc(name) + " with this entry") + '">' +
+        I.file + '<span class="dpname">' + esc(name) + "</span></button>").join("") +
+      "</div>";
+  return (list || '<div class="notefact">' + I.info + "<span>No files attached to this entry.</span></div>") + (canEdit ? picker : "");
+}
+function wireTkAttachments(working, canEdit) {
+  const rerenderTab = () => {
+    const body = $("rtBody");
+    if (body) { body.innerHTML = tkAttachmentsTabHtml(working, canEdit); wireTkAttachments(working, canEdit); }
+    /* The tab strip is not re-rendered around the body, so its count is updated in place —
+       otherwise the badge keeps saying what the record held when the window opened. */
+    const tab = document.querySelector('[data-rtab="attachments"]');
+    if (tab !== null) {
+      const n = working.files.length;
+      const badge = tab.querySelector(".n");
+      if (n === 0) { if (badge) badge.remove(); }
+      else if (badge) badge.textContent = String(n);
+      else tab.insertAdjacentHTML("beforeend", '<span class="n">' + n + "</span>");
+    }
+  };
+  document.querySelectorAll("[data-attopen]").forEach((b) => b.addEventListener("click", () =>
+    toast("Opens " + working.files[Number(b.dataset.attopen)].name + " (the Documents surface)")));
+  if (!canEdit) return;
+  document.querySelectorAll("[data-attremove]").forEach((b) => b.addEventListener("click", () => {
+    const i = Number(b.dataset.attremove);
+    const name = working.files[i].name;
+    working.files.splice(i, 1);
+    toast("Removed " + name + " from this entry. The file stays in the matter's files.");
+    rerenderTab();
+  }));
+  const pd = $("tkPickDoc");
+  if (pd) pd.addEventListener("click", () => {
+    const list = $("tkDocList");
+    list.hidden = !list.hidden;
+    pd.setAttribute("aria-pressed", String(!list.hidden));
+  });
+  document.querySelectorAll("[data-docid]").forEach((b) => b.addEventListener("click", () => {
+    if (b.disabled) return;
+    working.files.push({ name: b.dataset.docid, docId: b.dataset.docid });
+    toast("Associated " + b.dataset.docid + " — the matter's own file, not a copy of it.");
+    rerenderTab();
+  }));
+  const ab = $("tkAttachBtn");
+  if (ab) ab.addEventListener("click", () => $("tkAttachFile").click());
+  const fi = $("tkAttachFile");
+  if (fi) fi.addEventListener("change", (ev) => {
+    for (const f of ev.target.files ?? []) working.files.push({ name: f.name, docId: null });
+    rerenderTab();
+  });
+}
+
+/* ---- The Billing tab: where this entry stands toward a bill. No review language: this surface
+ * never solicits submission (the round-five governing stance), so the tab carries the disposition
+ * and the honest fact that nothing has claimed the entry yet. ---- */
+function tkBillingTabHtml(r) {
+  const missing = missingFacts(r);
+  return '<dl class="insfacts">' +
+    "<dt>Billing</dt><dd>Billable, next invoice</dd>" +
+    "<dt>Rate</dt><dd>" + (r.rate === null ? '<span class="muted">Resolves when a matter is set</span>' : "$" + r.rate.toFixed(2) + " / h" + (r.card === "custom" ? " (custom override)" : "")) + "</dd>" +
+    "<dt>Billed hours</dt><dd>" + (liveSec(r) > 0 ? hoursLabel(billedHours(liveSec(r))) + " h" : '<span class="muted">&mdash;</span>') + "</dd>" +
+    "<dt>Amount</dt><dd>" + (liveSec(r) > 0 && r.rate !== null ? money(rowTotal(r)) : '<span class="muted">&mdash;</span>') + "</dd>" +
+    "</dl>" +
+    '<div class="notefact">' + I.info + "<span>Not on a bill yet. A draft invoice claims it from the Billing tab.</span></div>" +
+    (missing.length > 0
+      ? '<div class="notefact warn">' + I.alert + "<span>Incomplete: needs " + esc(missing.join(", ")) + ". It stays on the sheet until completed, and nothing downstream can bill it.</span></div>"
+      : "");
+}
+
+/* ---- The print sheet. TA1: every unit is printable. The INTERNAL MEMO IS NOT ON IT — the sheet
+ * is the client-facing rendering of the record, and the memo never appears on one. ---- */
+function tkPrintRecord(r) {
+  const rowsHtml = [
+    ["Time code", r.code + (r.wasTmp ? " (was " + r.wasTmp + ")" : "")],
+    ["Matter", r.matter ? r.matter.num + " · " + r.matter.title : "—"],
+    ["Work date", usDate(r.date)],
+    ["Date entered", usDate(r.entered)],
+    ["Timekeeper", r.who],
+    ["Entered by", r.via],
+    ["Description", r.note || "—"],
+    ["Worked", fmtDur(liveSec(r))],
+    ["Billed hours", liveSec(r) > 0 ? hoursLabel(billedHours(liveSec(r))) + " h" : "—"],
+    ["Rate", r.rate === null ? "—" : "$" + r.rate.toFixed(2) + " / h"],
+    ["Amount", liveSec(r) > 0 && r.rate !== null ? money(rowTotal(r)) : "—"],
+    ["Files", r.files.length === 0 ? "—" : r.files.map((f) => f.name).join("; ")],
+  ].map(([k, v]) => "<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>").join("");
+  $("tkPrintWash").innerHTML =
+    '<div class="dialog" role="dialog" aria-modal="true" aria-label="Print preview">' +
+    '<header><div class="htext"><h2>Print &mdash; entry ' + esc(r.code) + "</h2>" +
+    '<div class="fromrun">The sheet as it will print. The internal memo is not on it.</div></div>' +
+    '<button class="iconbtn" id="tkPrintClose" title="Close" aria-label="Close">' + I.close + "</button></header>" +
+    '<div class="body scrollable"><div class="printsheet" data-client-facing="true"><h3>Time Entry</h3><dl class="insfacts">' + rowsHtml + "</dl></div></div>" +
+    '<footer><span class="foothint">Print lives on every record, and on the row menu.</span>' +
+    '<button class="btn primary" id="tkPrintGo">Print</button></footer></div>';
+  $("tkPrintWash").hidden = false;
+  $("tkPrintClose").addEventListener("click", () => { $("tkPrintWash").hidden = true; });
+  $("tkPrintGo").addEventListener("click", () => toast("Hands this sheet to the browser's print dialog"));
+}
+
+/* ---- The record's field list. The Matter field is the Time Sheet's one genuine difference from
+ * the matter tab's copy of this window, and it lives HERE, in the fields — not in a different
+ * modal. ---- */
+function tkRecordLeftHtml(r, working) {
+  return '<div class="field"><label for="eInfo">Description</label>' +
+    '<textarea id="eInfo" class="grow" rows="1" placeholder="Description" title="The description — the entry\'s billed text" spellcheck="true">' + esc(r.note) + "</textarea></div>" +
+    '<div class="grid3">' +
+    '<div class="field"><label for="eDate">Work date</label><input type="date" id="eDate" value="' + r.date + '"></div>' +
+    '<div class="field"><label for="eMatter">Matter</label>' + comboFieldHtml("eMatter") + "</div>" +
+    '<div class="field"><label for="eWho">Staff</label>' + comboFieldHtml("eWho") + '<span class="hint" id="eWhoHint"></span></div>' +
+    "</div>" +
+    '<div class="grid3">' +
+    '<div class="field"><label for="eCategory">Category</label>' + comboFieldHtml("eCategory") + "</div>" +
+    '<div class="field"><label for="eActivity">Activity code</label>' + comboFieldHtml("eActivity") + "</div>" +
+    '<div class="field"><label for="eWorked">Time worked</label><input type="text" id="eWorked" class="num" placeholder="Time worked" title="Typed either way: 1:30 or 1.5"></div>' +
+    "</div>" +
+    /* ONE arithmetic relationship on ONE line: worked, rounded to billed, times rate, equals
+       amount — the operators carry the relationship. */
+    '<div class="arithstrip">' +
+    '<div class="ai"><span class="alab">Billed</span><span class="aval num" id="eBilled">&mdash;</span></div>' +
+    '<span class="aop">&times;</span>' +
+    '<div class="ai"><span class="alab">Rate</span><span class="aval num" id="eRate">&mdash;</span></div>' +
+    '<span class="aop">=</span>' +
+    '<div class="ai"><span class="alab">Amount</span><span class="aval num" id="eAmount">&mdash;</span></div>' +
+    '</div><div class="arithnote" id="eRoundNote"></div>' +
+    /* The internal memo is REAL (round seven, item 1): written here and on the row's third line,
+       kept on the record, and shown nowhere a client can see it. */
+    '<div class="field memoblock" data-internal-only="true"><label for="eMemo">Internal Memo <span class="memotag">Internal</span></label>' +
+    '<textarea id="eMemo" class="grow" rows="1" placeholder="Internal Memo" title="For the firm only. It never appears on a bill or a printed sheet." spellcheck="true">' + esc(r.memo) + "</textarea></div>" +
+    '<div class="hint num" id="eDates"></div>';
+}
+function comboFieldHtml(id) {
+  return '<span class="combowrap"><input id="' + id + '" class="combo" placeholder="' + esc(DIALOG_COMBOS[id].placeholder) + '" autocomplete="off" spellcheck="false">' +
+    '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>';
+}
+
+function openEntry(id, tab) {
+  const r = rows.find((x) => x.id === id);
+  if (!r) return;
+  entryOpenId = id;
+  /* The record edits in place, exactly as the sheet's cells do — this window is the same record at
+     a larger altitude, not a staging copy. Attachments ride the record for the same reason. */
+  const working = r;
+  const tabs = [
+    { key: "history", label: "History", title: "Everything that has happened to this entry", badge: (r.events ?? []).length || null,
+      render: () => tkHistoryTabHtml(r.events) },
+    { key: "attachments", label: "Attachments", title: "The files this time was spent on", badge: r.files.length || null,
+      render: () => tkAttachmentsTabHtml(working, true), wire: () => wireTkAttachments(working, true) },
+    { key: "billing", label: "Billing", title: "Where this entry stands toward a bill",
+      render: () => tkBillingTabHtml(r) },
+  ];
+  tkRecordModal({
+    heading: "Time Entry",
+    subtitleHtml: 'Entry <span class="num">' + esc(r.code) + "</span>" + (isProvisional(r.code) ? " <span class=\"memotag\">provisional</span>" : "") +
+      " &middot; " + (r.matter ? esc(r.matter.num + " · " + r.matter.title) : '<span class="muted">no matter yet</span>'),
+    leftHtml: tkRecordLeftHtml(r, working),
+    tabs,
+    /* An entry WITH files opens on them — the attachment is in front, not one click away. */
+    defaultTab: tab ?? (r.files.length > 0 ? "attachments" : "history"),
+    headerActs: {
+      edit: { can: false, why: "This entry is already editable — every field on the left is live" },
+      print: { why: "Print this time entry by itself", run: () => tkPrintRecord(r) },
+      onClose: closeEntry,
+    },
+    footerHtml:
+      '<span class="foothint">Saves the entry; the sheet updates behind this window.</span>' +
+      '<span class="spacer"></span>' +
+      '<button class="btn secondary" id="tkEntryCancel">Cancel</button>' +
+      '<button class="btn secondary" id="tkEntrySaveNew">Save &amp; New</button>' +
+      '<button class="btn primary" id="tkEntrySave">Save &amp; Close</button>',
+    wire() { wireEntryFields(r); },
+  });
+}
+
+function wireEntryFields(r) {
+  setComboValue("eMatter", r.matter ? r.matter.num : "");
+  setComboValue("eWho", r.who);
+  setComboValue("eCategory", r.cat ?? ENTRY_CATEGORIES[0]);
+  setComboValue("eActivity", r.act ?? "");
+  $("eWorked").value = r.sec > 0 ? fmtDur(r.sec) : "";
+  $("eWhoHint").textContent = isDelegated(r)
+    ? "Entered by " + r.via + " — delegated; both people stay on the entry."
+    : "Entered by " + r.via + " — the timekeeper entered it.";
+  $("eDates").textContent = "Work date " + usDate(r.date) + " · recorded " + usDate(r.entered) + " (automatic) · entered by " + r.via;
+  Object.keys(DIALOG_COMBOS).forEach(wireDialogCombo);
+  autoSizeNote($("eInfo"));
+  autoSizeNote($("eMemo"));
+  $("eInfo").addEventListener("input", () => autoSizeNote($("eInfo")));
+  $("eMemo").addEventListener("input", () => autoSizeNote($("eMemo")));
+  $("eWorked").addEventListener("input", () => updateEntryArith(r));
+  updateEntryArith(r);
+  $("tkEntryCancel").addEventListener("click", closeEntry);
+  $("tkEntrySave").addEventListener("click", () => { if (saveEntry(r)) closeEntry(); });
+  /* SAVE & NEW keeps the window open on a fresh entry, carrying the context forward (work date,
+     matter, staff, category, activity) and clearing what belongs to the entry just saved
+     (description, memo, duration, files) — the settled Log Time behavior. */
+  $("tkEntrySaveNew").addEventListener("click", () => {
+    if (!saveEntry(r)) return;
+    const next = createRow(r.date);
+    next.matter = r.matter;
+    next.who = r.who;
+    next.cat = r.cat;
+    next.act = r.act;
+    if (next.matter) { next.rate = r.rate; next.card = r.card; }
+    if (next.matter && isProvisional(next.code)) {
+      next.wasTmp = next.code;
+      next.code = mintPermanent(next.matter.num);
+    }
+    widenScopeFor(next.date, "entry you just created");
+    autoSave(next);
+    render();
+    toast("Saved " + r.code + " — a new entry is open, carrying the matter and the date");
+    openEntry(next.id, "history");
+    $("eInfo").focus();
+  });
+}
+function updateEntryArith(r) {
+  const sec = parseDur($("eWorked").value) ?? r.sec;
+  const bh = sec > 0 ? billedHours(sec) : 0;
+  $("eBilled").textContent = bh > 0 ? hoursLabel(bh) + " h" : "—";
+  $("eRate").textContent = r.rate === null ? "no rate yet" : "$" + r.rate.toFixed(2) + (r.card === "custom" ? " (custom)" : "");
+  $("eAmount").textContent = r.rate !== null && bh > 0 ? money(bh * r.rate) : "—";
+  $("eRoundNote").textContent = "Rounded to the firm's 6-minute increment, nearest. Amounts are pre-tax.";
+}
+function saveEntry(r) {
+  pushHistory("edit in the record window on " + r.code);
+  const m = MATTERS.find((x) => x.num === comboValue("eMatter")) ?? null;
+  const hadNoMatter = r.matter === null;
+  if ((m ? m.num : null) !== (r.matter ? r.matter.num : null)) recordEvent(r, m ? "Matter set to " + m.num : "Matter cleared");
+  r.matter = m;
+  if (m && hadNoMatter && isProvisional(r.code)) {
+    r.wasTmp = r.code;
+    r.code = mintPermanent(m.num);
+    recordEvent(r, "Permanent time code " + r.code + " minted", "was " + r.wasTmp);
+  }
+  const newWho = comboValue("eWho");
+  if (newWho !== r.who) {
+    r.who = newWho;
+    r.via = ME;
+    if (r.card !== "custom") r.rate = RATE_CARDS[0].rateFor(newWho);
+    recordEvent(r, "Timekeeper changed to " + newWho, newWho === ME ? undefined : "Delegated entry — " + ME + " recorded as the enterer");
+  }
+  r.cat = comboValue("eCategory");
+  r.act = comboValue("eActivity");
+  if ($("eDate").value && $("eDate").value !== r.date) {
+    r.date = $("eDate").value;
+    recordEvent(r, "Work date changed to " + usDate(r.date));
+    widenScopeFor(r.date, "entry you just saved");
+  }
+  if ($("eInfo").value.trim() !== r.note) { r.note = $("eInfo").value.trim(); recordEvent(r, "Description edited"); }
+  if ($("eMemo").value.trim() !== r.memo) {
+    r.memo = $("eMemo").value.trim();
+    recordEvent(r, r.memo === "" ? "Internal memo cleared" : "Internal memo edited");
+  }
+  const sec = parseDur($("eWorked").value);
+  if (sec !== null && sec !== r.sec) {
+    if (r.timer === "running") pauseTimerOn(r);
+    r.sec = sec;
+    recordEvent(r, "Duration set to " + fmtDur(sec));
+  }
+  if (r.rate === null && r.matter) { r.rate = RATE_CARDS[0].rateFor(r.who); r.card = "standard"; }
+  autoSave(r);
+  render();
+  return true;
+}
+function closeEntry() {
+  $("tkEntryWash").hidden = true;
+  $("tkEntryWash").innerHTML = "";
+  $("tkDialogMenu").hidden = true;
+  entryOpenId = null;
+  recordSpec = null;
+  render();
+}
+/* ---------- modal chrome ---------- */
+$("tkChip").addEventListener("click", () => setModal(!modalOpen));
+$("tkClose").addEventListener("click", () => setModal(false));
+$("tkWash").addEventListener("click", (e) => { if (e.target === $("tkWash")) setModal(false); });
+$("tkUndoBtn").addEventListener("click", () => undo(1));
+$("tkRedoBtn").addEventListener("click", () => redo(1));
+$("tkUndoMore").addEventListener("click", () => openHistMenu("undo"));
+$("tkRedoMore").addEventListener("click", () => openHistMenu("redo"));
+$("tkClearFilters").addEventListener("click", () => { filters = {}; render(); });
+/* New entry (round six, item 7): the same act as adding a row, but it opens the DEDICATED
+   single-entry screen — the full form — instead of putting the cursor in the grid. The row is a
+   real entry from the moment the button is pressed, exactly as an inline one is. */
+$("tkNewEntryBtn").addEventListener("click", () => {
+  const r = createRow(TODAY);
+  widenScopeFor(r.date, "entry you just created");
+  render();
+  openEntry(r.id);
+});
+$("tkColsBtn").addEventListener("click", openColsMenu);
+$("tkScopeBtn").addEventListener("click", openScopeMenu);
+$("tkSearchBtn").addEventListener("click", () => { searchOpen = true; renderBarStates(); $("tkSearch").focus(); });
+$("tkSearch").addEventListener("input", () => { searchQ = $("tkSearch").value.trim(); renderRows(); $("tkSearchWrap").classList.toggle("on", searchQ !== ""); });
+$("tkSearch").addEventListener("blur", () => { if (searchQ === "") setTimeout(() => { if (searchQ === "" && !$("tkSearch").matches(":focus")) { searchOpen = false; renderBarStates(); } }, 150); });
+$("tkSearchClear").addEventListener("click", () => { searchQ = ""; $("tkSearch").value = ""; searchOpen = false; render(); });
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z" && modalOpen) { e.preventDefault(); undo(1); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z")) && modalOpen) { e.preventDefault(); redo(1); return; }
+  if (e.key !== "Escape") return;
+  if (!$("tkEntryWash").hidden) closeEntry();
+  else if (comboFor !== null) closeCombos();
+  else if (!$("tkFilterMenu").hidden) $("tkFilterMenu").hidden = true;
+  else if (!$("tkColsMenu").hidden) $("tkColsMenu").hidden = true;
+  else if (!$("tkScopeMenu").hidden) $("tkScopeMenu").hidden = true;
+  else if (!$("tkHistMenu").hidden) $("tkHistMenu").hidden = true;
+  else if (searchOpen) { searchQ = ""; $("tkSearch").value = ""; searchOpen = false; render(); }
+  else if (modalOpen) setModal(false);
+});
+
+/* ---------- mockbar scenarios ---------- */
+document.querySelectorAll(".mockbar [data-scene]").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".mockbar [data-scene]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    rows = freshRows(); runTick = Date.now();
+    hist = { undo: [], redo: [] };
+    sortKey = null; sortDir = 1; filters = {};
+    scope = scopePreset("today");
+    searchQ = ""; searchOpen = false; $("tkSearch").value = "";
+    tmpSeq = 113;
+    closeCombos();
+    ["tkFilterMenu", "tkColsMenu", "tkScopeMenu", "tkEntryWash"].forEach((id) => { $(id).hidden = true; });
+    entryOpenId = null;
+    $("tkToast").classList.remove("on");
+    const scene = b.dataset.scene;
+    if (scene === "idle") { rows = []; setModal(false); }
+    else if (scene === "running") { setModal(false); }
+    else { setModal(true); }
+    render();
+  });
+});
+
+/* initial: the sheet open */
+setModal(true);
+</script>
+
+</body></html>

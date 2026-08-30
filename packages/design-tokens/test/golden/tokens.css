@@ -12,7 +12,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-0);
   --mc-action-destructive-hover: var(--mc-color-red-700);
   --mc-action-disabled: var(--mc-color-neutral-200);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-700);
   --mc-action-primary: var(--mc-color-brand-800);
   --mc-action-primary-active: var(--mc-color-brand-900);
   --mc-action-primary-foreground: var(--mc-color-neutral-0);
@@ -165,6 +165,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -287,7 +291,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-1000);
   --mc-action-destructive-hover: var(--mc-color-red-300);
   --mc-action-disabled: var(--mc-color-neutral-800);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-600);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-400);
   --mc-action-primary: var(--mc-color-brand-400);
   --mc-action-primary-active: var(--mc-color-brand-200);
   --mc-action-primary-foreground: var(--mc-color-neutral-1000);
@@ -440,6 +444,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -562,7 +570,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-0);
   --mc-action-destructive-hover: var(--mc-color-red-700);
   --mc-action-disabled: var(--mc-color-neutral-200);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-700);
   --mc-action-primary: var(--mc-color-brand-800);
   --mc-action-primary-active: var(--mc-color-brand-900);
   --mc-action-primary-foreground: var(--mc-color-neutral-0);
@@ -715,6 +723,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -837,7 +849,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-1000);
   --mc-action-destructive-hover: var(--mc-color-red-300);
   --mc-action-disabled: var(--mc-color-neutral-800);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-600);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-400);
   --mc-action-primary: var(--mc-color-brand-400);
   --mc-action-primary-active: var(--mc-color-brand-200);
   --mc-action-primary-foreground: var(--mc-color-neutral-1000);
@@ -990,6 +1002,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -1112,7 +1128,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-0);
   --mc-action-destructive-hover: var(--mc-color-red-700);
   --mc-action-disabled: var(--mc-color-neutral-200);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-700);
   --mc-action-primary: var(--mc-color-brand-800);
   --mc-action-primary-active: var(--mc-color-brand-900);
   --mc-action-primary-foreground: var(--mc-color-neutral-0);
@@ -1265,6 +1281,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -1387,7 +1407,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-1000);
   --mc-action-destructive-hover: var(--mc-color-red-300);
   --mc-action-disabled: var(--mc-color-neutral-800);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-600);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-400);
   --mc-action-primary: var(--mc-color-brand-400);
   --mc-action-primary-active: var(--mc-color-brand-200);
   --mc-action-primary-foreground: var(--mc-color-neutral-1000);
@@ -1540,6 +1560,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -1662,7 +1686,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-0);
   --mc-action-destructive-hover: var(--mc-color-red-700);
   --mc-action-disabled: var(--mc-color-neutral-200);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-700);
   --mc-action-primary: var(--mc-color-brand-800);
   --mc-action-primary-active: var(--mc-color-brand-900);
   --mc-action-primary-foreground: var(--mc-color-neutral-0);
@@ -1815,6 +1839,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -1937,7 +1965,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-1000);
   --mc-action-destructive-hover: var(--mc-color-red-300);
   --mc-action-disabled: var(--mc-color-neutral-800);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-600);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-400);
   --mc-action-primary: var(--mc-color-brand-400);
   --mc-action-primary-active: var(--mc-color-brand-200);
   --mc-action-primary-foreground: var(--mc-color-neutral-1000);
@@ -2090,6 +2118,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -2212,7 +2244,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-0);
   --mc-action-destructive-hover: var(--mc-color-red-700);
   --mc-action-disabled: var(--mc-color-neutral-200);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-700);
   --mc-action-primary: var(--mc-color-brand-800);
   --mc-action-primary-active: var(--mc-color-brand-900);
   --mc-action-primary-foreground: var(--mc-color-neutral-0);
@@ -2365,6 +2397,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -2487,7 +2523,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-1000);
   --mc-action-destructive-hover: var(--mc-color-red-300);
   --mc-action-disabled: var(--mc-color-neutral-800);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-600);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-400);
   --mc-action-primary: var(--mc-color-brand-400);
   --mc-action-primary-active: var(--mc-color-brand-200);
   --mc-action-primary-foreground: var(--mc-color-neutral-1000);
@@ -2640,6 +2676,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -2762,7 +2802,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-0);
   --mc-action-destructive-hover: var(--mc-color-red-700);
   --mc-action-disabled: var(--mc-color-neutral-200);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-700);
   --mc-action-primary: var(--mc-color-brand-800);
   --mc-action-primary-active: var(--mc-color-brand-900);
   --mc-action-primary-foreground: var(--mc-color-neutral-0);
@@ -2915,6 +2955,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -3037,7 +3081,7 @@
   --mc-action-destructive-foreground: var(--mc-color-neutral-1000);
   --mc-action-destructive-hover: var(--mc-color-red-300);
   --mc-action-disabled: var(--mc-color-neutral-800);
-  --mc-action-disabled-foreground: var(--mc-color-neutral-600);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-400);
   --mc-action-primary: var(--mc-color-brand-400);
   --mc-action-primary-active: var(--mc-color-brand-200);
   --mc-action-primary-foreground: var(--mc-color-neutral-1000);
@@ -3190,6 +3234,10 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself. */
+  --mc-size-record-context: 400px;
+  /* How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for. */
+  --mc-size-record-window: 1024px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */

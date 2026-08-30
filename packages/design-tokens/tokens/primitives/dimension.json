@@ -52,6 +52,16 @@
       "$description": "The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width).",
       "$type": "dimension",
       "$value": { "value": 480, "unit": "px" }
+    },
+    "record-window": {
+      "$description": "How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for.",
+      "$type": "dimension",
+      "$value": { "value": 1024, "unit": "px" }
+    },
+    "record-context": {
+      "$description": "The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself.",
+      "$type": "dimension",
+      "$value": { "value": 400, "unit": "px" }
     }
   }
 }
