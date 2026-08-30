@@ -153,9 +153,7 @@
 
 <div class="flex flex-col gap-12">
   <div class="mc-table-toolbar">
-    <!-- shortcut is off in the catalog: several stories share one page, and a page-wide key
-         cannot pick between two identical controls. A real screen carries one and keeps it. -->
-    <DataTable.Search {table} label="Search table" fieldClass="max-w-xs" shortcut={null} />
+    <DataTable.Search {table} label="Search table" fieldClass="max-w-xs" />
     <DataTable.ViewMenu {table} bind:appearance />
   </div>
 

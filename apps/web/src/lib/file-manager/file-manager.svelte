@@ -29,7 +29,7 @@
   import FolderTree from "@magna-carta/design-system/folder-tree";
   import Input from "@magna-carta/design-system/input";
   import Checkbox from "@magna-carta/design-system/checkbox";
-  import ScopedSearch from "@magna-carta/design-system/scoped-search";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import * as Select from "@magna-carta/design-system/select";
   import { formatInstant, placeholderOf } from "@magna-carta/design-system/formatters";
   import type {
@@ -1165,7 +1165,7 @@
                    beside it, and the index's standing pulled to the far edge. It sits ABOVE the
                    table, so a search that returns thirty rows does not push it down the page. -->
               <div class="flex items-center gap-8 border-b border-border-default px-12 py-8">
-                <ScopedSearch
+                <ScreenSearch
                   bind:value={manager.searchQuery}
                   expanded
                   size="sm"
@@ -1195,7 +1195,7 @@
                       </Select.Content>
                     </Select.Root>
                   {/snippet}
-                </ScopedSearch>
+                </ScreenSearch>
                 <label class="flex items-center gap-4 text-xs text-text-muted">
                   <Checkbox bind:checked={manager.searchIncludesDeleted} />
                   Include deleted files

@@ -42,6 +42,10 @@
     {
       "name": "RecordMenu",
       "home": "apps/web/src/lib/records"
+    },
+    {
+      "name": "ScreenSearch",
+      "home": "packages/design-system/src/lib/components/screen-search"
     }
   ],
 

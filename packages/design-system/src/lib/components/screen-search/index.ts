@@ -1,1 +1,1 @@
-export { default } from "./scoped-search.svelte";
+export { default } from "./screen-search.svelte";

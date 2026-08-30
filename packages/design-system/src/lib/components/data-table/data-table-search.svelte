@@ -1,22 +1,21 @@
 <script lang="ts" generics="TData">
   /*
-   * DataTable.Search — the one-line way to give a client-side table the screen's search. It is
-   * ScopedSearch bound to the table's global filter, and nothing more: the appearance and the
-   * behaviour (rests as an icon, expands on use, collapses when left empty, keeps itself open with
-   * the accent edge while a query is live) are the component's, so a table inherits the shape
-   * rather than re-deciding it.
+   * DataTable.Search — ScreenSearch with its `onsearch` already wired to a table's global filter,
+   * for the common case where the rows are already in the browser. It is a PRESET, not a second
+   * control: the appearance, the expand-and-collapse behaviour and the keyboard are the component's,
+   * so a table inherits the shape rather than re-deciding it, and a screen that outgrows the preset
+   * reaches for ScreenSearch directly without anything on screen changing.
    *
-   * Composable on purpose: it takes the shared table instance and drives its global filter, so it
-   * sits in the screen's action row rather than being baked into the table. Requires the table to
-   * have a filtered row model (`getFilteredRowModel()`); table-core's default global filter
-   * substring-matches across the visible columns.
+   * That is the whole design. The previous version of this file WAS the search box, bound so tightly
+   * to `@tanstack/table-core` that a screen whose search ran on a server could not use it — and
+   * every such screen went off and built its own. Keeping the table binding as a thin preset over
+   * the shared control is what stops that happening again.
    *
-   * This is the CLIENT-SIDE binding. A screen whose search runs on the server reaches for
-   * ScopedSearch directly and sends the query itself — same control, same appearance, different
-   * transport.
+   * Requires the table to have a filtered row model (`getFilteredRowModel()`); table-core's default
+   * global filter substring-matches across the visible columns.
    */
   import type { Table } from "@tanstack/table-core";
-  import ScopedSearch from "../scoped-search/index.ts";
+  import ScreenSearch from "../screen-search/index.ts";
   import type { InputSize } from "../input/variants.ts";
 
   type Props = {
@@ -27,12 +26,10 @@
     placeholder?: string;
     /** Whether the field is showing. Bindable, so a screen can open the control itself. */
     expanded?: boolean;
-    /** Renders the filtered-of-total count inside the field while a query is live. */
-    showMatchCount?: boolean;
-    /** Key that expands and focuses the control from anywhere on the page. Pass null for none. */
-    shortcut?: string | null;
     /** Control height, from the same scale the Button and Input use. */
     size?: InputSize;
+    /** Disables the control so it cannot be expanded or typed into. */
+    disabled?: boolean;
     /** Width utility for the expanded field. */
     fieldClass?: string;
     class?: string;
@@ -43,30 +40,26 @@
     label = "Search this list",
     placeholder = "Search",
     expanded = $bindable(false),
-    showMatchCount = true,
-    shortcut = "/",
     size = "default",
+    disabled = false,
     fieldClass,
     class: className,
   }: Props = $props();
 
+  // The table's global filter is the single source of truth for the query, so a screen that clears
+  // the filter elsewhere (a "clear all" action) empties the field with it.
   const query = $derived((table.getState().globalFilter ?? "") as string);
-  // The count reads the row models rather than a stored number, so it can never drift from what the
-  // table is actually showing.
-  const matchSummary = $derived.by(() => {
-    if (!showMatchCount || query.trim() === "") return undefined;
-    return `${table.getFilteredRowModel().rows.length} of ${table.getCoreRowModel().rows.length}`;
-  });
 </script>
 
-<ScopedSearch
-  bind:value={() => query, (next) => table.setGlobalFilter(next)}
+<ScreenSearch
+  value={query}
   bind:expanded
+  onsearch={(next) => table.setGlobalFilter(next)}
+  searchOn="keystroke"
   {label}
   {placeholder}
-  {matchSummary}
-  {shortcut}
   {size}
+  {disabled}
   {fieldClass}
   class={className}
 />
