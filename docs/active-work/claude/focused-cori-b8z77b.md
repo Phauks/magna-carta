@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta (remote session)
 area: file-manager round-nine review corrections (mockup + app parity) + login/registration readiness
 status: building
-touches: docs/conventions/file-manager-rulings.md, tooling/file-manager-rulings/, apps/web/src/lib/file-manager/, apps/web/src/lib/auth/, apps/web/src/lib/matters/, apps/web/src/lib/members/, apps/web/src/lib/settings/, apps/web/src/lib/components/, apps/web/src/routes/(app)/matters/, apps/api-worker/src, apps/api-worker/openapi/openapi.json, packages/api-client/, packages/access-control/src/registry.ts, packages/data-access/src/member-statements.ts, packages/database/drizzle/per-firm/, tooling/lint-list-pagination/, docs/deploy-queue.md, changelog.d/, docs/user/features/
+touches: docs/conventions/file-manager-rulings.md, tooling/file-manager-rulings/, tooling/lint-one-ui/, packages/design-system/src/lib/components/record-window/, packages/design-system/src/lib/components/event-rail/, packages/design-system/src/lib/components/print-sheet/, packages/design-system/package.json, apps/web/src/lib/file-manager/, apps/web/src/lib/auth/, apps/web/src/lib/matters/, apps/web/src/lib/members/, apps/web/src/lib/settings/, apps/web/src/lib/components/, apps/web/src/routes/(app)/matters/, apps/api-worker/src, apps/api-worker/openapi/openapi.json, packages/api-client/, packages/access-control/src/registry.ts, packages/data-access/src/member-statements.ts, packages/database/drizzle/per-firm/, tooling/lint-list-pagination/, docs/deploy-queue.md, changelog.d/, docs/user/features/
 ---
 
 Applying the owner's ninth round of file-manager corrections: The Docket mockup revised and
@@ -60,3 +60,15 @@ Owned files: `apps/api-worker/src/routes/members.ts`, `routes/dev-seed.ts`, `aut
 `apps/web/src/lib/settings/components/request-change-dialog.svelte`,
 `apps/web/src/lib/components/recipient-picker.svelte`, `bug-report-dialog.svelte`,
 `apps/web/src/lib/matters/matter-columns.ts`, and `apps/web/src/routes/(app)/matters/+page.svelte`.
+
+**Added 2026-08-29 — the record family enters the design system.** The port's second slice builds the
+three components every record surface is composed from: `RecordWindow` (the two-pane shell, whose
+header set is exactly Edit / Print / expand / close and which knows nothing of time, fees, costs or
+invoices), `EventRail` (the history presentation) and `PrintSheet` (the printable unit, layering
+above the window rather than replacing it). The check that keeps the shell domain-free lands with the
+shell rather than after it, as `tooling/lint-one-ui/` — a component registry plus the header-set and
+no-domain-symbol assertions. Owned files:
+`packages/design-system/src/lib/components/{record-window,event-rail,print-sheet}/**`, their tests and
+their story files, `tooling/lint-one-ui/**`, and the three matching `exports` entries in
+`packages/design-system/package.json`. Concurrent streams should stay out of those three component
+directories until this lands.
