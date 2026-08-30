@@ -79,3 +79,6 @@
 /* The attachments tab dresses rows inside a record window's context pane and hosts a Popover with a
    Command listbox in it, so it follows all three: at equal specificity the later rule wins. */
 @import "../components/record-attachments/record-attachments.css";
+/* The file manager left rail, dressed over the tree recipe it extends, so its rules win where
+   the two meet. */
+@import "../components/folder-tree/folder-tree.css";

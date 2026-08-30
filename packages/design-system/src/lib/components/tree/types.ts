@@ -13,3 +13,21 @@ export type TreeNode = {
   /** Child nodes. A non-empty array makes this an expandable parent. */
   children?: TreeNode[];
 };
+
+/**
+ * What a row knows about itself when the consumer draws part of it. Handed to the `icon` and
+ * `trailing` snippets so a caller can vary a glyph by depth or expansion without re-deriving any of
+ * it, and so the tree keeps ONE walk over the data rather than the caller keeping a second one.
+ */
+export type TreeItemContext = {
+  /** The node this row renders. */
+  node: TreeNode;
+  /** Depth, starting at 1 for a root node — the same number that reaches `aria-level`. */
+  level: number;
+  /** Whether the node has children, and therefore a working twisty. */
+  hasChildren: boolean;
+  /** Whether the node is currently expanded. Always false for a leaf. */
+  expanded: boolean;
+  /** Whether the node is the selected one. */
+  selected: boolean;
+};

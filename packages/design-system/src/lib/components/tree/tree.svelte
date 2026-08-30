@@ -10,15 +10,32 @@
    * -1); Up/Down move between VISIBLE nodes; Right expands a collapsed parent or descends into an
    * expanded one; Left collapses an expanded parent or ascends to the parent; Home/End jump to the
    * first/last visible node; a printable key does first-character typeahead; Enter/Space activate
-   * (select, and toggle a parent's expansion). Focus is moved imperatively to the active treeitem
-   * after each move; the tabindex follows reactively.
+   * (select, and — when `expandOnActivate` — toggle a parent's expansion). Focus is moved
+   * imperatively to the active treeitem after each move; the tabindex follows reactively.
+   *
+   * THE TWISTY IS ITS OWN TARGET. Pressing the chevron expands or collapses and does nothing else,
+   * in either activation mode: a caret that also selected would navigate a surface the reader only
+   * meant to open. It stays a plain `<span>` rather than a nested `<button>` so the treeitem
+   * remains the one tabbable thing in the row and the keyboard model keeps its single entry point;
+   * the state a reader needs is already on the treeitem's own `aria-expanded`.
+   *
+   * WHAT THE ROW DRAWS IS A SEAM. `icon` and `trailing` are per-node snippets: a tree of things that
+   * are not all folders supplies its own glyph rather than inheriting one that quietly claims every
+   * leaf is a folder, and a row with a count or a mark at its end has somewhere to put it. The
+   * defaults stay the folder pair, so a plain folder tree passes neither.
    *
    * Expansion is CONTROLLED — `expandedIds` is a bindable array so the consumer persists which
    * folders are open (the Files surface remembers the open set across navigations). `selectedId` is
    * bindable too. Expansion changes are a layout change, so they are INSTANT (no height animation) —
    * the design language forbids animating layout; only the twisty glyph swaps.
+   *
+   * NOTHING ABOUT A ROW CHANGES SIZE WITH ITS STATE. Selection paints a fill and an inline-start
+   * edge whose width is reserved at rest; it deliberately does NOT change the label's weight,
+   * because a bolder label is a wider label, and a rail whose rows re-measure as the reader walks
+   * them is the reflow this component exists to avoid.
    */
   import { tick } from "svelte";
+  import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
@@ -26,13 +43,18 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
-  import type { TreeNode } from "./types.ts";
+  import type { TreeItemContext, TreeNode } from "./types.ts";
 
   let {
     items,
     expandedIds = $bindable([]),
     selectedId = $bindable(undefined),
     label = "Folders",
+    expandOnActivate = true,
+    draggableItems = false,
+    markedId = undefined,
+    icon,
+    trailing,
     onSelect,
     ref = $bindable(null),
     class: className,
@@ -46,6 +68,24 @@
     selectedId?: string | undefined;
     /** Accessible name for the tree landmark (role="tree"). */
     label?: string;
+    /**
+     * Whether activating a parent row (click, Enter, Space) also toggles its expansion. True suits a
+     * tree whose parents are only containers; false suits one whose parents are destinations in
+     * their own right, where opening and going somewhere are two different gestures and the twisty
+     * is the one that opens.
+     */
+    expandOnActivate?: boolean;
+    /** Marks every row as a drag source, for a tree whose nodes can be rearranged by dragging. */
+    draggableItems?: boolean;
+    /**
+     * The node that is the object of a gesture in progress — a drag hovering over it, a menu opened
+     * on it. Rendered as a reserved-width edge, so marking one costs no reflow.
+     */
+    markedId?: string | undefined;
+    /** Draws the row's leading glyph. Replaces the default folder pair entirely. */
+    icon?: Snippet<[TreeItemContext]>;
+    /** Draws content at the row's end — a count, a mark, a status. */
+    trailing?: Snippet<[TreeItemContext]>;
     /** Called with the node id whenever a node is activated (selected). */
     onSelect?: (id: string) => void;
   } = $props();
@@ -115,7 +155,7 @@
   function activate(entry: VisibleNode) {
     selectedId = entry.node.id;
     onSelect?.(entry.node.id);
-    if (entry.hasChildren) setExpanded(entry.node.id, !entry.expanded);
+    if (expandOnActivate && entry.hasChildren) setExpanded(entry.node.id, !entry.expanded);
   }
 
   let typeaheadBuffer = "";
@@ -144,6 +184,11 @@
     );
   }
 
+  /** Whether the event happened on a row's twisty, which expands and does nothing else. */
+  function onTwisty(target: EventTarget | null): boolean {
+    return (target as HTMLElement | null)?.closest("[data-tree-twisty]") !== null;
+  }
+
   // Keep the roving-tabindex target in step with real focus — whenever focus enters a treeitem (by
   // Tab, by a click, or programmatically), the active node follows it, so the keyboard handler always
   // acts on the node the user is actually on.
@@ -160,6 +205,10 @@
     const entry = visible.find((candidate) => candidate.node.id === id);
     if (entry === undefined) return;
     activeId = id;
+    if (onTwisty(event.target)) {
+      if (entry.hasChildren) setExpanded(entry.node.id, !entry.expanded);
+      return;
+    }
     activate(entry);
   }
 
@@ -230,6 +279,7 @@
     {@const hasChildren = node.children !== undefined && node.children.length > 0}
     {@const expanded = hasChildren && expandedSet.has(node.id)}
     {@const selected = node.id === selectedId}
+    {@const context = { node, level, hasChildren, expanded, selected } satisfies TreeItemContext}
     <li
       role="treeitem"
       aria-level={level}
@@ -239,11 +289,13 @@
       aria-expanded={hasChildren ? expanded : undefined}
       aria-label={node.label}
       tabindex={node.id === effectiveActiveId ? 0 : -1}
+      draggable={draggableItems ? true : undefined}
       data-tree-item-id={node.id}
+      data-tree-marked={node.id === markedId ? "true" : undefined}
       class="mc-tree-item"
     >
       <span class="mc-tree-item-row">
-        <span class="mc-tree-item-twisty">
+        <span class="mc-tree-item-twisty" data-tree-twisty="">
           {#if hasChildren}
             {#if expanded}
               <ChevronDown class="mc-tree-item-twisty-icon" aria-hidden="true" />
@@ -252,12 +304,17 @@
             {/if}
           {/if}
         </span>
-        {#if hasChildren && expanded}
+        {#if icon}
+          {@render icon(context)}
+        {:else if hasChildren && expanded}
           <FolderOpen class="mc-tree-item-icon" aria-hidden="true" />
         {:else}
           <Folder class="mc-tree-item-icon" aria-hidden="true" />
         {/if}
         <span class="mc-tree-item-label">{node.label}</span>
+        {#if trailing}
+          <span class="mc-tree-item-trailing">{@render trailing(context)}</span>
+        {/if}
       </span>
       {#if hasChildren && expanded && node.children}
         <ul role="group" class="mc-tree-group">
