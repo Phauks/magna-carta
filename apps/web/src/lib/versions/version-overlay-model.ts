@@ -271,12 +271,14 @@ export const WEB_APP_SHIPS_INSIDE_API_NOTICE =
 /**
  * What a difference between the two commits actually means. It is not two deployables that have
  * drifted apart, because there is only one: the bundle and the Worker ship together. So a
- * difference says the page in this tab was served by an earlier deployment than the one now
- * answering, and a reload is the whole fix.
+ * difference says the page in this tab and the Worker answering it were served by two different
+ * deployments, and a reload is what settles that: it takes whatever the deployment answering now
+ * actually serves. The advice is deliberately direction-free, because two commit stamps cannot be
+ * put in order.
  */
 export const BUILD_SKEW_EXPLANATION =
   "This page and the API answering it come from different deployments of magna-carta. Reload to " +
-  "take the newer bundle.";
+  "line the page up with the deployment answering now.";
 
 /** The line under the Services heading when the deployment is wired to no service at all. */
 export const NO_SERVICES_NOTICE = "This deployment is not wired to any backend service.";
