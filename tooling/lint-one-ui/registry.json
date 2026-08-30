@@ -37,13 +37,11 @@
     },
     {
       "name": "FolderTree",
-      "home": "packages/design-system/src/lib/components/folder-tree",
-      "pending": "being written now; the file manager's left rail, extending Tree rather than a second tree"
+      "home": "packages/design-system/src/lib/components/folder-tree"
     },
     {
       "name": "RecordMenu",
-      "home": "apps/web/src/lib/records",
-      "pending": "being written now; the counted, scoped context menu every table surface opens"
+      "home": "apps/web/src/lib/records"
     }
   ],
 

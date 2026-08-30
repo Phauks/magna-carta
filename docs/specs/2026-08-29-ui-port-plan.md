@@ -354,7 +354,12 @@ plain icon control with its count on the hover, never a headline button), TL14.
 #### S4. `RecordMenu` — the counted, scoped context menu (NEW-APP)
 
 The multi-selection menu that **speaks for the whole selection**. Counted verbs; scoped verbs; verbs
-disabled with their reason; verbs omitted where they are one-item gestures.
+disabled with their reason; verbs omitted where a multi-selection makes them meaningless. **Which
+verb gets which treatment is A20's to say, per action, and it does not follow the obvious rule** —
+Open and Rename are one-item gestures that stay VISIBLE and refused with a reason, while Convert and
+Browse Inside are ABSENT on a multi-selection. This summary previously said one-item gestures were
+omitted, which reads as a tidy principle and contradicts the ledger; an agent briefed from it builds
+the wrong menu. Read A20 itself, per action.
 
 **Rulings:** A20 (the full per-action record), A25 (Cut/Copy/Paste are their own group bounded by
 the separator rule), L5 (Duplicate as a verb beside a Copy **flyout** of copyable values), TL1
