@@ -149,12 +149,6 @@
     },
     {
       "rule": "placeholder",
-      "file": "packages/design-system/src/lib/components/data-table/data-table-search.svelte",
-      "text": "Search…",
-      "reason": "predates the placeholder ruling; a search box's field name IS Search, so only the trailing ellipsis fails it. This is the default prop value, not an attribute, which is why it is worth deciding once here rather than at every caller."
-    },
-    {
-      "rule": "placeholder",
       "file": "packages/design-system/src/lib/components/merge-field-picker/merge-field-picker.svelte",
       "text": "Choose a merge field",
       "reason": "predates the placeholder ruling; the field's name is Merge field."
