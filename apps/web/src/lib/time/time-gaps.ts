@@ -78,6 +78,18 @@ export const TIME_LEDGER_GAPS = {
     field: "Delete Draft",
     waitsOn: "a route that removes a draft that never entered review",
   },
+  rounding: {
+    field: "Hours",
+    waitsOn: "the firm's rounding increment being served",
+  },
+  timekeeperChange: {
+    field: "Timekeeper",
+    waitsOn: "a route that records one member's work under another member's hand",
+  },
+  incompleteCapture: {
+    field: "Save",
+    waitsOn: "a capture route that accepts an entry before it has a description and a duration",
+  },
 } as const satisfies Readonly<Record<string, TimeLedgerGap>>;
 
 export type TimeLedgerGapName = keyof typeof TIME_LEDGER_GAPS;

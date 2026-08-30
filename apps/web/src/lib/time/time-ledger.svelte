@@ -31,6 +31,7 @@
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import Plus from "@lucide/svelte/icons/plus";
+  import Timer from "@lucide/svelte/icons/timer";
   import {
     RecordMenu,
     ledgerRecordMenu,
@@ -54,6 +55,7 @@
   import { footerFigures, ledgerCurrency } from "./time-figures.ts";
   import TimeDetailsPanel from "./time-details-panel.svelte";
   import TimeRecordWindow from "./time-record-window.svelte";
+  import TimeSheet from "./time-sheet.svelte";
   import { timeEntrySheet } from "./time-print-sheet.ts";
   import { approveTimeEntry, submitTimeEntry, voidTimeEntry } from "./time-operations.ts";
 
@@ -98,6 +100,12 @@
   let printEntry = $state<TimeEntrySummary | null>(null);
   let printOpen = $state(false);
   let actionFailure = $state<string | null>(null);
+  /*
+   * The Time Sheet is the capture surface and it opens OVER this one: a person recording the day's
+   * work must not lose the list they were reading to do it, and coming back must not cost a
+   * navigation. It is the same surface wherever it is opened from.
+   */
+  let sheetOpen = $state(false);
 
   const grid = DataTable.createDataTableGrid<TimeEntrySummary>({
     columns: () => timeLedgerColumns(currency),
@@ -348,6 +356,15 @@
         Clear Filters
       </Button>
     {/if}
+    <Button
+      variant="secondary"
+      size="sm"
+      title="Open the Time Sheet: the day's rows in a grid, typed straight into, with the timer"
+      onclick={() => (sheetOpen = true)}
+    >
+      <Timer class="size-16" aria-hidden="true" />
+      Time Sheet
+    </Button>
     <Button size="sm" title="Record time on this matter. It saves as a draft." onclick={openLogTime}>
       <Plus class="size-16" aria-hidden="true" />
       Log Time
@@ -415,6 +432,16 @@
 
   <DataTable.GridFooter {grid} end={footerEnd} />
 </section>
+
+<TimeSheet
+  bind:open={sheetOpen}
+  {entries}
+  {matterId}
+  {matterTitle}
+  {members}
+  {sessionUserId}
+  {onChanged}
+/>
 
 <TimeRecordWindow
   bind:open={windowOpen}

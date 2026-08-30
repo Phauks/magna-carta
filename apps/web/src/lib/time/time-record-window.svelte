@@ -336,10 +336,10 @@
 {#snippet unservedField(label: string, gap: keyof typeof TIME_LEDGER_GAPS, fieldName: string)}
   <div class="flex flex-col gap-4">
     <Label>{label}</Label>
-    <SoonAffordance reason={gapReason(gap)}>
+    <SoonAffordance class="min-w-0" reason={gapReason(gap)}>
       {#snippet control(soon)}
         <Combobox.Root type="single" disabled>
-          <Combobox.Input {fieldName} {...soon} />
+          <Combobox.Input class="min-w-0 flex-1" {fieldName} {...soon} />
         </Combobox.Root>
       {/snippet}
     </SoonAffordance>
@@ -353,7 +353,14 @@
 -->
 {#snippet record({ editing: fieldsOpen }: { editing: boolean })}
   {@const readOnly = !fieldsOpen}
-  <div class="flex flex-col gap-16">
+  <!--
+    The field rows break against THIS PANE's width, not the viewport's. A viewport breakpoint was
+    the wrong ruler here and it showed: the pane is one column of a window that has its own measure,
+    so a wide screen holding a narrow pane still laid three fields across a strip too small for
+    their labels, and the labels ran into each other. A container query asks the only question that
+    decides whether three fields fit, which is how wide the thing holding them is.
+  -->
+  <div class="@container flex flex-col gap-16">
     {#if saveFailure !== null}
       <Alert.Root variant="danger">
         <Alert.Title>Not Saved</Alert.Title>
@@ -373,7 +380,7 @@
       />
     </div>
 
-    <div class="grid gap-12 sm:grid-cols-3">
+    <div class="grid gap-12 @md:grid-cols-3">
       <div class="flex flex-col gap-4">
         <Label for="time-record-work-date">Work Date</Label>
         <Input id="time-record-work-date" type="date" disabled={readOnly} bind:value={workDateText} />
@@ -411,7 +418,7 @@
       </div>
     </div>
 
-    <div class="grid gap-12 sm:grid-cols-3">
+    <div class="grid gap-12 @md:grid-cols-3">
       <div class="flex flex-col gap-4">
         <Label for="time-record-billing">Billing</Label>
         <Combobox.Root
@@ -468,9 +475,12 @@
       <span class="pb-8 text-text-subtle" aria-hidden="true">&times;</span>
       <div class="flex min-w-0 flex-1 flex-col gap-4">
         <Label>Rate</Label>
-        <SoonAffordance reason={gapReason("rate")}>
+        <!-- The Soon mark rides BESIDE the control, so the control has to be allowed to give up
+             width for it. Left at its own full width it pushed the mark past the pane's edge, which
+             the pane does not scroll sideways: the badge was simply cut off. -->
+        <SoonAffordance class="min-w-0" reason={gapReason("rate")}>
           {#snippet control(soon)}
-            <Input placeholder="Rate" {...soon} />
+            <Input class="min-w-0 flex-1" placeholder="Rate" {...soon} />
           {/snippet}
         </SoonAffordance>
       </div>
@@ -484,9 +494,9 @@
 
     <div class="flex flex-col gap-4">
       <Label>Internal Memo</Label>
-      <SoonAffordance reason={gapReason("memo")} reasonPlacement="line">
+      <SoonAffordance class="min-w-0" reason={gapReason("memo")} reasonPlacement="line">
         {#snippet control(soon)}
-          <Textarea rows={2} placeholder="Internal Memo" {...soon} />
+          <Textarea class="min-w-0 flex-1" rows={2} placeholder="Internal Memo" {...soon} />
         {/snippet}
       </SoonAffordance>
     </div>
