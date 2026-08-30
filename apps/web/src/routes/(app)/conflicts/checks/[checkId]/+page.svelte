@@ -108,6 +108,12 @@
     openHit === null ? null : (entityNames.get(openHit.entityId) ?? null),
   );
   const openPartyFailed = $derived(openHit !== null && unnameable.has(openHit.entityId));
+  // A waiver names the entity that consented, which is often not the entity that matched. It costs
+  // the same one read, on the same cache, for the same reason: the log answers handles.
+  const openConsentingPartyName = $derived.by((): string | null => {
+    const consentingPartyId = openHit?.disposition?.waiver?.givenByEntityId ?? null;
+    return consentingPartyId === null ? null : (entityNames.get(consentingPartyId) ?? null);
+  });
 
   /** One read, for the one entity a reviewer opened. What it learns is kept for the rest of the visit. */
   async function nameEntity(entityId: string): Promise<void> {
@@ -124,6 +130,8 @@
     openHit = hit;
     windowOpen = true;
     void nameEntity(hit.entityId);
+    const consentingPartyId = hit.disposition?.waiver?.givenByEntityId ?? null;
+    if (consentingPartyId !== null) void nameEntity(consentingPartyId);
   }
 
   const sheet = $derived(
@@ -222,6 +230,7 @@
     hit={openHit}
     partyName={openPartyName}
     partyNameFailed={openPartyFailed}
+    consentingPartyName={openConsentingPartyName}
     {reviewerName}
     checkInstant={check.createdAt}
     onAnswer={() => (dialogOpen = true)}
@@ -231,6 +240,7 @@
     bind:open={dialogOpen}
     hit={openHit}
     partyName={openPartyName}
+    matterId={check.matterId}
     reviewerName={signedInName}
     permissions={session?.permissions ?? null}
     onRecorded={() => void read()}

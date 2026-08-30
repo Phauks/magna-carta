@@ -50,6 +50,15 @@ export interface PlaintextIdentifierInHit {
   readonly hitId: string;
 }
 
+// A conflicts_disposition row carrying part of a waiver record on a kind that has no waiver: a
+// `cleared` row naming a consenting party, or a `representation_declined` row naming an evidencing
+// document. Nothing readable off this table makes sense of that shape — it would report, to anyone
+// assembling a conflicts report, as a waiver the firm never recorded.
+export interface MisplacedWaiverRecord {
+  readonly dispositionId: string;
+  readonly kind: string;
+}
+
 // A conflicts_hit row whose evidence is malformed: its tier falls outside 1-4, or its
 // graph_path_json fails to parse as a JSON array (an empty array is valid — a direct hit still
 // records its empty connecting path, never omits the column).
@@ -68,6 +77,7 @@ export class ConflictsFitnessError extends Error {
   readonly plaintextIdentifierChecks: readonly PlaintextIdentifierInCheck[];
   readonly plaintextIdentifierHits: readonly PlaintextIdentifierInHit[];
   readonly invalidHitEvidence: readonly InvalidHitEvidence[];
+  readonly misplacedWaiverRecords: readonly MisplacedWaiverRecord[];
   constructor(
     missingTriggers: readonly string[],
     orphanHits: readonly OrphanHit[],
@@ -75,6 +85,7 @@ export class ConflictsFitnessError extends Error {
     plaintextIdentifierChecks: readonly PlaintextIdentifierInCheck[],
     plaintextIdentifierHits: readonly PlaintextIdentifierInHit[],
     invalidHitEvidence: readonly InvalidHitEvidence[],
+    misplacedWaiverRecords: readonly MisplacedWaiverRecord[],
   ) {
     const parts: string[] = [];
     if (missingTriggers.length > 0) {
@@ -117,6 +128,13 @@ export class ConflictsFitnessError extends Error {
           .join(", ")}`,
       );
     }
+    if (misplacedWaiverRecords.length > 0) {
+      parts.push(
+        `${misplacedWaiverRecords.length} disposition(s) carry a waiver record on a kind that has none: ${misplacedWaiverRecords
+          .map((disposition) => `${disposition.dispositionId}(${disposition.kind})`)
+          .join(", ")}`,
+      );
+    }
     super(`conflicts: fitness violations — ${parts.join("; ")} (conflicts-fitness)`);
     this.name = "ConflictsFitnessError";
     this.missingTriggers = missingTriggers;
@@ -125,6 +143,7 @@ export class ConflictsFitnessError extends Error {
     this.plaintextIdentifierChecks = plaintextIdentifierChecks;
     this.plaintextIdentifierHits = plaintextIdentifierHits;
     this.invalidHitEvidence = invalidHitEvidence;
+    this.misplacedWaiverRecords = misplacedWaiverRecords;
   }
 }
 
@@ -241,8 +260,28 @@ export async function findInvalidHitEvidence(database: SqlDatabase): Promise<Inv
   return found;
 }
 
+// findMisplacedWaiverRecords scans every conflicts_disposition row for a waiver column set on a kind
+// other than waiver_obtained. The migration's BEFORE INSERT trigger already refuses the write; this
+// probe is the defense-in-depth sweep beside it, exactly as findInvalidHitEvidence sweeps behind the
+// evidence_tier CHECK — a trigger that was dropped, or a row that predates it, is invisible otherwise.
+export async function findMisplacedWaiverRecords(
+  database: SqlDatabase,
+): Promise<MisplacedWaiverRecord[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, kind FROM conflicts_disposition
+        WHERE kind <> 'waiver_obtained'
+          AND (waiver_given_by_entity_id IS NOT NULL
+            OR waiver_confirmed_in_writing IS NOT NULL
+            OR waiver_document_file_id IS NOT NULL
+            OR waiver_given_on IS NOT NULL)`,
+    )
+    .all<{ id: string; kind: string }>();
+  return results.map((result) => ({ dispositionId: result.id, kind: result.kind }));
+}
+
 // assertConflictsFitness runs the log-wide conflicts invariant audit and throws ConflictsFitnessError
-// if ANY invariant is broken, aggregating every offending row across all six probes:
+// if ANY invariant is broken, aggregating every offending row across all seven probes:
 //   1. All nine append-only guard triggers exist — the log cannot be mutated, deleted, or replaced.
 //   2. Every hit resolves to a real check — no orphan hit.
 //   3. Every disposition resolves to a real hit — no orphan disposition.
@@ -250,6 +289,7 @@ export async function findInvalidHitEvidence(database: SqlDatabase): Promise<Inv
 //      reference only.
 //   5. No hit's evidence JSON carries a plaintext identifier value — the same reference-only rule.
 //   6. Every hit's evidence_tier is 1-4 and its graph_path_json parses as a JSON array.
+//   7. No disposition carries a waiver record on a kind that has none.
 // Resolves silently when the log is sound. Wire it as a fitness function (a test, or a periodic
 // integrity sweep) to prove the corpus invariants hold.
 export async function assertConflictsFitness(database: SqlDatabase): Promise<void> {
@@ -260,6 +300,7 @@ export async function assertConflictsFitness(database: SqlDatabase): Promise<voi
     plaintextIdentifierChecks,
     plaintextIdentifierHits,
     invalidHitEvidence,
+    misplacedWaiverRecords,
   ] = await Promise.all([
     findMissingAppendOnlyTriggers(database),
     findOrphanHits(database),
@@ -267,6 +308,7 @@ export async function assertConflictsFitness(database: SqlDatabase): Promise<voi
     findPlaintextIdentifiersInChecks(database),
     findPlaintextIdentifiersInHits(database),
     findInvalidHitEvidence(database),
+    findMisplacedWaiverRecords(database),
   ]);
 
   if (
@@ -275,7 +317,8 @@ export async function assertConflictsFitness(database: SqlDatabase): Promise<voi
     orphanDispositions.length > 0 ||
     plaintextIdentifierChecks.length > 0 ||
     plaintextIdentifierHits.length > 0 ||
-    invalidHitEvidence.length > 0
+    invalidHitEvidence.length > 0 ||
+    misplacedWaiverRecords.length > 0
   ) {
     throw new ConflictsFitnessError(
       missingTriggers,
@@ -284,6 +327,7 @@ export async function assertConflictsFitness(database: SqlDatabase): Promise<voi
       plaintextIdentifierChecks,
       plaintextIdentifierHits,
       invalidHitEvidence,
+      misplacedWaiverRecords,
     );
   }
 }

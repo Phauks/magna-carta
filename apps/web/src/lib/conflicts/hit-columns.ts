@@ -15,6 +15,11 @@
  * that cannot yet say from a hit that has no party, so the column is real, states its gap on the
  * hover, and the party is named where a reviewer opens one hit and one read answers it.
  *
+ * AN UNEVIDENCED WAIVER IS NOT A WAIVER, AS FAR AS THIS COLUMN IS CONCERNED. A disposition whose
+ * record the platform cannot produce — informed consent not confirmed in writing, or a confirmation
+ * nobody filed — reads and filters as its own value rather than sharing a cell with one the firm
+ * could hand over this afternoon. That is a fact about the record, not a grade of the reviewer.
+ *
  * A CO-PARTY SURFACING IS TRIAGED APART. A match that lands back on one of the check's own subject
  * parties is a positional question between two parties of the same matter; a match anywhere else is
  * a question about the firm's wider record. They are never dropped and never merged, so the column
@@ -25,7 +30,7 @@ import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
 import { entityKindLabel } from "$lib/directory/entity-presentation.ts";
 import type { HitDetail } from "./conflicts-api.ts";
 import {
-  adjudicationChip,
+  adjudicationSummary,
   evidenceTier,
   pathSummary,
   sourceVocabulary,
@@ -79,9 +84,16 @@ export function matchedOnText(hit: HitDetail): string {
   return hit.matchedFields.join("; ");
 }
 
-/** What the adjudication column says: the reviewer's latest word, or that nobody has answered. */
+/**
+ * What the adjudication column says: the reviewer's latest word, that nobody has answered, or that
+ * the answer names evidence the platform does not hold.
+ *
+ * The third reads differently in TEXT, not only in tone, because this string is also what the
+ * column's set filter groups by — a reviewer narrowing to waivers they still owe a confirmation for
+ * is doing it here.
+ */
 export function adjudicationText(hit: HitDetail): string {
-  return adjudicationChip(hit.disposition?.kind ?? null).label;
+  return adjudicationSummary(hit.disposition).label;
 }
 
 /** The hit list's columns. Sorting, filtering, show/hide, reorder, pinning and resize are the grid's. */

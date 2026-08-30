@@ -181,6 +181,92 @@ describe("conflicts check routes", () => {
     expect(hitAgain?.disposition?.kind).toBe("cleared");
   });
 
+  it("records a waiver with its own record, and reports what it is short of", async () => {
+    const subjectId = await createPerson("Aurelien", "Vasseur");
+    const matchId = await createPerson("Aurelien", "Vasseur");
+
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "over_inclusive", depth: 1 },
+    });
+    const { id: checkId } = (await created.json()) as { id: string };
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    const body = (await read.json()) as { hits: Array<{ id: string; entityId: string }> };
+    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    expect(hit).toBeDefined();
+
+    // Given orally and not yet confirmed in writing — the shape that must be RECORDED rather than
+    // refused, because refusing it would leave the firm's log with no waiver on it at all.
+    const disposed = await post(`/api/v1/conflicts/hits/${hit?.id}/dispositions`, {
+      kind: "waiver_obtained",
+      rationale: "consent given by telephone; the confirming letter goes out today",
+      waiver: {
+        givenByEntityId: matchId,
+        confirmedInWriting: false,
+        givenOn: "2026-08-24",
+      },
+    });
+    expect(disposed.status).toBe(201);
+
+    const readAgain = await get(`/api/v1/conflicts/checks/${checkId}`);
+    const bodyAgain = (await readAgain.json()) as {
+      hits: Array<{
+        id: string;
+        disposition: {
+          kind: string;
+          waiver: { givenByEntityId: string; confirmedInWriting: boolean; givenOn: string };
+          shortfalls: string[];
+        } | null;
+      }>;
+    };
+    const answered = bodyAgain.hits.find((candidate) => candidate.id === hit?.id);
+    expect(answered?.disposition?.kind).toBe("waiver_obtained");
+    expect(answered?.disposition?.waiver).toEqual({
+      givenByEntityId: matchId,
+      confirmedInWriting: false,
+      documentFileId: null,
+      givenOn: "2026-08-24",
+    });
+    expect(answered?.disposition?.shortfalls).toEqual([
+      "consent-not-confirmed-in-writing",
+      "confirmation-not-filed",
+    ]);
+  });
+
+  it("refuses a waiver that names nobody, and a waiver record on another kind (422)", async () => {
+    const subjectId = await createPerson("Ottilie", "Brandwein");
+    await createPerson("Ottilie", "Brandwein");
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "over_inclusive", depth: 1 },
+    });
+    const { id: checkId } = (await created.json()) as { id: string };
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    const body = (await read.json()) as { hits: Array<{ id: string }> };
+    const hitId = body.hits[0]?.id;
+    expect(hitId).toBeDefined();
+
+    const noParty = await post(`/api/v1/conflicts/hits/${hitId}/dispositions`, {
+      kind: "waiver_obtained",
+      rationale: "a waiver was obtained",
+    });
+    expect(noParty.status).toBe(422);
+
+    // The other three kinds' payloads are unchanged, and a waiver record on one of them is refused.
+    const wrongKind = await post(`/api/v1/conflicts/hits/${hitId}/dispositions`, {
+      kind: "cleared",
+      rationale: "unrelated party",
+      waiver: {
+        givenByEntityId: subjectId,
+        confirmedInWriting: true,
+        givenOn: "2026-08-24",
+      },
+    });
+    expect(wrongKind.status).toBe(422);
+  });
+
   it("refuses a caller lacking conflicts:run (403)", async () => {
     const response = await post(
       "/api/v1/conflicts/checks",

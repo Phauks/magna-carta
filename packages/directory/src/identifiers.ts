@@ -396,3 +396,58 @@ function selectIdentifierRowStatement(
     )
     .bind(entityId, type);
 }
+
+// ── what the firm holds, without reading any of it ───────────────────────────
+
+/**
+ * One sealed identifier, described but never disclosed: its type, the period it is valid for, and
+ * when it was recorded. There is no value field on this shape, and adding one would be the whole bug.
+ */
+export interface IdentifierRecord {
+  readonly id: string;
+  readonly type: IdentifierType;
+  readonly validFrom: string | null;
+  readonly validTo: string | null;
+  readonly recordedAt: string;
+}
+
+/**
+ * Which identifiers an entity holds, WITHOUT decrypting any of them.
+ *
+ * A screen has to be able to say "the firm holds a social security number for this person" without
+ * anybody reading it: the decrypt is the privileged, audited act, and a record that had to perform
+ * one just to draw a list of headings would put a plaintext social security number into an audit log
+ * every time a page rendered. So this read touches no ciphertext, names no blind index, needs no
+ * permission beyond the session, and writes no audit row — because it reveals nothing a member with
+ * the record open did not already have.
+ *
+ * The count answers the third question that shape leaves open: a person can hold two account numbers,
+ * and one heading per type would silently hide the second.
+ */
+export async function listIdentifierRecords(
+  database: SqlDatabase,
+  entityId: string,
+): Promise<IdentifierRecord[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, identifier_type, valid_from, valid_to, created_at
+         FROM ${DIRECTORY_IDENTIFIER_TABLE}
+        WHERE entity_id = ?1 AND deleted_at IS NULL
+        ORDER BY identifier_type ASC, created_at DESC, id DESC`,
+    )
+    .bind(entityId)
+    .all<{
+      id: string;
+      identifier_type: string;
+      valid_from: string | null;
+      valid_to: string | null;
+      created_at: string;
+    }>();
+  return results.map((row) => ({
+    id: row.id,
+    type: row.identifier_type as IdentifierType,
+    validFrom: row.valid_from,
+    validTo: row.valid_to,
+    recordedAt: row.created_at,
+  }));
+}

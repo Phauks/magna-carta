@@ -1,13 +1,15 @@
 /*
  * The entity record's panes, and how finished each one is.
  *
- * A directory record answers seven questions about one person or organization, and the firm's
- * record can currently answer four of them. The other three are DESIGNED here rather than left out:
- * the pane renders its real anatomy, its control sits disabled, and one line names what its arrival
- * waits on. Someone reading the record then knows the fact is kept and knows why they cannot see it
- * — which is a different thing from a screen that quietly has no such pane.
+ * A directory record answers seven questions about one person or organization, and every one of
+ * them is now answered from the firm's own record: the names it has held, the pronouns it stated,
+ * the identifiers it holds, the records it may duplicate, the relationships it has, the matters it
+ * is a party to, and how the firm files it.
  *
- * `waitingOn` is a noun phrase, completed into the platform's one sentence by the Soon affordance.
+ * `waitingOn` survives because the rule it serves does: a pane whose read does not exist renders
+ * its real anatomy with the mark beside it and one line naming what its arrival waits on, rather
+ * than being left out. Nothing needs it today, and an eighth question that arrives ahead of its
+ * read will.
  */
 import type { MaturityStage } from "$lib/maturity/maturity.ts";
 import type { DirectoryEntityKind } from "./directory-api.ts";
@@ -24,37 +26,13 @@ export interface EntitySection {
 }
 
 export const ENTITY_SECTIONS: readonly EntitySection[] = [
-  {
-    id: "names",
-    label: "Names",
-    stage: "alpha",
-    appliesTo: "both",
-    waitingOn: "a read of an entity's recorded names",
-  },
+  { id: "names", label: "Names", stage: "alpha", appliesTo: "both" },
   { id: "pronouns", label: "Pronouns", stage: "alpha", appliesTo: "person" },
   { id: "identifiers", label: "Identifiers", stage: "alpha", appliesTo: "both" },
   { id: "duplicates", label: "Duplicates", stage: "alpha", appliesTo: "both" },
-  {
-    id: "relationships",
-    label: "Relationships",
-    stage: "soon",
-    appliesTo: "both",
-    waitingOn: "a read of an entity's relationships",
-  },
-  {
-    id: "matters",
-    label: "Matters",
-    stage: "soon",
-    appliesTo: "both",
-    waitingOn: "a read of the matters an entity is a party to",
-  },
-  {
-    id: "categories",
-    label: "Categories",
-    stage: "soon",
-    appliesTo: "both",
-    waitingOn: "a read of the firm's categories and what carries them",
-  },
+  { id: "relationships", label: "Relationships", stage: "alpha", appliesTo: "both" },
+  { id: "matters", label: "Matters", stage: "alpha", appliesTo: "both" },
+  { id: "categories", label: "Categories", stage: "alpha", appliesTo: "both" },
 ];
 
 /** The panes an entity of this kind has, in reading order. */

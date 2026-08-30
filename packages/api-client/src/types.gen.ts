@@ -1595,6 +1595,148 @@ export type AddDirectoryNameRequest = {
     displayName?: string | null;
 };
 
+export type ChangeDirectoryNameRequest = {
+    given?: string;
+    family?: string;
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
+    legalName?: string;
+    displayName?: string | null;
+};
+
+export type DirectoryNamePage = {
+    data: Array<DirectoryNameEntry>;
+    nextCursor: string | null;
+};
+
+export type DirectoryNameEntry = {
+    id: string;
+    /**
+     * What this name is to the entity: its current name, a former one, a maiden name, a trading name. An open catalog, not a closed enum.
+     */
+    nameRole: string;
+    /**
+     * True for the one name the entity answers to today.
+     */
+    isCurrent: boolean;
+    prefix: string | null;
+    given: string | null;
+    middle: string | null;
+    family: string | null;
+    suffix: string | null;
+    /**
+     * The name as it was recorded. Null for an organization: an organization's name row keeps only the case-folded form, so a caller falls back to normalizedDisplay and shows an honest lowercase former name rather than an invented capitalization.
+     */
+    displayName: string | null;
+    /**
+     * The case-folded, punctuation-stripped form the search and conflicts corpus matches on. Always present, for every name row of either kind.
+     */
+    normalizedDisplay: string;
+    validFrom: string | null;
+    /**
+     * When the name stopped being used, or null while it still is.
+     */
+    validTo: string | null;
+    /**
+     * When the firm wrote the row down — which is not when the name came into use. A maiden name recorded onto a twenty-year-old file was recorded today and valid decades ago.
+     */
+    recordedAt: string;
+};
+
+export type DirectoryEntityDisplayNamesResponse = {
+    data: Array<DirectoryEntityDisplayName>;
+};
+
+export type DirectoryEntityDisplayName = {
+    entityId: string;
+    entityKind: 'person' | 'organization';
+    /**
+     * What to call this entity, or null where the directory holds no name for it at all. A caller renders the gap and never falls back to printing the handle.
+     */
+    displayName: string | null;
+    /**
+     * The surviving record this one was folded into, or null while it stands on its own. A list row naming a folded record has to say so.
+     */
+    mergedIntoId: string | null;
+};
+
+export type DirectoryEdgePage = {
+    data: Array<DirectoryEdgeEntry>;
+    nextCursor: string | null;
+};
+
+export type DirectoryEdgeEntry = {
+    id: string;
+    edgeType: string;
+    /**
+     * Whether the entity asked about is the FROM end of this edge (outbound) or the TO end (inbound). The relationship reads in the opposite sense from each end.
+     */
+    direction: 'outbound' | 'inbound';
+    /**
+     * The entity at the other end of the edge.
+     */
+    farEntityId: string;
+    farEntityKind: 'person' | 'organization' | 'unknown';
+    /**
+     * What to call the far end, resolved through the same naming read the bulk endpoint performs — one lookup for the whole page, never one per row.
+     */
+    farDisplayName: string | null;
+    role: string | null;
+    note: string | null;
+    validFrom: string | null;
+    validTo: string | null;
+};
+
+export type DirectoryEntityMatterPartyPage = {
+    data: Array<DirectoryEntityMatterPartyEntry>;
+    nextCursor: string | null;
+};
+
+export type DirectoryEntityMatterPartyEntry = {
+    id: string;
+    matterId: string;
+    role: string;
+    capacity: string | null;
+    /**
+     * Null when the link points at a matter the firm no longer holds.
+     */
+    matterTitle: string | null;
+    /**
+     * Null while the matter is still prospective and undrawn.
+     */
+    matterNumber: string | null;
+    matterStatus: string | null;
+    linkedAt: string;
+};
+
+export type DirectoryCategoriesResponse = {
+    data: Array<DirectoryCategory>;
+};
+
+export type DirectoryCategory = {
+    id: string;
+    name: string;
+    appliesTo: 'person' | 'organization' | 'both';
+    position: number;
+    /**
+     * True for a label the firm has retired. Retired labels are still returned: an entity carrying one must still be able to show what it says.
+     */
+    archived: boolean;
+};
+
+export type DirectoryIdentifierRecordsResponse = {
+    data: Array<DirectoryIdentifierRecord>;
+};
+
+export type DirectoryIdentifierRecord = {
+    id: string;
+    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    validFrom: string | null;
+    validTo: string | null;
+    recordedAt: string;
+};
+
 export type AddDirectoryIdentifierRequest = {
     type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
     value: string;
@@ -1636,6 +1778,15 @@ export type DirectorySearchHit = {
     entityId: string;
     entityKind: string;
     displayName: string;
+    /**
+     * WHICH of the entity's names the query landed on. A search that reported only the current name made a hit on a maiden name indistinguishable from a hit on the name typed, which defeats the point of keeping every name an entity has held.
+     */
+    matchedName: string;
+    /**
+     * What that matched name is to the entity — current, former, maiden, dba.
+     */
+    matchedNameRole: string;
+    matchedNameIsCurrent: boolean;
     relevance: number;
 };
 
@@ -1646,6 +1797,14 @@ export type DirectoryDuplicateCandidatesResponse = {
 export type DirectoryDuplicateCandidate = {
     entityId: string;
     signalCount: number;
+    /**
+     * Which side of the directory the candidate resolves to. 'unknown' means the blocking channels surfaced an entity the node tables no longer hold — a fact worth showing.
+     */
+    entityKind: 'person' | 'organization' | 'unknown';
+    /**
+     * What to call the candidate, or null where the directory holds no name for it. A caller shows the gap rather than printing the handle.
+     */
+    displayName: string | null;
 };
 
 export type DirectoryDuplicateCandidatesRequest = {
@@ -1815,7 +1974,16 @@ export type ConflictsDispositionDetail = {
     kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
     rationale: string;
     reviewerUserId: string;
+    waiver: ConflictsWaiverDetail;
+    shortfalls: Array<'consenting-party-unrecorded' | 'consent-not-confirmed-in-writing' | 'confirmation-not-filed' | 'date-given-unrecorded'>;
     createdAt: string;
+} | null;
+
+export type ConflictsWaiverDetail = {
+    givenByEntityId: string | null;
+    confirmedInWriting: boolean | null;
+    documentFileId: string | null;
+    givenOn: string | null;
 } | null;
 
 export type MatterConflictsPostureResponse = {
@@ -1888,6 +2056,7 @@ export type ConflictsPostureDispositionKind = {
     kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
     count: number;
     reviewerUserIds: Array<string>;
+    incompleteCount: number;
 };
 
 export type ConflictsPostureUnavailableSource = {
@@ -1902,6 +2071,14 @@ export type CreatedConflictsDispositionResponse = {
 export type RecordConflictsDispositionRequest = {
     kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
     rationale: string;
+    waiver?: ConflictsWaiverRequest;
+};
+
+export type ConflictsWaiverRequest = {
+    givenByEntityId: string;
+    confirmedInWriting: boolean;
+    documentFileId?: string | null;
+    givenOn: string;
 };
 
 export type TimelineEntryPage = {
@@ -12418,6 +12595,47 @@ export type DirectoryGetOrganizationResponses = {
 
 export type DirectoryGetOrganizationResponse = DirectoryGetOrganizationResponses[keyof DirectoryGetOrganizationResponses];
 
+export type DirectoryListNamesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/directory/entities/{id}/names';
+};
+
+export type DirectoryListNamesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListNamesError = DirectoryListNamesErrors[keyof DirectoryListNamesErrors];
+
+export type DirectoryListNamesResponses = {
+    /**
+     * A page of the entity's names
+     */
+    200: DirectoryNamePage;
+};
+
+export type DirectoryListNamesResponse = DirectoryListNamesResponses[keyof DirectoryListNamesResponses];
+
 export type DirectoryAddNameData = {
     body: AddDirectoryNameRequest;
     headers: {
@@ -12471,6 +12689,340 @@ export type DirectoryAddNameResponses = {
 };
 
 export type DirectoryAddNameResponse = DirectoryAddNameResponses[keyof DirectoryAddNameResponses];
+
+export type DirectoryChangeNameData = {
+    body: ChangeDirectoryNameRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/name';
+};
+
+export type DirectoryChangeNameErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryChangeNameError = DirectoryChangeNameErrors[keyof DirectoryChangeNameErrors];
+
+export type DirectoryChangeNameResponses = {
+    /**
+     * The name was changed and the prior one retained as history
+     */
+    200: DirectoryAckResponse;
+};
+
+export type DirectoryChangeNameResponse = DirectoryChangeNameResponses[keyof DirectoryChangeNameResponses];
+
+export type DirectoryEntityNamesData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Comma-separated directory entity handles. At most 100.
+         */
+        ids: string;
+    };
+    url: '/api/v1/directory/entity-names';
+};
+
+export type DirectoryEntityNamesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryEntityNamesError = DirectoryEntityNamesErrors[keyof DirectoryEntityNamesErrors];
+
+export type DirectoryEntityNamesResponses = {
+    /**
+     * The display identity of each id the firm holds a live record for, in the order asked
+     */
+    200: DirectoryEntityDisplayNamesResponse;
+};
+
+export type DirectoryEntityNamesResponse = DirectoryEntityNamesResponses[keyof DirectoryEntityNamesResponses];
+
+export type DirectoryListEdgesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        cursor?: string;
+        includeExpired?: 'true' | 'false';
+    };
+    url: '/api/v1/directory/entities/{id}/edges';
+};
+
+export type DirectoryListEdgesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListEdgesError = DirectoryListEdgesErrors[keyof DirectoryListEdgesErrors];
+
+export type DirectoryListEdgesResponses = {
+    /**
+     * A page of the entity's relationships
+     */
+    200: DirectoryEdgePage;
+};
+
+export type DirectoryListEdgesResponse = DirectoryListEdgesResponses[keyof DirectoryListEdgesResponses];
+
+export type DirectoryListEntityMatterPartiesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/directory/entities/{id}/matter-parties';
+};
+
+export type DirectoryListEntityMatterPartiesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListEntityMatterPartiesError = DirectoryListEntityMatterPartiesErrors[keyof DirectoryListEntityMatterPartiesErrors];
+
+export type DirectoryListEntityMatterPartiesResponses = {
+    /**
+     * A page of the matters this entity is a party to
+     */
+    200: DirectoryEntityMatterPartyPage;
+};
+
+export type DirectoryListEntityMatterPartiesResponse = DirectoryListEntityMatterPartiesResponses[keyof DirectoryListEntityMatterPartiesResponses];
+
+export type DirectoryListCategoriesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/categories';
+};
+
+export type DirectoryListCategoriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListCategoriesError = DirectoryListCategoriesErrors[keyof DirectoryListCategoriesErrors];
+
+export type DirectoryListCategoriesResponses = {
+    /**
+     * The firm's categories
+     */
+    200: DirectoryCategoriesResponse;
+};
+
+export type DirectoryListCategoriesResponse = DirectoryListCategoriesResponses[keyof DirectoryListCategoriesResponses];
+
+export type DirectoryCreateCategoryData = {
+    body: CreateDirectoryCategoryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/categories';
+};
+
+export type DirectoryCreateCategoryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryCreateCategoryError = DirectoryCreateCategoryErrors[keyof DirectoryCreateCategoryErrors];
+
+export type DirectoryCreateCategoryResponses = {
+    /**
+     * The created category
+     */
+    201: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryCreateCategoryResponse = DirectoryCreateCategoryResponses[keyof DirectoryCreateCategoryResponses];
+
+export type DirectoryListEntityCategoriesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/categories';
+};
+
+export type DirectoryListEntityCategoriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListEntityCategoriesError = DirectoryListEntityCategoriesErrors[keyof DirectoryListEntityCategoriesErrors];
+
+export type DirectoryListEntityCategoriesResponses = {
+    /**
+     * The entity's categories
+     */
+    200: DirectoryCategoriesResponse;
+};
+
+export type DirectoryListEntityCategoriesResponse = DirectoryListEntityCategoriesResponses[keyof DirectoryListEntityCategoriesResponses];
+
+export type DirectoryListIdentifiersData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/identifiers';
+};
+
+export type DirectoryListIdentifiersErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListIdentifiersError = DirectoryListIdentifiersErrors[keyof DirectoryListIdentifiersErrors];
+
+export type DirectoryListIdentifiersResponses = {
+    /**
+     * What the firm holds for this entity, described but not disclosed
+     */
+    200: DirectoryIdentifierRecordsResponse;
+};
+
+export type DirectoryListIdentifiersResponse = DirectoryListIdentifiersResponses[keyof DirectoryListIdentifiersResponses];
 
 export type DirectoryAddIdentifierData = {
     body: AddDirectoryIdentifierRequest;
@@ -12617,58 +13169,6 @@ export type DirectoryCreateEdgeResponses = {
 };
 
 export type DirectoryCreateEdgeResponse = DirectoryCreateEdgeResponses[keyof DirectoryCreateEdgeResponses];
-
-export type DirectoryCreateCategoryData = {
-    body: CreateDirectoryCategoryRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/directory/categories';
-};
-
-export type DirectoryCreateCategoryErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the entity is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is still in progress, or a merge conflict
-     */
-    409: Problem;
-    /**
-     * The request is invalid, or the Idempotency-Key was reused with a different payload
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type DirectoryCreateCategoryError = DirectoryCreateCategoryErrors[keyof DirectoryCreateCategoryErrors];
-
-export type DirectoryCreateCategoryResponses = {
-    /**
-     * The created category
-     */
-    201: CreatedDirectoryEntityResponse;
-};
-
-export type DirectoryCreateCategoryResponse = DirectoryCreateCategoryResponses[keyof DirectoryCreateCategoryResponses];
 
 export type DirectoryAssignCategoryData = {
     body: AssignDirectoryCategoryRequest;

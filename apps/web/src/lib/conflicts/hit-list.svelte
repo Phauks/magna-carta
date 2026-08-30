@@ -18,7 +18,7 @@
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import type { HitDetail } from "./conflicts-api.ts";
   import {
-    adjudicationChip,
+    adjudicationSummary,
     evidenceTier,
     sourceVocabulary,
   } from "./conflicts-vocabulary.ts";
@@ -64,7 +64,9 @@
     {@const source = sourceVocabulary(row.sourceClass)}
     <span title={source.meaning}>{source.label}</span>
   {:else if column.id === HIT_COLUMN_IDENTIFIERS.adjudication}
-    {@const chip = adjudicationChip(row.disposition?.kind ?? null)}
+    <!-- A waiver whose record the platform cannot produce wears the open-question tone and says so
+         in words. It must never look like one the firm could hand over on demand. -->
+    {@const chip = adjudicationSummary(row.disposition)}
     <Badge variant={chip.tone} title={chip.meaning}>{chip.label}</Badge>
   {:else if text === ""}
     <span class="text-text-muted">&mdash;</span>

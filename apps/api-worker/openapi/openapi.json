@@ -6417,6 +6417,478 @@
           "nameRole"
         ]
       },
+      "ChangeDirectoryNameRequest": {
+        "type": "object",
+        "properties": {
+          "given": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "middle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "legalName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DirectoryNamePage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryNameEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "DirectoryNameEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "nameRole": {
+            "type": "string",
+            "description": "What this name is to the entity: its current name, a former one, a maiden name, a trading name. An open catalog, not a closed enum."
+          },
+          "isCurrent": {
+            "type": "boolean",
+            "description": "True for the one name the entity answers to today."
+          },
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "given": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "middle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "family": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name as it was recorded. Null for an organization: an organization's name row keeps only the case-folded form, so a caller falls back to normalizedDisplay and shows an honest lowercase former name rather than an invented capitalization."
+          },
+          "normalizedDisplay": {
+            "type": "string",
+            "description": "The case-folded, punctuation-stripped form the search and conflicts corpus matches on. Always present, for every name row of either kind."
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the name stopped being used, or null while it still is."
+          },
+          "recordedAt": {
+            "type": "string",
+            "description": "When the firm wrote the row down — which is not when the name came into use. A maiden name recorded onto a twenty-year-old file was recorded today and valid decades ago."
+          }
+        },
+        "required": [
+          "id",
+          "nameRole",
+          "isCurrent",
+          "prefix",
+          "given",
+          "middle",
+          "family",
+          "suffix",
+          "displayName",
+          "normalizedDisplay",
+          "validFrom",
+          "validTo",
+          "recordedAt"
+        ]
+      },
+      "DirectoryEntityDisplayNamesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryEntityDisplayName"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DirectoryEntityDisplayName": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What to call this entity, or null where the directory holds no name for it at all. A caller renders the gap and never falls back to printing the handle."
+          },
+          "mergedIntoId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The surviving record this one was folded into, or null while it stands on its own. A list row naming a folded record has to say so."
+          }
+        },
+        "required": [
+          "entityId",
+          "entityKind",
+          "displayName",
+          "mergedIntoId"
+        ]
+      },
+      "DirectoryEdgePage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryEdgeEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "DirectoryEdgeEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "edgeType": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outbound",
+              "inbound"
+            ],
+            "description": "Whether the entity asked about is the FROM end of this edge (outbound) or the TO end (inbound). The relationship reads in the opposite sense from each end."
+          },
+          "farEntityId": {
+            "type": "string",
+            "description": "The entity at the other end of the edge."
+          },
+          "farEntityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "unknown"
+            ]
+          },
+          "farDisplayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What to call the far end, resolved through the same naming read the bulk endpoint performs — one lookup for the whole page, never one per row."
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "edgeType",
+          "direction",
+          "farEntityId",
+          "farEntityKind",
+          "farDisplayName",
+          "role",
+          "note",
+          "validFrom",
+          "validTo"
+        ]
+      },
+      "DirectoryEntityMatterPartyPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryEntityMatterPartyEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "DirectoryEntityMatterPartyEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "capacity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null when the link points at a matter the firm no longer holds."
+          },
+          "matterNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null while the matter is still prospective and undrawn."
+          },
+          "matterStatus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "role",
+          "capacity",
+          "matterTitle",
+          "matterNumber",
+          "matterStatus",
+          "linkedAt"
+        ]
+      },
+      "DirectoryCategoriesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryCategory"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DirectoryCategory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "appliesTo": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "both"
+            ]
+          },
+          "position": {
+            "type": "number"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "True for a label the firm has retired. Retired labels are still returned: an entity carrying one must still be able to show what it says."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "appliesTo",
+          "position",
+          "archived"
+        ]
+      },
+      "DirectoryIdentifierRecordsResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryIdentifierRecord"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DirectoryIdentifierRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ssn",
+              "ein",
+              "dob",
+              "account",
+              "drivers_license",
+              "ssn_last_four",
+              "bar_number"
+            ]
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "validFrom",
+          "validTo",
+          "recordedAt"
+        ]
+      },
       "AddDirectoryIdentifierRequest": {
         "type": "object",
         "properties": {
@@ -6593,6 +7065,17 @@
           "displayName": {
             "type": "string"
           },
+          "matchedName": {
+            "type": "string",
+            "description": "WHICH of the entity's names the query landed on. A search that reported only the current name made a hit on a maiden name indistinguishable from a hit on the name typed, which defeats the point of keeping every name an entity has held."
+          },
+          "matchedNameRole": {
+            "type": "string",
+            "description": "What that matched name is to the entity — current, former, maiden, dba."
+          },
+          "matchedNameIsCurrent": {
+            "type": "boolean"
+          },
           "relevance": {
             "type": "number"
           }
@@ -6601,6 +7084,9 @@
           "entityId",
           "entityKind",
           "displayName",
+          "matchedName",
+          "matchedNameRole",
+          "matchedNameIsCurrent",
           "relevance"
         ]
       },
@@ -6626,11 +7112,29 @@
           },
           "signalCount": {
             "type": "number"
+          },
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "unknown"
+            ],
+            "description": "Which side of the directory the candidate resolves to. 'unknown' means the blocking channels surfaced an entity the node tables no longer hold — a fact worth showing."
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What to call the candidate, or null where the directory holds no name for it. A caller shows the gap rather than printing the handle."
           }
         },
         "required": [
           "entityId",
-          "signalCount"
+          "signalCount",
+          "entityKind",
+          "displayName"
         ]
       },
       "DirectoryDuplicateCandidatesRequest": {
@@ -7319,6 +7823,21 @@
           "reviewerUserId": {
             "type": "string"
           },
+          "waiver": {
+            "$ref": "#/components/schemas/ConflictsWaiverDetail"
+          },
+          "shortfalls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "consenting-party-unrecorded",
+                "consent-not-confirmed-in-writing",
+                "confirmation-not-filed",
+                "date-given-unrecorded"
+              ]
+            }
+          },
           "createdAt": {
             "type": "string"
           }
@@ -7328,7 +7847,47 @@
           "kind",
           "rationale",
           "reviewerUserId",
+          "waiver",
+          "shortfalls",
           "createdAt"
+        ]
+      },
+      "ConflictsWaiverDetail": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "givenByEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confirmedInWriting": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "documentFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "givenOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "givenByEntityId",
+          "confirmedInWriting",
+          "documentFileId",
+          "givenOn"
         ]
       },
       "MatterConflictsPostureResponse": {
@@ -7624,12 +8183,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "incompleteCount": {
+            "type": "integer"
           }
         },
         "required": [
           "kind",
           "count",
-          "reviewerUserIds"
+          "reviewerUserIds",
+          "incompleteCount"
         ]
       },
       "ConflictsPostureUnavailableSource": {
@@ -7673,11 +8236,42 @@
           "rationale": {
             "type": "string",
             "minLength": 1
+          },
+          "waiver": {
+            "$ref": "#/components/schemas/ConflictsWaiverRequest"
           }
         },
         "required": [
           "kind",
           "rationale"
+        ]
+      },
+      "ConflictsWaiverRequest": {
+        "type": "object",
+        "properties": {
+          "givenByEntityId": {
+            "type": "string",
+            "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]{1,64}$"
+          },
+          "confirmedInWriting": {
+            "type": "boolean"
+          },
+          "documentFileId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "givenOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "givenByEntityId",
+          "confirmedInWriting",
+          "givenOn"
         ]
       },
       "TimelineEntryPage": {
@@ -41576,9 +42170,855 @@
             }
           }
         }
+      },
+      "get": {
+        "description": "Returns every name an entity has held — the current one, the former ones, the aliases and the trading names — newest-recorded first and cursor-paged. Ordered by when the firm WROTE each row rather than by when the name came into use, so the current name heads the list and a maiden name recorded onto a decades-old file does not sort to the bottom. Soft-deleted rows are excluded, as they are from search.",
+        "operationId": "directory.listNames",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listNames",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the entity's names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryNamePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entities/{id}/name": {
+      "put": {
+        "description": "Changes the name an entity currently answers to. This is what records a marriage, a deed poll, or an organization's rename: the name on file is not overwritten — it is retained as a former name, kept in the search and conflicts corpus with its phonetic codes intact, and stamped with the date it stopped being used, while the new name is written as the current one and denormalized onto the entity. Appending a name the entity ALSO answers to, without displacing the current one, is the entities/{id}/names route instead. The entity kind is resolved from the id; supply the person fields or the organization field accordingly.",
+        "operationId": "directory.changeName",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.changeName",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeDirectoryNameRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The name was changed and the prior one retained as history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryAckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or a merge conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entity-names": {
+      "get": {
+        "description": "Names many directory entities in one request: the id, which side of the directory it is, what to call it, and whether it has been folded into another record. DISPLAY IDENTITY ONLY — no identifier is touched, so nothing here can decrypt, and no contact row is joined, so a list of names cannot become a mailing list. That is what makes it cheap enough to call for every row on a page and safe enough to need no capability beyond an authenticated session. At most 100 ids per call (the platform's bound-parameter cap); an id beyond that is refused rather than silently dropped. An id the firm holds no live row for is ABSENT from the answer — a caller renders the gap rather than printing the handle.",
+        "operationId": "directory.entityNames",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.entityNames",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 6000,
+              "description": "Comma-separated directory entity handles. At most 100."
+            },
+            "required": true,
+            "description": "Comma-separated directory entity handles. At most 100.",
+            "name": "ids",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The display identity of each id the firm holds a live record for, in the order asked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityDisplayNamesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entities/{id}/edges": {
+      "get": {
+        "description": "Returns the relationships touching one entity — both directions, each carrying which end this entity is on and the display name of the far end. Newest first and cursor-paged. Edges whose validity has expired are excluded by default; includeExpired returns them too, which is what a conflicts review wants because the professional-conduct rules are about FORMER relationships.",
+        "operationId": "directory.listEdges",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listEdges",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "includeExpired",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the entity's relationships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEdgePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entities/{id}/matter-parties": {
+      "get": {
+        "description": "Returns the matters this entity is a party to, and the role and capacity it holds on each — the mirror of the matter-parties read, which answers for one MATTER. Newest link first and cursor-paged. Severed links are excluded; the row is retained so a conflicts report that named this party stays reproducible.",
+        "operationId": "directory.listEntityMatterParties",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listEntityMatterParties",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the matters this entity is a party to",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityMatterPartyPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/categories": {
+      "get": {
+        "description": "The firm's whole category vocabulary in display order, retired labels included and flagged. One list serves both the picker and the record, so the two cannot disagree about what a label means.",
+        "operationId": "directory.listCategories",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listCategories",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryCategoriesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a directory category (label) constrained to person, organization, or both entity kinds.",
+        "operationId": "directory.createCategory",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.createCategory",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDirectoryCategoryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedDirectoryEntityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or a merge conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entities/{id}/categories": {
+      "get": {
+        "description": "The categories assigned to one entity, in the firm's own display order.",
+        "operationId": "directory.listEntityCategories",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listEntityCategories",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The entity's categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryCategoriesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/directory/entities/{id}/identifiers": {
+      "get": {
+        "description": "Says WHICH sealed identifiers an entity holds — the type, the validity period, and when each was recorded — and never what any of them is. No ciphertext is read, so this performs no decrypt, names no permission beyond the session, and writes no audit row: a record that had to decrypt merely to draw its list of headings would put a plaintext social security number into the firm's audit log every time a page rendered. Reading a value is the separate, permission-gated, audited route on the same path plus a type.",
+        "operationId": "directory.listIdentifiers",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listIdentifiers",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the firm holds for this entity, described but not disclosed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryIdentifierRecordsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "description": "Seals a typed sensitive identifier (SSN/EIN/DL/account/DOB/SSN-last-four) for an entity under the firm key — only the ciphertext (and, where the type is standalone-indexable, the exact-match blind index) is stored, never the plaintext. Adding a value needs no decrypt permission; reading it back does.",
         "operationId": "directory.addIdentifier",
@@ -41858,131 +43298,6 @@
         "responses": {
           "201": {
             "description": "The created edge",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreatedDirectoryEntityResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks the required permission",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is still in progress, or a merge conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/directory/categories": {
-      "post": {
-        "description": "Creates a directory category (label) constrained to person, organization, or both entity kinds.",
-        "operationId": "directory.createCategory",
-        "tags": [
-          "directory"
-        ],
-        "x-mc-operationId": "directory.createCategory",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "directory:edit",
-        "x-mc-resource": "directoryEntity",
-        "x-mc-audited": true,
-        "x-mc-idempotency": "required",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "directory"
-        ],
-        "x-mc-deprecated": false,
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "idempotency-key",
-            "in": "header"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDirectoryCategoryRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The created category",
             "content": {
               "application/json": {
                 "schema": {
@@ -42931,7 +44246,7 @@
     },
     "/api/v1/conflicts/checks/{checkId}": {
       "get": {
-        "description": "Returns a completed conflicts check and every hit it surfaced, including each hit's current disposition when a reviewer has already adjudicated it, alongside a plain-language statement of what the search did: which sources ran and with what settings, which could not run and why, and how many candidates surfaced. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them.",
+        "description": "Returns a completed conflicts check and every hit it surfaced, including each hit's current disposition when a reviewer has already adjudicated it, alongside a plain-language statement of what the search did: which sources ran and with what settings, which could not run and why, and how many candidates surfaced. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. A disposition recording a waiver carries the waiver's own record and, where the platform does not hold the whole of it, what that record is short of.",
         "operationId": "conflicts.getCheck",
         "tags": [
           "conflicts"
@@ -43111,7 +44426,7 @@
     },
     "/api/v1/conflicts/hits/{hitId}/dispositions": {
       "post": {
-        "description": "Records a reviewer's adjudication of a surfaced hit — clearing it, noting a waiver, recording that an ethical wall was erected, or declining the representation. Every call appends a new row; a reviewer who reverses an earlier call records a second disposition rather than editing the first, so the full history of the adjudication stays visible.",
+        "description": "Records a reviewer's adjudication of a surfaced hit — clearing it, noting a waiver, recording that an ethical wall was erected, or declining the representation. Every call appends a new row; a reviewer who reverses an earlier call records a second disposition rather than editing the first, so the full history of the adjudication stays visible. A waiver carries a record of its own: who consented, whether that consent was confirmed in writing, the filed document evidencing the confirmation, and the date the waiver was given. The consenting party and the date are required, because they are the act being recorded. The written confirmation and its document are not, because a waiver can be given orally and confirmed afterwards — a waiver recorded without them is accepted and reports what it is short of, so it never reads the same as one the firm can evidence.",
         "operationId": "conflicts.recordDisposition",
         "tags": [
           "conflicts"

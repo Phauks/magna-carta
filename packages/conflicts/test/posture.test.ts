@@ -63,6 +63,28 @@ function seedCheck(fixtureValue: Fixture, check: SeededCheck): string {
   return checkId;
 }
 
+// A waiver names the Directory entity that consented, and the write refuses a handle that resolves
+// to nothing — the whole point of recording the giver by handle is that a reader can look them up.
+const CONSENTING_PARTY = "directoryPerson_consenting";
+
+function seedConsentingParty(fixtureValue: Fixture): void {
+  fixtureValue.raw.exec(
+    `INSERT INTO directory_person (id, display_name, status, needs_review, created_at, updated_at) VALUES ` +
+      `('${CONSENTING_PARTY}', 'The Consenting Client', 'active', 0, '2026-08-13T09:00:00.000Z', '2026-08-13T09:00:00.000Z')`,
+  );
+}
+
+// A waiver whose informed consent WAS confirmed in writing but whose confirmation is filed nowhere.
+// These fixtures seed the log directly against a matter handle that has no matter row, so there is no
+// file to point at — which makes this the ordinary shape a real firm records first, and the reason the
+// posture read has to count it apart from a waiver the firm could hand over.
+const WAIVER_CONFIRMED_BUT_UNFILED = {
+  givenByEntityId: CONSENTING_PARTY,
+  confirmedInWriting: true,
+  documentFileId: null,
+  givenOn: "2026-08-12",
+} as const;
+
 function seedHit(fixtureValue: Fixture, checkId: string, tier: number, createdAt: string): string {
   const hitId = newIdentifier("conflictsHit", fixtureValue.randomSource);
   fixtureValue.raw.exec(
@@ -295,6 +317,7 @@ test("undisposed hits are counted by tier, and disposed hits are counted by kind
     },
     value.options,
   );
+  seedConsentingParty(value);
   await recordDisposition(
     value.database,
     {
@@ -302,6 +325,7 @@ test("undisposed hits are counted by tier, and disposed hits are counted by kind
       kind: "waiver_obtained",
       rationale: "informed written consent on file",
       reviewerUserId: "user_second_reviewer" as UserId,
+      waiver: WAIVER_CONFIRMED_BUT_UNFILED,
     },
     { ...value.options, clock: { now: () => "2026-08-13T09:05:00.000Z" } },
   );
@@ -314,8 +338,15 @@ test("undisposed hits are counted by tier, and disposed hits are counted by kind
     { tier: 4, count: 1 },
   ]);
   expect(posture.dispositionsByKind).toEqual([
-    { kind: "cleared", count: 1, reviewerUserIds: [ACTOR] },
-    { kind: "waiver_obtained", count: 1, reviewerUserIds: ["user_second_reviewer"] },
+    { kind: "cleared", count: 1, reviewerUserIds: [ACTOR], incompleteCount: 0 },
+    {
+      kind: "waiver_obtained",
+      count: 1,
+      reviewerUserIds: ["user_second_reviewer"],
+      // The confirmation is filed nowhere, so the platform still cannot produce it. A waiver the
+      // firm can describe and cannot hand over is not the same as one it can.
+      incompleteCount: 1,
+    },
   ]);
 });
 
@@ -346,7 +377,7 @@ test("a reversed disposition counts under the reversal, not under the reversed c
 
   const posture = await readMatterConflictsPosture(value.database, MATTER);
   expect(posture.dispositionsByKind).toEqual([
-    { kind: "representation_declined", count: 1, reviewerUserIds: [ACTOR] },
+    { kind: "representation_declined", count: 1, reviewerUserIds: [ACTOR], incompleteCount: 0 },
   ]);
 });
 

@@ -7,14 +7,21 @@
    * keeps is the sealed value and, for the types whose entropy allows it, an exact-match index that
    * lets a conflicts check say "these are the same person" without ever decrypting anything.
    *
-   * SO THIS PANE CANNOT LIST THEM, AND THAT IS BY DESIGN. There is no reading of an entity's
-   * identifiers as a set: a value is asked for one type at a time, the ask is refused without the
-   * permission, and the firm's audit log records who asked before any plaintext exists. Showing the
-   * types the record CAN hold, each with its own reveal, is the honest shape — it never guesses at
-   * what is there, and it never reads seven values to render a table nobody asked for.
+   * WHAT IS HELD AND WHAT IT IS ARE TWO DIFFERENT QUESTIONS, and this pane asks only the first one
+   * to draw itself. The enumeration says which types the record carries, when each was recorded and
+   * how long it is valid for, and it decrypts nothing — no permission, no audit row, because it
+   * reveals nothing a member with the record open did not already have. Reading a VALUE is the
+   * separate act: refused without the permission, and written to the firm's audit log before any
+   * plaintext exists. A record that had to decrypt merely to draw its list of headings would put a
+   * plaintext social security number into that log every time somebody opened a page.
    *
-   * A revealed value that comes back empty means the firm holds none of that type. That answer is
-   * distinct from a refusal and is shown as its own thing.
+   * A type the record does not carry is simply not a row. The pane never lists the seven types a
+   * record COULD hold as though each were an absence waiting to be filled — an empty record says so
+   * once.
+   *
+   * WHERE A TYPE IS HELD MORE THAN ONCE, the count says so and the reveal shows the most recently
+   * recorded one. Silently showing one of two account numbers as though it were the only one is the
+   * failure this count exists to prevent.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -28,13 +35,17 @@
   import Plus from "@lucide/svelte/icons/plus";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import EmptyState from "@magna-carta/design-system/empty-state";
+  import Skeleton from "@magna-carta/design-system/skeleton";
   import {
     addDirectoryIdentifier,
     readDirectoryIdentifier,
+    readDirectoryIdentifierRecords,
     type DirectoryEntityKind,
+    type DirectoryIdentifierRecord,
     type DirectoryIdentifierType,
   } from "./directory-api.ts";
-  import { identifierTypesFor } from "./directory-vocabulary.ts";
+  import { identifierTypeLabel, identifierTypesFor } from "./directory-vocabulary.ts";
 
   let {
     entityId,
@@ -53,6 +64,66 @@
   } = $props();
 
   const types = $derived(identifierTypesFor(kind));
+
+  // ---- what is held ---------------------------------------------------------------------------
+
+  let held = $state<readonly DirectoryIdentifierRecord[] | null>(null);
+  let readFailure = $state<string | null>(null);
+  let reloadToken = $state(0);
+
+  $effect(() => {
+    const id = entityId;
+    void reloadToken;
+    let cancelled = false;
+    held = null;
+    readFailure = null;
+    void (async () => {
+      const outcome = await readDirectoryIdentifierRecords(fetch, id);
+      if (cancelled) return;
+      if (outcome.kind === "ok") {
+        held = outcome.value.data;
+        return;
+      }
+      held = [];
+      readFailure =
+        outcome.kind === "transport"
+          ? "Nothing answered. What this record holds could not be read."
+          : (outcome.problem.detail ?? "What this record holds could not be read.");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  /** One row per TYPE held, carrying how many of that type the record holds and the newest instant. */
+  interface HeldType {
+    type: DirectoryIdentifierType;
+    label: string;
+    count: number;
+    recordedAt: string;
+    validTo: string | null;
+  }
+
+  const heldTypes = $derived.by((): readonly HeldType[] => {
+    const grouped = new Map<DirectoryIdentifierType, HeldType>();
+    for (const record of held ?? []) {
+      const existing = grouped.get(record.type);
+      if (existing === undefined) {
+        grouped.set(record.type, {
+          type: record.type,
+          label: identifierTypeLabel(record.type),
+          count: 1,
+          recordedAt: record.recordedAt,
+          validTo: record.validTo,
+        });
+        continue;
+      }
+      // The enumeration is ordered newest-first within a type, so the first one seen is the one a
+      // reveal would return — the rest only raise the count.
+      grouped.set(record.type, { ...existing, count: existing.count + 1 });
+    }
+    return [...grouped.values()];
+  });
 
   /** What has been asked for, per type. Nothing is asked until somebody asks. */
   type RevealState =
@@ -144,6 +215,7 @@
       newValue = "";
       reveals = { ...reveals, [newType]: { phase: "sealed" } };
       open = false;
+      reloadToken += 1;
       return;
     }
     failure =
@@ -177,55 +249,85 @@
     Values are sealed under the firm's key. Revealing one is recorded in the firm's audit log.
   </p>
 
-  <DataTable.Root>
-    <DataTable.Caption class="sr-only">The identifier types this record can hold</DataTable.Caption>
-    <DataTable.Header>
-      <DataTable.Row>
-        <DataTable.Head>Type</DataTable.Head>
-        <DataTable.Head>Value</DataTable.Head>
-        <DataTable.Head data-align="end">Reveal</DataTable.Head>
-      </DataTable.Row>
-    </DataTable.Header>
-    <DataTable.Body>
-      {#each types as entry (entry.type)}
-        {@const revealed = stateOf(entry.type)}
+  {#if readFailure !== null}
+    <Alert.Root variant="danger">
+      <Alert.Title>What This Record Holds Could Not Be Read</Alert.Title>
+      <Alert.Description>{readFailure}</Alert.Description>
+    </Alert.Root>
+  {:else if held === null}
+    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading what this record holds">
+      <Skeleton class="h-32 w-full" />
+      <Skeleton class="h-32 w-full" />
+    </div>
+  {:else if heldTypes.length === 0}
+    <EmptyState title="Nothing Sealed Against This Record">
+      The firm holds no sealed identifier for this record. Recording one seals it under the firm's
+      key as it arrives; nothing here is ever stored in the clear.
+    </EmptyState>
+  {:else}
+    <DataTable.Root>
+      <DataTable.Caption class="sr-only">The sealed identifiers this record holds</DataTable.Caption>
+      <DataTable.Header>
         <DataTable.Row>
-          <DataTable.Cell>{entry.label}</DataTable.Cell>
-          <DataTable.Cell>
-            {#if revealed.phase === "shown"}
-              <span class="tabular-nums">{revealed.value}</span>
-            {:else if revealed.phase === "reading"}
-              <span class="text-text-muted">Reading</span>
-            {:else if revealed.phase === "none"}
-              <span class="text-text-muted">None held</span>
-            {:else if revealed.phase === "refused"}
-              <span class="text-text-muted">{revealed.message}</span>
-            {:else}
-              <span class="text-text-muted">Sealed</span>
-            {/if}
-          </DataTable.Cell>
-          <DataTable.Cell data-align="end">
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={!mayReveal}
-              title={revealDisabledReason}
-              aria-label={revealed.phase === "shown"
-                ? `Hide the ${entry.label.toLowerCase()}`
-                : `Reveal the ${entry.label.toLowerCase()}`}
-              onclick={() => void reveal(entry.type)}
-            >
-              {#if revealed.phase === "shown"}
-                <EyeOff class="size-16" aria-hidden="true" />
-              {:else}
-                <Eye class="size-16" aria-hidden="true" />
-              {/if}
-            </Button>
-          </DataTable.Cell>
+          <DataTable.Head>Type</DataTable.Head>
+          <DataTable.Head>Value</DataTable.Head>
+          <DataTable.Head>Recorded</DataTable.Head>
+          <DataTable.Head data-align="end">Reveal</DataTable.Head>
         </DataTable.Row>
-      {/each}
-    </DataTable.Body>
-  </DataTable.Root>
+      </DataTable.Header>
+      <DataTable.Body>
+        {#each heldTypes as entry (entry.type)}
+          {@const revealed = stateOf(entry.type)}
+          <DataTable.Row>
+            <DataTable.Cell>
+              <span class="flex flex-wrap items-center gap-8">
+                {entry.label}
+                {#if entry.count > 1}
+                  <span class="text-xs text-text-muted">
+                    {entry.count} held — the most recent is revealed
+                  </span>
+                {/if}
+              </span>
+            </DataTable.Cell>
+            <DataTable.Cell>
+              {#if revealed.phase === "shown"}
+                <span class="tabular-nums">{revealed.value}</span>
+              {:else if revealed.phase === "reading"}
+                <span class="text-text-muted">Reading</span>
+              {:else if revealed.phase === "none"}
+                <span class="text-text-muted">None held</span>
+              {:else if revealed.phase === "refused"}
+                <span class="text-text-muted">{revealed.message}</span>
+              {:else}
+                <span class="text-text-muted">Sealed</span>
+              {/if}
+            </DataTable.Cell>
+            <DataTable.Cell>
+              <span class="text-text-muted tabular-nums">{entry.recordedAt.slice(0, 10)}</span>
+            </DataTable.Cell>
+            <DataTable.Cell data-align="end">
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={!mayReveal}
+                title={revealDisabledReason}
+                aria-label={revealed.phase === "shown"
+                  ? `Hide the ${entry.label.toLowerCase()}`
+                  : `Reveal the ${entry.label.toLowerCase()}`}
+                onclick={() => void reveal(entry.type)}
+              >
+                {#if revealed.phase === "shown"}
+                  <EyeOff class="size-16" aria-hidden="true" />
+                {:else}
+                  <Eye class="size-16" aria-hidden="true" />
+                {/if}
+              </Button>
+            </DataTable.Cell>
+          </DataTable.Row>
+        {/each}
+      </DataTable.Body>
+    </DataTable.Root>
+  {/if}
 </section>
 
 <Dialog.Root bind:open>

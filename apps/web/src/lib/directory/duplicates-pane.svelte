@@ -12,6 +12,11 @@
    * is a reason to look, never a finding that two records are the same person. Two people do share
    * a name. The person deciding is the one who knows, which is why the only act offered here opens
    * a window that shows what folding them together would do before it does it.
+   *
+   * THE CANDIDATES ARRIVE NAMED. The answer carries each candidate's display identity, resolved
+   * server-side in one naming read over the whole list, so this pane makes no request per row. The
+   * full record is read for exactly one candidate — the one somebody chooses to review — because a
+   * merge window has to show both sides field by field and a name is not enough for that.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -24,12 +29,9 @@
     findDuplicateCandidates,
     readDirectoryEntity,
     type DirectoryEntityDetail,
+    type DuplicateCandidate,
   } from "./directory-api.ts";
-  import {
-    directoryEntityName,
-    entityDetailIdentifier,
-    entityRecordHref,
-  } from "./entity-presentation.ts";
+  import { entityDetailIdentifier, entityRecordHref } from "./entity-presentation.ts";
   import EntityIdentity from "./entity-identity.svelte";
   import MergeDialog from "./merge-dialog.svelte";
 
@@ -45,17 +47,30 @@
     onMerged: () => void;
   } = $props();
 
-  interface Candidate {
-    detail: DirectoryEntityDetail;
-    name: string;
-    signalCount: number;
-  }
-
-  let candidates = $state<readonly Candidate[] | null>(null);
+  let candidates = $state<readonly DuplicateCandidate[] | null>(null);
   let failure = $state<string | null>(null);
   let reviewing = $state<DirectoryEntityDetail | null>(null);
+  let opening = $state<string | null>(null);
   let mergeOpen = $state(false);
   let reloadToken = $state(0);
+
+  // Reading the record a person chose to fold. The merge window shows both sides field by field, so
+  // it needs the whole record and not just the name — but only for the one they picked.
+  async function review(entityId: string): Promise<void> {
+    if (opening !== null) return;
+    opening = entityId;
+    const detail = await readDirectoryEntity(fetch, entityId);
+    opening = null;
+    if (detail.kind !== "ok") {
+      failure =
+        detail.kind === "transport"
+          ? "Nothing answered. That record could not be opened."
+          : (detail.problem.detail ?? "That record could not be opened.");
+      return;
+    }
+    reviewing = detail.value;
+    mergeOpen = true;
+  }
 
   const entityId = $derived(entityDetailIdentifier(entity));
 
@@ -91,21 +106,10 @@
             : (outcome.problem.detail ?? "The firm's record could not be searched for near matches.");
         return;
       }
-      // The candidate answer carries identifiers and nothing else, so each one is read for the name
-      // a person recognizes. The set is small by construction; this is not a listing.
-      const resolved = await Promise.all(
-        outcome.value.data.map(async (candidate) => {
-          const detail = await readDirectoryEntity(fetch, candidate.entityId);
-          if (detail.kind !== "ok") return null;
-          return {
-            detail: detail.value,
-            name: directoryEntityName(detail.value),
-            signalCount: candidate.signalCount,
-          };
-        }),
-      );
-      if (cancelled) return;
-      candidates = resolved.filter((candidate): candidate is Candidate => candidate !== null);
+      // The candidate answer NAMES each candidate — the server resolves the whole list in one
+      // naming read — so nothing here reads a record per row. The full record is read only for the
+      // one candidate somebody chooses to review, because a merge window has to show both sides.
+      candidates = outcome.value.data;
     })();
     return () => {
       cancelled = true;
@@ -150,17 +154,18 @@
         </DataTable.Row>
       </DataTable.Header>
       <DataTable.Body>
-        {#each candidates as candidate (entityDetailIdentifier(candidate.detail))}
+        {#each candidates as candidate (candidate.entityId)}
           <DataTable.Row>
             <DataTable.Cell>
-              <EntityIdentity
-                kind={candidate.detail.kind}
-                name={candidate.name}
-                href={entityRecordHref(entityDetailIdentifier(candidate.detail))}
-                merged={candidate.detail.kind === "person"
-                  ? candidate.detail.person.mergedIntoId !== null
-                  : candidate.detail.organization.mergedIntoId !== null}
-              />
+              {#if candidate.entityKind === "unknown" || candidate.displayName === null}
+                <span class="text-text-muted">—</span>
+              {:else}
+                <EntityIdentity
+                  kind={candidate.entityKind}
+                  name={candidate.displayName}
+                  href={entityRecordHref(candidate.entityId)}
+                />
+              {/if}
             </DataTable.Cell>
             <DataTable.Cell>
               <Badge
@@ -173,14 +178,11 @@
             <DataTable.Cell data-align="end">
               <Button
                 variant="secondary"
-                disabled={!mayEdit}
+                disabled={!mayEdit || opening !== null}
                 title={editDisabledReason}
-                onclick={() => {
-                  reviewing = candidate.detail;
-                  mergeOpen = true;
-                }}
+                onclick={() => void review(candidate.entityId)}
               >
-                Review and fold
+                {opening === candidate.entityId ? "Opening" : "Review and fold"}
               </Button>
             </DataTable.Cell>
           </DataTable.Row>

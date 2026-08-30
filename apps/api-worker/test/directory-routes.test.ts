@@ -385,6 +385,280 @@ describe("directory merged-entity write refusal", () => {
   });
 });
 
+// The name CHANGE — the one act that was unreachable over HTTP, and the reason a marriage could not
+// be recorded. The prior name is retained rather than overwritten, which is what keeps a twenty-year
+// old file tied to a living person.
+describe("directory name change and name history", () => {
+  it("records a marriage: the new name becomes current, the maiden name is kept and still findable", async () => {
+    const created = await post("/api/v1/directory/persons", {
+      given: "Mary",
+      family: "Kowalczyk",
+    });
+    const { id } = await readJson<{ id: string }>(created);
+
+    const changed = await put(`/api/v1/directory/entities/${id}/name`, {
+      given: "Mary",
+      family: "Whitfield",
+    });
+    expect(changed.status).toBe(200);
+
+    // The entity now answers to the new name.
+    const person = await readJson<{ displayName: string }>(
+      await get(`/api/v1/directory/persons/${id}`),
+    );
+    expect(person.displayName).toBe("Mary Whitfield");
+
+    // Both names are readable, newest first, and exactly one is current.
+    const names = await readJson<{
+      data: { displayName: string | null; nameRole: string; isCurrent: boolean }[];
+      nextCursor: string | null;
+    }>(await get(`/api/v1/directory/entities/${id}/names`));
+    expect(names.data.map((name) => [name.displayName, name.nameRole, name.isCurrent])).toEqual([
+      ["Mary Whitfield", "current", true],
+      ["Mary Kowalczyk", "former", false],
+    ]);
+
+    // And the superseded name still matches, saying it is the one that matched.
+    const hits = await readJson<{
+      data: { entityId: string; matchedName: string; matchedNameRole: string }[];
+    }>(await get("/api/v1/directory/search?q=Kowalczyk"));
+    const hit = hits.data.find((entry) => entry.entityId === id);
+    expect(hit?.matchedName).toBe("Mary Kowalczyk");
+    expect(hit?.matchedNameRole).toBe("former");
+  });
+
+  it("renames an organization the same way", async () => {
+    const created = await post("/api/v1/directory/organizations", {
+      legalName: "Pemberton Holdings Limited",
+    });
+    const { id } = await readJson<{ id: string }>(created);
+
+    expect(
+      (await put(`/api/v1/directory/entities/${id}/name`, { legalName: "Pemberton Group Limited" }))
+        .status,
+    ).toBe(200);
+
+    const organization = await readJson<{ legalName: string }>(
+      await get(`/api/v1/directory/organizations/${id}`),
+    );
+    expect(organization.legalName).toBe("Pemberton Group Limited");
+  });
+
+  it("refuses a body shaped for the other side of the directory with a 422, not a 500", async () => {
+    const created = await post("/api/v1/directory/persons", { given: "Wrong", family: "Shape" });
+    const { id } = await readJson<{ id: string }>(created);
+    const response = await put(`/api/v1/directory/entities/${id}/name`, {
+      legalName: "Not A Person Limited",
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a caller without directory:edit", async () => {
+    const created = await post("/api/v1/directory/persons", { given: "Gated", family: "Rename" });
+    const { id } = await readJson<{ id: string }>(created);
+    const response = await put(
+      `/api/v1/directory/entities/${id}/name`,
+      { given: "Gated", family: "Renamed" },
+      readOnlyCookie,
+    );
+    expect(response.status).toBe(403);
+  });
+});
+
+// The naming read three surfaces were crippled without. It answers display identity for a page of
+// rows in ONE request, and it answers nothing else.
+describe("directory bulk entity-name read", () => {
+  it("names people and organizations together, in the order asked", async () => {
+    const person = await readJson<{ id: string }>(
+      await post("/api/v1/directory/persons", { given: "Bulk", family: "Person" }),
+    );
+    const organization = await readJson<{ id: string }>(
+      await post("/api/v1/directory/organizations", { legalName: "Bulk Organization Limited" }),
+    );
+
+    const response = await get(
+      `/api/v1/directory/entity-names?ids=${organization.id},${person.id}`,
+    );
+    expect(response.status).toBe(200);
+    const named = await readJson<{
+      data: { entityId: string; entityKind: string; displayName: string | null }[];
+    }>(response);
+    expect(named.data).toEqual([
+      {
+        entityId: organization.id,
+        entityKind: "organization",
+        displayName: "Bulk Organization Limited",
+        mergedIntoId: null,
+      },
+      {
+        entityId: person.id,
+        entityKind: "person",
+        displayName: "Bulk Person",
+        mergedIntoId: null,
+      },
+    ]);
+  });
+
+  it("omits a handle the firm holds nothing for rather than naming it null", async () => {
+    const named = await readJson<{ data: { entityId: string }[] }>(
+      await get("/api/v1/directory/entity-names?ids=directoryPerson_zzzzzzzzzzzzzzzzzzzzz"),
+    );
+    expect(named.data).toEqual([]);
+  });
+
+  it("refuses more ids than the bound rather than truncating the answer", async () => {
+    const ids = Array.from(
+      { length: 101 },
+      (_, index) => `directoryPerson_${String(index).padStart(21, "0")}`,
+    ).join(",");
+    const response = await get(`/api/v1/directory/entity-names?ids=${ids}`);
+    expect(response.status).toBe(422);
+  });
+
+  it("is readable by a member with no directory permission — it is a naming read", async () => {
+    const person = await readJson<{ id: string }>(
+      await post("/api/v1/directory/persons", { given: "Named", family: "ForEveryone" }),
+    );
+    const response = await get(`/api/v1/directory/entity-names?ids=${person.id}`, readOnlyCookie);
+    expect(response.status).toBe(200);
+  });
+});
+
+// What the firm holds for an entity, described and never disclosed.
+describe("directory identifier enumeration", () => {
+  it("says which identifiers are held without decrypting any of them", async () => {
+    const person = await readJson<{ id: string }>(
+      await post("/api/v1/directory/persons", { given: "Sealed", family: "Holder" }),
+    );
+    expect(
+      (
+        await post(`/api/v1/directory/entities/${person.id}/identifiers`, {
+          type: "ssn",
+          value: "123-45-6789",
+        })
+      ).status,
+    ).toBe(201);
+
+    // The Read-only member cannot decrypt, and does not have to in order to see what is held.
+    const response = await get(
+      `/api/v1/directory/entities/${person.id}/identifiers`,
+      readOnlyCookie,
+    );
+    expect(response.status).toBe(200);
+    const held = await readJson<{ data: Record<string, unknown>[] }>(response);
+    expect(held.data).toHaveLength(1);
+    expect(held.data[0]).toMatchObject({ type: "ssn" });
+    // No value field, under any spelling. The decrypt is the other route.
+    expect(JSON.stringify(held.data)).not.toContain("123-45-6789");
+    expect(Object.keys(held.data[0] ?? {}).sort()).toEqual([
+      "id",
+      "recordedAt",
+      "type",
+      "validFrom",
+      "validTo",
+    ]);
+  });
+});
+
+// The three panes that had no read at all: relationships, the matters an entity is on, and the
+// firm's category labels.
+describe("directory entity relationship, matter and category reads", () => {
+  it("reads an entity's edges from both ends, naming the far end", async () => {
+    const person = await readJson<{ id: string }>(
+      await post("/api/v1/directory/persons", { given: "Edge", family: "Subject" }),
+    );
+    const organization = await readJson<{ id: string }>(
+      await post("/api/v1/directory/organizations", { legalName: "Edge Counterparty Limited" }),
+    );
+    expect(
+      (
+        await post("/api/v1/directory/edges", {
+          from: person.id,
+          to: organization.id,
+          edgeType: "affiliation",
+          role: "Director",
+        })
+      ).status,
+    ).toBe(201);
+
+    const outbound = await readJson<{
+      data: { direction: string; farEntityId: string; farDisplayName: string | null }[];
+    }>(await get(`/api/v1/directory/entities/${person.id}/edges`));
+    expect(outbound.data).toHaveLength(1);
+    expect(outbound.data[0]).toMatchObject({
+      direction: "outbound",
+      farEntityId: organization.id,
+      farDisplayName: "Edge Counterparty Limited",
+    });
+
+    // The same row read from the other end reads in the opposite sense.
+    const inbound = await readJson<{ data: { direction: string; farEntityId: string }[] }>(
+      await get(`/api/v1/directory/entities/${organization.id}/edges`),
+    );
+    expect(inbound.data[0]).toMatchObject({ direction: "inbound", farEntityId: person.id });
+  });
+
+  it("reads the firm's categories and what one entity carries", async () => {
+    const category = await readJson<{ id: string }>(
+      await post("/api/v1/directory/categories", { name: "Expert Witness", appliesTo: "person" }),
+    );
+    const person = await readJson<{ id: string }>(
+      await post("/api/v1/directory/persons", { given: "Labelled", family: "Person" }),
+    );
+    expect(
+      (
+        await post("/api/v1/directory/category-assignments", {
+          entityId: person.id,
+          categoryId: category.id,
+        })
+      ).status,
+    ).toBe(201);
+
+    const firmCategories = await readJson<{ data: { id: string; archived: boolean }[] }>(
+      await get("/api/v1/directory/categories"),
+    );
+    expect(firmCategories.data.some((entry) => entry.id === category.id)).toBe(true);
+    expect(firmCategories.data.every((entry) => typeof entry.archived === "boolean")).toBe(true);
+
+    const carried = await readJson<{ data: { id: string; name: string }[] }>(
+      await get(`/api/v1/directory/entities/${person.id}/categories`),
+    );
+    expect(carried.data).toEqual([
+      {
+        id: category.id,
+        name: "Expert Witness",
+        appliesTo: "person",
+        position: 0,
+        archived: false,
+      },
+    ]);
+  });
+});
+
+describe("directory duplicate candidates carry a name", () => {
+  it("names each candidate in the answer rather than making the caller resolve it", async () => {
+    const existing = await readJson<{ id: string }>(
+      await post("/api/v1/directory/organizations", { legalName: "Fenwick Bramley Partners" }),
+    );
+
+    const candidates = await readJson<{
+      data: { entityId: string; entityKind: string; displayName: string | null }[];
+    }>(
+      await post(
+        "/api/v1/directory/duplicate-candidates",
+        { kind: "organization", legalName: "Fenwick Bramley Partners" },
+        ownerCookie,
+        false,
+      ),
+    );
+    const hit = candidates.data.find((candidate) => candidate.entityId === existing.id);
+    expect(hit).toMatchObject({
+      entityKind: "organization",
+      displayName: "Fenwick Bramley Partners",
+    });
+  });
+});
+
 describe("directory contract", () => {
   it("registers the directory operations in the OpenAPI document", () => {
     const document = buildOpenAPIDocument();
@@ -399,5 +673,9 @@ describe("directory contract", () => {
     expect(operationIds.has("directory.getPerson")).toBe(true);
     expect(operationIds.has("directory.search")).toBe(true);
     expect(operationIds.has("directory.readIdentifier")).toBe(true);
+    expect(operationIds.has("directory.listNames")).toBe(true);
+    expect(operationIds.has("directory.entityNames")).toBe(true);
+    expect(operationIds.has("directory.listEdges")).toBe(true);
+    expect(operationIds.has("directory.listIdentifiers")).toBe(true);
   });
 });

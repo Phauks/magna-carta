@@ -96,9 +96,40 @@ describe("what a cell says", () => {
         kind: "waiver_obtained",
         rationale: "The client confirmed the waiver.",
         reviewerUserId: "user_one",
+        waiver: {
+          givenByEntityId: "directoryPerson_client",
+          confirmedInWriting: true,
+          documentFileId: "file_confirmation",
+          givenOn: "2026-08-24",
+        },
+        shortfalls: [],
         createdAt: "2026-08-30T13:00:00.000Z",
       },
     });
     expect(adjudicationText(answered)).toBe("Waiver Obtained");
+  });
+
+  // The failure mode this column exists to prevent: a waiver the firm cannot evidence reading
+  // exactly like one it can. It differs in TEXT, not only in tone, because this string is also the
+  // value the column's set filter groups by.
+  it("separates a waiver the platform cannot produce the record for", () => {
+    const answered = hit({
+      disposition: {
+        id: "conflictsDisposition_two",
+        kind: "waiver_obtained",
+        rationale: "Consent given by telephone; the letter is going out today.",
+        reviewerUserId: "user_one",
+        waiver: {
+          givenByEntityId: "directoryPerson_client",
+          confirmedInWriting: false,
+          documentFileId: null,
+          givenOn: "2026-08-24",
+        },
+        shortfalls: ["consent-not-confirmed-in-writing", "confirmation-not-filed"],
+        createdAt: "2026-08-30T13:00:00.000Z",
+      },
+    });
+    expect(adjudicationText(answered)).not.toBe("Waiver Obtained");
+    expect(adjudicationText(answered)).toBe("Waiver — Incomplete Record");
   });
 });

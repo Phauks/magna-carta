@@ -20,6 +20,12 @@
  *     whole value of the sentence is that the firm can defend the one its system produced.
  *   - A DISPOSITION IS APPEND-ONLY. Recording one never edits an earlier one; a reviewer who
  *     reverses a call records a second disposition and both stay on the books.
+ *   - A WAIVER CARRIES ITS OWN RECORD, AND IT CAN BE SHORT. The server accepts a waiver whose
+ *     informed consent is not yet confirmed in writing — that genuinely happens, and refusing the
+ *     row would only mean the firm's log never hears about the waiver at all — and it returns what
+ *     the record is short of. Every surface that shows a disposition has to show that: an
+ *     unevidenced waiver reading the same as an evidenced one is the failure this contract exists
+ *     to prevent.
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
 
@@ -102,11 +108,45 @@ export interface GraphPathStep {
   expiredAtCheck?: boolean;
 }
 
+/**
+ * What one recorded waiver is short of, as the server names it. Empty on every other kind — those
+ * carry no waiver record and are not incomplete for lacking one.
+ *
+ * Each is a fact about the PLATFORM'S OWN RECORD, never about the matter and never a grade of the
+ * reviewer's judgement: the platform is saying what it could not produce if somebody asked.
+ */
+export type WaiverShortfall =
+  | "consenting-party-unrecorded"
+  | "consent-not-confirmed-in-writing"
+  | "confirmation-not-filed"
+  | "date-given-unrecorded";
+
+/**
+ * The waiver's own record, on a disposition that has one.
+ *
+ * Null on the other three kinds and on a `waiver_obtained` row recorded before the platform could
+ * hold this at all — which is the row not saying, and reads as a shortfall exactly as an absent
+ * field on a row that has the columns does.
+ */
+export interface WaiverDetail {
+  /** The Directory entity that consented. A handle, so a reader can look the consenting party up. */
+  givenByEntityId: string | null;
+  /** Stated in its own right, never inferred from the document being present. */
+  confirmedInWriting: boolean | null;
+  /** The filed document evidencing the confirmation, where the firm has filed it. */
+  documentFileId: string | null;
+  /** The civil date the waiver was GIVEN. Not `createdAt`, which is when it was written down. */
+  givenOn: string | null;
+}
+
 export interface DispositionDetail {
   id: string;
   kind: DispositionKind;
   rationale: string;
   reviewerUserId: string;
+  waiver: WaiverDetail | null;
+  /** What this record is short of. Always empty on a kind that carries no waiver. */
+  shortfalls: WaiverShortfall[];
   createdAt: string;
 }
 
@@ -250,6 +290,8 @@ export interface PostureDispositionKind {
   kind: DispositionKind;
   count: number;
   reviewerUserIds: string[];
+  /** How many of those the platform cannot produce the record for. Zero on every kind but a waiver. */
+  incompleteCount: number;
 }
 
 export interface PostureUnavailableSource {
@@ -295,10 +337,29 @@ export interface MatterConflictsPosture {
 
 // ---- recording an adjudication ---------------------------------------------------------------
 
+/**
+ * The waiver a reviewer records alongside a `waiver_obtained` adjudication.
+ *
+ * The consenting party and the date are required by the server, because they are the act being
+ * recorded. Whether it was confirmed in writing must be ANSWERED, and `false` is an accepted answer;
+ * the evidencing document may be absent. A waiver given orally and confirmed later is a real thing,
+ * and the row that records it reads as incomplete rather than being refused.
+ */
+export interface WaiverRequest {
+  givenByEntityId: string;
+  confirmedInWriting: boolean;
+  /** Null where the firm has not filed the confirmation here yet. */
+  documentFileId: string | null;
+  /** The civil date the waiver was given, YYYY-MM-DD. */
+  givenOn: string;
+}
+
 export interface RecordDispositionRequest {
   kind: DispositionKind;
   /** Never blank: the server refuses an empty rationale, and so does the control that sends it. */
   rationale: string;
+  /** Required on `waiver_obtained`; refused on every other kind. */
+  waiver?: WaiverRequest;
 }
 
 export interface RecordDispositionResponse {

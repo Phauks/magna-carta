@@ -20,10 +20,26 @@ const TRIGRAM_MINIMUM_LENGTH = 3;
 // entity; displayName is the human-readable label for the hit; relevance is the raw FTS5 bm25()
 // rank (negative; closer to zero = better match — callers should sort ascending to put best
 // hits first).
+//
+// matchedName and matchedNameRole say WHICH of the entity's names the query landed on, and they are
+// what makes the corpus worth keeping. The whole point of storing every name an entity has held is
+// that a search for a maiden name finds the woman who now goes by another one — and a hit that
+// reports only the current name looks identical to a hit on the current name, so the person reading
+// the result cannot tell that the file they want is filed under a name they did not type.
 export interface NameSearchHit {
   readonly entityId: string;
   readonly entityKind: EntityKind;
   readonly displayName: string;
+  /**
+   * The name row the query matched, as it was recorded. An organization's name row stores only the
+   * case-folded form, so an organization's matched alias reads lowercase — the recorded casing is not
+   * kept on `directory_name`.
+   */
+  readonly matchedName: string;
+  /** What that name is to the entity: its current name, a former one, a maiden name, a trading name. */
+  readonly matchedNameRole: string;
+  /** True when the query landed on the name the entity answers to today. */
+  readonly matchedNameIsCurrent: boolean;
   readonly relevance: number;
 }
 
@@ -138,6 +154,14 @@ export async function searchNames(
         dp.display_name,
         do.display_name
       )                   AS display_name,
+      dn.name_role        AS name_role,
+      dn.is_current       AS is_current,
+      dn.name_prefix      AS name_prefix,
+      dn.name_given       AS name_given,
+      dn.name_middle      AS name_middle,
+      dn.name_family      AS name_family,
+      dn.name_suffix      AS name_suffix,
+      dn.normalized_display AS normalized_display,
       bm25(directory_name_fts) AS relevance
     FROM directory_name_fts
     JOIN directory_name AS dn
@@ -166,6 +190,14 @@ export async function searchNames(
       entity_id: string;
       entity_kind: string;
       display_name: string | null;
+      name_role: string;
+      is_current: number;
+      name_prefix: string | null;
+      name_given: string | null;
+      name_middle: string | null;
+      name_family: string | null;
+      name_suffix: string | null;
+      normalized_display: string;
       relevance: number;
     }>();
 
@@ -177,9 +209,38 @@ export async function searchNames(
       entityId: row.entity_id,
       entityKind: row.entity_kind as EntityKind,
       displayName: row.display_name ?? "",
+      // A person's name row keeps its parts, so the matched name reads as it was written. An
+      // organization's does not, so the case-folded form is the honest answer rather than a
+      // capitalization nothing recorded.
+      matchedName: matchedNameFromRow(row),
+      matchedNameRole: row.name_role,
+      matchedNameIsCurrent: row.is_current === 1,
       relevance: row.relevance,
     })),
   };
+}
+
+// The matched name as recorded: a person's parts joined, or — where the row carries none, which is
+// every organization name row — the case-folded display the corpus indexed.
+function matchedNameFromRow(row: {
+  name_prefix: string | null;
+  name_given: string | null;
+  name_middle: string | null;
+  name_family: string | null;
+  name_suffix: string | null;
+  normalized_display: string;
+}): string {
+  const assembled = [
+    row.name_prefix,
+    row.name_given,
+    row.name_middle,
+    row.name_family,
+    row.name_suffix,
+  ]
+    .map((part) => part?.trim() ?? "")
+    .filter((part) => part !== "")
+    .join(" ");
+  return assembled === "" ? row.normalized_display : assembled;
 }
 
 // ── Duplicate-candidate generation ────────────────────────────────────────────

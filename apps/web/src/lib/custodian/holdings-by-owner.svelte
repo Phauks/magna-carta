@@ -2,17 +2,17 @@
   /*
    * What the firm holds for each owner, biggest holders first.
    *
-   * THE OWNER COLUMN IS EMPTY, AND THE LINE BENEATH THE TABLE SAYS WHY. The report answers in
-   * directory handles and resolves no names — deliberately, because a report that carried them
-   * would be a list of the most sensitive things a firm holds with the names attached, and because
-   * the register has no business duplicating the directory's display rules. Naming them is the
-   * caller's job, and the caller cannot do it: the directory serves one entity per request, so a
-   * page of owners would be a request per row, which is the read every listing in this product is
-   * written to avoid. A directory read that names many entities in one request is what this column
-   * waits on.
+   * THE OWNER COLUMN IS A CLIENT-SIDE JOIN, AND IT IS ONE REQUEST FOR THE WHOLE PAGE. The report
+   * answers in directory handles and resolves no names — deliberately, because a report that carried
+   * them would be a list of the most sensitive things a firm holds with the names attached, and
+   * because the register has no business duplicating the directory's display rules. So the naming
+   * happens here, through the directory's own naming read, which takes every handle on the page at
+   * once and answers display identity only. Resolving them one at a time would be a request per row,
+   * which is the read every listing in this product is written to avoid.
    *
-   * What is NOT done in the meantime is print the handle. `directoryPerson_01J…` at a person is not
-   * an answer, and a column that showed it would look like it was working.
+   * A handle the directory has no name for renders as the gap, never as the handle.
+   * `directoryPerson_01J…` at a person is not an answer, and a column that showed it would look like
+   * it was working.
    *
    * CAPPED, NOT PAGED, AND IT SAYS SO. The ordering key is a count the query computes rather than a
    * column any row carries, so a cursor would page by a value that does not exist. `capped` is the
@@ -23,10 +23,9 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { readCustodyHoldingsByOwner, type CustodyHoldingsByOwner } from "./custody-api.ts";
+  import { DirectoryNames } from "./directory-names.svelte.ts";
 
-  /** What the owner column waits on, said once and drawn under the table. */
-  const OWNER_NAMES_WAIT_ON =
-    "a directory read that names many entities in one request. Until it exists, naming a page of owners would be one request per row.";
+  const directory = new DirectoryNames();
 
   let rows = $state<readonly CustodyHoldingsByOwner[] | null>(null);
   let capped = $state(false);
@@ -41,6 +40,12 @@
       if (outcome.kind === "ok") {
         rows = outcome.value.data;
         capped = outcome.value.capped;
+        // One naming read for every owner on the page, after the rows are on screen: the counts are
+        // the report, and a name that has not arrived yet must not hold them back.
+        await directory.resolve(
+          fetch,
+          outcome.value.data.map((row) => row.entityId),
+        );
         return;
       }
       rows = [];
@@ -85,7 +90,11 @@
         {#each rows as row (row.entityId)}
           <DataTable.Row>
             <DataTable.Cell>
-              <span class="text-text-muted">—</span>
+              {#if directory.nameOf(row.entityId) !== null}
+                {directory.nameOf(row.entityId)}
+              {:else}
+                <span class="text-text-muted">—</span>
+              {/if}
             </DataTable.Cell>
             <DataTable.Cell data-align="end">{row.packetsHeld}</DataTable.Cell>
             <DataTable.Cell data-align="end">{row.packetsOut}</DataTable.Cell>
@@ -97,8 +106,8 @@
     </DataTable.Root>
 
     <p class="text-xs text-text-muted">
-      The Owner column reads empty because the register answers in directory handles and this screen
-      cannot name them yet. Not built yet. Waiting on {OWNER_NAMES_WAIT_ON}
+      An owner shown as a dash is one the directory holds no name for. The register answers in
+      directory handles and this screen names them from the directory rather than printing a handle.
     </p>
 
     {#if capped}

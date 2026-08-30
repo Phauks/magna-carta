@@ -4,23 +4,20 @@
  * Mirrors the directory operations in apps/api-worker/openapi/openapi.json; the transport envelope
  * itself lives in $lib/api/request.ts, and every call resolves rather than throws.
  *
- * WHAT THE CONTRACT ANSWERS, AND WHAT IT DOES NOT. Four of this surface's sections are written
- * against reads that do not exist yet, and a screen that guessed at them would be inventing the
- * firm's record. Stated here so a caller never goes looking:
+ * WHAT THE CONTRACT ANSWERS, AND WHAT IT DOES NOT. Stated here so a caller never goes looking:
  *
  *   - There is no listing. `searchDirectory` is the only way to reach an entity, and it needs at
  *     least three characters of a name. The directory is searched, never browsed.
- *   - A name history can be APPENDED and cannot be READ. `directory_name` holds every name an
- *     entity has ever held; the contract exposes only the current one, denormalized onto the
- *     entity row.
- *   - Relationship edges, categories, category assignments and an entity's own matter roles are
- *     all write-only in the same way. `listMatterParties` answers for one MATTER, never for one
- *     entity.
- *   - An entity's identifiers cannot be enumerated. A value is asked for one type at a time, and
- *     asking is a decrypt: permission-gated and written to the firm's audit log before any
- *     plaintext exists. That is why nothing here reads them eagerly.
+ *   - Reading an identifier's VALUE is a decrypt: permission-gated and written to the firm's audit
+ *     log before any plaintext exists. That is why nothing here reads one eagerly, and why
+ *     `readDirectoryIdentifierRecords` — which says what the firm holds without saying what any of
+ *     it is — is the read a screen draws its headings from.
+ *   - An organization's former names survive only in the case-folded form the corpus indexes, so a
+ *     name history entry for one carries a null `displayName` and the caller falls back to
+ *     `normalizedDisplay`. That is an honest lowercase former name rather than an invented
+ *     capitalization.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 /** The two node kinds in the directory graph. A handle's prefix is what tells them apart. */
 export type DirectoryEntityKind = "person" | "organization";
@@ -95,6 +92,16 @@ export interface DirectorySearchHit {
   entityId: string;
   entityKind: string;
   displayName: string;
+  /**
+   * WHICH of the entity's names the query landed on — the whole reason the firm keeps every name an
+   * entity has held. A hit that reported only the current name looked identical whether it matched
+   * a maiden name or the name typed, so a reader could not tell that the file they wanted is filed
+   * under a name they did not know.
+   */
+  matchedName: string;
+  /** What that matched name is to the entity — current, former, maiden, dba. */
+  matchedNameRole: string;
+  matchedNameIsCurrent: boolean;
   /** The raw ranking score. Ordering is the server's; nothing on screen prints this number. */
   relevance: number;
 }
@@ -133,7 +140,96 @@ export interface DuplicateCandidate {
   entityId: string;
   /** How many of the three blocking channels matched. Recall, never a score. */
   signalCount: number;
+  /** Which side of the directory it is. "unknown" where the node tables no longer hold it. */
+  entityKind: DirectoryEntityKind | "unknown";
+  /** What to call it, or null where the directory holds no name — the screen shows the gap. */
+  displayName: string | null;
 }
+
+/** One name an entity has held — the shape the history rail reads. */
+export interface DirectoryNameEntry {
+  id: string;
+  nameRole: string;
+  /** True for the one name the entity answers to today. */
+  isCurrent: boolean;
+  prefix: string | null;
+  given: string | null;
+  middle: string | null;
+  family: string | null;
+  suffix: string | null;
+  /** The name as recorded. Null for an organization — fall back to `normalizedDisplay`. */
+  displayName: string | null;
+  /** The case-folded form the search and conflicts corpus matches on. Always present. */
+  normalizedDisplay: string;
+  validFrom: string | null;
+  /** When the name stopped being used, or null while it still is. */
+  validTo: string | null;
+  /** When the firm wrote the row down — which is not when the name came into use. */
+  recordedAt: string;
+}
+
+/** The display identity of one entity: who it is on a row, and nothing about what it holds. */
+export interface DirectoryEntityName {
+  entityId: string;
+  entityKind: DirectoryEntityKind;
+  displayName: string | null;
+  mergedIntoId: string | null;
+}
+
+/** One relationship touching an entity, read from that entity's end. */
+export interface DirectoryEdgeEntry {
+  id: string;
+  edgeType: string;
+  /** Which end this entity is on. "parent of" and "subsidiary of" are one row read two ways. */
+  direction: "outbound" | "inbound";
+  farEntityId: string;
+  farEntityKind: DirectoryEntityKind | "unknown";
+  farDisplayName: string | null;
+  role: string | null;
+  note: string | null;
+  validFrom: string | null;
+  validTo: string | null;
+}
+
+/** One matter an entity is a party to, and what it is on it. */
+export interface DirectoryEntityMatterParty {
+  id: string;
+  matterId: string;
+  role: string;
+  capacity: string | null;
+  matterTitle: string | null;
+  matterNumber: string | null;
+  matterStatus: string | null;
+  linkedAt: string;
+}
+
+/** One label the firm files entities under. */
+export interface DirectoryCategory {
+  id: string;
+  name: string;
+  appliesTo: DirectoryEntityKind | "both";
+  position: number;
+  /** True for a label the firm has retired. Still returned — an entity carrying one must show it. */
+  archived: boolean;
+}
+
+/**
+ * One sealed identifier the firm holds, DESCRIBED and never disclosed.
+ *
+ * There is no value on this shape and none belongs on it: reading a value is the separate,
+ * permission-gated, audited call. A record that decrypted merely to draw its list of headings would
+ * put a plaintext social security number into the firm's audit log every time a page rendered.
+ */
+export interface DirectoryIdentifierRecord {
+  id: string;
+  type: DirectoryIdentifierType;
+  validFrom: string | null;
+  validTo: string | null;
+  recordedAt: string;
+}
+
+/** How many entities one naming call may ask about. Beyond it the read refuses rather than truncates. */
+export const MAX_ENTITY_NAME_LOOKUP = 100;
 
 // ---- reads -----------------------------------------------------------------------------------
 
@@ -224,7 +320,139 @@ export function findDuplicateCandidates(
   });
 }
 
+/**
+ * Names many entities in one request — the read a page of rows needs.
+ *
+ * Display identity only: the id, which side of the directory it is, what to call it, and whether it
+ * has been folded into another record. Nothing here touches an identifier, so it cannot decrypt, and
+ * nothing joins a contact row, so a list of names cannot become a mailing list. That is what makes
+ * it cheap enough to call for every row on screen.
+ *
+ * At most `MAX_ENTITY_NAME_LOOKUP` handles per call — beyond it the read REFUSES rather than
+ * truncating, because a short answer to a long question would blank the wrong rows.
+ */
+export function readDirectoryEntityNames(
+  fetchImpl: typeof fetch,
+  entityIds: readonly string[],
+): Promise<ApiOutcome<{ data: DirectoryEntityName[] }>> {
+  const search = new URLSearchParams({ ids: entityIds.join(",") });
+  return requestJson(fetchImpl, `/api/v1/directory/entity-names?${search.toString()}`);
+}
+
+/**
+ * Every name an entity has held, newest recorded first.
+ *
+ * The current name heads the page, and the rest read backwards through the marriages, the deed polls
+ * and the trading names. Ordered by when the firm wrote each row rather than by when the name came
+ * into use, so a maiden name recorded onto a decades-old file does not sort to the bottom.
+ */
+export function readDirectoryNames(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  cursor?: string,
+): Promise<ApiOutcome<Page<DirectoryNameEntry>>> {
+  const search = new URLSearchParams(cursor === undefined ? {} : { cursor });
+  const query = search.toString();
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/names${query === "" ? "" : `?${query}`}`,
+  );
+}
+
+/** The relationships touching an entity, both directions, each naming the far end. */
+export function readDirectoryEdges(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  cursor?: string,
+): Promise<ApiOutcome<Page<DirectoryEdgeEntry>>> {
+  const search = new URLSearchParams(cursor === undefined ? {} : { cursor });
+  const query = search.toString();
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/edges${query === "" ? "" : `?${query}`}`,
+  );
+}
+
+/** The matters this entity is a party to — the mirror of the read that answers for one matter. */
+export function readDirectoryEntityMatterParties(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  cursor?: string,
+): Promise<ApiOutcome<Page<DirectoryEntityMatterParty>>> {
+  const search = new URLSearchParams(cursor === undefined ? {} : { cursor });
+  const query = search.toString();
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/matter-parties${query === "" ? "" : `?${query}`}`,
+  );
+}
+
+/** The firm's whole category vocabulary, retired labels included and flagged. */
+export function readDirectoryCategories(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<{ data: DirectoryCategory[] }>> {
+  return requestJson(fetchImpl, "/api/v1/directory/categories");
+}
+
+/** The categories one entity carries. */
+export function readDirectoryEntityCategories(
+  fetchImpl: typeof fetch,
+  entityId: string,
+): Promise<ApiOutcome<{ data: DirectoryCategory[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/categories`,
+  );
+}
+
+/**
+ * WHICH sealed identifiers the firm holds for an entity — never what any of them is.
+ *
+ * No decrypt, no permission beyond the session, no audit row. It is what lets a record show that a
+ * social security number is on file without anybody reading it, which is the distinction the whole
+ * identifier surface turns on.
+ */
+export function readDirectoryIdentifierRecords(
+  fetchImpl: typeof fetch,
+  entityId: string,
+): Promise<ApiOutcome<{ data: DirectoryIdentifierRecord[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/identifiers`,
+  );
+}
+
 // ---- writes ----------------------------------------------------------------------------------
+
+/**
+ * Changes the name an entity currently answers to — a marriage, a deed poll, an organization's
+ * rename.
+ *
+ * The name on file is not overwritten. It is retained as a former name, kept in the search and
+ * conflicts corpus with its phonetic codes intact and stamped with the date it stopped being used,
+ * which is what keeps a twenty-year-old file tied to the living person it names. Appending a name
+ * the entity ALSO answers to, without displacing the current one, is `addDirectoryName`.
+ */
+export function changeDirectoryName(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  request: {
+    given?: string;
+    family?: string;
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
+    legalName?: string;
+    displayName?: string | null;
+  },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: boolean }>> {
+  return requestJson(fetchImpl, `/api/v1/directory/entities/${encodeURIComponent(entityId)}/name`, {
+    method: "PUT",
+    body: request,
+    idempotencyKey,
+  });
+}
 
 export function createDirectoryPerson(
   fetchImpl: typeof fetch,
@@ -278,9 +506,9 @@ export function setDirectoryPersonPronouns(
 /**
  * Appends a name an entity also goes by, without touching the name it currently carries.
  *
- * A name change is not this call: the current name is replaced through the entity's own edit path,
- * which flips the old row to former. This one records the maiden name on a decades-old file, the
- * trading name an organization also answers to, the spelling a court used.
+ * A name change is not this call — `changeDirectoryName` is, and it flips the old row to former.
+ * This one records the maiden name on a decades-old file, the trading name an organization also
+ * answers to, the spelling a court used.
  */
 export function addDirectoryName(
   fetchImpl: typeof fetch,
@@ -306,6 +534,24 @@ export function addDirectoryName(
       idempotencyKey,
     },
   );
+}
+
+/**
+ * Files a record under one of the firm's own categories.
+ *
+ * The category's applies-to is enforced server-side, so a person-only label on an organization is a
+ * refusal rather than a row — the picker offering only what fits is a courtesy, not the guard.
+ */
+export function assignDirectoryCategory(
+  fetchImpl: typeof fetch,
+  request: { entityId: string; categoryId: string },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: boolean }>> {
+  return requestJson(fetchImpl, "/api/v1/directory/category-assignments", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
 }
 
 /** Seals a typed identifier under the firm key. Only the ciphertext and its index are ever stored. */

@@ -1,3 +1,10 @@
+import {
+  appendCursorPredicate,
+  assemblePage,
+  decodeCursor,
+  DEFAULT_PAGE_SIZE,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
@@ -242,4 +249,48 @@ export async function readEdgesForEntities(
     }
   }
   return byEntityId;
+}
+
+// ── one entity's edges, paged ────────────────────────────────────────────────
+
+/**
+ * Every active edge touching one entity, newest first and cursor-paged.
+ *
+ * The unpaged `readEdges` above stays exactly as it is: the conflicts traversal wants the whole
+ * neighbourhood of a node in one call and reads it with a bounded frontier, and paging it would turn
+ * one query into a loop inside a graph walk. This is the HTTP-shaped twin — a screen renders a page
+ * of relationships and a firm that has recorded a corporate group's whole structure against one
+ * holding company has a neighbourhood no response should try to carry whole.
+ *
+ * Direction is preserved rather than normalized away: an edge from this entity and an edge to it
+ * mean opposite things ("parent of" is not "subsidiary of"), so the caller is told which end this
+ * entity is on and renders the relationship accordingly.
+ */
+export async function readEdgesPage(
+  database: BatchDatabase,
+  entityId: DirectoryPersonId | DirectoryOrganizationId,
+  options: ReadEdgesOptions & { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<DirectoryEdge>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const asOf = options.asOf ?? new Date().toISOString();
+  const conditions = ["(from_entity_id = ?1 OR to_entity_id = ?1)", "deleted_at IS NULL"];
+  const bindings: unknown[] = [entityId];
+  if (options.includeExpired !== true) {
+    bindings.push(asOf);
+    conditions.push(`(valid_to IS NULL OR valid_to > ?${String(bindings.length)})`);
+  }
+  appendCursorPredicate(conditions, bindings, decodeCursor(options.cursor));
+  bindings.push(pageSize + 1);
+
+  const { results } = await database
+    .prepare(
+      `SELECT ${EDGE_COLUMNS}, created_at FROM directory_edge
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?${String(bindings.length)}`,
+    )
+    .bind(...bindings)
+    .all<Parameters<typeof toDirectoryEdge>[0] & { created_at: string }>();
+
+  return assemblePage(results, pageSize, toDirectoryEdge);
 }

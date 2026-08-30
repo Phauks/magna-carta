@@ -18,6 +18,7 @@
     "./identifiers": "./src/identifiers.ts",
     "./edges": "./src/edges.ts",
     "./entity-kind": "./src/entity-kind.ts",
+    "./entity-display": "./src/entity-display.ts",
     "./categories": "./src/categories.ts",
     "./search": "./src/search.ts",
     "./merge": "./src/merge.ts",

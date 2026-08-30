@@ -135,6 +135,13 @@
                 {String(entry.count)} &middot; {entry.reviewerUserIds
                   .map((userId) => memberText(userId))
                   .join(", ")}
+                <!-- A matter reported as carrying three waivers, two of which the firm cannot
+                     evidence, is not the matter "three waivers" describes. The count says which. -->
+                {#if entry.incompleteCount > 0}
+                  <span class="text-text-muted">
+                    &middot; {String(entry.incompleteCount)} the platform cannot produce the record for
+                  </span>
+                {/if}
               </dd>
             </div>
           {/each}

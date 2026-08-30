@@ -12,6 +12,12 @@
    * renders refused and says why rather than disappearing. Answering the hit is a different act and
    * it appends a row of its own.
    *
+   * A WAIVER'S RECORD IS SHOWN FIELD BY FIELD, AND SO IS WHAT IT IS MISSING. Recording that a waiver
+   * was obtained now records who consented, whether the consent was confirmed in writing, the filed
+   * document evidencing it, and when it was given. The platform accepts a waiver whose writing has
+   * not arrived, because that is a real thing that happens — and then says, here and on every other
+   * surface, exactly what it could not produce if somebody asked for it this afternoon.
+   *
    * THE PARTY'S NAME IS READ FOR THIS HIT ALONE. The check answers entity handles and nothing about
    * them, and no read names many entities at once, so the list states the gap and this window
    * spends one request on the hit somebody actually opened.
@@ -32,11 +38,12 @@
   import { hitSheet } from "./conflicts-report.ts";
   import type { HitDetail } from "./conflicts-api.ts";
   import {
-    adjudicationChip,
+    adjudicationSummary,
     edgeTypeLabel,
     evidenceTier,
     pathSummary,
     sourceVocabulary,
+    waiverShortfallText,
   } from "./conflicts-vocabulary.ts";
   import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
   import { entityKindText, surfacedAgainstText } from "./hit-columns.ts";
@@ -46,6 +53,7 @@
     hit,
     partyName = null,
     partyNameFailed = false,
+    consentingPartyName = null,
     reviewerName = null,
     checkInstant,
     onAnswer,
@@ -56,6 +64,12 @@
     partyName?: string | null;
     /** True when the read ran and could not name the entity, which is not the same as not asked. */
     partyNameFailed?: boolean;
+    /**
+     * The name of the entity that gave the waiver, once one read has answered it. Null where the
+     * disposition names none, or where the read has not returned — the handle prints either way, so
+     * a reader is never left with a blank where a consenting party belongs.
+     */
+    consentingPartyName?: string | null;
     /** The reviewer's name, resolved from the firm's roster. */
     reviewerName?: string | null;
     /** When the check that surfaced this hit ran. */
@@ -93,7 +107,9 @@
     if (hit.disposition !== null) {
       rail.push({
         id: hit.disposition.id,
-        action: adjudicationChip(hit.disposition.kind).label,
+        // The summary rather than the bare kind: on the trail as everywhere else, an answer whose
+        // record the platform cannot produce must not read as one it can.
+        action: adjudicationSummary(hit.disposition).label,
         at: hit.disposition.createdAt,
         source: personName(reviewerName),
         detail: hit.disposition.rationale,
@@ -108,6 +124,7 @@
       ? null
       : hitSheet(hit, {
           partyName,
+          consentingPartyName,
           reviewerName,
           checkInstant,
           printedAt: new Date(),
@@ -130,7 +147,7 @@
 
 {#snippet record()}
   {#if hit !== null}
-    {@const chip = adjudicationChip(hit.disposition?.kind ?? null)}
+    {@const chip = adjudicationSummary(hit.disposition)}
     <div class="flex flex-col gap-16">
       <div class="flex flex-wrap items-center gap-8">
         <Badge variant={chip.tone} title={chip.meaning}>{chip.label}</Badge>
@@ -178,6 +195,49 @@
           <p class="text-xs text-text-muted">
             {personName(reviewerName)} &middot; {formatInstant(hit.disposition.createdAt)}
           </p>
+        </div>
+      {/if}
+
+      {#if hit.disposition !== null && hit.disposition.kind === "waiver_obtained"}
+        {@const waiver = hit.disposition.waiver}
+        <Separator />
+        <!-- The waiver's own record, which is the thing a firm is actually asked to produce. It is
+             stated field by field rather than summarized: a reader has to be able to see WHICH part
+             is missing, because "no document filed" and "consent never confirmed in writing" send a
+             lawyer to do two different things. -->
+        <div class="flex flex-col gap-8">
+          <h3 class="text-xs text-text-subtle uppercase">The Waiver</h3>
+          <dl class="flex flex-col gap-4 text-sm">
+            {@render fact(
+              "Given By",
+              waiver?.givenByEntityId == null
+                ? "Not recorded"
+                : (consentingPartyName ?? waiver.givenByEntityId),
+            )}
+            {@render fact(
+              "Confirmed In Writing",
+              waiver?.confirmedInWriting == null
+                ? "Not recorded"
+                : waiver.confirmedInWriting
+                  ? "Yes"
+                  : "No",
+            )}
+            {@render fact(
+              "Evidencing Document",
+              waiver?.documentFileId ?? "Not filed",
+            )}
+            {@render fact("Given On", waiver?.givenOn ?? "Not recorded")}
+          </dl>
+          {#if hit.disposition.shortfalls.length > 0}
+            <ul class="flex flex-col gap-4 text-xs text-text-muted">
+              {#each hit.disposition.shortfalls as shortfall (shortfall)}
+                <li class="flex items-start gap-8">
+                  <CircleAlert class="size-12 shrink-0" aria-hidden="true" />
+                  <span>{waiverShortfallText(shortfall)}</span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
         </div>
       {/if}
     </div>
@@ -252,6 +312,18 @@
       label="This hit's adjudication"
       emptyMessage="Nothing has been recorded against this hit yet."
     />
+    {#if hit?.disposition != null && hit.disposition.shortfalls.length > 0}
+      <!-- Beneath the trail, because it is not an event: it is what the latest answer's record is
+           still short of, and it stays true until a second disposition supplies it. -->
+      <div class="flex flex-col gap-4 text-xs text-text-muted">
+        {#each hit.disposition.shortfalls as shortfall (shortfall)}
+          <p class="flex items-start gap-8">
+            <CircleAlert class="size-12 shrink-0" aria-hidden="true" />
+            <span>{waiverShortfallText(shortfall)}</span>
+          </p>
+        {/each}
+      </div>
+    {/if}
     <div class="flex items-center gap-8">
       <MaturityBadge stage="soon" />
       <p id={trailDescription} class="text-xs text-text-muted">{soonTrail.title}</p>

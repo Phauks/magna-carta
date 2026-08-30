@@ -38,11 +38,6 @@ export const CONFLICTS_GAPS = {
     waitsOn:
       "a read that serves every disposition recorded against a hit, not only the reviewer's latest word",
   },
-  waiverEvidence: {
-    field: "Waiver Evidence",
-    waitsOn:
-      "columns recording who gave the waiver, whether it was confirmed in writing, and the document that evidences it",
-  },
   firmPolicy: {
     field: "Firm Floor",
     waitsOn: "a read that serves the firm's own conflicts policy",

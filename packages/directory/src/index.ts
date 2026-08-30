@@ -23,11 +23,12 @@ export {
 } from "./pronouns.ts";
 export type { PronounColumns, PronounSet, PronounVerbNumber } from "./pronouns.ts";
 export { createOrganization, readOrganization } from "./organization.ts";
-export { addName, changeName } from "./name-history.ts";
+export { addName, changeName, readNames } from "./name-history.ts";
 export {
   createEdge,
   readEdges,
   readEdgesForEntities,
+  readEdgesPage,
   InvalidEdgeTypeError,
   UnknownEntityError,
 } from "./edges.ts";
@@ -48,6 +49,7 @@ export type {
 export {
   addIdentifier,
   findByIdentifier,
+  listIdentifierRecords,
   readIdentifier,
   IdentifierNotIndexableError,
 } from "./identifiers.ts";
@@ -55,11 +57,13 @@ export type {
   AddIdentifierInput,
   DirectoryIdentifierContext,
   FindByIdentifierInput,
+  IdentifierRecord,
 } from "./identifiers.ts";
 export type {
   AddNameInput,
   AddOrganizationNameInput,
   AddPersonNameInput,
+  DirectoryNameRecord,
   ChangeNameInput,
   ChangeOrganizationNameInput,
   ChangePersonNameInput,
@@ -70,6 +74,7 @@ export type { DirectoryIdempotencyContext } from "./run-directory-effect.ts";
 export {
   createCategory,
   assignCategory,
+  listCategories,
   readCategories,
   CategoryNotFoundError,
   EntityNotFoundError,
@@ -127,13 +132,17 @@ export {
   linkMatterParty,
   unlinkMatterParty,
   readMatterParties,
+  readMatterPartiesForEntity,
   createPartyRole,
   listPartyRoles,
 } from "./party.ts";
 export type {
   LinkMatterPartyInput,
   MatterPartyRow,
+  EntityMatterPartyRow,
   CreatePartyRoleInput,
   PartyRoleRow,
 } from "./party.ts";
+export { readEntityDisplayNames, MAX_ENTITY_DISPLAY_NAME_LOOKUP } from "./entity-display.ts";
+export type { EntityDisplayName } from "./entity-display.ts";
 export { migrateClientDisplayFields } from "./client-migration.ts";

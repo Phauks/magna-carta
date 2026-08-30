@@ -13,6 +13,15 @@
  * would be this surface putting words in the platform's mouth, and the sentence's whole value is
  * that it came from the machine that ran the search.
  *
+ * A WAIVER IS THE ONE ANSWER THAT CITES SOMETHING OUTSIDE THIS SYSTEM, SO THE PAPER CARRIES IT AND
+ * CARRIES ITS GAPS. Everything else a reviewer concludes is complete in their own sentence. A waiver
+ * points at a client's informed consent, confirmed in writing, that the firm will be asked to
+ * produce — so the sheet states who consented, whether the consent was confirmed in writing, the
+ * filed document evidencing it, and when it was given, and where the platform holds less than that
+ * it says so on the same page. A report that printed an unevidenced waiver identically to an
+ * evidenced one would be the platform helping a firm overstate its own record, which is the one
+ * thing a defensible record cannot do.
+ *
  * WHY A HANDLE MAY APPEAR WHERE A NAME BELONGS. The log records which Directory entity matched, and
  * nothing yet reads many entity names in one request. On a screen a raw handle is useless to a
  * reader and is never printed; on a record of procedure it is the citable thing the log actually
@@ -27,13 +36,14 @@ import type {
 } from "@magna-carta/design-system/print-sheet/projection";
 import type { CheckWithHits, HitDetail } from "./conflicts-api.ts";
 import {
-  adjudicationChip,
+  adjudicationSummary,
   edgeTypeLabel,
   evidenceTier,
   pathSummary,
   sourceVocabulary,
   strictnessVocabulary,
   triggerVocabulary,
+  waiverShortfallText,
 } from "./conflicts-vocabulary.ts";
 import { entityKindText, surfacedAgainstText } from "./hit-columns.ts";
 
@@ -155,7 +165,7 @@ function hitSection(hit: HitDetail, index: number, context: ReportContext): Prin
     { label: "Matched On", value: hit.matchedFields.join("; ") || "No channel recorded" },
     { label: "Reached Through", value: pathSummary(hit.graphPath) },
     { label: "Surfaced Against", value: surfacedAgainstText(hit) },
-    { label: "Adjudication", value: adjudicationChip(answer?.kind ?? null).label },
+    { label: "Adjudication", value: adjudicationSummary(answer).label },
   ];
   if (answer !== null) {
     fields.push(
@@ -163,6 +173,38 @@ function hitSection(hit: HitDetail, index: number, context: ReportContext): Prin
       { label: "Answered", value: formatInstant(answer.createdAt) },
       { label: "Rationale", value: answer.rationale },
     );
+  }
+  if (answer !== null && answer.kind === "waiver_obtained") {
+    const waiver = answer.waiver;
+    fields.push(
+      {
+        label: "Waiver Given By",
+        value:
+          waiver === null || waiver.givenByEntityId === null
+            ? "Not recorded"
+            : reportedParty(waiver.givenByEntityId, context.entityNames),
+      },
+      {
+        label: "Consent Confirmed In Writing",
+        // Three answers, not two. "Not recorded" is a row that predates the question; "No" is a
+        // reviewer who answered it. Printing them the same way would flatter the first.
+        value:
+          waiver === null || waiver.confirmedInWriting === null
+            ? "Not recorded"
+            : yesOrNo(waiver.confirmedInWriting),
+      },
+      {
+        label: "Evidencing Document",
+        value: waiver?.documentFileId ?? "Not filed",
+      },
+      { label: "Waiver Given On", value: waiver?.givenOn ?? "Not recorded" },
+    );
+    if (answer.shortfalls.length > 0) {
+      fields.push({
+        label: "What This Record Is Short Of",
+        value: answer.shortfalls.map((shortfall) => waiverShortfallText(shortfall)).join(" "),
+      });
+    }
   }
   if (hit.graphPath.length > 0) {
     fields.push({
@@ -227,6 +269,8 @@ export function hitSheet(
   hit: HitDetail,
   context: {
     readonly partyName: string | null;
+    /** The name of the entity that gave the waiver, where one read has answered it. */
+    readonly consentingPartyName?: string | null;
     readonly reviewerName: string | null;
     readonly checkInstant: string;
     readonly printedAt: Date;
@@ -234,6 +278,10 @@ export function hitSheet(
 ): PrintSheetDocument {
   const names = new Map<string, string>();
   if (context.partyName !== null) names.set(hit.entityId, context.partyName);
+  const consentingPartyId = hit.disposition?.waiver?.givenByEntityId ?? null;
+  if (consentingPartyId !== null && context.consentingPartyName != null) {
+    names.set(consentingPartyId, context.consentingPartyName);
+  }
   const memberNames = new Map<string, string>();
   if (hit.disposition !== null && context.reviewerName !== null) {
     memberNames.set(hit.disposition.reviewerUserId, context.reviewerName);

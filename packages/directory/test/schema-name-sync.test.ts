@@ -114,6 +114,10 @@ const SANCTIONED_NON_SCHEMA = new Set<string>([
   // rule like "anything ending _display_name" would wave through a genuine typo in a real column.
   "person_display_name",
   "organization_display_name",
+  // The same, for the read that answers which matters an entity is a party to: the matter's own
+  // title and status are joined in beside the role, and both need a name that says whose they are.
+  "matter_title",
+  "matter_status",
   "when",
   "then",
   "else",

@@ -13,6 +13,7 @@ import type {
   SourceClass,
   Strictness,
 } from "./types.ts";
+import type { StoredWaiver } from "./waiver.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
 // test. The three tables are append-only (RAISE(ABORT) triggers on UPDATE/DELETE in the migration) —
@@ -100,12 +101,17 @@ export function insertHitStatement(database: SqlDatabase, row: InsertHitRow): Sq
 
 // One conflicts_disposition row: a reviewer's adjudication of a single hit. Every disposition is a
 // new row — a reversal is a second row, never an edit of the first (the table is append-only).
+//
+// The four waiver columns are null on every kind but `waiver_obtained`, and a database trigger
+// refuses a row that says otherwise. They are written on the INSERT like everything else: a waiver
+// whose confirmation is filed later is a second disposition row, not an update of this one.
 export interface InsertDispositionRow {
   readonly id: ConflictsDispositionId;
   readonly hitId: ConflictsHitId;
   readonly kind: DispositionKind;
   readonly rationale: string;
   readonly reviewerUserId: UserId;
+  readonly waiver: StoredWaiver | null;
   readonly createdAt: string;
 }
 
@@ -113,9 +119,27 @@ export function insertDispositionStatement(
   database: SqlDatabase,
   row: InsertDispositionRow,
 ): SqlStatement {
+  const waiver = row.waiver;
   return database
     .prepare(
-      `INSERT INTO ${CONFLICTS_DISPOSITION_TABLE} (id, hit_id, kind, rationale, reviewer_user_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+      `INSERT INTO ${CONFLICTS_DISPOSITION_TABLE} (id, hit_id, kind, rationale, reviewer_user_id, waiver_given_by_entity_id, waiver_confirmed_in_writing, waiver_document_file_id, waiver_given_on, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
     )
-    .bind(row.id, row.hitId, row.kind, row.rationale, row.reviewerUserId, row.createdAt);
+    .bind(
+      row.id,
+      row.hitId,
+      row.kind,
+      row.rationale,
+      row.reviewerUserId,
+      waiver?.givenByEntityId ?? null,
+      // Stored as SQLite's own 0/1 rather than as a JavaScript boolean, so the column's
+      // `IN (0, 1)` shape check and the read-side mapping agree on one encoding.
+      waiver === null || waiver === undefined || waiver.confirmedInWriting === null
+        ? null
+        : waiver.confirmedInWriting
+          ? 1
+          : 0,
+      waiver?.documentFileId ?? null,
+      waiver?.givenOn ?? null,
+      row.createdAt,
+    );
 }

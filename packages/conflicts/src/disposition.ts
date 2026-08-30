@@ -14,6 +14,7 @@ import {
   insertDispositionStatement,
 } from "./statements.ts";
 import type { DispositionKind, EvidenceTier } from "./types.ts";
+import { isCivilDate, type StoredWaiver, type WaiverInput } from "./waiver.ts";
 
 // A reviewer's adjudication of one conflicts_hit row. Every call appends a new conflicts_disposition
 // row — the table is append-only (see the migration's RAISE(ABORT) triggers) — so a reviewer who
@@ -23,11 +24,27 @@ import type { DispositionKind, EvidenceTier } from "./types.ts";
 // wall_erected records that an ethical wall was put in place as an OUTCOME of adjudication — it
 // enforces nothing by itself. No access restriction follows from writing this row; that enforcement,
 // if and when it is built, is a separate mechanism entirely.
+//
+// waiver_obtained is the one kind that carries a record of its own, because it is the one kind that
+// names a thing outside this system which the firm will be asked to produce. See waiver.ts.
 export interface RecordDispositionInput {
   readonly hitId: string;
   readonly kind: DispositionKind;
   readonly rationale: string;
   readonly reviewerUserId: UserId;
+  /**
+   * The waiver's own record. Required on `waiver_obtained` and refused on every other kind.
+   *
+   * WHAT IS REQUIRED AND WHAT IS ALLOWED TO BE MISSING, and why the line falls where it does. Who
+   * consented and when they consented are constitutive of the act: a reviewer who cannot say either
+   * is not recording a waiver, they are recording an impression, so the write is refused. The
+   * WRITTEN CONFIRMATION is different — it is evidence that follows the act, it genuinely arrives
+   * afterwards, and refusing the row until it exists would only push the reviewer into recording
+   * some other kind, leaving the firm's log with no waiver on it at all. So an unconfirmed waiver is
+   * recorded and reads as incomplete everywhere it is shown (waiverShortfalls), which is the one
+   * outcome that neither loses the fact nor flatters it.
+   */
+  readonly waiver?: WaiverInput;
 }
 
 export class EmptyRationaleError extends Error {
@@ -46,12 +63,68 @@ export class UnknownHitError extends Error {
   }
 }
 
+// The constitutive half of the waiver record. Not a completeness check: the written confirmation and
+// the filed document are deliberately allowed to be missing, and are reported as a shortfall instead.
+export class WaiverRecordRequiredError extends Error {
+  readonly code = "waiver-record-required";
+  constructor(missing: string) {
+    super(
+      `waiver-record-required: a waiver_obtained disposition must record ${missing} — who consented and when they consented are the act itself`,
+    );
+    this.name = "WaiverRecordRequiredError";
+  }
+}
+
+export class WaiverRecordNotApplicableError extends Error {
+  readonly code = "waiver-record-not-applicable";
+  constructor(kind: DispositionKind) {
+    super(
+      `waiver-record-not-applicable: a ${kind} disposition carries no waiver record; only waiver_obtained does`,
+    );
+    this.name = "WaiverRecordNotApplicableError";
+  }
+}
+
+export class InvalidWaiverDateError extends Error {
+  readonly code = "invalid-waiver-date";
+  constructor(givenOn: string) {
+    super(
+      `invalid-waiver-date: the date a waiver was given must be a civil date in YYYY-MM-DD form, not ${givenOn}`,
+    );
+    this.name = "InvalidWaiverDateError";
+  }
+}
+
+export class UnknownConsentingPartyError extends Error {
+  readonly code = "unknown-consenting-party";
+  constructor(entityId: string) {
+    super(
+      `unknown-consenting-party: no Directory person or organization exists for id ${entityId}`,
+    );
+    this.name = "UnknownConsentingPartyError";
+  }
+}
+
+export class UnknownWaiverDocumentError extends Error {
+  readonly code = "unknown-waiver-document";
+  constructor(fileId: string) {
+    super(`unknown-waiver-document: no live file exists for id ${fileId}`);
+    this.name = "UnknownWaiverDocumentError";
+  }
+}
+
 export interface DispositionRow {
   readonly id: string;
   readonly hitId: string;
   readonly kind: DispositionKind;
   readonly rationale: string;
   readonly reviewerUserId: string;
+  /**
+   * The waiver's own record as the row holds it. Null on every kind but `waiver_obtained`, and on a
+   * waiver row written before the columns existed — which is the row not saying, and is reported as
+   * a shortfall exactly like an absent field on a row that has them.
+   */
+  readonly waiver: StoredWaiver | null;
   readonly createdAt: string;
 }
 
@@ -61,6 +134,96 @@ async function hitExists(database: SqlDatabase, hitId: string): Promise<boolean>
     .bind(hitId)
     .all<{ id: string }>();
   return results.length > 0;
+}
+
+// Whether the consenting party is a live Directory entity. An entity is a person OR an organization,
+// so this asks both node tables rather than following a foreign key the schema cannot express. The
+// check exists because the whole point of naming the giver by handle is that a reader can look them
+// up: a handle nothing resolves is the typed-in name again, wearing a prefix.
+async function directoryEntityExists(database: SqlDatabase, entityId: string): Promise<boolean> {
+  const table = entityId.startsWith("directoryPerson_")
+    ? "directory_person"
+    : entityId.startsWith("directoryOrganization_")
+      ? "directory_organization"
+      : null;
+  if (table === null) return false;
+  const { results } = await database
+    .prepare(`SELECT id FROM ${table} WHERE id = ?1`)
+    .bind(entityId)
+    .all<{ id: string }>();
+  return results.length > 0;
+}
+
+// Whether the evidencing document is a live file. A deleted file is refused here rather than at read
+// time: a waiver pointing at a document that was already gone when it was recorded would produce, on
+// the day it is asked for, a reference and no confirmation.
+async function fileExists(database: SqlDatabase, fileId: string): Promise<boolean> {
+  const { results } = await database
+    .prepare(`SELECT id FROM file WHERE id = ?1 AND deleted_at IS NULL`)
+    .bind(fileId)
+    .all<{ id: string }>();
+  return results.length > 0;
+}
+
+// Everything the waiver record must satisfy before a statement is prepared, in one place. Returns
+// the row shape to store; throws the specific refusal otherwise.
+async function resolveWaiverForWrite(
+  database: SqlDatabase,
+  input: RecordDispositionInput,
+): Promise<StoredWaiver | null> {
+  if (input.kind !== "waiver_obtained") {
+    if (input.waiver !== undefined) throw new WaiverRecordNotApplicableError(input.kind);
+    return null;
+  }
+  const waiver = input.waiver;
+  if (waiver === undefined) {
+    throw new WaiverRecordRequiredError("the consenting party and the date it was given");
+  }
+  if (waiver.givenByEntityId.trim() === "") {
+    throw new WaiverRecordRequiredError("the consenting party");
+  }
+  if (waiver.givenOn.trim() === "") {
+    throw new WaiverRecordRequiredError("the date it was given");
+  }
+  if (!isCivilDate(waiver.givenOn)) throw new InvalidWaiverDateError(waiver.givenOn);
+  if (!(await directoryEntityExists(database, waiver.givenByEntityId))) {
+    throw new UnknownConsentingPartyError(waiver.givenByEntityId);
+  }
+  if (waiver.documentFileId !== null && !(await fileExists(database, waiver.documentFileId))) {
+    throw new UnknownWaiverDocumentError(waiver.documentFileId);
+  }
+  return {
+    givenByEntityId: waiver.givenByEntityId,
+    confirmedInWriting: waiver.confirmedInWriting,
+    documentFileId: waiver.documentFileId,
+    givenOn: waiver.givenOn,
+  };
+}
+
+// The four waiver columns as one value, or null when the row carries none of them. A row that holds
+// nothing is null rather than an object of four nulls, so "this is not a waiver" and "this waiver
+// says nothing" are not spelled the same way by every reader downstream.
+function waiverFromRow(row: {
+  waiver_given_by_entity_id: string | null;
+  waiver_confirmed_in_writing: number | null;
+  waiver_document_file_id: string | null;
+  waiver_given_on: string | null;
+}): StoredWaiver | null {
+  if (
+    row.waiver_given_by_entity_id === null &&
+    row.waiver_confirmed_in_writing === null &&
+    row.waiver_document_file_id === null &&
+    row.waiver_given_on === null
+  ) {
+    return null;
+  }
+  return {
+    givenByEntityId: row.waiver_given_by_entity_id,
+    confirmedInWriting:
+      row.waiver_confirmed_in_writing === null ? null : row.waiver_confirmed_in_writing === 1,
+    documentFileId: row.waiver_document_file_id,
+    givenOn: row.waiver_given_on,
+  };
 }
 
 export async function recordDisposition(
@@ -77,6 +240,7 @@ export async function recordDisposition(
   if (!(await hitExists(database, input.hitId))) {
     throw new UnknownHitError(input.hitId);
   }
+  const waiver = await resolveWaiverForWrite(database, input);
 
   const dispositionId = newIdentifier("conflictsDisposition", options.randomSource);
   const now = options.clock.now();
@@ -89,6 +253,7 @@ export async function recordDisposition(
         kind: input.kind,
         rationale: input.rationale,
         reviewerUserId: input.reviewerUserId,
+        waiver,
         createdAt: now,
       }),
       conflictsAuditStatement(database, options, "conflicts.disposition.recorded", dispositionId),
@@ -134,6 +299,8 @@ export async function readHitDispositionStates(
     .prepare(
       `SELECT hit.id AS hit_id, hit.evidence_tier, hit.source_class, hit.co_party,
               latest.id AS disposition_id, latest.kind, latest.rationale, latest.reviewer_user_id,
+              latest.waiver_given_by_entity_id, latest.waiver_confirmed_in_writing,
+              latest.waiver_document_file_id, latest.waiver_given_on,
               latest.created_at AS disposition_created_at
          FROM ${CONFLICTS_HIT_TABLE} AS hit
          LEFT JOIN ${CONFLICTS_DISPOSITION_TABLE} AS latest
@@ -156,6 +323,10 @@ export async function readHitDispositionStates(
       kind: string | null;
       rationale: string | null;
       reviewer_user_id: string | null;
+      waiver_given_by_entity_id: string | null;
+      waiver_confirmed_in_writing: number | null;
+      waiver_document_file_id: string | null;
+      waiver_given_on: string | null;
       disposition_created_at: string | null;
     }>();
 
@@ -177,6 +348,7 @@ export async function readHitDispositionStates(
             kind: row.kind as DispositionKind,
             rationale: row.rationale,
             reviewerUserId: row.reviewer_user_id,
+            waiver: waiverFromRow(row),
             createdAt: row.disposition_created_at,
           },
   }));
@@ -188,7 +360,7 @@ export async function readCurrentDisposition(
 ): Promise<DispositionRow | null> {
   const { results } = await database
     .prepare(
-      `SELECT id, hit_id, kind, rationale, reviewer_user_id, created_at FROM conflicts_disposition WHERE hit_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+      `SELECT id, hit_id, kind, rationale, reviewer_user_id, waiver_given_by_entity_id, waiver_confirmed_in_writing, waiver_document_file_id, waiver_given_on, created_at FROM ${CONFLICTS_DISPOSITION_TABLE} WHERE hit_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 1`,
     )
     .bind(hitId)
     .all<{
@@ -197,6 +369,10 @@ export async function readCurrentDisposition(
       kind: string;
       rationale: string;
       reviewer_user_id: string;
+      waiver_given_by_entity_id: string | null;
+      waiver_confirmed_in_writing: number | null;
+      waiver_document_file_id: string | null;
+      waiver_given_on: string | null;
       created_at: string;
     }>();
   const row = results[0];
@@ -207,6 +383,7 @@ export async function readCurrentDisposition(
     kind: row.kind as DispositionKind,
     rationale: row.rationale,
     reviewerUserId: row.reviewer_user_id,
+    waiver: waiverFromRow(row),
     createdAt: row.created_at,
   };
 }

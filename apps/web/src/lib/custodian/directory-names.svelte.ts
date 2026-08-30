@@ -6,30 +6,19 @@
  * display rules, and a report that carried owner names would be a list of the most sensitive things
  * a firm holds with the names attached.
  *
- * So the join happens here, and it is BOUNDED TO ONE RECORD. A packet carries at most twenty owner
- * links plus a depositor, which is a handful of reads for a record a person opened deliberately.
- * That is the whole reason this is scoped to a packet and not offered to a listing: the directory
- * serves one entity per request, so naming a page of rows would be one request per row, which is
- * the N+1 every listing in this product is written to avoid. A listing that needs owner names needs
- * a directory read that names many entities in one request, and there is no such read today.
+ * So the join happens here, and it is ONE REQUEST FOR A WHOLE PAGE. The directory's naming read
+ * takes many handles and answers display identity only — no identifier, no contact detail, no
+ * decrypt — which is what makes it cheap enough to call for every row on screen and safe enough to
+ * call from a report. It replaced the per-handle detail read this module used to loop over, and that
+ * is what let the holdings-by-owner report grow an Owner column at all: at one request per row, a
+ * page of owners was the N+1 every listing in this product is written to avoid.
  *
  * A handle nothing answers for stays unnamed. The surface then renders the gap rather than the
  * handle, which is the same rule the docket applies to a member it cannot name.
  */
-import { requestJson } from "$lib/api/request.ts";
+import { MAX_ENTITY_NAME_LOOKUP, readDirectoryEntityNames } from "$lib/directory/directory-api.ts";
 
-/** The two entity families a custody handle can name. */
-function pathFor(entityId: string): string | null {
-  if (entityId.startsWith("directoryPerson_")) {
-    return `/api/v1/directory/persons/${encodeURIComponent(entityId)}`;
-  }
-  if (entityId.startsWith("directoryOrganization_")) {
-    return `/api/v1/directory/organizations/${encodeURIComponent(entityId)}`;
-  }
-  return null;
-}
-
-/** The fields either detail read may carry that stand for a name, in the order they are preferred. */
+/** The fields a directory detail read carries that stand for a name, in the order they are preferred. */
 interface EntityNameFields {
   displayName?: string | null;
   legalName?: string | null;
@@ -46,6 +35,9 @@ interface EntityNameFields {
  * `displayName` is the directory's own answer and wins where it is set. A person without one is
  * assembled from the name parts the record holds, in the order they were recorded, because a
  * directory person always has parts even when nobody wrote a display name.
+ *
+ * The naming read applies this same rule server-side, so this survives for the surfaces that hold a
+ * whole detail record in hand and have no reason to ask again.
  */
 export function entityDisplayName(fields: EntityNameFields): string | null {
   const display = fields.displayName?.trim();
@@ -60,7 +52,7 @@ export function entityDisplayName(fields: EntityNameFields): string | null {
 }
 
 /**
- * The names for the handles on one record, resolved once and held for the life of the surface.
+ * The names for a set of handles, resolved in whole batches and held for the life of the surface.
  *
  * A handle already asked for is never asked for again, including one that resolved to nothing: a
  * directory that has no answer will not grow one while a window is open, and re-asking would turn
@@ -81,20 +73,17 @@ export class DirectoryNames {
     if (wanted.length === 0) return;
     for (const entityId of wanted) this.#asked.add(entityId);
 
-    const resolved = await Promise.all(
-      wanted.map(async (entityId) => {
-        const path = pathFor(entityId);
-        if (path === null) return null;
-        const outcome = await requestJson<EntityNameFields>(fetchImpl, path);
-        if (outcome.kind !== "ok") return null;
-        const name = entityDisplayName(outcome.value);
-        return name === null ? null : ([entityId, name] as const);
-      }),
-    );
-
+    // Chunked at the read's own bound rather than sent whole: the endpoint REFUSES an over-long list
+    // rather than truncating it, so a caller that ignored the bound would get nothing instead of the
+    // first hundred.
     const next = new Map(this.#names);
-    for (const entry of resolved) {
-      if (entry !== null) next.set(entry[0], entry[1]);
+    for (let start = 0; start < wanted.length; start += MAX_ENTITY_NAME_LOOKUP) {
+      const chunk = wanted.slice(start, start + MAX_ENTITY_NAME_LOOKUP);
+      const outcome = await readDirectoryEntityNames(fetchImpl, chunk);
+      if (outcome.kind !== "ok") continue;
+      for (const entry of outcome.value.data) {
+        if (entry.displayName !== null) next.set(entry.entityId, entry.displayName);
+      }
     }
     this.#names = next;
   }

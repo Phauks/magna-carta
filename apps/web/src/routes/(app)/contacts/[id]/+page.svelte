@@ -3,9 +3,8 @@
    * One directory record — the Record Detail archetype, for a person or an organization.
    *
    * The header names the record and says what it is; the panes beneath are the seven questions the
-   * firm keeps an answer to about it. Four of them are answered from the firm's record today and
-   * three of them render their shape and say what they wait on, because the fact IS kept and a
-   * missing pane would say otherwise.
+   * firm keeps an answer to about it, and every one of them is now answered from the firm's own
+   * record rather than rendered as a shape waiting on a read.
    *
    * TWO THINGS THIS SCREEN REFUSES TO BLUR.
    *
@@ -42,11 +41,13 @@
     pronounShortForm,
   } from "$lib/directory/entity-presentation.ts";
   import { entitySectionsFor } from "$lib/directory/entity-sections.ts";
+  import CategoriesPane from "$lib/directory/categories-pane.svelte";
   import DuplicatesPane from "$lib/directory/duplicates-pane.svelte";
   import IdentifiersPane from "$lib/directory/identifiers-pane.svelte";
+  import MattersPane from "$lib/directory/matters-pane.svelte";
   import NamesPane from "$lib/directory/names-pane.svelte";
   import PronounsPane from "$lib/directory/pronouns-pane.svelte";
-  import UnservedPane from "$lib/directory/unserved-pane.svelte";
+  import RelationshipsPane from "$lib/directory/relationships-pane.svelte";
 
   let { data }: { data: { entityId: string; kind: "person" | "organization" } } = $props();
 
@@ -238,33 +239,15 @@
     </Tabs.Content>
 
     <Tabs.Content value="relationships">
-      <UnservedPane
-        heading="Relationships"
-        caption="How this record connects to others in the firm's book"
-        columns={["Relationship", "Other record", "Holding since"]}
-        actionLabel="Record a relationship"
-        waitingOn="a read of an entity's relationships"
-      />
+      <RelationshipsPane entityId={data.entityId} />
     </Tabs.Content>
 
     <Tabs.Content value="matters">
-      <UnservedPane
-        heading="Matters"
-        caption="The matters this record is a party to, and the hat it wears on each"
-        columns={["Matter", "Role", "Capacity"]}
-        actionLabel="Add to a matter"
-        waitingOn="a read of the matters an entity is a party to"
-      />
+      <MattersPane entityId={data.entityId} />
     </Tabs.Content>
 
     <Tabs.Content value="categories">
-      <UnservedPane
-        heading="Categories"
-        caption="How the firm files this record"
-        columns={["Category", "Applies to"]}
-        actionLabel="Assign a category"
-        waitingOn="a read of the firm's categories and what carries them"
-      />
+      <CategoriesPane entityId={data.entityId} kind={entity.kind} {mayEdit} {editDisabledReason} />
     </Tabs.Content>
   </Tabs.Root>
 {/if}

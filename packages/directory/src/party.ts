@@ -1,3 +1,9 @@
+import {
+  assemblePage,
+  decodeCursor,
+  DEFAULT_PAGE_SIZE,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryPartyRoleId, MatterPartyId } from "@magna-carta/identifiers/types";
@@ -326,5 +332,93 @@ export async function listPartyRoles(database: BatchDatabase): Promise<PartyRole
     name: row.name,
     position: row.position,
     archived: row.archived,
+  }));
+}
+
+// ── the matters one entity is a party to ─────────────────────────────────────
+
+/**
+ * One matter an entity is a party to — the link, the role it plays there, and enough of the matter
+ * to name it on screen.
+ *
+ * The mirror image of readMatterParties: that one answers "who is on this matter", this one answers
+ * "what is this person on". Both read the same rows through the same index — `matter_party` carries
+ * an index on each side precisely so neither direction is a scan.
+ */
+export interface EntityMatterPartyRow {
+  readonly id: string;
+  readonly matterId: string;
+  readonly role: string;
+  readonly capacity: string | null;
+  /** The matter's title, or null when the link points at a matter the firm no longer holds. */
+  readonly matterTitle: string | null;
+  /** The number the firm files it under, null while the matter is still prospective. */
+  readonly matterNumber: string | null;
+  readonly matterStatus: string | null;
+  readonly linkedAt: string;
+}
+
+/**
+ * The live matters this entity is a party to, newest link first and cursor-paged.
+ *
+ * Severed links are excluded, the same way the per-matter read excludes them: the row is retained so
+ * a conflicts report that named this party stays reproducible, and every live read filters it out.
+ */
+export async function readMatterPartiesForEntity(
+  database: BatchDatabase,
+  entityId: string,
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<EntityMatterPartyRow>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const conditions = ["matter_party.entity_id = ?1", "matter_party.deleted_at IS NULL"];
+  const bindings: unknown[] = [entityId];
+  // The keyset names the qualified columns because the statement joins: an unqualified created_at
+  // would be ambiguous across matter_party and matter.
+  const cursor = decodeCursor(options.cursor);
+  if (cursor !== undefined) {
+    conditions.push(
+      "(matter_party.created_at < ? OR (matter_party.created_at = ? AND matter_party.id < ?))",
+    );
+    bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+  }
+  bindings.push(pageSize + 1);
+
+  const { results } = await database
+    .prepare(
+      `SELECT matter_party.id AS id,
+              matter_party.matter_id AS matter_id,
+              matter_party.role AS role,
+              matter_party.capacity AS capacity,
+              matter_party.created_at AS created_at,
+              matter.title AS matter_title,
+              matter.matter_number AS matter_number,
+              matter.status AS matter_status
+         FROM matter_party
+         LEFT JOIN matter ON matter.id = matter_party.matter_id
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY matter_party.created_at DESC, matter_party.id DESC
+        LIMIT ?${String(bindings.length)}`,
+    )
+    .bind(...bindings)
+    .all<{
+      id: string;
+      matter_id: string;
+      role: string;
+      capacity: string | null;
+      created_at: string;
+      matter_title: string | null;
+      matter_number: string | null;
+      matter_status: string | null;
+    }>();
+
+  return assemblePage(results, pageSize, (row) => ({
+    id: row.id,
+    matterId: row.matter_id,
+    role: row.role,
+    capacity: row.capacity,
+    matterTitle: row.matter_title,
+    matterNumber: row.matter_number,
+    matterStatus: row.matter_status,
+    linkedAt: row.created_at,
   }));
 }

@@ -141,6 +141,30 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "when EITHER reason has more due than the answer names. Not cursor-paged because the merge " +
     "has no single sort column a keyset could seek on — a cursor over it would page one arm and " +
     "lose the other. It answers what the register is waiting on NOW.",
+  "directory.entityNames":
+    "Bounded by the CALLER'S OWN REQUEST and by nothing else: the answer names the ids asked for, " +
+    "so it can never be longer than the id list, and the handler in " +
+    "apps/api-worker/src/routes/directory.ts REFUSES a list longer than " +
+    "MAX_ENTITY_DISPLAY_NAME_LOOKUP (100, packages/directory/src/entity-display.ts) with a 422 " +
+    "rather than truncating it. A cursor is meaningless over a read whose page the caller wrote.",
+  "directory.listCategories":
+    "The firm's category vocabulary. Rows come only from createCategory in " +
+    "packages/directory/src/categories.ts — the single insert statement in the workspace — reached " +
+    "only from the create route behind directory:edit. A category is archived rather than deleted, " +
+    "so the row count is the number of labels the firm has ever decided it files people under. It " +
+    "grows with the firm's decisions and stops; it does not grow with the directory's size.",
+  "directory.listEntityCategories":
+    "One entity's assignments, bounded by the vocabulary above: directory_entity_category has a " +
+    "composite primary key on (entity_id, category_id) in packages/database/src/per-firm-schema.ts, " +
+    "so an entity carries AT MOST ONE row per category and this read can never be longer than " +
+    "directory.listCategories is.",
+  "directory.listIdentifiers":
+    "The sealed identifiers one entity holds, described and never disclosed. Rows come only from " +
+    "addIdentifier in packages/directory/src/identifiers.ts, reached from the create route behind " +
+    "directory:edit — one identifier per deliberate act of a member typing one in, over a closed " +
+    "catalog of seven types (IDENTIFIER_TYPES in packages/directory/src/types.ts). Nothing writes " +
+    "here from a queue consumer, an import, or a sweep, so the count is what the firm has recorded " +
+    "about one person rather than anything the platform's activity accumulates.",
   "directory.search":
     "Capped at NAME_SEARCH_LIMIT in packages/directory/src/search.ts, and the response's `capped` " +
     "flag says when the firm holds more. Not cursor-paged on purpose: the ordering key is bm25, a " +
