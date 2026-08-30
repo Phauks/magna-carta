@@ -3,9 +3,16 @@
  *
  * The design gives the ledger a fuller verb set than this: unsubmit, delete-draft, move to another
  * ledger, refile onto another matter, attach a file, write a memo. None of those has a route, so
- * none of them is called from here — they are rendered where the design puts them, disabled, saying
- * what they wait on. What IS here is exactly the set the contract serves, so the difference between
- * "designed" and "working" is a difference a reader of this file can see.
+ * none of them is called from here — the surfaces render what they can and say what the rest waits
+ * on. What IS here is exactly the set the contract serves, so the difference between "designed" and
+ * "working" is a difference a reader of this file can see.
+ *
+ * EVERY WRITE TAKES AN IDEMPOTENCY KEY, BECAUSE THE CONTRACT REQUIRES ONE ON EVERY WRITE. Not just
+ * on capture: update, submit, approve, kick-back and void all declare it required, and the header
+ * requirement is enforced ahead of the handler, so a call without a key is refused with a 400
+ * before anything looks at the body. Making the key a REQUIRED PARAMETER of each function is what
+ * keeps that from being a thing a caller can forget — an omission becomes a type error at the call
+ * site rather than a failed save the reader discovers by typing.
  *
  * Every call goes through the one transport seam, so a dead network is an outcome rather than a
  * thrown error, and the surface can say something true about it.
@@ -44,6 +51,21 @@ export function createTimeEntry(
   });
 }
 
+/**
+ * The fields a new draft can be STARTED from, as opposed to written from.
+ *
+ * Duplicating an entry hands these over: they are the facts the listing actually carries, so they
+ * are the facts a copy can hold. Whatever else the record is designed to carry — category, activity
+ * code, resolved rate — is not served, so a duplicate cannot bring it and does not pretend to.
+ */
+export interface TimeEntryDraftFields {
+  readonly narrative: string;
+  readonly workDate: string;
+  readonly rawDurationMinutes: number;
+  readonly billable: boolean;
+  readonly timekeeperUserId: string;
+}
+
 /** The parts of an entry the update route accepts. Nothing else on the record is settable yet. */
 export interface TimeEntryChanges {
   readonly narrative?: string;
@@ -55,25 +77,54 @@ export function patchTimeEntry(
   fetchImpl: typeof fetch,
   timeEntryId: string,
   changes: TimeEntryChanges,
+  idempotencyKey: string,
 ): Promise<ApiOutcome<TimeEntrySummary>> {
-  return requestJson(fetchImpl, `/api/v1/time-entries/${timeEntryId}`, {
+  return requestJson(fetchImpl, `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}`, {
     method: "PATCH",
     body: changes,
+    idempotencyKey,
   });
+}
+
+/**
+ * One chain verb against one entry.
+ *
+ * The five transitions differ only in the word at the end of the path and whether they carry a
+ * body, so they are one call with the word passed in — which also means the idempotency key cannot
+ * be threaded through four of them and dropped from the fifth.
+ */
+function transition(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  action: string,
+  idempotencyKey: string,
+  body?: unknown,
+): Promise<ApiOutcome<unknown>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/${action}`,
+    {
+      method: "POST",
+      idempotencyKey,
+      ...(body === undefined ? {} : { body }),
+    },
+  );
 }
 
 export function submitTimeEntry(
   fetchImpl: typeof fetch,
   timeEntryId: string,
+  idempotencyKey: string,
 ): Promise<ApiOutcome<unknown>> {
-  return requestJson(fetchImpl, `/api/v1/time-entries/${timeEntryId}/submit`, { method: "POST" });
+  return transition(fetchImpl, timeEntryId, "submit", idempotencyKey);
 }
 
 export function approveTimeEntry(
   fetchImpl: typeof fetch,
   timeEntryId: string,
+  idempotencyKey: string,
 ): Promise<ApiOutcome<unknown>> {
-  return requestJson(fetchImpl, `/api/v1/time-entries/${timeEntryId}/approve`, { method: "POST" });
+  return transition(fetchImpl, timeEntryId, "approve", idempotencyKey);
 }
 
 /**
@@ -87,19 +138,18 @@ export function kickBackTimeEntry(
   fetchImpl: typeof fetch,
   timeEntryId: string,
   reason: string,
+  idempotencyKey: string,
 ): Promise<ApiOutcome<unknown>> {
-  return requestJson(fetchImpl, `/api/v1/time-entries/${timeEntryId}/kick-back`, {
-    method: "POST",
-    body: { reason },
-  });
+  return transition(fetchImpl, timeEntryId, "kick-back", idempotencyKey, { reason });
 }
 
 /** Strike an entry. It stays on the ledger, carries no value, and is not removed. */
 export function voidTimeEntry(
   fetchImpl: typeof fetch,
   timeEntryId: string,
+  idempotencyKey: string,
 ): Promise<ApiOutcome<unknown>> {
-  return requestJson(fetchImpl, `/api/v1/time-entries/${timeEntryId}/void`, { method: "POST" });
+  return transition(fetchImpl, timeEntryId, "void", idempotencyKey);
 }
 
 /** A fresh idempotency key for one write attempt and its retries. */

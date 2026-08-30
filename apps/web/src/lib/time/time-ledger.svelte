@@ -57,7 +57,14 @@
   import TimeRecordWindow from "./time-record-window.svelte";
   import TimeSheet from "./time-sheet.svelte";
   import { timeEntrySheet } from "./time-print-sheet.ts";
-  import { approveTimeEntry, submitTimeEntry, voidTimeEntry } from "./time-operations.ts";
+  import type { ApiOutcome, ApiProblem } from "$lib/api/request.ts";
+  import {
+    approveTimeEntry,
+    submitTimeEntry,
+    voidTimeEntry,
+    writeKey,
+    type TimeEntryDraftFields,
+  } from "./time-operations.ts";
 
   let {
     entries,
@@ -97,6 +104,9 @@
   let windowOpen = $state(false);
   let windowEditing = $state(false);
   let windowEntry = $state<TimeEntrySummary | null>(null);
+  /** What a new entry's fields start holding, when it is being started FROM something. */
+  let windowPrefill = $state<TimeEntryDraftFields | null>(null);
+  let actionNotice = $state<string | null>(null);
   let printEntry = $state<TimeEntrySummary | null>(null);
   let printOpen = $state(false);
   let actionFailure = $state<string | null>(null);
@@ -139,12 +149,36 @@
 
   function openRecord(entry: TimeEntrySummary, editing: boolean): void {
     windowEntry = entry;
+    windowPrefill = null;
     windowEditing = editing && canWorkDraft(entry).allowed;
     windowOpen = true;
   }
 
   function openLogTime(): void {
     windowEntry = null;
+    windowPrefill = null;
+    windowEditing = true;
+    windowOpen = true;
+  }
+
+  /**
+   * Start a new draft holding this entry's fields.
+   *
+   * What carries is what the listing serves: the description, the day the work was for, the time
+   * worked, whether it bills and whose work it is. The category, the activity code and the resolved
+   * rate a duplicate should also bring are not served to this screen, so they are not brought — but
+   * that is a reason to copy less, never a reason to copy nothing, and the emptied form was
+   * dropping the three facts the screen was holding all along.
+   */
+  function duplicateEntry(entry: TimeEntrySummary): void {
+    windowEntry = null;
+    windowPrefill = {
+      narrative: entry.narrative,
+      workDate: entry.workDate,
+      rawDurationMinutes: entry.rawDurationMinutes,
+      billable: entry.billable,
+      timekeeperUserId: entry.timekeeperUserId,
+    };
     windowEditing = true;
     windowOpen = true;
   }
@@ -204,30 +238,67 @@
     };
   }
 
+  /** What a refused write says, in the reader's words rather than the transport's. */
+  function refusalSentence(
+    outcome: { kind: "problem"; problem: ApiProblem } | { kind: "transport" },
+    what: string,
+  ): string {
+    if (outcome.kind === "transport") return `Nothing answered. ${what} is unchanged.`;
+    return `${outcome.problem.detail ?? `${what} was refused.`}${
+      outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
+    }`;
+  }
+
+  /**
+   * Run one chain verb over every target and REPORT WHAT CAME BACK.
+   *
+   * Firing the calls and throwing their outcomes away is how a refused submit becomes silence: the
+   * list re-reads, the entry has not moved, and nothing on screen says why. The first refusal is
+   * what the reader is told about, because the reason is almost always the same one for all of them.
+   */
+  async function runChainVerb(
+    targets: readonly TimeEntrySummary[],
+    verb: (timeEntryId: string) => Promise<ApiOutcome<unknown>>,
+    what: string,
+    done: string,
+  ): Promise<void> {
+    actionFailure = null;
+    actionNotice = null;
+    const outcomes = await Promise.all(targets.map((entry) => verb(entry.id)));
+    const refused = outcomes.find((outcome) => outcome.kind !== "ok");
+    if (refused === undefined) actionNotice = done;
+    else actionFailure = refusalSentence(refused, what);
+    onChanged();
+  }
+
   async function runMenuAction(action: RecordMenuAction): Promise<void> {
     const targets = menuScope;
     const first = targets[0];
     if (first === undefined) return;
     actionFailure = null;
+    actionNotice = null;
     switch (action.identifier) {
       case "open":
         openRecord(first, canWorkDraft(first).allowed);
         return;
       case "duplicate":
-        // Duplicating starts a new draft from this entry's fields. The window opens on what the
-        // listing carries; the category, activity and rate a duplicate should also copy are not
-        // served, so there is nothing to copy them from.
-        windowEntry = null;
-        windowEditing = true;
-        windowOpen = true;
+        duplicateEntry(first);
         return;
       case "submit":
-        await Promise.all(targets.map((entry) => submitTimeEntry(fetch, entry.id)));
-        onChanged();
+        await runChainVerb(
+          targets,
+          (id) => submitTimeEntry(fetch, id, writeKey()),
+          targets.length === 1 ? "The entry" : "One of the entries",
+          `Submitted ${String(targets.length)} ${targets.length === 1 ? "draft" : "drafts"} for review. Each is locked until it is approved or kicked back.`,
+        );
         return;
       case "approve":
-        await Promise.all(targets.map((entry) => approveTimeEntry(fetch, entry.id)));
-        onChanged();
+        await runChainVerb(
+          targets,
+          (id) => approveTimeEntry(fetch, id, writeKey()),
+          targets.length === 1 ? "The entry" : "One of the entries",
+          `Approved ${String(targets.length)} ${targets.length === 1 ? "entry" : "entries"}. ${targets.length === 1 ? "It is" : "They are"} billable on the next invoice.`,
+        );
         return;
       case "kickBack":
         // The settled design makes the reason optional and records it only when given; the route
@@ -238,11 +309,12 @@
           "settled that the reason is optional. The entry is unchanged.";
         return;
       case "void": {
-        const outcome = await voidTimeEntry(fetch, first.id);
+        const outcome = await voidTimeEntry(fetch, first.id, writeKey());
         if (outcome.kind !== "ok") {
-          actionFailure = "The entry was not voided. It is unchanged on the ledger.";
+          actionFailure = refusalSentence(outcome, "The entry");
           return;
         }
+        actionNotice = "The entry was struck. It stays on the ledger and counts toward nothing.";
         onChanged();
         return;
       }
@@ -387,6 +459,10 @@
       <Alert.Title>Nothing Changed</Alert.Title>
       <Alert.Description>{actionFailure}</Alert.Description>
     </Alert.Root>
+  {:else if actionNotice !== null}
+    <Alert.Root variant="info">
+      <Alert.Description>{actionNotice}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   <div class="min-h-0 flex-1">
@@ -447,6 +523,7 @@
   bind:open={windowOpen}
   bind:editing={windowEditing}
   entry={windowEntry}
+  prefill={windowPrefill}
   {matterId}
   {matterTitle}
   {members}

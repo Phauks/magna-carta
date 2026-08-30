@@ -153,6 +153,8 @@
   let customRangeFrom = $state("");
   let customRangeTo = $state("");
   let customRangeNote = $state<string | null>(null);
+  /** The row whose description is waiting for the cursor, by row key, or null when none is. */
+  let focusDescriptionOf = $state<string | null>(null);
 
   /* The sheet re-seeds whenever the listing answers again, and never while it is closed. */
   $effect(() => {
@@ -233,7 +235,12 @@
     onActivate: (row) => openRecord(row),
   });
 
-  const honesty = $derived(sheetHonesty(rowsInScope));
+  /*
+   * The strip reads the same quantity the Worked column reads, run included. A footer summing the
+   * banked seconds while the column above it shows the ticking ones is a footer disagreeing with
+   * its own table, and the disagreement grows for as long as the timer is left going.
+   */
+  const honesty = $derived(sheetHonesty(rowsInScope, liveSeconds));
 
   /** The day a new row is written for: today when today is in view, the end of the range otherwise. */
   const defaultWorkDate = $derived(scopeHolds(scope, today) ? today : scope.to);
@@ -255,6 +262,9 @@
     const row = store.addRow(defaultWorkDate);
     keepInView(row.workDate, "row you just added");
     announcement = null;
+    // One press creates the row and puts the cursor in it: the first thing a person does with a new
+    // row is type the description, and making them find the cell first is the whole cost of the row.
+    focusDescriptionOf = row.key;
   }
 
   function openRecord(row: SheetRow): void {
@@ -263,13 +273,46 @@
     recordWindowOpen = true;
   }
 
-  /** New entry: a fresh row, opened on the full record rather than in the grid. */
+  /**
+   * New entry: the full record rather than the grid.
+   *
+   * It adds NO row to the sheet. The window writes its own entry, and a row added here alongside it
+   * would be a second, permanently unwritten row for one act — surviving every re-seed, because an
+   * unwritten row is deliberately kept across them, and counting itself as incomplete for the rest
+   * of the session. The sheet picks the new entry up from the re-read that follows the save.
+   */
   function newEntry(): void {
-    const row = store.addRow(defaultWorkDate);
-    keepInView(row.workDate, "entry you just created");
     recordWindowEntry = null;
     recordWindowEditing = true;
     recordWindowOpen = true;
+  }
+
+  /**
+   * Put the cursor in this field when the sheet has just asked for it, and then stop asking.
+   *
+   * The request is cleared here rather than by whoever made it, because "the field now has the
+   * cursor" is a fact only the field knows: the row it belongs to may not have been rendered yet
+   * when the row was created, and a request left standing would take focus back on every later
+   * render of the cell.
+   */
+  function focusWhenAsked(wanted: boolean): (field: HTMLElement) => void {
+    return (field) => {
+      if (!wanted) return;
+      focusDescriptionOf = null;
+      field.focus();
+    };
+  }
+
+  /**
+   * Typing into a running duration.
+   *
+   * The cell is an input in both states rather than a label that becomes one, so a person who wants
+   * to correct the figure just types into it. Arriving in the field holds the timer where it is:
+   * the alternative is a value that changes underneath the cursor, and whatever is typed then races
+   * the next tick. Nothing is lost by the pause; the run resumes from its own control.
+   */
+  function pauseForTyping(): void {
+    if (store.timerRunning) void store.pauseTimerOnRow();
   }
 
   function commitWorkDate(row: SheetRow, value: string): void {
@@ -371,6 +414,7 @@
         spellcheck={true}
         onchange={(event) => store.setDescription(row.key, event.currentTarget.value)}
         {@attach autoSizeTextarea(row.description)}
+        {@attach focusWhenAsked(focusDescriptionOf === row.key)}
       />
       <Button
         variant="ghost"
@@ -400,20 +444,28 @@
 {#snippet durationCell(row: SheetRow)}
   {@const refusal = editRefusal(row)}
   {@const running = store.timerRowKey === row.key && store.timerRunning}
-  {#if running}
-    <span class="tabular-nums" title="Ticking. Editing the duration pauses the timer.">
-      {clockText(liveSeconds(row), true)}
-    </span>
-  {:else}
-    <Input
-      class="text-end"
-      value={liveSeconds(row) > 0 ? clockText(liveSeconds(row), false) : ""}
-      placeholder="Worked"
-      title={refusal ?? "Time worked, typed either way: 1:30 or 1.5, and minutes as 45m"}
-      disabled={refusal !== undefined}
-      onchange={(event) => commitDuration(row, event.currentTarget.value)}
-    />
-  {/if}
+  <!--
+    One field, both states. A running duration used to render as a label, which meant the one cell a
+    person is most likely to want to correct was the one cell they could not type into. It ticks to
+    the second while the run is going, and arriving in it holds the run so what is typed is not
+    racing the next tick.
+  -->
+  <Input
+    class="text-end"
+    value={running
+      ? clockText(liveSeconds(row), true)
+      : liveSeconds(row) > 0
+        ? clockText(liveSeconds(row), false)
+        : ""}
+    placeholder="Worked"
+    title={refusal ??
+      (running
+        ? "Ticking. Typing in here holds the timer; its own control starts it again."
+        : "Time worked, typed either way: 1:30 or 1.5, and minutes as 45m")}
+    disabled={refusal !== undefined}
+    onfocus={running ? pauseForTyping : undefined}
+    onchange={(event) => commitDuration(row, event.currentTarget.value)}
+  />
 {/snippet}
 
 {#snippet rowActions(row: SheetRow)}

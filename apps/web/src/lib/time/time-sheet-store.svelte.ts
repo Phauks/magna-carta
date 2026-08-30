@@ -20,6 +20,12 @@
  * UNDO PUTS THE SHEET BACK, THEN PUTS THE RECORD BACK. A step restores the rows immediately, so the
  * screen answers at once, and then writes the restored values through. An undo is itself a change
  * the firm made, and it reaches the record as one.
+ *
+ * SO ONLY WHAT CAN ACTUALLY BE PUT BACK IS OFFERED AS A STEP. The stack writes changed FIELDS back
+ * through the update route, which is the only reversal this surface has. Striking an entry is not
+ * one of them: nothing un-strikes an entry, so a strike pushes no step and says at the moment it
+ * happens that undo does not reach it. Offering the step and then announcing a reversal that never
+ * ran is the worse failure, because the reader believes the record went back.
  */
 import { untrack } from "svelte";
 import type { FirmMemberSummary } from "$lib/members/members-api.ts";
@@ -32,7 +38,6 @@ import {
   sheetRowFromEntry,
   type SheetRow,
 } from "./time-sheet-model.ts";
-import { gapReason } from "./time-gaps.ts";
 import {
   createTimeEntry,
   discardTimer,
@@ -87,13 +92,25 @@ export class TimeSheetStore {
 
   #newRowCount = 0;
   readonly #saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /**
+   * Entries struck since this sheet opened.
+   *
+   * A snapshot taken before a strike still holds that row as a draft, so restoring it would put a
+   * struck entry back on the sheet as workable and then try to write to it. The strike is the newer
+   * fact and it survives the restore.
+   */
+  readonly #struckIdentifiers = new Set<string>();
 
   constructor(context: SheetContext) {
     this.#context = context;
     this.history = new SheetHistory<RowSnapshot>(
       () => this.rows.map((row) => ({ ...row })),
       (snapshot) => {
-        this.rows = snapshot.map((row) => ({ ...row }));
+        this.rows = snapshot.map((row) =>
+          row.entryIdentifier !== null && this.#struckIdentifiers.has(row.entryIdentifier)
+            ? { ...row, status: "void" as const }
+            : { ...row },
+        );
         void this.#writeBackEverySavedRow();
       },
     );
@@ -133,9 +150,12 @@ export class TimeSheetStore {
    * The work date defaults to today when today is in view and to the end of the range otherwise,
    * so a row created while reading last week belongs to last week rather than appearing and
    * vanishing.
+   *
+   * No undo step is pushed. A row that has not been written is taken away by its own remove
+   * control, and a row that HAS been written is an entry on the firm's record: dropping it off the
+   * sheet would leave the entry standing while the screen said it had gone back.
    */
   addRow(workDate: string): SheetRow {
-    this.history.push("the new row");
     this.#newRowCount += 1;
     const sessionUserId = this.#context.sessionUserId();
     const members = this.#context.members();
@@ -184,11 +204,6 @@ export class TimeSheetStore {
     return row.description.trim() !== "" && minutesFromSeconds(row.workedSeconds) > 0;
   }
 
-  /** What a row that cannot be written yet says about itself. */
-  static notYetWritable(): string {
-    return `Not written to the firm's record yet. Waiting on ${gapReason("incompleteCapture")}.`;
-  }
-
   /**
    * Send a row's current values, once the keystrokes have stopped.
    *
@@ -230,11 +245,16 @@ export class TimeSheetStore {
             },
             writeKey(),
           )
-        : await patchTimeEntry(fetch, row.entryIdentifier, {
-            narrative: row.description.trim(),
-            rawDurationMinutes: minutesFromSeconds(row.workedSeconds),
-            workDate: row.workDate,
-          });
+        : await patchTimeEntry(
+            fetch,
+            row.entryIdentifier,
+            {
+              narrative: row.description.trim(),
+              rawDurationMinutes: minutesFromSeconds(row.workedSeconds),
+              workDate: row.workDate,
+            },
+            writeKey(),
+          );
     if (outcome.kind !== "ok") {
       this.#patchRow(key, {
         saveState: "failed",
@@ -263,17 +283,25 @@ export class TimeSheetStore {
     );
   }
 
-  /** Strike a row. It stays on the record, numbered, and counts toward nothing. */
+  /**
+   * Strike a row. It stays on the record, numbered, and counts toward nothing.
+   *
+   * The two halves are different acts and they are offered on different terms. A row the server has
+   * never seen is simply taken off the sheet, and putting it back is a step the stack can genuinely
+   * perform, so it gets one. A row that IS an entry is struck on the firm's record, and there is no
+   * route that un-strikes one — so no step is pushed and the announcement says as much, at the
+   * moment it is true, rather than leaving the reader to press undo and be told it worked.
+   */
   async voidRow(key: string): Promise<void> {
     const row = this.rowByKey(key);
     if (row === undefined) return;
-    this.history.push("striking this entry");
     if (row.entryIdentifier === null) {
+      this.history.push("removing this row");
       this.rows = this.rows.filter((other) => other.key !== key);
       this.#context.announce("The row was removed. It had not been written to the record.");
       return;
     }
-    const outcome = await voidTimeEntry(fetch, row.entryIdentifier);
+    const outcome = await voidTimeEntry(fetch, row.entryIdentifier, writeKey());
     if (outcome.kind !== "ok") {
       this.#patchRow(key, {
         saveState: "failed",
@@ -281,9 +309,10 @@ export class TimeSheetStore {
       });
       return;
     }
+    this.#struckIdentifiers.add(row.entryIdentifier);
     this.#patchRow(key, { status: "void" });
     this.#context.announce(
-      "The entry was struck. It stays on the record and counts toward nothing.",
+      "The entry was struck. It stays on the record and counts toward nothing. Undo does not reach it: nothing un-strikes an entry.",
     );
     this.#context.onChanged();
   }

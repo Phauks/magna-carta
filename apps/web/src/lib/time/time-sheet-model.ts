@@ -22,6 +22,7 @@
  */
 import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
 import { timekeeperOf } from "./time-columns.ts";
+import { gapReason } from "./time-gaps.ts";
 
 /** Where a row stands against the firm's record. */
 export type SheetSaveState = "unsaved" | "saving" | "saved" | "failed";
@@ -205,11 +206,20 @@ export interface SheetHonesty {
  *
  * A void counts toward nothing, on the same rule the ledger's footer follows: it stays on the
  * record, numbered, with its chip, and contributes to no total anywhere in the product.
+ *
+ * `workedSecondsOf` is how the caller reads a row's worked time, and it exists because a running
+ * timer makes that two different numbers: the seconds the row has banked, and those plus the run
+ * accruing into it. The Worked column shows the second one, so the strip that sums the column has
+ * to read the same quantity — a footer that disagrees with the column above it while a timer ticks
+ * is the footer being wrong. The default is the banked figure, for a caller with no timer.
  */
-export function sheetHonesty(rows: readonly SheetRow[]): SheetHonesty {
+export function sheetHonesty(
+  rows: readonly SheetRow[],
+  workedSecondsOf: (row: SheetRow) => number = (row) => row.workedSeconds,
+): SheetHonesty {
   const live = rows.filter((row) => row.status !== "void");
   return {
-    workedSeconds: live.reduce((total, row) => total + row.workedSeconds, 0),
+    workedSeconds: live.reduce((total, row) => total + workedSecondsOf(row), 0),
     billedMinutes: live.reduce((total, row) => total + (row.billedMinutes ?? 0), 0),
     amountMinor: live.reduce((total, row) => total + (row.amountMinor ?? 0), 0),
     incompleteRows: incompleteCount(live),
@@ -222,7 +232,12 @@ export function saveStateTitle(row: SheetRow): string {
   if (row.saveState === "failed") {
     return row.saveFailure ?? "The last change was not saved. The record is unchanged.";
   }
-  if (row.saveState === "unsaved") return "Not written to the firm's record yet.";
+  if (row.saveState === "unsaved") {
+    // The dependency is named rather than left to be guessed: a row sits here because the capture
+    // route will not take an entry that is short of a description or a duration, and a mark that
+    // says only "not written" reads as a save that failed.
+    return `Not written to the firm's record yet. Waiting on ${gapReason("incompleteCapture")}.`;
+  }
   const missing = missingFacts(row);
   if (missing.length > 0) {
     return `Saved, and incomplete: it needs ${missing.join(", ")}. It stays on the sheet until it is completed.`;

@@ -4,6 +4,10 @@
  * The stack holds the state to RETURN to, under the name of the change that left it behind, which
  * is what lets one control do one step while its list offers several at once. The snapshot type is
  * the caller's, so this exercises it over a plain value rather than over a row.
+ *
+ * The stack over a plain value proves the ORDERING rules and nothing about the sheet. That the real
+ * restore puts row values back and writes them through is proved where it actually happens, over
+ * the store, in time-sheet-store.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import { SheetHistory, historyAnnouncement } from "../src/lib/time/time-sheet-history.svelte.ts";
@@ -129,6 +133,53 @@ describe("what the sheet says once something has actually moved", () => {
   it("says which direction several steps went", () => {
     expect(historyAnnouncement("Undid", { label: "one", steps: 3 })).toContain("back through one");
     expect(historyAnnouncement("Redid", { label: "one", steps: 3 })).toContain("up through one");
+  });
+});
+
+describe("the bound on how far back the stack goes", () => {
+  /*
+   * The bound was documented and unasserted: it could be set to four or to no bound at all and
+   * nothing failed. It is a real behaviour — a session open all day must not hold every
+   * intermediate state of every row — so it is pinned by its consequences rather than by reading
+   * the constant back.
+   */
+  it("keeps forty steps and no more", () => {
+    const sheet = stackOver("start");
+    for (let index = 0; index < 45; index += 1)
+      sheet.change(`step ${String(index)}`, `v${String(index)}`);
+
+    expect(sheet.history.undoLabels).toHaveLength(40);
+  });
+
+  it("drops the OLDEST steps, so the newest forty are the ones kept", () => {
+    const sheet = stackOver("start");
+    for (let index = 0; index < 45; index += 1)
+      sheet.change(`step ${String(index)}`, `v${String(index)}`);
+
+    const labels = sheet.history.undoLabels;
+    expect(labels[0]).toBe("step 44");
+    expect(labels.at(-1)).toBe("step 5");
+    expect(labels).not.toContain("step 4");
+  });
+
+  it("walks back exactly as far as it kept, and stops there", () => {
+    const sheet = stackOver("start");
+    for (let index = 0; index < 45; index += 1)
+      sheet.change(`step ${String(index)}`, `v${String(index)}`);
+
+    const outcome = sheet.history.undo(100);
+    expect(outcome).toEqual({ label: "step 5", steps: 40 });
+    // The state before step 5 is where the stack now bottoms out: "start" is unreachable.
+    expect(sheet.current()).toBe("v4");
+    expect(sheet.history.canUndo).toBe(false);
+  });
+
+  it("counts what it is offering rather than what was pushed", () => {
+    const sheet = stackOver("start");
+    for (let index = 0; index < 45; index += 1)
+      sheet.change(`step ${String(index)}`, `v${String(index)}`);
+
+    expect(sheet.history.undoStackTitle).toContain("last 40 changes");
   });
 });
 

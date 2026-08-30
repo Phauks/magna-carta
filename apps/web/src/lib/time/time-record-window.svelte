@@ -57,12 +57,14 @@
     parseDurationText,
     patchTimeEntry,
     writeKey,
+    type TimeEntryDraftFields,
   } from "./time-operations.ts";
   import { timeEntrySheet } from "./time-print-sheet.ts";
 
   let {
     open = $bindable(false),
     entry = null,
+    prefill = null,
     editing = $bindable(false),
     matterId,
     matterTitle,
@@ -74,6 +76,12 @@
     open?: boolean;
     /** The entry being read, or null while a new one is being written. */
     entry?: TimeEntrySummary | null;
+    /**
+     * What a NEW entry's fields start holding. Duplicating an entry is what sets it; every other
+     * way of starting one leaves it null and the fields open empty. Read only while `entry` is null
+     * — an entry that exists is always seeded from itself.
+     */
+    prefill?: TimeEntryDraftFields | null;
     /**
      * Whether the record's fields are open for change. The window owns this — its Edit control
      * raises it and its abandon lowers it — and it is bound here so a listing can open an entry
@@ -136,7 +144,13 @@
    */
   let seededFor = $state<string | null>(null);
   $effect(() => {
-    const identity = entry === null ? "new" : entry.id;
+    /*
+     * A new entry started FROM something is a different seed from a new entry started from nothing,
+     * so the prefill is part of what the window considers itself seeded for. Without that, opening a
+     * duplicate over an already-open blank form would leave the blank form standing.
+     */
+    const identity =
+      entry !== null ? entry.id : prefill === null ? "new" : `new-from:${JSON.stringify(prefill)}`;
     if (!open) {
       seededFor = null;
       return;
@@ -144,11 +158,14 @@
     if (seededFor === identity) return;
     seededFor = identity;
     saveFailure = null;
-    descriptionText = entry?.narrative ?? "";
-    workDateText = entry?.workDate ?? new Date().toISOString().slice(0, 10);
-    durationText = entry === null ? "" : formatDuration(entry.rawDurationMinutes).clock;
-    timekeeperUserId = entry?.timekeeperUserId ?? sessionUserId ?? "";
-    billableChoice = entry === null || entry.billable ? "billable" : "nonbillable";
+    // The record is the first authority, a prefill the second, and an empty form the answer when
+    // there is neither.
+    const start = entry ?? prefill;
+    descriptionText = start?.narrative ?? "";
+    workDateText = start?.workDate ?? new Date().toISOString().slice(0, 10);
+    durationText = start === null ? "" : formatDuration(start.rawDurationMinutes).clock;
+    timekeeperUserId = start?.timekeeperUserId ?? sessionUserId ?? "";
+    billableChoice = start === null || start.billable ? "billable" : "nonbillable";
     rememberWhatIsInTheFields();
   });
 
@@ -295,11 +312,16 @@
             },
             writeKey(),
           )
-        : await patchTimeEntry(fetch, entry.id, {
-            narrative: descriptionText.trim(),
-            rawDurationMinutes: minutes,
-            workDate: workDateText,
-          });
+        : await patchTimeEntry(
+            fetch,
+            entry.id,
+            {
+              narrative: descriptionText.trim(),
+              rawDurationMinutes: minutes,
+              workDate: workDateText,
+            },
+            writeKey(),
+          );
     saving = false;
     if (outcome.kind !== "ok") {
       saveFailure =
@@ -576,6 +598,26 @@
     </span>
   {/if}
   {#if !fieldsOpen}
+    <!--
+      The two verbs the chain is designed to carry and no route serves. They are rendered where the
+      design puts them rather than left out, so a reader can see that withdrawing a submission and
+      removing a never-reviewed draft are real acts of this record, and can never mistake either for
+      working. Each appears only against the status it belongs to: a verb offered where it could
+      never apply says nothing true even when it is refused.
+    -->
+    {#if entry?.status === "submitted"}
+      <SoonAffordance reason={gapReason("unsubmit")}>
+        {#snippet control(soon)}
+          <Button variant="secondary" {...soon}>Unsubmit</Button>
+        {/snippet}
+      </SoonAffordance>
+    {:else if entry?.status === "draft"}
+      <SoonAffordance reason={gapReason("deleteDraft")}>
+        {#snippet control(soon)}
+          <Button variant="secondary" {...soon}>Delete Draft</Button>
+        {/snippet}
+      </SoonAffordance>
+    {/if}
     <Button onclick={() => (open = false)}>Close</Button>
   {:else if creating}
     <!-- The one verb this record type adds: entering time is a run of entries, and a person who
