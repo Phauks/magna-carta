@@ -16,18 +16,28 @@
  * graduates into the shared register is a design-system decision, and until it does the tones are
  * settled once, here.
  *
- * THE ONLY LOUD THING IS AN UNANSWERED HIT. A hit no reviewer has answered wears the one warning
- * tone on this surface; a hit somebody HAS answered reads calm, whatever they concluded. That is
- * deliberate and it is the reading rule the whole subsystem turns on: the platform may state that a
- * question is open, and may never grade the answer a lawyer gave it.
+ * THE ONLY LOUD THING IS AN OPEN QUESTION. The warning tone on this surface marks a question the
+ * record leaves open, and nothing else; what a reviewer CONCLUDED reads calm, whatever it was. That
+ * is the reading rule the whole subsystem turns on: the platform may state that a question is open,
+ * and may never grade the answer a lawyer gave it.
+ *
+ * There are two open questions, not one. A hit nobody has answered is the first. The second is a
+ * waiver whose record names evidence the platform does not hold — informed consent not confirmed in
+ * writing, or a confirmation nobody filed here. That is a fact about the platform's own holdings,
+ * not a verdict on the reviewer: it says what the firm could not produce if somebody asked for it
+ * this afternoon. It has to be loud for the same reason the first one does — an unevidenced waiver
+ * that reads exactly like an evidenced one is the failure the waiver record exists to prevent — and
+ * it says so in WORDS as well as in colour, because a tone alone is not a fact anybody can read.
  */
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
+import { statusEntry, type StatusKey } from "@magna-carta/design-system/status-register";
 import type {
   ConflictsTrigger,
   DispositionKind,
   EvidenceTier,
   SourceClass,
   Strictness,
+  WaiverShortfall,
 } from "./conflicts-api.ts";
 
 /** A catalogue word, set for a reader: what it says, and what it means on the hover. */
@@ -228,37 +238,56 @@ export const DISPOSITION_KINDS: readonly DispositionKind[] = [
  * A reviewer's adjudication of one hit — the one place in this subsystem where a conclusion is
  * drawn, and it is drawn by a named person on a row carrying their identity and their reasoning.
  *
- * The tones are calm on purpose. What a reviewer concluded is their professional judgement, and a
- * green tick or a red block beside it would be the platform grading it.
+ * The words and their tones come from the design system's status register, where a status word is
+ * given one label and one tone for the whole product. The tones there are calm on purpose, and for
+ * this reason: what a reviewer concluded is their professional judgement, and a green tick or a red
+ * block beside it would be the platform grading it. The wire spells these kinds with underscores
+ * and the register spells them with hyphens, so the crossing is written out once here.
  */
-export const DISPOSITION_VOCABULARY: Readonly<Record<DispositionKind, ChipVocabularyEntry>> = {
-  cleared: {
-    label: "Cleared",
-    tone: "neutral",
-    meaning: "The reviewer answered this hit and let the representation stand.",
-  },
-  waiver_obtained: {
-    label: "Waiver Obtained",
-    tone: "info",
-    meaning: "The reviewer recorded that a waiver was obtained. The rationale is the record of it.",
-  },
-  wall_erected: {
-    label: "Wall Erected",
-    tone: "info",
-    meaning:
-      "An ethical wall was put in place as an outcome of the adjudication. It enforces nothing by itself.",
-  },
-  representation_declined: {
-    label: "Representation Declined",
-    tone: "neutral",
-    meaning: "The reviewer declined the representation on this hit.",
-  },
+const DISPOSITION_STATUS_KEYS: Readonly<Record<DispositionKind, StatusKey>> = {
+  cleared: "cleared",
+  waiver_obtained: "waiver-obtained",
+  wall_erected: "wall-erected",
+  representation_declined: "representation-declined",
 };
 
 /** How one adjudication reads. */
 export function dispositionVocabulary(kind: DispositionKind): ChipVocabularyEntry {
-  return DISPOSITION_VOCABULARY[kind];
+  const entry = statusEntry(DISPOSITION_STATUS_KEYS[kind]);
+  return { label: entry.label, tone: entry.tone, meaning: entry.meaning };
 }
+
+// ---- what a waiver's record is short of ---------------------------------------------------------
+
+/**
+ * The four ways a recorded waiver can be short of what a firm would be asked to produce.
+ *
+ * Each sentence describes THE RECORD, never the waiver and never the reviewer: "the platform does
+ * not hold X" is a fact it is entitled to state, where "this waiver is invalid" would be a
+ * conclusion it has no standing to draw. A reviewer may have the signed letter in a drawer; what
+ * this says is that the platform cannot hand it over.
+ */
+export const WAIVER_SHORTFALL_VOCABULARY: Readonly<Record<WaiverShortfall, string>> = {
+  "consenting-party-unrecorded": "The record does not name who gave the waiver.",
+  "consent-not-confirmed-in-writing":
+    "The consent is not recorded as confirmed in writing, which is the form the rules ask for.",
+  "confirmation-not-filed": "No filed document evidencing the confirmation is on the record.",
+  "date-given-unrecorded": "The record does not say when the waiver was given.",
+};
+
+/** How one shortfall reads. An unrecognized value prints itself rather than being explained away. */
+export function waiverShortfallText(shortfall: WaiverShortfall): string {
+  return WAIVER_SHORTFALL_VOCABULARY[shortfall] ?? shortfall;
+}
+
+/**
+ * A waiver the platform cannot produce the record for.
+ *
+ * The label carries the fact in words, not only in tone: in a table cell, a colour that differs from
+ * a complete waiver's and a caption that does not is a difference nobody reads and a screen reader
+ * cannot say at all.
+ */
+export const INCOMPLETE_WAIVER_LABEL = "Waiver — Incomplete Record";
 
 /**
  * What a hit nobody has answered wears — the one loud thing on this surface.
@@ -266,15 +295,32 @@ export function dispositionVocabulary(kind: DispositionKind): ChipVocabularyEntr
  * It is a fact about the platform's own record (no reviewer has adjudicated this hit), never a fact
  * about the matter, which is why it is allowed to be the thing that shouts.
  */
-export const UNANSWERED: ChipVocabularyEntry = {
-  label: "Unanswered",
-  tone: "warning",
-  meaning: "No reviewer has recorded an adjudication of this hit.",
-};
-
+export const UNANSWERED: ChipVocabularyEntry = (() => {
+  const entry = statusEntry("unanswered");
+  return { label: entry.label, tone: entry.tone, meaning: entry.meaning };
+})();
 /** How a hit's adjudication column reads, answered or not. */
 export function adjudicationChip(kind: DispositionKind | null): ChipVocabularyEntry {
   return kind === null ? UNANSWERED : dispositionVocabulary(kind);
+}
+
+/**
+ * How a hit's adjudication reads with its record taken into account — the form every surface uses.
+ *
+ * Three outcomes: nobody has answered; somebody answered and the platform holds the whole record;
+ * somebody answered a waiver and the platform is short of part of it. The third must never render
+ * as the second, which is why surfaces take this rather than the kind's chip on its own.
+ */
+export function adjudicationSummary(
+  disposition: { kind: DispositionKind; shortfalls: readonly WaiverShortfall[] } | null,
+): ChipVocabularyEntry {
+  if (disposition === null) return UNANSWERED;
+  if (disposition.shortfalls.length === 0) return dispositionVocabulary(disposition.kind);
+  return {
+    label: INCOMPLETE_WAIVER_LABEL,
+    tone: "warning",
+    meaning: disposition.shortfalls.map((shortfall) => waiverShortfallText(shortfall)).join(" "),
+  };
 }
 
 // ---- what made a re-check owed ------------------------------------------------------------------
