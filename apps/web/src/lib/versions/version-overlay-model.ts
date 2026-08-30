@@ -3,7 +3,8 @@
  * mirroring apps/api-worker/openapi/openapi.json, like every surface's shapes — see
  * $lib/api/request.ts), and the small decisions the panel renders — when two builds count as
  * skewed, what each honest non-answer is called and what it actually means, how a cached
- * observation states its age, and the one-line identifier a copy click puts on the clipboard.
+ * observation states its age, the one-line identifier a copy click puts on the clipboard, and the
+ * deployed unit each row is reporting on (the Cloudflare Worker someone would open to act on it).
  * Kept free of Svelte and of the vite define constants so the node-pool tests exercise every rule
  * directly.
  */
@@ -135,10 +136,21 @@ export function serviceStateDescription(state: ServiceVersionState): string | nu
 
 const OBSERVATION_FRESH_MILLISECONDS = 10_000;
 
+/** An elapsed span in words, from "a moment ago" up through minutes. */
+function ageInWords(ageMilliseconds: number): string {
+  if (ageMilliseconds < OBSERVATION_FRESH_MILLISECONDS) return "a moment ago";
+  const ageSeconds = Math.round(ageMilliseconds / 1000);
+  if (ageSeconds < 90) return `${String(ageSeconds)} seconds ago`;
+  const ageMinutes = Math.round(ageSeconds / 60);
+  return `${String(ageMinutes)} ${ageMinutes === 1 ? "minute" : "minutes"} ago`;
+}
+
 /**
  * How old the service observation is, in words — or null while it is fresh enough that an age
  * line would be noise. The API caches the aggregate briefly, so an open panel can be reading an
  * observation up to a minute old; past ten seconds the panel says so instead of implying "now".
+ * A manual re-ask that lands inside that cache window gets the same observation back, and this
+ * line is what keeps that honest: the age goes on climbing rather than resetting to "now".
  */
 export function describeObservationAge(
   observedAtIso: string,
@@ -148,11 +160,26 @@ export function describeObservationAge(
   if (Number.isNaN(observedAtEpochMilliseconds)) return null;
   const ageMilliseconds = nowEpochMilliseconds - observedAtEpochMilliseconds;
   if (ageMilliseconds < OBSERVATION_FRESH_MILLISECONDS) return null;
-  const ageSeconds = Math.round(ageMilliseconds / 1000);
-  if (ageSeconds < 90) return `checked ${String(ageSeconds)} seconds ago`;
-  const ageMinutes = Math.round(ageSeconds / 60);
-  return `checked ${String(ageMinutes)} ${ageMinutes === 1 ? "minute" : "minutes"} ago`;
+  return `checked ${ageInWords(ageMilliseconds)}`;
 }
+
+/**
+ * What the rows still on screen are, once a re-ask has failed. The previous answer is kept rather
+ * than blanked — it is the last true thing this panel knew — but it must stop reading as current,
+ * so this states its age unconditionally, including inside the window where the header line above
+ * stays quiet.
+ */
+export function describeRetainedRows(observedAtIso: string, nowEpochMilliseconds: number): string {
+  const observedAtEpochMilliseconds = Date.parse(observedAtIso);
+  if (Number.isNaN(observedAtEpochMilliseconds)) {
+    return "The rows below are from the last read that answered, not from this one.";
+  }
+  const ageMilliseconds = nowEpochMilliseconds - observedAtEpochMilliseconds;
+  return `The rows below are from the last read that answered, ${ageInWords(ageMilliseconds)}.`;
+}
+
+/** The header line while a read is in flight, so the re-ask is visible before its answer lands. */
+export const READ_IN_FLIGHT_NOTICE = "Checking services";
 
 /**
  * The line a copy click puts on the clipboard: part name, commit, and the two timestamps that
@@ -179,4 +206,83 @@ export function formatVersionTimestamp(iso: string | null): string | null {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(parsed);
+}
+
+/*
+ * THE DEPLOYED UNIT EACH ROW REPORTS ON.
+ *
+ * A row labelled by what a service DOES ("Malware Scan") does not tell a reader which project to
+ * open when it says "Not reporting". The identity does, so the identity leads and the description
+ * follows it.
+ *
+ * Every name below is read off something that deploys it, never guessed:
+ * - the eight service bindings in apps/api-worker/wrangler.jsonc (`services[].service`), which is
+ *   the script name Cloudflare resolves the binding to;
+ * - `magna-carta-search`, which docs/conventions/operations.md names as the project that will hold
+ *   the search index Worker. It is not a connected project and `SEARCH_SERVICE` is not in the
+ *   bindings array, so that row reads "Not deployed" and the name is what will exist, stated as
+ *   the target rather than as a running thing.
+ *
+ * An id with no entry here keeps its description as the row heading rather than borrowing a name
+ * from a neighbour: a service added to the API's roster and not to this map is unnamed, not
+ * misnamed.
+ */
+const DEPLOYED_UNIT_NAMES: Readonly<Record<string, string>> = {
+  scan: "magna-carta-scan",
+  bundle: "magna-carta-bundle",
+  convert: "magna-carta-convert",
+  fileRepair: "magna-carta-file-repair",
+  recovery: "magna-carta-recovery",
+  ocr: "magna-carta-ocr",
+  sign: "magna-carta-sign",
+  discovery: "magna-carta-discovery",
+  search: "magna-carta-search",
+};
+
+/** The Cloudflare Worker a service row reports on, or null when this build has no name for it. */
+export function deployedUnitName(serviceId: string): string | null {
+  return DEPLOYED_UNIT_NAMES[serviceId] ?? null;
+}
+
+/**
+ * The Worker that serves both the API and this page. `apps/api-worker/wrangler.jsonc` declares
+ * `assets: { directory: "../web/build" }`, so the SPA is bundled into this Worker's deployment
+ * rather than deployed beside it.
+ */
+export const API_WORKER_UNIT_NAME = "magna-carta";
+
+/** What the web row reports on: the bundle the browser is running right now. */
+export const WEB_APP_ROW_DESCRIPTION = "Web app bundle this page loaded";
+
+/** What the API row reports on: the Worker that answered the read a moment ago. */
+export const API_ROW_DESCRIPTION = "API Worker answering now";
+
+/**
+ * The architectural fact the two rows above are otherwise silent about, and the one that cost the
+ * owner a confused deploy watch: the SPA has its own Workers Builds project (`magna-carta-web`, an
+ * assets-only second door to the same files), and that project going green changes nothing about
+ * what this site serves. The bytes a visitor gets come from the API Worker's own assets, so they
+ * change on the API Worker's deploy and on nothing else.
+ */
+export const WEB_APP_SHIPS_INSIDE_API_NOTICE =
+  "The web app is bundled into the API Worker: a new bundle reaches this site when " +
+  "magna-carta deploys, not when magna-carta-web builds.";
+
+/**
+ * What a difference between the two commits actually means. It is not two deployables that have
+ * drifted apart, because there is only one: the bundle and the Worker ship together. So a
+ * difference says the page in this tab was served by an earlier deployment than the one now
+ * answering, and a reload is the whole fix.
+ */
+export const BUILD_SKEW_EXPLANATION =
+  "This page and the API answering it come from different deployments of magna-carta. Reload to " +
+  "take the newer bundle.";
+
+/** The line under the Services heading when the deployment is wired to no service at all. */
+export const NO_SERVICES_NOTICE = "This deployment is not wired to any backend service.";
+
+/** Joins a row's detail segments, dropping the ones that were not known. */
+export function joinDetailSegments(segments: readonly (string | null)[]): string | null {
+  const present = segments.filter((segment): segment is string => segment !== null);
+  return present.length === 0 ? null : present.join(" · ");
 }
