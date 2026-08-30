@@ -7,9 +7,19 @@
   // Better Auth resolves its workerd build to the AsyncLocalStorage-backed transaction context
   // (node:async_hooks) — without Node.js compatibility every auth route 500s at runtime.
   "compatibility_flags": ["nodejs_compat"],
-  // Explicit so deploys stop defaulting them: workers.dev serving stays on (the current
-  // public URL until magnacarta.esq attaches); per-version preview URLs stay off
-  // (previews are disabled until a staging environment exists — ADR-0075).
+  // Explicit so deploys stop defaulting them: workers.dev serving stays on; per-version preview URLs
+  // stay off (previews are disabled until a staging environment exists — ADR-0075).
+  //
+  // workers.dev is NOT the whole of where this Worker answers, and this comment used to claim it was
+  // ("the current public URL until magnacarta.esq attaches") on no evidence but the absence of a
+  // `routes` block below. A CUSTOM DOMAIN IS ACCOUNT STATE: attached in the dashboard, present in no
+  // `wrangler.jsonc`, and not removed by `wrangler deploy` — so a Worker with `workers_dev: true`
+  // and no declared routes can be serving a real apex hostname at the same time. "No routes here,
+  // therefore workers.dev only" is the inference to refuse; this file's silence is evidence about
+  // this file. Read `GET /accounts/{account_id}/workers/domains/records` for which hostname maps to
+  // which Worker, and leave the answer in the terminal rather than writing it back here — that read
+  // stays correct after the next dashboard change and a pasted value does not.
+  // Runbook: docs/conventions/operations.md.
   "workers_dev": true,
   "preview_urls": false,
   // The wrangler-side half of the dual `.sql`-as-text bundling contract — full story in
