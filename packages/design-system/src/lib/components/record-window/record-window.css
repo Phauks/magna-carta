@@ -17,6 +17,15 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    /* How wide a record opens before it stops growing. A named dimension rather than a utility,
+       because it is the same measure on every record type and belongs where the other named layout
+       widths live — a window that grew with the screen would run the left pane's lines past what
+       the eye tracks. */
+    max-inline-size: var(--mc-size-record-window);
+  }
+  /* Expanded ignores the measure entirely: filling the screen IS the gesture. */
+  .mc-record-window[data-expanded="true"] {
+    max-inline-size: none;
   }
 
   /* --- the header band ------------------------------------------------------------------- */
@@ -107,10 +116,17 @@
 
   /* --- the body: the record beside its context --------------------------------------------- */
 
+  /*
+   * The context pane takes a named width and the record takes what is left, rather than the two
+   * splitting the window by a ratio. A ratio widens the tabs on a wide screen without showing more
+   * in them — attachments, history and the chain each have a width past which they are just
+   * emptier — whereas widening the RECORD gives its description and its figures more room to sit
+   * on. So growth goes to the half that can use it.
+   */
   .mc-record-window-body {
     flex: auto;
     display: grid;
-    grid-template-columns: 3fr 2fr;
+    grid-template-columns: 1fr var(--mc-size-record-context);
     min-block-size: var(--mc-space-0);
     overflow: hidden;
   }

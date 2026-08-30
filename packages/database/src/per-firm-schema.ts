@@ -2202,6 +2202,35 @@ export const conflictsDisposition = sqliteTable(
     rationale: text("rationale").notNull(),
     reviewerUserId: text("reviewer_user_id").notNull().$type<UserId>(),
     createdAt: text("created_at").notNull(),
+    // ---- the waiver's own record -------------------------------------------------------------
+    //
+    // What a firm is actually asked to produce when somebody questions a waiver is the client's
+    // informed consent CONFIRMED IN WRITING, not a sentence saying one was obtained. These four
+    // columns are that record. All four are null on the other three kinds — a database trigger
+    // refuses a non-waiver row that carries any of them — and null on a waiver row written before
+    // they existed, which reads as the row not saying rather than as a waiver given by nobody.
+    //
+    // Who consented. A Directory entity handle, carried the way conflicts_hit.entity_id is and for
+    // the same reason: an entity is a directory_person OR a directory_organization, so no single
+    // foreign key can name it. The consenting party is a real record in the firm's Directory, never
+    // a typed-in name — a waiver whose giver cannot be looked up is the free-text sentence this
+    // whole record replaces.
+    waiverGivenByEntityId: text("waiver_given_by_entity_id"),
+    // Whether the consent was confirmed in writing, as a fact in its own right. Deliberately NOT
+    // inferred from the presence of a filed document: consent confirmed in a writing the firm has
+    // not filed here, and a document filed against consent nobody confirmed, are different states,
+    // and a boolean derived from the file id could not tell them apart.
+    waiverConfirmedInWriting: integer("waiver_confirmed_in_writing"),
+    // The filed document evidencing the confirmation — an ordinary matter file, like
+    // matter_asset_valuation.supporting_file_id. A reference the firm can actually produce on
+    // demand, rather than a string naming a document nothing can fetch.
+    waiverDocumentFileId: text("waiver_document_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    // When the waiver was GIVEN, as a civil date — a different fact from created_at, which is when
+    // this row was written. A waiver given on Tuesday and recorded on Friday has to be able to say
+    // both, because the interval is exactly what a reviewer is asked about.
+    waiverGivenOn: text("waiver_given_on"),
   },
   (table) => [
     index("conflicts_disposition_hit_id_created_at_index").on(table.hitId, table.createdAt),

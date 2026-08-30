@@ -1,0 +1,1554 @@
+<!doctype html><html><head><!-- frame-runtime --><base href="/_f/1787964862-493d/"><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
+<title>The Bill Register</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,400;9..144,460;9..144,600&family=UnifrakturMaguntia&display=swap">
+<style>
+:root {
+  --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
+  --mc-accent-subtle: var(--mc-color-accent-100);
+  --mc-accent-subtle-foreground: var(--mc-color-accent-700);
+  --mc-action-destructive: var(--mc-color-red-500);
+  --mc-action-destructive-foreground: var(--mc-color-neutral-0);
+  --mc-action-destructive-hover: var(--mc-color-red-700);
+  --mc-action-disabled: var(--mc-color-neutral-200);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-primary: var(--mc-color-brand-800);
+  --mc-action-primary-active: var(--mc-color-brand-900);
+  --mc-action-primary-foreground: var(--mc-color-neutral-0);
+  --mc-action-primary-hover: var(--mc-color-brand-700);
+  --mc-action-secondary: var(--mc-color-neutral-100);
+  --mc-action-secondary-foreground: var(--mc-color-neutral-900);
+  --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-focus: var(--mc-color-brand-600);
+  --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
+  --mc-chrome-accent: var(--mc-color-accent-400);
+  --mc-chrome-border: var(--mc-color-brand-800);
+  --mc-chrome-surface: var(--mc-color-brand-900);
+  --mc-chrome-surface-hover: var(--mc-color-brand-800);
+  --mc-chrome-text: var(--mc-color-neutral-300);
+  --mc-chrome-text-muted: var(--mc-color-neutral-400);
+  --mc-chrome-text-strong: var(--mc-color-neutral-0);
+  --mc-color-accent-100: oklch(95% 0.0378 85);
+  --mc-color-accent-300: oklch(83% 0.0896 85);
+  --mc-color-accent-400: oklch(72% 0.1148 85);
+  --mc-color-accent-700: oklch(42% 0.086 85);
+  --mc-color-accent-900: oklch(22% 0.045 85);
+  --mc-color-amber-100: oklch(94.57% 0.0577 85.01);
+  --mc-color-amber-300: oklch(83% 0.1 80);
+  --mc-color-amber-400: oklch(77% 0.12 80);
+  --mc-color-amber-500: oklch(70% 0.13 80);
+  --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
+  --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
+  --mc-color-blue-300: oklch(75% 0.1 240);
+  --mc-color-blue-400: oklch(65% 0.13 240);
+  --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
+  --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
+  --mc-color-brand-0: oklch(99% 0.0035 70);
+  --mc-color-brand-50: oklch(97.5% 0.0063 70);
+  --mc-color-brand-100: oklch(95% 0.0094 70);
+  --mc-color-brand-200: oklch(90% 0.0157 70);
+  --mc-color-brand-300: oklch(83% 0.0224 70);
+  --mc-color-brand-400: oklch(72% 0.0287 70);
+  --mc-color-brand-500: oklch(62% 0.035 70);
+  --mc-color-brand-600: oklch(52% 0.035 70);
+  --mc-color-brand-700: oklch(42% 0.0318 70);
+  --mc-color-brand-800: oklch(32% 0.0255 70);
+  --mc-color-brand-900: oklch(22% 0.0192 70);
+  --mc-color-brand-1000: oklch(13% 0.0126 70);
+  --mc-color-green-100: oklch(94% 0.06 150);
+  --mc-color-green-300: oklch(76% 0.09 150);
+  --mc-color-green-400: oklch(66% 0.11 150);
+  --mc-color-green-500: oklch(56% 0.12 150);
+  --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
+  --mc-color-neutral-0: oklch(99% 0.002 70);
+  --mc-color-neutral-50: oklch(97.5% 0.0025 70);
+  --mc-color-neutral-100: oklch(95% 0.0037 70);
+  --mc-color-neutral-200: oklch(90% 0.0063 70);
+  --mc-color-neutral-300: oklch(83% 0.0089 70);
+  --mc-color-neutral-400: oklch(72% 0.0114 70);
+  --mc-color-neutral-500: oklch(62% 0.014 70);
+  --mc-color-neutral-600: oklch(52% 0.014 70);
+  --mc-color-neutral-700: oklch(42% 0.0127 70);
+  --mc-color-neutral-800: oklch(32% 0.0102 70);
+  --mc-color-neutral-900: oklch(22% 0.0077 70);
+  --mc-color-neutral-1000: oklch(13% 0.005 70);
+  --mc-color-red-100: oklch(92.89% 0.0361 27.51);
+  --mc-color-red-300: oklch(75% 0.12 25);
+  --mc-color-red-400: oklch(65% 0.15 25);
+  --mc-color-red-500: oklch(55% 0.18 25);
+  --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
+  --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
+  --mc-control-lg: 40px;
+  --mc-control-md: 36px;
+  --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
+  --mc-density-control-height: var(--mc-control-md);
+  --mc-density-gutter: var(--mc-space-16);
+  --mc-density-stack: var(--mc-space-12);
+  --mc-duration-fast: 120ms;
+  --mc-duration-normal: 200ms;
+  --mc-duration-slow: 300ms;
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
+  --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
+  --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
+  --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-3xl: 2rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
+  --mc-leading-normal: 1.5;
+  --mc-leading-relaxed: 1.625;
+  --mc-leading-tight: 1.25;
+  --mc-radius-full: 9999px;
+  --mc-radius-lg: 10px;
+  --mc-radius-md: 7px;
+  --mc-radius-none: 0px;
+  --mc-radius-sm: 2px;
+  --mc-size-popover: 224px;
+  --mc-size-prose: 480px;
+  --mc-size-sidebar: 256px;
+  --mc-size-top-bar: 56px;
+  --mc-space-0: 0px;
+  --mc-space-4: 4px;
+  --mc-space-8: 8px;
+  --mc-space-12: 12px;
+  --mc-space-16: 16px;
+  --mc-space-20: 20px;
+  --mc-space-24: 24px;
+  --mc-space-32: 32px;
+  --mc-space-40: 40px;
+  --mc-space-48: 48px;
+  --mc-space-64: 64px;
+  --mc-space-96: 96px;
+  --mc-status-danger: var(--mc-color-red-500);
+  --mc-status-danger-foreground: var(--mc-color-neutral-0);
+  --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-info: var(--mc-color-blue-700);
+  --mc-status-info-foreground: var(--mc-color-neutral-0);
+  --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-success: var(--mc-color-green-700);
+  --mc-status-success-foreground: var(--mc-color-neutral-0);
+  --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-warning: var(--mc-color-amber-500);
+  --mc-status-warning-foreground: var(--mc-color-neutral-1000);
+  --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-overlay: var(--mc-color-neutral-0);
+  --mc-surface-raised: var(--mc-color-neutral-50);
+  --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
+  --mc-surface-sunken: var(--mc-color-neutral-100);
+  --mc-text-default: var(--mc-color-neutral-900);
+  --mc-text-inverse: var(--mc-color-neutral-0);
+  --mc-text-link: var(--mc-color-brand-600);
+  --mc-text-muted: var(--mc-color-neutral-700);
+  --mc-text-subtle: var(--mc-color-neutral-600);
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
+  --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
+  --mc-weight-medium: 500;
+  --mc-weight-regular: 400;
+  --mc-weight-semibold: 600;
+  --mc-z-dropdown: 1000;
+  --mc-z-modal: 1300;
+  --mc-z-overlay: 1200;
+  --mc-z-sticky: 1100;
+  --mc-z-toast: 1400;
+}
+
+/* Chancery light, committed single-theme for this mockup; the built screen inherits theme x mode. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--mc-surface-sunken); color: var(--mc-text-default); }
+body { font-family: "Atkinson Hyperlegible", var(--mc-font-sans); font-size: var(--mc-font-size-sm); line-height: var(--mc-leading-normal); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring); outline-offset: var(--mc-focus-ring-offset); }
+.caps { text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); font-size: var(--mc-font-size-xs); }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--mc-text-muted); }
+svg { flex: none; }
+[hidden] { display: none !important; }
+
+.scrollable { scrollbar-color: var(--mc-color-neutral-300) var(--mc-surface-raised); scrollbar-width: thin; }
+.scrollable::-webkit-scrollbar { width: 10px; height: 10px; }
+.scrollable::-webkit-scrollbar-track { background: var(--mc-surface-raised); }
+.scrollable::-webkit-scrollbar-thumb { background: var(--mc-color-neutral-300); border-radius: var(--mc-radius-full); border: 2px solid var(--mc-surface-raised); }
+.scrollable::-webkit-scrollbar-thumb:hover { background: var(--mc-color-neutral-400); }
+
+/* ============ App shell (as The Docket renders it) ============ */
+.shell { flex: 1; display: grid; grid-template-columns: var(--mc-size-sidebar) 1fr; grid-template-rows: var(--mc-size-top-bar) 1fr; min-height: 0; background: var(--mc-chrome-surface); }
+.brandcorner { grid-column: 1; grid-row: 1; background: var(--mc-chrome-surface); display: flex; align-items: center; gap: var(--mc-space-12); padding: 0 var(--mc-space-16); }
+.brandcorner .m { font-family: var(--mc-font-blackletter); color: var(--mc-chrome-accent); font-size: var(--mc-font-size-2xl); }
+.brandcorner .wordmark { color: var(--mc-chrome-text-strong); letter-spacing: var(--mc-tracking-wordmark); font-size: var(--mc-font-size-xs); text-transform: uppercase; }
+.topbar { grid-column: 2; grid-row: 1; background: var(--mc-chrome-surface); display: flex; align-items: center; gap: var(--mc-space-12); padding: 0 var(--mc-space-16); }
+.topbar .gsearch { flex: none; width: 320px; display: flex; align-items: center; gap: var(--mc-space-8); color: var(--mc-chrome-text-muted); border: 1px solid var(--mc-chrome-border); border-radius: var(--mc-radius-md); padding: 0 var(--mc-space-12); height: var(--mc-control-sm); }
+.topbar .gsearch .kbd { margin-left: auto; font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); }
+.topbar .right { margin-left: auto; display: flex; align-items: center; gap: var(--mc-space-12); }
+.topbar .bell { color: var(--mc-chrome-text-muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--mc-radius-md); }
+.topbar .bell:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+.topbar .timerchip { display: flex; align-items: center; gap: var(--mc-space-4); color: var(--mc-chrome-text); border: 1px solid var(--mc-chrome-border); border-radius: var(--mc-radius-md); padding: var(--mc-space-4) var(--mc-space-8); font-size: var(--mc-font-size-xs); }
+.avatar { width: 30px; height: 30px; border-radius: var(--mc-radius-full); background: var(--mc-color-neutral-0); color: var(--mc-color-neutral-900); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: var(--mc-font-size-xs); }
+.sidebar { grid-column: 1; grid-row: 2; background: var(--mc-chrome-surface); display: flex; flex-direction: column; overflow-y: auto; padding: var(--mc-space-12) var(--mc-space-8) var(--mc-space-8); }
+.sidebar .grouplabel { color: var(--mc-chrome-text-muted); padding: var(--mc-space-12) var(--mc-space-12) var(--mc-space-4); }
+.sidebar .dest { display: flex; align-items: center; gap: var(--mc-space-8); color: var(--mc-chrome-text); padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-md); font-size: var(--mc-font-size-sm); width: 100%; }
+.sidebar .dest:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+.sidebar .dest[aria-current="true"] { color: var(--mc-chrome-text-strong); background: var(--mc-chrome-surface-hover); font-weight: 700; }
+.sidebar .dest[aria-current="true"] svg { color: var(--mc-chrome-accent); opacity: 1; }
+.sidebar .dest svg { width: 15px; height: 15px; opacity: 0.85; }
+.mbadge { margin-left: var(--mc-space-4); font-size: var(--mc-font-size-xs); border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); font-weight: 700; }
+.mbadge.alpha { background: var(--mc-color-blue-100); color: var(--mc-color-blue-700); }
+.mbadge.soon { background: var(--mc-color-neutral-100); color: var(--mc-color-neutral-700); }
+.sidebar .foot { margin-top: auto; border-top: 1px solid var(--mc-chrome-border); padding-top: var(--mc-space-8); display: flex; flex-direction: column; gap: var(--mc-space-4); }
+.sidebar .railcontrols { display: flex; gap: var(--mc-space-4); padding: var(--mc-space-4) var(--mc-space-8); }
+.sidebar .railcontrols button { width: 28px; height: 28px; border-radius: var(--mc-radius-md); color: var(--mc-chrome-text-muted); display: flex; align-items: center; justify-content: center; }
+.sidebar .railcontrols button:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+
+/* ============ Canvas, masthead, tabs ============ */
+.canvas { grid-column: 2; grid-row: 2; min-width: 0; display: flex; flex-direction: column; background: var(--mc-surface-default); overflow: hidden; border-top-left-radius: var(--mc-radius-lg); }
+.mockbar { flex: none; display: flex; flex-wrap: wrap; gap: var(--mc-space-8); align-items: center; padding: var(--mc-space-4) var(--mc-space-24); background: var(--mc-surface-sunken); border-bottom: 1px dashed var(--mc-border-strong); }
+.mockbar span { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.masthead { flex: none; padding: var(--mc-space-16) var(--mc-space-24) 0; display: flex; justify-content: space-between; align-items: flex-start; gap: var(--mc-space-16); }
+.masthead .eyebrow { color: var(--mc-text-subtle); }
+.masthead h1 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-2xl); line-height: var(--mc-leading-tight); margin-top: var(--mc-space-4); text-wrap: balance; }
+.masthead .meta { color: var(--mc-text-muted); margin-top: var(--mc-space-4); display: flex; gap: var(--mc-space-8); flex-wrap: wrap; }
+.masthead .meta .sep { color: var(--mc-border-strong); }
+.masthead .side { display: flex; align-items: center; gap: var(--mc-space-8); }
+.seal { border: 1px solid var(--mc-status-success-subtle-border); background: var(--mc-status-success-subtle); color: var(--mc-status-success-subtle-foreground); border-radius: var(--mc-radius-full); padding: 2px var(--mc-space-12); }
+.overflowbtn { width: 26px; height: 26px; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); color: var(--mc-text-muted); display: flex; align-items: center; justify-content: center; }
+.overflowbtn:hover { background: var(--mc-surface-raised); }
+.tabs { flex: none; display: flex; padding: 0 var(--mc-space-24); border-bottom: 1px solid var(--mc-border-default); margin-top: var(--mc-space-8); min-height: 40px; align-items: stretch; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.tabs a { color: var(--mc-text-muted); text-decoration: none; padding: var(--mc-space-8) var(--mc-space-12); border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: var(--mc-space-4); }
+.tabs a:hover { color: var(--mc-text-default); }
+.tabs a[aria-current="page"] { color: var(--mc-text-default); font-weight: 700; border-bottom-color: var(--mc-accent-strong); }
+.tabs .tb { font-size: var(--mc-font-size-xs); border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); background: var(--mc-status-info-subtle); color: var(--mc-status-info-subtle-foreground); font-weight: 700; }
+.tabs .tb.soon { background: var(--mc-color-neutral-100); color: var(--mc-color-neutral-700); }
+.tabactions { margin-left: auto; display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-4) 0 var(--mc-space-4) var(--mc-space-16); }
+.tabactions .btn { height: var(--mc-control-xs); font-size: var(--mc-font-size-xs); padding: 0 var(--mc-space-8); }
+.tabactions .iconbtn { width: 28px; height: 28px; }
+
+.btn { display: inline-flex; align-items: center; gap: var(--mc-space-8); height: var(--mc-control-sm); padding: 0 var(--mc-space-12); border-radius: var(--mc-radius-md); font-weight: 700; font-size: var(--mc-font-size-sm); white-space: nowrap; }
+.btn.primary { background: var(--mc-action-primary); color: var(--mc-action-primary-foreground); }
+.btn.primary:hover { background: var(--mc-action-primary-hover); }
+.btn.secondary { background: var(--mc-action-secondary); color: var(--mc-action-secondary-foreground); border: 1px solid var(--mc-border-default); }
+.btn.secondary:hover { background: var(--mc-action-secondary-hover); }
+.btn:disabled { background: var(--mc-action-disabled); color: var(--mc-action-disabled-foreground); cursor: not-allowed; border: none; }
+.btn.danger { background: var(--mc-action-destructive); color: var(--mc-action-destructive-foreground); }
+.btn.danger:hover { background: var(--mc-action-destructive-hover); }
+.btn svg { width: 14px; height: 14px; }
+.iconbtn { width: 30px; height: 30px; border-radius: var(--mc-radius-md); color: var(--mc-text-muted); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.iconbtn:hover:not(:disabled) { background: var(--mc-surface-raised); color: var(--mc-text-default); }
+.iconbtn:disabled { color: var(--mc-action-disabled-foreground); cursor: default; }
+.iconbtn svg { width: 15px; height: 15px; }
+.iconbtn[aria-pressed="true"] { background: transparent; color: var(--mc-accent-strong); outline: 1px solid var(--mc-accent-strong); outline-offset: -1px; }
+.iconbtn.filterclear { color: var(--mc-accent-default); outline: 1px solid var(--mc-accent-strong); outline-offset: -1px; }
+.mc-badge { display: inline-flex; align-items: center; gap: var(--mc-space-4); padding-block: var(--mc-space-4); padding-inline: var(--mc-space-8); border: var(--mc-border-width-default) solid transparent; border-radius: var(--mc-radius-full); font-family: var(--mc-font-sans); font-size: var(--mc-font-size-xs); font-weight: var(--mc-weight-semibold); line-height: var(--mc-leading-tight); white-space: nowrap; }
+.mc-badge-neutral { background-color: var(--mc-surface-sunken); color: var(--mc-text-muted); }
+
+/* Table + details panel share the body row (N22c). */
+.billbody { flex: 1; display: flex; min-height: 0; }
+.billwrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.tablewrap { flex: 1; min-width: 0; overflow: auto; scrollbar-gutter: stable; }
+table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: var(--mc-font-size-sm); }
+thead th { position: sticky; top: 0; background: var(--mc-surface-raised); z-index: 2; text-align: left; padding: 0; border-bottom: 1px solid var(--mc-border-default); white-space: nowrap; }
+thead th .hcell { display: flex; align-items: center; }
+thead th.right .hcell { justify-content: flex-end; }
+thead th .sortbtn { flex: 0 1 auto; display: flex; align-items: center; gap: var(--mc-space-4); color: var(--mc-text-subtle); font-weight: 400; text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); font-size: var(--mc-font-size-xs); padding: var(--mc-space-4) var(--mc-space-8); }
+thead th .hcell:hover { background: var(--mc-surface-selected); }
+thead th .hcell:hover .sortbtn { color: var(--mc-text-default); }
+thead th.right .sortbtn { justify-content: flex-end; }
+thead th .arrow { width: 10px; display: inline-flex; }
+thead th .filterbtn { width: 20px; height: 20px; margin-left: auto; border-radius: var(--mc-radius-sm); color: var(--mc-text-subtle); display: inline-flex; visibility: hidden; align-items: center; justify-content: center; flex: none; }
+thead th.right .filterbtn { margin-left: 0; }
+thead th:hover .filterbtn, thead th:focus-within .filterbtn, thead th .filterbtn.active { visibility: visible; }
+thead th .filterbtn.active { background: var(--mc-accent-subtle); color: var(--mc-accent-subtle-foreground); }
+thead th .hcell:hover .filterbtn:not(.active) { color: var(--mc-text-default); }
+thead th .filterbtn svg { width: 11px; height: 11px; }
+tbody td { padding: 3px var(--mc-space-8); border-bottom: 1px solid var(--mc-border-default); vertical-align: middle; height: var(--mc-control-sm); }
+tbody tr { cursor: pointer; user-select: none; }
+tbody tr:hover { background: var(--mc-surface-raised); }
+tbody tr[aria-selected="true"] { background: var(--mc-surface-selected); box-shadow: inset 2px 0 0 var(--mc-accent-strong); }
+table.zebra tbody tr:nth-child(even):not([aria-selected="true"]):not(:hover) { background: var(--mc-surface-raised); }
+tfoot td { position: sticky; bottom: 0; background: var(--mc-surface-raised); border-top: 2px solid var(--mc-border-strong); padding: var(--mc-space-4) var(--mc-space-8); font-weight: var(--mc-weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 1; }
+tfoot td .scopelbl { text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); }
+tfoot td .scopelbl.filtered { color: var(--mc-accent-default); }
+td.right, th.right { text-align: right; white-space: nowrap; }
+tr.voided td { color: var(--mc-text-subtle); }
+tr.voided td .strikable { text-decoration: line-through; text-decoration-color: var(--mc-border-strong); }
+.chip { display: inline-flex; align-items: center; gap: 4px; border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); font-size: var(--mc-font-size-xs); border: 1px solid; white-space: nowrap; }
+.chip.quiet { background: var(--mc-surface-raised); color: var(--mc-text-muted); border-color: var(--mc-border-default); }
+.chip.warn { background: var(--mc-status-warning-subtle); color: var(--mc-status-warning-subtle-foreground); border-color: var(--mc-status-warning-subtle-border); }
+.chip.success { background: var(--mc-status-success-subtle); color: var(--mc-status-success-subtle-foreground); border-color: var(--mc-status-success-subtle-border); }
+.chip.info { background: var(--mc-status-info-subtle); color: var(--mc-status-info-subtle-foreground); border-color: var(--mc-status-info-subtle-border); }
+.chip.danger { background: var(--mc-status-danger-subtle); color: var(--mc-status-danger-subtle-foreground); border-color: var(--mc-status-danger-subtle-border); }
+.duedanger { color: var(--mc-status-danger-subtle-foreground); font-weight: var(--mc-weight-semibold); }
+.cnmark { display: inline-flex; align-items: center; color: var(--mc-accent-default); margin-left: var(--mc-space-4); vertical-align: middle; cursor: default; }
+.cnmark svg { width: 13px; height: 13px; }
+.mmmark { display: inline-flex; align-items: center; color: var(--mc-text-subtle); margin-left: var(--mc-space-4); vertical-align: middle; cursor: default; }
+.mmmark svg { width: 12px; height: 12px; }
+.invnum { font-family: var(--mc-font-mono); }
+.tkavatar { width: 20px; height: 20px; border-radius: var(--mc-radius-full); background: var(--mc-surface-sunken); border: 1px solid var(--mc-border-default); display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: var(--mc-text-muted); margin-right: var(--mc-space-8); vertical-align: middle; flex: none; }
+.pcell { display: inline-flex; align-items: center; }
+
+/* ============ The details panel ============ */
+.inspector { flex: none; width: 400px; min-width: 0; border-left: 1px solid var(--mc-border-default); display: flex; flex-direction: column; min-height: 0; background: var(--mc-surface-default); }
+.inspector > header { flex: none; display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-8) var(--mc-space-12) var(--mc-space-8) var(--mc-space-16); border-bottom: 1px solid var(--mc-border-default); }
+.inspector > header .htext { flex: 1; min-width: 0; }
+.inspector > header h2 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-md); line-height: var(--mc-leading-tight); }
+.inspector > header .ref { font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); }
+.insbody { flex: 1; overflow-y: auto; padding: var(--mc-space-12) var(--mc-space-16) var(--mc-space-24); display: flex; flex-direction: column; gap: var(--mc-space-12); }
+.insacts { display: flex; gap: var(--mc-space-8); flex-wrap: wrap; }
+.insacts .btn { height: var(--mc-control-xs); font-size: var(--mc-font-size-xs); padding: 0 var(--mc-space-8); }
+.insacts .btn .mc-badge { padding-block: 0; }
+.inssec { border-top: 1px solid var(--mc-border-default); padding-top: var(--mc-space-8); display: flex; flex-direction: column; gap: var(--mc-space-8); }
+.inssec .sechead { color: var(--mc-text-subtle); display: flex; align-items: center; gap: var(--mc-space-8); }
+.inssec .sechead .secsum { margin-left: auto; color: var(--mc-text-muted); font-variant-numeric: tabular-nums; font-size: var(--mc-font-size-xs); text-transform: none; letter-spacing: normal; }
+.insfacts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--mc-space-4) var(--mc-space-12); font-size: var(--mc-font-size-sm); margin: 0; }
+.insfacts dt { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); padding-top: 2px; white-space: nowrap; }
+.insfacts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.chain { display: flex; gap: 2px; }
+.chain .st { flex: 1; text-align: center; font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); padding-bottom: 2px; border-bottom: 2px solid var(--mc-border-default); white-space: nowrap; }
+.chain .st.done { color: var(--mc-text-muted); border-bottom-color: var(--mc-accent-strong); }
+.chain .st.now { color: var(--mc-text-default); font-weight: 700; border-bottom-color: var(--mc-accent-strong); }
+.locknote { font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); display: flex; gap: var(--mc-space-8); align-items: flex-start; }
+.locknote svg { width: 13px; height: 13px; margin-top: 1px; color: var(--mc-text-subtle); }
+
+/* Line and event lists inside the panel */
+.linelist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.linelist li { display: flex; align-items: flex-start; gap: var(--mc-space-8); padding: var(--mc-space-4) 0; border-bottom: 1px dashed var(--mc-border-default); font-size: var(--mc-font-size-sm); }
+.linelist li:last-child { border-bottom: none; }
+.linelist .ldesc { flex: 1; min-width: 0; }
+.linelist .ldesc .lmeta { display: block; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.linelist .lamt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.linelist .lamt.credit { color: var(--mc-status-danger-subtle-foreground); }
+.linelist .lact { display: flex; gap: 2px; }
+.linelist .lact .iconbtn { width: 22px; height: 22px; }
+.linelist .lact .iconbtn svg { width: 12px; height: 12px; }
+.claimtotal { display: flex; justify-content: space-between; align-items: baseline; padding-top: var(--mc-space-4); border-top: 1px solid var(--mc-border-strong); font-weight: var(--mc-weight-semibold); font-variant-numeric: tabular-nums; }
+.claimtotal .cap { font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); font-weight: var(--mc-weight-regular); }
+.baltbl { width: 100%; min-width: 0; table-layout: fixed; border-collapse: collapse; font-size: var(--mc-font-size-xs); }
+.baltbl td, .baltbl th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.baltbl th { text-align: right; font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); font-weight: var(--mc-weight-regular); text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); padding: 2px var(--mc-space-4); position: static; background: none; border-bottom: 1px solid var(--mc-border-default); }
+.baltbl th:first-child { text-align: left; }
+.baltbl td { padding: 2px var(--mc-space-4); font-variant-numeric: tabular-nums; text-align: right; border-bottom: none; height: auto; }
+.baltbl td:first-child { text-align: left; font-variant-numeric: normal; }
+.baltbl tr.this td { font-weight: var(--mc-weight-semibold); }
+.hist { list-style: none; display: flex; flex-direction: column; margin: 0; padding: 0; }
+.hist li { position: relative; padding: 0 0 var(--mc-space-8) var(--mc-space-16); }
+.hist li::before { content: ""; position: absolute; left: 3px; top: 5px; width: 7px; height: 7px; border-radius: var(--mc-radius-full); background: var(--mc-surface-default); border: 2px solid var(--mc-border-strong); }
+.hist li.now::before { border-color: var(--mc-accent-strong); background: var(--mc-accent-strong); }
+.hist li::after { content: ""; position: absolute; left: 6px; top: 16px; bottom: -2px; width: 1px; background: var(--mc-border-default); }
+.hist li:last-child { padding-bottom: 0; }
+.hist li:last-child::after { display: none; }
+.hist .ev { font-size: var(--mc-font-size-sm); color: var(--mc-text-default); font-weight: var(--mc-weight-semibold); line-height: var(--mc-leading-tight); }
+.hist .ev .evamt { font-variant-numeric: tabular-nums; }
+.hist .evmeta { display: block; font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); margin-top: 1px; }
+.hist .evdetail { display: block; font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); border-left: 2px solid var(--mc-border-default); padding-left: var(--mc-space-8); margin-top: var(--mc-space-4); }
+.hist .evact { margin-top: 2px; }
+.hist .evact .seam { display: inline-flex; align-items: center; gap: var(--mc-space-4); color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.hist .evact .seam:hover:not(:disabled) { color: var(--mc-text-default); }
+.hist .evact .seam:disabled { cursor: default; }
+.hist .evact .seam svg { width: 11px; height: 11px; }
+.notefact { font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); display: flex; gap: var(--mc-space-8); align-items: flex-start; }
+.notefact svg { width: 13px; height: 13px; margin-top: 1px; color: var(--mc-text-subtle); flex: none; }
+.notefact.warn { color: var(--mc-status-warning-subtle-foreground); }
+.notefact.warn svg { color: var(--mc-status-warning-subtle-foreground); }
+.creditcard { border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); background: var(--mc-surface-raised); padding: var(--mc-space-8) var(--mc-space-12); display: flex; flex-direction: column; gap: var(--mc-space-4); font-size: var(--mc-font-size-sm); }
+.creditcard .cchead { display: flex; justify-content: space-between; align-items: baseline; font-weight: var(--mc-weight-semibold); font-variant-numeric: tabular-nums; }
+.creditcard .ccreason { color: var(--mc-text-muted); font-size: var(--mc-font-size-xs); border-left: 2px solid var(--mc-border-default); padding-left: var(--mc-space-8); }
+.creditcard .ccmeta { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+
+/* Draft workbench: the unbilled groups */
+.wipgroup { border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); overflow: hidden; }
+.wipgroup .wiphead { display: flex; align-items: center; gap: var(--mc-space-8); background: var(--mc-surface-raised); padding: var(--mc-space-4) var(--mc-space-12); font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); }
+.wipgroup .wiphead .wipsum { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: var(--mc-weight-semibold); color: var(--mc-text-default); }
+.wipgroup .wiphead .claimall { color: var(--mc-text-link); font-size: var(--mc-font-size-xs); margin-left: var(--mc-space-8); }
+.wipgroup .wiphead .claimall:hover { text-decoration: underline; }
+.wipgroup .linelist { padding: 0 var(--mc-space-12); }
+
+/* Filtered-empty and empty states */
+.emptyfiltered { padding: var(--mc-space-32) var(--mc-space-24); text-align: center; color: var(--mc-text-muted); }
+.emptyfiltered .btn { margin: var(--mc-space-12) auto 0; }
+
+/* Footer */
+.pagefoot { flex: none; display: flex; align-items: center; gap: var(--mc-space-4) var(--mc-space-12); padding: var(--mc-space-8) var(--mc-space-24); border-top: 1px solid var(--mc-border-default); color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); flex-wrap: wrap; }
+.footstat { display: inline-flex; align-items: baseline; gap: var(--mc-space-8); white-space: nowrap; cursor: default; }
+.footstat .fsv { font-size: var(--mc-font-size-md); font-weight: var(--mc-weight-semibold); color: var(--mc-text-default); font-variant-numeric: tabular-nums; }
+.footstat .fsl { font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); }
+.pagefoot .sep { color: var(--mc-border-strong); }
+.pagefoot .footspacer { flex: 1; }
+.pagefoot .filtered { color: var(--mc-accent-default); font-weight: 700; display: inline-flex; align-items: center; gap: var(--mc-space-4); }
+.pagefoot .filtered svg { width: 11px; height: 11px; fill: currentColor; }
+
+/* Menus */
+.menu { position: fixed; z-index: 1300; background: var(--mc-surface-overlay); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); box-shadow: var(--mc-elevation-2); min-width: 210px; padding: var(--mc-space-4); }
+.menu button { width: 100%; padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-sm); color: var(--mc-text-default); display: flex; align-items: center; gap: var(--mc-space-8); }
+.menu button:hover:not(:disabled) { background: var(--mc-surface-selected); }
+.menu button:disabled { color: var(--mc-action-disabled-foreground); cursor: default; }
+.menu .rule { height: 1px; background: var(--mc-border-default); margin: var(--mc-space-4) 0; }
+.menu .danger { color: var(--mc-status-danger-subtle-foreground); }
+.menu svg { width: 14px; height: 14px; color: var(--mc-text-subtle); }
+.menu .danger svg { color: var(--mc-status-danger-subtle-foreground); }
+.menu label { display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-sm); }
+.menu label:hover { background: var(--mc-surface-selected); }
+.menu .mhead { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); padding: var(--mc-space-4) var(--mc-space-12); }
+.menu .mnote { max-width: 236px; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); padding: var(--mc-space-4) var(--mc-space-12); }
+.menu .textrow { padding: var(--mc-space-4) var(--mc-space-12); }
+.menu .textrow input { width: 100%; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-sm); padding: var(--mc-space-4) var(--mc-space-8); background: var(--mc-surface-field); color: var(--mc-text-default); font: inherit; font-size: var(--mc-font-size-xs); }
+input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--mc-action-primary); }
+.menu .mbadge { margin-left: auto; }
+
+/* Dialogs: capped at the viewport, only the body scrolls. */
+.dialogwash { position: fixed; inset: 0; background: var(--mc-surface-scrim); z-index: 1350; display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh; }
+.dialog { width: min(520px, 92vw); max-height: min(86vh, 760px); display: flex; flex-direction: column; background: var(--mc-surface-default); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-lg); box-shadow: var(--mc-elevation-3); }
+.dialog > header, .dialog > footer { flex: none; }
+.dialog > .body { flex: 1 1 auto; overflow-y: auto; scrollbar-width: thin; padding: var(--mc-space-8) var(--mc-space-20) var(--mc-space-16); display: flex; flex-direction: column; gap: var(--mc-space-12); }
+.dialog header { padding: var(--mc-space-16) var(--mc-space-20) var(--mc-space-8); }
+.dialog header h2 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-lg); }
+.dialog header .subtitle { display: block; color: var(--mc-text-muted); font-size: var(--mc-font-size-xs); margin-top: 2px; }
+.dialog header .subtitle .num { font-family: var(--mc-font-mono); }
+.dialog footer { display: flex; justify-content: flex-end; align-items: center; gap: var(--mc-space-8); padding: 0 var(--mc-space-20) var(--mc-space-16); }
+.dialog footer .foothint { margin-right: auto; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); max-width: 55%; }
+.dialog .field { display: flex; flex-direction: column; gap: var(--mc-space-4); }
+.dialog .field > label { color: var(--mc-text-muted); font-size: var(--mc-font-size-xs); }
+.dialog .field input[type="text"], .dialog .field input[type="date"], .dialog .field select, .dialog .field textarea { font: inherit; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); padding: var(--mc-space-8); background: var(--mc-surface-field); color: var(--mc-text-default); }
+.dialog .field textarea { resize: vertical; min-height: 64px; }
+.dialog .fieldrow { display: flex; gap: var(--mc-space-12); }
+.dialog .fieldrow .field { flex: 1; }
+.dialog .hint { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.dialog .hint.err { color: var(--mc-status-danger-subtle-foreground); }
+.dialog .factline { display: flex; gap: var(--mc-space-8); align-items: flex-start; font-size: var(--mc-font-size-sm); color: var(--mc-text-muted); }
+.dialog .factline svg { width: 14px; height: 14px; margin-top: 2px; color: var(--mc-text-subtle); flex: none; }
+.dialog .factline.warn { color: var(--mc-status-warning-subtle-foreground); }
+.dialog .factline.warn svg { color: var(--mc-status-warning-subtle-foreground); }
+.dialog .atomic { border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); background: var(--mc-surface-raised); padding: var(--mc-space-8) var(--mc-space-12); font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); display: flex; flex-direction: column; gap: var(--mc-space-4); }
+.dialog .atomic .athead { font-weight: var(--mc-weight-semibold); color: var(--mc-text-default); font-size: var(--mc-font-size-sm); }
+
+#billing-toast { position: fixed; left: 50%; bottom: var(--mc-space-24); transform: translateX(-50%) translateY(8px); background: var(--mc-chrome-surface); color: var(--mc-chrome-text-strong); padding: var(--mc-space-8) var(--mc-space-16); border-radius: var(--mc-radius-full); box-shadow: var(--mc-elevation-3); z-index: 1400; font-size: var(--mc-font-size-sm); opacity: 0; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease; }
+#billing-toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) { #billing-toast { transition: none; } }
+</style>
+
+<div class="shell">
+  <div class="brandcorner"><span class="m">M</span><span class="wordmark">Magna Carta</span></div>
+  <div class="topbar">
+    <button class="gsearch">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+      Search…
+      <span class="kbd">Ctrl K</span>
+    </button>
+    <div class="right">
+      <button class="timerchip" title="No timer is running. Click to open Log Time, where a timer starts."><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg><span class="num">0:00</span></button>
+      <button class="bell" title="Notifications"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></button>
+      <div class="avatar">RO</div>
+    </div>
+  </div>
+
+  <nav class="sidebar scrollable" aria-label="Global">
+    <div class="grouplabel caps">Workspace</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Home<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>Notifications<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12h.01"/><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M22 13a18.15 18.15 0 0 1-20 0"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>Matters<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>Calendar<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg>Directory<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>Documents<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/></svg>Discovery<span class="mbadge soon">Soon</span></button>
+    <div class="grouplabel caps">Money</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Time<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>Billing<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>Trust<span class="mbadge soon">Soon</span></button>
+    <div class="grouplabel caps">Firm</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/></svg>Tools<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Reports<span class="mbadge soon">Soon</span></button>
+    <div class="foot">
+      <div class="railcontrols">
+        <button title="Settings"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button title="Customize the sidebar"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></svg></button>
+      </div>
+      <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>Collapse</button>
+    </div>
+  </nav>
+
+  <div class="canvas">
+    <div class="mockbar" role="group" aria-label="Mockup label">
+      <span>The Billing tab — screen design mockup over the shipped billing API. Fixtures span the lifecycle: a draft claiming work, a sent bill, a partial payment from trust, and a corrected bill.</span>
+      <span style="margin-left:auto">The Bill Register, round one</span>
+    </div>
+
+    <div class="masthead">
+      <div>
+        <span class="eyebrow caps">Matter 2026-0147 <span class="seal caps">Open</span></span>
+        <h1>Pemberton v. Hale Construction Co.</h1>
+        <div class="meta">
+          <span>Eleanor Pemberton (PEM-014)</span><span class="sep">&middot;</span>
+          <span>Construction Defect Litigation</span><span class="sep">&middot;</span>
+          <span>R. Osei</span><span class="sep">&middot;</span>
+          <span>Clark County</span>
+        </div>
+      </div>
+      <div class="side">
+        <button class="iconbtn" title="Search this whole matter: files, time and billing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></button>
+        <button class="overflowbtn iconbtn" title="Matter actions" aria-label="Matter actions"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Matter sections">
+      <a href="#">Overview <span class="tb">Alpha</span></a>
+      <a href="#">Files <span class="tb">Alpha</span></a>
+      <a href="#">Time <span class="tb">Alpha</span></a>
+      <a href="#">Costs <span class="tb">Alpha</span></a>
+      <a href="#">Fees <span class="tb">Alpha</span></a>
+      <a href="#" aria-current="page">Billing <span class="tb">Alpha</span></a>
+      <a href="#">Parties <span class="tb">Alpha</span></a>
+      <a href="#">More <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></a>
+      <div class="tabactions">
+        <button class="iconbtn filterclear" id="billing-clear-filters" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.531 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14v6a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341l.427-.473"/><path d="m16.5 3.5 5 5"/><path d="m21.5 3.5-5 5"/></svg>
+        </button>
+        <button class="iconbtn" id="billing-cols-btn" title="Choose columns">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+        </button>
+        <button class="iconbtn" id="billing-ins-toggle" title="Show or hide details" aria-pressed="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg>
+        </button>
+        <button class="btn primary" id="billing-draft-btn" title="Open a draft bill for this matter's client. Nothing is asserted to anybody until it is finalized.">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Draft Bill
+        </button>
+      </div>
+    </nav>
+    <div class="billwrap">
+      <div class="billbody">
+        <div class="tablewrap scrollable" id="billing-tablewrap">
+          <table id="billing-table" class="zebra">
+            <thead><tr id="billing-head-row"></tr></thead>
+            <tbody id="billing-rows"></tbody>
+            <tfoot><tr id="billing-tot-row"></tr></tfoot>
+          </table>
+        </div>
+        <aside class="inspector" id="billing-inspector" hidden aria-label="Invoice details"></aside>
+      </div>
+      <div class="pagefoot" id="billing-pagefoot"></div>
+    </div>
+  </div>
+</div>
+
+<div class="menu" id="billing-ctx" hidden></div>
+<div class="menu" id="billing-cols-menu" hidden></div>
+<div class="menu" id="billing-filter-menu" hidden></div>
+<div class="dialogwash" id="billing-dialog-wash" hidden></div>
+<div id="billing-toast" role="status"></div>
+
+<script>
+/* ================= Icons: Lucide path data ================= */
+const LU = {
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  funnel: '<path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"/>',
+  funnelX: '<path d="M12.531 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14v6a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341l.427-.473"/><path d="m16.5 3.5 5 5"/><path d="m21.5 3.5-5 5"/>',
+  squarePen: '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>',
+  undo2: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  send: '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  receipt: '<path d="M12 17V7"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/>',
+  fileMinus: '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M9 15h6"/>',
+  printer: '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+  download: '<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+  layers: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
+  ban: '<circle cx="12" cy="12" r="10"/><path d="M4.929 4.929 19.07 19.071"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  creditCard: '<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+  chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  externalLink: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  circleCheck: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  stamp: '<path d="M5 22h14"/><path d="M19.27 13.73A2.5 2.5 0 0 0 17.5 13h-11A2.5 2.5 0 0 0 4 15.5V17a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1.5c0-.66-.26-1.3-.73-1.77"/><path d="M14 13V8.5C14 7 15 7 15 5a3 3 0 0 0-6 0c0 2 1 2 1 3.5V13"/>',
+};
+function icon(name, cls, size) {
+  const g = LU[name];
+  if (!g) throw new Error("no such icon: " + name);
+  return '<svg' + (cls ? ' class="' + cls + '"' : "") + ' viewBox="0 0 24 24"' +
+    (size ? ' width="' + size + '" height="' + size + '"' : "") +
+    ' fill="none" stroke="currentColor" stroke-width="2"' +
+    ' stroke-linecap="round" stroke-linejoin="round">' + g + '</svg>';
+}
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/* ================= Fixtures =================
+ * Money in integer cents. Realistic construction-defect litigation for one client,
+ * spanning the whole lifecycle the billing model defines. */
+const TODAY = "2026-08-27";
+const THIS_MATTER = "2026-0147";
+const PEOPLE = {
+  ro: { n: "R. Osei", i: "RO" },
+  jw: { n: "J. Whitfield", i: "JW" },
+  md: { n: "M. Delgado", i: "MD" },
+};
+const fmt = (c) => (c < 0 ? "-" : "") + "$" + (Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fdate(iso) { if (!iso) return "—"; const [y, m, d] = iso.split("-").map(Number); return MONTHS[m - 1] + " " + d + ", " + y; }
+function fshort(iso) { if (!iso) return "—"; const [, m, d] = iso.split("-").map(Number); return MONTHS[m - 1] + " " + d; }
+function daysPast(iso) { return Math.round((new Date(TODAY) - new Date(iso)) / 86400000); }
+
+/* Unbilled work-in-progress on this matter (what no draft holds and no invoice has billed). */
+const unbilled = {
+  time: [
+    { id: "u1", date: "2026-08-20", who: "ro", hours: 1.8, rate: 34000, info: "Prepare for hearing on motion to compel" },
+    { id: "u2", date: "2026-08-21", who: "jw", hours: 2.5, rate: 21000, info: "Draft responses to second set of interrogatories" },
+    { id: "u3", date: "2026-08-22", who: "ro", hours: 0.9, rate: 34000, info: "Telephone conference with opposing counsel re site inspection" },
+    { id: "u4", date: "2026-08-25", who: "md", hours: 1.6, rate: 15000, info: "Organize produced documents; update privilege log" },
+    { id: "u5", date: "2026-08-26", who: "ro", hours: 1.5, rate: 34000, info: "Review supplemental expert disclosures" },
+  ],
+  costs: [
+    { id: "uc1", date: "2026-08-21", desc: "Mileage — site inspection, Henderson", amt: 4830, cls: "soft" },
+    { id: "uc2", date: "2026-08-25", desc: "FedEx — expert working file to Dr. Aluko", amt: 3120, cls: "hard" },
+  ],
+};
+unbilled.time.forEach((t) => { t.amt = Math.round(t.hours * t.rate); });
+
+let nextNumber = 414; // the sequence's next value, for the finalize preview
+const invoices = [
+  {
+    id: "d1", status: "draft", number: null,
+    created: "2026-08-24", createdBy: "md", period: "Aug 1 – Aug 31, 2026",
+    issued: null, due: null,
+    matters: [THIS_MATTER],
+    claims: {
+      time: [
+        { id: "t1", date: "2026-08-04", who: "ro", hours: 2.5, rate: 34000, info: "Prepare deposition outline for site superintendent" },
+        { id: "t2", date: "2026-08-05", who: "jw", hours: 1.2, rate: 21000, info: "Assemble exhibit binder for Hale deposition" },
+        { id: "t3", date: "2026-08-07", who: "ro", hours: 3.0, rate: 34000, info: "Deposition of D. Hale, day one" },
+        { id: "t4", date: "2026-08-08", who: "ro", hours: 2.2, rate: 34000, info: "Deposition of D. Hale, day two; follow-up notes" },
+        { id: "t5", date: "2026-08-11", who: "jw", hours: 2.0, rate: 21000, info: "Summarize deposition transcript, day one" },
+        { id: "t6", date: "2026-08-12", who: "jw", hours: 1.5, rate: 21000, info: "Summarize deposition transcript, day two" },
+        { id: "t7", date: "2026-08-14", who: "ro", hours: 1.5, rate: 34000, info: "Conference with structural expert re framing defects" },
+        { id: "t8", date: "2026-08-18", who: "ro", hours: 1.0, rate: 34000, info: "Draft motion to compel supplemental discovery responses" },
+        { id: "t9", date: "2026-08-19", who: "md", hours: 2.5, rate: 15000, info: "Cite-check and file motion to compel; service copies" },
+      ],
+      costs: [
+        { id: "c1", date: "2026-08-07", desc: "Court reporter — Hale deposition, day one", amt: 48500, cls: "hard" },
+        { id: "c2", date: "2026-08-08", desc: "Court reporter — Hale deposition, day two", amt: 44500, cls: "hard" },
+        { id: "c3", date: "2026-08-12", desc: "Deposition transcripts, expedited", amt: 27615, cls: "hard" },
+        { id: "c4", date: "2026-08-18", desc: "Copying — motion exhibits (417 pages)", amt: 6225, cls: "soft" },
+      ],
+      fees: [
+        { id: "f1", desc: "Expert report package — flat fee, milestone 2 of 3", amt: 250000, note: "From the fee arrangement. Contributing time locks with this bill at no separate charge." },
+      ],
+    },
+    deliveries: [], apps: [], creditNotes: [],
+  },
+  {
+    id: "i413", status: "final", number: "00413",
+    created: "2026-08-05", createdBy: "md", period: "Jul 1 – Jul 31, 2026",
+    issued: "2026-08-05", due: "2026-09-04",
+    finalized: { date: "2026-08-05", by: "ro" },
+    matters: [THIS_MATTER],
+    lines: [
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — R. Osei, 10.0 hrs @ $340.00", amt: 340000 },
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — J. Whitfield, 10.5 hrs @ $210.00", amt: 221000 },
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — R. Osei, 5.5 hrs @ $340.00 (expert conferences)", amt: 187000 },
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — M. Delgado, 8.3 hrs @ $150.00", amt: 125000 },
+      { m: THIS_MATTER, kind: "cost", desc: "Filing fee — amended complaint (advanced)", amt: 48500 },
+      { m: THIS_MATTER, kind: "cost", desc: "Service of process — three subpoenas", amt: 18463 },
+      { m: THIS_MATTER, kind: "cost", desc: "Copying — production set (soft cost)", amt: 6250 },
+    ],
+    balances: [{ m: THIS_MATTER, total: 946213, applied: 0 }],
+    apps: [],
+    deliveries: [
+      { channel: "Email", to: "e.pemberton@pembertonranch.com", date: "2026-08-06", outcome: "delivered", by: "md" },
+    ],
+    creditNotes: [],
+  },
+  {
+    id: "i378", status: "final", number: "00378",
+    created: "2026-07-02", createdBy: "md", period: "Jun 1 – Jun 30, 2026",
+    issued: "2026-07-02", due: "2026-08-01",
+    finalized: { date: "2026-07-02", by: "ro" },
+    renderShape: "per_matter_pages",
+    matters: [THIS_MATTER, "2026-0201"],
+    lines: [
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — R. Osei, 11.0 hrs @ $340.00", amt: 374000 },
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — J. Whitfield, 11.3 hrs @ $210.00", amt: 238000 },
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — M. Delgado, 9.1 hrs @ $150.00", amt: 136000 },
+      { m: THIS_MATTER, kind: "cost", desc: "Structural engineer site visit (advanced)", amt: 61240 },
+      { m: THIS_MATTER, kind: "cost", desc: "Certified copies — building permits", amt: 14760 },
+      { m: "2026-0201", kind: "fee", desc: "Professional services — R. Osei, escrow dispute, 4.9 hrs @ $340.00", amt: 165000 },
+    ],
+    balances: [
+      { m: THIS_MATTER, total: 824000, applied: 500000 },
+      { m: "2026-0201", total: 165000, applied: 0 },
+    ],
+    apps: [
+      { kind: "trust_transfer", m: THIS_MATTER, amt: 500000, date: "2026-07-18", by: "ro", note: "Earned fees from the client trust ledger, applied under the firm's trust authorization posture" },
+    ],
+    deliveries: [
+      { channel: "Email", to: "e.pemberton@pembertonranch.com", date: "2026-07-02", outcome: "failed", by: "md", note: "Address bounced" },
+      { channel: "Post", to: "1180 Saddleback Rd, Henderson NV", date: "2026-07-03", outcome: "delivered", by: "md" },
+    ],
+    creditNotes: [],
+  },
+  {
+    id: "i342", status: "final", number: "00342",
+    created: "2026-05-30", createdBy: "md", period: "May 1 – May 31, 2026",
+    issued: "2026-05-30", due: "2026-06-29",
+    finalized: { date: "2026-05-30", by: "ro" },
+    matters: [THIS_MATTER],
+    lines: [
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — R. Osei, 7.0 hrs @ $340.00", amt: 238000 },
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — J. Whitfield, 7.3 hrs @ $210.00", amt: 153000 },
+      { m: THIS_MATTER, kind: "fee", desc: "Professional services — M. Delgado, 5.6 hrs @ $150.00", amt: 84000 },
+      { m: THIS_MATTER, kind: "cost", desc: "Expert cancellation fee — scheduling expert, vacated deposition", amt: 120000 },
+      { m: THIS_MATTER, kind: "cost", desc: "Court reporter — May 12 hearing", amt: 20000 },
+    ],
+    balances: [{ m: THIS_MATTER, total: 615000, applied: 615000 }],
+    apps: [
+      { kind: "trust_transfer", m: THIS_MATTER, amt: 615000, date: "2026-06-10", by: "ro", note: "Earned fees from the client trust ledger" },
+    ],
+    deliveries: [
+      { channel: "Hand", to: "Eleanor Pemberton, at the case status meeting", date: "2026-06-02", outcome: "delivered", by: "ro" },
+    ],
+    creditNotes: [
+      {
+        date: "2026-07-22", by: "ro", amount: 120000,
+        reason: "The June 3 deposition of the scheduling expert was vacated by stipulation before the cancellation window opened, so the cancellation fee should not have been charged to the client.",
+        lines: [{ desc: "Credit — expert cancellation fee charged in error", amt: -120000, credits: "Expert cancellation fee — scheduling expert, vacated deposition" }],
+        landed: { applied: 0, credit: 120000 },
+      },
+    ],
+  },
+  {
+    id: "v1", status: "void", number: null,
+    created: "2026-04-03", createdBy: "md", period: "Mar 1 – Mar 31, 2026",
+    issued: null, due: null,
+    voided: { date: "2026-04-18", by: "ro", reason: "Combined into the April consolidated bill" },
+    matters: [THIS_MATTER],
+    claims: { time: [], costs: [], fees: [] },
+    deliveries: [], apps: [], creditNotes: [],
+  },
+];
+
+for (const inv of invoices) if (inv.claims) inv.claims.time.forEach((t) => { t.amt = Math.round(t.hours * t.rate); });
+
+const clientCredits = [
+  { id: "cc1", amount: 120000, remaining: 120000, opened: "2026-07-22", from: "00342", state: "open" },
+];
+const TRUST_AVAILABLE = 435000; // the matter leaf's available balance, read from trust
+
+/* ================= Derivations (mirroring the API's own) ================= */
+const claimSum = (arr) => arr.reduce((s, x) => s + x.amt, 0);
+function draftTotal(inv) { return claimSum(inv.claims.time) + claimSum(inv.claims.costs) + claimSum(inv.claims.fees); }
+function billTotal(inv) { return inv.status === "draft" ? draftTotal(inv) : (inv.balances || []).reduce((s, b) => s + b.total, 0); }
+function billApplied(inv) { return (inv.balances || []).reduce((s, b) => s + b.applied, 0); }
+function matterShare(inv) {
+  if (inv.status === "draft") return draftTotal(inv);
+  if (inv.status === "void") return null;
+  const b = inv.balances.find((x) => x.m === THIS_MATTER);
+  return b ? b.total : 0;
+}
+function matterUnpaid(inv) {
+  if (inv.status !== "final") return null;
+  const b = inv.balances.find((x) => x.m === THIS_MATTER);
+  return b ? b.total - b.applied : 0;
+}
+function creditedTotal(inv) { return (inv.creditNotes || []).reduce((s, n) => s + n.amount, 0); }
+function standing(inv) {
+  if (inv.status === "draft") return { key: "draft", label: "Draft", cls: "quiet" };
+  if (inv.status === "void") return { key: "void", label: "Void", cls: "danger" };
+  const t = billTotal(inv), a = billApplied(inv);
+  if (a === 0) return { key: "unpaid", label: "Unpaid", cls: "warn" };
+  if (a < t) return { key: "partial", label: "Partially paid", cls: "info" };
+  return { key: "paid", label: "Paid", cls: "success" };
+}
+function deliveredState(inv) {
+  const d = inv.deliveries || [];
+  const ok = d.filter((x) => x.outcome === "delivered");
+  if (ok.length) return { key: "delivered", text: fshort(ok[0].date), title: "First delivered " + fdate(ok[0].date) + " · " + d.length + (d.length === 1 ? " attempt" : " attempts") + ". The platform records deliveries the firm made; it does not send bills." };
+  if (d.length) return { key: "failed", text: "Failed · " + d.length, title: "Every recorded attempt failed. The platform records deliveries the firm made; it does not send bills." };
+  return { key: "none", text: inv.status === "final" ? "None recorded" : "—", title: inv.status === "final" ? "No delivery of this bill has been recorded." : "Only a finalized bill can be delivered." };
+}
+function overdue(inv) {
+  if (inv.status !== "final" || !inv.due) return 0;
+  const un = billTotal(inv) - billApplied(inv);
+  const d = daysPast(inv.due);
+  return un > 0 && d > 0 ? d : 0;
+}
+
+/* ================= Table state ================= */
+const COLS = [
+  { key: "number", label: "Invoice", on: true, filter: "text" },
+  { key: "status", label: "Status", on: true, filter: "status" },
+  { key: "issued", label: "Issued", on: true },
+  { key: "due", label: "Due", on: true },
+  { key: "share", label: "This Matter", on: true, right: true },
+  { key: "unpaid", label: "Unpaid", on: true, right: true },
+  { key: "delivered", label: "Delivered", on: true, filter: "delivered" },
+  { key: "client", label: "Client", on: false },
+  { key: "total", label: "Total (all matters)", on: false, right: true },
+  { key: "credited", label: "Credited", on: false, right: true },
+  { key: "created", label: "Created", on: false },
+];
+let sortKey = "created", sortDir = -1;
+const filters = { status: new Set(), invoice: "", delivered: null };
+let selectedId = null;
+let inspectorOn = true;
+
+function sortVal(inv, key) {
+  switch (key) {
+    case "number": return inv.number || (inv.status === "draft" ? "￿" : "￾");
+    case "status": return standing(inv).label;
+    case "issued": return inv.issued || "";
+    case "due": return inv.due || "";
+    case "share": return matterShare(inv) ?? -1;
+    case "unpaid": return matterUnpaid(inv) ?? -1;
+    case "delivered": return (inv.deliveries.find((d) => d.outcome === "delivered") || {}).date || "";
+    case "client": return "Eleanor Pemberton";
+    case "total": return billTotal(inv);
+    case "credited": return creditedTotal(inv);
+    case "created": return inv.created;
+  }
+  return "";
+}
+function filteredInvoices() {
+  return invoices.filter((inv) => {
+    if (filters.status.size && !filters.status.has(standing(inv).key)) return false;
+    if (filters.invoice) {
+      const t = (inv.number || "draft").toLowerCase();
+      if (!t.includes(filters.invoice.toLowerCase())) return false;
+    }
+    if (filters.delivered === "recorded" && deliveredState(inv).key !== "delivered") return false;
+    if (filters.delivered === "none" && deliveredState(inv).key === "delivered") return false;
+    return true;
+  });
+}
+function anyFilter() { return filters.status.size > 0 || filters.invoice !== "" || filters.delivered !== null; }
+
+/* ================= Rendering: the list ================= */
+function personCell(pid) {
+  const p = PEOPLE[pid];
+  return '<span class="pcell"><span class="tkavatar">' + p.i + '</span>' + esc(p.n) + '</span>';
+}
+function cellFor(inv, key) {
+  const st = standing(inv);
+  switch (key) {
+    case "number": {
+      let inner;
+      if (inv.number) inner = '<span class="invnum strikable">' + inv.number + '</span>';
+      else if (inv.status === "draft") inner = '<span class="muted strikable">Draft</span>';
+      else inner = '<span class="muted strikable">Draft (voided)</span>';
+      if (inv.matters.length > 1) inner += '<span class="mmmark" title="Bills ' + inv.matters.length + ' matters of this client — this matter&#39;s share is shown. The whole bill is in the details.">' + icon("layers") + '</span>';
+      return '<td>' + inner + '</td>';
+    }
+    case "status": {
+      let inner = '<span class="chip ' + st.cls + '">' + st.label + '</span>';
+      const cn = creditedTotal(inv);
+      if (cn > 0) inner += '<span class="cnmark" title="Corrected by credit note · ' + fmt(cn) + ' · ' + fdate(inv.creditNotes[0].date) + '">' + icon("fileMinus") + '</span>';
+      return '<td>' + inner + '</td>';
+    }
+    case "issued": return '<td class="nowrap">' + fdate(inv.issued) + '</td>';
+    case "due": {
+      const od = overdue(inv);
+      if (od) return '<td class="nowrap"><span class="duedanger" title="Due ' + fdate(inv.due) + ' — unpaid ' + od + ' days past due. Overdue is worked out from the date; it is never a stored flag.">' + fdate(inv.due) + ' · ' + od + 'd</span></td>';
+      return '<td class="nowrap">' + fdate(inv.due) + '</td>';
+    }
+    case "share": {
+      const v = matterShare(inv);
+      if (v === null) return '<td class="right muted">—</td>';
+      if (inv.status === "draft") return '<td class="right num" title="Computed from the draft&#39;s lines. A draft has no stored total — its figure moves as work is claimed and released.">' + fmt(v) + '</td>';
+      return '<td class="right num">' + fmt(v) + '</td>';
+    }
+    case "unpaid": {
+      const v = matterUnpaid(inv);
+      if (v === null) return '<td class="right muted" title="' + (inv.status === "draft" ? "A draft owes nothing yet — balances are created at finalization." : "A voided draft never owed anything.") + '">—</td>';
+      return '<td class="right num">' + fmt(v) + '</td>';
+    }
+    case "delivered": {
+      const d = deliveredState(inv);
+      const cls = d.key === "none" && inv.status === "final" ? ' class="muted nowrap"' : ' class="nowrap"';
+      return '<td' + cls + '><span title="' + esc(d.title) + '">' + esc(d.text) + '</span></td>';
+    }
+    case "client": return '<td>Eleanor Pemberton</td>';
+    case "total": return '<td class="right num">' + (inv.status === "void" ? '<span class="muted">—</span>' : fmt(billTotal(inv))) + '</td>';
+    case "credited": { const c = creditedTotal(inv); return '<td class="right num">' + (c ? fmt(c) : '<span class="muted">—</span>') + '</td>'; }
+    case "created": return '<td class="nowrap">' + fdate(inv.created) + '</td>';
+  }
+  return "<td></td>";
+}
+function renderHead() {
+  const tr = $("billing-head-row");
+  tr.innerHTML = COLS.filter((c) => c.on).map((c) => {
+    const arrow = sortKey === c.key ? (sortDir === 1 ? "▲" : "▼") : "";
+    const fActive = (c.filter === "status" && filters.status.size) || (c.filter === "text" && filters.invoice) || (c.filter === "delivered" && filters.delivered !== null);
+    const funnel = c.filter ? '<button class="filterbtn' + (fActive ? " active" : "") + '" data-filter="' + c.key + '" title="Filter by ' + esc(c.label) + '">' + icon("funnel") + '</button>' : "";
+    return '<th' + (c.right ? ' class="right"' : "") + '><div class="hcell">' +
+      '<button class="sortbtn" data-sort="' + c.key + '">' + esc(c.label) + '<span class="arrow">' + arrow + '</span></button>' + funnel + '</div></th>';
+  }).join("");
+  tr.querySelectorAll("[data-sort]").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.sort;
+    if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; }
+    renderAll();
+  }));
+  tr.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); openFilterMenu(b, b.dataset.filter); }));
+}
+function renderRows() {
+  const list = filteredInvoices().slice().sort((a, b) => {
+    const va = sortVal(a, sortKey), vb = sortVal(b, sortKey);
+    return (va < vb ? -1 : va > vb ? 1 : 0) * sortDir;
+  });
+  const tb = $("billing-rows");
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="' + COLS.filter((c) => c.on).length + '"><div class="emptyfiltered">No invoices match the filters in play.<br><button class="btn secondary" id="billing-empty-clear">' + icon("funnelX") + 'Clear filters</button></div></td></tr>';
+    const b = $("billing-empty-clear");
+    if (b) b.addEventListener("click", clearFilters);
+    return;
+  }
+  tb.innerHTML = list.map((inv) => {
+    const cells = COLS.filter((c) => c.on).map((c) => cellFor(inv, c.key)).join("");
+    return '<tr data-id="' + inv.id + '"' + (inv.id === selectedId ? ' aria-selected="true"' : "") + (inv.status === "void" ? ' class="voided"' : "") + '>' + cells + '</tr>';
+  }).join("");
+  tb.querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.addEventListener("click", () => { selectedId = selectedId === tr.dataset.id ? null : tr.dataset.id; renderAll(); });
+    tr.addEventListener("contextmenu", (e) => { e.preventDefault(); selectedId = tr.dataset.id; renderAll(); openCtx(e, tr.dataset.id); });
+  });
+}
+function renderTotals() {
+  const on = COLS.filter((c) => c.on);
+  const list = filteredInvoices().filter((i) => i.status !== "void");
+  const sums = {
+    share: list.reduce((s, i) => s + (matterShare(i) || 0), 0),
+    unpaid: list.reduce((s, i) => s + (matterUnpaid(i) || 0), 0),
+    total: list.reduce((s, i) => s + billTotal(i), 0),
+    credited: list.reduce((s, i) => s + creditedTotal(i), 0),
+  };
+  const lbl = anyFilter() ? '<span class="scopelbl filtered">In view:</span>' : '<span class="scopelbl">Matter:</span>';
+  $("billing-tot-row").innerHTML = on.map((c, idx) => {
+    if (idx === 0) return '<td>' + lbl + '</td>';
+    if (c.key in sums) return '<td class="right num" title="' + (anyFilter() ? "Sums the rows in view." : "Sums every invoice on this matter.") + ' Voided drafts never count.">' + fmt(sums[c.key]) + '</td>';
+    return "<td></td>";
+  }).join("");
+}
+function renderFooter() {
+  const unbilledSum = claimSum(unbilled.time) + claimSum(unbilled.costs);
+  const onDrafts = invoices.filter((i) => i.status === "draft").reduce((s, i) => s + draftTotal(i), 0);
+  const outstanding = invoices.filter((i) => i.status === "final").reduce((s, i) => s + (billTotal(i) - billApplied(i)), 0);
+  const list = filteredInvoices();
+  const nDraft = invoices.filter((i) => i.status === "draft").length;
+  const nFinal = invoices.filter((i) => i.status === "final").length;
+  let left = '<span class="num">' + list.length + ' of ' + invoices.length + ' invoices · ' + nFinal + ' finalized · ' + nDraft + ' draft</span>';
+  if (anyFilter()) left += '<span class="filtered">' + icon("funnel") + 'Filtered</span>';
+  $("billing-pagefoot").innerHTML = left +
+    '<span class="footspacer"></span>' +
+    '<span class="footstat" title="Time and costs no draft holds and no invoice has billed: ' + unbilled.time.length + ' time entries · ' + fmt(claimSum(unbilled.time)) + ', ' + unbilled.costs.length + ' costs · ' + fmt(claimSum(unbilled.costs)) + '."><span class="fsv">' + fmt(unbilledSum) + '</span><span class="fsl">unbilled</span></span>' +
+    '<span class="sep">·</span>' +
+    '<span class="footstat" title="Claimed by open drafts — computed from their lines."><span class="fsv">' + fmt(onDrafts) + '</span><span class="fsl">on drafts</span></span>' +
+    '<span class="sep">·</span>' +
+    '<span class="footstat" title="Still owed across this client&#39;s finalized invoices, all matters. Worked out from the per-matter balances, never stored."><span class="fsv">' + fmt(outstanding) + '</span><span class="fsl">outstanding</span></span>';
+}
+
+/* ================= The details panel ================= */
+function chainHtml(inv) {
+  const st = standing(inv);
+  const steps = ["Draft", "Finalized", "Paid"];
+  let idx = inv.status === "draft" || inv.status === "void" ? 0 : st.key === "paid" ? 2 : 1;
+  return '<div class="chain">' + steps.map((s, i) =>
+    '<span class="st' + (i < idx ? " done" : i === idx ? " now" : "") + '">' + s + '</span>').join("") + '</div>';
+}
+function sec(head, body, sum) {
+  return '<div class="inssec"><div class="sechead caps">' + head + (sum ? '<span class="secsum">' + sum + '</span>' : "") + '</div>' + body + '</div>';
+}
+function appLabel(kind) {
+  return { trust_transfer: "Earned fees applied from trust", payment: "Payment received", credit_note: "Credit note applied", client_credit: "Client credit applied", write_off: "Balance written off", reversal: "Application reversed" }[kind] || kind;
+}
+function renderInspector() {
+  const ins = $("billing-inspector");
+  const inv = invoices.find((i) => i.id === selectedId);
+  if (!inv || !inspectorOn) { ins.hidden = true; return; }
+  ins.hidden = false;
+  const st = standing(inv);
+  const isDraft = inv.status === "draft";
+  const header =
+    '<header>' +
+    '<div class="htext"><h2>' + (inv.number ? "Invoice " + inv.number : isDraft ? "Draft bill" : "Voided draft") + '</h2>' +
+    '<span class="ref">' + esc(inv.period) + ' · Eleanor Pemberton</span></div>' +
+    '<button class="iconbtn" id="billing-ins-close" title="Close details">' + icon("close") + '</button>' +
+    '</header>';
+  let body = "";
+
+  /* Actions */
+  const acts = [];
+  if (isDraft) {
+    acts.push('<button class="btn primary" data-act="finalize">' + icon("stamp") + 'Finalize…</button>');
+    acts.push('<button class="btn secondary" data-act="void">' + icon("ban") + 'Void Draft…</button>');
+  } else if (inv.status === "final") {
+    acts.push('<button class="btn secondary" data-act="delivery">' + icon("send") + 'Record Delivery…</button>');
+    const un = billTotal(inv) - billApplied(inv);
+    if (un > 0) {
+      acts.push('<button class="btn secondary" data-act="trust">' + icon("shield") + 'Apply Trust Funds…</button>');
+      acts.push('<button class="btn secondary" data-act="payment" disabled title="Waits on payments — the manually recorded receipt (a cheque, wire, cash or terminal payment) is its first slice, owner flag K1. No payment kind can be recorded today.">' + icon("receipt") + 'Record Payment <span class="mc-badge mc-badge-neutral">Soon</span></button>');
+      const openCredit = clientCredits.find((c) => c.state === "open" && c.remaining > 0);
+      if (openCredit) acts.push('<button class="btn secondary" data-act="applycredit" title="Set the client&#39;s open credit (' + fmt(openCredit.remaining) + ', from the correction of 00342) against this bill. No money moves — the debt and the credit cancel.">' + icon("creditCard") + 'Apply Client Credit</button>');
+      acts.push('<button class="btn secondary" data-act="writeoff">' + icon("fileMinus") + 'Write Off…</button>');
+    }
+    acts.push('<button class="btn secondary" data-act="creditnote">' + icon("undo2") + 'Credit Note…</button>');
+    acts.push('<button class="btn secondary" data-act="print" disabled title="Waits on the invoice artifact: the render model is served, but no renderer consumes it and the Location letterhead snapshot is not built.">' + icon("printer") + 'Print / PDF <span class="mc-badge mc-badge-neutral">Soon</span></button>');
+    acts.push('<button class="btn secondary" data-act="ledes" disabled title="Waits on LEDES export — the per-matter e-billing flag shipped; guideline validation and the export path are not started.">' + icon("download") + 'Export LEDES <span class="mc-badge mc-badge-neutral">Soon</span></button>');
+  }
+  if (acts.length) body += '<div class="insacts">' + acts.join("") + '</div>';
+
+  /* Chain + lock note */
+  let lock = "";
+  if (inv.status === "final") lock = '<div class="locknote">' + icon("lock") + '<span>This bill is an evidentiary record. It is never edited or un-finalized — a correction is a credit note recorded beside it, and money already collected comes back as a client credit.</span></div>';
+  else if (isDraft) lock = '<div class="locknote">' + icon("info") + '<span>A draft is a working document. Nothing has been asserted to anybody, no number is drawn, and no work is locked until it is finalized.</span></div>';
+  else lock = '<div class="locknote">' + icon("ban") + '<span>Voided ' + fdate(inv.voided.date) + ' by ' + PEOPLE[inv.voided.by].n + ' — "' + esc(inv.voided.reason) + '". Its work returned to unbilled. Only a draft can be voided.</span></div>';
+  body += '<div>' + chainHtml(inv) + '</div>' + lock;
+
+  /* Identity facts */
+  let facts = '<dl class="insfacts">';
+  facts += '<dt>Status</dt><dd><span class="chip ' + st.cls + '">' + st.label + '</span></dd>';
+  facts += '<dt>Client</dt><dd>Eleanor Pemberton (PEM-014)</dd>';
+  facts += '<dt>Matters</dt><dd>' + inv.matters.map((m) => m === THIS_MATTER ? m + " (this matter)" : m + " — Pemberton Escrow Dispute").join("<br>") + '</dd>';
+  if (inv.issued) facts += '<dt>Issued</dt><dd>' + fdate(inv.issued) + '</dd>';
+  if (inv.due) { const od = overdue(inv); facts += '<dt>Due</dt><dd>' + (od ? '<span class="duedanger">' + fdate(inv.due) + ' · ' + od + ' days past due</span>' : fdate(inv.due)) + '</dd>'; }
+  if (inv.finalized) facts += '<dt>Finalized</dt><dd>' + fdate(inv.finalized.date) + ' by ' + personCell(inv.finalized.by) + '</dd>';
+  facts += '<dt>Created</dt><dd>' + fdate(inv.created) + ' by ' + personCell(inv.createdBy) + '</dd>';
+  if (inv.renderShape === "per_matter_pages") facts += '<dt>Presentation</dt><dd>One page per matter, plus a summary (snapshot at finalization)</dd>';
+  facts += '</dl>';
+  body += facts;
+
+  if (isDraft) body += draftSections(inv);
+  else if (inv.status === "final") body += finalSections(inv);
+
+  ins.innerHTML = header + '<div class="insbody scrollable">' + body + '</div>';
+  $("billing-ins-close").addEventListener("click", () => { selectedId = null; renderAll(); });
+  wireInspector(inv);
+}
+
+function draftSections(inv) {
+  let b = "";
+  const groups = [
+    { key: "time", label: "Time claimed", items: inv.claims.time, render: (t) => ({ desc: esc(t.info), meta: fshort(t.date) + " · " + PEOPLE[t.who].n + " · " + t.hours.toFixed(1) + " h × " + fmt(t.rate), amt: t.amt }) },
+    { key: "costs", label: "Costs claimed", items: inv.claims.costs, render: (c) => ({ desc: esc(c.desc), meta: fshort(c.date) + " · " + (c.cls === "hard" ? "advanced (hard)" : "in-house (soft)"), amt: c.amt }) },
+    { key: "fees", label: "Fees", items: inv.claims.fees, render: (f) => ({ desc: esc(f.desc), meta: f.note ? esc(f.note) : "", amt: f.amt }) },
+  ];
+  let claimed = "";
+  for (const g of groups) {
+    const rows = g.items.map((it) => {
+      const r = g.render(it);
+      return '<li data-claim="' + g.key + ':' + it.id + '"><span class="ldesc">' + r.desc + (r.meta ? '<span class="lmeta">' + r.meta + '</span>' : "") + '</span><span class="lamt num">' + fmt(r.amt) + '</span>' +
+        '<span class="lact"><button class="iconbtn" data-edit="' + g.key + ':' + it.id + '" title="Edit this LINE — what the client is told. The underlying entry stays the timekeeper&#39;s own record.">' + icon("squarePen") + '</button>' +
+        (g.key !== "fees" ? '<button class="iconbtn" data-release="' + g.key + ':' + it.id + '" title="Release this claim: the entry returns to unbilled work and the line comes off the draft. The released claim stays on record.">' + icon("close") + '</button>' : "") + '</span></li>';
+    }).join("");
+    claimed += '<div class="wipgroup"><div class="wiphead caps">' + g.label + '<span class="wipsum num">' + (g.items.length ? g.items.length + " · " + fmt(claimSum(g.items)) : "none") + '</span></div>' + (rows ? '<ul class="linelist">' + rows + '</ul>' : "") + '</div>';
+  }
+  claimed += '<div class="claimtotal"><span class="cap">Draft total — computed from its lines; balances are created at finalization</span><span class="num">' + fmt(draftTotal(inv)) + '</span></div>';
+  b += sec("On this draft", claimed);
+
+  const ub = [];
+  if (unbilled.time.length) {
+    const rows = unbilled.time.map((t) =>
+      '<li><span class="ldesc">' + esc(t.info) + '<span class="lmeta">' + fshort(t.date) + ' · ' + PEOPLE[t.who].n + ' · ' + t.hours.toFixed(1) + ' h × ' + fmt(t.rate) + '</span></span><span class="lamt num">' + fmt(t.amt) + '</span>' +
+      '<span class="lact"><button class="iconbtn" data-claimone="time:' + t.id + '" title="Claim this entry onto the draft. An entry another draft holds is refused by name — the claim, not a read, is the guarantee.">' + icon("plus") + '</button></span></li>').join("");
+    ub.push('<div class="wipgroup"><div class="wiphead caps">Unbilled time<button class="claimall" data-claimall="time">Claim all</button><span class="wipsum num">' + unbilled.time.length + ' · ' + fmt(claimSum(unbilled.time)) + '</span></div><ul class="linelist">' + rows + '</ul></div>');
+  }
+  if (unbilled.costs.length) {
+    const rows = unbilled.costs.map((c) =>
+      '<li><span class="ldesc">' + esc(c.desc) + '<span class="lmeta">' + fshort(c.date) + ' · ' + (c.cls === "hard" ? "advanced (hard)" : "in-house (soft)") + '</span></span><span class="lamt num">' + fmt(c.amt) + '</span>' +
+      '<span class="lact"><button class="iconbtn" data-claimone="costs:' + c.id + '" title="Claim this cost onto the draft.">' + icon("plus") + '</button></span></li>').join("");
+    ub.push('<div class="wipgroup"><div class="wiphead caps">Unbilled costs<button class="claimall" data-claimall="costs">Claim all</button><span class="wipsum num">' + unbilled.costs.length + ' · ' + fmt(claimSum(unbilled.costs)) + '</span></div><ul class="linelist">' + rows + '</ul></div>');
+  }
+  if (!ub.length) ub.push('<div class="notefact">' + icon("circleCheck") + '<span>Nothing unbilled remains on this matter — every entry is claimed or billed.</span></div>');
+  b += sec("Unbilled on this matter", ub.join(""));
+  return b;
+}
+
+function finalSections(inv) {
+  let b = "";
+  /* Lines */
+  const byMatter = inv.matters.length > 1;
+  const lines = inv.lines.map((l) =>
+    '<li><span class="ldesc">' + esc(l.desc) + (byMatter ? '<span class="lmeta">' + l.m + (l.m === THIS_MATTER ? " (this matter)" : "") + '</span>' : "") + '</span><span class="lamt num">' + fmt(l.amt) + '</span></li>').join("");
+  b += sec("Lines", '<ul class="linelist">' + lines + '</ul>', inv.lines.length + " · " + fmt(billTotal(inv)));
+
+  /* Balance per matter */
+  const bal = '<table class="baltbl"><tr><th>Matter</th><th>Total</th><th>Applied</th><th>Unpaid</th></tr>' +
+    inv.balances.map((x) => '<tr' + (x.m === THIS_MATTER ? ' class="this"' : "") + '><td>' + x.m + '</td><td class="num">' + fmt(x.total) + '</td><td class="num">' + fmt(x.applied) + '</td><td class="num">' + fmt(x.total - x.applied) + '</td></tr>').join("") +
+    (inv.balances.length > 1 ? '<tr><td class="muted">Whole bill</td><td class="num">' + fmt(billTotal(inv)) + '</td><td class="num">' + fmt(billApplied(inv)) + '</td><td class="num">' + fmt(billTotal(inv) - billApplied(inv)) + '</td></tr>' : "") + '</table>' +
+    '<div class="notefact">' + icon("info") + '<span>Unpaid is worked out from the per-matter balances, never stored, so it can never drift from what was applied.</span></div>';
+  b += sec("Balance", bal);
+
+  /* Applications */
+  let apps;
+  if (inv.apps.length) {
+    apps = '<ul class="hist">' + inv.apps.map((a) => {
+      const rev = a.kind === "trust_transfer"
+        ? '<span class="evact"><button class="seam" disabled title="A transfer out of a client&#39;s trust ledger cannot be unwound here — putting that money back is a trust movement, raised and authorized in the trust ledger.">' + icon("undo2") + 'Reverse</button></span>'
+        : '<span class="evact"><button class="seam" data-reverse="1" title="Unwind value recorded against the wrong bill or matter, with the reason. The original stays; the reversal is a new record linked to it.">' + icon("undo2") + 'Reverse…</button></span>';
+      return '<li class="now"><span class="ev">' + appLabel(a.kind) + ' — <span class="evamt">' + fmt(a.amt) + '</span></span>' +
+        '<span class="evmeta">' + fdate(a.date) + ' · ' + a.m + ' · applied by ' + PEOPLE[a.by].n + '</span>' +
+        (a.note ? '<span class="evdetail">' + esc(a.note) + '</span>' : "") + rev + '</li>';
+    }).join("") + '</ul>';
+  } else {
+    apps = '<div class="notefact">' + icon("info") + '<span>Nothing has been applied to this bill.</span></div>';
+  }
+  b += sec("Applied to this bill", apps, inv.apps.length ? fmt(billApplied(inv)) : "");
+
+  /* Delivery */
+  let del;
+  if (inv.deliveries.length) {
+    del = '<ul class="hist">' + inv.deliveries.map((d) =>
+      '<li' + (d.outcome === "delivered" ? ' class="now"' : "") + '><span class="ev">' + esc(d.channel) + ' — ' + (d.outcome === "delivered" ? "delivered" : "failed") + '</span>' +
+      '<span class="evmeta">' + fdate(d.date) + ' · to ' + esc(d.to) + ' · recorded by ' + PEOPLE[d.by].n + '</span>' +
+      (d.note ? '<span class="evdetail">' + esc(d.note) + '</span>' : "") + '</li>').join("") + '</ul>';
+  } else {
+    del = '<div class="notefact warn">' + icon("info") + '<span>No delivery of this bill has been recorded. The platform records deliveries the firm made — it sends nothing itself.</span></div>';
+  }
+  b += sec("Delivery", del);
+
+  /* Corrections */
+  if (inv.creditNotes.length) {
+    const notes = inv.creditNotes.map((n) => {
+      const landed = n.landed.credit > 0
+        ? (n.landed.applied > 0
+          ? fmt(n.landed.applied) + " came off what was owed; " + fmt(n.landed.credit) + " became a client credit the firm owes back."
+          : "The bill was already paid in full, so the whole " + fmt(n.landed.credit) + " became a client credit the firm owes back — open until discharged.")
+        : "The full amount came off what the client owed.";
+      return '<div class="creditcard"><div class="cchead"><span>Credit note · ' + fdate(n.date) + '</span><span>' + fmt(n.amount) + '</span></div>' +
+        '<div class="ccreason">' + esc(n.reason) + '</div>' +
+        n.lines.map((l) => '<div class="ccmeta">' + esc(l.desc) + (l.credits ? ' — credits "' + esc(l.credits) + '"' : "") + '</div>').join("") +
+        '<div class="ccmeta">Issued by ' + PEOPLE[n.by].n + ' · ' + landed + '</div>' +
+        '<div class="ccmeta">Credit notes carry no number yet — the numbering question is an open owner decision.</div></div>';
+    }).join("");
+    b += sec("Corrections", notes + '<div class="notefact">' + icon("lock") + '<span>A credit note stands beside the bill forever. The bill keeps its number, its lines and its wording; only what is owed on it moved.</span></div>');
+  }
+  const cc = clientCredits.find((c) => c.from === inv.number);
+  if (cc) {
+    b += sec("Client credit opened by this correction",
+      '<div class="creditcard"><div class="cchead"><span>Open credit — Eleanor Pemberton</span><span>' + fmt(cc.remaining) + '</span></div>' +
+      '<div class="ccmeta">Opened ' + fdate(cc.opened) + ' by the credit note against ' + cc.from + '. The firm holds money it has said is not its own; the matter will not close while this is open.</div>' +
+      '<div class="ccmeta">Three exits: set it against a later bill of this client (the platform performs this), refund it from operating, or return it to the client&#39;s trust ledger (both recorded here, moved through your usual route).</div></div>');
+  }
+  return b;
+}
+
+function wireInspector(inv) {
+  const ins = $("billing-inspector");
+  ins.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => {
+    const a = b.dataset.act;
+    if (a === "finalize") openFinalize(inv);
+    else if (a === "void") openVoid(inv);
+    else if (a === "delivery") openDelivery(inv);
+    else if (a === "trust") openTrust(inv);
+    else if (a === "creditnote") openCreditNote(inv);
+    else if (a === "writeoff") openWriteOff(inv);
+    else if (a === "applycredit") applyClientCredit(inv);
+  }));
+  ins.querySelectorAll("[data-release]").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const [g, id] = b.dataset.release.split(":");
+    const arr = inv.claims[g];
+    const i = arr.findIndex((x) => x.id === id);
+    if (i >= 0) { unbilled[g === "time" ? "time" : "costs"].push(arr[i]); arr.splice(i, 1); toast("Claim released — the entry returned to unbilled work."); renderAll(); }
+  }));
+  ins.querySelectorAll("[data-claimone]").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const [g, id] = b.dataset.claimone.split(":");
+    const src = unbilled[g];
+    const i = src.findIndex((x) => x.id === id);
+    if (i >= 0) { inv.claims[g].push(src[i]); src.splice(i, 1); toast("Claimed onto the draft."); renderAll(); }
+  }));
+  ins.querySelectorAll("[data-claimall]").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const g = b.dataset.claimall;
+    inv.claims[g].push(...unbilled[g]);
+    unbilled[g] = [];
+    toast("Claimed all unbilled " + (g === "time" ? "time" : "costs") + " onto the draft.");
+    renderAll();
+  }));
+  ins.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const [g, id] = b.dataset.edit.split(":");
+    openLineEdit(inv, g, id);
+  }));
+  ins.querySelectorAll("[data-reverse]").forEach((b) => b.addEventListener("click", () => {
+    toast("Reversal takes a reason and posts a linked record — mocked no further here.");
+  }));
+}
+
+/* ================= Menus ================= */
+function placeMenu(menu, x, y) {
+  menu.hidden = false;
+  menu.style.left = "0px"; menu.style.top = "0px";
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
+  menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
+}
+function closeMenus() { ["billing-ctx", "billing-cols-menu", "billing-filter-menu"].forEach((id) => { $(id).hidden = true; }); }
+document.addEventListener("click", (e) => { if (!e.target.closest(".menu")) closeMenus(); });
+document.addEventListener("contextmenu", (e) => { if (!e.target.closest("tr[data-id]") && !e.target.closest(".menu")) closeMenus(); });
+
+function openCtx(e, id) {
+  const inv = invoices.find((i) => i.id === id);
+  const m = $("billing-ctx");
+  const items = [];
+  items.push('<button data-c="open">' + icon("chevronRight") + 'Open details</button>');
+  if (inv.number) items.push('<button data-c="copy">' + icon("copy") + 'Copy invoice number</button>');
+  if (inv.status === "final") {
+    items.push('<div class="rule"></div>');
+    items.push('<button data-c="delivery">' + icon("send") + 'Record Delivery…</button>');
+    if (billTotal(inv) - billApplied(inv) > 0) items.push('<button data-c="trust">' + icon("shield") + 'Apply Trust Funds…</button>');
+    items.push('<button disabled title="Waits on payments — the manually recorded receipt is its first slice, owner flag K1.">' + icon("receipt") + 'Record Payment<span class="mbadge soon">Soon</span></button>');
+    items.push('<button data-c="creditnote">' + icon("undo2") + 'Credit Note…</button>');
+    items.push('<div class="rule"></div>');
+    items.push('<button disabled title="Waits on the invoice artifact — the render model is served but no renderer consumes it.">' + icon("printer") + 'Print / PDF<span class="mbadge soon">Soon</span></button>');
+  }
+  if (inv.status === "draft") {
+    items.push('<div class="rule"></div>');
+    items.push('<button data-c="finalize">' + icon("stamp") + 'Finalize…</button>');
+    items.push('<button data-c="void" class="danger">' + icon("ban") + 'Void Draft…</button>');
+  }
+  m.innerHTML = items.join("");
+  m.querySelectorAll("[data-c]").forEach((b) => b.addEventListener("click", () => {
+    closeMenus();
+    const c = b.dataset.c;
+    if (c === "open") { selectedId = id; inspectorOn = true; $("billing-ins-toggle").setAttribute("aria-pressed", "true"); renderAll(); }
+    else if (c === "copy") { toast("Copied " + inv.number); }
+    else if (c === "delivery") openDelivery(inv);
+    else if (c === "trust") openTrust(inv);
+    else if (c === "creditnote") openCreditNote(inv);
+    else if (c === "finalize") openFinalize(inv);
+    else if (c === "void") openVoid(inv);
+  }));
+  placeMenu(m, e.clientX, e.clientY);
+}
+
+$("billing-cols-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const m = $("billing-cols-menu");
+  if (!m.hidden) { m.hidden = true; return; }
+  m.innerHTML = '<div class="mhead">Columns</div>' + COLS.map((c, i) =>
+    '<label><input type="checkbox" data-col="' + i + '"' + (c.on ? " checked" : "") + (i === 0 ? " disabled" : "") + '>' + esc(c.label) + '</label>').join("");
+  m.querySelectorAll("[data-col]").forEach((cb) => cb.addEventListener("change", () => {
+    COLS[Number(cb.dataset.col)].on = cb.checked;
+    renderAll();
+  }));
+  const r = e.currentTarget.getBoundingClientRect();
+  placeMenu(m, r.right - 230, r.bottom + 4);
+});
+
+function openFilterMenu(btn, colKey) {
+  closeMenus();
+  const m = $("billing-filter-menu");
+  const col = COLS.find((c) => c.key === colKey);
+  if (col.filter === "status") {
+    const opts = [["draft", "Draft"], ["unpaid", "Unpaid"], ["partial", "Partially paid"], ["paid", "Paid"], ["void", "Void"]];
+    m.innerHTML = '<div class="mhead">Status</div>' + opts.map(([k, l]) =>
+      '<label><input type="checkbox" data-f="' + k + '"' + (filters.status.has(k) ? " checked" : "") + '>' + l + '</label>').join("");
+    m.querySelectorAll("[data-f]").forEach((cb) => cb.addEventListener("change", () => {
+      cb.checked ? filters.status.add(cb.dataset.f) : filters.status.delete(cb.dataset.f);
+      renderAll();
+    }));
+  } else if (col.filter === "delivered") {
+    const opts = [[null, "All"], ["recorded", "Delivery recorded"], ["none", "No delivery recorded"]];
+    m.innerHTML = '<div class="mhead">Delivered</div>' + opts.map(([k, l]) =>
+      '<button data-f="' + (k ?? "all") + '">' + (filters.delivered === k ? icon("check") : '<span style="width:14px"></span>') + l + '</button>').join("");
+    m.querySelectorAll("[data-f]").forEach((b) => b.addEventListener("click", () => {
+      filters.delivered = b.dataset.f === "all" ? null : b.dataset.f;
+      closeMenus(); renderAll();
+    }));
+  } else {
+    m.innerHTML = '<div class="mhead">Invoice number</div><div class="textrow"><input type="text" id="billing-fnum" placeholder="e.g. 00378" value="' + esc(filters.invoice) + '"></div><div class="mnote">Matches the drawn number; type "draft" for drafts.</div>';
+    const inp = m.querySelector("#billing-fnum");
+    inp.addEventListener("input", () => { filters.invoice = inp.value.trim(); renderAll(); });
+    setTimeout(() => inp.focus(), 0);
+  }
+  const r = btn.getBoundingClientRect();
+  placeMenu(m, r.left - 40, r.bottom + 4);
+}
+function clearFilters() { filters.status.clear(); filters.invoice = ""; filters.delivered = null; renderAll(); }
+$("billing-clear-filters").addEventListener("click", clearFilters);
+$("billing-clear-filters").title = "Clear every filter in play";
+$("billing-ins-toggle").addEventListener("click", () => {
+  inspectorOn = !inspectorOn;
+  $("billing-ins-toggle").setAttribute("aria-pressed", String(inspectorOn));
+  renderAll();
+});
+
+/* ================= Dialogs ================= */
+const wash = $("billing-dialog-wash");
+function openDialog(html, wire) {
+  wash.innerHTML = html;
+  wash.hidden = false;
+  wire(wash.querySelector(".dialog"));
+}
+function closeDialog() { wash.hidden = true; wash.innerHTML = ""; }
+wash.addEventListener("click", (e) => { if (e.target === wash) closeDialog(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDialog(); closeMenus(); } });
+
+$("billing-draft-btn").addEventListener("click", () => {
+  const hasDraft = invoices.some((i) => i.status === "draft");
+  openDialog(
+    '<div class="dialog"><header><h2>Draft a bill</h2><span class="subtitle">Eleanor Pemberton · Matter 2026-0147</span></header>' +
+    '<div class="body">' +
+    '<div class="factline">' + icon("info") + '<span>An invoice belongs to one client and may bill several of that client&#39;s matters. This matter&#39;s client is resolved from its own party record — it is shown, never chosen.</span></div>' +
+    '<div class="fieldrow"><div class="field"><label>Issue date</label><input type="date" value="2026-08-27"></div>' +
+    '<div class="field"><label>Due date</label><input type="date" value="2026-09-26"></div></div>' +
+    '<div class="field"><label>Billing period</label><input type="text" value="Aug 1 – Aug 31, 2026"></div>' +
+    (hasDraft ? '<div class="hint">A draft for this period is already open. A second draft cannot claim the same entries — a claim held by one draft is refused to another, by name.</div>' : "") +
+    '</div>' +
+    '<footer><span class="foothint">Opens a draft: a working document, voidable, asserting nothing to anybody.</span>' +
+    '<button class="btn secondary" data-x="cancel">Cancel</button><button class="btn primary" data-x="ok">Open Draft</button></footer></div>',
+    (d) => {
+      d.querySelector('[data-x="cancel"]').addEventListener("click", closeDialog);
+      d.querySelector('[data-x="ok"]').addEventListener("click", () => {
+        invoices.unshift({ id: "d" + Date.now(), status: "draft", number: null, created: TODAY, createdBy: "ro", period: "Aug 1 – Aug 31, 2026", issued: null, due: null, matters: [THIS_MATTER], claims: { time: [], costs: [], fees: [] }, deliveries: [], apps: [], creditNotes: [] });
+        selectedId = invoices[0].id;
+        closeDialog(); toast("Draft opened — claim work onto it from the details panel."); renderAll();
+      });
+    });
+});
+
+function openFinalize(inv) {
+  const total = draftTotal(inv);
+  const n = String(nextNumber).padStart(5, "0");
+  openDialog(
+    '<div class="dialog"><header><h2>Finalize this bill</h2><span class="subtitle">Draft · ' + esc(inv.period) + ' · <span class="num">' + fmt(total) + '</span></span></header>' +
+    '<div class="body">' +
+    '<div class="atomic"><span class="athead">One atomic write — all of it, or none of it</span>' +
+    '<span>· The next number in the firm&#39;s sequence is drawn: <span class="num">' + n + '</span></span>' +
+    '<span>· The client details and every line&#39;s wording are copied onto the bill</span>' +
+    '<span>· Every claimed time and cost entry locks as billed</span>' +
+    '<span>· The per-matter balance is created with the ceiling that makes over-application impossible</span>' +
+    '<span>· The accounts-receivable entry posts to the firm&#39;s ledger</span></div>' +
+    '<div class="factline warn">' + icon("lock") + '<span>Afterwards nothing about the bill can be edited, and there is no un-finalize. A correction is a credit note recorded beside it.</span></div>' +
+    '<div class="factline">' + icon("info") + '<span>A firm that has not mapped which of its ledger accounts play the billing roles is refused here by name, not posted somewhere plausible. This firm&#39;s account-role map is complete.</span></div>' +
+    '</div>' +
+    '<footer><span class="foothint">Requires the finalize capability — drafting and finalizing are separate permissions.</span>' +
+    '<button class="btn secondary" data-x="cancel">Cancel</button><button class="btn primary" data-x="ok">' + icon("stamp") + 'Finalize</button></footer></div>',
+    (d) => {
+      d.querySelector('[data-x="cancel"]').addEventListener("click", closeDialog);
+      d.querySelector('[data-x="ok"]').addEventListener("click", () => {
+        inv.status = "final"; inv.number = String(nextNumber++).padStart(5, "0");
+        inv.issued = TODAY; inv.due = "2026-09-26";
+        inv.finalized = { date: TODAY, by: "ro" };
+        inv.lines = [
+          ...inv.claims.time.map((t) => ({ m: THIS_MATTER, kind: "fee", desc: t.info + " — " + PEOPLE[t.who].n + ", " + t.hours.toFixed(1) + " hrs @ " + fmt(t.rate), amt: t.amt })),
+          ...inv.claims.costs.map((c) => ({ m: THIS_MATTER, kind: "cost", desc: c.desc, amt: c.amt })),
+          ...inv.claims.fees.map((f) => ({ m: THIS_MATTER, kind: "flat_fee", desc: f.desc, amt: f.amt })),
+        ];
+        inv.balances = [{ m: THIS_MATTER, total: draftTotal(inv), applied: 0 }];
+        inv.claims = { time: [], costs: [], fees: [] };
+        closeDialog(); toast("Finalized as " + inv.number + " — the receivable posted and the work locked."); renderAll();
+      });
+    });
+}
+
+function openVoid(inv) {
+  const nClaims = inv.claims.time.length + inv.claims.costs.length;
+  openDialog(
+    '<div class="dialog"><header><h2>Void this draft</h2><span class="subtitle">' + esc(inv.period) + '</span></header>' +
+    '<div class="body">' +
+    '<div class="factline">' + icon("info") + '<span>Voiding releases every entry it holds (' + nClaims + ') back to unbilled work. The voided draft stays on the record. Only a draft can be voided — a finalized bill is corrected by a credit note, never erased.</span></div>' +
+    '<div class="field"><label>Reason</label><input type="text" placeholder="Why this draft is being thrown away" id="billing-void-reason"></div>' +
+    '</div>' +
+    '<footer><button class="btn secondary" data-x="cancel">Cancel</button><button class="btn danger" data-x="ok">' + icon("ban") + 'Void Draft</button></footer></div>',
+    (d) => {
+      d.querySelector('[data-x="cancel"]').addEventListener("click", closeDialog);
+      d.querySelector('[data-x="ok"]').addEventListener("click", () => {
+        unbilled.time.push(...inv.claims.time); unbilled.costs.push(...inv.claims.costs);
+        inv.claims = { time: [], costs: [], fees: [] };
+        inv.status = "void";
+        inv.voided = { date: TODAY, by: "ro", reason: d.querySelector("#billing-void-reason").value || "No reason recorded" };
+        closeDialog(); toast("Draft voided — its work returned to unbilled."); renderAll();
+      });
+    });
+}
+
+function openDelivery(inv) {
+  openDialog(
+    '<div class="dialog"><header><h2>Record a delivery</h2><span class="subtitle">Invoice <span class="num">' + inv.number + '</span> · records a delivery the firm made — nothing is sent</span></header>' +
+    '<div class="body">' +
+    '<div class="fieldrow"><div class="field"><label>How it went</label><select id="billing-del-channel"><option>Email</option><option>Post</option><option>Hand</option><option>E-billing gateway</option></select></div>' +
+    '<div class="field"><label>Date</label><input type="date" value="' + TODAY + '" id="billing-del-date"></div></div>' +
+    '<div class="field"><label>Recipient</label><input type="text" value="e.pemberton@pembertonranch.com" id="billing-del-to"></div>' +
+    '<div class="field"><label>What became of it</label><select id="billing-del-outcome"><option value="delivered">Delivered</option><option value="failed">Failed — bounced, returned, or rejected</option></select></div>' +
+    '<div class="hint">Each attempt is its own permanent record: a bill sent twice has two, and a returned letter followed by a successful re-send reads as exactly that. The client-portal channel appears when the portal can produce one.</div>' +
+    '</div>' +
+    '<footer><span class="foothint">Shown beside the decision to take fees from trust; it gates nothing.</span>' +
+    '<button class="btn secondary" data-x="cancel">Cancel</button><button class="btn primary" data-x="ok">' + icon("send") + 'Record Delivery</button></footer></div>',
+    (d) => {
+      d.querySelector('[data-x="cancel"]').addEventListener("click", closeDialog);
+      d.querySelector('[data-x="ok"]').addEventListener("click", () => {
+        inv.deliveries.push({ channel: d.querySelector("#billing-del-channel").value, to: d.querySelector("#billing-del-to").value, date: d.querySelector("#billing-del-date").value, outcome: d.querySelector("#billing-del-outcome").value, by: "ro" });
+        closeDialog(); toast("Delivery recorded."); renderAll();
+      });
+    });
+}
+
+function openTrust(inv) {
+  const bal = inv.balances.find((x) => x.m === THIS_MATTER);
+  const ceiling = Math.min(bal.total - bal.applied, TRUST_AVAILABLE);
+  const delivered = deliveredState(inv).key === "delivered";
+  openDialog(
+    '<div class="dialog"><header><h2>Apply trust funds</h2><span class="subtitle">Invoice <span class="num">' + inv.number + '</span> · earned fees from the client&#39;s trust ledger</span></header>' +
+    '<div class="body">' +
+    '<dl class="insfacts"><dt>Available in trust</dt><dd class="num">' + fmt(TRUST_AVAILABLE) + ' — matter ' + THIS_MATTER + '&#39;s leaf, net of holds</dd>' +
+    '<dt>This matter still owes</dt><dd class="num">' + fmt(bal.total - bal.applied) + ' on this bill</dd>' +
+    '<dt>Ceiling</dt><dd class="num">' + fmt(ceiling) + ' — a transfer may not draw more than this matter&#39;s own unpaid share</dd></dl>' +
+    (delivered
+      ? '<div class="factline">' + icon("circleCheck") + '<span>A delivery of this bill is on record (first ' + fdate(inv.deliveries.filter((x) => x.outcome === "delivered")[0].date) + ').</span></div>'
+      : '<div class="factline warn">' + icon("info") + '<span>No delivery of this bill has been recorded. Several jurisdictions expect the client to have been given the bill before fees are taken — recorded here, shown here, and the firm proceeds knowingly. It does not gate.</span></div>') +
+    '<div class="field"><label>Amount to apply</label><input type="text" value="' + (ceiling / 100).toFixed(2) + '" id="billing-trust-amt"></div>' +
+    '<div class="hint">Applying part of what is owed is ordinary — the rest stays owing and can be applied later. You hold the trust authority for this amount, so it applies in one atomic write; otherwise it would be recorded as a pending request naming who can release it.</div>' +
+    '</div>' +
+    '<footer><span class="foothint">Money leaves trust only against a finalized bill — there is no override.</span>' +
+    '<button class="btn secondary" data-x="cancel">Cancel</button><button class="btn primary" data-x="ok">' + icon("shield") + 'Apply From Trust</button></footer></div>',
+    (d) => {
+      d.querySelector('[data-x="cancel"]').addEventListener("click", closeDialog);
+      d.querySelector('[data-x="ok"]').addEventListener("click", () => {
+        const raw = Math.round(parseFloat(d.querySelector("#billing-trust-amt").value || "0") * 100);
+        const amt = Math.max(0, Math.min(raw, ceiling));
+        if (!amt) { closeDialog(); return; }
+        bal.applied += amt;
+        inv.apps.push({ kind: "trust_transfer", m: THIS_MATTER, amt, date: TODAY, by: "ro", note: "Earned fees from the client trust ledger, applied under the firm's trust authorization posture" });
+        closeDialog(); toast("Applied " + fmt(amt) + " from trust — the balance moved by exactly that."); renderAll();
+      });
+    });
+}
+
+function openCreditNote(inv) {
+  const un = billTotal(inv) - billApplied(inv);
+  openDialog(
+    '<div class="dialog"><header><h2>Issue a credit note</h2><span class="subtitle">Against invoice <span class="num">' + inv.number + '</span> — a second permanent record standing beside it</span></header>' +
+    '<div class="body">' +
+    '<div class="field"><label>Reason — in your own words; it is read years later</label><textarea id="billing-cn-reason" placeholder="What was charged that should not have been, and why"></textarea></div>' +
+    '<div class="fieldrow"><div class="field"><label>Amount</label><input type="text" id="billing-cn-amt" placeholder="0.00"></div>' +
+    '<div class="field"><label>Credits which charge (optional)</label><select id="billing-cn-line"><option value="">General credit against this bill</option>' + inv.lines.map((l, i) => '<option value="' + i + '">' + esc(l.desc.slice(0, 60)) + '</option>').join("") + '</select></div></div>' +
+    '<div class="hint">Naming the charge matters for fees worked out from a settlement or recovery — only an attributed credit changes that arithmetic.</div>' +
+    '<div class="factline">' + icon("info") + '<span>' + (un > 0 ? "Up to " + fmt(un) + " comes straight off what is owed; anything beyond that is money already collected and becomes a recorded client credit the firm owes back." : "This bill is fully paid, so the whole credit becomes a recorded client credit the firm owes back.") + ' Nothing is netted off and nothing goes negative.</span></div>' +
+    '<div class="factline warn">' + icon("lock") + '<span>A credit note cannot be edited or withdrawn once issued. If one is wrong, issue another.</span></div>' +
+    '</div>' +
+    '<footer><button class="btn secondary" data-x="cancel">Cancel</button><button class="btn primary" data-x="ok">' + icon("undo2") + 'Issue Credit Note</button></footer></div>',
+    (d) => {
+      d.querySelector('[data-x="cancel"]').addEventListener("click", closeDialog);
+      d.querySelector('[data-x="ok"]').addEventListener("click", () => {
+        const amt = Math.round(parseFloat(d.querySelector("#billing-cn-amt").value || "0") * 100);
+        if (!amt) { closeDialog(); return; }
+        const reason = d.querySelector("#billing-cn-reason").value || "No reason recorded";
+        const li = d.querySelector("#billing-cn-line").value;
+        const applied = Math.min(amt, un);
+        const credit = amt - applied;
+        if (applied > 0) {
+          const bal = inv.balances.find((x) => x.m === THIS_MATTER);
+          bal.applied += applied;
+          inv.apps.push({ kind: "credit_note", m: THIS_MATTER, amt: applied, date: TODAY, by: "ro", note: "Credit note applied against the unpaid balance" });
+        }
+        if (credit > 0) clientCredits.push({ id: "cc" + Date.now(), amount: credit, remaining: credit, opened: TODAY, from: inv.number, state: "open" });
+        inv.creditNotes.push({ date: TODAY, by: "ro", amount: amt, reason, lines: [{ desc: "Credit", amt: -amt, credits: li === "" ? null : inv.lines[Number(li)].desc }], landed: { applied, credit } });
+        closeDialog(); toast("Credit note issued" + (credit > 0 ? " — " + fmt(credit) + " opened as a client credit." : ".")); renderAll();
+      });
+    });
+}
+
+function openWriteOff(inv) {
+  const bal = inv.balances.find((x) => x.m === THIS_MATTER);
+  const un = bal.total - bal.applied;
+  openDialog(
+    '<div class="dialog"><header><h2>Write off a balance</h2><span class="subtitle">Invoice <span class="num">' + inv.number + '</span> · this matter still owes ' + fmt(un) + '</span></header>' +
+    '<div class="body">' +
+    '<div class="factline">' + icon("info") + '<span>A write-off says the charge was right and the money is not coming — a different fact from a credit note, kept separate on the firm&#39;s books. It cannot exceed what is still owed; money already collected is refunded or credited instead.</span></div>' +
+    '<div class="fieldrow"><div class="field"><label>Amount</label><input type="text" id="billing-wo-amt" value="' + (un / 100).toFixed(2) + '"></div></div>' +
+    '<div class="field"><label>Reason</label><input type="text" id="billing-wo-reason" placeholder="Why the firm is giving up this balance"></div>' +
+    '</div>' +
+    '<footer><button class="btn secondary" data-x="cancel">Cancel</button><button class="btn primary" data-x="ok">' + icon("fileMinus") + 'Write Off</button></footer></div>',
+    (d) => {
+      d.querySelector('[data-x="cancel"]').addEventListener("click", closeDialog);
+      d.querySelector('[data-x="ok"]').addEventListener("click", () => {
+        const amt = Math.min(Math.round(parseFloat(d.querySelector("#billing-wo-amt").value || "0") * 100), un);
+        if (!amt) { closeDialog(); return; }
+        bal.applied += amt;
+        inv.apps.push({ kind: "write_off", m: THIS_MATTER, amt, date: TODAY, by: "ro", note: d.querySelector("#billing-wo-reason").value || "No reason recorded" });
+        closeDialog(); toast("Wrote off " + fmt(amt) + "."); renderAll();
+      });
+    });
+}
+
+function applyClientCredit(inv) {
+  const cc = clientCredits.find((c) => c.state === "open" && c.remaining > 0);
+  const bal = inv.balances.find((x) => x.m === THIS_MATTER);
+  const un = bal.total - bal.applied;
+  const amt = Math.min(cc.remaining, un);
+  bal.applied += amt;
+  cc.remaining -= amt;
+  if (cc.remaining === 0) cc.state = "discharged";
+  inv.apps.push({ kind: "client_credit", m: THIS_MATTER, amt, date: TODAY, by: "ro", note: "Client credit from the correction of " + cc.from + " set against this bill — no money moved in either direction" });
+  toast("Set " + fmt(amt) + " of the client's credit against " + inv.number + ".");
+  renderAll();
+}
+
+function openLineEdit(inv, group, id) {
+  const it = inv.claims[group].find((x) => x.id === id);
+  const isTime = group === "time";
+  openDialog(
+    '<div class="dialog"><header><h2>Edit line</h2><span class="subtitle">Bill review edits what the CLIENT is told — the underlying entry stays the timekeeper&#39;s own record</span></header>' +
+    '<div class="body">' +
+    '<div class="field"><label>Line text</label><textarea id="billing-le-desc">' + esc(it.info || it.desc) + '</textarea></div>' +
+    '<div class="fieldrow"><div class="field"><label>Amount</label><input type="text" id="billing-le-amt" value="' + (it.amt / 100).toFixed(2) + '"></div></div>' +
+    '</div>' +
+    '<footer><button class="btn secondary" data-x="cancel">Cancel</button><button class="btn primary" data-x="ok">Save Line</button></footer></div>',
+    (d) => {
+      d.querySelector('[data-x="cancel"]').addEventListener("click", closeDialog);
+      d.querySelector('[data-x="ok"]').addEventListener("click", () => {
+        const v = d.querySelector("#billing-le-desc").value;
+        if (isTime) it.info = v; else it.desc = v;
+        it.amt = Math.round(parseFloat(d.querySelector("#billing-le-amt").value || "0") * 100);
+        closeDialog(); toast("Line updated — the entry itself is unchanged."); renderAll();
+      });
+    });
+}
+
+/* ================= Toast + boot ================= */
+let toastTimer = null;
+function toast(msg) {
+  const t = $("billing-toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 2600);
+}
+function renderAll() {
+  renderHead(); renderRows(); renderTotals(); renderFooter(); renderInspector();
+  $("billing-clear-filters").hidden = !anyFilter();
+}
+renderAll();
+</script>
+
+</body></html>

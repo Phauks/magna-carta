@@ -26,7 +26,7 @@
     "destructive-hover": { "$type": "color", "$value": "{color.red.300}" },
     "destructive-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
     "disabled": { "$type": "color", "$value": "{color.neutral.800}" },
-    "disabled-foreground": { "$type": "color", "$value": "{color.neutral.600}" }
+    "disabled-foreground": { "$type": "color", "$value": "{color.neutral.400}" }
   },
   "border": {
     "default": { "$type": "color", "$value": "{color.neutral.800}" },

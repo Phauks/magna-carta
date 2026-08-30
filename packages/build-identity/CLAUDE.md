@@ -20,11 +20,23 @@ package: its identity is baked in by vite define (`apps/web/vite.config.ts` →
 
 ## Invariants
 
-- **A missing identity is "dev", never a guess.** No git, no CI → the placeholder stands. A stale
-  stamped commit is a false claim; "dev" is a true one.
+- **A missing identity is "dev", never a guess.** No commit source, no CI → the placeholder stands.
+  A stale stamped commit is a false claim; "dev" is a true one. Two sources count as naming the
+  commit, in order: git in the checkout, then the build runner's own variable
+  (`WORKERS_CI_COMMIT_SHA`, `GITHUB_SHA`) for a runner whose tree git cannot answer for. The second
+  is the checkout system stating what it checked out, not an inference — and it abbreviates to its
+  own length, which is why the overlay compares commits by prefix rather than by equality.
 - **The version route is service-binding-only surface.** No sibling Worker is publicly routable;
   the route carries no auth because the binding is the trust boundary. Do not mount it on a
   publicly routed Worker without adding a guard.
+- **A Worker only reports a version if it was built with the version route in it.** A sibling
+  deployed from a commit that predates `src/version-route.ts` answers 404 on `/__version`, which
+  the aggregate reads as `unreported` and the overlay renders as "Not reporting" — an honest
+  answer, and a confusing one, because the Worker is healthy. Whatever brings the route into a
+  Worker's build must therefore reach it: `packages/build-identity/*` belongs in every dedicated
+  Worker's Cloudflare Build Watch Paths, or a change here never rebuilds them. See
+  [`docs/conventions/operations.md`](../../docs/conventions/operations.md), _Cloudflare Workers
+  Builds_.
 - **Every Worker answers the same shape** (`commit`, `commitTime`, `buildTime`, nullable
   timestamps). The app Worker's aggregate read zod-parses it; changing the shape means changing
   the parser and every consumer in the same commit.

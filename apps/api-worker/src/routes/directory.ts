@@ -3,18 +3,30 @@ import { loadEffectivePermissions } from "../session-context.ts";
 import { createPerson, readPerson, setPersonPronouns } from "@magna-carta/directory/person";
 import { IncompletePronounSetError, PRONOUN_VERB_NUMBERS } from "@magna-carta/directory/pronouns";
 import { createOrganization, readOrganization } from "@magna-carta/directory/organization";
-import { addName } from "@magna-carta/directory/name-history";
+import { addName, changeName, readNames } from "@magna-carta/directory/name-history";
 import {
   addIdentifier,
+  listIdentifierRecords,
   readIdentifier,
   IdentifierNotIndexableError,
   type DirectoryIdentifierContext,
 } from "@magna-carta/directory/identifiers";
-import { createEdge, InvalidEdgeTypeError, UnknownEntityError } from "@magna-carta/directory/edges";
+import {
+  createEdge,
+  readEdgesPage,
+  InvalidEdgeTypeError,
+  UnknownEntityError,
+} from "@magna-carta/directory/edges";
 import { MergedEntityError } from "@magna-carta/directory/entity-kind";
+import {
+  MAX_ENTITY_DISPLAY_NAME_LOOKUP,
+  readEntityDisplayNames,
+} from "@magna-carta/directory/entity-display";
 import {
   assignCategory,
   createCategory,
+  listCategories,
+  readCategories,
   CategoryAppliesToMismatchError,
   CategoryNotFoundError,
   EntityNotFoundError,
@@ -31,6 +43,7 @@ import {
 import {
   linkMatterParty,
   readMatterParties,
+  readMatterPartiesForEntity,
   unlinkMatterParty,
 } from "@magna-carta/directory/party";
 import { ProtectedReadForbiddenError } from "@magna-carta/data-access/protected-fields";
@@ -47,6 +60,7 @@ import {
 } from "@magna-carta/directory/run-directory-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import { identifierField, idempotencyKeyHeader } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import type {
   DirectoryOrganizationId,
   DirectoryPersonId,
@@ -97,6 +111,24 @@ function writeOptions(
     actorUserId,
     randomSource: cryptoRandomSource,
     idempotency,
+  };
+}
+
+// The category row as the contract states it. The stored archived flag is 0/1 in SQLite and a
+// boolean on the wire — the projection lives here so the two category reads cannot disagree.
+function toCategoryEntry(row: {
+  id: string;
+  name: string;
+  appliesTo: string;
+  position: number;
+  archived: number;
+}): z.infer<typeof DirectoryCategory> {
+  return {
+    id: row.id,
+    name: row.name,
+    appliesTo: row.appliesTo as "person" | "organization" | "both",
+    position: row.position,
+    archived: row.archived === 1,
   };
 }
 
@@ -247,6 +279,70 @@ const AddNameRequest = z
 
 const AckResponse = z.object({ ok: z.boolean() }).openapi("DirectoryAckResponse");
 
+// A NAME CHANGE, which is a different act from appending an alias and the only one that can record
+// a marriage. Supply the person fields or the organization field, matching the entity the id names —
+// the kind is resolved from the handle, and a body shaped for the other kind is refused rather than
+// half-applied.
+const ChangeNameRequest = z
+  .object({
+    // Person fields.
+    given: z.string().min(1).optional(),
+    family: z.string().min(1).optional(),
+    prefix: z.string().nullable().optional(),
+    middle: z.string().nullable().optional(),
+    suffix: z.string().nullable().optional(),
+    // Organization fields.
+    legalName: z.string().min(1).optional(),
+    displayName: z.string().nullable().optional(),
+  })
+  .openapi("ChangeDirectoryNameRequest");
+
+// One name an entity has held — the shape a history rail reads.
+const DirectoryNameEntry = z
+  .object({
+    id: z.string(),
+    nameRole: z.string().openapi({
+      description:
+        "What this name is to the entity: its current name, a former one, a maiden name, a " +
+        "trading name. An open catalog, not a closed enum.",
+    }),
+    isCurrent: z.boolean().openapi({
+      description: "True for the one name the entity answers to today.",
+    }),
+    prefix: z.string().nullable(),
+    given: z.string().nullable(),
+    middle: z.string().nullable(),
+    family: z.string().nullable(),
+    suffix: z.string().nullable(),
+    displayName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "The name as it was recorded. Null for an organization: an organization's name row " +
+          "keeps only the case-folded form, so a caller falls back to normalizedDisplay and shows " +
+          "an honest lowercase former name rather than an invented capitalization.",
+      }),
+    normalizedDisplay: z.string().openapi({
+      description:
+        "The case-folded, punctuation-stripped form the search and conflicts corpus matches on. " +
+        "Always present, for every name row of either kind.",
+    }),
+    validFrom: z.string().nullable(),
+    validTo: z
+      .string()
+      .nullable()
+      .openapi({ description: "When the name stopped being used, or null while it still is." }),
+    recordedAt: z.string().openapi({
+      description:
+        "When the firm wrote the row down — which is not when the name came into use. A maiden " +
+        "name recorded onto a twenty-year-old file was recorded today and valid decades ago.",
+    }),
+  })
+  .openapi("DirectoryNameEntry");
+
+const DirectoryNamePage = paginated(DirectoryNameEntry).openapi("DirectoryNamePage");
+
 const AddIdentifierRequest = z
   .object({
     type: z.enum(IDENTIFIER_TYPES),
@@ -300,6 +396,16 @@ const SearchHit = z
     entityId: z.string(),
     entityKind: z.string(),
     displayName: z.string(),
+    matchedName: z.string().openapi({
+      description:
+        "WHICH of the entity's names the query landed on. A search that reported only the " +
+        "current name made a hit on a maiden name indistinguishable from a hit on the name " +
+        "typed, which defeats the point of keeping every name an entity has held.",
+    }),
+    matchedNameRole: z.string().openapi({
+      description: "What that matched name is to the entity — current, former, maiden, dba.",
+    }),
+    matchedNameIsCurrent: z.boolean(),
     relevance: z.number(),
   })
   .openapi("DirectorySearchHit");
@@ -328,7 +434,26 @@ const DuplicateCandidatesRequest = z
   .openapi("DirectoryDuplicateCandidatesRequest");
 
 const DuplicateCandidate = z
-  .object({ entityId: z.string(), signalCount: z.number() })
+  .object({
+    entityId: z.string(),
+    signalCount: z.number(),
+    // The candidate's display identity travels WITH the candidate. It is the same naming read
+    // /directory/entity-names performs, run once over the whole answer here: a caller that resolved
+    // each candidate itself made one request per candidate, and a duplicate check is a list.
+    entityKind: z.enum(["person", "organization", "unknown"]).openapi({
+      description:
+        "Which side of the directory the candidate resolves to. 'unknown' means the blocking " +
+        "channels surfaced an entity the node tables no longer hold — a fact worth showing.",
+    }),
+    displayName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "What to call the candidate, or null where the directory holds no name for it. A caller " +
+          "shows the gap rather than printing the handle.",
+      }),
+  })
   .openapi("DirectoryDuplicateCandidate");
 
 const DuplicateCandidatesResponse = z
@@ -405,6 +530,137 @@ const MatterPartyListResponse = z
 const UnlinkMatterPartyResponse = z
   .object({ unlinked: z.boolean() })
   .openapi("UnlinkMatterPartyResponse");
+
+// ---- the naming read ----
+//
+// The one read that answers about MANY entities at once, and it answers display identity only. Three
+// surfaces were crippled without it and each was crippled the same way: the custody register says
+// what it holds for owners it can name only by handle, a conflicts hit names the party it matched by
+// handle, and a duplicate-candidate list is a column of handles. Every one of those is a page of
+// rows, so resolving them one entity per request is the N+1 this platform's listings are written to
+// avoid — which is why the surfaces render an honest gap instead.
+//
+// It carries no identifier, no contact detail and no decrypt, which is what makes it cheap enough to
+// call for a page and safe enough to name no capability beyond an authenticated session.
+
+const EntityDisplayName = z
+  .object({
+    entityId: z.string(),
+    entityKind: z.enum(["person", "organization"]),
+    displayName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "What to call this entity, or null where the directory holds no name for it at all. A " +
+          "caller renders the gap and never falls back to printing the handle.",
+      }),
+    mergedIntoId: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "The surviving record this one was folded into, or null while it stands on its own. A " +
+          "list row naming a folded record has to say so.",
+      }),
+  })
+  .openapi("DirectoryEntityDisplayName");
+
+const EntityDisplayNamesResponse = z
+  .object({ data: z.array(EntityDisplayName) })
+  .openapi("DirectoryEntityDisplayNamesResponse");
+
+// ---- an entity's edges, matters, categories, and the identifiers it holds ----
+
+const DirectoryEdgeEntry = z
+  .object({
+    id: z.string(),
+    edgeType: z.string(),
+    // Direction is kept rather than normalized away: "parent of" and "subsidiary of" are the same
+    // row read from opposite ends, and a caller that lost which end it was on would render one as
+    // the other.
+    direction: z.enum(["outbound", "inbound"]).openapi({
+      description:
+        "Whether the entity asked about is the FROM end of this edge (outbound) or the TO end " +
+        "(inbound). The relationship reads in the opposite sense from each end.",
+    }),
+    farEntityId: z.string().openapi({ description: "The entity at the other end of the edge." }),
+    farEntityKind: z.enum(["person", "organization", "unknown"]),
+    farDisplayName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "What to call the far end, resolved through the same naming read the bulk endpoint " +
+          "performs — one lookup for the whole page, never one per row.",
+      }),
+    role: z.string().nullable(),
+    note: z.string().nullable(),
+    validFrom: z.string().nullable(),
+    validTo: z.string().nullable(),
+  })
+  .openapi("DirectoryEdgeEntry");
+
+const DirectoryEdgePage = paginated(DirectoryEdgeEntry).openapi("DirectoryEdgePage");
+
+const EntityMatterPartyEntry = z
+  .object({
+    id: z.string(),
+    matterId: z.string(),
+    role: z.string(),
+    capacity: z.string().nullable(),
+    matterTitle: z
+      .string()
+      .nullable()
+      .openapi({ description: "Null when the link points at a matter the firm no longer holds." }),
+    matterNumber: z
+      .string()
+      .nullable()
+      .openapi({ description: "Null while the matter is still prospective and undrawn." }),
+    matterStatus: z.string().nullable(),
+    linkedAt: z.string(),
+  })
+  .openapi("DirectoryEntityMatterPartyEntry");
+
+const EntityMatterPartyPage = paginated(EntityMatterPartyEntry).openapi(
+  "DirectoryEntityMatterPartyPage",
+);
+
+const DirectoryCategory = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    appliesTo: z.enum(["person", "organization", "both"]),
+    position: z.number(),
+    archived: z.boolean().openapi({
+      description:
+        "True for a label the firm has retired. Retired labels are still returned: an entity " +
+        "carrying one must still be able to show what it says.",
+    }),
+  })
+  .openapi("DirectoryCategory");
+
+const DirectoryCategoriesResponse = z
+  .object({ data: z.array(DirectoryCategory) })
+  .openapi("DirectoryCategoriesResponse");
+
+// What the firm holds for an entity, WITHOUT reading any of it. No value field is on this shape and
+// none belongs on it: the decrypt is the privileged, audited act, and a record that performed one to
+// draw a list of headings would write a plaintext social security number into the audit log every
+// time a page rendered.
+const DirectoryIdentifierRecord = z
+  .object({
+    id: z.string(),
+    type: z.enum(IDENTIFIER_TYPES),
+    validFrom: z.string().nullable(),
+    validTo: z.string().nullable(),
+    recordedAt: z.string(),
+  })
+  .openapi("DirectoryIdentifierRecord");
+
+const DirectoryIdentifierRecordsResponse = z
+  .object({ data: z.array(DirectoryIdentifierRecord) })
+  .openapi("DirectoryIdentifierRecordsResponse");
 
 // ---- shared error responses ----
 
@@ -664,6 +920,197 @@ const addNameRoute = defineOpenAPIRoute(mutationMeta("addName", WRITE_PERMISSION
     404: authErrors[404],
     409: authErrors[409],
     422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const changeNameRoute = defineOpenAPIRoute(mutationMeta("changeName", WRITE_PERMISSION), {
+  method: "put",
+  path: "/api/v1/directory/entities/{id}/name",
+  description:
+    "Changes the name an entity currently answers to. This is what records a marriage, a deed poll, " +
+    "or an organization's rename: the name on file is not overwritten — it is retained as a former " +
+    "name, kept in the search and conflicts corpus with its phonetic codes intact, and stamped with " +
+    "the date it stopped being used, while the new name is written as the current one and " +
+    "denormalized onto the entity. Appending a name the entity ALSO answers to, without displacing " +
+    "the current one, is the entities/{id}/names route instead. The entity kind is resolved from the " +
+    "id; supply the person fields or the organization field accordingly.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: entityParam,
+    body: { content: { "application/json": { schema: ChangeNameRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The name was changed and the prior one retained as history",
+      content: { "application/json": { schema: AckResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listNamesRoute = defineOpenAPIRoute(readMeta("listNames", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/names",
+  description:
+    "Returns every name an entity has held — the current one, the former ones, the aliases and the " +
+    "trading names — newest-recorded first and cursor-paged. Ordered by when the firm WROTE each " +
+    "row rather than by when the name came into use, so the current name heads the list and a " +
+    "maiden name recorded onto a decades-old file does not sort to the bottom. Soft-deleted rows " +
+    "are excluded, as they are from search.",
+  request: { params: entityParam, query: cursorQuery },
+  responses: {
+    200: {
+      description: "A page of the entity's names",
+      content: { "application/json": { schema: DirectoryNamePage } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const entityNamesRoute = defineOpenAPIRoute(readMeta("entityNames", null), {
+  method: "get",
+  path: "/api/v1/directory/entity-names",
+  description:
+    "Names many directory entities in one request: the id, which side of the directory it is, what " +
+    "to call it, and whether it has been folded into another record. DISPLAY IDENTITY ONLY — no " +
+    "identifier is touched, so nothing here can decrypt, and no contact row is joined, so a list of " +
+    "names cannot become a mailing list. That is what makes it cheap enough to call for every row " +
+    "on a page and safe enough to need no capability beyond an authenticated session. At most 100 " +
+    `ids per call (the platform's bound-parameter cap); an id beyond that is refused rather than ` +
+    "silently dropped. An id the firm holds no live row for is ABSENT from the answer — a caller " +
+    "renders the gap rather than printing the handle.",
+  request: {
+    query: z.object({
+      ids: z
+        .string()
+        .min(1)
+        .max(6000)
+        .openapi({
+          param: { name: "ids", in: "query" },
+          description: "Comma-separated directory entity handles. At most 100.",
+        }),
+    }),
+  },
+  responses: {
+    200: {
+      description:
+        "The display identity of each id the firm holds a live record for, in the order asked",
+      content: { "application/json": { schema: EntityDisplayNamesResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listEdgesRoute = defineOpenAPIRoute(readMeta("listEdges", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/edges",
+  description:
+    "Returns the relationships touching one entity — both directions, each carrying which end this " +
+    "entity is on and the display name of the far end. Newest first and cursor-paged. Edges whose " +
+    "validity has expired are excluded by default; includeExpired returns them too, which is what " +
+    "a conflicts review wants because the professional-conduct rules are about FORMER relationships.",
+  request: {
+    params: entityParam,
+    query: cursorQuery.extend({ includeExpired: z.enum(["true", "false"]).optional() }),
+  },
+  responses: {
+    200: {
+      description: "A page of the entity's relationships",
+      content: { "application/json": { schema: DirectoryEdgePage } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listEntityMatterPartiesRoute = defineOpenAPIRoute(readMeta("listEntityMatterParties", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/matter-parties",
+  description:
+    "Returns the matters this entity is a party to, and the role and capacity it holds on each — " +
+    "the mirror of the matter-parties read, which answers for one MATTER. Newest link first and " +
+    "cursor-paged. Severed links are excluded; the row is retained so a conflicts report that " +
+    "named this party stays reproducible.",
+  request: { params: entityParam, query: cursorQuery },
+  responses: {
+    200: {
+      description: "A page of the matters this entity is a party to",
+      content: { "application/json": { schema: EntityMatterPartyPage } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listCategoriesRoute = defineOpenAPIRoute(readMeta("listCategories", null), {
+  method: "get",
+  path: "/api/v1/directory/categories",
+  description:
+    "The firm's whole category vocabulary in display order, retired labels included and flagged. " +
+    "One list serves both the picker and the record, so the two cannot disagree about what a label " +
+    "means.",
+  responses: {
+    200: {
+      description: "The firm's categories",
+      content: { "application/json": { schema: DirectoryCategoriesResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const listEntityCategoriesRoute = defineOpenAPIRoute(readMeta("listEntityCategories", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/categories",
+  description: "The categories assigned to one entity, in the firm's own display order.",
+  request: { params: entityParam },
+  responses: {
+    200: {
+      description: "The entity's categories",
+      content: { "application/json": { schema: DirectoryCategoriesResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const listIdentifiersRoute = defineOpenAPIRoute(readMeta("listIdentifiers", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/identifiers",
+  description:
+    "Says WHICH sealed identifiers an entity holds — the type, the validity period, and when each " +
+    "was recorded — and never what any of them is. No ciphertext is read, so this performs no " +
+    "decrypt, names no permission beyond the session, and writes no audit row: a record that had " +
+    "to decrypt merely to draw its list of headings would put a plaintext social security number " +
+    "into the firm's audit log every time a page rendered. Reading a value is the separate, " +
+    "permission-gated, audited route on the same path plus a type.",
+  request: { params: entityParam },
+  responses: {
+    200: {
+      description: "What the firm holds for this entity, described but not disclosed",
+      content: { "application/json": { schema: DirectoryIdentifierRecordsResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
     429: authErrors[429],
   },
 });
@@ -1112,6 +1559,201 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     },
   );
 
+  // PUT /api/v1/directory/entities/{id}/name — the name CHANGE, which retains the prior name
+  app.openapi(
+    { ...changeNameRoute, middleware: chokepointMiddleware(chokepoint, changeNameRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      // The kind comes from the handle, and the body must match it. The domain throws a bare Error
+      // on a mismatched shape — a 500 for what is a caller mistake — so the shape is settled here,
+      // where the caller gets a 422 naming the fields the entity it addressed actually takes.
+      const isPerson = id.startsWith("directoryPerson_");
+      if (isPerson && (request.given === undefined || request.family === undefined)) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Directory request invalid",
+          status: 422,
+          detail: "A person's name change supplies both given and family.",
+        });
+      }
+      if (!isPerson && request.legalName === undefined) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Directory request invalid",
+          status: 422,
+          detail: "An organization's name change supplies legalName.",
+        });
+      }
+      try {
+        await changeName(
+          firm.firmDatabase,
+          id as EntityId,
+          isPerson
+            ? {
+                given: request.given ?? "",
+                family: request.family ?? "",
+                prefix: request.prefix ?? null,
+                middle: request.middle ?? null,
+                suffix: request.suffix ?? null,
+              }
+            : {
+                legalName: request.legalName ?? "",
+                displayName: request.displayName ?? null,
+              },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ ok: true } as z.infer<typeof AckResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // GET /api/v1/directory/entities/{id}/names
+  app.openapi(
+    { ...listNamesRoute, middleware: chokepointMiddleware(chokepoint, listNamesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const { cursor } = c.req.valid("query");
+      const page = await readNames(firm.firmDatabase, id as EntityId, { cursor });
+      return c.json(page as unknown as z.infer<typeof DirectoryNamePage>, 200);
+    },
+  );
+
+  // GET /api/v1/directory/entity-names?ids= — the naming read, many entities in one request
+  app.openapi(
+    { ...entityNamesRoute, middleware: chokepointMiddleware(chokepoint, entityNamesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { ids } = c.req.valid("query");
+      const requested = ids
+        .split(",")
+        .map((entityId) => entityId.trim())
+        .filter((entityId) => entityId !== "");
+      // Refused, not truncated. A caller handed a short answer to a long question would believe the
+      // missing entities are ones the firm does not hold, and blank the wrong rows.
+      if (requested.length > MAX_ENTITY_DISPLAY_NAME_LOOKUP) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Directory request invalid",
+          status: 422,
+          detail: `At most ${String(MAX_ENTITY_DISPLAY_NAME_LOOKUP)} ids per call; ${String(requested.length)} were supplied.`,
+        });
+      }
+      const data = await readEntityDisplayNames(firm.firmDatabase, requested);
+      return c.json({ data } as z.infer<typeof EntityDisplayNamesResponse>, 200);
+    },
+  );
+
+  // GET /api/v1/directory/entities/{id}/edges
+  app.openapi(
+    { ...listEdgesRoute, middleware: chokepointMiddleware(chokepoint, listEdgesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const { cursor, includeExpired } = c.req.valid("query");
+      const page = await readEdgesPage(firm.firmDatabase, id as EntityId, {
+        cursor,
+        includeExpired: includeExpired === "true",
+      });
+      // ONE naming read for the whole page. Resolving each far end on its own is the per-row request
+      // this endpoint's sibling exists to prevent, and doing it here would be that same mistake
+      // moved server-side.
+      const names = new Map(
+        (
+          await readEntityDisplayNames(
+            firm.firmDatabase,
+            page.data.map((edge) =>
+              edge.fromEntityId === id ? edge.toEntityId : edge.fromEntityId,
+            ),
+          )
+        ).map((entry) => [entry.entityId, entry]),
+      );
+      const body: z.infer<typeof DirectoryEdgePage> = {
+        data: page.data.map((edge) => {
+          const outbound = edge.fromEntityId === id;
+          const farEntityId = outbound ? edge.toEntityId : edge.fromEntityId;
+          const far = names.get(farEntityId);
+          return {
+            id: edge.id,
+            edgeType: edge.edgeType,
+            direction: outbound ? "outbound" : "inbound",
+            farEntityId,
+            farEntityKind: far?.entityKind ?? "unknown",
+            farDisplayName: far?.displayName ?? null,
+            role: edge.role,
+            note: edge.note,
+            validFrom: edge.validFrom,
+            validTo: edge.validTo,
+          };
+        }),
+        nextCursor: page.nextCursor,
+      };
+      return c.json(body, 200);
+    },
+  );
+
+  // GET /api/v1/directory/entities/{id}/matter-parties
+  app.openapi(
+    {
+      ...listEntityMatterPartiesRoute,
+      middleware: chokepointMiddleware(chokepoint, listEntityMatterPartiesRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const { cursor } = c.req.valid("query");
+      const page = await readMatterPartiesForEntity(firm.firmDatabase, id, { cursor });
+      return c.json(page as unknown as z.infer<typeof EntityMatterPartyPage>, 200);
+    },
+  );
+
+  // GET /api/v1/directory/categories
+  app.openapi(
+    { ...listCategoriesRoute, middleware: chokepointMiddleware(chokepoint, listCategoriesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const categories = await listCategories(firm.firmDatabase);
+      return c.json(
+        { data: categories.map(toCategoryEntry) } as z.infer<typeof DirectoryCategoriesResponse>,
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/directory/entities/{id}/categories
+  app.openapi(
+    {
+      ...listEntityCategoriesRoute,
+      middleware: chokepointMiddleware(chokepoint, listEntityCategoriesRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const categories = await readCategories(firm.firmDatabase, id);
+      return c.json(
+        { data: categories.map(toCategoryEntry) } as z.infer<typeof DirectoryCategoriesResponse>,
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/directory/entities/{id}/identifiers — describes what is held, decrypts nothing
+  app.openapi(
+    { ...listIdentifiersRoute, middleware: chokepointMiddleware(chokepoint, listIdentifiersRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const data = await listIdentifierRecords(firm.firmDatabase, id);
+      return c.json({ data } as unknown as z.infer<typeof DirectoryIdentifierRecordsResponse>, 200);
+    },
+  );
+
   // POST /api/v1/directory/entities/{id}/identifiers
   app.openapi(
     { ...addIdentifierRoute, middleware: chokepointMiddleware(chokepoint, addIdentifierRoute) },
@@ -1261,7 +1903,27 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       });
       // Project to the declared contract: channels/identifierTypes are internal evidence-tiering
       // detail for the conflicts engine's direct package consumer, not part of the HTTP response.
-      const data = candidates.map(({ entityId, signalCount }) => ({ entityId, signalCount }));
+      //
+      // The display identity rides along, resolved in ONE naming read over the whole answer. A
+      // candidate list is a list, and a caller that resolved each candidate itself made one request
+      // per candidate — which is exactly the shape the naming read exists to end.
+      const names = new Map(
+        (
+          await readEntityDisplayNames(
+            context.database,
+            candidates.map((candidate) => candidate.entityId),
+          )
+        ).map((entry) => [entry.entityId, entry]),
+      );
+      const data = candidates.map(({ entityId, signalCount }) => {
+        const named = names.get(entityId);
+        return {
+          entityId,
+          signalCount,
+          entityKind: named?.entityKind ?? ("unknown" as const),
+          displayName: named?.displayName ?? null,
+        };
+      });
       const body: z.infer<typeof DuplicateCandidatesResponse> = { data };
       return c.json(body, 200);
     },

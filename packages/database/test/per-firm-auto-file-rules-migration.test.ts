@@ -221,8 +221,8 @@ describe("auto-file rules migration", () => {
         .prepare("SELECT role_id FROM role_permission WHERE permission = ? ORDER BY role_id")
         .all("emails:manageAutoFileRules") as { role_id: string }[]
     ).map((row) => row.role_id);
-    expect(roleIds.sort()).toEqual(
-      ["role_Gw-zKO8hOHQuNv2bWokMp", "role_gEyJ_YqL1_RI_yDqSa28Y"].sort(),
+    expect(roleIds.toSorted()).toEqual(
+      ["role_Gw-zKO8hOHQuNv2bWokMp", "role_gEyJ_YqL1_RI_yDqSa28Y"].toSorted(),
     );
   });
 });

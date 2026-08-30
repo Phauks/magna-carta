@@ -1,34 +1,43 @@
 <script lang="ts">
   /*
-   * Matters — the firm's docket, and the List archetype's landing.
+   * Matters — the firm's docket, and the first screen of most working days.
    *
-   * It reads the firm's own record through the matters listing and renders it on the platform's one
-   * table, so sorting, the per-column filters, column show/hide, reorder, pinning, resize and the
-   * counts footer are the same machinery every other matter surface uses. Nothing here is a fixture.
+   * It reads the firm's own record and renders it on the platform's one table, so sorting, the
+   * per-column filters, column show/hide, reorder, pinning, resize and the selection model are the
+   * same machinery every other matter surface uses. Nothing here is a fixture.
    *
-   * Three honest limits are on the screen rather than in a comment, because a person reading a
-   * docket has to know which questions this page can answer:
+   * THE BAND ABOVE THE TABLE BELONGS TO THE TABLE. Everything that is not the data is one row of
+   * controls: the primary action, then search and narrowing as icons that open what they need when
+   * they are needed. A labelled dropdown and a labelled search box, each with a sentence under it,
+   * cost three rows of a screen whose subject is a list.
    *
-   *   - The listing is cursor-paged. Sorting and the column filters run over what has been LOADED,
-   *     so the footer's counts are counts of the page, not of the firm, until the record is fully
-   *     read. The line under "Load more" says so.
-   *   - The listing's own default is the working docket, which leaves out unnumbered consultations.
-   *     They are reachable only by asking for them, which is what the scope control is for.
-   *   - The responsible attorney, practice area and Location arrive as identifiers and are named
-   *     from the firm's own lists, read once per screen and joined here — never one request per
-   *     row. A row whose identifier nothing names renders empty rather than showing the handle.
+   * ONE PLACE TO NARROW. Three mechanisms narrow this list and they are not the same kind of thing:
+   * the scope is a server read (a consultation is unreachable without it, because the listing's own
+   * default leaves unnumbered matters out), the search is also the server's, and the column filters
+   * are the table's own. They sit behind one control because from where a reader sits they answer
+   * one question, and answering it in three places is how somebody ends up staring at an empty
+   * table with a filter set on a control they are not looking at.
+   *
+   * TWO HONEST LIMITS. The listing is cursor-paged, so the column filters run over what has been
+   * loaded rather than over the firm. And the responsible attorney, practice area and Location
+   * arrive as identifiers and are named from the firm's own lists, read once per screen and joined
+   * here, never one request per row: a row whose identifier nothing names renders empty rather than
+   * showing the handle.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import * as Select from "@magna-carta/design-system/select";
+  import * as Popover from "@magna-carta/design-system/popover";
+  import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
+  import Separator from "@magna-carta/design-system/separator";
+  import ListFilter from "@lucide/svelte/icons/list-filter";
   import Plus from "@lucide/svelte/icons/plus";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Search from "@lucide/svelte/icons/search";
   import { goto } from "$app/navigation";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
@@ -49,22 +58,23 @@
     EMPTY_MATTER_VOCABULARY,
     MATTER_INITIAL_SORT,
   } from "$lib/matters/matter-columns.ts";
+  import {
+    docketIsNarrowed,
+    docketNarrowingSummary,
+    DEFAULT_MATTER_SCOPE,
+    MATTER_SCOPE_ITEMS,
+  } from "$lib/matters/matter-docket-filters.ts";
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
   import NewMatterDialog from "$lib/matters/new-matter-dialog.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
 
   // ---- what the screen is asking for ----------------------------------------------------------
 
-  const SCOPE_ITEMS: readonly { value: MatterScope; label: string }[] = [
-    { value: "caseload", label: "The working docket" },
-    { value: "open", label: "Open matters" },
-    { value: "closed", label: "Closed matters" },
-    { value: "prospective", label: "Consultations" },
-  ];
-
-  let scope = $state<MatterScope>("caseload");
+  let scope = $state<MatterScope>(DEFAULT_MATTER_SCOPE);
   let searchText = $state("");
   let appliedSearch = $state("");
+  let searchOpen = $state(false);
+  let searchField = $state<HTMLInputElement | null>(null);
   let dialogOpen = $state(false);
   let lastCreated = $state<{ matterId: string; matterNumber: string | null } | null>(null);
 
@@ -75,6 +85,21 @@
     const timer = setTimeout(() => (appliedSearch = typed), 300);
     return () => clearTimeout(timer);
   });
+
+  // The field opens where the icon was, so the gesture that revealed it also puts the caret in it.
+  $effect(() => {
+    if (searchOpen) searchField?.focus();
+  });
+
+  function toggleSearch(): void {
+    if (searchOpen && searchText !== "") {
+      // A live search is what the control is for, so the first press on an open field clears it
+      // rather than hiding a narrowing the reader can then no longer see.
+      searchText = "";
+      return;
+    }
+    searchOpen = !searchOpen;
+  }
 
   // ---- the firm's own vocabularies and who is asking -------------------------------------------
 
@@ -96,8 +121,7 @@
         firmRoster.load(fetch),
       ]);
       if (sessionOutcome.kind === "ok") session = sessionOutcome.value;
-      // A vocabulary that cannot be read leaves its column empty rather than failing the screen:
-      // the docket is still readable without the names of its practice areas.
+      // A vocabulary that cannot be read leaves its column empty rather than failing the screen.
       if (typesOutcome.kind === "ok") matterTypes = typesOutcome.value.data;
       if (locationsOutcome.kind === "ok") locations = locationsOutcome.value.data;
     })();
@@ -112,8 +136,6 @@
       : matterVocabulary(matterTypes, locations, members),
   );
 
-  // The create control is honest about the two different reasons it may be unavailable: a member
-  // without the permission is told so, and a session that has not landed is simply not yet ready.
   const mayCreate = $derived(session?.permissions.includes(CREATE_MATTER_PERMISSION) ?? false);
   const createDisabledReason = $derived(
     session === null
@@ -153,10 +175,25 @@
     rowKey: (matter) => matter.id,
     initialSort: MATTER_INITIAL_SORT,
     itemNoun: { singular: "matter", plural: "matters" },
+    // Double-click and Enter open the matter. The title stays a real link beside it, so the
+    // browser's own gestures still work; nobody has to hit the link precisely.
     onActivate: (matter) => void goto(`/matters/${matter.id}`),
   });
 
+  const narrowing = $derived({
+    scope,
+    search: appliedSearch,
+    columnFilterCount: grid.activeFilterCount,
+  });
+  const narrowed = $derived(docketIsNarrowed(narrowing));
+  const narrowingSummary = $derived(docketNarrowingSummary(narrowing));
   const searching = $derived(appliedSearch.trim() !== "");
+
+  function clearNarrowing(): void {
+    scope = DEFAULT_MATTER_SCOPE;
+    searchText = "";
+    grid.clearAllFilters();
+  }
 
   function onCreated(created: { matterId: string; matterNumber: string | null }): void {
     lastCreated = created;
@@ -173,8 +210,6 @@
     <!-- Tabular figures: matter numbers are read down a column and have to align. -->
     <span class="tabular-nums">{text}</span>
   {:else if column.id === "title"}
-    <!-- A real link, so the docket keeps the browser's own gestures: open in place, or hold
-         Ctrl/Cmd for a second matter in its own tab. -->
     <a class="underline underline-offset-2" href="/matters/{row.id}">{row.title}</a>
   {:else if column.id === "status"}
     {@const seal = matterStatusPresentation(row.status)}
@@ -186,86 +221,102 @@
   {/if}
 {/snippet}
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Matters</Masthead.Title>
-    <Masthead.Meta>
-      <span>The firm's active docket</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
-    <Button
-      variant="primary"
-      disabled={!mayCreate}
-      title={createDisabledReason}
-      onclick={() => (dialogOpen = true)}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      New matter
-    </Button>
-  </Masthead.Actions>
-</Masthead.Root>
+<div class="flex h-full flex-col gap-16">
+  <Masthead.Root>
+    <Masthead.Heading>
+      <Masthead.Title>Matters</Masthead.Title>
+    </Masthead.Heading>
+    <Masthead.Actions>
+      <Button
+        variant="primary"
+        disabled={!mayCreate}
+        title={createDisabledReason}
+        onclick={() => (dialogOpen = true)}
+      >
+        <Plus class="size-16" aria-hidden="true" />
+        New matter
+      </Button>
 
-{#if createDisabledReason !== undefined && session !== null}
-  <Alert.Root variant="info" class="mb-16">
-    <Alert.Title>Opening A Matter Is Not Available To This Account</Alert.Title>
-    <Alert.Description>{createDisabledReason}</Alert.Description>
-  </Alert.Root>
-{/if}
-
-{#if lastCreated !== null}
-  <!-- The heading follows the outcome, never the intent: a consultation was not opened, and saying
-       it was would contradict the sentence underneath it. -->
-  <Alert.Root variant="success" class="mb-16">
-    <Alert.Title>
-      {lastCreated.matterNumber === null ? "The Consultation Is Recorded" : "The Matter Is Open"}
-    </Alert.Title>
-    <Alert.Description>
-      {#if lastCreated.matterNumber === null}
-        It is unnumbered until the firm decides to take it, so it sits under Consultations rather
-        than on the working docket.
-      {:else}
-        The firm's counter drew number {lastCreated.matterNumber}.
-      {/if}
-      <a class="underline underline-offset-2" href="/matters/{lastCreated.matterId}">
-        {lastCreated.matterNumber === null ? "Open the consultation" : "Open the matter"}
-      </a>
-    </Alert.Description>
-  </Alert.Root>
-{/if}
-
-<section class="flex flex-col gap-16">
-  <div class="flex flex-wrap items-end justify-between gap-16">
-    <div class="flex flex-wrap items-end gap-16">
-      <div class="flex flex-col gap-8">
-        <Label id="matters-scope-label">Showing</Label>
-        <Select.Root type="single" items={[...SCOPE_ITEMS]} bind:value={scope} allowDeselect={false}>
-          <Select.Trigger class="min-w-64" aria-labelledby="matters-scope-label">
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {#each SCOPE_ITEMS as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-      <div class="flex flex-col gap-8">
-        <Label for="matters-search">Search</Label>
+      {#if searchOpen}
         <Input
-          id="matters-search"
+          bind:ref={searchField}
           type="search"
           bind:value={searchText}
-          aria-describedby="matters-search-hint"
+          placeholder="Search"
+          aria-label="Search"
+          class="w-xs"
         />
-        <p id="matters-search-hint" class="text-xs text-text-muted">
-          Over title, matter number and client, run by the firm's own record rather than over the
-          rows on screen.
-        </p>
-      </div>
-    </div>
-    <DataTable.GridColumnsMenu {grid} />
-  </div>
+      {/if}
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={searching ? `Search: ${appliedSearch.trim()}` : "Search"}
+        aria-expanded={searchOpen}
+        title={searching ? `Searching "${appliedSearch.trim()}"` : "Search"}
+        class={searching ? "text-accent-default" : undefined}
+        onclick={toggleSearch}
+      >
+        <Search class="size-16" aria-hidden="true" />
+      </Button>
+
+      <Popover.Root>
+        <Popover.Trigger
+          class={`${buttonClasses({ variant: "ghost", size: "icon" })} ${narrowed ? "text-accent-default" : ""}`}
+          aria-label={narrowed ? `Filters: ${narrowingSummary}` : "Filters"}
+          title={narrowed ? narrowingSummary : "Filters"}
+        >
+          <ListFilter class="size-16" aria-hidden="true" />
+        </Popover.Trigger>
+        <Popover.Content class="flex flex-col gap-12">
+          <RadioGroup.Root bind:value={scope} aria-label="Which matters to read" class="flex flex-col gap-8">
+            {#each MATTER_SCOPE_ITEMS as item (item.value)}
+              <div class="flex items-center gap-8">
+                <RadioGroup.Item value={item.value} id="matters-scope-{item.value}" />
+                <label class="text-sm" for="matters-scope-{item.value}">{item.label}</label>
+              </div>
+            {/each}
+          </RadioGroup.Root>
+
+          {#if grid.activeFilterCount > 0}
+            <Separator />
+            <ul class="flex flex-col gap-4">
+              {#each grid.activeFilterLabels as label (label)}
+                <li class="text-xs text-text-muted">{label}</li>
+              {/each}
+            </ul>
+          {/if}
+
+          {#if narrowed}
+            <Separator />
+            <Button variant="secondary" onclick={clearNarrowing}>Show every matter</Button>
+          {/if}
+        </Popover.Content>
+      </Popover.Root>
+
+      <DataTable.GridColumnsMenu {grid} />
+    </Masthead.Actions>
+  </Masthead.Root>
+
+  {#if lastCreated !== null}
+    <!-- The heading follows the outcome, never the intent: a consultation was not opened. -->
+    <Alert.Root variant="success">
+      <Alert.Title>
+        {lastCreated.matterNumber === null ? "The Consultation Is Recorded" : "The Matter Is Open"}
+      </Alert.Title>
+      <Alert.Description>
+        <a class="underline underline-offset-2" href="/matters/{lastCreated.matterId}">
+          {lastCreated.matterNumber ?? "Open the consultation"}
+        </a>
+      </Alert.Description>
+    </Alert.Root>
+  {/if}
+
+  {#if firmRoster.failure !== null}
+    <Alert.Root variant="info">
+      <Alert.Title>The Firm's Member List Could Not Be Read</Alert.Title>
+      <Alert.Description>{firmRoster.failure}</Alert.Description>
+    </Alert.Root>
+  {/if}
 
   {#if loadFailure !== null}
     <Alert.Root variant="danger">
@@ -279,17 +330,23 @@
       </Alert.Description>
     </Alert.Root>
   {:else}
-    <DataTable.Grid {grid} caption="The firm's matters" cell={matterCell} loading={matters === null}>
+    <!-- The table holds the height it would hold when full, so the screen does not reflow as the
+         docket grows or a filter narrows it. -->
+    <DataTable.Grid
+      {grid}
+      class="min-h-0 flex-1"
+      caption="The firm's matters"
+      cell={matterCell}
+      loading={matters === null}
+    >
       {#snippet empty()}
         {#if searching}
           <EmptyState title="Nothing Matches That Search">
-            No matter on the firm's record answers to that title, number or client. Clearing the
-            search brings the docket back.
+            No matter answers to that title, number or client.
           </EmptyState>
         {:else if scope === "prospective"}
           <EmptyState title="No Consultations Yet">
-            A consultation is a matter the firm has not taken on: it carries no number until it is
-            opened, and it stays out of the working docket until then.
+            A consultation carries no number until the firm opens it.
           </EmptyState>
         {:else}
           <EmptyState title="No Matters Yet">
@@ -304,38 +361,27 @@
                 New matter
               </Button>
             {/snippet}
-            A matter is the file of record for everything the firm does: numbering, documents, time
-            and trust all hang from one. Opening the first draws the firm's first matter number.
+            Numbering, documents, time and trust all hang from a matter.
           </EmptyState>
         {/if}
       {/snippet}
     </DataTable.Grid>
 
-    <DataTable.GridFooter {grid} />
-
     {#if list.nextCursor !== null}
-      <div class="flex flex-col items-start gap-8">
-        <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
-          {list.loadingMore ? "Loading" : "Load more matters"}
-        </Button>
-        <p class="text-xs text-text-muted">
-          The firm's record continues past what is on screen. Sorting and the column filters run
-          over the matters loaded so far, so the counts below the table are counts of these rows,
-          not of the whole docket.
-        </p>
-      </div>
-    {/if}
-
-    {#if firmRoster.failure !== null}
-      <!-- Said once, plainly, and only when it happened: the Responsible Attorney column is empty
-           because the roster could not be read, not because the matters have no attorney. -->
-      <p class="text-xs text-text-muted">
-        {firmRoster.failure} The Responsible Attorney column reads empty until it can.
-      </p>
+      <Button variant="secondary" class="self-start" onclick={loadMore} disabled={list.loadingMore}>
+        {list.loadingMore ? "Loading" : "Load more matters"}
+      </Button>
     {/if}
   {/if}
-</section>
+</div>
 
 {#if session !== null}
-  <NewMatterDialog bind:open={dialogOpen} {session} {matterTypes} {locations} {onCreated} />
+  <NewMatterDialog
+    bind:open={dialogOpen}
+    {session}
+    {matterTypes}
+    {locations}
+    matters={matters ?? []}
+    {onCreated}
+  />
 {/if}

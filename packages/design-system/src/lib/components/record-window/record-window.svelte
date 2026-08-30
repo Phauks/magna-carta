@@ -101,7 +101,7 @@
     data-expanded={isExpanded ? "true" : "false"}
     class={mergeClasses(
       "mc-record-window",
-      isExpanded ? "h-screen w-screen max-w-none" : "max-h-screen w-full max-w-5xl",
+      isExpanded ? "h-screen w-screen" : "max-h-screen w-full",
       className,
     )}
   >

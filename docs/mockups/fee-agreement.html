@@ -1,0 +1,1867 @@
+<!doctype html><html><head><!-- frame-runtime --><base href="/_f/1787964860-b5ab/"><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
+<title>The Fee Agreement</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,400;9..144,460;9..144,600&family=UnifrakturMaguntia&display=swap">
+<style>
+:root {
+  --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
+  --mc-accent-subtle: var(--mc-color-accent-100);
+  --mc-accent-subtle-foreground: var(--mc-color-accent-700);
+  --mc-action-destructive: var(--mc-color-red-500);
+  --mc-action-destructive-foreground: var(--mc-color-neutral-0);
+  --mc-action-destructive-hover: var(--mc-color-red-700);
+  --mc-action-disabled: var(--mc-color-neutral-200);
+  --mc-action-disabled-foreground: var(--mc-color-neutral-500);
+  --mc-action-primary: var(--mc-color-brand-800);
+  --mc-action-primary-active: var(--mc-color-brand-900);
+  --mc-action-primary-foreground: var(--mc-color-neutral-0);
+  --mc-action-primary-hover: var(--mc-color-brand-700);
+  --mc-action-secondary: var(--mc-color-neutral-100);
+  --mc-action-secondary-foreground: var(--mc-color-neutral-900);
+  --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-focus: var(--mc-color-brand-600);
+  --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
+  --mc-chrome-accent: var(--mc-color-accent-400);
+  --mc-chrome-border: var(--mc-color-brand-800);
+  --mc-chrome-surface: var(--mc-color-brand-900);
+  --mc-chrome-surface-hover: var(--mc-color-brand-800);
+  --mc-chrome-text: var(--mc-color-neutral-300);
+  --mc-chrome-text-muted: var(--mc-color-neutral-400);
+  --mc-chrome-text-strong: var(--mc-color-neutral-0);
+  --mc-color-accent-100: oklch(95% 0.0378 85);
+  --mc-color-accent-300: oklch(83% 0.0896 85);
+  --mc-color-accent-400: oklch(72% 0.1148 85);
+  --mc-color-accent-700: oklch(42% 0.086 85);
+  --mc-color-accent-900: oklch(22% 0.045 85);
+  --mc-color-amber-100: oklch(94.57% 0.0577 85.01);
+  --mc-color-amber-300: oklch(83% 0.1 80);
+  --mc-color-amber-400: oklch(77% 0.12 80);
+  --mc-color-amber-500: oklch(70% 0.13 80);
+  --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
+  --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
+  --mc-color-blue-300: oklch(75% 0.1 240);
+  --mc-color-blue-400: oklch(65% 0.13 240);
+  --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
+  --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
+  --mc-color-brand-0: oklch(99% 0.0035 70);
+  --mc-color-brand-50: oklch(97.5% 0.0063 70);
+  --mc-color-brand-100: oklch(95% 0.0094 70);
+  --mc-color-brand-200: oklch(90% 0.0157 70);
+  --mc-color-brand-300: oklch(83% 0.0224 70);
+  --mc-color-brand-400: oklch(72% 0.0287 70);
+  --mc-color-brand-500: oklch(62% 0.035 70);
+  --mc-color-brand-600: oklch(52% 0.035 70);
+  --mc-color-brand-700: oklch(42% 0.0318 70);
+  --mc-color-brand-800: oklch(32% 0.0255 70);
+  --mc-color-brand-900: oklch(22% 0.0192 70);
+  --mc-color-brand-1000: oklch(13% 0.0126 70);
+  --mc-color-green-100: oklch(94% 0.06 150);
+  --mc-color-green-300: oklch(76% 0.09 150);
+  --mc-color-green-400: oklch(66% 0.11 150);
+  --mc-color-green-500: oklch(56% 0.12 150);
+  --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
+  --mc-color-neutral-0: oklch(99% 0.002 70);
+  --mc-color-neutral-50: oklch(97.5% 0.0025 70);
+  --mc-color-neutral-100: oklch(95% 0.0037 70);
+  --mc-color-neutral-200: oklch(90% 0.0063 70);
+  --mc-color-neutral-300: oklch(83% 0.0089 70);
+  --mc-color-neutral-400: oklch(72% 0.0114 70);
+  --mc-color-neutral-500: oklch(62% 0.014 70);
+  --mc-color-neutral-600: oklch(52% 0.014 70);
+  --mc-color-neutral-700: oklch(42% 0.0127 70);
+  --mc-color-neutral-800: oklch(32% 0.0102 70);
+  --mc-color-neutral-900: oklch(22% 0.0077 70);
+  --mc-color-neutral-1000: oklch(13% 0.005 70);
+  --mc-color-red-100: oklch(92.89% 0.0361 27.51);
+  --mc-color-red-300: oklch(75% 0.12 25);
+  --mc-color-red-400: oklch(65% 0.15 25);
+  --mc-color-red-500: oklch(55% 0.18 25);
+  --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
+  --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
+  --mc-control-lg: 40px;
+  --mc-control-md: 36px;
+  --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
+  --mc-density-control-height: var(--mc-control-md);
+  --mc-density-gutter: var(--mc-space-16);
+  --mc-density-stack: var(--mc-space-12);
+  --mc-duration-fast: 120ms;
+  --mc-duration-normal: 200ms;
+  --mc-duration-slow: 300ms;
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
+  --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
+  --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
+  --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-3xl: 2rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
+  --mc-leading-normal: 1.5;
+  --mc-leading-relaxed: 1.625;
+  --mc-leading-tight: 1.25;
+  --mc-radius-full: 9999px;
+  --mc-radius-lg: 10px;
+  --mc-radius-md: 7px;
+  --mc-radius-none: 0px;
+  --mc-radius-sm: 2px;
+  --mc-size-popover: 224px;
+  --mc-size-prose: 480px;
+  --mc-size-sidebar: 256px;
+  --mc-size-top-bar: 56px;
+  --mc-space-0: 0px;
+  --mc-space-4: 4px;
+  --mc-space-8: 8px;
+  --mc-space-12: 12px;
+  --mc-space-16: 16px;
+  --mc-space-20: 20px;
+  --mc-space-24: 24px;
+  --mc-space-32: 32px;
+  --mc-space-40: 40px;
+  --mc-space-48: 48px;
+  --mc-space-64: 64px;
+  --mc-space-96: 96px;
+  --mc-status-danger: var(--mc-color-red-500);
+  --mc-status-danger-foreground: var(--mc-color-neutral-0);
+  --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-info: var(--mc-color-blue-700);
+  --mc-status-info-foreground: var(--mc-color-neutral-0);
+  --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-success: var(--mc-color-green-700);
+  --mc-status-success-foreground: var(--mc-color-neutral-0);
+  --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-warning: var(--mc-color-amber-500);
+  --mc-status-warning-foreground: var(--mc-color-neutral-1000);
+  --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-overlay: var(--mc-color-neutral-0);
+  --mc-surface-raised: var(--mc-color-neutral-50);
+  --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
+  --mc-surface-sunken: var(--mc-color-neutral-100);
+  --mc-text-default: var(--mc-color-neutral-900);
+  --mc-text-inverse: var(--mc-color-neutral-0);
+  --mc-text-link: var(--mc-color-brand-600);
+  --mc-text-muted: var(--mc-color-neutral-700);
+  --mc-text-subtle: var(--mc-color-neutral-600);
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
+  --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
+  --mc-weight-medium: 500;
+  --mc-weight-regular: 400;
+  --mc-weight-semibold: 600;
+  --mc-z-dropdown: 1000;
+  --mc-z-modal: 1300;
+  --mc-z-overlay: 1200;
+  --mc-z-sticky: 1100;
+  --mc-z-toast: 1400;
+}
+
+/* Chancery light, committed single-theme for this mockup; the built screen inherits theme x mode. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--mc-surface-sunken); color: var(--mc-text-default); }
+body { font-family: "Atkinson Hyperlegible", var(--mc-font-sans); font-size: var(--mc-font-size-sm); line-height: var(--mc-leading-normal); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring); outline-offset: var(--mc-focus-ring-offset); }
+.caps { text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); font-size: var(--mc-font-size-xs); }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--mc-text-muted); }
+svg { flex: none; }
+[hidden] { display: none !important; }
+
+/* Themed scrollbars, everywhere in the canvas */
+.scrollable { scrollbar-color: var(--mc-color-neutral-300) var(--mc-surface-raised); scrollbar-width: thin; }
+.scrollable::-webkit-scrollbar { width: 10px; height: 10px; }
+.scrollable::-webkit-scrollbar-track { background: var(--mc-surface-raised); }
+.scrollable::-webkit-scrollbar-thumb { background: var(--mc-color-neutral-300); border-radius: var(--mc-radius-full); border: 2px solid var(--mc-surface-raised); }
+.scrollable::-webkit-scrollbar-thumb:hover { background: var(--mc-color-neutral-400); }
+
+/* ============ App shell (as The Docket renders it) ============ */
+.shell { flex: 1; display: grid; grid-template-columns: var(--mc-size-sidebar) 1fr; grid-template-rows: var(--mc-size-top-bar) 1fr; min-height: 0; background: var(--mc-chrome-surface); }
+.brandcorner { grid-column: 1; grid-row: 1; background: var(--mc-chrome-surface); display: flex; align-items: center; gap: var(--mc-space-12); padding: 0 var(--mc-space-16); }
+.brandcorner .m { font-family: var(--mc-font-blackletter); color: var(--mc-chrome-accent); font-size: var(--mc-font-size-2xl); }
+.brandcorner .wordmark { color: var(--mc-chrome-text-strong); letter-spacing: var(--mc-tracking-wordmark); font-size: var(--mc-font-size-xs); text-transform: uppercase; }
+.topbar { grid-column: 2; grid-row: 1; background: var(--mc-chrome-surface); display: flex; align-items: center; gap: var(--mc-space-12); padding: 0 var(--mc-space-16); }
+.topbar .gsearch { flex: none; width: 320px; display: flex; align-items: center; gap: var(--mc-space-8); color: var(--mc-chrome-text-muted); border: 1px solid var(--mc-chrome-border); border-radius: var(--mc-radius-md); padding: 0 var(--mc-space-12); height: var(--mc-control-sm); }
+.topbar .gsearch .kbd { margin-left: auto; font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); }
+.topbar .right { margin-left: auto; display: flex; align-items: center; gap: var(--mc-space-12); }
+.topbar .bell { color: var(--mc-chrome-text-muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--mc-radius-md); }
+.topbar .bell:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+.topbar .timerchip { display: flex; align-items: center; gap: var(--mc-space-4); color: var(--mc-chrome-text); border: 1px solid var(--mc-chrome-border); border-radius: var(--mc-radius-md); padding: var(--mc-space-4) var(--mc-space-8); font-size: var(--mc-font-size-xs); }
+.topbar .timerchip.running { color: var(--mc-chrome-text-strong); border-color: var(--mc-chrome-accent); }
+.topbar .timerchip.running svg { color: var(--mc-chrome-accent); }
+.avatar { width: 30px; height: 30px; border-radius: var(--mc-radius-full); background: var(--mc-color-neutral-0); color: var(--mc-color-neutral-900); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: var(--mc-font-size-xs); }
+.sidebar { grid-column: 1; grid-row: 2; background: var(--mc-chrome-surface); display: flex; flex-direction: column; overflow-y: auto; padding: var(--mc-space-12) var(--mc-space-8) var(--mc-space-8); }
+.sidebar .grouplabel { color: var(--mc-chrome-text-muted); padding: var(--mc-space-12) var(--mc-space-12) var(--mc-space-4); }
+.sidebar .dest { display: flex; align-items: center; gap: var(--mc-space-8); color: var(--mc-chrome-text); padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-md); font-size: var(--mc-font-size-sm); width: 100%; }
+.sidebar .dest:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+.sidebar .dest[aria-current="true"] { color: var(--mc-chrome-text-strong); background: var(--mc-chrome-surface-hover); font-weight: 700; }
+.sidebar .dest[aria-current="true"] svg { color: var(--mc-chrome-accent); opacity: 1; }
+.sidebar .dest svg { width: 15px; height: 15px; opacity: 0.85; }
+.mbadge { margin-left: var(--mc-space-4); font-size: var(--mc-font-size-xs); border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); font-weight: 700; }
+.mbadge.alpha { background: var(--mc-color-blue-100); color: var(--mc-color-blue-700); }
+.mbadge.soon { background: var(--mc-color-neutral-100); color: var(--mc-color-neutral-700); }
+.sidebar .foot { margin-top: auto; border-top: 1px solid var(--mc-chrome-border); padding-top: var(--mc-space-8); display: flex; flex-direction: column; gap: var(--mc-space-4); }
+.sidebar .railcontrols { display: flex; gap: var(--mc-space-4); padding: var(--mc-space-4) var(--mc-space-8); }
+.sidebar .railcontrols button { width: 28px; height: 28px; border-radius: var(--mc-radius-md); color: var(--mc-chrome-text-muted); display: flex; align-items: center; justify-content: center; }
+.sidebar .railcontrols button:hover { background: var(--mc-chrome-surface-hover); color: var(--mc-chrome-text-strong); }
+
+/* ============ Canvas, masthead, tabs ============ */
+.canvas { grid-column: 2; grid-row: 2; min-width: 0; display: flex; flex-direction: column; background: var(--mc-surface-default); overflow: hidden; border-top-left-radius: var(--mc-radius-lg); }
+.mockbar { flex: none; display: flex; flex-wrap: wrap; gap: var(--mc-space-8); align-items: center; padding: var(--mc-space-4) var(--mc-space-24); background: var(--mc-surface-sunken); border-bottom: 1px dashed var(--mc-border-strong); }
+.mockbar span { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.mockbar button { font-size: var(--mc-font-size-xs); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-full); padding: 1px var(--mc-space-8); color: var(--mc-text-muted); background: var(--mc-surface-default); }
+.mockbar button[aria-pressed="true"] { border-color: var(--mc-border-strong); color: var(--mc-text-default); font-weight: 700; }
+.masthead { flex: none; padding: var(--mc-space-16) var(--mc-space-24) 0; display: flex; justify-content: space-between; align-items: flex-start; gap: var(--mc-space-16); }
+.masthead .eyebrow { color: var(--mc-text-subtle); }
+.masthead h1 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-2xl); line-height: var(--mc-leading-tight); margin-top: var(--mc-space-4); text-wrap: balance; }
+.masthead .meta { color: var(--mc-text-muted); margin-top: var(--mc-space-4); display: flex; gap: var(--mc-space-8); flex-wrap: wrap; }
+.masthead .meta .sep { color: var(--mc-border-strong); }
+.masthead .side { display: flex; align-items: center; gap: var(--mc-space-8); }
+.seal { border: 1px solid var(--mc-status-success-subtle-border); background: var(--mc-status-success-subtle); color: var(--mc-status-success-subtle-foreground); border-radius: var(--mc-radius-full); padding: 2px var(--mc-space-12); }
+.overflowbtn { width: 26px; height: 26px; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); color: var(--mc-text-muted); display: flex; align-items: center; justify-content: center; }
+.overflowbtn:hover { background: var(--mc-surface-raised); }
+.fsearch { display: flex; align-items: center; position: relative; }
+.tabs { flex: none; display: flex; padding: 0 var(--mc-space-24); border-bottom: 1px solid var(--mc-border-default); margin-top: var(--mc-space-8); min-height: 40px; align-items: stretch; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.tabs a { color: var(--mc-text-muted); text-decoration: none; padding: var(--mc-space-8) var(--mc-space-12); border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: var(--mc-space-4); }
+.tabs a:hover { color: var(--mc-text-default); }
+.tabs a[aria-current="page"] { color: var(--mc-text-default); font-weight: 700; border-bottom-color: var(--mc-accent-strong); }
+.tabs .tb { font-size: var(--mc-font-size-xs); border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); background: var(--mc-status-info-subtle); color: var(--mc-status-info-subtle-foreground); font-weight: 700; }
+.tabs .tb.soon { background: var(--mc-color-neutral-100); color: var(--mc-color-neutral-700); }
+/* The surface's controls share the tabs row: tabs left, actions right, no row of their own —
+   the table starts a full row higher. */
+.tabactions { margin-left: auto; display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-4) 0 var(--mc-space-4) var(--mc-space-16); }
+.tabactions .btn { height: var(--mc-control-xs); font-size: var(--mc-font-size-xs); padding: 0 var(--mc-space-8); }
+.tabactions .iconbtn { width: 28px; height: 28px; }
+/* ============ Time surface ============ */
+.timewrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.btn { display: inline-flex; align-items: center; gap: var(--mc-space-8); height: var(--mc-control-sm); padding: 0 var(--mc-space-12); border-radius: var(--mc-radius-md); font-weight: 700; font-size: var(--mc-font-size-sm); white-space: nowrap; }
+.btn.primary { background: var(--mc-action-primary); color: var(--mc-action-primary-foreground); }
+.btn.primary:hover { background: var(--mc-action-primary-hover); }
+.btn.secondary { background: var(--mc-action-secondary); color: var(--mc-action-secondary-foreground); border: 1px solid var(--mc-border-default); }
+.btn.secondary:hover { background: var(--mc-action-secondary-hover); }
+.btn:disabled { background: var(--mc-action-disabled); color: var(--mc-action-disabled-foreground); cursor: not-allowed; border: none; }
+.btn.danger { background: var(--mc-action-destructive); color: var(--mc-action-destructive-foreground); }
+.btn.danger:hover { background: var(--mc-action-destructive-hover); }
+.btn svg { width: 14px; height: 14px; }
+.iconbtn { width: 30px; height: 30px; border-radius: var(--mc-radius-md); color: var(--mc-text-muted); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.iconbtn:hover:not(:disabled) { background: var(--mc-surface-raised); color: var(--mc-text-default); }
+.iconbtn:disabled { color: var(--mc-action-disabled-foreground); cursor: default; }
+.iconbtn svg { width: 15px; height: 15px; }
+/* An active toggle reads through its glyph and a hairline, never a filled panel behind it. */
+.iconbtn[aria-pressed="true"] { background: transparent; color: var(--mc-accent-strong); outline: 1px solid var(--mc-accent-strong); outline-offset: -1px; }
+/* The clear-filters control exists ONLY while a filter is in play — absence is the signal
+   (the file manager's round-ten L44 direction, mirrored here). Present, it reads accent so the
+   filtered state cannot be missed. */
+.iconbtn.filterclear { color: var(--mc-accent-default); outline: 1px solid var(--mc-accent-strong); outline-offset: -1px; }
+.mc-badge { display: inline-flex; align-items: center; gap: var(--mc-space-4); padding-block: var(--mc-space-4); padding-inline: var(--mc-space-8); border: var(--mc-border-width-default) solid transparent; border-radius: var(--mc-radius-full); font-family: var(--mc-font-sans); font-size: var(--mc-font-size-xs); font-weight: var(--mc-weight-semibold); line-height: var(--mc-leading-tight); white-space: nowrap; }
+.mc-badge-neutral { background-color: var(--mc-surface-sunken); color: var(--mc-text-muted); }
+
+/* Table + details panel share the body row: the list stays in reach while an entry's details
+   show beside it, the settled selection pattern for these tables. */
+.timebody { flex: 1; display: flex; min-height: 0; }
+.tablewrap { flex: 1; min-width: 0; overflow: auto; scrollbar-gutter: stable; }
+table { width: 100%; min-width: 960px; border-collapse: collapse; font-size: var(--mc-font-size-sm); }
+thead th { position: sticky; top: 0; background: var(--mc-surface-raised); z-index: 2; text-align: left; padding: 0; border-bottom: 1px solid var(--mc-border-default); white-space: nowrap; }
+/* The filter control sits INSIDE the header cell with the label: one unit, one hover surface,
+   space reserved at all times so revealing it moves nothing. */
+thead th .hcell { display: flex; align-items: center; }
+thead th.right .hcell { justify-content: flex-end; }
+thead th .sortbtn { flex: 0 1 auto; display: flex; align-items: center; gap: var(--mc-space-4); color: var(--mc-text-subtle); font-weight: 400; text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); font-size: var(--mc-font-size-xs); padding: var(--mc-space-4) var(--mc-space-8); }
+thead th .hcell:hover { background: var(--mc-surface-selected); }
+thead th .hcell:hover .sortbtn { color: var(--mc-text-default); }
+thead th.right .sortbtn { justify-content: flex-end; }
+thead th .arrow { width: 10px; display: inline-flex; }
+/* The filter control is RIGHT-ALIGNED in its header cell: label left, funnel flush at the cell's
+   right edge, one hover unit over the whole cell, space reserved so revealing it moves nothing.
+   (In a right-aligned column the label sits beside the funnel at that same edge.) */
+thead th .filterbtn { width: 20px; height: 20px; margin-left: auto; border-radius: var(--mc-radius-sm); color: var(--mc-text-subtle); display: inline-flex; visibility: hidden; align-items: center; justify-content: center; flex: none; }
+thead th.right .filterbtn { margin-left: 0; }
+thead th:hover .filterbtn, thead th:focus-within .filterbtn, thead th .filterbtn.active { visibility: visible; }
+/* A filtered column's control is APPARENT — the Docket's treatment, shared exactly. */
+thead th .filterbtn.active { background: var(--mc-accent-subtle); color: var(--mc-accent-subtle-foreground); }
+thead th .hcell:hover .filterbtn:not(.active) { color: var(--mc-text-default); }
+thead th .filterbtn svg { width: 11px; height: 11px; }
+/* One table system across the matter surfaces: the Docket's column machinery, shared exactly —
+   drag-reorder, pinning, resize with double-click fit. */
+thead th[draggable] { cursor: grab; }
+thead th.dragging { opacity: 0.4; }
+thead th.drop-before { box-shadow: inset 2px 0 0 0 var(--mc-border-focus); }
+thead th.drop-after { box-shadow: inset -2px 0 0 0 var(--mc-border-focus); }
+th.colpin, td.colpin { position: sticky; z-index: 1; }
+thead th.colpin { z-index: 4; }
+.colpin-last { border-right: 1px solid var(--mc-border-default); }
+tbody td.colpin { background: var(--mc-surface-default); }
+tbody tr:hover td.colpin { background: var(--mc-surface-raised); }
+tbody tr[aria-selected="true"] td.colpin { background: var(--mc-surface-selected); }
+table.zebra tbody tr:nth-child(even):not([aria-selected="true"]):not(:hover) td.colpin { background: var(--mc-surface-raised); }
+tfoot td.colpin { background: var(--mc-surface-raised); z-index: 2; }
+thead th .thgrip { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; z-index: 6; }
+thead th .thgrip::after { content: ""; position: absolute; left: 3px; top: 0; height: 100%; width: 1px; background: transparent; }
+thead th .thgrip:hover::after, thead th .thgrip.dragging::after { background: var(--mc-border-focus); width: 2px; }
+body.resizing { cursor: col-resize; user-select: none; }
+table.fixedcols { table-layout: fixed; }
+table.fixedcols td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.fixedcols .narr { max-width: none; }
+tbody td { padding: 3px var(--mc-space-8); border-bottom: 1px solid var(--mc-border-default); vertical-align: middle; height: var(--mc-control-sm); }
+tbody tr { cursor: pointer; user-select: none; }
+tbody tr:hover { background: var(--mc-surface-raised); }
+tbody tr[aria-selected="true"] { background: var(--mc-surface-selected); box-shadow: inset 2px 0 0 var(--mc-accent-strong); }
+table.zebra tbody tr:nth-child(even):not([aria-selected="true"]):not(:hover) { background: var(--mc-surface-raised); }
+/* The totals row: real sums for the numeric columns, pinned under the list. Scope-honest — it
+   sums what is in view, and says so when a filter narrows the view. Voids never count. */
+tfoot td { position: sticky; bottom: 0; background: var(--mc-surface-raised); border-top: 2px solid var(--mc-border-strong); padding: var(--mc-space-4) var(--mc-space-8); font-weight: var(--mc-weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 1; }
+tfoot td .scopelbl { text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); }
+tfoot td .scopelbl.filtered { color: var(--mc-accent-default); }
+td.right, th.right { text-align: right; white-space: nowrap; }
+td.nowrap { white-space: nowrap; }
+td .narr { display: block; max-width: 38ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+tr.voided td { color: var(--mc-text-subtle); }
+tr.voided td .narr { text-decoration: line-through; text-decoration-color: var(--mc-border-strong); }
+.tkgone { color: var(--mc-text-subtle); font-style: italic; }
+.chip { display: inline-flex; align-items: center; gap: 4px; border-radius: var(--mc-radius-full); padding: 0 var(--mc-space-8); font-size: var(--mc-font-size-xs); border: 1px solid; white-space: nowrap; }
+.chip.quiet { background: var(--mc-surface-raised); color: var(--mc-text-muted); border-color: var(--mc-border-default); }
+.chip.warn { background: var(--mc-status-warning-subtle); color: var(--mc-status-warning-subtle-foreground); border-color: var(--mc-status-warning-subtle-border); }
+.chip.success { background: var(--mc-status-success-subtle); color: var(--mc-status-success-subtle-foreground); border-color: var(--mc-status-success-subtle-border); }
+.chip.info { background: var(--mc-status-info-subtle); color: var(--mc-status-info-subtle-foreground); border-color: var(--mc-status-info-subtle-border); }
+.chip.danger { background: var(--mc-status-danger-subtle); color: var(--mc-status-danger-subtle-foreground); border-color: var(--mc-status-danger-subtle-border); }
+/* The timekeeper renders as initials PLUS the name: the avatar is recognition, the name is the
+   record. A name is history, never a join against current membership. */
+.tkavatar { width: 20px; height: 20px; border-radius: var(--mc-radius-full); background: var(--mc-surface-sunken); border: 1px solid var(--mc-border-default); display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: var(--mc-text-muted); margin-right: var(--mc-space-8); vertical-align: middle; flex: none; }
+td .tkcell { display: inline-flex; align-items: center; }
+td .actcode { font-variant-numeric: tabular-nums; cursor: default; border-bottom: 1px dotted var(--mc-border-strong); }
+/* ============ The details panel ============
+   Clicking a row presents the entry beside the list: every field, both dates, both people, the
+   entry number, the chain, the history, the invoice it rode to. Close returns the full width. */
+.inspector { flex: none; width: 360px; min-width: 0; border-left: 1px solid var(--mc-border-default); display: flex; flex-direction: column; min-height: 0; background: var(--mc-surface-default); }
+.inspector > header { flex: none; display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-8) var(--mc-space-12) var(--mc-space-8) var(--mc-space-16); border-bottom: 1px solid var(--mc-border-default); }
+.inspector > header .htext { flex: 1; min-width: 0; }
+.inspector > header h2 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-md); line-height: var(--mc-leading-tight); }
+.inspector > header .ref { font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); }
+.insbody { flex: 1; overflow-y: auto; padding: var(--mc-space-12) var(--mc-space-16) var(--mc-space-24); display: flex; flex-direction: column; gap: var(--mc-space-12); }
+.insacts { display: flex; gap: var(--mc-space-8); flex-wrap: wrap; }
+.insacts .btn { height: var(--mc-control-xs); font-size: var(--mc-font-size-xs); padding: 0 var(--mc-space-8); }
+.inssec { border-top: 1px solid var(--mc-border-default); padding-top: var(--mc-space-8); display: flex; flex-direction: column; gap: var(--mc-space-8); }
+.inssec .sechead { color: var(--mc-text-subtle); }
+.insfacts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--mc-space-4) var(--mc-space-12); font-size: var(--mc-font-size-sm); margin: 0; }
+.insfacts dt { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); padding-top: 2px; white-space: nowrap; }
+.insfacts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.insinfo { font-size: var(--mc-font-size-sm); color: var(--mc-text-default); }
+/* The chain, visible: where this entry stands between draft and paid, and what its lock means. */
+.chain { display: flex; gap: 2px; }
+.chain .st { flex: 1; text-align: center; font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); padding-bottom: 2px; border-bottom: 2px solid var(--mc-border-default); white-space: nowrap; }
+.chain .st.done { color: var(--mc-text-muted); border-bottom-color: var(--mc-accent-strong); }
+.chain .st.now { color: var(--mc-text-default); font-weight: 700; border-bottom-color: var(--mc-accent-strong); }
+.locknote { font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); display: flex; gap: var(--mc-space-8); align-items: flex-start; }
+.locknote svg { width: 13px; height: 13px; margin-top: 1px; color: var(--mc-text-subtle); }
+/* History: a compact event rail. Each event is one unit — a marker on a hairline, the action,
+   the instant and the actor on one metadata line, and any recorded detail (a kick-back reason)
+   as quoted text beneath. Oldest first: the list reads as the entry's story. */
+.hist { list-style: none; display: flex; flex-direction: column; margin: 0; padding: 0; }
+.hist li { position: relative; padding: 0 0 var(--mc-space-8) var(--mc-space-16); }
+.hist li::before { content: ""; position: absolute; left: 3px; top: 5px; width: 7px; height: 7px; border-radius: var(--mc-radius-full); background: var(--mc-surface-default); border: 2px solid var(--mc-border-strong); }
+.hist li.now::before { border-color: var(--mc-accent-strong); background: var(--mc-accent-strong); }
+.hist li::after { content: ""; position: absolute; left: 6px; top: 16px; bottom: -2px; width: 1px; background: var(--mc-border-default); }
+.hist li:last-child { padding-bottom: 0; }
+.hist li:last-child::after { display: none; }
+.hist .ev { font-size: var(--mc-font-size-sm); color: var(--mc-text-default); font-weight: var(--mc-weight-semibold); line-height: var(--mc-leading-tight); }
+.hist .evmeta { display: block; font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); margin-top: 1px; }
+.hist .evdetail { display: block; font-size: var(--mc-font-size-xs); color: var(--mc-text-muted); border-left: 2px solid var(--mc-border-default); padding-left: var(--mc-space-8); margin-top: var(--mc-space-4); }
+.invline { display: flex; align-items: center; gap: var(--mc-space-8); font-size: var(--mc-font-size-sm); flex-wrap: wrap; }
+.invline .seam { display: inline-flex; align-items: center; gap: var(--mc-space-4); color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.invline .seam:disabled { cursor: default; }
+.invline .seam svg { width: 12px; height: 12px; }
+.invline .seam .mc-badge { padding-block: 0; }
+/* The filtered-empty row: the table says WHY it is empty and hands over the way out. */
+.emptyfiltered { padding: var(--mc-space-32) var(--mc-space-24); text-align: center; color: var(--mc-text-muted); }
+.emptyfiltered .btn { margin: var(--mc-space-12) auto 0; }
+
+/* Footer: counts and the filter state on the left (the Docket's conventions), the matter's
+   money on the right as legible labelled figures — the column sums live in the table's totals
+   row, so the footer carries only what no column carries: unbilled vs billed, and the Billing
+   seam. Voids excluded from every total. */
+.pagefoot { flex: none; display: flex; align-items: center; gap: var(--mc-space-4) var(--mc-space-12); padding: var(--mc-space-8) var(--mc-space-24); border-top: 1px solid var(--mc-border-default); color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); flex-wrap: wrap; }
+.footstat { display: inline-flex; align-items: baseline; gap: var(--mc-space-8); white-space: nowrap; }
+.footstat .fsv { font-size: var(--mc-font-size-md); font-weight: var(--mc-weight-semibold); color: var(--mc-text-default); font-variant-numeric: tabular-nums; }
+.footstat .fsl { font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); }
+.pagefoot strong { color: var(--mc-text-muted); font-weight: var(--mc-weight-semibold); font-variant-numeric: tabular-nums; }
+.pagefoot .sep { color: var(--mc-border-strong); }
+.pagefoot .seam { display: inline-flex; align-items: center; gap: var(--mc-space-4); color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.pagefoot .seam:disabled { cursor: default; }
+.pagefoot .seam svg { width: 12px; height: 12px; }
+.pagefoot .seam .mc-badge { padding-block: 0; }
+.pagefoot .footspacer { flex: 1; }
+.pagefoot .lnk { color: var(--mc-text-link); }
+.pagefoot .lnk:hover { text-decoration: underline; }
+.pagefoot .filtered { color: var(--mc-accent-default); font-weight: 700; display: inline-flex; align-items: center; gap: var(--mc-space-4); }
+.pagefoot .filtered svg { width: 11px; height: 11px; fill: currentColor; }
+
+/* Menus */
+.menu { position: fixed; z-index: 1300; background: var(--mc-surface-overlay); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); box-shadow: var(--mc-elevation-2); min-width: 210px; padding: var(--mc-space-4); }
+.menu button { width: 100%; padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-sm); color: var(--mc-text-default); display: flex; align-items: center; gap: var(--mc-space-8); }
+.menu button:hover:not(:disabled) { background: var(--mc-surface-selected); }
+.menu button:disabled { color: var(--mc-action-disabled-foreground); cursor: default; }
+.menu .rule { height: 1px; background: var(--mc-border-default); margin: var(--mc-space-4) 0; }
+.menu .danger { color: var(--mc-status-danger-subtle-foreground); }
+.menu svg { width: 14px; height: 14px; color: var(--mc-text-subtle); }
+.menu .danger svg { color: var(--mc-status-danger-subtle-foreground); }
+.menu label { display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-4) var(--mc-space-12); border-radius: var(--mc-radius-sm); }
+.menu label:hover { background: var(--mc-surface-selected); }
+.menu label .n { margin-left: auto; color: var(--mc-text-subtle); font-variant-numeric: tabular-nums; font-size: var(--mc-font-size-xs); }
+.menu label .colpinbtn { margin-left: auto; width: 20px; height: 20px; border-radius: var(--mc-radius-sm); display: inline-flex; align-items: center; justify-content: center; color: var(--mc-text-subtle); }
+.menu label .colpinbtn:hover { background: var(--mc-surface-raised); color: var(--mc-text-default); }
+.menu label .colpinbtn.on { color: var(--mc-accent-default); }
+.menu label .colpinbtn svg { width: 12px; height: 12px; }
+.menu .mhead { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); text-transform: uppercase; letter-spacing: var(--mc-tracking-caps); padding: var(--mc-space-4) var(--mc-space-12); }
+.menu .mnote { max-width: 236px; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); padding: var(--mc-space-4) var(--mc-space-12); }
+.menu .rangerow { display: flex; gap: var(--mc-space-8); padding: var(--mc-space-4) var(--mc-space-12); align-items: center; }
+.menu .rangerow input { width: 108px; min-width: 0; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-sm); padding: var(--mc-space-4) var(--mc-space-8); background: var(--mc-surface-field); color: var(--mc-text-default); font-size: var(--mc-font-size-xs); font-family: inherit; }
+.menu .textrow { padding: var(--mc-space-4) var(--mc-space-12); }
+.menu .textrow input { width: 100%; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-sm); padding: var(--mc-space-4) var(--mc-space-8); background: var(--mc-surface-field); color: var(--mc-text-default); font: inherit; font-size: var(--mc-font-size-xs); }
+input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--mc-action-primary); }
+.menu .k { margin-left: auto; color: var(--mc-text-subtle); font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); }
+
+/* Dialogs: capped at the viewport, only the body scrolls. */
+.dialogwash { position: fixed; inset: 0; background: var(--mc-surface-scrim); z-index: 1350; display: flex; align-items: flex-start; justify-content: center; padding-top: 10vh; }
+.dialog { width: min(480px, 92vw); max-height: min(86vh, 720px); display: flex; flex-direction: column; background: var(--mc-surface-default); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-lg); box-shadow: var(--mc-elevation-3); }
+.dialog > header, .dialog > footer { flex: none; }
+.dialog > .body { flex: 1 1 auto; overflow-y: auto; scrollbar-width: thin; padding: var(--mc-space-8) var(--mc-space-20) var(--mc-space-16); display: flex; flex-direction: column; gap: var(--mc-space-12); }
+.dialog header { padding: var(--mc-space-16) var(--mc-space-20) var(--mc-space-8); }
+.dialog header h2 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-lg); }
+.dialog footer { display: flex; justify-content: flex-end; align-items: center; gap: var(--mc-space-8); padding: 0 var(--mc-space-20) var(--mc-space-16); }
+.dialog .field { display: flex; flex-direction: column; gap: var(--mc-space-4); max-width: var(--mc-size-prose); }
+.dialog .field > label { color: var(--mc-text-muted); font-size: var(--mc-font-size-xs); }
+.dialog .field input[type="text"], .dialog .field input[type="date"], .dialog .field select, .dialog .field textarea { font: inherit; border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); padding: var(--mc-space-8); background: var(--mc-surface-field); color: var(--mc-text-default); }
+.dialog .field textarea { resize: vertical; min-height: 64px; }
+.dialog .fieldrow { display: flex; gap: var(--mc-space-12); }
+.dialog .fieldrow .field { flex: 1; }
+.dialog .hint { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.dialog .hint.err { color: var(--mc-status-danger-subtle-foreground); }
+.dialog .switchrow { display: flex; align-items: center; gap: var(--mc-space-8); }
+.dialog header .subtitle { display: block; color: var(--mc-text-muted); font-size: var(--mc-font-size-xs); margin-top: 2px; }
+.dialog header .subtitle .num { font-family: var(--mc-font-mono); }
+
+/* ============ Combobox ============
+   Every dropdown on this surface is TYPABLE: the design system's combobox — a bordered control
+   holding a borderless input and a chevrons trigger, filtering a floating listbox that reuses
+   the select's option rows. Typing filters; arrows move; Enter commits; Escape restores. */
+.combo { position: relative; display: flex; flex-direction: column; }
+.combo .cwrap { display: flex; align-items: center; min-height: var(--mc-control-md); padding-right: var(--mc-space-4); border: var(--mc-border-width-default) solid var(--mc-border-default); border-radius: var(--mc-radius-md); background: var(--mc-surface-field); }
+.combo .cwrap:focus-within { border-color: var(--mc-focus-ring); outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring); outline-offset: 0; }
+.combo input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--mc-text-default); font: inherit; font-size: var(--mc-font-size-sm); padding: 0 0 0 var(--mc-space-12); text-overflow: ellipsis; }
+.combo input::placeholder { color: var(--mc-text-muted); }
+.combo.disabled .cwrap { background: var(--mc-action-disabled); }
+.combo.disabled input { color: var(--mc-action-disabled-foreground); }
+.combo .ctrig { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: var(--mc-text-muted); border-radius: var(--mc-radius-sm); }
+.combo .ctrig svg { width: 15px; height: 15px; }
+.combolist { position: fixed; z-index: 1400; background: var(--mc-surface-overlay); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); box-shadow: var(--mc-elevation-2); padding: var(--mc-space-4); max-height: 224px; overflow-y: auto; }
+.citem { display: flex; align-items: center; gap: var(--mc-space-8); padding: var(--mc-space-4) var(--mc-space-8); border-radius: var(--mc-radius-sm); font-size: var(--mc-font-size-sm); cursor: pointer; }
+.citem .cind { flex: none; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--mc-text-default); }
+.citem .cind svg { width: 14px; height: 14px; }
+.citem .clabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.citem .csub { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); white-space: nowrap; }
+.citem.hl { background: var(--mc-action-secondary); }
+.citem.dis { color: var(--mc-action-disabled-foreground); cursor: not-allowed; }
+.combolist .cnone { padding: var(--mc-space-8) var(--mc-space-12); color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+/* Log Time is WIDE and fits without scrolling: rows of related fields, and one arithmetic
+   cluster keeping hours, rate and the resulting amount beside each other. */
+.dialog.wide { width: min(780px, 94vw); max-height: calc(100vh - var(--mc-space-32)); }
+#logWash { align-items: center; padding: var(--mc-space-16); }
+.dialog.wide .field { max-width: none; min-width: 0; }
+.dialog.wide textarea { min-height: 40px; }
+.dialog.wide header { padding-bottom: var(--mc-space-4); }
+/* A short viewport tightens the dialog's rhythm instead of growing a scrollbar. */
+@media (max-height: 700px) {
+  .dialog.wide > .body { gap: var(--mc-space-8); padding-bottom: var(--mc-space-12); }
+  .dialog.wide footer { padding-bottom: var(--mc-space-12); }
+}
+.dialog .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mc-space-12); }
+.dialog .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mc-space-12); }
+.arith { border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); background: var(--mc-surface-raised); padding: var(--mc-space-8) var(--mc-space-12) var(--mc-space-8); display: flex; flex-direction: column; gap: var(--mc-space-4); }
+.arith .arow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1.1fr); gap: var(--mc-space-12); align-items: start; }
+.arith .amt { font-size: var(--mc-font-size-lg); font-weight: 700; font-variant-numeric: tabular-nums; padding-top: var(--mc-space-8); white-space: nowrap; }
+.arith .amt.pending { color: var(--mc-text-subtle); font-size: var(--mc-font-size-sm); font-weight: var(--mc-weight-regular); white-space: normal; }
+.arith .note { font-size: var(--mc-font-size-xs); color: var(--mc-text-subtle); }
+.dialog footer .foothint { margin-right: auto; color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+/* Choosing "Custom override" must not reflow the dialog: the override input's space is reserved
+   at all times, so revealing it moves nothing. */
+.arith .field .ovslot { margin-top: var(--mc-space-4); }
+.arith .field .ovslot.off { visibility: hidden; }
+.arith .field .ovslot input { width: 100%; font: inherit; font-size: var(--mc-font-size-sm); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); padding: var(--mc-space-4) var(--mc-space-8); background: var(--mc-surface-field); color: var(--mc-text-default); }
+/* A read-only opening of the dialog: every field visible, inputs quiet, ONE lock line. */
+.dialog.readonly input:disabled, .dialog.readonly textarea:disabled { background: var(--mc-surface-raised); color: var(--mc-text-default); }
+.dialog.readonly .combo.disabled .cwrap { background: var(--mc-surface-raised); }
+.dialog.readonly .combo.disabled input { color: var(--mc-text-default); }
+.dialog .lockline { display: flex; gap: var(--mc-space-8); align-items: flex-start; color: var(--mc-text-muted); font-size: var(--mc-font-size-xs); margin-right: auto; max-width: 60%; }
+.dialog .lockline svg { flex: none; width: 13px; height: 13px; margin-top: 1px; color: var(--mc-text-subtle); }
+
+/* ============ Print preview ============
+   Print presents the sheet: a paper preview inside the dialog, and the Print button hands the
+   same sheet to the browser's print dialog. */
+.paper { background: #fff; color: #111; border: 1px solid var(--mc-border-default); box-shadow: var(--mc-elevation-1); padding: var(--mc-space-32); font-size: var(--mc-font-size-sm); }
+.paper .pshead { display: flex; justify-content: space-between; align-items: baseline; gap: var(--mc-space-16); border-bottom: 2px solid #111; padding-bottom: var(--mc-space-8); margin-bottom: var(--mc-space-16); }
+.paper h1 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-lg); color: #111; }
+.paper .psref { font-family: var(--mc-font-mono); font-size: var(--mc-font-size-xs); color: #444; }
+.paper dl { display: grid; grid-template-columns: 10em 1fr; gap: 3px var(--mc-space-12); margin: 0 0 var(--mc-space-12); }
+.paper dt { color: #444; }
+.paper dd { margin: 0; }
+.paper .pssec { margin-top: var(--mc-space-12); border-top: 1px solid #999; padding-top: var(--mc-space-8); }
+.paper .pssec h2 { font-size: var(--mc-font-size-sm); font-weight: var(--mc-weight-semibold); margin-bottom: var(--mc-space-4); color: #111; }
+.paper ul { margin: 0; padding-left: 1.2em; }
+
+/* ============ Review mode ============
+   The approval queue: one submitted entry at a time, approve / kick back / skip, and a bulk
+   approve for clean batches. Keyboard-first; the keys ride the button tooltips, not the chrome. */
+.rvprog { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rvcard { border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-md); background: var(--mc-surface-raised); padding: var(--mc-space-12) var(--mc-space-16); display: flex; flex-direction: column; gap: var(--mc-space-8); }
+.rvcard .rvtitle { font-size: var(--mc-font-size-md); font-weight: var(--mc-weight-semibold); }
+.rvfacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mc-space-4) var(--mc-space-16); margin: 0; font-size: var(--mc-font-size-sm); }
+.rvfacts dt { color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs); }
+.rvfacts dd { margin: 0; }
+.rvdone { text-align: center; padding: var(--mc-space-24) 0; color: var(--mc-text-muted); }
+.rvdone .bigm { font-family: var(--mc-font-blackletter); font-size: 48px; color: var(--mc-accent-subtle); line-height: 1; }
+.rvdone h3 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-md); color: var(--mc-text-default); margin-top: var(--mc-space-8); }
+
+/* States */
+.statewrap { flex: 1; overflow-y: auto; }
+.statepane { padding: var(--mc-space-48) var(--mc-space-24); text-align: center; }
+.statepane .bigm { font-family: var(--mc-font-blackletter); font-size: 72px; color: var(--mc-accent-subtle); line-height: 1; }
+.statepane h2 { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-lg); margin-top: var(--mc-space-12); }
+.statepane p { color: var(--mc-text-muted); max-width: var(--mc-size-prose); margin: var(--mc-space-8) auto 0; }
+.statepane .btn { margin: var(--mc-space-16) auto 0; }
+.statepane .acts { display: flex; gap: var(--mc-space-8); justify-content: center; }
+.statepane .acts .btn { margin: var(--mc-space-16) 0 0; }
+.errid { font-family: var(--mc-font-mono); background: var(--mc-surface-raised); border: 1px solid var(--mc-border-default); border-radius: var(--mc-radius-sm); padding: 0 var(--mc-space-8); }
+.errfacts { margin: var(--mc-space-12) auto 0; display: grid; width: fit-content; grid-template-columns: auto auto; gap: 2px var(--mc-space-12); font-size: var(--mc-font-size-xs); text-align: left; }
+.errfacts dt { color: var(--mc-text-subtle); }
+.errfacts dd { text-align: left; }
+.errsteps { margin: var(--mc-space-12) auto 0; padding: 0; list-style-position: inside; color: var(--mc-text-muted); font-size: var(--mc-font-size-sm); max-width: var(--mc-size-prose); text-align: left; display: block; width: fit-content; }
+.skelrow { height: 24px; border-radius: var(--mc-radius-sm); background: linear-gradient(90deg, var(--mc-surface-raised), var(--mc-surface-sunken), var(--mc-surface-raised)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin: var(--mc-space-8) var(--mc-space-24); }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skelrow { animation: none; } }
+
+/* ============ Printing one entry ============
+   Every unit prints alone: Print on an entry renders this sheet and hands it to the browser's
+   print dialog. Reports and invoices combine entries elsewhere; the unit stands by itself. */
+#printsheet { display: none; }
+@media print {
+  body { height: auto; overflow: visible; display: block; background: #fff; color: #000; }
+  body > * { display: none !important; }
+  #printsheet { display: block !important; padding: 24pt; font-size: 11pt; }
+  #printsheet .pshead { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2pt solid #000; padding-bottom: 6pt; margin-bottom: 12pt; }
+  #printsheet h1 { font-family: var(--mc-font-display); font-size: 15pt; }
+  #printsheet .psref { font-family: var(--mc-font-mono); font-size: 10pt; }
+  #printsheet dl { display: grid; grid-template-columns: 12em 1fr; gap: 3pt 12pt; margin: 0 0 12pt; }
+  #printsheet dt { color: #444; }
+  #printsheet dd { margin: 0; }
+  #printsheet .pssec { margin-top: 10pt; border-top: 1pt solid #999; padding-top: 6pt; }
+  #printsheet .pssec h2 { font-size: 11pt; margin-bottom: 4pt; }
+  #printsheet ul { margin: 0; padding-left: 1.2em; }
+}
+
+#toast { position: fixed; left: 50%; bottom: var(--mc-space-24); transform: translateX(-50%) translateY(8px); background: var(--mc-chrome-surface); color: var(--mc-chrome-text-strong); padding: var(--mc-space-8) var(--mc-space-16); border-radius: var(--mc-radius-full); box-shadow: var(--mc-elevation-3); z-index: 1400; font-size: var(--mc-font-size-sm); opacity: 0; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease; }
+#toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+
+<style>
+/* ============ Surface-additional styles (fees-) — merged beside the chrome's at integration ============ */
+#fees-capWash, #fees-amendWash { align-items: center; padding: var(--mc-space-16); }
+#fees-toast { position: fixed; left: 50%; bottom: var(--mc-space-24); transform: translateX(-50%) translateY(8px); background: var(--mc-chrome-surface); color: var(--mc-chrome-text-strong); padding: var(--mc-space-8) var(--mc-space-16); border-radius: var(--mc-radius-full); box-shadow: var(--mc-elevation-3); z-index: 1400; font-size: var(--mc-font-size-sm); opacity: 0; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease; }
+#fees-toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) { #fees-toast { transition: none; } }
+#fees-printsheet { display: none; }
+@media print {
+  #fees-printsheet { display: block !important; padding: 24pt; font-size: 11pt; }
+  #fees-printsheet .pshead { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2pt solid #000; padding-bottom: 6pt; margin-bottom: 12pt; }
+  #fees-printsheet h1 { font-family: var(--mc-font-display); font-size: 15pt; }
+  #fees-printsheet .psref { font-family: var(--mc-font-mono); font-size: 10pt; }
+  #fees-printsheet dl { display: grid; grid-template-columns: 12em 1fr; gap: 3pt 12pt; margin: 0 0 12pt; }
+  #fees-printsheet dt { color: #444; }
+  #fees-printsheet dd { margin: 0; }
+  #fees-printsheet .pssec { margin-top: 10pt; border-top: 1pt solid #999; padding-top: 6pt; }
+  #fees-printsheet .pssec h2 { font-size: 11pt; margin-bottom: 4pt; }
+  #fees-printsheet ul { margin: 0; padding-left: 1.2em; }
+}
+/* The receipt affordance: a link with the paperclip, in the cell and the panel. */
+button.rcptlink { display: inline-flex; align-items: center; gap: 4px; color: var(--mc-text-link); font-size: inherit; }
+button.rcptlink svg { width: 12px; height: 12px; }
+button.rcptlink:hover { text-decoration: underline; }
+/* The agreement strip: the cause above the effect, one quiet band — the table stays the page's
+   subject. Fees only. */
+.agstrip { flex: none; display: flex; align-items: center; gap: var(--mc-space-12); padding: var(--mc-space-8) var(--mc-space-24); border-bottom: 1px solid var(--mc-border-default); flex-wrap: wrap; background: var(--mc-surface-raised); }
+.agstrip .agkind { display: inline-flex; align-items: baseline; gap: var(--mc-space-12); }
+.agstrip .aglabel { color: var(--mc-text-subtle); }
+.agstrip .agname { font-family: var(--mc-font-display); font-weight: var(--mc-weight-display); font-size: var(--mc-font-size-lg); line-height: var(--mc-leading-tight); }
+.agstrip .agfacts { font-size: var(--mc-font-size-xs); }
+.agstrip .agacts { margin-left: auto; display: flex; gap: var(--mc-space-8); }
+.agstrip .agacts .btn { height: var(--mc-control-xs); font-size: var(--mc-font-size-xs); padding: 0 var(--mc-space-8); }
+</style>
+
+<!-- ============ CHROME, VERBATIM FROM THE TIMESHEET (dropped at integration) ============ -->
+<div class="shell">
+  <div class="brandcorner"><span class="m">M</span><span class="wordmark">Magna Carta</span></div>
+  <div class="topbar">
+    <button class="gsearch">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+      Search…
+      <span class="kbd">Ctrl K</span>
+    </button>
+    <div class="right">
+      <button class="timerchip" id="topTimerChip" title="No timer is running. Click to open Log Time, where a timer starts."><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg><span class="num" id="topTimerText">0:00</span></button>
+      <button class="bell" title="Notifications"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></button>
+      <div class="avatar">RO</div>
+    </div>
+  </div>
+
+  <nav class="sidebar scrollable" aria-label="Global">
+    <div class="grouplabel caps">Workspace</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Home<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>Notifications<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12h.01"/><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M22 13a18.15 18.15 0 0 1-20 0"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>Matters<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>Calendar<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg>Directory<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>Documents<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/></svg>Discovery<span class="mbadge soon">Soon</span></button>
+    <div class="grouplabel caps">Money</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Time<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>Billing<span class="mbadge soon">Soon</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>Trust<span class="mbadge soon">Soon</span></button>
+    <div class="grouplabel caps">Firm</div>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/></svg>Tools<span class="mbadge alpha">Alpha</span></button>
+    <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Reports<span class="mbadge soon">Soon</span></button>
+    <div class="foot">
+      <div class="railcontrols">
+        <button title="Settings"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button title="Customize the sidebar"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></svg></button>
+      </div>
+      <button class="dest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>Collapse</button>
+    </div>
+  </nav>
+
+  <div class="canvas" id="canvas">
+    <div class="mockbar" id="fees-mockbar" role="group" aria-label="Mockup controls">
+      <span>States:</span>
+      <button data-state="populated" aria-pressed="true">Populated</button>
+      <button data-state="empty" aria-pressed="false">Empty</button>
+      <button data-state="loading" aria-pressed="false">Loading</button>
+      <button data-state="error" aria-pressed="false">Error</button>
+      <span style="margin-left:auto">The Fees tab, round one</span>
+    </div>
+
+    <div class="masthead">
+      <div>
+        <span class="eyebrow caps">Matter 2026-0147 <span class="seal caps">Open</span></span>
+        <h1>Pemberton v. Hale Construction Co.</h1>
+        <div class="meta">
+          <span>Eleanor Pemberton (PEM-014)</span><span class="sep">&middot;</span>
+          <span>Construction Defect Litigation</span><span class="sep">&middot;</span>
+          <span>R. Osei</span><span class="sep">&middot;</span>
+          <span>Clark County</span>
+        </div>
+      </div>
+      <div class="side">
+        <div class="fsearch">
+          <button class="iconbtn" id="matterSearchBtn" title="Search this whole matter: files, time and billing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></button>
+        </div>
+        <button class="overflowbtn iconbtn" title="Matter actions" aria-label="Matter actions"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+      </div>
+    </div>
+<!-- ===================================================================
+     FEES-TAB PANE — THE DELIVERABLE (START)
+     The chrome above this marker is copied VERBATIM from The Timesheet
+     mockup (round four; baseline md5 0647f1a00c4ef03d7232dd9672e3c0b0) so the
+     three matter money tabs stay one system, and is DROPPED when this
+     pane merges into the combined artifact. Everything between START
+     and END is the surface: every element id is prefixed "fees-".
+     The table runs the ONE shared machinery (the last script block),
+     parameterized by this surface's declarative column model — never a
+     third table variant.
+     =================================================================== -->
+    <nav class="tabs" aria-label="Matter sections">
+      <a href="#">Overview <span class="tb">Alpha</span></a>
+      <a href="#">Files <span class="tb">Alpha</span></a>
+      <a href="#">Time <span class="tb">Alpha</span></a>
+      <a href="#" aria-current="page">Fees <span class="tb">Alpha</span></a>
+      <a href="#">Costs <span class="tb">Alpha</span></a>
+      <a href="#">Billing <span class="tb soon">Soon</span></a>
+      <a href="#">Parties <span class="tb">Alpha</span></a>
+      <a href="#">More <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></a>
+      <div class="tabactions">
+        <button class="iconbtn filterclear" id="fees-clearFiltersBtn" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.531 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14v6a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341l.427-.473"/><path d="m16.5 3.5 5 5"/><path d="m21.5 3.5-5 5"/></svg>
+        </button>
+        <button class="iconbtn" id="fees-colsBtn" title="Choose columns">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+        </button>
+        <button class="iconbtn" id="fees-insToggleBtn" title="Show or hide details" aria-pressed="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg>
+        </button>
+      </div>
+    </nav>
+    <div class="timewrap" id="fees-wrap">
+      <div class="agstrip" id="fees-agstrip"></div>
+      <div class="timebody" id="fees-body">
+        <div class="tablewrap scrollable" id="fees-tablewrap">
+          <table id="fees-table">
+            <thead><tr id="fees-headRow"></tr></thead>
+            <tbody id="fees-rows"></tbody>
+            <tfoot><tr id="fees-totRow"></tr></tfoot>
+          </table>
+        </div>
+        <aside class="inspector" id="fees-inspector" hidden aria-label="Charge details"></aside>
+      </div>
+      <div class="statewrap scrollable" id="fees-statePane" hidden></div>
+      <div class="pagefoot">
+        <span id="fees-tally" class="num"></span>
+        <span id="fees-selNote"></span>
+        <span id="fees-filteredNote"></span>
+        <span class="footspacer"></span>
+        <span id="fees-foottotals" class="num"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="fees-printsheet"></div>
+
+<div class="menu" id="fees-ctx" hidden></div>
+<div class="menu" id="fees-colsMenu" hidden></div>
+<div class="menu" id="fees-filterMenu" hidden></div>
+<div class="dialogwash" id="fees-amendWash" hidden></div>
+<div class="dialogwash" id="fees-reportWash" hidden></div>
+<div id="fees-toast" role="status"></div>
+<script>
+/* ================= Icons =================
+ * Every glyph is Lucide, path data copied from the installed @lucide/svelte package.
+ * Lucide's default presentation attributes ride along so nothing renders with square caps. */
+const LU = {
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  play: '<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',
+  square: '<rect width="18" height="18" x="3" y="3" rx="2"/>',
+  timer: '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
+  calendar: '<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>',
+  ban: '<circle cx="12" cy="12" r="10"/><path d="M4.929 4.929 19.07 19.071"/>',
+  send: '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+  circleCheck: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  squarePen: '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>',
+  funnel: '<path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"/>',
+  funnelX: '<path d="M12.531 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14v6a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341l.427-.473"/><path d="m16.5 3.5 5 5"/><path d="m21.5 3.5-5 5"/>',
+  cornerUpLeft: '<path d="M20 20v-7a4 4 0 0 0-4-4H4"/><path d="M9 14 4 9l5-5"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  printer: '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  chevronsUpDown: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  pin: '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+  trash2: '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  undo2: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  listChecks: '<path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/>',
+  receipt: '<path d="M12 17V7"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/>',
+};
+function icon(name, cls, size) {
+  const g = LU[name];
+  if (!g) throw new Error("no such icon: " + name);
+  return '<svg' + (cls ? ' class="' + cls + '"' : "") + ' viewBox="0 0 24 24"' +
+    (size ? ' width="' + size + '" height="' + size + '"' : "") +
+    ' fill="none" stroke="currentColor" stroke-width="2"' +
+    ' stroke-linecap="round" stroke-linejoin="round">' + g + '</svg>';
+}
+const $ = (id) => document.getElementById(id);
+/* The pin, filled when the column IS pinned — the state reads off the glyph, not off a label
+   alone. Same Lucide geometry either way; fill is the only difference. */
+function pinGlyph(filled, cls, size) {
+  const svg = icon("pin", cls, size);
+  return filled ? svg.replace('fill="none"', 'fill="currentColor"') : svg;
+}
+</script>
+<script>
+/* ================= The Fees surface =================
+ * The agreement and what it has charged. A fee derives from an AGREEMENT (the matter's billing
+ * arrangement, versioned append-only), and fee value materializes only as invoice lines at
+ * compose time — the platform keeps no fee work-in-progress store, and this tab does not invent
+ * one. So the pane is a projection: the agreement strip on top (the cause), the charge ledger
+ * beneath (the effect — every fee-kind line the matter's invoices carry, with the credit notes
+ * recorded beside them), and the unbilled fee value in the footer (the future). Its one write is
+ * Amend Agreement. Hourly fee raw material lives on the Time tab; the invoice is where the two
+ * become one ledger. */
+const FIRM = {
+  currency: "USD",
+  sessionUserId: "osei",
+  sessionUserName: "Rebecca Osei",
+  sessionCanConfigure: true, // billing:configure — gates Amend Agreement
+};
+const TODAY = "2026-08-24";
+const MATTER_NUMBER = "2026-0147";
+
+const INVOICES = {
+  "INV-2026-081": { number: "INV-2026-081", issued: "2026-07-15", status: "paid", paidOn: "2026-08-02" },
+  "INV-2026-097": { number: "INV-2026-097", issued: "2026-08-05", status: "sent", due: "2026-09-04" },
+};
+
+/* The agreement in force, and its whole history — append-only versions, the version in force is
+   the last open one. Absence of any recorded agreement means hourly by default; this matter
+   recorded it explicitly at engagement. */
+const ARRANGEMENT = {
+  versions: [
+    { version: 1, kind: "hourly", validFrom: "2026-06-29", validTo: null, recordedBy: "Rebecca Osei" },
+  ],
+};
+const ARRANGEMENT_KIND_LABELS = { hourly: "Hourly", flat_fee: "Flat Fee", contingency: "Contingency", retainer: "Evergreen Retainer" };
+function arrangementInForce() { return ARRANGEMENT.versions[ARRANGEMENT.versions.length - 1]; }
+function arrangementKindFacts(v) {
+  if (v.kind === "hourly") return "Rates resolve per timekeeper from the firm's rate cards";
+  if (v.kind === "flat_fee") return fmtMoney(v.flatFeeAmountMinor) + " for the engagement · advance deposit to " + (v.deposit === "trust" ? "trust" : "operating");
+  if (v.kind === "contingency") return (v.shareE4 / 100).toFixed(2).replace(/\.?0+$/, "") + "% of any recovery · costs deduct " +
+    (v.basis === "gross_recovery" ? "after the fee (gross recovery)" : "before the fee (net after costs)");
+  return "Target " + fmtMoney(v.targetMinor) + " · replenish below " + fmtMoney(v.floorMinor);
+}
+
+/* Every unbilled billable minute on the Time tab, priced — the raw material of the next fee
+   line. Served by the matter's unbilled read; a figure here, a ledger there. */
+const UNBILLED_FEE_MINOR = 812600;
+
+/* ============ The charge ledger ============
+ * One row per fee-kind line on the matter's invoices — fee, flat fee, discount — and one per
+ * credit-note line recorded beside them. A cost line never appears here: costs have their own
+ * tab, and the two meet only on the invoice. */
+let feeCharges = [
+  {
+    id: "fl_004", date: "2026-08-08", doc: "CN-2026-004", kind: "credit",
+    info: "Conference of July 5 billed at the partner rate in error; credited at the rate difference",
+    amountMinor: -18000, status: "issued", inv: "INV-2026-081", drawn: null, lineRef: "CN-2026-004",
+  },
+  {
+    id: "fl_003", date: "2026-08-05", doc: "INV-2026-097", kind: "discount",
+    info: "Courtesy discount: onboarding file review of July 20",
+    amountMinor: -13750, status: "finalized", inv: "INV-2026-097", drawn: null, lineRef: "INV-2026-097 · L2",
+  },
+  {
+    id: "fl_002", date: "2026-08-05", doc: "INV-2026-097", kind: "fee",
+    info: "Professional services, July 15 through July 31: written discovery, document review, protective order briefing",
+    amountMinor: 537450, status: "finalized", inv: "INV-2026-097", drawn: 12, lineRef: "INV-2026-097 · L1",
+  },
+  {
+    id: "fl_001", date: "2026-07-15", doc: "INV-2026-081", kind: "fee",
+    info: "Professional services, June 29 through July 10: complaint, case management conference, discovery workspace",
+    amountMinor: 247000, status: "paid", inv: "INV-2026-081", drawn: 5, lineRef: "INV-2026-081 · L1",
+  },
+];
+const KIND_LABELS = { fee: "Fee", flat_fee: "Flat Fee", discount: "Discount", credit: "Credit Note" };
+const KIND_TIPS = {
+  fee: "An hourly fee line: time entries consolidated onto the bill. The entries are the timekeeper's record; the line is what the client was told.",
+  flat_fee: "A flat-fee line: the agreement's amount, with the contributing time claimed at zero so realization can still see the work the fee covered.",
+  discount: "A discount: a named reduction on the bill, never a silent edit of a fee line.",
+  credit: "A credit note: a correction recorded beside a finalized bill. The bill itself is never edited; the credited amount stands as a client credit until refunded or applied.",
+};
+
+function chainOfF(e) {
+  const inv = INVOICES[e.inv];
+  if (e.kind === "credit") return {
+    steps: null,
+    icon: "receipt",
+    note: "A correction recorded beside " + inv.number + ". A finalized invoice is never edited or un-finalized; the credited amount stands as a client credit until it is refunded or applied.",
+  };
+  const reached = { draft: 1, finalized: 2, paid: 3 }[e.status];
+  const notes = {
+    1: "A line on a draft invoice: it can change, or release its entries back to work-in-progress, until the bill is finalized.",
+    2: "Evidence on " + inv.number + ", a finalized invoice awaiting payment" + (inv.due ? ", due " + fmtDate(inv.due) : "") + ". A correction is a credit note beside it, never an edit.",
+    3: "Evidence on " + inv.number + ", finalized and paid " + fmtDate(inv.paidOn) + ". Money already collected comes back as a client credit; the payment stands behind the invoice.",
+  };
+  return {
+    steps: ["Draft", "Finalized", "Paid"].map((label, i) => ({ label, done: i + 1 < reached, now: i + 1 === reached })),
+    icon: e.status === "draft" ? "squarePen" : "lock",
+    note: notes[reached],
+  };
+}
+function feeHistoryOf(e) {
+  const inv = INVOICES[e.inv];
+  if (e.kind === "credit") return [
+    { at: "2026-08-08 10:41", who: "Rebecca Osei", what: "Recorded beside " + inv.number,
+      detail: "Conference of July 5 billed at the partner rate in error." },
+  ];
+  const ev = [{ at: (e.inv === "INV-2026-081" ? "2026-07-14 16:20" : "2026-08-04 11:05"), who: "Rebecca Osei", what: "Composed onto the draft invoice" }];
+  if (e.status === "finalized" || e.status === "paid")
+    ev.push({ at: inv.issued + " 09:30", who: "Rebecca Osei", what: "Finalized with " + inv.number });
+  if (e.status === "paid") {
+    ev.push({ at: inv.paidOn + " 14:12", who: "Rebecca Osei", what: "Payment applied in full" });
+    if (e.id === "fl_001") ev.push({ at: "2026-08-08 10:41", who: "Rebecca Osei", what: "Credited in part by CN-2026-004" });
+  }
+  return ev;
+}
+
+/* ================= The SURFACE contract ================= */
+const SURFACE = {
+  prefix: "fees-",
+  nounSingular: "charge",
+  nounPlural: "charges",
+  errorId: "MC-9W4T-7F03",
+  defaultSortKey: "date",
+  entries: feeCharges,
+  statusLabels: { draft: "Draft", finalized: "Finalized", paid: "Paid", issued: "Issued" },
+  /* The fee register is the INVOICE'S standing, not a review chain — a fee line is born as
+     invoice evidence, so claiming the Time tab's draft-submitted-approved chain here would assert
+     a lifecycle that does not exist. Draft quiet, finalized info (evidence, awaiting payment),
+     paid success, an issued credit note amber — a correction beside a bill should catch the eye. */
+  statusTones: { draft: "quiet", finalized: "info", paid: "success", issued: "warn" },
+  statusTips: {
+    draft: "On a draft invoice: changeable until the bill is finalized",
+    finalized: "On a finalized invoice, awaiting payment: frozen as evidence",
+    paid: "Collected: the invoice behind this line is paid",
+    issued: "A credit note issued beside a finalized bill; the amount stands as a client credit",
+  },
+  /* The declarative column model. Date anchors (the invoice's issue date, or the credit's
+     record date); Invoice and Kind are the fee-native columns; Drawn From counts the claimed
+     entries; Agreement rides only arrangement-composed lines and is honest about it. */
+  columns: [
+    { key: "date", label: "Date", always: true, on: true, ftype: "daterange", get: (e) => e.date },
+    { key: "doc", label: "Invoice", on: true, ftype: "set", get: (e) => e.doc },
+    { key: "kind", label: "Kind", on: true, ftype: "set", get: (e) => KIND_LABELS[e.kind] },
+    { key: "info", label: "Info", on: true, ftype: "text", get: (e) => e.info },
+    { key: "agreement", label: "Agreement", on: false, ftype: "set", get: (e) => e.kind === "flat_fee" ? "v" + arrangementInForce().version + " " + ARRANGEMENT_KIND_LABELS[arrangementInForce().kind] : "—" },
+    { key: "drawn", label: "Drawn From", on: true, right: true, ftype: "numrange", get: (e) => e.drawn === null ? null : e.drawn },
+    { key: "amount", label: "Amount", on: true, right: true, ftype: "numrange", get: (e) => e.amountMinor / 100 },
+    { key: "status", label: "Standing", on: true, ftype: "set", get: (e) => SURFACE.statusLabels[e.status] },
+  ],
+  cellExtra: { status: 26 },
+  anchorDateOf: (e) => e.date,
+  rowClass: () => "",
+  countsInTotals: () => true,
+  numUnitNote: (key) => key === "drawn" ? "In time entries drawn onto the line." : "In $, net: discounts and credit notes are negative.",
+  cellTextOf(c, e) {
+    switch (c.key) {
+      case "date": return fmtDate(e.date);
+      case "doc": return e.doc;
+      case "kind": return KIND_LABELS[e.kind];
+      case "info": return e.info;
+      case "agreement": return c.get(e);
+      case "drawn": return e.drawn === null ? "—" : e.drawn + " entries";
+      case "amount": return fmtSignedMoney(e.amountMinor);
+      case "status": return SURFACE.statusLabels[e.status];
+    }
+  },
+  rowCells(e, c) {
+    switch (c.key) {
+      case "date": return '<td class="nowrap num">' + fmtDate(e.date) + '</td>';
+      case "doc": return '<td class="nowrap num">' + e.doc + '</td>';
+      case "kind": return '<td class="nowrap"><span title="' + esc(KIND_TIPS[e.kind]) + '">' + KIND_LABELS[e.kind] + '</span></td>';
+      case "info": return '<td><span class="narr" title="' + esc(e.info) + '">' + e.info + '</span></td>';
+      case "agreement": return '<td class="nowrap">' + (e.kind === "flat_fee"
+        ? '<span class="num">v' + arrangementInForce().version + '</span> ' + ARRANGEMENT_KIND_LABELS[arrangementInForce().kind]
+        : '<span class="muted" title="The agreement version rides only arrangement-composed lines (a flat or contingency fee). An hourly fee line derives from time entries and the rate cards in force.">&mdash;</span>') + '</td>';
+      case "drawn": return '<td class="right num">' + (e.drawn === null
+        ? '<span class="muted">&mdash;</span>'
+        : '<span title="The time entries this line consolidated. The entries lock as billed; the line is what the client reads.">' + e.drawn + '</span>') + '</td>';
+      case "amount": return '<td class="right num">' + (e.amountMinor < 0
+        ? '<span title="' + esc(KIND_TIPS[e.kind]) + '">' + fmtSignedMoney(e.amountMinor) + '</span>'
+        : fmtMoney(e.amountMinor)) + '</td>';
+      case "status": return '<td>' + statusChip(e.status) + '</td>';
+    }
+  },
+  totals(base) {
+    const filteredScope = activeFilterCount() > 0;
+    return {
+      sums: { amount: fmtSignedMoney(base.reduce((s, e) => s + e.amountMinor, 0)) },
+      tips: { amount: "Net fee charges over " + (filteredScope ? "the rows in view" : "the whole matter") + ": discounts and credit notes count against the fees they correct." },
+    };
+  },
+  /* The footer carries what no column carries: the unbilled fee value (the Time tab's raw
+     material, priced), what invoices have billed in fees, and what has been collected. The
+     unbilled figure is a matter fact, not a property of rows in view, so it shows only unfiltered. */
+  footMoney(scopeAll, base) {
+    const billed = base.filter((e) => e.kind !== "credit").reduce((s, e) => s + e.amountMinor, 0);
+    const collected = base.filter((e) => (e.kind !== "credit" && e.status === "paid") || e.kind === "credit").reduce((s, e) => s + e.amountMinor, 0);
+    const inView = scopeAll ? "" : ", in view";
+    return (scopeAll
+      ? '<span class="footstat" title="Billable unbilled time under the hourly agreement: drafts, submitted and approved entries on the Time tab, priced at their resolved rates. It becomes the next fee line when a draft invoice composes."><span class="fsl">unbilled fee value</span><span class="fsv">' + fmtMoney(UNBILLED_FEE_MINOR) + '</span></span>' +
+        ' <button class="seam" id="fees-blSeam" disabled title="Unbilled time flows onto a draft invoice in the Billing section, which is not built yet">' +
+        icon("receipt") + 'Open in Billing<span class="mc-badge mc-badge-neutral">Soon</span></button>' +
+        ' <span class="sep">&middot;</span> '
+      : "") +
+      '<span class="footstat" title="Fee charges on finalized and paid invoices' + inView + ', net of discounts."><span class="fsl">billed</span><span class="fsv">' + fmtMoney(billed) + '</span></span>' +
+      ' <span class="sep">&middot;</span> <span class="footstat" title="Fees the client has actually paid' + inView + ', net of the credit note recorded beside INV-2026-081."><span class="fsl">collected</span><span class="fsv">' + fmtMoney(collected) + '</span></span>';
+  },
+
+  /* ============ The details panel ============ */
+  inspectorSingle(panel, e) {
+    const chain = chainOfF(e);
+    const inv = INVOICES[e.inv];
+    panel.innerHTML =
+      '<header><div class="htext"><h2>' + (e.kind === "credit" ? "Credit Note Line" : "Fee Charge") + '</h2><span class="ref num">' + e.lineRef + '</span></div>' +
+      '<button class="iconbtn" id="fees-insPrint" title="Print this charge by itself">' + icon("printer") + '</button>' +
+      '<button class="iconbtn" id="fees-insClose" title="Let go of this charge and show the agreement">' + icon("close") + '</button></header>' +
+      '<div class="insbody scrollable">' +
+      '<div class="insinfo">' + e.info + '</div>' +
+      '<div class="inssec" style="border-top:none;padding-top:0"><span class="sechead caps">Standing</span>' +
+      '<div>' + statusChip(e.status, chain.note) + '</div>' +
+      chainHtml(chain.steps, chain.note) +
+      '<div class="locknote">' + icon(chain.icon) + '<span>' + chain.note + '</span></div>' +
+      '<div class="invline"><span class="num">' + inv.number + '</span>' +
+      '<span class="muted">' + (inv.status === "paid"
+        ? "finalized " + fmtDate(inv.issued) + ", paid " + fmtDate(inv.paidOn)
+        : "finalized " + fmtDate(inv.issued) + ", unpaid, due " + fmtDate(inv.due)) + '</span>' +
+      '<button class="seam" disabled title="Opens this invoice in the Billing section, which is not built yet">' +
+      icon("receipt") + 'Open in Billing<span class="mc-badge mc-badge-neutral">Soon</span></button></div>' +
+      '</div>' +
+      '<div class="inssec"><dl class="insfacts">' +
+      factRow("Date", '<span class="num">' + fmtDate(e.date) + '</span>') +
+      factRow(e.kind === "credit" ? "Credit Note" : "Invoice", '<span class="num">' + e.doc + '</span>') +
+      factRow("Kind", '<span title="' + esc(KIND_TIPS[e.kind]) + '">' + KIND_LABELS[e.kind] + '</span>') +
+      factRow("Amount", '<span class="num">' + fmtSignedMoney(e.amountMinor) + '</span>') +
+      factRow("Agreement", e.kind === "flat_fee"
+        ? '<span class="num">v' + arrangementInForce().version + '</span> ' + ARRANGEMENT_KIND_LABELS[arrangementInForce().kind]
+        : '<span class="muted" title="The agreement version rides only arrangement-composed lines. This line derives from time entries and the rate cards in force.">&mdash;</span>') +
+      factRow("Drawn From", e.drawn === null ? '<span class="muted">&mdash;</span>'
+        : '<span class="num">' + e.drawn + '</span> time entries <button class="seam" disabled title="Lists the claimed entries on the Time tab. The claim read is not served yet">' +
+          icon("clock") + 'View on Time<span class="mc-badge mc-badge-neutral">Soon</span></button>') +
+      '</dl></div>' +
+      '<div class="inssec"><span class="sechead caps">History</span>' + historyHtml(feeHistoryOf(e)) + '</div>' +
+      '</div>';
+    wireInspectorClose();
+    EL("insPrint").addEventListener("click", () => printFeeCharge(e));
+  },
+  /* Nothing selected: the panel speaks for the AGREEMENT — the fee fact the matter owns — and
+     the matter's fee position. */
+  inspectorSummary(panel) {
+    const v = arrangementInForce();
+    const billed = feeCharges.filter((e) => e.kind !== "credit").reduce((s, e) => s + e.amountMinor, 0);
+    const collected = feeCharges.filter((e) => (e.kind !== "credit" && e.status === "paid") || e.kind === "credit").reduce((s, e) => s + e.amountMinor, 0);
+    panel.innerHTML =
+      '<header><div class="htext"><h2>The Agreement</h2><span class="ref">Select a charge for its details</span></div></header>' +
+      '<div class="insbody scrollable">' +
+      '<div class="inssec" style="border-top:none;padding-top:0"><dl class="insfacts">' +
+      factRow("Billed As", ARRANGEMENT_KIND_LABELS[v.kind]) +
+      factRow("In Force Since", '<span class="num">' + fmtDate(v.validFrom) + '</span>') +
+      factRow("Version", '<span class="num">' + v.version + '</span> of ' + ARRANGEMENT.versions.length) +
+      factRow("Recorded By", personCell(v.recordedBy)) +
+      factRow("Terms", arrangementKindFacts(v)) +
+      '</dl></div>' +
+      '<div class="inssec"><span class="sechead caps">Fee Position</span><dl class="insfacts">' +
+      factRow("Unbilled", '<span class="num">' + fmtMoney(UNBILLED_FEE_MINOR) + '</span> <span class="muted">on the Time tab</span>') +
+      factRow("Billed", '<span class="num">' + fmtMoney(billed) + '</span>') +
+      factRow("Collected", '<span class="num">' + fmtMoney(collected) + '</span>') +
+      '</dl></div>' +
+      '<div class="inssec"><span class="sechead caps">Versions</span><ul class="hist">' +
+      ARRANGEMENT.versions.map((av, i) =>
+        '<li' + (i === ARRANGEMENT.versions.length - 1 ? ' class="now"' : "") + '><span class="ev">Version ' + av.version + ": " + ARRANGEMENT_KIND_LABELS[av.kind] + '</span>' +
+        '<span class="evmeta num">' + fmtDate(av.validFrom) + (av.validTo === null ? " to now" : " to " + fmtDate(av.validTo)) + ' &middot; ' + av.recordedBy + '</span>' +
+        '<span class="evdetail">' + arrangementKindFacts(av) + '</span></li>').join("") +
+      '</ul>' +
+      '<span class="hint" style="color: var(--mc-text-subtle); font-size: var(--mc-font-size-xs)">An amendment is a NEW version; the old one stays on the record with the dates it governed, because every bill composed under it says so.</span>' +
+      '</div>' +
+      '</div>';
+  },
+  /* Several selected: sums only — there is no bulk act on invoice evidence. */
+  inspectorSelection(panel, sel) {
+    const kinds = {};
+    for (const e of sel) kinds[e.kind] = (kinds[e.kind] ?? 0) + 1;
+    panel.innerHTML =
+      '<header><div class="htext"><h2>' + sel.length + ' Charges Selected</h2>' +
+      '<span class="ref">' + Object.entries(kinds).map(([k, n]) => n + " " + KIND_LABELS[k].toLowerCase()).join(" · ") + '</span></div>' +
+      '<button class="iconbtn" id="fees-insClose" title="Let go of all ' + sel.length + ' selected charges">' + icon("close") + '</button></header>' +
+      '<div class="insbody scrollable">' +
+      '<div class="inssec" style="border-top:none;padding-top:0"><dl class="insfacts">' +
+      factRow("Net Amount", '<span class="num">' + fmtSignedMoney(sel.reduce((s, e) => s + e.amountMinor, 0)) + '</span>') +
+      '</dl></div>' +
+      '<div class="inssec"><span class="hint" style="color: var(--mc-text-subtle)">Fee charges are invoice evidence: nothing here submits, approves, or voids. Corrections happen in Billing, as credit notes beside the bill.</span></div>' +
+      '</div>';
+    wireInspectorClose();
+  },
+
+  /* ============ Row interactions — a read surface ============ */
+  openRow() { /* the panel already presents everything; there is no editor to open */ },
+  contextItems(e) {
+    const items = [];
+    items.push(ctxItem("details", "eye", "View Details", true, "Show everything about this charge in the panel beside the list"));
+    items.push('<div class="rule"></div>');
+    items.push(ctxItem("billing", "receipt", "Open in Billing", false,
+      "Opens " + e.doc + " in the Billing section, which is not built yet"));
+    items.push(ctxItem("copy", "copy", "Copy", true, "Copy this charge's Info text"));
+    items.push(ctxItem("print", "printer", "Print", true, "Print this charge by itself"));
+    return items;
+  },
+  onContext(cmd, e) {
+    switch (cmd) {
+      case "details":
+        selectedIds.clear(); selectedIds.add(e.id); selectionAnchor = e.id;
+        renderRows(); renderInspector(); renderFoot();
+        break;
+      case "copy":
+        navigator.clipboard?.writeText(e.info).catch(() => {});
+        toast("Info copied.");
+        break;
+      case "print": printFeeCharge(e); break;
+    }
+  },
+
+  /* ============ States ============ */
+  renderState(state, pane) {
+    if (state === "empty") {
+      pane.innerHTML = '<div class="statepane"><div class="bigm">M</div><h2>No Fee Charges Yet</h2>' +
+        '<p>The matter bills ' + ARRANGEMENT_KIND_LABELS[arrangementInForce().kind].toLowerCase() + ' under the agreement above. Fee charges appear when a draft invoice composes them: from unbilled time under an hourly agreement, or from the agreement itself for a flat or contingency fee.</p></div>';
+    } else if (state === "loading") {
+      pane.innerHTML = '<div aria-busy="true" aria-label="Loading the matter’s fee charges">' +
+        '<div class="skelrow"></div>'.repeat(6) + '</div>';
+    } else if (state === "error") {
+      pane.innerHTML = '<div class="statepane"><div class="bigm">M</div><h2>Fee Charges Could Not Be Read</h2>' +
+        '<p>The matter&rsquo;s fee record did not load. The record itself is unaffected: nothing was changed by this failure, and the agreement and every finalized bill are still on the firm&rsquo;s record.</p>' +
+        '<dl class="errfacts"><dt>Request</dt><dd class="num">GET /api/v1/billing/invoices?matterId=2026-0147</dd>' +
+        '<dt>Status</dt><dd class="num">503 for 8 seconds</dd>' +
+        '<dt>Time</dt><dd class="num">Aug 24, 2026, 14:02:11</dd>' +
+        '<dt>Error ID</dt><dd><span class="errid">MC-9W4T-7F03</span></dd></dl>' +
+        '<ol class="errsteps"><li>Retry: a brief interruption usually clears on the next read.</li>' +
+        '<li>Check your connection, and whether other matter tabs load.</li>' +
+        '<li>If it keeps failing, report it with the Error ID above.</li></ol>' +
+        '<div class="acts"><button class="btn primary" id="fees-errRetry">Retry</button>' +
+        '<button class="btn secondary" id="fees-errReport">Report a Problem</button></div></div>';
+      EL("errRetry").addEventListener("click", () => setState("populated"));
+      EL("errReport").addEventListener("click", openReport);
+    }
+  },
+
+  wireSurface() {
+    renderAgreementStrip();
+    document.getElementById("topTimerChip").addEventListener("click", () =>
+      toast("The timer lives on the Time tab: it records time, not fees."));
+  },
+};
+
+/* ================= The agreement strip =================
+ * The cause above the effect: what the firm agreed to charge, one quiet band — the table stays
+ * the page's subject. Amend is the tab's one write, gated on the billing-configure capability. */
+function renderAgreementStrip() {
+  const v = arrangementInForce();
+  const el = EL("agstrip");
+  el.innerHTML =
+    '<span class="agkind"><span class="caps aglabel">The Agreement</span>' +
+    '<span class="agname">' + ARRANGEMENT_KIND_LABELS[v.kind] + '</span></span>' +
+    '<span class="agfacts muted">Version <span class="num">' + v.version + '</span> · in force since <span class="num">' + fmtDate(v.validFrom) + '</span> · recorded by ' + v.recordedBy + ' · ' + arrangementKindFacts(v) + '</span>' +
+    '<span class="agacts">' +
+    '<button class="btn secondary" id="fees-amendBtn"' + (FIRM.sessionCanConfigure ? "" : " disabled") + ' title="' +
+    (FIRM.sessionCanConfigure ? "Record an amendment as a NEW version of the agreement; version " + v.version + " stays on the record with the dates it governed"
+      : "Amending the fee agreement needs the billing-configure capability") + '">' + icon("squarePen") + 'Amend Agreement</button>' +
+    '</span>';
+  EL("amendBtn").addEventListener("click", openAmendDialog);
+}
+
+/* ============ Amend Agreement ============
+ * Kind-specific fields, shaped exactly as the record is: a flat fee carries its amount, a
+ * contingency carries its share and its costs-before-or-after election (the election the written
+ * agreement must state), a retainer carries its target and floor. The advance-deposit destination
+ * is RECORDED, never defaulted — jurisdictions genuinely differ on where an advance fee must sit. */
+function openAmendDialog() {
+  const wash = EL("amendWash");
+  const current = arrangementInForce();
+  wash.innerHTML =
+    '<div class="dialog wide" role="dialog" aria-modal="true" aria-label="Amend Agreement">' +
+    '<header><h2>Amend Agreement</h2>' +
+    '<span class="subtitle">Records version ' + (current.version + 1) + '. Version ' + current.version + ' stays on the record with the dates it governed.</span></header>' +
+    '<div class="body">' +
+    '<div class="grid3">' +
+    '<div class="field"><label for="fees-amKind">Billed As</label><select id="fees-amKind">' +
+    Object.entries(ARRANGEMENT_KIND_LABELS).map(([k, l]) => '<option value="' + k + '"' + (k === current.kind ? " selected" : "") + '>' + l + '</option>').join("") +
+    '</select></div>' +
+    '<div class="field"><label for="fees-amFrom">Effective From</label><input type="date" id="fees-amFrom" value="' + TODAY + '"></div>' +
+    '<div class="field" id="fees-amDepositField"><label for="fees-amDeposit">Advance Deposit Sits In</label><select id="fees-amDeposit" title="Recorded, never defaulted: jurisdictions genuinely differ on where an advance fee must sit, and a wrong silence states a wrong fact about client money.">' +
+    '<option value="">Choose: trust or operating…</option><option value="trust">The trust account</option><option value="operating">The operating account</option></select></div>' +
+    '</div>' +
+    '<div class="grid3" id="fees-amKindFields"></div>' +
+    '<div class="note muted" id="fees-amNote" style="font-size: var(--mc-font-size-xs)"></div>' +
+    '</div>' +
+    '<footer><span class="foothint" id="fees-amFootHint">Records a new version, in force from the effective date. Every bill names the version it was composed under.</span>' +
+    '<button class="btn secondary" id="fees-amCancel">Cancel</button>' +
+    '<button class="btn primary" id="fees-amSave">Record Amendment</button></footer></div>';
+  wash.hidden = false;
+
+  const kindFields = () => {
+    const k = EL("amKind").value;
+    const f = EL("amKindFields");
+    EL("amDepositField").style.visibility = k === "flat_fee" || k === "retainer" ? "visible" : "hidden";
+    if (k === "hourly") {
+      f.innerHTML = '<div class="field" style="grid-column: 1 / -1"><span class="hint">Nothing else to record: rates resolve per timekeeper from the firm&rsquo;s rate cards in force on each work date.</span></div>';
+      EL("amNote").textContent = "";
+    } else if (k === "flat_fee") {
+      f.innerHTML = '<div class="field"><label for="fees-amFlat">Flat Fee</label><input type="text" id="fees-amFlat" placeholder="7500.00"></div>';
+      EL("amNote").textContent = "Time is still tracked for realization; the client is charged the fee. Costs stay outside the fee and are billed beside it.";
+    } else if (k === "contingency") {
+      f.innerHTML = '<div class="field"><label for="fees-amShare">Share of Recovery</label><input type="text" id="fees-amShare" placeholder="33.33%"></div>' +
+        '<div class="field" style="grid-column: 2 / -1"><label for="fees-amBasis">Costs and the Fee</label><select id="fees-amBasis">' +
+        '<option value="">Choose the election…</option>' +
+        '<option value="gross_recovery">Fee first: computed on the gross recovery, costs deducted after</option>' +
+        '<option value="net_after_costs">Costs first: advanced costs come off, the fee is computed on the net</option>' +
+        '</select></div>';
+      EL("amNote").textContent = "The written agreement must say whether expenses come off before or after the fee is computed: this election is that answer, and the client signs it.";
+    } else {
+      f.innerHTML = '<div class="field"><label for="fees-amTarget">Retainer Target</label><input type="text" id="fees-amTarget" placeholder="10000.00"></div>' +
+        '<div class="field"><label for="fees-amFloor">Replenish Below</label><input type="text" id="fees-amFloor" placeholder="4000.00"></div>';
+      EL("amNote").textContent = "The floor is a business setting for replenishment asks: never the trust ledger's structural no-negative floor.";
+    }
+  };
+  kindFields();
+  EL("amKind").addEventListener("change", kindFields);
+  EL("amCancel").addEventListener("click", () => { wash.hidden = true; });
+  EL("amSave").addEventListener("click", () => {
+    const k = EL("amKind").value;
+    const from = EL("amFrom").value || TODAY;
+    const parse$ = (id) => { const t = (EL(id)?.value ?? "").replace(/[$,]/g, "").trim(); const n = Number(t); return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null; };
+    const nv = { version: current.version + 1, kind: k, validFrom: from, validTo: null, recordedBy: FIRM.sessionUserName };
+    if (k === "flat_fee") { nv.flatFeeAmountMinor = parse$("amFlat") ?? 750000; nv.deposit = EL("amDeposit").value || "trust"; }
+    if (k === "contingency") {
+      const share = Number((EL("amShare")?.value ?? "").replace("%", "").trim());
+      nv.shareE4 = Number.isFinite(share) && share > 0 ? Math.round(share * 100) : 3333;
+      nv.basis = EL("amBasis").value || "gross_recovery";
+    }
+    if (k === "retainer") { nv.targetMinor = parse$("amTarget") ?? 1000000; nv.floorMinor = parse$("amFloor") ?? 400000; nv.deposit = EL("amDeposit").value || "trust"; }
+    current.validTo = from;
+    ARRANGEMENT.versions.push(nv);
+    wash.hidden = true;
+    toast("Recorded version " + nv.version + ": " + ARRANGEMENT_KIND_LABELS[k] + ", in force from " + fmtDate(from) + ".");
+    renderAgreementStrip();
+    renderAll();
+  });
+}
+
+/* ================= Printing one charge — every unit prints alone ================= */
+function printFeeCharge(e) {
+  const inv = INVOICES[e.inv];
+  EL("printsheet").innerHTML =
+    '<div class="pshead"><h1>' + (e.kind === "credit" ? "Credit Note Line " : "Fee Charge ") + e.lineRef + '</h1>' +
+    '<span class="psref">Pemberton v. Hale Construction Co. &middot; Matter ' + MATTER_NUMBER + '</span></div>' +
+    '<dl>' +
+    factRow("Standing", SURFACE.statusLabels[e.status]) +
+    factRow("Date", fmtDate(e.date)) +
+    factRow(e.kind === "credit" ? "Credit Note" : "Invoice", e.doc) +
+    factRow("Kind", KIND_LABELS[e.kind]) +
+    factRow("Amount", fmtSignedMoney(e.amountMinor)) +
+    factRow("Agreement", e.kind === "flat_fee" ? "v" + arrangementInForce().version + " " + ARRANGEMENT_KIND_LABELS[arrangementInForce().kind] : "—") +
+    factRow("Drawn From", e.drawn === null ? "—" : e.drawn + " time entries") +
+    factRow("Invoice Standing", inv.status === "paid" ? "Finalized " + fmtDate(inv.issued) + ", paid " + fmtDate(inv.paidOn) : "Finalized " + fmtDate(inv.issued) + ", unpaid, due " + fmtDate(inv.due)) +
+    '</dl>' +
+    '<div class="pssec"><h2>Info</h2><p>' + e.info + '</p></div>' +
+    '<div class="pssec"><h2>History</h2><ul>' +
+    feeHistoryOf(e).map((ev) => '<li>' + fmtStamp(ev.at) + " — " + ev.what + " — " + ev.who + '</li>').join("") +
+    '</ul></div>' +
+    '<div class="pssec"><p>Printed from Magna Carta on ' + fmtDate(TODAY) + '.</p></div>';
+  window.print();
+}
+</script>
+<script>
+/* ================= The one table machinery =================
+ * Copied from The Timesheet (round four) and parameterized by the SURFACE object, so the Fees and
+ * Costs panes run the SAME implementation — never a third variant (the owner's one-table ruling).
+ * A surface contributes the declarative column model, its cell renderers, its dialogs, and its
+ * fixture; everything in this block is the Docket/Timesheet machinery unchanged: sort, the ONE
+ * filter mechanism living in the header cell, drag-reorder, resize with double-click fit, pinned
+ * columns, the selection model, the totals row, the footer grammar, and the mock states. At the
+ * integration round this whole block collapses into the shared implementation. */
+const S = SURFACE;
+const EL = (n) => document.getElementById(S.prefix + n);
+let entries = S.entries;
+let columns = S.columns;
+let zebra = false;
+let sortKey = S.defaultSortKey, sortDir = -1;
+let filters = {}; // key -> {kind:"set",values:Set} | {kind:"text",q} | {kind:"range",from,to}
+/* Selection is a SET (the Docket's model): click selects one, Ctrl+click toggles, Shift+click
+   extends a range. The details panel presents whatever is selected. */
+let selectedIds = new Set();
+let selectionAnchor = null;
+let inspectorOpen = true;
+function entryById(id) { return entries.find((e) => e.id === id); }
+function soleSelected() { return selectedIds.size === 1 ? entryById([...selectedIds][0]) : undefined; }
+
+/* ================= Shared formatting ================= */
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtDate(d) { const [y, m, day] = d.split("-").map(Number); return MONTHS[m - 1] + " " + day + ", " + y; }
+function fmtStamp(s) {
+  const [d, hm] = s.split(" ");
+  let [h, m] = hm.split(":").map(Number);
+  const half = h >= 12 ? "PM" : "AM";
+  h = h % 12 === 0 ? 12 : h % 12;
+  return fmtDate(d) + ", " + h + ":" + String(m).padStart(2, "0") + " " + half;
+}
+function fmtMoney(minor) { return "$" + (minor / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtSignedMoney(minor) { return minor < 0 ? "−" + fmtMoney(-minor) : fmtMoney(minor); }
+function initials(name) { return name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase(); }
+function personCell(name) {
+  return '<span class="tkcell"><span class="tkavatar">' + initials(name) + '</span>' + name + '</span>';
+}
+function factRow(dt, dd) { return "<dt>" + dt + "</dt><dd>" + dd + "</dd>"; }
+function esc(s) { return String(s).replaceAll('"', "&quot;"); }
+/* One chip per row: the chip is standing. What each status MEANS rides the hover. */
+function statusChip(s, tip) {
+  return '<span class="chip ' + S.statusTones[s] + '" title="' + esc(tip ?? S.statusTips[s]) + '">' + S.statusLabels[s] + '</span>';
+}
+function historyHtml(evs) {
+  return '<ul class="hist">' + evs.map((ev, i) =>
+    '<li' + (i === evs.length - 1 ? ' class="now"' : "") + '><span class="ev">' + ev.what + '</span>' +
+    '<span class="evmeta num">' + fmtStamp(ev.at) + " &middot; " + ev.who + '</span>' +
+    (ev.detail === undefined ? "" : '<span class="evdetail">&ldquo;' + ev.detail + '&rdquo;</span>') +
+    '</li>').join("") + '</ul>';
+}
+function chainHtml(steps, note) {
+  if (steps === null) return "";
+  return '<div class="chain" title="' + esc(note) + '">' + steps.map((s) =>
+    '<span class="st' + (s.done ? " done" : "") + (s.now ? " now" : "") + '">' + s.label + '</span>').join("") + '</div>';
+}
+
+function colByKey(k) { return columns.find((c) => c.key === k); }
+/* The anchor holds position one, then the pinned block, then the rest, so the stuck columns are
+   contiguous from the left edge (the Docket's ordering). */
+function visibleColumns() {
+  const vis = columns.filter((c) => c.always || c.on);
+  return [...vis.filter((c) => c.always), ...vis.filter((c) => !c.always && c.stick), ...vis.filter((c) => !c.always && !c.stick)];
+}
+
+function entryPasses(e) {
+  for (const [key, f] of Object.entries(filters)) {
+    const v = colByKey(key).get(e);
+    if (f.kind === "set" && !f.values.has(v)) return false;
+    if (f.kind === "text" && !String(v).toLowerCase().includes(f.q.toLowerCase())) return false;
+    if (f.kind === "range") {
+      if (v === null || v === undefined) return false;
+      if (f.from !== null && v < f.from) return false;
+      if (f.to !== null && v > f.to) return false;
+    }
+  }
+  return true;
+}
+function filteredEntries() { return entries.filter(entryPasses); }
+function sortedFiltered() {
+  const col = colByKey(sortKey);
+  const list = filteredEntries().slice();
+  list.sort((a, b) => {
+    const va = col.get(a), vb = col.get(b);
+    if (va === null) return 1;
+    if (vb === null) return -1;
+    const c = typeof va === "number" ? va - vb : String(va).localeCompare(String(vb));
+    return c === 0 ? a.id.localeCompare(b.id) : c * sortDir;
+  });
+  return list;
+}
+function activeFilterCount() { return Object.keys(filters).length; }
+function activeFilterLabels() { return Object.keys(filters).map((k) => colByKey(k).label); }
+
+/* ================= Rendering ================= */
+function renderHead() {
+  const on = visibleColumns();
+  const anyStuck = on.some((c) => c.stick);
+  EL("headRow").innerHTML = on.map((c) => {
+    const active = c.key === sortKey;
+    const filterActive = filters[c.key] !== undefined;
+    const thClass = [c.right ? "right" : "", (c.stick || (c.always && anyStuck)) ? "colpin" : ""].filter(Boolean).join(" ");
+    return '<th' + (thClass ? ' class="' + thClass + '"' : "") + ' data-col="' + c.key + '"' +
+      (c.always ? "" : ' draggable="true"') + '><span class="hcell">' +
+      '<button class="sortbtn" data-sortbtn="' + c.key + '" aria-sort="' + (active ? (sortDir === 1 ? "ascending" : "descending") : "none") + '" title="Sort by ' + c.label + '">' +
+      c.label + '<span class="arrow">' + (active ? (sortDir === 1 ? "↑" : "↓") : "") + '</span></button>' +
+      '<button class="filterbtn' + (filterActive ? " active" : "") + '" data-filterbtn="' + c.key + '" title="' +
+      (filterActive ? "Filtered: " + filterSummary(c.key) + ". Change or clear the filter" : "Filter " + c.label) + '">' + icon("funnel") + '</button>' +
+      '</span><span class="thgrip" data-grip="' + c.key + '" title="Drag to resize the ' + c.label + ' column. Double-click fits it to its widest value"></span></th>';
+  }).join("");
+  applyWidths();
+  wireColumnReorder();
+  wireColumnResize();
+}
+
+/* Column order is the member's to set — the drop lands the dragged column BEFORE or AFTER the
+   target depending on which half was entered. Lifted from the Docket so the tables stay ONE
+   system. */
+let draggingColumn = null;
+function wireColumnReorder() {
+  EL("headRow").querySelectorAll("th[draggable]").forEach((th) => {
+    th.addEventListener("dragstart", (e) => {
+      draggingColumn = th.dataset.col;
+      e.dataTransfer.effectAllowed = "move";
+      th.classList.add("dragging");
+    });
+    th.addEventListener("dragend", () => { draggingColumn = null; renderHead(); });
+    th.addEventListener("dragover", (e) => {
+      if (draggingColumn === null || th.dataset.col === draggingColumn) return;
+      e.preventDefault();
+      const r = th.getBoundingClientRect();
+      th.classList.toggle("drop-before", e.clientX < r.left + r.width / 2);
+      th.classList.toggle("drop-after", e.clientX >= r.left + r.width / 2);
+    });
+    th.addEventListener("dragleave", () => th.classList.remove("drop-before", "drop-after"));
+    th.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const after = th.classList.contains("drop-after");
+      th.classList.remove("drop-before", "drop-after");
+      moveColumn(draggingColumn, th.dataset.col, after);
+    });
+  });
+}
+function moveColumn(fromKey, toKey, after) {
+  if (fromKey === null || fromKey === toKey) return;
+  const from = columns.findIndex((c) => c.key === fromKey);
+  const moved = columns.splice(from, 1)[0];
+  let to = columns.findIndex((c) => c.key === toKey) + (after ? 1 : 0);
+  const firstMovable = columns.findIndex((c) => !c.always);
+  if (firstMovable !== -1 && to < firstMovable) to = firstMovable; // never ahead of the anchor
+  columns.splice(to, 0, moved);
+  renderHead(); renderRows();
+}
+
+/* ============ Column widths ============
+ * Columns lay themselves out until somebody resizes one; from then on the widths are the
+ * member's. Dragging the grip sets the width; double-clicking it fits the column to its widest
+ * value, header included. */
+let fixedCols = false;
+function applyWidths() {
+  if (!fixedCols) return;
+  EL("table").classList.add("fixedcols");
+  for (const th of EL("headRow").cells) {
+    const c = colByKey(th.dataset.col);
+    th.style.width = c.width ? c.width + "px" : "";
+  }
+}
+function snapshotWidths() {
+  if (fixedCols) return;
+  for (const th of EL("headRow").cells) colByKey(th.dataset.col).width = Math.round(th.getBoundingClientRect().width);
+  fixedCols = true;
+  applyWidths();
+}
+let measureCtx = null;
+function textWidthPx(text, font) {
+  if (measureCtx === null) measureCtx = document.createElement("canvas").getContext("2d");
+  measureCtx.font = font;
+  return measureCtx.measureText(text).width;
+}
+function fitWidthValue(col) {
+  const cs = getComputedStyle(EL("table"));
+  const bodyFont = cs.fontSize + " " + cs.fontFamily;
+  const headFont = "0.75rem " + cs.fontFamily;
+  let w = textWidthPx(col.label.toUpperCase(), headFont) + col.label.length * 1.1 + 10 + 20 + 16;
+  for (const e of entries) w = Math.max(w, textWidthPx(S.cellTextOf(col, e), bodyFont) + (S.cellExtra[col.key] ?? 0));
+  return Math.ceil(w) + 18;
+}
+function wireColumnResize() {
+  EL("headRow").querySelectorAll(".thgrip").forEach((grip) => {
+    const key = grip.dataset.grip;
+    grip.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      snapshotWidths();
+      const col = colByKey(key);
+      const th = grip.closest("th");
+      const startX = ev.clientX, startW = th.getBoundingClientRect().width;
+      grip.classList.add("dragging");
+      document.body.classList.add("resizing");
+      grip.setPointerCapture(ev.pointerId);
+      const move = (e) => { col.width = Math.max(48, Math.round(startW + e.clientX - startX)); th.style.width = col.width + "px"; };
+      const up = () => {
+        grip.classList.remove("dragging");
+        document.body.classList.remove("resizing");
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        applyColumnPins();
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+    grip.addEventListener("dblclick", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      snapshotWidths();
+      colByKey(key).width = fitWidthValue(colByKey(key));
+      renderHead(); renderRows();
+    });
+    grip.addEventListener("click", (ev) => ev.stopPropagation());
+    grip.addEventListener("dragstart", (ev) => ev.preventDefault());
+  });
+}
+
+/* Pinned columns hold still while the rest of the table scrolls sideways: sticky cells with
+   measured left offsets, contiguous from the left edge — the Docket's applyColumnPins, shared. */
+function applyColumnPins() {
+  const head = [...EL("headRow").cells];
+  const pinIndexes = head.map((th, i) => (th.classList.contains("colpin") ? i : -1)).filter((i) => i >= 0);
+  if (pinIndexes.length === 0) return;
+  let left = 0;
+  const offsets = new Map();
+  for (const i of pinIndexes) { offsets.set(i, left); left += head[i].getBoundingClientRect().width; }
+  const last = pinIndexes[pinIndexes.length - 1];
+  head[last].classList.add("colpin-last");
+  for (const [i, x] of offsets) head[i].style.left = x + "px";
+  for (const tr of [...document.querySelectorAll("#" + S.prefix + "rows tr"), EL("totRow")]) {
+    if (tr.cells.length !== head.length) continue; // the filtered-empty row spans the table
+    for (const [i, x] of offsets) {
+      tr.cells[i].classList.add("colpin");
+      if (i === last) tr.cells[i].classList.add("colpin-last");
+      tr.cells[i].style.left = x + "px";
+    }
+  }
+}
+function filterSummary(key) {
+  const f = filters[key];
+  if (f === undefined) return "";
+  if (f.kind === "set") return [...f.values].join(", ");
+  if (f.kind === "text") return 'contains "' + f.q + '"';
+  const col = colByKey(key);
+  const show = (v) => col.ftype === "daterange" ? fmtDate(v) : v;
+  if (f.from !== null && f.to !== null) return show(f.from) + " to " + show(f.to);
+  return f.from !== null ? show(f.from) + " and later" : "up to " + show(f.to);
+}
+function renderRows() {
+  const list = sortedFiltered();
+  const cols = visibleColumns();
+  if (list.length === 0 && activeFilterCount() > 0) {
+    EL("rows").innerHTML = '<tr><td colspan="' + cols.length + '"><div class="emptyfiltered">' +
+      'No ' + S.nounPlural + ' match the filters on ' + activeFilterLabels().join(", ") + '. All ' + entries.length +
+      ' ' + S.nounPlural + ' are hidden.<br><button class="btn secondary" id="' + S.prefix + 'emptyClear">' + icon("funnelX") +
+      'Clear All Filters</button></div></td></tr>';
+    const b = EL("emptyClear");
+    if (b) b.addEventListener("click", clearAllFilters);
+  } else {
+    EL("rows").innerHTML = list.map((e) =>
+      '<tr data-id="' + e.id + '"' + (S.rowClass(e) ? ' class="' + S.rowClass(e) + '"' : "") +
+      (selectedIds.has(e.id) ? ' aria-selected="true"' : "") + '>' +
+      cols.map((c) => S.rowCells(e, c)).join("") + '</tr>').join("");
+  }
+  EL("table").classList.toggle("zebra", zebra);
+  renderTotals(list, cols);
+  applyColumnPins();
+}
+/* The totals row: sums for the numeric columns over what is in view, voids excluded. The label
+   under the anchor column says which scope the sums speak for. */
+function renderTotals(list, cols) {
+  const tr = EL("totRow");
+  if (list.length === 0) { tr.innerHTML = ""; return; }
+  const base = list.filter((e) => S.countsInTotals(e));
+  const filteredScope = activeFilterCount() > 0;
+  const t = S.totals(base, filteredScope);
+  tr.innerHTML = cols.map((c, i) => {
+    if (i === 0) return '<td><span class="scopelbl' + (filteredScope ? " filtered" : "") + '" title="' +
+      (filteredScope ? "Totals over the filtered rows only" : "Totals over the whole matter") + '">' +
+      (filteredScope ? "In view" : "Total") + '</span></td>';
+    if (t.sums[c.key] !== undefined) return '<td class="right num" title="' + esc(t.tips[c.key]) + '">' + t.sums[c.key] + '</td>';
+    return "<td></td>";
+  }).join("");
+}
+function renderFoot() {
+  const list = filteredEntries();
+  const n = activeFilterCount();
+  if (n === 0) {
+    const dates = entries.map((e) => S.anchorDateOf(e)).sort();
+    EL("tally").textContent = entries.length + " " + S.nounPlural + " · " +
+      (entries.length ? fmtDate(dates[0]) + " to " + fmtDate(dates[dates.length - 1]) : "");
+    EL("filteredNote").innerHTML = "";
+  } else {
+    EL("tally").innerHTML = '<span class="filtered">' + icon("funnel") + 'Showing ' + list.length + " of " + entries.length + ' ' + S.nounPlural + '</span>';
+    EL("filteredNote").innerHTML = '· filters on ' + activeFilterLabels().join(", ") +
+      ' · <button class="lnk" id="' + S.prefix + 'footClear" title="Clear every filter and show all ' + entries.length + ' ' + S.nounPlural + '">Show all</button>';
+    EL("footClear").addEventListener("click", clearAllFilters);
+  }
+  /* The selection count and its let-go control live here, beside the tally. */
+  const sel = EL("selNote");
+  if (selectedIds.size === 0) sel.innerHTML = "";
+  else {
+    sel.innerHTML = '· <strong>' + selectedIds.size + '</strong> selected · <button class="lnk" id="' + S.prefix + 'footSelNone" title="Let go of ' +
+      (selectedIds.size === 1 ? "the selected " + S.nounSingular : "all " + selectedIds.size + " selected " + S.nounPlural) + '">Select none</button>';
+    EL("footSelNone").addEventListener("click", () => { selectedIds.clear(); selectionAnchor = null; renderRows(); renderInspector(); renderFoot(); });
+  }
+  /* The money, legible: the column sums live in the totals row, so the footer carries only what
+     no column carries. Scope-honest, voids never counted. */
+  const scopeAll = n === 0;
+  const base = (scopeAll ? entries : list).filter((e) => S.countsInTotals(e));
+  EL("foottotals").innerHTML =
+    (scopeAll ? "" : '<span class="filtered" title="Figures over the filtered rows only">In view:</span> ') +
+    S.footMoney(scopeAll, base);
+  /* The clear-filters control exists only while a filter is in play — absence is the signal. */
+  const clear = EL("clearFiltersBtn");
+  clear.hidden = n === 0;
+  clear.title = "Clear all filters and show all " + entries.length + " " + S.nounPlural;
+  if (S.afterFoot) S.afterFoot();
+}
+function renderAll() { renderHead(); renderRows(); renderFoot(); renderInspector(); }
+function clearAllFilters() { filters = {}; renderAll(); }
+
+/* ================= The details panel ================= */
+function renderInspector() {
+  const panel = EL("inspector");
+  EL("insToggleBtn").setAttribute("aria-pressed", String(inspectorOpen));
+  if (!inspectorOpen) { panel.hidden = true; panel.innerHTML = ""; return; }
+  panel.hidden = false;
+  if (selectedIds.size > 1) { S.inspectorSelection(panel, [...selectedIds].map(entryById).filter((e) => e !== undefined)); return; }
+  const e = soleSelected();
+  if (e === undefined) { S.inspectorSummary(panel); return; }
+  S.inspectorSingle(panel, e);
+}
+function wireInspectorClose() {
+  const b = EL("insClose");
+  if (b) b.addEventListener("click", () => { selectedIds.clear(); selectionAnchor = null; renderRows(); renderInspector(); renderFoot(); });
+}
+
+/* ================= Menus ================= */
+function openMenuAt(menu, x, y) {
+  menu.hidden = false;
+  menu.style.left = "0px"; menu.style.top = "0px";
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
+  menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
+}
+function closeMenus() { for (const n of ["ctx", "colsMenu", "filterMenu"]) EL(n).hidden = true; }
+document.addEventListener("pointerdown", (ev) => {
+  if (!ev.target.closest(".menu")) closeMenus();
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") { closeMenus(); for (const w of document.querySelectorAll(".dialogwash")) w.hidden = true; }
+});
+
+/* The one filter mechanism, parameterized by column type. */
+function openFilterMenu(key, x, y) {
+  const col = colByKey(key);
+  const menu = EL("filterMenu");
+  let html = '<div class="mhead">Filter ' + col.label + '</div>';
+  if (col.ftype === "set") {
+    const values = [...new Set(entries.map((e) => col.get(e)))];
+    const counts = {};
+    for (const e of entries) counts[col.get(e)] = (counts[col.get(e)] ?? 0) + 1;
+    const current = filters[key]?.values;
+    /* Typable, like every dropdown on this surface: typing narrows the choices. */
+    html += '<div class="textrow"><input type="text" id="' + S.prefix + 'fsetq" placeholder="Type to narrow the choices"></div>';
+    html += values.map((v) =>
+      '<label data-setrow="' + esc(String(v)) + '"><input type="checkbox" data-fv="' + v + '"' + (current === undefined || current.has(v) ? " checked" : "") + '>' +
+      v + '<span class="n">' + counts[v] + '</span></label>').join("");
+  } else if (col.ftype === "text") {
+    html += '<div class="textrow"><input type="text" id="' + S.prefix + 'ftext" placeholder="Contains…" value="' + (filters[key]?.q ?? "") + '"></div>';
+  } else if (col.ftype === "daterange") {
+    html += '<div class="rangerow"><input type="date" id="' + S.prefix + 'ffrom" value="' + (filters[key]?.from ?? "") + '"><span class="muted">to</span><input type="date" id="' + S.prefix + 'fto" value="' + (filters[key]?.to ?? "") + '"></div>';
+  } else {
+    html += '<div class="rangerow"><input type="number" step="any" id="' + S.prefix + 'ffrom" placeholder="From" value="' + (filters[key]?.from ?? "") + '"><span class="muted">to</span><input type="number" step="any" id="' + S.prefix + 'fto" placeholder="To" value="' + (filters[key]?.to ?? "") + '"></div>' +
+      '<div class="mnote">' + S.numUnitNote(key) + '</div>';
+  }
+  html += '<div class="rule"></div><button id="' + S.prefix + 'fclear"' + (filters[key] === undefined ? " disabled" : "") +
+    ' title="Stop filtering by ' + col.label + '">' + icon("funnelX") + 'Clear This Filter</button>';
+  menu.innerHTML = html;
+  openMenuAt(menu, x, y);
+
+  const apply = () => {
+    if (col.ftype === "set") {
+      const boxes = [...menu.querySelectorAll("input[data-fv]")];
+      const on = boxes.filter((b) => b.checked).map((b) => b.dataset.fv);
+      if (on.length === boxes.length) delete filters[key];
+      else filters[key] = { kind: "set", values: new Set(on) };
+    } else if (col.ftype === "text") {
+      const q = EL("ftext").value.trim();
+      if (q === "") delete filters[key]; else filters[key] = { kind: "text", q };
+    } else {
+      const fromRaw = EL("ffrom").value, toRaw = EL("fto").value;
+      const conv = (v) => col.ftype === "daterange" ? v : Number(v);
+      if (fromRaw === "" && toRaw === "") delete filters[key];
+      else filters[key] = { kind: "range", from: fromRaw === "" ? null : conv(fromRaw), to: toRaw === "" ? null : conv(toRaw) };
+    }
+    renderAll();
+    const fb = document.querySelector('#' + S.prefix + 'headRow [data-filterbtn="' + key + '"]');
+    if (fb) fb.classList.toggle("active", filters[key] !== undefined);
+  };
+  menu.querySelectorAll("input:not(#" + S.prefix + "fsetq)").forEach((i) => i.addEventListener("input", apply));
+  const setq = EL("fsetq");
+  if (setq !== null) setq.addEventListener("input", () => {
+    const q = setq.value.trim().toLowerCase();
+    menu.querySelectorAll("[data-setrow]").forEach((row) => {
+      row.hidden = q !== "" && !row.dataset.setrow.toLowerCase().includes(q);
+    });
+  });
+  EL("fclear").addEventListener("click", () => { delete filters[key]; renderAll(); closeMenus(); });
+}
+
+/* Columns menu: user-selectable columns, each with the Docket's pin control, and the zebra
+   setting beneath them. */
+function openColsMenu(x, y) {
+  const menu = EL("colsMenu");
+  const pinBtn = (c) => '<button class="colpinbtn' + (c.stick ? " on" : "") + '" data-pincol="' + c.key +
+    '" title="' + (c.stick
+      ? "Unpin: " + c.label + " scrolls with the rest again"
+      : "Pin " + c.label + " so it keeps its place when the list scrolls sideways") +
+    '" aria-pressed="' + Boolean(c.stick) + '">' + pinGlyph(Boolean(c.stick)) + '</button>';
+  menu.innerHTML = '<div class="mhead">Columns</div>' +
+    columns.map((c) => '<label><input type="checkbox" data-ck="' + c.key + '"' + ((c.on || c.always) ? " checked" : "") +
+      (c.always ? ' disabled title="' + c.label + ' always shows"' : "") + '>' + c.label + pinBtn(c) + '</label>').join("") +
+    '<div class="rule"></div>' +
+    '<label><input type="checkbox" id="' + S.prefix + 'zebraCk"' + (zebra ? " checked" : "") + '>Shade alternate rows</label>';
+  openMenuAt(menu, x, y);
+  menu.querySelectorAll("input[data-ck]").forEach((i) => i.addEventListener("change", () => {
+    const col = colByKey(i.dataset.ck);
+    col.on = i.checked;
+    if (fixedCols && col.on && !col.width) col.width = fitWidthValue(col);
+    renderAll();
+  }));
+  menu.onclick = (ev) => {
+    const b = ev.target.closest("[data-pincol]");
+    if (!b) return;
+    ev.preventDefault();
+    const col = colByKey(b.dataset.pincol);
+    col.stick = !col.stick;
+    const r = { x: parseFloat(menu.style.left), y: parseFloat(menu.style.top) };
+    openColsMenu(r.x, r.y);
+    renderHead(); renderRows();
+  };
+  EL("zebraCk").addEventListener("change", (ev) => { zebra = ev.target.checked; renderRows(); });
+}
+EL("colsBtn").addEventListener("click", (ev) => {
+  closeMenus();
+  const r = ev.currentTarget.getBoundingClientRect();
+  openColsMenu(r.right - 220, r.bottom + 4);
+  ev.stopPropagation();
+});
+EL("clearFiltersBtn").addEventListener("click", clearAllFilters);
+EL("insToggleBtn").addEventListener("click", () => { inspectorOpen = !inspectorOpen; renderInspector(); });
+
+/* Header clicks: sort on the label, filter on the funnel. */
+EL("headRow").addEventListener("click", (ev) => {
+  const fb = ev.target.closest("[data-filterbtn]");
+  if (fb) {
+    closeMenus();
+    const r = fb.getBoundingClientRect();
+    openFilterMenu(fb.dataset.filterbtn, r.left, r.bottom + 4);
+    ev.stopPropagation();
+    return;
+  }
+  const sb = ev.target.closest("[data-sortbtn]");
+  if (sb) {
+    const key = sb.dataset.sortbtn;
+    if (sortKey === key) sortDir = -sortDir; else { sortKey = key; sortDir = key === S.defaultSortKey ? -1 : 1; }
+    renderHead(); renderRows();
+  }
+});
+EL("headRow").addEventListener("pointerdown", (ev) => { if (ev.target.closest("[data-filterbtn]")) ev.stopPropagation(); });
+
+/* ================= Selection + row context menu ================= */
+function ctxItem(id, glyph, label, enabled, why, danger) {
+  return '<button data-cmd="' + id + '"' + (enabled ? "" : " disabled") +
+    ' title="' + esc(why) + '"' + (danger ? ' class="danger"' : "") + '>' + icon(glyph) + label + '</button>';
+}
+let ctxEntryId = null;
+EL("rows").addEventListener("click", (ev) => {
+  const tr = ev.target.closest("tr[data-id]");
+  if (!tr) return;
+  const id = tr.dataset.id;
+  if (ev.shiftKey && selectionAnchor !== null) {
+    const order = sortedFiltered().map((e) => e.id);
+    const a = order.indexOf(selectionAnchor), b = order.indexOf(id);
+    if (a !== -1 && b !== -1) {
+      if (!(ev.ctrlKey || ev.metaKey)) selectedIds.clear();
+      const [lo, hi] = a < b ? [a, b] : [b, a];
+      for (let i = lo; i <= hi; i += 1) selectedIds.add(order[i]);
+    }
+  } else if (ev.ctrlKey || ev.metaKey) {
+    if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+    selectionAnchor = id;
+  } else {
+    const wasOnly = selectedIds.size === 1 && selectedIds.has(id);
+    selectedIds.clear();
+    if (!wasOnly) selectedIds.add(id);
+    selectionAnchor = wasOnly ? null : id;
+  }
+  renderRows(); renderInspector(); renderFoot();
+});
+/* Double-click OPENS the unit: workable opens for editing; anything locked still opens through
+   the panel, the lock reason stated once. */
+EL("rows").addEventListener("dblclick", (ev) => {
+  const tr = ev.target.closest("tr[data-id]");
+  if (!tr) return;
+  const e = entryById(tr.dataset.id);
+  selectedIds.clear(); selectedIds.add(e.id); selectionAnchor = e.id;
+  renderRows(); renderInspector(); renderFoot();
+  S.openRow(e);
+});
+EL("tablewrap").addEventListener("click", (ev) => {
+  if (ev.target.closest("tr, thead, tfoot, .emptyfiltered")) return;
+  if (selectedIds.size > 0) { selectedIds.clear(); selectionAnchor = null; renderRows(); renderInspector(); renderFoot(); }
+});
+EL("rows").addEventListener("contextmenu", (ev) => {
+  const tr = ev.target.closest("tr[data-id]");
+  if (!tr) return;
+  ev.preventDefault();
+  closeMenus();
+  ctxEntryId = tr.dataset.id;
+  EL("ctx").innerHTML = S.contextItems(entryById(ctxEntryId)).join("");
+  openMenuAt(EL("ctx"), ev.clientX, ev.clientY);
+});
+EL("ctx").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-cmd]");
+  if (!b || b.disabled) return;
+  const e = entryById(ctxEntryId);
+  closeMenus();
+  S.onContext(b.dataset.cmd, e);
+});
+
+/* ================= Toast ================= */
+let toastTimer = null;
+function toast(msg) {
+  const t = EL("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 3200);
+}
+
+/* ================= Mock states ================= */
+function setState(state) {
+  document.querySelectorAll("#" + S.prefix + "mockbar [data-state]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === state)));
+  const pane = EL("statePane");
+  const populated = state === "populated";
+  EL("body").hidden = !populated;
+  document.querySelector("#" + S.prefix + "wrap .pagefoot").style.visibility = populated ? "visible" : "hidden";
+  pane.hidden = populated;
+  if (!populated) S.renderState(state, pane);
+}
+function openReport() {
+  const wash = EL("reportWash");
+  wash.innerHTML = '<div class="dialog" role="dialog" aria-modal="true" aria-label="Report a Problem">' +
+    '<header><h2>Report a Problem</h2></header><div class="body">' +
+    '<div class="field"><label for="' + S.prefix + 'repWhat">What happened</label><textarea id="' + S.prefix + 'repWhat" placeholder="What you were doing when it failed"></textarea></div>' +
+    '<span class="hint">Sent with the report: the Error ID (' + S.errorId + '), the failing request, the time, and your app version.</span>' +
+    '<div class="switchrow"><input type="checkbox" id="' + S.prefix + 'repShot"><label for="' + S.prefix + 'repShot">Include a screenshot of this screen</label></div>' +
+    '<span class="hint">No document, file name or matter content leaves the firm.</span>' +
+    '</div><footer><button class="btn secondary" id="' + S.prefix + 'repCancel">Cancel</button>' +
+    '<button class="btn primary" id="' + S.prefix + 'repSend" title="Send the report through the firm’s own reporting pipeline">Send Report</button></footer></div>';
+  wash.hidden = false;
+  EL("repCancel").addEventListener("click", () => { wash.hidden = true; });
+  EL("repSend").addEventListener("click", () => { wash.hidden = true; toast("Report sent with Error ID " + S.errorId + "."); });
+}
+document.querySelectorAll("#" + S.prefix + "mockbar [data-state]").forEach((b) => b.addEventListener("click", () => setState(b.dataset.state)));
+
+/* Dialog washes close on a click on the wash itself, never on a click inside the dialog. */
+document.querySelectorAll(".dialogwash").forEach((w) => w.addEventListener("pointerdown", (ev) => { if (ev.target === w) w.hidden = true; }));
+
+/* The matter search is shared chrome; its behavior is designed in the file manager mockup. */
+document.getElementById("matterSearchBtn").addEventListener("click", () =>
+  toast("Searches the whole matter: files, time and billing. The expanding field is designed in The Docket."));
+
+S.wireSurface();
+renderAll();
+</script>
+<!-- ============ FEES-TAB PANE (END) ============ -->
+
+</body></html>

@@ -21,7 +21,7 @@ const BREAKPOINT = "--> statement-breakpoint";
 
 function orderedTags(dir) {
   const journal = JSON.parse(readFileSync(join(dir, "meta", "_journal.json"), "utf8"));
-  return [...journal.entries].sort((a, b) => a.idx - b.idx).map((e) => e.tag);
+  return [...journal.entries].toSorted((a, b) => a.idx - b.idx).map((e) => e.tag);
 }
 function statements(sql) {
   return sql
@@ -69,7 +69,7 @@ function userObjects(db) {
 function schemaKey(db) {
   return userObjects(db)
     .map((o) => `${o.type} ${o.name}\n${o.sql}`)
-    .sort()
+    .toSorted()
     .join("\n;;\n");
 }
 function tables(db) {
@@ -80,7 +80,7 @@ function tables(db) {
     .all()
     .map((r) => r.name)
     .filter((n) => !vnames.includes(n) && !isShadow(n, vnames))
-    .sort();
+    .toSorted();
 }
 function lit(v) {
   if (v === null || v === undefined) return "NULL";
@@ -99,7 +99,7 @@ function dumpData(db) {
       .map((c) => c.name);
     const rows = db.prepare(`SELECT * FROM "${t}"`).all();
     // deterministic order: sort serialized rows
-    const ser = rows.map((r) => cols.map((c) => lit(r[c])).join("|")).sort();
+    const ser = rows.map((r) => cols.map((c) => lit(r[c])).join("|")).toSorted();
     totalRows += ser.length;
     parts.push(`### ${t} (${ser.length} rows)\n` + ser.join("\n"));
   }

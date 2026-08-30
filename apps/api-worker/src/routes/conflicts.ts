@@ -5,7 +5,12 @@ import {
   recordDisposition,
   readCurrentDisposition,
   EmptyRationaleError,
+  InvalidWaiverDateError,
+  UnknownConsentingPartyError,
   UnknownHitError,
+  UnknownWaiverDocumentError,
+  WaiverRecordNotApplicableError,
+  WaiverRecordRequiredError,
 } from "@magna-carta/conflicts/disposition";
 import {
   parseCheckInputs,
@@ -24,6 +29,7 @@ import {
   SOURCE_CLASSES,
   STRICTNESS_LEVELS,
 } from "@magna-carta/conflicts/types";
+import { WAIVER_SHORTFALLS, waiverShortfalls } from "@magna-carta/conflicts/waiver";
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
@@ -207,12 +213,37 @@ const GraphPathStep = z
   })
   .openapi("ConflictsGraphPathStep");
 
+// The waiver's own record, on a disposition that has one. Null on every other kind, and on a
+// `waiver_obtained` row recorded before the platform could hold a waiver record at all — which reads
+// as the row not saying, and is reported as a shortfall exactly like an absent field would be.
+const WaiverDetail = z
+  .object({
+    // The Directory entity that consented. A handle a reader can look up, never a typed-in name.
+    givenByEntityId: z.string().nullable(),
+    // Whether the consent was confirmed in writing, stated in its own right. Deliberately not derived
+    // from `documentFileId`: consent confirmed in a writing this firm has not filed here, and a
+    // document filed against consent nobody confirmed, are different states of the world.
+    confirmedInWriting: z.boolean().nullable(),
+    // The filed document evidencing the confirmation. Null where the firm has not filed it.
+    documentFileId: z.string().nullable(),
+    // The civil date the waiver was GIVEN, which is not the instant this row was recorded.
+    givenOn: z.string().nullable(),
+  })
+  .openapi("ConflictsWaiverDetail");
+
 const DispositionDetail = z
   .object({
     id: z.string(),
     kind: z.enum(DISPOSITION_KINDS),
     rationale: z.string(),
     reviewerUserId: z.string(),
+    waiver: WaiverDetail.nullable(),
+    // What this disposition's record is short of — for a waiver, whether the informed consent was
+    // confirmed in writing and whether that confirmation is filed. Always empty on the other three
+    // kinds, which carry no waiver record and are not incomplete for lacking one. Reported rather
+    // than left to be inferred, because a waiver the firm cannot evidence must never read the same
+    // as one it can, on any surface that shows a disposition.
+    shortfalls: z.array(z.enum(WAIVER_SHORTFALLS)),
     createdAt: z.string(),
   })
   .openapi("ConflictsDispositionDetail");
@@ -375,6 +406,11 @@ const PostureDispositionKind = z
     kind: z.enum(DISPOSITION_KINDS),
     count: z.number().int(),
     reviewerUserIds: z.array(z.string()),
+    // How many of those the platform cannot produce the record for — today, waivers whose informed
+    // consent is not confirmed in writing or whose confirmation is not filed. Zero on every other
+    // kind. A matter reported as carrying three waivers, two of which the firm cannot evidence, is
+    // not the matter "three waivers" describes.
+    incompleteCount: z.number().int(),
   })
   .openapi("ConflictsPostureDispositionKind");
 
@@ -418,10 +454,32 @@ const MatterConflictsPostureResponse = z
   })
   .openapi("MatterConflictsPostureResponse");
 
+// The waiver a reviewer records alongside a `waiver_obtained` adjudication.
+//
+// WHAT IS REQUIRED HERE AND WHAT IS NOT. The consenting party and the date the waiver was given are
+// required because they are the act itself: a reviewer who cannot say who consented, or when, is
+// recording an impression rather than a waiver. Whether it was confirmed in writing is required as a
+// STATEMENT — the reviewer must answer the question — but `false` is an accepted answer, and the
+// evidencing document may be absent, because a waiver genuinely can be given orally and confirmed
+// afterwards. A platform that refused the row until the writing existed would simply be told nothing,
+// so the row is recorded and reads as incomplete wherever it is shown.
+const WaiverRequest = z
+  .object({
+    givenByEntityId: z.string().regex(directoryEntityIdPattern),
+    confirmedInWriting: z.boolean(),
+    // Omitted or null where the firm has not filed the confirmation here yet.
+    documentFileId: identifierField("file").nullable().optional(),
+    // The civil date the waiver was given, YYYY-MM-DD. Not the instant it is being recorded.
+    givenOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  })
+  .openapi("ConflictsWaiverRequest");
+
 const RecordDispositionRequest = z
   .object({
     kind: z.enum(DISPOSITION_KINDS),
     rationale: z.string().min(1),
+    // Required on `waiver_obtained` and refused on every other kind, whose payloads are unchanged.
+    waiver: WaiverRequest.optional(),
   })
   .openapi("RecordConflictsDispositionRequest");
 
@@ -480,7 +538,18 @@ function conflictsErrorResponse(
       detail: caught.message,
     });
   }
-  if (caught instanceof EmptyRationaleError) {
+  // Every domain refusal below is about the BODY the caller sent, so all of them are 422 — including
+  // the two that name a reference that does not resolve. A 404 there would be an answer about this
+  // route's own resource (the hit), which resolves fine; the consenting party and the evidencing
+  // document are values in the payload, and the caller fixes them by sending a different payload.
+  if (
+    caught instanceof EmptyRationaleError ||
+    caught instanceof WaiverRecordRequiredError ||
+    caught instanceof WaiverRecordNotApplicableError ||
+    caught instanceof InvalidWaiverDateError ||
+    caught instanceof UnknownConsentingPartyError ||
+    caught instanceof UnknownWaiverDocumentError
+  ) {
     return problemJson(c, {
       type: "validation",
       title: "Conflicts request invalid",
@@ -557,7 +626,8 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
     "how many candidates surfaced. The statement reports the search and reaches no conclusion about " +
     "the matter — a search that surfaced nothing ends by saying so, which is a fact about the search " +
     "and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded " +
-    "as a disposition naming them.",
+    "as a disposition naming them. A disposition recording a waiver carries the waiver's own record " +
+    "and, where the platform does not hold the whole of it, what that record is short of.",
   request: { params: checkIdParam },
   responses: {
     200: {
@@ -611,7 +681,13 @@ const recordDispositionRoute = defineOpenAPIRoute(
       "Records a reviewer's adjudication of a surfaced hit — clearing it, noting a waiver, recording " +
       "that an ethical wall was erected, or declining the representation. Every call appends a new " +
       "row; a reviewer who reverses an earlier call records a second disposition rather than editing " +
-      "the first, so the full history of the adjudication stays visible.",
+      "the first, so the full history of the adjudication stays visible. A waiver carries a record of " +
+      "its own: who consented, whether that consent was confirmed in writing, the filed document " +
+      "evidencing the confirmation, and the date the waiver was given. The consenting party and the " +
+      "date are required, because they are the act being recorded. The written confirmation and its " +
+      "document are not, because a waiver can be given orally and confirmed afterwards — a waiver " +
+      "recorded without them is accepted and reports what it is short of, so it never reads the same " +
+      "as one the firm can evidence.",
     request: {
       headers: idempotencyKeyHeader,
       params: hitIdParam,
@@ -706,6 +782,10 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
                     kind: disposition.kind,
                     rationale: disposition.rationale,
                     reviewerUserId: disposition.reviewerUserId,
+                    waiver: disposition.waiver,
+                    // Derived on every read from the row itself, never stored: filing the
+                    // confirmation later is a second disposition row, and this answer moves with it.
+                    shortfalls: waiverShortfalls(disposition.kind, disposition.waiver),
                     createdAt: disposition.createdAt,
                   },
           };
@@ -782,7 +862,16 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       try {
         const id = await recordDisposition(
           firm.firmDatabase,
-          { hitId, kind: request.kind, rationale: request.rationale, reviewerUserId: userId },
+          {
+            hitId,
+            kind: request.kind,
+            rationale: request.rationale,
+            reviewerUserId: userId,
+            waiver:
+              request.waiver === undefined
+                ? undefined
+                : { ...request.waiver, documentFileId: request.waiver.documentFileId ?? null },
+          },
           {
             clock: { now: () => new Date().toISOString() },
             actorUserId: userId,

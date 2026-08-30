@@ -127,6 +127,8 @@
     invoiceStanding: "An Invoice's Standing",
     chargeStanding: "A Charge, Read Off Its Invoice",
     safety: "File Safety",
+    custody: "What The Firm Holds",
+    conflictHit: "How A Conflict Hit Stands",
   };
 
   const VOCABULARY_KEYS = Object.keys(STATUS_VOCABULARIES) as StatusVocabulary[];

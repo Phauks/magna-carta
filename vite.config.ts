@@ -50,6 +50,12 @@ export default defineConfig({
       "docs/now.html",
       "docs/decisions-open.html",
       "docs/register-history.json",
+      // The owner's own design surfaces, recovered from the artifacts they were authored in and
+      // committed as the SOURCE the application screens are ported from. They are evidence, and
+      // evidence is worth exactly what its bytes are: a mockup the formatter has reflowed no longer
+      // proves what the owner drew, and a port that disagrees with it can no longer be told from a
+      // port that disagrees with a formatter. They are never edited, by a person or by a tool.
+      "docs/mockups/**",
     ],
   },
   // Type-errors are owned by `vp run typecheck` (`tsc -b` over the project-references graph — fast,

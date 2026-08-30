@@ -372,6 +372,29 @@ Recorded per Worker below, with the Watch Paths that are genuinely its own:
 - `magna-carta-web` — root directory `apps/web-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. The SvelteKit single-page application, on its own deployable. **Connected, and its production branch is `main`** (the owner moved it there on 2026-08-29 alongside the app Worker, so a UI change is deployed by the merge that lands it — the whole point of the move). It is an **assets-only** Worker: no `main` entrypoint, no bindings, no secrets, so a page request is answered by Cloudflare's asset server and invokes nothing. Its own `build` script builds `@magna-carta/web` first (the sibling package whose output `wrangler.jsonc` points at), then runs the usual `wrangler deploy --dry-run --outdir dist` — the dashboard command stays the plain `pnpm run build` every sibling uses. **It needs no Docker and no WASM step**: `apps/web` depends on `@magna-carta/design-system`, `@magna-carta/design-tokens`, `@magna-carta/tools` and `@magna-carta/merge-field-catalog-contract`, and none of those reaches a crate — which is the whole reason this Worker is separable from `magna-carta` and why the sign Worker's WASM lesson above does not apply here. **This is additive while it stands alone**: `apps/api-worker` still binds the same build output under its own `assets` block, so the application keeps serving from one origin exactly as it does today, and this Worker is a second door to the same files. Cutting over means giving the two Workers route patterns on one hostname — the SPA everywhere, the app Worker on its own paths — which needs a zone hostname the account does not have yet; a workers.dev URL cannot carry a route pattern. Do not remove the app Worker's `assets` block before those routes exist, or the application becomes unreachable. **Build Watch Paths (inclusion):** `apps/web-worker/*`, `apps/web/*`, `packages/design-system/*`, `packages/design-tokens/*`, `packages/tools/*`, `packages/merge-field-catalog-contract/*`, `packages/access-control/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
 - `magna-carta-edit` — root directory `apps/edit-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. The Collabora editing Worker. **The Worker keeps the name `magna-carta-edit`; only its directory moved** (from `apps/magna-carta-edit`, 2026-08-21) to match its own package name, `@magna-carta/edit-worker`, and its siblings' `<thing>-worker` shape. **Root directory, branch and builds were all verified healthy on 2026-08-24** over the API: root `apps/edit-worker`, production branch `release`, and its last two builds green (both 2026-08-21). Three claims this entry carried before that read are therefore retired, not merely dated — a root directory of `/`, a `--filter` deploy command, and a production branch of `slice-2-2-editing` with eight consecutive failed builds since 2026-06-28. All three were true when written and none survived the read. **This is the fourth time this file has disagreed with the live build configuration**, which is why the branch-control section above says to read `GET /accounts/{account_id}/builds/workers/{script_tag}` rather than trust the page. **Build Watch Paths (inclusion):** `apps/edit-worker/*` (the entry read `apps/edit-worker` with no trailing `/*` — matching no file _under_ the directory — until the owner corrected it on 2026-08-27), `containers/collabora/*`, `pnpm-lock.yaml`.
 
+### The version surface reads what was deployed, so Watch Paths decide what it can say
+
+`GET /api/v1/meta/versions` (and the version chip above it) asks every dedicated Worker what commit
+it is running, over its service binding, on the `/__version` route in `packages/build-identity`. A
+Worker answers only if that route was in the build it was deployed from. A Worker deployed from an
+earlier commit 404s the probe, which the aggregate records as `unreported` and the chip renders as
+**"Not reporting"** — true, and easy to mistake for an outage, because the Worker is healthy and
+serving its real work perfectly.
+
+**So `packages/build-identity/*` belongs in the Build Watch Paths of every Worker whose version the
+aggregate reads** — scan, bundle, convert, recovery, file-repair, discovery, ocr, sign — and none of
+them carries it today. Without it, a change to the version route or to the identity stamp matches no
+sibling's watch paths and rebuilds nothing, so the sibling keeps answering from whatever build it
+last had a reason to make. That is the state the fleet was in when the route shipped on 2026-08-29:
+the siblings' last builds were from 2026-08-21, they predate the route, and every one of them reads
+as "Not reporting" until something rebuilds them. The branch question above compounds it — a sibling
+still building from `release` cannot pick the route up at all, because the route is only on `main`.
+
+**Keyword Search is a different and truthful answer.** `SEARCH_SERVICE` is not in
+`apps/api-worker/wrangler.jsonc`'s `services` array and `magna-carta-search` is not a connected
+Workers Builds project, so that row reads **"Not deployed"** and will keep reading that until the
+Worker exists and the binding is added. Nothing to fix there; the surface is doing its job.
+
 ### Cron Triggers — two rules that have each cost a deploy
 
 **Cloudflare numbers days of the week 1 = Sunday through 7 = Saturday.** `0` is out of range, not a

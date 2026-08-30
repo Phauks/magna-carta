@@ -55,7 +55,7 @@ async function readProblem(response: Response): Promise<ApiProblem> {
 }
 
 interface JsonRequest {
-  readonly method?: "GET" | "POST" | "PATCH" | "DELETE";
+  readonly method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   readonly body?: unknown;
   /**
    * The idempotency key for a write the contract requires one on. A retried submit must not file a

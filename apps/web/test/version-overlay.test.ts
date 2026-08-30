@@ -21,6 +21,7 @@ import {
   formatVersionTimestamp,
   isRealCommit,
   readsServiceAggregate,
+  serviceStateDescription,
   serviceStateLabel,
   versionChipLabel,
   SIGNED_OUT_ESTATE_NOTICE,
@@ -70,6 +71,19 @@ describe("the web-versus-API skew call", () => {
     expect(buildsDiffer("f4b6d82", "dev")).toBe(false);
     expect(buildsDiffer("f4b6d82", null)).toBe(false);
   });
+
+  it("two abbreviations of one commit are the same build, however long each side is", () => {
+    // The web app's stamp comes from git; a Worker built where git could not answer takes the
+    // build runner's commit variable and abbreviates it itself. Same commit, different lengths,
+    // and an equality test would warn about a deployment that is in step.
+    expect(buildsDiffer("f4b6d82", "f4b6d8291")).toBe(false);
+    expect(buildsDiffer("f4b6d8291", "f4b6d82")).toBe(false);
+    expect(buildsDiffer("F4B6D82", "f4b6d8291")).toBe(false);
+  });
+
+  it("a prefix too short to identify a commit is not treated as agreement", () => {
+    expect(buildsDiffer("f4b6", "f4b6d8291")).toBe(true);
+  });
 });
 
 describe("the honest non-answers", () => {
@@ -78,6 +92,29 @@ describe("the honest non-answers", () => {
     expect(serviceStateLabel("unbound")).toBe("Not deployed");
     expect(serviceStateLabel("unreachable")).toBe("Unreachable");
     expect(serviceStateLabel("unreported")).toBe("Not reporting");
+  });
+
+  it("each non-answer says which fact it is, so the three do not read as one outage", () => {
+    expect(serviceStateDescription("reported")).toBeNull();
+    const descriptions = (["unbound", "unreachable", "unreported"] as const).map((state) =>
+      serviceStateDescription(state),
+    );
+    for (const description of descriptions) {
+      expect(description).not.toBeNull();
+      // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
+      expect(description).not.toContain("—");
+    }
+    expect(new Set(descriptions).size).toBe(descriptions.length);
+  });
+
+  it("a service this deployment never had is not described as a failure", () => {
+    expect(serviceStateDescription("unbound")).not.toMatch(/fail|error|unreachable|down/i);
+  });
+
+  it("a service too old to answer is described as answering, not as absent", () => {
+    const description = serviceStateDescription("unreported") ?? "";
+    expect(description).toMatch(/answer/i);
+    expect(description).toMatch(/build/i);
   });
 });
 
@@ -163,6 +200,13 @@ describe("the chip in its public scope", () => {
     expect(webAppRow).not.toBeNull();
     expect(webAppRow?.[0]).toContain("BUILD_IDENTITY.committedAt");
     expect(chip.indexOf("Web App")).toBeLessThan(chip.indexOf("{#if value !== null}"));
+  });
+
+  it("explains a non-answering row instead of leaving a bare badge", () => {
+    // The badge alone cannot separate "no such service here" from "not answering" from
+    // "answering, but older than the question", and the owner read all three as an outage.
+    expect(chip).toContain("serviceStateDescription(part.state)");
+    expect(chip).toMatch(/\{:else if stateDescription !== null\}/);
   });
 
   it("says out loud what the public panel is not showing", () => {

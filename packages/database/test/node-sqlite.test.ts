@@ -69,8 +69,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       grants
         .filter((grant) => grant.permission === "firm:reportIncident")
         .map((grant) => grant.role_id)
-        .sort(),
-    ).toEqual(roles.map((row) => row.id).sort());
+        .toSorted(),
+    ).toEqual(roles.map((row) => row.id).toSorted());
     // notifications:read is likewise seeded onto EVERY default role, Read-only included — the
     // deliberate contrast with trust:read, which stops short of that seat. A member reading their
     // own feed is not a privilege: the read is scoped to the session's own user id and every row is
@@ -80,8 +80,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       grants
         .filter((grant) => grant.permission === "notifications:read")
         .map((grant) => grant.role_id)
-        .sort(),
-    ).toEqual(roles.map((row) => row.id).sort());
+        .toSorted(),
+    ).toEqual(roles.map((row) => row.id).toSorted());
     // firm:readMembers joins that universal set, and is the deliberate opposite of
     // firm:manageMembers above. Adding a person to the firm is Owner/Admin's; knowing who is
     // already in it is every seat's, because a screen that cannot name a colleague prints a raw
@@ -90,8 +90,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       grants
         .filter((grant) => grant.permission === "firm:readMembers")
         .map((grant) => grant.role_id)
-        .sort(),
-    ).toEqual(roles.map((row) => row.id).sort());
+        .toSorted(),
+    ).toEqual(roles.map((row) => row.id).toSorted());
     // The matters/locations/files grants extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Configuring the machine that files mail is narrower than filing mail: the two roles that own
@@ -159,7 +159,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // prospective matter or read back a completed check) and are likewise seeded to every role;
     // conflicts:dispose is narrower (adjudicating a hit) and stays limited to Owner/Admin and
     // Attorney, so it is absent here.
-    expect(grantsFor("Paralegal").sort()).toEqual(
+    expect(grantsFor("Paralegal").toSorted()).toEqual(
       [
         // Assembling a working bill asserts nothing to anybody, so billing:draft reaches the
         // practitioner set; turning one into evidence (billing:finalize) does not.
@@ -238,7 +238,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:businessLookup",
         "tools:propertyListings",
         "tools:propertyRecords",
-      ].sort(),
+      ].toSorted(),
     );
     // Billing and Read-only carry only the every-role set (firm:reportIncident, the firm-wide
     // tools, support:request, conflicts:read/run, custody:read, emails:read); Billing additionally
@@ -247,7 +247,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // custody:manage — which moves originals — is exactly what they must not have. The trust keys go
     // the other way: a bookkeeper is exactly who records trust activity, so Billing carries both,
     // and Read-only carries neither.
-    expect(grantsFor("Billing").sort()).toEqual(
+    expect(grantsFor("Billing").toSorted()).toEqual(
       [
         // A billing clerk assembles the bill and records the money that comes back against it; the
         // approval that turns a draft into evidence is a partner's, so billing:finalize is absent.
@@ -286,9 +286,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:businessLookup",
         "tools:propertyListings",
         "tools:propertyRecords",
-      ].sort(),
+      ].toSorted(),
     );
-    expect(grantsFor("Read-only").sort()).toEqual(
+    expect(grantsFor("Read-only").toSorted()).toEqual(
       [
         // calendar:read reaches every default role, custody:read's line: "when is the hearing" is a
         // question every seat in a firm asks, and a case timeline some seats cannot see is one that
@@ -326,7 +326,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:businessLookup",
         "tools:propertyListings",
         "tools:propertyRecords",
-      ].sort(),
+      ].toSorted(),
     );
   });
 

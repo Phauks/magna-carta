@@ -16,6 +16,7 @@ import {
   type SourceClass,
   type Strictness,
 } from "./types.ts";
+import { waiverIsIncomplete } from "./waiver.ts";
 
 // WHERE A MATTER STANDS ON CONFLICTS — the one sanctioned way to ask, and deliberately not an answer
 // to "is this matter clear".
@@ -108,6 +109,17 @@ export interface DispositionKindCount {
   readonly kind: DispositionKind;
   readonly count: number;
   readonly reviewerUserIds: readonly string[];
+  /**
+   * How many of those the platform could not produce the record for — today, waivers whose informed
+   * consent is not confirmed in writing or whose confirmation is not filed. Zero on every other kind.
+   *
+   * It is counted rather than left to the hit list because this is the number a reader takes away: a
+   * matter reported as carrying three waivers, two of which the firm cannot evidence, is not the
+   * matter "three waivers" describes. Like everything else here it is derived on every read, so
+   * filing the confirmation later (a second disposition row — the table is append-only) changes it
+   * with no sweep and no write.
+   */
+  readonly incompleteCount: number;
 }
 
 // A re-check the platform knows is owed and has not yet run, naming the corpus change that caused it
@@ -488,7 +500,10 @@ export async function readMatterConflictsPosture(
     [3, 0],
     [4, 0],
   ]);
-  const dispositionsByKind = new Map<DispositionKind, { count: number; reviewers: Set<string> }>();
+  const dispositionsByKind = new Map<
+    DispositionKind,
+    { count: number; incomplete: number; reviewers: Set<string> }
+  >();
   for (const state of hitStates) {
     if (state.disposition === null) {
       undisposedCounts.set(state.evidenceTier, (undisposedCounts.get(state.evidenceTier) ?? 0) + 1);
@@ -496,9 +511,13 @@ export async function readMatterConflictsPosture(
     }
     const group = dispositionsByKind.get(state.disposition.kind) ?? {
       count: 0,
+      incomplete: 0,
       reviewers: new Set<string>(),
     };
     group.count += 1;
+    if (waiverIsIncomplete(state.disposition.kind, state.disposition.waiver)) {
+      group.incomplete += 1;
+    }
     group.reviewers.add(state.disposition.reviewerUserId);
     dispositionsByKind.set(state.disposition.kind, group);
   }
@@ -569,6 +588,7 @@ export async function readMatterConflictsPosture(
         kind,
         count: group.count,
         reviewerUserIds: [...group.reviewers].toSorted((left, right) => left.localeCompare(right)),
+        incompleteCount: group.incomplete,
       })),
     unavailableSources,
   };

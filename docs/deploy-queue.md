@@ -310,21 +310,37 @@ answering `503`, and no visitor is being told it is their fault.
   the bound platform bucket). Fixed on `main`; do not deploy any pre-fix commit
   with real presigning credentials.
 
-## Version visibility — one Watch Paths addition per sibling Worker
+## Version visibility — the owner is now seeing what this entry predicted (2026-08-30)
 
-The version chip and `GET /api/v1/meta/versions` ship with every Worker's `build` script prepending
-the build-identity stamp (`packages/build-identity` — the shared version route each sibling now
-serves and the app worker probes). Two dashboard facts follow:
+**The report:** every source in the version chip reads "Not reporting" or "Not deployed". Both
+answers are true, and neither is a code fault — the mechanism is in
+[`operations.md`](conventions/operations.md) under _Cloudflare Workers Builds_, and this entry is
+only the steps. In short: a sibling Worker answers the version probe only if the route was in the
+build it was deployed from, the siblings' deployed builds are from 2026-08-21, and the route landed
+2026-08-29. Nothing has rebuilt them since, because nothing can: their Watch Paths do not name the
+package the route lives in, and they may still build from `release`, which does not have it.
 
-- **Add `packages/build-identity/*` to every sibling Worker's Build Watch Paths** (scan, bundle,
-  convert, file-repair, recovery, ocr, sign, discovery, search, and the `magna-carta` project's
-  existing `packages/*` already covers it). Each Worker bundles the package, so a change to the
-  version route should rebuild them; until the path is added, a change there simply does not
-  redeploy the siblings and their `/__version` answer lags — visible, not broken.
-- **No new secrets, vars, or bindings.** The stamp runs inside the existing `pnpm run build`
-  commands; a Worker deployed before its next build honestly reports `dev` (or 404s the version
-  route, which the aggregate read reports as "Not reporting"), and the overlay renders that as
-  what it is rather than a failure.
+Two dashboard steps, in this order, and both are needed — either one alone leaves the chip exactly
+as it is:
+
+1. **Set the production branch to `main`** on the sibling projects (the item _Reconcile the
+   production branch on the other ten projects_ above is the same step, and settles more than this).
+   The version route exists only on `main`.
+2. **Add `packages/build-identity/*` to every sibling Worker's Build Watch Paths** — scan, bundle,
+   convert, file-repair, recovery, ocr, sign, discovery. (The `magna-carta` project's existing
+   `packages/*` already covers it, which is why the API row reports and the service rows do not.)
+   Each of those Workers bundles the package, so a change to the version route or the identity stamp
+   should rebuild them; without the path it matches nothing and redeploys nothing.
+
+Then any push touching a sibling's own paths rebuilds it and its row lights up with a real commit.
+To light them all up at once without waiting for an unrelated change, use each project's **Retry
+build** (or its deploy hook) after step 1.
+
+**No new secrets, vars, or bindings.** The stamp runs inside the existing `pnpm run build` commands.
+
+**Keyword Search stays "Not deployed", correctly.** `magna-carta-search` is not a connected project
+and `SEARCH_SERVICE` is not in the app Worker's `services` array; that row is reporting the truth and
+changes when the Worker ships (_Search engine activation_ above).
 
 ## The `magna-carta` project — the repoint this file asked for was the wrong fix; the deploy filter is the real one
 

@@ -2,6 +2,7 @@
  * The matter Costs section's response shapes and calls. Mirrors the cost operations in
  * apps/api-worker/openapi/openapi.json; the transport envelope lives in $lib/api/request.ts.
  */
+import { statusEntry, type StatusKey } from "@magna-carta/design-system/status-register";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 export type CostStatus = "draft" | "submitted" | "approved" | "billed" | "void";
@@ -44,25 +45,19 @@ export function listMatterCosts(
   return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
 }
 
-const STATUS_LABELS: Record<CostStatus, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  approved: "Approved",
-  billed: "Billed",
-  void: "Void",
-};
-
-export function statusLabel(status: CostStatus): string {
-  return STATUS_LABELS[status];
+/**
+ * A cost's status crossed into the register's own vocabulary.
+ *
+ * The wire enum and the register's workflow-chain keys are the same five words, so a status crosses
+ * from one to the other unchanged; this function is the seam that says so in the type system.
+ */
+export function costStatusKey(status: CostStatus): StatusKey {
+  return status;
 }
 
-/**
- * Only "void" earns a warning tone: it is the one status meaning the line does NOT count, and a
- * reader scanning a column of money has to see that without reading. The rest are ordinary
- * progress and stay neutral rather than turning the table into a traffic light.
- */
-export function statusTone(status: CostStatus): "neutral" | "warning" {
-  return status === "void" ? "warning" : "neutral";
+/** The word a status wears, taken from the register rather than spelled a second time here. */
+export function statusLabel(status: CostStatus): string {
+  return statusEntry(costStatusKey(status)).label;
 }
 
 export function disbursementLabel(disbursementClass: DisbursementClass): string {

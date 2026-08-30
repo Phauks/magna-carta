@@ -174,3 +174,30 @@ export async function readCategories(
     archived: row.archived,
   }));
 }
+
+// The firm's whole category vocabulary, in display order. Archived categories are INCLUDED and carry
+// their flag: an entity assigned a category the firm has since retired still shows it, so a picker
+// that filters archived out and a record that renders one both read from the same list rather than
+// from two queries that could disagree about what a label means.
+export async function listCategories(database: BatchDatabase): Promise<CategoryRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, name, applies_to, position, archived FROM directory_category
+        ORDER BY position ASC, id ASC`,
+    )
+    .all<{
+      id: string;
+      name: string;
+      applies_to: string;
+      position: number;
+      archived: number;
+    }>();
+
+  return results.map((row) => ({
+    id: row.id,
+    name: row.name,
+    appliesTo: row.applies_to as CategoryAppliesTo,
+    position: row.position,
+    archived: row.archived,
+  }));
+}

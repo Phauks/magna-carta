@@ -1,5 +1,12 @@
+import {
+  appendCursorPredicate,
+  assemblePage,
+  decodeCursor,
+  DEFAULT_PAGE_SIZE,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   DirectoryNameId,
@@ -19,7 +26,7 @@ import {
   updateOrganizationNameStatement,
   updatePersonNameStatement,
 } from "./statements.ts";
-import type { NameRole } from "./types.ts";
+import type { EntityKind, NameRole } from "./types.ts";
 
 // Render the display name for a person from its structured parts, collapsing blanks so a mononym
 // or a missing middle name produces a clean single-spaced string.
@@ -328,5 +335,129 @@ export async function addName(
     responseBody: { ok: true },
     value: undefined,
     fromBody: () => undefined,
+  }));
+}
+
+// ── readNames ────────────────────────────────────────────────────────────────
+
+/**
+ * One name an entity has held, as the corpus holds it.
+ *
+ * `displayName` is the name as it was RECORDED, and it is null for an organization: an organization
+ * name row stores only `normalized_display` (case-folded, punctuation stripped), because the node
+ * row carries the current legal name and nothing needed the earlier spellings back. So a caller
+ * shows `displayName` where there is one and `normalizedDisplay` otherwise, and gets an honest
+ * lowercase former name rather than an invented capitalization. Restoring the recorded casing for an
+ * organization alias wants a column on `directory_name`, and is a schema change, not a read.
+ */
+export interface DirectoryNameRecord {
+  readonly id: string;
+  readonly entityId: string;
+  readonly entityKind: EntityKind;
+  readonly nameRole: NameRole;
+  /** True for the one row the entity currently answers to. Exactly one row per live entity carries it. */
+  readonly isCurrent: boolean;
+  readonly prefix: string | null;
+  readonly given: string | null;
+  readonly middle: string | null;
+  readonly family: string | null;
+  readonly suffix: string | null;
+  readonly displayName: string | null;
+  readonly normalizedDisplay: string;
+  /** When this name came into use, and when it stopped — null while it is still in use. */
+  readonly validFrom: string | null;
+  readonly validTo: string | null;
+  /** When the firm wrote the row down, which is not when the name came into use. */
+  readonly recordedAt: string;
+}
+
+// Render a person's recorded name from the parts on the row, collapsing blanks the same way the
+// write path renders the display name it denormalizes onto the node row.
+function renderRecordedName(row: {
+  name_prefix: string | null;
+  name_given: string | null;
+  name_middle: string | null;
+  name_family: string | null;
+  name_suffix: string | null;
+}): string | null {
+  const assembled = [
+    row.name_prefix,
+    row.name_given,
+    row.name_middle,
+    row.name_family,
+    row.name_suffix,
+  ]
+    .map((part) => part?.trim() ?? "")
+    .filter((part) => part !== "")
+    .join(" ");
+  return assembled === "" ? null : assembled;
+}
+
+/**
+ * Every name an entity has held, newest first and cursor-paged.
+ *
+ * Newest-first is what puts the current name at the head of the rail: a name change inserts the new
+ * current row, so the most recently written row is the one the entity answers to today and the page
+ * reads backwards from it through the marriages, the deed polls and the trading names. Ordered by
+ * when the firm WROTE each row rather than by `valid_from`, because a maiden name recorded onto a
+ * twenty-year-old file has a validity that predates every other row and would otherwise sort to the
+ * bottom of a rail nobody scrolled.
+ *
+ * Soft-deleted name rows are excluded, as they are from every other read of the corpus.
+ */
+export async function readNames(
+  database: SqlDatabase,
+  entityId: DirectoryPersonId | DirectoryOrganizationId,
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<DirectoryNameRecord>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const conditions = ["entity_id = ?1", "deleted_at IS NULL"];
+  const bindings: unknown[] = [entityId];
+  appendCursorPredicate(conditions, bindings, decodeCursor(options.cursor));
+  bindings.push(pageSize + 1);
+
+  const { results } = await database
+    .prepare(
+      `SELECT id, entity_id, entity_kind, name_role, name_prefix, name_given, name_middle,
+              name_family, name_suffix, normalized_display, is_current, valid_from, valid_to, created_at
+         FROM directory_name
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?${String(bindings.length)}`,
+    )
+    .bind(...bindings)
+    .all<{
+      id: string;
+      entity_id: string;
+      entity_kind: string;
+      name_role: string;
+      name_prefix: string | null;
+      name_given: string | null;
+      name_middle: string | null;
+      name_family: string | null;
+      name_suffix: string | null;
+      normalized_display: string;
+      is_current: number;
+      valid_from: string | null;
+      valid_to: string | null;
+      created_at: string;
+    }>();
+
+  return assemblePage(results, pageSize, (row) => ({
+    id: row.id,
+    entityId: row.entity_id,
+    entityKind: row.entity_kind as EntityKind,
+    nameRole: row.name_role as NameRole,
+    isCurrent: row.is_current === 1,
+    prefix: row.name_prefix,
+    given: row.name_given,
+    middle: row.name_middle,
+    family: row.name_family,
+    suffix: row.name_suffix,
+    displayName: renderRecordedName(row),
+    normalizedDisplay: row.normalized_display,
+    validFrom: row.valid_from,
+    validTo: row.valid_to,
+    recordedAt: row.created_at,
   }));
 }
