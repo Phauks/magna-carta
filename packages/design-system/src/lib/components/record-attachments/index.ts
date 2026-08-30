@@ -10,11 +10,7 @@
  */
 export { default } from "./record-attachments.svelte";
 export { default as RecordAttachments } from "./record-attachments.svelte";
-export type {
-  AttachableDocument,
-  AttachableDocumentFolder,
-  RecordAttachment,
-} from "./types.ts";
+export type { AttachableDocument, AttachableDocumentFolder, RecordAttachment } from "./types.ts";
 export {
   attachableDocumentCount,
   attachableDocumentKeywords,

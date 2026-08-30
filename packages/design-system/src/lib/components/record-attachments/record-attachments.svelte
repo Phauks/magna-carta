@@ -279,7 +279,7 @@
           <FolderSearch class="mc-record-attachments-source-icon" aria-hidden="true" />
           From the Matter…
         </Popover.Trigger>
-        <Popover.Content class="mc-record-attachments-picker w-80 p-0">
+        <Popover.Content class="w-80 p-0">
           {#if offeredCount === 0}
             <!--
               Two ways to have nothing on offer, and they call for different sentences: a matter
@@ -292,10 +292,8 @@
                 : "Every document in this matter is already attached to this record."}
             </p>
           {:else}
-            <Command.Root
-              label="Search this matter's documents"
-              class="mc-record-attachments-picker-command border-0 bg-transparent"
-            >
+            <!-- The palette's own border and ground go: the popover surface already carries both. -->
+            <Command.Root label="Search this matter's documents" class="border-0 bg-transparent">
               <!--
                 The ghost text is the FIELD'S NAME, never an instruction: it disappears the moment
                 someone types, which is exactly when an instruction would be needed. The leading

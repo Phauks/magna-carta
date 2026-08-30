@@ -483,25 +483,25 @@ export function findUnitlessFlexMisuse(filePath: string, css: string): string[] 
 // components/ and styles/recipes/ — which meant a recipe living anywhere else was unpoliced, and
 // the first one that did (a shared register that is data plus one class, so not a component)
 // escaped silently. A gate whose reach depends on a directory somebody remembered to add is a gate
-// that quietly stops covering the newest code, so the reach is now "all of it" and the two
+// that quietly stops covering the newest code, so the reach is now "all of it" and the three
 // deliberate exclusions are named below instead.
 //
 // Excluded on purpose, and each for a reason rather than because it was failing: components.css is
 // only the @import index (no declarations), animations.css holds the non-token keyframes, and
 // fonts.css is the self-hosted face imports. None of the three declares a recipe, so none has a
 // token to be pure about.
-const EXCLUDED_FROM_RECIPE_SCAN: readonly string[] = [
+const EXCLUDED_FROM_RECIPE_SCAN: ReadonlySet<string> = new Set([
   "packages/design-system/src/lib/styles/components.css",
   "packages/design-system/src/lib/styles/animations.css",
   "packages/design-system/src/lib/styles/fonts.css",
-];
+]);
 
 const RECIPE_CSS_FILES: readonly string[] = collectSourceFiles(
   join(REPOSITORY_ROOT, "packages/design-system/src/lib"),
   { extensions: [".css"] },
 )
   .map((relativePath) => `packages/design-system/src/lib/${relativePath}`)
-  .filter((path) => !EXCLUDED_FROM_RECIPE_SCAN.includes(path));
+  .filter((path) => !EXCLUDED_FROM_RECIPE_SCAN.has(path));
 
 describe("recipe-file token purity (golden rule 2, component-layer discipline)", () => {
   it("scans the carved recipe files (vacuity guard)", () => {
@@ -519,9 +519,7 @@ describe("recipe-file token purity (golden rule 2, component-layer discipline)",
     expect(RECIPE_CSS_FILES).toContain(
       "packages/design-system/src/lib/status-register/status-register.css",
     );
-    expect(RECIPE_CSS_FILES).not.toContain(
-      "packages/design-system/src/lib/styles/components.css",
-    );
+    expect(RECIPE_CSS_FILES).not.toContain("packages/design-system/src/lib/styles/components.css");
     expect(RECIPE_CSS_FILES.length).toBeGreaterThanOrEqual(30);
   });
 
