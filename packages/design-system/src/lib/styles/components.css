@@ -40,6 +40,7 @@
 @import "../components/avatar/avatar.css";
 @import "../components/progress/progress.css";
 @import "../components/progress-steps/progress-steps.css";
+@import "../components/event-rail/event-rail.css";
 @import "../components/accordion/accordion.css";
 @import "../components/tooltip/tooltip.css";
 @import "./recipes/presence.css";
@@ -65,3 +66,6 @@
 @import "../components/merge-field-chip/merge-field-chip.css";
 @import "../components/merge-field-picker/merge-field-picker.css";
 @import "../components/merge-field-review-list/merge-field-review-list.css";
+/* RecordWindow dresses the Dialog panel and hosts a Tabs strip, so it must follow both of those
+   recipes: at equal specificity the later declaration is the one that wins. */
+@import "../components/record-window/record-window.css";
