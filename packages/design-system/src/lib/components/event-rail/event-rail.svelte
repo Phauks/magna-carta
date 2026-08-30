@@ -27,7 +27,10 @@
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
   import Skeleton from "../skeleton/index.ts";
-  import { eventInstantAttribute, eventInstantText } from "./event-instant.ts";
+  import {
+    formatInstant as formatInstantByDefault,
+    instantAttribute,
+  } from "../../formatters/instant.ts";
   import type { EventInstant, EventRailEvent } from "./types.ts";
 
   let {
@@ -38,7 +41,7 @@
     loading = false,
     loadingMessage = "Loading the history",
     placeholderCount = 3,
-    formatInstant = eventInstantText,
+    formatInstant = formatInstantByDefault,
     class: className,
     ...restProps
   }: WithElementRef<HTMLAttributes<HTMLDivElement>, HTMLDivElement> & {
@@ -128,7 +131,7 @@
           <div class="mc-event-rail-body">
             <p class="mc-event-rail-action">{event.action}</p>
             <p class="mc-event-rail-meta">
-              <time class="mc-event-rail-instant" datetime={eventInstantAttribute(event.at)}>
+              <time class="mc-event-rail-instant" datetime={instantAttribute(event.at)}>
                 {formatInstant(event.at)}
               </time>
               <span class="mc-event-rail-separator" aria-hidden="true">·</span>

@@ -1,10 +1,10 @@
 /*
- * EventRail's instant rules, which are the part of the component that can be wrong silently.
+ * The rail's ordering rule, and the promise that its published instant vocabulary still resolves.
  *
- * Two of them are absolute and are asserted here rather than trusted: a timestamp renders in the
- * viewer's own local time, and it never renders as elapsed time. The rendering itself is asserted
- * against a pinned locale and zone, because otherwise the test would only be checking that the
- * machine running it agrees with itself.
+ * The instant formatting itself is no longer the rail's — it is the platform's shared formatter, and
+ * its rules (local time, never elapsed time) are asserted in formatters.test.ts. What is left here
+ * is what belongs to a rail: the order events read in, and the fact that a consumer holding the
+ * rail's own names for the formatter still gets the same function.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -12,52 +12,20 @@ import {
   eventInstantText,
   orderedOldestFirst,
 } from "../src/lib/components/event-rail/event-instant.ts";
+import { formatInstant, instantAttribute } from "../src/lib/formatters/instant.ts";
 
 // A fixed instant, written as the UTC the platform stores.
 const INSTANT = "2026-08-14T20:05:00.000Z";
 
-describe("eventInstantText", () => {
-  it("states the actual moment, with both the date and the time of day", () => {
-    const text = eventInstantText(INSTANT, { locale: "en-US", timeZone: "UTC" });
-    expect(text).toContain("2026");
-    expect(text).toContain("Aug");
-    expect(text).toContain("14");
-    expect(text).toMatch(/8:05|20:05/);
+describe("the rail's instant vocabulary", () => {
+  it("is the shared formatter under the rail's own names, not a second implementation", () => {
+    expect(eventInstantText).toBe(formatInstant);
+    expect(eventInstantAttribute).toBe(instantAttribute);
   });
 
-  it("never renders elapsed time, however recent the instant is", () => {
-    const text = eventInstantText(new Date(), { locale: "en-US" });
-    expect(text).not.toMatch(/just now|ago|moments|second|minute|hour/i);
-    // An absolute rendering always carries the year; a relative one never does.
-    expect(text).toMatch(/\d{4}/);
-  });
-
-  it("renders in the viewer's zone, not the zone the instant was stored in", () => {
-    const stored = eventInstantText(INSTANT, { locale: "en-US", timeZone: "UTC" });
-    const viewer = eventInstantText(INSTANT, { locale: "en-US", timeZone: "America/Los_Angeles" });
-    expect(viewer).not.toEqual(stored);
-    expect(viewer).toContain("1:05");
-  });
-
-  it("accepts a Date, an ISO string and epoch milliseconds as the same moment", () => {
-    const options = { locale: "en-US", timeZone: "UTC" };
-    const fromString = eventInstantText(INSTANT, options);
-    expect(eventInstantText(new Date(INSTANT), options)).toEqual(fromString);
-    expect(eventInstantText(Date.parse(INSTANT), options)).toEqual(fromString);
-  });
-
-  it("shows an unreadable value as what it actually says, rather than hiding it", () => {
-    expect(eventInstantText("recorded on a Tuesday")).toEqual("recorded on a Tuesday");
-  });
-});
-
-describe("eventInstantAttribute", () => {
-  it("carries the machine-readable UTC instant", () => {
+  it("still formats and still carries the machine-readable instant", () => {
+    expect(eventInstantText(INSTANT, { locale: "en-US", timeZone: "UTC" })).toContain("2026");
     expect(eventInstantAttribute(INSTANT)).toEqual(INSTANT);
-  });
-
-  it("is absent rather than wrong when the value is not an instant", () => {
-    expect(eventInstantAttribute("recorded on a Tuesday")).toBeUndefined();
   });
 });
 

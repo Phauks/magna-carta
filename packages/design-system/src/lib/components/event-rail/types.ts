@@ -2,8 +2,12 @@
  * An instant, in any of the forms a caller is likely to hold one: a `Date`, the UTC ISO string an
  * API returns, or epoch milliseconds. Stored instants are UTC; the rail renders them in the
  * viewer's own local time.
+ *
+ * The rail keeps its own name for the platform's instant type so its existing callers are
+ * undisturbed, but it is an alias and not a second declaration — two structurally identical types
+ * drift the moment one of them grows a form the other does not accept.
  */
-export type EventInstant = Date | string | number;
+export type { Instant as EventInstant } from "../../formatters/instant.ts";
 
 /**
  * One recorded event on an EventRail: what happened, when, what caused it, and any detail that was
