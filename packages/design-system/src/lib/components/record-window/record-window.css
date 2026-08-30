@@ -4,12 +4,29 @@
    * it, so this recipe is imported AFTER dialog.css in styles/components.css and its overrides win
    * at equal specificity.
    *
-   * The panel is a three-band column: a header band that never moves, a body that scrolls, and an
-   * action bar of fixed geometry. The panel itself clips, and the two panes inside the body do the
-   * scrolling — that is what caps the window at the viewport instead of letting a long record push
-   * the close control past the bottom of the screen, and it is what lets a long tab (a history that
-   * grows for years) scroll inside itself instead of stretching the window. The panel's own width
-   * and height are layout, so they ride utilities on the element; only the look lives here.
+   * The panel is a three-band column: a header band that never moves, a body, and an action bar of
+   * fixed geometry.
+   *
+   * FIT FIRST, THEN CAP — AND THE ORDER OF THOSE TWO IS THE RULE, NOT A DETAIL. Two true things
+   * about this window read as contradictory and have been re-litigated more than once, so they are
+   * written here as one ordered preference:
+   *
+   *   1. A record that FITS does not scroll. The panel sizes to its content (`block-size:
+   *      fit-content`), so a short record opens as a short window: no scrollbar, no band of empty
+   *      space beneath the last field, nothing to move. This is the preferred outcome and most
+   *      records reach it.
+   *   2. A record that genuinely does NOT fit caps at the viewport, and then the BODY ALONE moves.
+   *      The header and the action bar are `flex: none`, so they never shrink and never scroll away
+   *      — a long record can no more push its own close control off the screen than it can hide the
+   *      commit. Only the panes inside the body scroll, and each scrolls in itself, so a tab holding
+   *      a history that grows for years costs the window no height at all.
+   *
+   * Both are true; the first is preferred and the second is what happens when the first is
+   * impossible. Nothing here should be changed to make the panel always full height or always
+   * scrolling: that trades the common case away to simplify the rare one.
+   *
+   * The panel's own width and height are layout, so they ride utilities on the element; only the
+   * look, and the block-size rule the whole behaviour rests on, live here.
    */
   .mc-record-window {
     padding: var(--mc-space-0);
@@ -17,10 +34,13 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    /* Stated here rather than inherited from the dialog, because rule 1 above depends on it: a
+       window whose height came from anywhere but its content would scroll a record that fits. */
+    block-size: fit-content;
     /* How wide a record opens before it stops growing. A named dimension rather than a utility,
        because it is the same measure on every record type and belongs where the other named layout
-       widths live — a window that grew with the screen would run the left pane's lines past what
-       the eye tracks. */
+       widths live. It is wider than the record itself is allowed to be, on purpose — see the body
+       below, where the width past the record's own measure goes to the pane beside it. */
     max-inline-size: var(--mc-size-record-window);
   }
   /* Expanded ignores the measure entirely: filling the screen IS the gesture. */
@@ -117,16 +137,24 @@
   /* --- the body: the record beside its context --------------------------------------------- */
 
   /*
-   * The context pane takes a named width and the record takes what is left, rather than the two
-   * splitting the window by a ratio. A ratio widens the tabs on a wide screen without showing more
-   * in them — attachments, history and the chain each have a width past which they are just
-   * emptier — whereas widening the RECORD gives its description and its figures more room to sit
-   * on. So growth goes to the half that can use it.
+   * WHERE EXTRA WIDTH GOES: THE RECORD STOPS, THE CONTEXT CONTINUES. The record is prose and rows
+   * of fields, and a description set across a wide monitor is harder to read, not easier — so the
+   * left pane stops at its own measure (size.record-pane) and holds it however wide the window
+   * gets. Everything past that goes to the tabs, which are the side that can use room: a list of
+   * attachments, a history, a chain all read better wide and worse cramped.
+   *
+   * That is a bound, not a ratio, and the two panes are flex items rather than grid tracks for
+   * exactly that reason — a track ratio cannot say "this one stops and that one carries on", and a
+   * cap applied inside a ratio-sized track would leave the extra width as dead space on the
+   * record's side instead of handing it over. Each pane's `inline-size` is its flex BASIS, the
+   * width it asks for; the record's `max-inline-size` is the point it stops at, and flex hands the
+   * surplus to the only pane still willing to take it. While the window is too narrow for both
+   * bases, the two bases are also what decide the panes' share of what there is, so the record
+   * keeps the larger half of a small window.
    */
   .mc-record-window-body {
     flex: auto;
-    display: grid;
-    grid-template-columns: 1fr var(--mc-size-record-context);
+    display: flex;
     min-block-size: var(--mc-space-0);
     overflow: hidden;
   }
@@ -138,6 +166,9 @@
     justify-content: flex-start;
     display: flex;
     flex-direction: column;
+    flex: auto;
+    inline-size: var(--mc-size-record-pane);
+    max-inline-size: var(--mc-size-record-pane);
     gap: var(--mc-space-12);
     padding-block: var(--mc-space-16);
     padding-inline: var(--mc-space-24);
@@ -150,11 +181,14 @@
   }
   /*
    * The context pane sits on the quieter surface behind the record, and takes the hairline that
-   * separates the two. It clips; its tab panel is what scrolls.
+   * separates the two. It clips; its tab panel is what scrolls. It carries no cap of its own: it is
+   * the pane the window's spare width belongs to.
    */
   .mc-record-window-context {
     display: flex;
     flex-direction: column;
+    flex: auto;
+    inline-size: var(--mc-size-record-context);
     min-inline-size: var(--mc-space-0);
     overflow: hidden;
     background-color: var(--mc-surface-sunken);
@@ -200,7 +234,8 @@
   /*
    * Fixed geometry: the same band in the same place at the same height in every state, so an act a
    * record's state refuses shows disabled with its reason and the bar never jumps under the hand
-   * that was reaching for it.
+   * that was reaching for it. That holds across the two modes as well: reading and editing differ
+   * only in which verbs the bar carries, never in where the bar is or how tall it stands.
    */
   .mc-record-window-actions {
     flex: none;
@@ -215,5 +250,18 @@
     border-block-start-width: var(--mc-border-width-default);
     border-block-start-color: var(--mc-border-default);
     background-color: var(--mc-surface-raised);
+  }
+
+  /*
+   * The row of answers on the question a close gesture asks while there is unsaved work. Its own
+   * row rather than the action bar's, because it belongs to the small panel that asks, not to the
+   * window: keeping editing is the quiet answer and throwing the work away is the deliberate one.
+   */
+  .mc-record-window-confirm-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--mc-space-8);
+    margin-block-start: var(--mc-space-16);
   }
 }

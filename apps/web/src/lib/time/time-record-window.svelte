@@ -7,6 +7,13 @@
    * Nothing about that shape is decided here; this file contributes the field list, the tab set and
    * the action bar, which is the whole of what a record type is allowed to contribute.
    *
+   * CHANGING AN ENTRY HAPPENS IN THAT SAME WINDOW. There is no second dialog and no separate route:
+   * the window raises its own editing mode, hands this file the mode, and the ONE pane below renders
+   * either the values or the fields. The abandon and the commit are the window's own, so "Save" here
+   * means what it means on every other kind of record; what this file supplies is the handlers, the
+   * one extra verb a new entry wants (Save & New), and the honest answer to whether anything would
+   * be lost by walking away.
+   *
    * THE ARITHMETIC IS ONE SENTENCE. Worked, rounded to billed, times rate, equals amount, set on one
    * line with the operators between the parts and no box around them. The relationship is the point,
    * and a border around three fields was hiding it rather than showing it.
@@ -67,7 +74,11 @@
     open?: boolean;
     /** The entry being read, or null while a new one is being written. */
     entry?: TimeEntrySummary | null;
-    /** Whether the record's fields are open for change. The header's Edit control sets it. */
+    /**
+     * Whether the record's fields are open for change. The window owns this — its Edit control
+     * raises it and its abandon lowers it — and it is bound here so a listing can open an entry
+     * straight into its fields, and so this file can lower it when a save has actually landed.
+     */
     editing?: boolean;
     matterId: string;
     matterTitle: string;
@@ -80,7 +91,6 @@
   } = $props();
 
   const creating = $derived(entry === null);
-  const readOnly = $derived(!creating && !editing);
 
   /*
    * The firm's rounding increment is a firm setting, not a per-entry choice, and it is not served.
@@ -98,6 +108,27 @@
   let saving = $state(false);
   let saveFailure = $state<string | null>(null);
   let printOpen = $state(false);
+
+  /*
+   * What the fields held when they were last seeded or last saved. Keeping it is what lets this
+   * window answer honestly whether walking away would lose anything, so the shell asks the question
+   * only when there is something to ask about — and it is what abandoning puts back.
+   */
+  const seeded = $state({
+    description: "",
+    workDate: "",
+    duration: "",
+    timekeeperUserId: "",
+    billing: "billable",
+  });
+
+  function rememberWhatIsInTheFields(): void {
+    seeded.description = descriptionText;
+    seeded.workDate = workDateText;
+    seeded.duration = durationText;
+    seeded.timekeeperUserId = timekeeperUserId;
+    seeded.billing = billableChoice;
+  }
 
   /*
    * The fields are re-seeded from the record whenever the window opens on a different entry, and
@@ -118,7 +149,32 @@
     durationText = entry === null ? "" : formatDuration(entry.rawDurationMinutes).clock;
     timekeeperUserId = entry?.timekeeperUserId ?? sessionUserId ?? "";
     billableChoice = entry === null || entry.billable ? "billable" : "nonbillable";
+    rememberWhatIsInTheFields();
   });
+
+  const unsavedChanges = $derived(
+    descriptionText !== seeded.description ||
+      workDateText !== seeded.workDate ||
+      durationText !== seeded.duration ||
+      timekeeperUserId !== seeded.timekeeperUserId ||
+      billableChoice !== seeded.billing,
+  );
+
+  /*
+   * Abandoning. The window has already left its editing mode by the time this runs, so the work
+   * here is putting the fields back where they were — and, for an entry that was being written from
+   * nothing, closing: a new entry has no earlier state to fall back to, so leaving its fields and
+   * leaving the window are the same act.
+   */
+  function forgetChanges(): void {
+    descriptionText = seeded.description;
+    workDateText = seeded.workDate;
+    durationText = seeded.duration;
+    timekeeperUserId = seeded.timekeeperUserId;
+    billableChoice = seeded.billing;
+    saveFailure = null;
+    if (entry === null) open = false;
+  }
 
   let staffQuery = $state("");
   const activeMembers = $derived(members.filter((member) => member.status === "active"));
@@ -159,7 +215,7 @@
     if (next === "billable" || next === "nonbillable") billableChoice = next;
   }
   const timekeeperName = $derived(
-    entry !== null && readOnly
+    entry !== null && !editing
       ? timekeeperOf(entry)
       : (activeMembers.find((member) => member.userId === timekeeperUserId)?.displayName ?? ""),
   );
@@ -178,8 +234,11 @@
   });
 
   const refusal = $derived(
-    readOnly ? null : draftRefusal({ durationText, description: descriptionText }),
+    editing ? draftRefusal({ durationText, description: descriptionText }) : null,
   );
+
+  /** Why the change cannot be committed as it stands. A save in flight is one of those reasons. */
+  const saveRefusal = $derived(saving ? "Saving this entry." : (refusal ?? undefined));
 
   const heading = $derived(creating ? "Log Time" : editing ? "Edit Time Entry" : "Time Entry");
 
@@ -193,9 +252,13 @@
     return statusEntry(entry.status).meaning;
   });
 
+  /*
+   * Why the Edit control refuses. It gates ENTRY into the fields, not the fields themselves — an
+   * entry being written from nothing is already in them, and its own Edit control is the one thing
+   * it cannot press, because there is no earlier version of it to go back and read.
+   */
   const editRefusal = $derived.by((): string | undefined => {
-    if (entry === null) return "There is nothing to edit until this entry is saved.";
-    if (editing) return "Already editing this draft.";
+    if (entry === null) return "A new entry is written in its fields; there is nothing to read yet.";
     if (entry.status !== "draft") return statusEntry(entry.status).meaning;
     const verdict = canWorkDraft(entry);
     return verdict.allowed ? undefined : verdict.reason;
@@ -249,6 +312,9 @@
     if (andKeepGoing) {
       descriptionText = "";
       durationText = "";
+      // The next entry starts from these fields, so they are what "unchanged" now means: without
+      // this, the emptied form would read as unsaved work and the window would argue on the way out.
+      rememberWhatIsInTheFields();
       return;
     }
     editing = false;
@@ -280,7 +346,13 @@
   </div>
 {/snippet}
 
-{#snippet record()}
+<!--
+  ONE pane, both modes. The window hands it whether the fields are open; the values and the fields
+  are the same rows in the same order at the same width, which is what stops a reader losing their
+  place the moment they press Edit.
+-->
+{#snippet record({ editing: fieldsOpen }: { editing: boolean })}
+  {@const readOnly = !fieldsOpen}
   <div class="flex flex-col gap-16">
     {#if saveFailure !== null}
       <Alert.Root variant="danger">
@@ -476,44 +548,42 @@
   </div>
 {/snippet}
 
-{#snippet actions()}
-  {#if readOnly && lockLine !== null}
+<!--
+  This file's verbs only. While the fields are open the window appends the abandon and the commit
+  after these, so Cancel and Save are the same two controls, in the same place, saying the same
+  thing, on every kind of record in the product.
+-->
+{#snippet actions({ editing: fieldsOpen }: { editing: boolean })}
+  {#if !fieldsOpen && lockLine !== null}
     <span class="mr-auto flex items-center gap-4 text-xs text-text-muted">
       <Lock class="size-12" aria-hidden="true" />
       {lockLine}
     </span>
-  {:else if !readOnly}
+  {:else if fieldsOpen}
     <span class="mr-auto flex items-center gap-4 text-xs text-text-muted">
       <SquarePen class="size-12" aria-hidden="true" />
       Saves as a draft.
     </span>
   {/if}
-  <Button variant={readOnly ? "primary" : "secondary"} onclick={() => (open = false)}>
-    {readOnly ? "Close" : "Cancel"}
-  </Button>
-  {#if creating}
+  {#if !fieldsOpen}
+    <Button onclick={() => (open = false)}>Close</Button>
+  {:else if creating}
+    <!-- The one verb this record type adds: entering time is a run of entries, and a person who
+         has just logged one is usually about to log the next. -->
     <Button
       variant="secondary"
-      disabled={refusal !== null || saving}
-      title={refusal ?? "Save this draft and start another"}
+      disabled={saveRefusal !== undefined}
+      title={saveRefusal ?? "Save this draft and start another"}
       onclick={() => void save(true)}
     >
       Save &amp; New
-    </Button>
-  {/if}
-  {#if !readOnly}
-    <Button
-      disabled={refusal !== null || saving}
-      title={refusal ?? "Save this draft and close"}
-      onclick={() => void save(false)}
-    >
-      Save &amp; Close
     </Button>
   {/if}
 {/snippet}
 
 <RecordWindow
   bind:open
+  bind:editing
   {heading}
   {subtitle}
   {record}
@@ -525,7 +595,10 @@
   ] satisfies RecordWindowTab[]}
   defaultTab="history"
   editDisabledReason={editRefusal}
-  onEdit={() => (editing = true)}
+  saveDisabledReason={saveRefusal}
+  {unsavedChanges}
+  onSave={() => void save(false)}
+  onCancel={forgetChanges}
   onPrint={() => (printOpen = true)}
 />
 

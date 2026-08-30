@@ -19,11 +19,37 @@
    * list. Print layers its sheet ABOVE this window rather than replacing it, so closing the sheet
    * hands back the record that was being read — that is the caller's job in `onPrint`, and the
    * reason this control does not close anything itself. The same source scan asserts the set and
-   * its order.
+   * its order, which is also why the verbs that commit and abandon a change live in the action bar
+   * and never up here: editing must not cost the header a fifth control.
    *
-   * The window is capped at the viewport and only its body scrolls, so a long record can never push
-   * its own close control off-screen. Expanding it to the full viewport is remembered for the
-   * session (record-window-session.svelte.ts).
+   * EDITING HAPPENS IN THIS WINDOW, IN PLACE. Edit does not call out to the caller to open
+   * something; it raises the window's own `editing` flag, the left pane re-renders as fields in the
+   * same geometry, and the same tabs and the same action bar stay where they were. A second surface
+   * for changing a record somebody is already looking at is the exact thing one window exists to
+   * prevent, so the contract is shaped to make it unavailable rather than discouraged: there is no
+   * callback to hang another window off, and the pane that shows the values is the same snippet
+   * that shows the fields, so the two can never drift into different layouts.
+   *
+   *   - The SHELL owns the commit and the abandon. It renders them, names them, places them and
+   *     orders them; a record kind supplies only the handlers. "Save" meaning one thing on one kind
+   *     of record and something else on another is a defect rather than a liberty, and a reader who
+   *     has learned where the commit sits has learned it everywhere.
+   *   - THE TABS STAY REACHABLE while editing. Somebody changing a record routinely needs to look
+   *     at what rides beside it — what is attached, what has happened to it — and a window that
+   *     locks its own context until the change is finished is a trap the reader can only escape by
+   *     abandoning work. The tabs are context, so they stay read-only either way and are not told
+   *     which mode the window is in.
+   *   - A CLOSE GESTURE NEVER DISCARDS SILENTLY. Every way out of the window — this header's close,
+   *     Escape, a press outside the panel — runs through one guard, and while there is unsaved work
+   *     it asks. A record kind that can see it has nothing to lose says so with `unsavedChanges`
+   *     and the question is skipped.
+   *
+   * FIT FIRST, CAP SECOND. A record that fits sizes to its content and does not scroll at all; only
+   * a record that genuinely exceeds the viewport caps, and then the BODY alone moves while the
+   * header and the action bar stay put. The reasoning lives with the recipe (record-window.css),
+   * which is where the two rules are expressed.
+   *
+   * Expanding it to the full viewport is remembered for the session (record-window-session.svelte.ts).
    */
   import type { Snippet } from "svelte";
   import Pencil from "@lucide/svelte/icons/pencil";
@@ -32,6 +58,8 @@
   import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import X from "@lucide/svelte/icons/x";
   import * as Dialog from "../dialog/index.ts";
+  import * as AlertDialog from "../alert-dialog/index.ts";
+  import Button, { buttonClasses } from "../button/index.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import RecordWindowContext from "./record-window-context.svelte";
   import { recordWindowSession } from "./record-window-session.svelte.ts";
@@ -40,15 +68,19 @@
   let {
     open = $bindable(false),
     expanded = $bindable(),
+    editing = $bindable(false),
     heading,
     subtitle,
     record,
     tabs,
     defaultTab,
     actions,
-    onEdit,
+    onSave,
+    onCancel,
     onPrint,
     editDisabledReason,
+    saveDisabledReason,
+    unsavedChanges = true,
     class: className,
   }: {
     /** Whether the window is showing. Bindable, so a surface can open and close it. */
@@ -58,6 +90,13 @@
      * reader last made this session, which is what makes the toggle feel like it stayed pressed.
      */
     expanded?: boolean;
+    /**
+     * Whether the record's fields are open for change. The window owns this: the header's Edit
+     * control raises it and the action bar's abandon lowers it. Bindable, because a record kind
+     * that opens straight into the fields (a new record has nothing to read) raises it itself, and
+     * because only the caller knows whether a commit succeeded and may therefore lower it.
+     */
+    editing?: boolean;
     /** The record's name, as the reader knows it. */
     heading: string;
     /**
@@ -65,28 +104,142 @@
      * repeating it in the record pane makes a reader check whether the two agree.
      */
     subtitle: Snippet;
-    /** The LEFT pane: the record itself, dense and top-aligned. */
-    record: Snippet;
-    /** The RIGHT pane: context, one tab each. */
+    /**
+     * The LEFT pane: the record itself, dense and top-aligned. It is handed the mode, so ONE
+     * snippet renders the values and the fields. Two snippets would be two layouts, and they would
+     * disagree about where a field sits within a week.
+     */
+    record: Snippet<[{ editing: boolean }]>;
+    /** The RIGHT pane: context, one tab each. Reachable in both modes, read-only in both. */
     tabs: readonly RecordWindowTab[];
     /** Which tab the window opens on. Defaults to the first. */
     defaultTab?: string;
-    /** The bottom action bar's contents. Its geometry is the shell's, its verbs are the caller's. */
-    actions: Snippet;
-    /** Take the record into editing. */
-    onEdit: () => void;
+    /**
+     * The bottom action bar's contents. Its geometry is the shell's, its verbs are the caller's —
+     * except the two the shell reserves: while editing, the shell appends the abandon and the
+     * commit after whatever this renders, so they are always the last two controls in the bar and
+     * always in that order. It is handed the mode for the same reason the record pane is: the verbs
+     * of reading a record are not the verbs of changing one.
+     */
+    actions: Snippet<[{ editing: boolean }]>;
+    /**
+     * Commit the change. Given, the window can be edited; withheld, Edit refuses, because a mode
+     * with no way to commit is worse than no mode at all. The window does NOT leave editing on its
+     * own afterwards: a commit can fail, and only the caller knows whether this one landed, so it
+     * lowers `editing` when it did.
+     */
+    onSave?: () => void;
+    /**
+     * Abandon the change. The window has already left editing by the time this runs; a record kind
+     * uses it to put its own fields back where they were.
+     */
+    onCancel?: () => void;
     /** Present the record's printable sheet, layered above this window. */
     onPrint: () => void;
     /**
-     * Why this account may not edit this record. Given, Edit renders disabled and says this instead
-     * of disappearing: a control that vanishes leaves the reader wondering whether they missed it.
+     * Why this account may not take this record into editing. Given, Edit renders disabled and says
+     * this instead of disappearing: a control that vanishes leaves the reader wondering whether
+     * they missed it. It refuses ENTRY only — a record kind that opens straight into the fields is
+     * editing regardless, and its own Edit control is the one thing it cannot press.
      */
     editDisabledReason?: string;
+    /**
+     * Why the change cannot be committed as it stands — a required field still empty, a commit
+     * already in flight. Given, Save renders disabled and carries this, on the same rule as Edit.
+     */
+    saveDisabledReason?: string;
+    /**
+     * Whether leaving editing would lose something. Defaults to true, because the shell cannot see
+     * the fields and must not guess that nothing was typed; a record kind that tracks its own
+     * changes passes false and the reader is not asked a question with one answer.
+     */
+    unsavedChanges?: boolean;
     class?: string;
   } = $props();
 
   const isExpanded = $derived(expanded ?? recordWindowSession.expanded);
-  const editable = $derived(editDisabledReason === undefined);
+
+  /*
+   * Why Edit is refused, if it is. Two refusals answer here rather than one: the account may not
+   * change this record, or the record kind handed the window no way to commit. The second is closed
+   * off at the same door as the first, because a reader who can enter a mode they cannot leave by
+   * finishing has been trapped by the window rather than told something by it.
+   */
+  const editRefusal = $derived(
+    editDisabledReason ?? (onSave === undefined ? "This record cannot be changed here." : undefined),
+  );
+  const editVerb = $derived(editing ? "Stop editing" : "Edit");
+  const editAccessibleName = $derived(
+    editRefusal === undefined ? editVerb : `Edit: ${editRefusal}`,
+  );
+  const saveAccessibleName = $derived(
+    saveDisabledReason === undefined ? "Save" : `Save: ${saveDisabledReason}`,
+  );
+
+  /** Which gesture is waiting on the reader to say whether the change may be thrown away. */
+  let pendingGesture = $state<"leaveEditing" | "closeWindow" | null>(null);
+
+  /*
+   * A window that closed while its fields were open must not reopen showing them: a record is read
+   * before it is changed, whichever door the next one arrives through. Written as a transition
+   * rather than as "closed means reading" so a caller that raises the flag and then opens the
+   * window — the way a new record, which has nothing to read, is entered — is not undone.
+   */
+  let wasOpen = false;
+  $effect(() => {
+    if (wasOpen && !open) editing = false;
+    wasOpen = open;
+  });
+
+  function leaveEditing(): void {
+    editing = false;
+    onCancel?.();
+  }
+
+  function closeWindow(): void {
+    if (editing) leaveEditing();
+    open = false;
+  }
+
+  /** Leave editing, asking first while there is something to lose. */
+  function requestLeaveEditing(): void {
+    if (unsavedChanges) {
+      pendingGesture = "leaveEditing";
+      return;
+    }
+    leaveEditing();
+  }
+
+  /*
+   * The one guard every way out of the window runs through — this header's close, Escape, a press
+   * outside the panel. Having one is the point: a second exit that skipped the question would make
+   * the question decorative.
+   */
+  function requestCloseWindow(): void {
+    if (editing && unsavedChanges) {
+      pendingGesture = "closeWindow";
+      return;
+    }
+    closeWindow();
+  }
+
+  function discardAndContinue(): void {
+    const gesture = pendingGesture;
+    pendingGesture = null;
+    if (gesture === "closeWindow") {
+      closeWindow();
+      return;
+    }
+    leaveEditing();
+  }
+
+  function toggleEditing(): void {
+    if (editing) {
+      requestLeaveEditing();
+      return;
+    }
+    editing = true;
+  }
 
   function toggleExpanded(): void {
     const next = !isExpanded;
@@ -95,10 +248,22 @@
   }
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root
+  bind:open={
+    () => open,
+    (next) => {
+      if (next) {
+        open = true;
+        return;
+      }
+      requestCloseWindow();
+    }
+  }
+>
   <Dialog.Content
     showClose={false}
     data-expanded={isExpanded ? "true" : "false"}
+    data-editing={editing ? "true" : "false"}
     class={mergeClasses(
       "mc-record-window",
       isExpanded ? "h-screen w-screen" : "max-h-screen w-full",
@@ -119,10 +284,11 @@
           type="button"
           data-record-window-action="edit"
           class="mc-record-window-header-action"
-          disabled={!editable}
-          title={editDisabledReason ?? "Edit"}
-          aria-label={editable ? "Edit" : `Edit: ${editDisabledReason}`}
-          onclick={onEdit}
+          disabled={editRefusal !== undefined}
+          aria-pressed={editing}
+          title={editRefusal ?? editVerb}
+          aria-label={editAccessibleName}
+          onclick={toggleEditing}
         >
           <Pencil class="mc-record-window-header-icon" aria-hidden="true" />
         </button>
@@ -151,20 +317,25 @@
             <Maximize2 class="mc-record-window-header-icon" aria-hidden="true" />
           {/if}
         </button>
-        <Dialog.Close
+        <!-- A plain control rather than the dialog's own Close part, so that closing runs the
+             unsaved-work guard the other exits run. The header set is unchanged: four controls,
+             four markers, one order. -->
+        <button
+          type="button"
           data-record-window-action="close"
           class="mc-record-window-header-action"
           title="Close"
           aria-label="Close"
+          onclick={requestCloseWindow}
         >
           <X class="mc-record-window-header-icon" aria-hidden="true" />
-        </Dialog.Close>
+        </button>
       </div>
     </div>
 
     <div class="mc-record-window-body">
       <div class="mc-record-window-record">
-        {@render record()}
+        {@render record({ editing })}
       </div>
       <div class="mc-record-window-context">
         <RecordWindowContext {tabs} {defaultTab} />
@@ -172,7 +343,53 @@
     </div>
 
     <div class="mc-record-window-actions">
-      {@render actions()}
+      {@render actions({ editing })}
+      {#if editing}
+        <!-- The reserved pair, always last and always in this order: whatever a record kind adds
+             sits before it, so the commit is the final control in every window in the product. -->
+        <Button variant="secondary" onclick={requestLeaveEditing}>Cancel</Button>
+        <Button
+          disabled={saveDisabledReason !== undefined}
+          title={saveDisabledReason ?? "Save this record"}
+          aria-label={saveAccessibleName}
+          onclick={() => onSave?.()}
+        >
+          Save
+        </Button>
+      {/if}
     </div>
   </Dialog.Content>
 </Dialog.Root>
+
+<!--
+  The question a close gesture asks while there is unsaved work. It names what would be lost and
+  offers going back to it first, because the reader who arrives here by pressing Escape meant to
+  dismiss something smaller than their own typing.
+-->
+<AlertDialog.Root
+  bind:open={
+    () => pendingGesture !== null,
+    (showing) => {
+      if (!showing) pendingGesture = null;
+    }
+  }
+>
+  <AlertDialog.Content>
+    <AlertDialog.Title>Discard Your Changes?</AlertDialog.Title>
+    <AlertDialog.Description>
+      This record has changes that have not been saved. Leaving now throws them away; the record
+      itself stays exactly as it was.
+    </AlertDialog.Description>
+    <div class="mc-record-window-confirm-actions">
+      <AlertDialog.Cancel class={buttonClasses({ variant: "ghost", size: "default" })}>
+        Keep Editing
+      </AlertDialog.Cancel>
+      <AlertDialog.Action
+        class={buttonClasses({ variant: "secondary", size: "default" })}
+        onclick={discardAndContinue}
+      >
+        Discard Changes
+      </AlertDialog.Action>
+    </div>
+  </AlertDialog.Content>
+</AlertDialog.Root>
