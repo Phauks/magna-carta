@@ -387,7 +387,9 @@ describe("the chip's row identities and refresh", () => {
 
   it("heads every row with its deployed unit and drops the description beneath it", () => {
     expect(chip).toContain("{@const heading = part.unitName ?? part.description}");
-    expect(chip).toContain('<span class="font-mono text-sm text-text-default">{heading}</span>');
+    expect(chip).toContain("{heading}</span");
+    // Monospace is the identifier signal, so it rides on having a name rather than on the row.
+    expect(chip).toMatch(/part\.unitName === null\s*\? "text-sm text-text-default"/);
     expect(chip).toMatch(
       /joinDetailSegments\(\[\s*part\.unitName === null \? null : part\.description/,
     );
@@ -423,6 +425,9 @@ describe("the chip's row identities and refresh", () => {
   });
 
   it("shows the read in flight, and never a stale age line while it is", () => {
+    // The in-flight word says a read is happening; it is not a second failure message.
+    expect(READ_IN_FLIGHT_NOTICE).toMatch(/check/i);
+    expect(READ_IN_FLIGHT_NOTICE).not.toMatch(/fail|error|unavailable/i);
     expect(chip).toMatch(
       /\{#if loading\}[\s\S]*READ_IN_FLIGHT_NOTICE[\s\S]*\{:else if observationAge/,
     );

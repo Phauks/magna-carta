@@ -193,7 +193,13 @@
   {@const stateLabel = serviceStateLabel(part.state)}
   <div class="flex items-center justify-between gap-8 py-4">
     <div class="flex min-w-0 flex-col">
-      <span class="font-mono text-sm text-text-default">{heading}</span>
+      <!-- Monospace marks an identifier. A row this build has no name for falls back to its
+           description, which is prose, so it drops the mono with the identity it never had. -->
+      <span
+        class={part.unitName === null
+          ? "text-sm text-text-default"
+          : "font-mono text-sm text-text-default"}>{heading}</span
+      >
       <!-- One detail line, carrying what the unit is for and then what it is doing. The second
            half is the part that separates "this deployment has no such service" from "it is not
            answering" from "it answers, but its build predates the question" — three facts the
