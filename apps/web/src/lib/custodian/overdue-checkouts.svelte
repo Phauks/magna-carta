@@ -12,7 +12,7 @@
    * member, someone in the directory, a named individual — and not the person. Naming them is one
    * read per row against a directory that serves one entity per request, which is exactly the read
    * this product does not make from a listing. The packet's own history names them, which is what
-   * the row's link is for.
+   * opening the row is for.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -80,13 +80,13 @@
         {#each overdue as row (row.packetId)}
           <DataTable.Row>
             <DataTable.Cell>
-              <button
-                type="button"
-                class="tabular-nums underline underline-offset-2"
+              <Button
+                variant="ghost"
+                size="sm"
                 onclick={() => onOpenPacket(row.packetId)}
               >
-                {row.custodyNumber}
-              </button>
+                <span class="tabular-nums">{row.custodyNumber}</span>
+              </Button>
             </DataTable.Cell>
             <DataTable.Cell data-align="end">
               <Badge variant={toneOf(row.daysOverdue)}>

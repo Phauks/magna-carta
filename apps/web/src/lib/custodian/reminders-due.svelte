@@ -17,6 +17,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
+  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { listCustodyReminders, type CustodyReminder } from "./custody-api.ts";
@@ -82,13 +83,13 @@
         {#each reminders as reminder (`${reminder.reason}-${reminder.packetId}-${reminder.itemId ?? ""}`)}
           <DataTable.Row>
             <DataTable.Cell>
-              <button
-                type="button"
-                class="tabular-nums underline underline-offset-2"
+              <Button
+                variant="ghost"
+                size="sm"
                 onclick={() => onOpenPacket(reminder.packetId)}
               >
-                {reminder.custodyNumber}
-              </button>
+                <span class="tabular-nums">{reminder.custodyNumber}</span>
+              </Button>
             </DataTable.Cell>
             <DataTable.Cell>{reasonLabel(reminder.reason)}</DataTable.Cell>
             <DataTable.Cell><span class="tabular-nums">{reminder.dueOn}</span></DataTable.Cell>
