@@ -1,129 +1,70 @@
-import type { DocumentSummary } from "$lib/documents/document-api.ts";
-
 /*
- * The file list's columns, and the sort behind them.
+ * The columns, as data. Every view on this surface renders the SAME table — browse, deleted files,
+ * search results, the changelog, the inside of an archive — so the columns are declared once here
+ * and a view says which set it wants. A column contributes exactly three things: its label, how its
+ * value is read off a row, and which of the one filter mechanism's controls fits that value. There
+ * are no per-column filter copies.
  *
- * The column set is data, not markup, for two reasons: a person chooses which columns they want, and
- * every column needs the same three things stated once — its label, whether it is right-aligned, and
- * how it sorts. Spreading that across a template is how a column ends up sortable in the header and
- * not in the comparator.
+ * WHAT THE COLUMNS SAY, settled and not re-decidable per view:
+ *   - "Date Modified" and "Date Created", never the bare participles.
+ *   - "Created By", never "Uploaded By" — an upload is an act of creation.
+ *   - "Version" holds a bare number: 12, never v12, and never spaced so it reads as "1 2".
+ *   - File Type is always the EXTENSION — "docx", "zip", "mp4" — never our category paraphrase.
+ *   - An unset document type is BLANK. Never a stand-in word.
+ *   - The Safety cell speaks only the status register's safety words.
  */
+import type { GridColumn } from "@magna-carta/design-system/data-table";
+import { statusEntry } from "@magna-carta/design-system/status-register";
+import type { MatterFile } from "./matter-file-api.ts";
+import type { FileManagerRow, MatterFileIndex } from "./file-rows.ts";
+import { folderAggregate, folderSizeText, formatBytes } from "./file-rows.ts";
+import { displayName } from "./file-names.ts";
+import type { SafetyKey } from "./file-manager-vocabulary.ts";
 
-export type FileColumnKey =
-  | "name"
-  | "fileType"
-  | "safety"
-  | "version"
-  | "size"
-  | "created"
-  | "modified";
+/** Stable column identities. Nothing keys off a label — a label is what a reader sees. */
+export const FILE_COLUMN_IDENTIFIERS = {
+  name: "name",
+  fileType: "fileType",
+  documentType: "documentType",
+  safety: "safety",
+  version: "version",
+  size: "size",
+  createdBy: "createdBy",
+  location: "location",
+  created: "created",
+  modified: "modified",
+} as const;
 
-export interface FileColumn {
-  readonly key: FileColumnKey;
-  readonly label: string;
-  /** Name is the row's identity, so it is always present and cannot be switched off. */
-  readonly always?: boolean;
-  /** Whether the column is shown by default. */
-  readonly on: boolean;
-  /** Numeric and date columns read better right-aligned against each other. */
-  readonly right?: boolean;
-}
-
-export const FILE_COLUMNS: readonly FileColumn[] = [
-  { key: "name", label: "Name", always: true, on: true },
-  { key: "fileType", label: "File Type", on: true },
-  { key: "safety", label: "Safety", on: true },
-  { key: "version", label: "Version", on: true, right: true },
-  { key: "size", label: "Size", on: true, right: true },
-  { key: "created", label: "Created", on: false },
-  { key: "modified", label: "Date Modified", on: true },
-];
-
-export type SortDirection = 1 | -1;
+export type FileColumnIdentifier =
+  (typeof FILE_COLUMN_IDENTIFIERS)[keyof typeof FILE_COLUMN_IDENTIFIERS];
 
 /**
- * The comparator for one column. Every branch falls back to the name, so a column where two rows
- * are equal still has a stable order rather than whatever order the server happened to send.
+ * How a file's Safety cell is graded. The order is the order the facts overrule each other: a
+ * rejected or flagged file is an Error whatever else is true of it; a file with no committed
+ * version has nothing to grade yet; a file nothing has scanned states that plain fact rather than
+ * being graded a Warning; a clean file with no document type is the Info band; and a clean, typed
+ * file carries the bare mark and no word at all.
  */
-export function compareDocuments(
-  a: DocumentSummary,
-  b: DocumentSummary,
-  key: FileColumnKey,
-  direction: SortDirection,
-): number {
-  let comparison = 0;
-  switch (key) {
-    case "name": {
-      comparison = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-      break;
-    }
-    case "fileType": {
-      // Compare what the column shows. A file with no extension at all sorts after every file that
-      // has one, rather than bubbling blanks to the top.
-      const aType = fileTypeExtension(a);
-      const bType = fileTypeExtension(b);
-      comparison = (aType === "" ? "~" : aType).localeCompare(bType === "" ? "~" : bType);
-      break;
-    }
-    case "safety": {
-      comparison = SAFETY_ORDER[a.status] - SAFETY_ORDER[b.status];
-      break;
-    }
-    case "version": {
-      comparison = a.versionNumber - b.versionNumber;
-      break;
-    }
-    case "size": {
-      // A size that is not known yet sorts below every known size rather than as zero, which would
-      // put a still-processing file among the empty ones.
-      comparison = (a.sizeBytes ?? -1) - (b.sizeBytes ?? -1);
-      break;
-    }
-    case "created": {
-      comparison = a.createdAt.localeCompare(b.createdAt);
-      break;
-    }
-    case "modified": {
-      comparison = a.updatedAt.localeCompare(b.updatedAt);
-      break;
-    }
-  }
-  const tieBreak = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-  return (comparison === 0 ? tieBreak : comparison) * direction;
-}
-
-/** Worst first, so sorting by Safety puts what needs attention at the top. */
-const SAFETY_ORDER: Record<DocumentSummary["status"], number> = {
-  quarantined: 0,
-  pending: 1,
-  clean: 2,
-};
-
-export function sortDocuments(
-  documents: readonly DocumentSummary[],
-  key: FileColumnKey,
-  direction: SortDirection,
-): DocumentSummary[] {
-  return documents.toSorted((a, b) => compareDocuments(a, b, key, direction));
+export function safetyKeyOf(file: MatterFile): SafetyKey {
+  if (file.status === "quarantined" || file.scanVerdict === "flagged") return "error";
+  if (file.status === "pending" || file.currentVersionId === null) return "warning";
+  if (file.scanVerdict === null || file.scanVerdict === "unscanned") return "not-scanned";
+  if (file.documentTypeId === null) return "info";
+  return "clean";
 }
 
 /**
- * The file's type is its real extension — "pdf", "docx", "mp4" — never a category word like
- * "Video" or "Document". The extension is what the file actually is; a category is our paraphrase
- * of it, and the owner has ruled the paraphrase out. A file whose name carries no extension falls
- * back to the extension its sniffed media type implies, and failing that reads as blank rather
- * than as a placeholder word.
+ * The file's type is its real extension. A file whose name carries none falls back to the extension
+ * its sniffed media type implies, and failing that reads blank — never a placeholder word.
  */
-export function fileTypeExtension(document: DocumentSummary): string {
-  const dotIndex = document.name.lastIndexOf(".");
-  if (dotIndex > 0 && dotIndex < document.name.length - 1) {
-    return document.name.slice(dotIndex + 1).toLowerCase();
-  }
-  if (document.sniffedContentType === null) return "";
-  return EXTENSION_BY_CONTENT_TYPE[document.sniffedContentType] ?? "";
+export function fileExtension(file: Pick<MatterFile, "name" | "sniffedContentType">): string {
+  const dot = file.name.lastIndexOf(".");
+  if (dot > 0 && dot < file.name.length - 1) return file.name.slice(dot + 1).toLowerCase();
+  if (file.sniffedContentType === null) return "";
+  return EXTENSION_BY_CONTENT_TYPE[file.sniffedContentType] ?? "";
 }
 
-const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
+const EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
   "application/pdf": "pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
   "application/msword": "doc",
@@ -132,8 +73,145 @@ const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
   "application/zip": "zip",
   "text/plain": "txt",
+  "text/csv": "csv",
   "image/jpeg": "jpg",
   "image/png": "png",
+  "image/gif": "gif",
   "video/mp4": "mp4",
+  "audio/mpeg": "mp3",
   "message/rfc822": "eml",
 };
+
+/** Everything a column needs from the surface to read a row. */
+export interface FileColumnContext {
+  readonly index: MatterFileIndex;
+  /** Whether names render without their extension. */
+  readonly hideExtensions: boolean;
+  /** The firm's label for a document type, or the empty string when none is set. */
+  readonly documentTypeName: (documentTypeId: string | null) => string;
+  /**
+   * Who created the row's file. The listing carries no author, so where the surface cannot answer
+   * this honestly it returns the empty string and the cell renders blank rather than "You".
+   */
+  readonly createdBy: (file: MatterFile) => string;
+}
+
+const emptyIfNull = (value: string | null): string => value ?? "";
+
+/**
+ * The browse columns. Folder rows answer every one of them — a folder's Size reads bytes and count,
+ * its Date Modified is the most recent modification beneath it, its Safety is the worst word true
+ * of its contents — because a folder row is a row of this table and not a special case.
+ */
+export function browseColumns(context: FileColumnContext): GridColumn<FileManagerRow>[] {
+  const { index, hideExtensions, documentTypeName, createdBy } = context;
+  const aggregate = (folderId: string) => folderAggregate(index, folderId, safetyKeyOf);
+
+  return [
+    {
+      id: FILE_COLUMN_IDENTIFIERS.name,
+      label: "Name",
+      type: "text",
+      filter: "text",
+      anchored: true,
+      // A folder icon and the row's own glyph ride ahead of the text; the fit measurement has to
+      // account for them or a double-click fit clips every name by the width of its icon.
+      fitExtra: 28,
+      value: (row) =>
+        row.kind === "folder" ? row.folder.name : displayName(row.file.name, hideExtensions),
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.fileType,
+      label: "File Type",
+      type: "text",
+      filter: "set",
+      value: (row) => (row.kind === "folder" ? "" : fileExtension(row.file)),
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.documentType,
+      label: "Document Type",
+      type: "text",
+      filter: "set",
+      value: (row) => (row.kind === "folder" ? "" : documentTypeName(row.file.documentTypeId)),
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.safety,
+      label: "Safety",
+      type: "text",
+      filter: "set",
+      value: (row) =>
+        statusEntry(row.kind === "folder" ? aggregate(row.folder.id).safety : safetyKeyOf(row.file))
+          .label,
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.version,
+      label: "Version",
+      type: "number",
+      filter: "range",
+      filterNote: "The version number, as the Version column shows it.",
+      value: (row) => (row.kind === "folder" ? null : row.file.versionNumber),
+      // A bare number, never "v12" — and the cell renders it without tabular figures so a
+      // two-digit version does not read as two separate numerals.
+      text: (row) => (row.kind === "folder" ? "" : String(row.file.versionNumber)),
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.size,
+      label: "Size",
+      type: "number",
+      filter: "range",
+      filterNote: "In bytes, as stored.",
+      value: (row) =>
+        row.kind === "folder" ? aggregate(row.folder.id).totalBytes : row.file.sizeBytes,
+      text: (row) =>
+        row.kind === "folder"
+          ? folderSizeText(aggregate(row.folder.id))
+          : formatBytes(row.file.sizeBytes),
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.createdBy,
+      label: "Created By",
+      type: "text",
+      filter: "set",
+      value: (row) => (row.kind === "folder" ? "" : createdBy(row.file)),
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.location,
+      label: "Location",
+      type: "text",
+      filter: "set",
+      // Derivable from the folder, so it says nothing inside a folder listing and everything in
+      // the results and analysis views. Off here, forced on there.
+      hidden: true,
+      value: (row) =>
+        index.pathText(row.kind === "folder" ? row.folder.parentFolderId : row.file.folderId),
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.created,
+      label: "Date Created",
+      type: "date",
+      filter: "dateRange",
+      hidden: true,
+      value: (row) => (row.kind === "folder" ? null : row.file.createdAt),
+    },
+    {
+      id: FILE_COLUMN_IDENTIFIERS.modified,
+      label: "Date Modified",
+      type: "date",
+      filter: "dateRange",
+      value: (row) =>
+        row.kind === "folder"
+          ? emptyIfNull(aggregate(row.folder.id).latestModified)
+          : row.file.updatedAt,
+    },
+  ];
+}
+
+/**
+ * The search-results and analysis columns: the browse set with Location forced on, because a row
+ * whose neighbours live in different folders is unreadable without saying where each one is.
+ */
+export function locatedColumns(context: FileColumnContext): GridColumn<FileManagerRow>[] {
+  return browseColumns(context).map((column) =>
+    column.id === FILE_COLUMN_IDENTIFIERS.location ? { ...column, hidden: false } : column,
+  );
+}
