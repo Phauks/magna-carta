@@ -202,6 +202,17 @@ them:
 - The intro text vanished the moment a search ran (it was gated on the idle state); it stays
   visible, with results rendering beneath it.
 
+Two follow-ups from the same round, both from the owner:
+
+- **Alert-title casing: the owner has no preference**, so no ruling binds. The working choice on
+  the web-domains pages is sentence case — an alert is a message, not a header, so "Headers are
+  title case" is read as not reaching `Alert.Title`. The codebase is split (several list surfaces
+  use title case); either is acceptable until the owner says otherwise, but one page must not mix
+  the two.
+- **The network speed test is not retrofitted.** Its run controls stay in the masthead where they
+  are; the reading-edge rule above binds new and reworked surfaces, not a shipped page nobody is
+  changing.
+
 ### 2026-08-30 — the matters screens, second round
 
 Four of the five corrections in this round had been issued before and not carried out, which is the

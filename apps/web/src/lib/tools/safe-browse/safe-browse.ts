@@ -130,7 +130,7 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
   if (problem.status === 502) {
     return {
       tone: "warning",
-      title: "The Isolated Browser Is Not Available Right Now",
+      title: "The isolated browser is not available right now",
       message:
         "The remote rendering service could not be reached or is at capacity. Wait a moment, then try again.",
     };
@@ -138,7 +138,7 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
   if (problem.status >= 500) {
     return {
       tone: "danger",
-      title: "The Capture Failed",
+      title: "The capture failed",
       message: "Something went wrong on our side. Quote the Error ID below to support.",
     };
   }
@@ -146,27 +146,27 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
     case 401:
       return {
         tone: "info",
-        title: "You Are Not Signed In",
+        title: "You are not signed in",
         message:
           "Captures run against an authenticated session. In local development there is no session yet, so the capture returns nothing.",
       };
     case 403:
       return {
         tone: "warning",
-        title: "You Do Not Have Permission",
+        title: "You do not have permission",
         message: "Your account is not allowed to use the Safe Website Viewer.",
       };
     case 429:
       return {
         tone: "warning",
-        title: "Too Many Captures",
+        title: "Too many captures",
         message: "You have run several captures in a short time. Wait a moment, then try again.",
       };
     default:
       // 400 (invalid/blocked target) and 422 (the body failed validation) — both are input faults.
       return {
         tone: "warning",
-        title: "That Address Cannot Be Viewed",
+        title: "That address cannot be viewed",
         message:
           "Enter a web address (https://example.com). Private, local, and internal addresses are not accepted.",
       };

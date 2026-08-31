@@ -132,14 +132,14 @@
         </Alert.Root>
       {:else if outcome.kind === "transport"}
         <Alert.Root variant="danger">
-          <Alert.Title>The Lookup Service Did Not Respond</Alert.Title>
+          <Alert.Title>The lookup service did not respond</Alert.Title>
           <Alert.Description>
             Nothing answered the request. Check your connection, then try again.
           </Alert.Description>
         </Alert.Root>
       {:else if outcome.kind === "empty"}
         <Alert.Root variant="info">
-          <Alert.Title>No Registration Record Found</Alert.Title>
+          <Alert.Title>No registration record found</Alert.Title>
           <Alert.Description>
             The RDAP registry answered, but returned no public registration details for
             {outcome.result.target}. The domain may be unregistered, or its registry may not publish

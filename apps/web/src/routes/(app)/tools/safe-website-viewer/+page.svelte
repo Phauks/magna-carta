@@ -148,7 +148,7 @@
         </Alert.Root>
       {:else if outcome.kind === "transport"}
         <Alert.Root variant="danger">
-          <Alert.Title>The Capture Service Did Not Respond</Alert.Title>
+          <Alert.Title>The capture service did not respond</Alert.Title>
           <Alert.Description>
             Nothing answered the request. Check your connection, then try again.
           </Alert.Description>
