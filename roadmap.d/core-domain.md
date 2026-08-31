@@ -386,6 +386,31 @@
   evidence: access-triggered rescan built — rescanCommittedVersion in apps/api-worker/src/files/ingest-consumer.ts over the scan port (docs/specs/2026-06-22-access-triggered-rescan-design.md and its implementation plan)
   notes: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.
 
+- id: matters.search
+  name: Consolidated matter search
+  scope: One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter.
+  status: designed
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  audience: public
+  public-name: Search a matter
+  public-summary: Search everything on a matter from one box — notes, files, parties and the rest — starting with the screen you are already on.
+  awaiting-owner: Seven flags decide the build. M2 is the largest — whether the file manager's own Search Results view retires into the matter's results page, survives beside it, or retires outright. M1 confirms that the header placement supersedes the settled "next to the status chip" ruling. M4 decides whether the query rides in the address, which is a confidentiality trade rather than a convenience one. M5 confirms the new search:matter permission and its seeding.
+  notes: The read layer is a registry of declared sources on the federated-timeline pattern, so a fourteenth searchable section is one source module rather than a change to the route, the control and the results page.
+
+- id: matters.search.sources
+  name: Declared search sources
+  scope: One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet.
+  status: designed
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  notes: Four sources exist to build against today (notes, custody, matter parties, file names); the other nine sections render a declared Soon naming what they wait on. Review-set sources are structurally refused — a review set is its own corpus.
+
+- id: matters.search.file-contents
+  name: File contents in a matter search
+  scope: The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match.
+  status: designed
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  notes: The engine, write pipeline and compaction are built; SearchIndexPort answers engine-not-implemented until the search Container is deployed in the order docs/deploy-queue.md names.
+
 - id: locations
   name: Locations (offices)
   scope: First-class per-firm entity for physical offices; a dimension within the firm tenancy boundary, referenced by matters, trust accounts, Custodian roots, users, and generated documents.
