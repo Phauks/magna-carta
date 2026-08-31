@@ -33,9 +33,9 @@ Click any version in the overlay. The full identifier line, including its dates,
 
 When the chip carries the amber dot, open it and press **Reload**. The page reloads onto whatever the platform is serving now.
 
-**Check whether the page and the server match**
+**Compare the page against the server**
 
-The page in your tab and the server answering it can briefly come from different deployments. When both report a real build and the two differ, the overlay says so with a "Different Builds" notice; Reload settles it.
+The page in your browser and the server answering it are delivered separately, so their build identifiers are allowed to differ; the overlay says so beneath the deployment list, and a difference on its own is not a problem. The signal that asks for action is the Update Available notice, which appears when a newer version of the page itself has shipped.
 
 ## Tips and edge cases
 

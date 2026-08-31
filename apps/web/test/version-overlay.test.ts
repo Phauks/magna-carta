@@ -1,6 +1,6 @@
 /*
- * The version overlay's honesty rules, exercised on the pure model: a placeholder identity never
- * claims a skew, every non-answer keeps its own name, a cached observation states its age once it
+ * The version overlay's honesty rules, exercised on the pure model: every non-answer keeps its
+ * own name, a cached observation states its age once it
  * has one, a re-ask that fails never leaves its rows looking current, and a copied identifier line
  * carries only what was actually known.
  *
@@ -21,7 +21,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  buildsDiffer,
   copyLineForPart,
   describeObservationAge,
   describeRetainedRows,
@@ -32,13 +31,12 @@ import {
   serviceStateLabel,
   versionChipLabel,
   API_WORKER_UNIT_NAME,
-  BUILD_SKEW_EXPLANATION,
   PAGE_BUILD_ROW_NAME,
   READ_IN_FLIGHT_NOTICE,
   RELOAD_ACTION_LABEL,
   SIGNED_OUT_ESTATE_NOTICE,
   UPDATE_AVAILABLE_EXPLANATION,
-  WEB_APP_SHIPS_INSIDE_API_NOTICE,
+  WEB_TOPOLOGY_NOTICE,
 } from "../src/lib/versions/version-overlay-model.ts";
 
 const SOURCE_ROOT = join(import.meta.dirname, "../src");
@@ -88,41 +86,24 @@ describe("what counts as a real commit", () => {
   });
 });
 
-describe("the web-versus-API skew call", () => {
-  it("two different real commits are a skew", () => {
-    expect(buildsDiffer("f4b6d82", "a1b2c3d")).toBe(true);
+describe("the retired page-versus-API warning stays retired", () => {
+  it("the panel raises no alarm about the page and the API differing", () => {
+    // The interface and the API deploy as separate Workers (magna-carta-web serves the app's
+    // address by route pattern), so their commits differ whenever one shipped more recently — a
+    // normal state. A standing warning about a normal state teaches people to ignore warnings;
+    // the reload signal is the version poll, which compares this tab against the deployment that
+    // actually serves it. This asserts the old warning does not quietly return.
+    const chip = stripComments(source("lib/versions/version-chip.svelte"));
+    expect(chip).not.toContain("Different Builds");
+    expect(chip).not.toContain("buildsDiffer");
   });
 
-  it("the same commit on both sides is not", () => {
-    expect(buildsDiffer("f4b6d82", "f4b6d82")).toBe(false);
-  });
-
-  it("a placeholder on either side says no identity, never a different identity", () => {
-    expect(buildsDiffer("unknown", "a1b2c3d")).toBe(false);
-    expect(buildsDiffer("f4b6d82", "dev")).toBe(false);
-    expect(buildsDiffer("f4b6d82", null)).toBe(false);
-  });
-
-  it("two abbreviations of one commit are the same build, however long each side is", () => {
-    // The web app's stamp comes from git; a Worker built where git could not answer takes the
-    // build runner's commit variable and abbreviates it itself. Same commit, different lengths,
-    // and an equality test would warn about a deployment that is in step.
-    expect(buildsDiffer("f4b6d82", "f4b6d8291")).toBe(false);
-    expect(buildsDiffer("f4b6d8291", "f4b6d82")).toBe(false);
-    expect(buildsDiffer("F4B6D82", "f4b6d8291")).toBe(false);
-  });
-
-  it("a prefix too short to identify a commit is not treated as agreement", () => {
-    expect(buildsDiffer("f4b6", "f4b6d8291")).toBe(true);
-  });
-
-  it("explains the difference as one deployment behind, not two deploys out of step", () => {
-    // The SPA is bundled into the API Worker, so there is only one deployable to be out of step
-    // WITH. A difference means the page in this tab predates the Worker now answering it.
-    expect(BUILD_SKEW_EXPLANATION).toContain(API_WORKER_UNIT_NAME);
-    expect(BUILD_SKEW_EXPLANATION).toMatch(/reload/i);
+  it("the topology line explains the difference instead", () => {
+    expect(WEB_TOPOLOGY_NOTICE).toContain("magna-carta-web");
+    expect(WEB_TOPOLOGY_NOTICE).toContain(API_WORKER_UNIT_NAME);
+    expect(WEB_TOPOLOGY_NOTICE).toMatch(/deploy separately/i);
     // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
-    expect(BUILD_SKEW_EXPLANATION).not.toContain("—");
+    expect(WEB_TOPOLOGY_NOTICE).not.toContain("—");
   });
 });
 
@@ -215,19 +196,14 @@ describe("the deployed unit a row names", () => {
     }
   });
 
-  it("names the one Worker that carries both the page and the API", () => {
+  it("names the API Worker, which still carries the SPA copy that backs dev and rollback", () => {
     expect(API_WORKER_UNIT_NAME).toBe("magna-carta");
     expect(wranglerSource).toContain(`"name": "${API_WORKER_UNIT_NAME}"`);
-    // The claim the build line and the magna-carta row rest on: the SPA build output is this
-    // Worker's static assets.
+    // The assets block deliberately SURVIVES the cutover to magna-carta-web: `wrangler dev` and
+    // the e2e suite serve the whole app from it, and it is the one-gesture rollback (repoint the
+    // /* route back here). If it is ever removed, this test is the reminder that both of those
+    // need a replacement first.
     expect(wranglerSource).toMatch(/"assets":\s*\{[\s\S]*?"directory":\s*"\.\.\/web\/build"/);
-  });
-
-  it("says the web app ships inside the API Worker, naming the project that does not serve it", () => {
-    expect(WEB_APP_SHIPS_INSIDE_API_NOTICE).toContain("magna-carta deploys");
-    expect(WEB_APP_SHIPS_INSIDE_API_NOTICE).toContain("magna-carta-web");
-    // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
-    expect(WEB_APP_SHIPS_INSIDE_API_NOTICE).not.toContain("—");
   });
 
   it("the build line is named for the bundle in this tab, never for the Worker that served it", () => {
@@ -388,14 +364,14 @@ describe("the chip's row identities and refresh", () => {
     expect(chip).not.toMatch(/"magna-carta-[a-z-]+"/);
   });
 
-  it("keeps the build line and the deployment list apart, and says how the two doors relate", () => {
+  it("keeps the build line and the deployment list apart, and states the topology beneath them", () => {
     expect(chip).toMatch(/rowKey: "page",\s*name: PAGE_BUILD_ROW_NAME/);
     expect(chip).toMatch(/rowKey: "api",\s*name: API_WORKER_UNIT_NAME/);
-    expect(chip).toContain("{WEB_APP_SHIPS_INSIDE_API_NOTICE}");
+    expect(chip).toContain("{WEB_TOPOLOGY_NOTICE}");
     // The line belongs under the list whose rows it explains: after magna-carta and its siblings.
     expect(chip.indexOf('rowKey: "api"')).toBeLessThan(chip.indexOf("{#each value.services"));
     expect(chip.indexOf("{#each value.services")).toBeLessThan(
-      chip.indexOf("{WEB_APP_SHIPS_INSIDE_API_NOTICE}"),
+      chip.indexOf("{WEB_TOPOLOGY_NOTICE}"),
     );
   });
 
@@ -470,7 +446,7 @@ describe("the upstream-update notice", () => {
     expect(chip).toContain("{RELOAD_ACTION_LABEL}");
   });
 
-  it("the notice states a direction, unlike the direction-free skew sentence", () => {
+  it("the notice states a direction and ends in the one gesture", () => {
     expect(UPDATE_AVAILABLE_EXPLANATION).toMatch(/newer/i);
     expect(UPDATE_AVAILABLE_EXPLANATION).toMatch(/reload/i);
     // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
