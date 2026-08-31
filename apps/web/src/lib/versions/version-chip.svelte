@@ -24,10 +24,10 @@
    *
    * TWO WORKERS SERVE THE APP'S ADDRESS, split by route pattern: `magna-carta-web` serves the
    * interface (this page included) and `magna-carta` answers the API. They deploy separately, so
-   * the page's commit and the API's commit are allowed to differ without a warning — a difference
-   * is the normal state whenever one of them shipped more recently, and the panel says so in one
-   * line under the deployment list instead of raising an alarm about it
-   * (version-overlay-model.ts records why the old "Different Builds" warning was retired).
+   * the two are allowed to differ, and the front rows carry a colour-coded sync badge instead of a
+   * fixed sentence — success once they match, warning only when the web build is the one behind
+   * (apiWebSyncState in version-overlay-model.ts), neutral for any other difference, since
+   * differing is a normal state and not every difference is a fault.
    *
    * THE CHIP NOTICES AN UPSTREAM DEPLOY. SvelteKit's version poll (svelte.config.js names each
    * build by its commit) compares the running bundle against what the deployment serving it is
@@ -66,6 +66,7 @@
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { fleetSectionPreference } from "$lib/versions/version-panel-preferences.svelte.ts";
   import {
+    apiWebSyncState,
     copyLineForPart,
     describeObservationAge,
     describeRetainedRows,
@@ -78,6 +79,8 @@
     serviceStateLabel,
     showsPageBuildRow,
     summarizeSilentWorkers,
+    syncStateBadgeVariant,
+    syncStateLabel,
     versionChipLabel,
     API_WORKER_UNIT_NAME,
     FLEET_SECTION_LABEL,
@@ -87,7 +90,6 @@
     RELOAD_ACTION_LABEL,
     SIGNED_OUT_ESTATE_NOTICE,
     UPDATE_AVAILABLE_EXPLANATION,
-    WEB_TOPOLOGY_NOTICE,
     type MetaVersionsValue,
     type ServiceVersionState,
     type VersionReadPhase,
@@ -172,6 +174,9 @@
   const showsOwnBuild = $derived(
     showsPageBuildRow({ readsAggregate, read: readPhase, webRow: webWorkerRow }),
   );
+  // Whether magna-carta-web is running the same build as magna-carta, and if not, which side is
+  // behind — the colour-coded read of the pair the front rows show, in place of a fixed sentence.
+  const syncState = $derived(value === null ? null : apiWebSyncState(value.api, webWorkerRow));
 
   async function copyPart(
     rowKey: string,
@@ -330,11 +335,21 @@
       <!-- Under the header, not beside it: the age line grows and shrinks as the clock ticks, and
            on the header row that motion pushed the controls around (owner ruling, 2026-08-31). The
            in-flight word takes the same seat, so a re-ask is visible before its answer lands
-           without a spinner and without moving anything. -->
-      {#if loading}
-        <p class="text-xs text-text-muted">{READ_IN_FLIGHT_NOTICE}</p>
-      {:else if observationAge !== null}
-        <p class="text-xs text-text-muted">Services {observationAge}</p>
+           without a spinner and without moving anything. The line itself is never conditionally
+           mounted — a read that lands inside the fresh window (no age line yet) or ends "Checking
+           services" would otherwise make this row appear and disappear as the clock ticks past ten
+           seconds, resizing the popover under the reader's eye (owner ruling, 2026-08-31); an
+           empty line holds the same height so the panel's size never depends on wording. -->
+      {#if readsAggregate}
+        <p class="text-xs text-text-muted">
+          {#if loading}
+            {READ_IN_FLIGHT_NOTICE}
+          {:else if observationAge !== null}
+            Services {observationAge}
+          {:else}
+            &nbsp;
+          {/if}
+        </p>
       {/if}
     </div>
 
@@ -369,9 +384,9 @@
 
     {#if updateAvailable}
       <!-- The words behind the header's Reload control and the chip's dot: the version poll saw a
-           newer bundle where this page came from. A page-versus-API commit difference deliberately
-           raises nothing — the two Workers deploy separately, so differing is the normal state
-           (the topology line below says so). -->
+           newer bundle where this page came from. This is a different question from the sync
+           badge below (this build against the deployment serving it, not the API against
+           magna-carta-web), so the two can disagree without contradicting each other. -->
       <div class="flex items-center justify-between gap-8">
         <Badge variant="warning">Update Available</Badge>
         <p class="text-xs text-text-muted">{UPDATE_AVAILABLE_EXPLANATION}</p>
@@ -430,7 +445,15 @@
                 })}
               {/each}
             </div>
-            <p class="text-xs text-text-muted">{WEB_TOPOLOGY_NOTICE}</p>
+            {#if syncState !== null}
+              <!-- The pair's sync read, colour-coded: success once magna-carta-web matches the
+                   API it serves, warning only when the web build is the one behind (the
+                   actionable case), neutral for any other difference — the two Workers deploy
+                   separately, so differing is a normal state, not a fault. -->
+              <div class="flex items-center gap-8">
+                <Badge variant={syncStateBadgeVariant(syncState)}>{syncStateLabel(syncState)}</Badge>
+              </div>
+            {/if}
             {#if deploymentRows.rest.length > 0}
               {@const silentWorkers = summarizeSilentWorkers(deploymentRows.rest)}
               <Separator />
