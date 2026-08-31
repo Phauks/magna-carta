@@ -1,0 +1,258 @@
+<script lang="ts">
+  /*
+   * Downloads — the member's own shelf of what the platform produced for them, held for a short
+   * window and downloadable again until it expires. It is deliberately not the notification feed:
+   * that surface carries the firm's WORK, and a generated file is platform mechanics.
+   *
+   * An export is stored as its DOCUMENT rather than as a file, so one row offers every format and
+   * the figures stay frozen at the instant it was taken. The register never proxies bytes — an
+   * artifact hands back a short-lived URL the browser downloads directly.
+   */
+  import { onMount } from "svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import { guidanceFor } from "$lib/diagnostics/guidance.ts";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import Download from "@lucide/svelte/icons/download";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import * as Alert from "@magna-carta/design-system/alert";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import EmptyState from "@magna-carta/design-system/empty-state";
+  import * as Masthead from "@magna-carta/design-system/masthead";
+  import Skeleton from "@magna-carta/design-system/skeleton";
+  import { toast } from "@magna-carta/design-system/toast";
+  import {
+    exportFromStored,
+    fetchShelfItem,
+    readShelf,
+    removeShelfItem,
+    type ShelfItem,
+    type StoredExportDocument,
+  } from "$lib/export/download-shelf.ts";
+  import { markShelfChanged } from "$lib/export/download-shelf-signal.svelte.ts";
+  import { renderCsvExport } from "$lib/export/render-csv.ts";
+  import { renderRemoteExport } from "$lib/export/render-remote.ts";
+  import { renderTextExport } from "$lib/export/render-text.ts";
+  import { renderXlsxExport } from "$lib/export/render-xlsx.ts";
+  import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
+
+  let items = $state<ShelfItem[] | null>(null);
+  let failure = $state<StatedFailure | null>(null);
+
+  // The formats a stored export can be taken as. The same set the export menu offers, because the
+  // stored document is the same document — a shelf that offered fewer would make keeping a copy
+  // worse than taking it again.
+  const SNAPSHOT_FORMATS = [
+    { label: "Excel, Sheet per Table (.xlsx)", extension: "xlsx" },
+    { label: "Excel, Single Sheet (.xlsx)", extension: "xlsx-single" },
+    { label: "Word (.docx)", extension: "docx" },
+    { label: "PDF (.pdf)", extension: "pdf" },
+    { label: "CSV (.csv)", extension: "csv" },
+    { label: "Plain Text (.txt)", extension: "txt" },
+  ] as const;
+
+  const CONTENT_TYPES: Record<string, string> = {
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "xlsx-single": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    pdf: "application/pdf",
+    csv: "text/csv;charset=utf-8",
+    txt: "text/plain;charset=utf-8",
+  };
+
+  async function load(): Promise<void> {
+    failure = null;
+    const outcome = await readShelf(fetch);
+    if (outcome.kind === "ok") {
+      items = [...outcome.value.items];
+    } else {
+      items = null;
+      failure = stated(outcome.failure, "Your downloads could not be read.");
+    }
+  }
+
+  onMount(() => {
+    void load();
+  });
+
+  async function renderStored(stored: StoredExportDocument, extension: string): Promise<void> {
+    const exportDocument = exportFromStored(stored);
+    const fileExtension = extension === "xlsx-single" ? "xlsx" : extension;
+    const rendered =
+      extension === "xlsx"
+        ? await renderXlsxExport(exportDocument, "worksheet-per-section")
+        : extension === "xlsx-single"
+          ? await renderXlsxExport(exportDocument, "single-worksheet")
+          : extension === "csv"
+            ? renderCsvExport(exportDocument)
+            : extension === "txt"
+              ? renderTextExport(exportDocument)
+              : await renderRemoteExport(exportDocument, extension === "pdf" ? "pdf" : "docx");
+    saveExport(
+      rendered,
+      exportFilename(exportDocument, fileExtension),
+      CONTENT_TYPES[extension] ?? "application/octet-stream",
+    );
+  }
+
+  async function take(item: ShelfItem, format: string): Promise<void> {
+    const outcome = await fetchShelfItem(fetch, item.id, format);
+    if (outcome.kind !== "ok") {
+      // A toast has nowhere to put a handle or a remedy, so it takes the presenter's sentence.
+      toast.error(guidanceFor(outcome.failure, "That download").message);
+      // A gone item is gone for good, so the shelf is re-read rather than left showing it.
+      if (outcome.kind === "problem" && outcome.problem.status === 410) void load();
+      return;
+    }
+    try {
+      if (outcome.value.kind === "artifact") {
+        const url = outcome.value.url;
+        if (url === undefined) throw new Error("no url");
+        // A real link the browser's own download manager drives, never bytes proxied through here.
+        globalThis.location.href = url;
+      } else {
+        await renderStored(outcome.value.document as StoredExportDocument, format);
+      }
+      void load();
+    } catch {
+      toast.error("That download could not be produced. Try again shortly.");
+    }
+  }
+
+  async function remove(item: ShelfItem): Promise<void> {
+    const outcome = await removeShelfItem(fetch, item.id);
+    if (outcome.kind === "ok") {
+      items = (items ?? []).filter((row) => row.id !== item.id);
+      // Keep the top-bar tray in step with the page; both read the same shelf.
+      markShelfChanged();
+      return;
+    }
+    toast.error("That item could not be removed.");
+  }
+
+  const PRODUCER_LABELS: Record<string, string> = {
+    export: "Export",
+    bundle: "File Bundle",
+    conversion: "Converted File",
+  };
+
+  function formatStamp(value: string): string {
+    const when = new Date(value);
+    return `${when.toLocaleDateString()} ${when.toLocaleTimeString(undefined, { timeStyle: "short" })}`;
+  }
+
+  function formatTaken(formats: readonly string[]): string {
+    if (formats.length === 0) return "Not yet";
+    return formats.map((entry) => entry.toUpperCase()).join(", ");
+  }
+</script>
+
+<svelte:head>
+  <title>Downloads · Magna Carta</title>
+</svelte:head>
+
+<Masthead.Root class="mb-24">
+  <Masthead.Heading>
+    <Masthead.Eyebrow>Downloads</Masthead.Eyebrow>
+    <Masthead.Title>Downloads</Masthead.Title>
+  </Masthead.Heading>
+  <Masthead.Actions>
+    <Button variant="ghost" onclick={() => void load()}>
+      <RotateCcw class="size-16" aria-hidden="true" />
+      Refresh
+    </Button>
+  </Masthead.Actions>
+</Masthead.Root>
+
+{#if failure !== null}
+  <FailureNotice
+    failure={failure.failure}
+    title="Your Downloads Could Not Be Read"
+    fallback={failure.fallback}
+    onRetry={() => void load()}
+  />
+{:else if items === null}
+  <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading your downloads">
+    <Skeleton class="h-32 w-full" />
+    <Skeleton class="h-32 w-full" />
+    <Skeleton class="h-32 w-full" />
+  </div>
+{:else if items.length === 0}
+  <EmptyState title="Nothing here yet">
+    Reports and files the platform makes for you gather here for a week, so you can take them again
+    without running them a second time. Download something from any screen and it will appear.
+  </EmptyState>
+{:else}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">Your downloads</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Name</DataTable.Head>
+        <DataTable.Head>Source</DataTable.Head>
+        <DataTable.Head>Taken As</DataTable.Head>
+        <DataTable.Head>Created</DataTable.Head>
+        <DataTable.Head>Available Until</DataTable.Head>
+        <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each items as item (item.id)}
+        <DataTable.Row>
+          <DataTable.Cell>{item.title}</DataTable.Cell>
+          <DataTable.Cell>{PRODUCER_LABELS[item.producer] ?? item.producer}</DataTable.Cell>
+          <DataTable.Cell>{formatTaken(item.downloadedFormats)}</DataTable.Cell>
+          <DataTable.Cell>{formatStamp(item.createdAt)}</DataTable.Cell>
+          <DataTable.Cell>{formatStamp(item.expiresAt)}</DataTable.Cell>
+          <DataTable.Cell data-align="end">
+            <div class="flex items-center justify-end gap-8">
+              {#if item.kind === "snapshot"}
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger
+                    class={buttonClasses({ variant: "ghost", size: "sm" })}
+                    aria-label={`Download ${item.title} again`}
+                  >
+                    <Download class="size-16" aria-hidden="true" />
+                    Download
+                    <ChevronDown class="size-16" aria-hidden="true" />
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content
+                    align="end"
+                    style="inline-size: var(--mc-size-popover)"
+                  >
+                    {#each SNAPSHOT_FORMATS as format (format.label)}
+                      <DropdownMenu.Item onSelect={() => void take(item, format.extension)}>
+                        {format.label}
+                      </DropdownMenu.Item>
+                    {/each}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              {:else}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onclick={() => void take(item, "file")}
+                  aria-label={`Download ${item.title} again`}
+                >
+                  <Download class="size-16" aria-hidden="true" />
+                  Download
+                </Button>
+              {/if}
+              <Button
+                variant="ghost"
+                size="sm"
+                onclick={() => void remove(item)}
+                aria-label={`Remove ${item.title}`}
+              >
+                <Trash2 class="size-16" aria-hidden="true" />
+                Remove
+              </Button>
+            </div>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/if}

@@ -37,6 +37,10 @@ export const PROBLEM_TYPES = {
   // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
   // `validation` (request-shape) — the request is well-formed; the registry has no path.
   "unsupported-conversion": "unsupported-conversion",
+  // An archive-browse of a file that is not a zip (HTTP 422): the sniffed type says other bytes, or
+  // the bytes carry no readable zip end structures. DISTINCT from `validation` (request-shape) —
+  // the request is well-formed; the file's content is not a browsable archive.
+  "not-an-archive": "not-an-archive",
   // A decryption attempt that failed because the supplied password did not open the file (HTTP 400).
   // Generic — does not reveal whether the file or its format was otherwise valid; only that the
   // password was wrong. The client can retry with a different password without re-uploading.
@@ -129,6 +133,14 @@ export const PROBLEM_TYPES = {
   // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
   // deactivates the shipped one, which changes nothing for anybody else.
   "calendar-platform-type-immutable": "calendar-platform-type-immutable",
+  // A write against a note that has been withdrawn (HTTP 409): revising one, withdrawing one twice,
+  // or reading the earlier versions of one. A withdrawn note's body has stopped rendering
+  // everywhere, so appending to it would put new words behind a tombstone where nothing displays
+  // them, and serving its history would be a way around the tombstone rather than an exception to
+  // it. Withdrawing twice is refused because the first withdrawal's actor, instant and reason are
+  // the record and are not rewritten. Not `validation`: the request was well formed and the note's
+  // state is what refuses it.
+  "note-retracted": "note-retracted",
   // A firm event given an event type from another category (HTTP 422). The two calendar scopes share
   // one type catalog and `category` is the only thing separating them, so typing the all-hands as a
   // "Hearing" would file a staff meeting as procedural history everywhere a surface groups by

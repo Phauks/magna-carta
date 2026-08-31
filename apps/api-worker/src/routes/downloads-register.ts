@@ -1,0 +1,476 @@
+import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
+import {
+  deleteDownloadItemStatement,
+  readDownloadItem,
+  readDownloadShelf,
+  recordDownloadedFormatStatement,
+} from "@magna-carta/data-access/download-register-statements";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { DownloadItemId } from "@magna-carta/identifiers/types";
+import { storedTabularDocumentSchema } from "@magna-carta/export-document/renderable";
+import type { Bindings } from "../app.ts";
+import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
+import type { AppVariables } from "../chokepoint/ports.ts";
+import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { Problem, problemJson } from "../contracts/problem.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import {
+  readSnapshotDocument,
+  recordExportSnapshot,
+  SHELF_READ_LIMIT,
+  shelfExpiry,
+  snapshotObjectKey,
+} from "../downloads/download-register.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
+import { presignerForEnv } from "../files/presigner-wiring.ts";
+
+// The same short life a per-file download URL gets: long enough for the browser to start, short
+// enough that a copied link is not a standing grant.
+const FETCH_TTL_SECONDS = 300;
+
+const DownloadItemView = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    kind: z.enum(["artifact", "snapshot"]),
+    producer: z.enum(["export", "bundle", "conversion"]),
+    byteSize: z.number().nullable(),
+    // Which formats this member has already taken. Empty means built and never fetched, which is a
+    // real state the shelf shows rather than hides.
+    downloadedFormats: z.array(z.string()),
+    createdAt: z.string(),
+    expiresAt: z.string(),
+    state: z.enum(["building", "ready", "failed", "expired"]),
+  })
+  .openapi("DownloadItem");
+
+const DownloadShelfResponse = z
+  .object({ items: z.array(DownloadItemView) })
+  .openapi("DownloadShelfResponse");
+
+// One fetch answers for both kinds, because the member performed one act. An artifact hands back a
+// freshly minted presigned URL — the register never proxies bytes, so the browser's own download
+// manager keeps pause, resume and speed. A snapshot hands back the stored DOCUMENT, which the client
+// renders in whichever format it asked for (text, CSV and Excel in the browser; Word and PDF through
+// the report-export printer), so the register grows no renderer of its own.
+const DownloadFetchResponse = z
+  .object({
+    kind: z.enum(["artifact", "snapshot"]),
+    url: z.string().optional(),
+    document: z.unknown().optional(),
+  })
+  .openapi("DownloadFetchResponse");
+
+const FetchRequest = z
+  .object({
+    // What the member is about to take it as. Recorded on the row so the shelf can say what has
+    // already been downloaded — the half of the question a bare list does not answer.
+    format: z.string().min(1).max(16),
+  })
+  .openapi("DownloadFetchRequest");
+
+const SnapshotRequest = z
+  .object({
+    title: z.string().min(1).max(200),
+    // The format the member took it as right now. The document itself is format-free, so this is
+    // what the row starts its taken-list with.
+    format: z.string().min(1).max(16),
+    document: storedTabularDocumentSchema,
+  })
+  .openapi("DownloadSnapshotRequest");
+
+const SnapshotCreatedResponse = z
+  .object({ id: z.string(), expiresAt: z.string() })
+  .openapi("DownloadSnapshotCreatedResponse");
+
+export const downloadSnapshotMeta: RouteMeta = {
+  operationId: "downloads.recordSnapshot",
+  surface: "app",
+  authenticated: true,
+  permission: "downloads:shelf",
+  resource: "firm",
+  // AUDITED. An export is firm data leaving the platform in a file, which is the same class of act
+  // the bulk-download row records — and the register is the first place that act becomes visible at
+  // all, since the render route is a stateless printer that writes nothing.
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const downloadShelfMeta: RouteMeta = {
+  operationId: "downloads.shelf",
+  surface: "app",
+  authenticated: true,
+  permission: "downloads:shelf",
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const downloadFetchMeta: RouteMeta = {
+  operationId: "downloads.fetch",
+  surface: "app",
+  authenticated: true,
+  permission: "downloads:shelf",
+  resource: "firm",
+  // AUDITED, and deliberately not allow-listed as a read-shaped write. An artifact on the shelf is a
+  // bundle of the firm's own files, and a second fetch of it is a second download of that content —
+  // the act the original `files.bulkDownloaded` row exists to record. A shelf that let a member take
+  // the same archive repeatedly with only the first one visible to the firm would be a hole in the
+  // record rather than a convenience.
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const downloadRemoveMeta: RouteMeta = {
+  operationId: "downloads.remove",
+  surface: "app",
+  authenticated: true,
+  permission: "downloads:shelf",
+  resource: "firm",
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const downloadSnapshotRoute = defineOpenAPIRoute(downloadSnapshotMeta, {
+  method: "post",
+  path: "/api/v1/downloads/snapshots",
+  description:
+    "Put an export the caller has just taken onto their own shelf. The tabular DOCUMENT is stored rather than a rendered file, so one shelf item serves every format and the figures stay frozen at the instant of the export. The render route stays a stateless printer; this is the deliberate act of keeping a copy.",
+  request: {
+    body: { content: { "application/json": { schema: SnapshotRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The shelf item that was created",
+      content: { "application/json": { schema: SnapshotCreatedResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks downloads:shelf",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description: "The document is past the register's bounds",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export const downloadShelfRoute = defineOpenAPIRoute(downloadShelfMeta, {
+  method: "get",
+  path: "/api/v1/downloads",
+  description:
+    "The session member's own download shelf: what the platform produced for them, newest first, with what has already been taken and when each item expires. Scoped to the member, never the firm.",
+  responses: {
+    200: {
+      description: "The member's shelf",
+      content: { "application/json": { schema: DownloadShelfResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks downloads:shelf",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export const downloadFetchRoute = defineOpenAPIRoute(downloadFetchMeta, {
+  method: "post",
+  path: "/api/v1/downloads/{downloadItemId}/fetches",
+  description:
+    "Take a shelf item again, in the stated format, and record that it was taken. An artifact answers with a freshly minted short-lived URL the browser downloads directly; a snapshot answers with the stored export document for the client to render. An item whose bytes have already been swept answers 410.",
+  request: {
+    params: z.object({ downloadItemId: z.string() }),
+    body: { content: { "application/json": { schema: FetchRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The URL to download, or the document to render",
+      content: { "application/json": { schema: DownloadFetchResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks downloads:shelf",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No such item on this member's shelf",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    410: {
+      description: "The item's retention window has closed and its bytes are gone",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export const downloadRemoveRoute = defineOpenAPIRoute(downloadRemoveMeta, {
+  method: "delete",
+  path: "/api/v1/downloads/{downloadItemId}",
+  description:
+    "Clear one item off the session member's own shelf, and delete the stored document behind a snapshot. An artifact's bytes belong to its own producer and its own lifecycle rule, so they are left alone.",
+  request: { params: z.object({ downloadItemId: z.string() }) },
+  responses: {
+    204: { description: "Removed" },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks downloads:shelf",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No such item on this member's shelf",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export function registerDownloadRegisterRoutes(
+  app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
+  chokepoint: Chokepoint,
+): void {
+  app.openapi(
+    {
+      ...downloadSnapshotRoute,
+      middleware: chokepointMiddleware(chokepoint, downloadSnapshotRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { title, format, document } = c.req.valid("json");
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const now = new Date();
+      const id = await recordExportSnapshot({
+        database: firm.firmDatabase,
+        bucket,
+        memberId: userId,
+        title,
+        document,
+        now,
+      });
+      // The format the member just took, and the audit row for the export itself — the first record
+      // of it anywhere, since the printer that rendered it stores nothing.
+      await commitEffectBatch(
+        firm.firmDatabase,
+        {
+          statements: [
+            recordDownloadedFormatStatement(firm.firmDatabase, userId, id, format),
+            insertAuditLogStatement(firm.firmDatabase, {
+              id: newIdentifier("auditLog"),
+              event: "downloads.exportKept",
+              actorUserId: userId,
+              subjectId: id,
+              metadata: { title, format, sections: document.sections.length },
+              now: now.toISOString(),
+            }),
+          ],
+          outboxMessages: [],
+        },
+        { now: () => now.toISOString() },
+      );
+      return c.json({ id, expiresAt: shelfExpiry(now) }, 201);
+    },
+  );
+
+  app.openapi(
+    { ...downloadShelfRoute, middleware: chokepointMiddleware(chokepoint, downloadShelfRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const rows = await readDownloadShelf(firm.firmDatabase, userId, SHELF_READ_LIMIT);
+      return c.json(
+        {
+          items: rows.map((row) => ({
+            id: row.id,
+            title: row.title,
+            kind: row.kind,
+            producer: row.producer,
+            byteSize: row.byteSize,
+            downloadedFormats: [...row.downloadedFormats],
+            createdAt: row.createdAt,
+            expiresAt: row.expiresAt,
+            state: row.state,
+          })),
+        },
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    { ...downloadFetchRoute, middleware: chokepointMiddleware(chokepoint, downloadFetchRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { downloadItemId } = c.req.valid("param");
+      const { format } = c.req.valid("json");
+      // The member scope is part of the lookup rather than a check after it, so an item belonging to
+      // a colleague answers exactly as one that does not exist.
+      const row = await readDownloadItem(
+        firm.firmDatabase,
+        userId,
+        downloadItemId as DownloadItemId,
+      );
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "No such download",
+          status: 404,
+          detail: "That item is not on your shelf.",
+        });
+      }
+      if (row.state !== "ready") {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Download not ready",
+          status: 410,
+          detail:
+            row.state === "building"
+              ? "That download is still being prepared."
+              : "That download is no longer available.",
+        });
+      }
+
+      const { bucketName, bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const now = new Date();
+      const recordTaken = async (): Promise<void> => {
+        await commitEffectBatch(
+          firm.firmDatabase,
+          {
+            statements: [
+              recordDownloadedFormatStatement(firm.firmDatabase, userId, row.id, format),
+              insertAuditLogStatement(firm.firmDatabase, {
+                id: newIdentifier("auditLog"),
+                event: "downloads.itemFetched",
+                actorUserId: userId,
+                subjectId: row.id,
+                metadata: { producer: row.producer, kind: row.kind, format },
+                now: now.toISOString(),
+              }),
+            ],
+            outboxMessages: [],
+          },
+          { now: () => now.toISOString() },
+        );
+      };
+
+      if (row.kind === "snapshot") {
+        const document = await readSnapshotDocument(bucket, row.objectKey);
+        if (document === undefined) {
+          return problemJson(c, {
+            type: "not-found",
+            title: "Download expired",
+            status: 410,
+            detail: "That export is no longer stored. Run it again from the screen it came from.",
+          });
+        }
+        await recordTaken();
+        return c.json({ kind: "snapshot" as const, document }, 200);
+      }
+
+      // An artifact: the bytes belong to their producer's prefix and its lifecycle rule, so a read
+      // that finds them gone reports it rather than handing over a URL that 404s at R2.
+      const head = await bucket.head(row.objectKey);
+      if (head === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Download expired",
+          status: 410,
+          detail: "That file has passed its retention window and is no longer stored.",
+        });
+      }
+      const url = await presignerForEnv(c.env).presignGet(
+        bucketName,
+        row.objectKey,
+        FETCH_TTL_SECONDS,
+      );
+      await recordTaken();
+      return c.json({ kind: "artifact" as const, url }, 200);
+    },
+  );
+
+  app.openapi(
+    { ...downloadRemoveRoute, middleware: chokepointMiddleware(chokepoint, downloadRemoveRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { downloadItemId } = c.req.valid("param");
+      const row = await readDownloadItem(
+        firm.firmDatabase,
+        userId,
+        downloadItemId as DownloadItemId,
+      );
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "No such download",
+          status: 404,
+          detail: "That item is not on your shelf.",
+        });
+      }
+      const now = new Date().toISOString();
+      await commitEffectBatch(
+        firm.firmDatabase,
+        {
+          statements: [
+            deleteDownloadItemStatement(firm.firmDatabase, userId, row.id),
+            insertAuditLogStatement(firm.firmDatabase, {
+              id: newIdentifier("auditLog"),
+              event: "downloads.itemRemoved",
+              actorUserId: userId,
+              subjectId: row.id,
+              metadata: { producer: row.producer, kind: row.kind },
+              now,
+            }),
+          ],
+          outboxMessages: [],
+        },
+        { now: () => now },
+      );
+      // A snapshot's document is the register's own object, so removing the row removes it. An
+      // artifact's bytes are its producer's and may be shared with a colleague's row, so they stay.
+      if (row.kind === "snapshot") {
+        const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+        await bucket.delete(snapshotObjectKey(row.id));
+      }
+      return c.body(null, 204);
+    },
+  );
+}

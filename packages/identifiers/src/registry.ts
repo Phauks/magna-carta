@@ -257,6 +257,13 @@ export const ENTITY_PREFIXES = {
   matterEventType: "matterEventType",
   matterEventParticipant: "matterEventParticipant",
   matterDeadline: "matterDeadline",
+  // The matter note. A `matterNote` is the IDENTITY of one note — the matter it hangs off, who first
+  // wrote it, when, and whether it still stands; a `matterNoteRevision` is one body, with its own
+  // author and its own instant. They are two handles because they are two things: a note is corrected
+  // by appending a revision and moving the head, so the words a person reads have their own identity,
+  // their own authorship, and their own place in the chain. Nothing here is ever deleted.
+  matterNote: "matterNote",
+  matterNoteRevision: "matterNoteRevision",
   // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
   // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
   // its own table rather than a null where a case should be; a `firmEventParticipant` is one person
@@ -342,6 +349,13 @@ export const ENTITY_PREFIXES = {
   notificationRecipient: "notificationRecipient",
   notificationDelivery: "notificationDelivery",
   notificationDigest: "notificationDigest",
+  // The download register — one member's shelf of what the platform produced for them, held for a
+  // short retention window. A `downloadItem` is one row on that shelf, and it is deliberately the
+  // only handle: the artifact it points at (a bundle keyed by its content hash, a conversion result
+  // keyed by its job id) keeps the addressing its own producer gave it, and a snapshot's stored
+  // document is keyed by this id. Not a notification and never one — a generated file is platform
+  // mechanics rather than a fact about the firm's work.
+  downloadItem: "downloadItem",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

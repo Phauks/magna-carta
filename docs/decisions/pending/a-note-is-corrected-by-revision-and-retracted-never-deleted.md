@@ -1,6 +1,6 @@
 ---
 slug: a-note-is-corrected-by-revision-and-retracted-never-deleted
-status: Proposed
+status: Accepted — built
 area: Notes and activity
 date: 2026-08-15
 summary: "A note is a chain — an identity row carrying the matter, the original author and the created instant, plus revision rows each carrying a body, its own author and its own instant. An edit appends a revision and moves the head; every prior body is retained. Retraction is a state with its own actor, instant and reason: the body stops rendering everywhere and drops out of the federated timeline entirely, while the row and its revisions remain. There is no hard-delete path, no route and no capability, and the one case where bytes genuinely must leave — an erasure obligation, or another person's protected data typed into a note — routes through the deferred erasure orchestrator under the PII registry's report-manual action, which exists for exactly this and neither auto-erases free text nor silently refuses. The reasoning is that a note is neither the ledger nor the calendar: the ledger is append-only because a third party relies on it and the firm demonstrably could not have changed it, which no rule of conduct demands of a note; the calendar edits in place because it records a plan, and a firm made to file a compensating row to fix a typo stops recording — but a note is a contemporaneous record whose evidentiary weight comes from having been written then, by that person, saying that, and editing it in place destroys the property that makes it worth keeping."

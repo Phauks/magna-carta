@@ -315,6 +315,9 @@ importers:
       '@magna-carta/encryption':
         specifier: workspace:*
         version: link:../../packages/encryption
+      '@magna-carta/export-document':
+        specifier: workspace:*
+        version: link:../../packages/export-document
       '@magna-carta/feature-flags':
         specifier: workspace:*
         version: link:../../packages/feature-flags
@@ -360,6 +363,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money
+      '@magna-carta/notes':
+        specifier: workspace:*
+        version: link:../../packages/notes
       '@magna-carta/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
@@ -820,12 +826,21 @@ importers:
       '@lucide/svelte':
         specifier: 'catalog:'
         version: 1.28.0(svelte@5.56.2)
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../../packages/access-control
+      '@magna-carta/conversion':
+        specifier: workspace:*
+        version: link:../../packages/conversion
       '@magna-carta/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
       '@magna-carta/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@magna-carta/file-type':
+        specifier: workspace:*
+        version: link:../../packages/file-type
       '@magna-carta/merge-field-catalog-contract':
         specifier: workspace:*
         version: link:../../packages/merge-field-catalog-contract
@@ -1482,6 +1497,9 @@ importers:
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../directory
+      '@magna-carta/export-document':
+        specifier: workspace:*
+        version: link:../export-document
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
@@ -1561,6 +1579,22 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
 
+  packages/export-document:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+
   packages/feature-flags:
     devDependencies:
       '@magna-carta/tsconfig':
@@ -1621,6 +1655,9 @@ importers:
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
@@ -1997,6 +2034,34 @@ importers:
       decimal.js:
         specifier: 'catalog:'
         version: 10.6.0
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+
+  packages/notes:
+    dependencies:
+      '@magna-carta/calendar':
+        specifier: workspace:*
+        version: link:../calendar
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'

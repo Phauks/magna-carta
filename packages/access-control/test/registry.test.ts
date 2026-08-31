@@ -122,6 +122,7 @@ describe("permission registry", () => {
       "tools:fileRepair",
       "tools:ocr",
       "tools:emailInspector",
+      "tools:fileWorkbench",
     ]);
   });
 

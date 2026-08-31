@@ -198,14 +198,15 @@ Local rules for this surface:
 
 The server-side file conversion path (`src/conversions/`) holds the **orchestration** — the
 `ConversionJob` Durable Object (keyed `firmId:jobId`), the `CONVERSION` queue + consumer, and the
-routes — and is wired but **dormant** until the engines are reachable. `resolveEnginePort` in
+routes — and is **live** for the engines the convert worker carries. `resolveEnginePort` in
 `conversion-engine.ts` resolves **each hop of a path by its engine id**, so a multi-hop path can
-cross services: an engine backed by the convert worker gets the service-binding port (which stamps
-`x-engine-id` so that worker dispatches to the right Container); the `ocr` engine is its own live
-service and resolves to the `OCR_SERVICE` binding instead; an engine whose Container is not built
-yet (`libreoffice`, `email`, `ffmpeg`) resolves to the deferred port (`engine-not-implemented`), as
-does any engine whose binding is absent — so the routes are fully functional in tests and in
-production, they just cannot yet execute every conversion.
+cross services: an engine backed by the convert worker (`libvips`, `image-pdf`, `libreoffice` —
+the `CONVERT_WORKER_ENGINE_IDS` set is the authoritative list) gets the service-binding port (which
+stamps `x-engine-id` so that worker dispatches to the right Container); the `ocr` engine is its own
+live service and resolves to the `OCR_SERVICE` binding instead; an engine whose Container is not
+built yet (`email`, `ffmpeg`) resolves to the deferred port (`engine-not-implemented`), as does any
+engine whose binding is absent — which is every engine under the local Miniflare test pool, whose
+`CONVERT` stub satisfies startup validation only.
 
 The **engines** (the pure-Rust raster service, LibreOffice headless, FFmpeg, the future Rust PDF
 engine) do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
@@ -216,24 +217,27 @@ port boundary, so the DO/queue/consumer do not change). All raster work runs in 
 `RasterEngineContainer` inside `apps/convert-worker` — there is no in-process codec path in this
 worker.
 
-To activate real conversions:
+The convert worker is **deployed** (`apps/convert-worker`, service `magna-carta-convert`, since
+2026-08-21) and owns two Container-backed Durable Objects: `RasterEngineContainer`
+(`containers/raster/` — pure Rust, no C codecs; PNG/JPEG/WebP/TIFF/GIF/BMP and image-to-PDF via the
+`image` crate) and `LibreOfficeEngineContainer` (the office edges, docx-to-pdf among them). Turning
+on a NEW engine there is two steps in this order: land its Container class in the convert worker
+and deploy, then add its id to `CONVERT_WORKER_ENGINE_IDS` — the id is what actually turns the
+engine on, so it goes last (the worker answers 501 for an id it does not recognise, which fails the
+job as adapter-error).
 
-1. **Build and deploy the pure-Rust raster engine Container image** (`containers/raster/`) for the
-   `magna-carta-convert` worker and deploy that worker. The worker scaffold and the `CONVERT` service
-   binding already exist; `resolveEnginePort` returns the `serviceBindingPort` adapter automatically
-   once the binding is present — no code change needed here. The engine is memory-safe by design
-   (pure Rust, no C codecs — see `containers/raster/CLAUDE.md` for the invariants). The `CONVERT`
-   worker owns the `RasterEngineContainer` Durable Object (the Container-backed DO); once deployed,
-   it handles PNG/JPEG/WebP/TIFF/GIF/BMP conversions via the `image` crate.
-2. **Add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h). Conversion results are
-   transient presigned-GET artifacts; expiry forces the client to re-convert rather than accumulate
-   stale files.
+Still an operator step: **add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h) —
+conversion results are transient presigned-GET artifacts, and until the rule exists they accumulate
+([`docs/deploy-queue.md`](../../docs/deploy-queue.md)).
 
 The dedicated-worker split is a cross-cutting decision shared with the scan, editing, and PDF-engine
-subsystems (search is the exception — its index is durable per-firm data); land it as one shared
-decision, coordinated via `vp run worktrees`, with `apps/scan-worker` as the working template.
+subsystems (search is the exception — its index is durable per-firm data), with `apps/scan-worker`
+as the working template.
 
-Until step 2 is done, `resolveEnginePort` returns the deferred port for every convert-worker engine and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
+The Container binding cannot run under the local Miniflare test pool, which is why
+`resolveEnginePort` is injectable at every consumer's seam and the e2e tests supply a fake engine;
+under the pool every convert-worker engine resolves to the deferred port and the routes still
+operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure).
 
 ## Document assembly — the PDF arm reuses the conversion edge, it does not own one
 

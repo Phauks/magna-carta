@@ -275,7 +275,7 @@ export async function timelinePageBounds(
   return bounds;
 }
 
-// THE MATTER-SCOPED READS ARE GATED AND CLEAN: every one of the fourteen sources seeks its own
+// THE MATTER-SCOPED READS ARE GATED AND CLEAN: every one of the fifteen sources seeks its own
 // matter-keyed index, which is what a case timeline is supposed to look like.
 //
 // The FIRM-WIDE WINDOW is a different read, and these sources scan for it. That is not a planner

@@ -161,6 +161,69 @@ export type FirmUsageResponse = {
     };
 };
 
+export type ExportRenderRequest = {
+    format: 'docx' | 'pdf';
+    document: {
+        title: string;
+        stampLines: Array<string>;
+        sections: Array<{
+            title: string;
+            headers: Array<string>;
+            rows: Array<Array<string>>;
+            endAlignedColumns?: Array<number>;
+        }>;
+    };
+};
+
+export type DownloadSnapshotCreatedResponse = {
+    id: string;
+    expiresAt: string;
+};
+
+export type DownloadSnapshotRequest = {
+    title: string;
+    format: string;
+    document: {
+        title: string;
+        generatedAt: string;
+        sections: Array<{
+            title: string;
+            headers: Array<string>;
+            rows: Array<Array<string | {
+                text: string;
+                number: number;
+            }>>;
+            endAlignedColumns?: Array<number>;
+        }>;
+    };
+};
+
+export type DownloadShelfResponse = {
+    items: Array<DownloadItem>;
+};
+
+export type DownloadItem = {
+    id: string;
+    title: string;
+    kind: 'artifact' | 'snapshot';
+    producer: 'export' | 'bundle' | 'conversion';
+    byteSize: number | null;
+    downloadedFormats: Array<string>;
+    createdAt: string;
+    expiresAt: string;
+    state: 'building' | 'ready' | 'failed' | 'expired';
+};
+
+export type DownloadFetchResponse = {
+    kind: 'artifact' | 'snapshot';
+    url?: string;
+    document?: unknown;
+};
+
+export type DownloadFetchRequest = {
+    format: string;
+};
+
 export type ToolsConnectionResponse = {
     ip: string;
     asn: number;
@@ -1435,6 +1498,64 @@ export type PreviewGrant = {
     sizeBytes?: number | null;
     reason?: 'verdict' | 'unknown-verdict' | 'tiered' | 'encoded' | 'derived' | 'unknown-type' | 'host-unavailable';
     downloadUrl: string;
+};
+
+export type DeletedFileListResponse = {
+    data: Array<DeletedFileItem>;
+    nextCursor: string | null;
+};
+
+export type DeletedFileItem = {
+    id: string;
+    name: string;
+    folderId: string | null;
+    documentTypeId: string | null;
+    deletedAt: string;
+    deletedBy: string | null;
+    deletedByName: string | null;
+    currentVersionId: string | null;
+    sizeBytes: number | null;
+    sniffedContentType: string | null;
+};
+
+export type RestoredFileAck = {
+    fileId: string;
+    folderId: string | null;
+};
+
+export type RestoreFileRequest = {
+    folderId?: string | null;
+};
+
+export type ArchiveEntriesResponse = {
+    entries: Array<ArchiveEntry>;
+    truncated: boolean;
+};
+
+export type ArchiveEntry = {
+    path: string;
+    isDirectory: boolean;
+    compressedSizeBytes: number;
+    uncompressedSizeBytes: number;
+    modifiedAt: string | null;
+};
+
+export type FileHistoryResponse = {
+    data: Array<FileHistoryItem>;
+    nextCursor: string | null;
+};
+
+export type FileHistoryItem = {
+    at: string;
+    event: string;
+    fileId: string;
+    fileName: string;
+    versionNumber: number | null;
+    actorUserId: string | null;
+    actorName: string | null;
+    detail?: unknown;
+    fromText: string | null;
+    toText: string | null;
 };
 
 export type BundleReady = {
@@ -6630,6 +6751,197 @@ export type FirmUsageGetResponses = {
 };
 
 export type FirmUsageGetResponse = FirmUsageGetResponses[keyof FirmUsageGetResponses];
+
+export type ReportsExportRenderData = {
+    body: ExportRenderRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/reports/exports';
+};
+
+export type ReportsExportRenderErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks reports:export
+     */
+    403: Problem;
+    /**
+     * The document is past the render bounds, or the conversion has no path
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.
+     */
+    503: Problem;
+};
+
+export type ReportsExportRenderError = ReportsExportRenderErrors[keyof ReportsExportRenderErrors];
+
+export type ReportsExportRenderResponses = {
+    /**
+     * The rendered file's bytes, content-typed for the requested format
+     */
+    200: unknown;
+};
+
+export type DownloadsRecordSnapshotData = {
+    body: DownloadSnapshotRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/snapshots';
+};
+
+export type DownloadsRecordSnapshotErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * The document is past the register's bounds
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsRecordSnapshotError = DownloadsRecordSnapshotErrors[keyof DownloadsRecordSnapshotErrors];
+
+export type DownloadsRecordSnapshotResponses = {
+    /**
+     * The shelf item that was created
+     */
+    201: DownloadSnapshotCreatedResponse;
+};
+
+export type DownloadsRecordSnapshotResponse = DownloadsRecordSnapshotResponses[keyof DownloadsRecordSnapshotResponses];
+
+export type DownloadsShelfData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads';
+};
+
+export type DownloadsShelfErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsShelfError = DownloadsShelfErrors[keyof DownloadsShelfErrors];
+
+export type DownloadsShelfResponses = {
+    /**
+     * The member's shelf
+     */
+    200: DownloadShelfResponse;
+};
+
+export type DownloadsShelfResponse = DownloadsShelfResponses[keyof DownloadsShelfResponses];
+
+export type DownloadsFetchData = {
+    body: DownloadFetchRequest;
+    path: {
+        downloadItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/{downloadItemId}/fetches';
+};
+
+export type DownloadsFetchErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * No such item on this member's shelf
+     */
+    404: Problem;
+    /**
+     * The item's retention window has closed and its bytes are gone
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsFetchError = DownloadsFetchErrors[keyof DownloadsFetchErrors];
+
+export type DownloadsFetchResponses = {
+    /**
+     * The URL to download, or the document to render
+     */
+    200: DownloadFetchResponse;
+};
+
+export type DownloadsFetchResponse = DownloadsFetchResponses[keyof DownloadsFetchResponses];
+
+export type DownloadsRemoveData = {
+    body?: never;
+    path: {
+        downloadItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/{downloadItemId}';
+};
+
+export type DownloadsRemoveErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * No such item on this member's shelf
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsRemoveError = DownloadsRemoveErrors[keyof DownloadsRemoveErrors];
+
+export type DownloadsRemoveResponses = {
+    /**
+     * Removed
+     */
+    204: void;
+};
+
+export type DownloadsRemoveResponse = DownloadsRemoveResponses[keyof DownloadsRemoveResponses];
 
 export type ToolsConnectionGetData = {
     body?: never;
@@ -12140,6 +12452,179 @@ export type FilesPreviewResponses = {
 };
 
 export type FilesPreviewResponse = FilesPreviewResponses[keyof FilesPreviewResponses];
+
+export type FilesListDeletedData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/matters/{matterId}/files/deleted';
+};
+
+export type FilesListDeletedErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesListDeletedError = FilesListDeletedErrors[keyof FilesListDeletedErrors];
+
+export type FilesListDeletedResponses = {
+    /**
+     * A page of the matter's deleted files
+     */
+    200: DeletedFileListResponse;
+};
+
+export type FilesListDeletedResponse = FilesListDeletedResponses[keyof FilesListDeletedResponses];
+
+export type FilesRestoreData = {
+    body: RestoreFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/restore';
+};
+
+export type FilesRestoreErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * The file is not deleted (nothing to restore), or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesRestoreError = FilesRestoreErrors[keyof FilesRestoreErrors];
+
+export type FilesRestoreResponses = {
+    /**
+     * The file was restored; folderId reports where it landed
+     */
+    200: RestoredFileAck;
+};
+
+export type FilesRestoreResponse = FilesRestoreResponses[keyof FilesRestoreResponses];
+
+export type FilesArchiveEntriesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/archive-entries';
+};
+
+export type FilesArchiveEntriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * The file has no committed version yet, so there are no bytes to read
+     */
+    409: Problem;
+    /**
+     * The file is not a zip archive
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesArchiveEntriesError = FilesArchiveEntriesErrors[keyof FilesArchiveEntriesErrors];
+
+export type FilesArchiveEntriesResponses = {
+    /**
+     * The archive's entry listing
+     */
+    200: ArchiveEntriesResponse;
+};
+
+export type FilesArchiveEntriesResponse = FilesArchiveEntriesResponses[keyof FilesArchiveEntriesResponses];
+
+export type FilesHistoryData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/matters/{matterId}/file-history';
+};
+
+export type FilesHistoryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesHistoryError = FilesHistoryErrors[keyof FilesHistoryErrors];
+
+export type FilesHistoryResponses = {
+    /**
+     * A page of the matter's file history
+     */
+    200: FileHistoryResponse;
+};
+
+export type FilesHistoryResponse = FilesHistoryResponses[keyof FilesHistoryResponses];
 
 export type DownloadsZipData = {
     body: ZipDownloadRequest;

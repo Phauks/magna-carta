@@ -183,6 +183,17 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
   return { kind: "settling", fileId: reservation.fileId };
 }
 
+/**
+ * One file's live line in the Upload dialog: its name, where its ceremony stands, and — when it
+ * failed — a reason that names the stage and quotes the Error ID, because "an unexpected error
+ * occurred" with nothing to report was exactly the complaint this line exists to answer.
+ */
+export interface UploadProgressItem {
+  readonly name: string;
+  readonly stage: UploadStage | "failed";
+  readonly reason?: string;
+}
+
 /** What the reader is told while an upload runs. One sentence per step, never a bare spinner. */
 export const UPLOAD_STAGE_NARRATION: Readonly<Record<UploadStage, string>> = {
   reserving: "Reserving the file",

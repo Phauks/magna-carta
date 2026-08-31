@@ -114,7 +114,12 @@
   });
 </script>
 
-<aside class="mc-scrollbar flex h-full min-h-0 flex-col overflow-y-auto" aria-label="Details">
+<!-- The raised surface sets the panel apart from the list beside it — a sidebar the same white as
+     the work area reads as more work area, not as a panel. -->
+<aside
+  class="mc-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface-sunken"
+  aria-label="Details"
+>
   {#if row === null}
     <div class="flex h-full items-center justify-center p-16">
       <!-- One line, standing alone: the tail explaining that details live here was saying what the
@@ -327,7 +332,8 @@
                     <Button
                       variant="ghost"
                       size="icon"
-                      title="Restore version {version.versionNumber} as a new version"
+                      disabled
+                      title={waitingReason("restore-version")}
                       aria-label="Restore version {version.versionNumber} as a new version"
                       onclick={() => onRestoreVersion(version)}
                     >

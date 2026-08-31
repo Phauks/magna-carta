@@ -219,6 +219,29 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         });
       },
     },
+    session: {
+      // THE SESSION RIDES A SIGNED COOKIE FOR FIVE MINUTES AT A TIME. Without this, every API
+      // request pays Better Auth's control-plane session lookup before any work starts — measured
+      // in production at hundreds of milliseconds of the time a screen waits, multiplied by the
+      // half-dozen parallel reads a screen fires. With it, getSession answers from an HMAC-signed
+      // session_data cookie while that cookie is fresh, and re-signs it from the store when it is
+      // not — session-context.ts forwards those refresh Set-Cookie headers to the caller, which is
+      // what keeps the cache renewing past its first five minutes.
+      //
+      // What this trades, and why it holds (owner's direction, 2026-08-31: a signed-in member is
+      // trusted to be here): a session revoked SERVER-side — sign-out-everywhere, an expired row —
+      // stays believable on an already-issued cookie for up to maxAge. It does NOT loosen the
+      // checks that answer for a person's standing in their firm, which run per request against
+      // live stores regardless: the member-active gate and RBAC read the firm database every time,
+      // and the firm row gate reads the control plane every time. Sign-out on the device itself
+      // clears both cookies immediately. The one fact the cookie can hold stale — a firmless
+      // session whose firm was attached by a direct control-plane write the library never saw —
+      // is re-read fresh in session-context.ts before it is believed.
+      cookieCache: {
+        enabled: true,
+        maxAge: 300,
+      },
+    },
     // The one tenant firm this person belongs to; input: false keeps the field out of every
     // request body — only server-side code (the joining paths) ever sets it. required: false
     // because an account exists before it has a firm: the joining surface creates the person, and

@@ -28,6 +28,7 @@
 import type { Component } from "svelte";
 import type { MaturityStage } from "$lib/maturity/maturity.ts";
 import House from "@lucide/svelte/icons/house";
+import Download from "@lucide/svelte/icons/download";
 import Bell from "@lucide/svelte/icons/bell";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
@@ -128,6 +129,20 @@ export const DESTINATIONS: readonly Destination[] = [
     shipped: true,
     stage: "alpha",
     pinned: true,
+    defaultStarred: true,
+  },
+  {
+    // The download register: what the platform produced for this member, kept for a short window so
+    // it can be taken again. Deliberately NOT the notification feed — that surface carries the
+    // firm's work, and a generated file is platform mechanics (owner ruling, 2026-08-31).
+    id: "downloads",
+    label: "Downloads",
+    href: "/downloads",
+    icon: Download,
+    description: "Reports and files the platform made for you, ready to download again.",
+    group: "top",
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {

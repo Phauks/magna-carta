@@ -1,5 +1,6 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
+import { makeZip } from "client-zip";
 import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
@@ -245,7 +246,7 @@ async function seedCleanFile(
     readonly matterId: MatterId;
     readonly folderId: FolderId | null;
     readonly name: string;
-    readonly content: string;
+    readonly content: string | Uint8Array;
     readonly sniffedContentType: string;
     readonly scanVerdict: "unscanned" | "clean" | "flagged";
     readonly uploadedBy: UserId;
@@ -255,7 +256,8 @@ async function seedCleanFile(
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
   const r2Key = fileVersionKey(fileId, versionId);
-  const bytes = new TextEncoder().encode(input.content);
+  const bytes =
+    typeof input.content === "string" ? new TextEncoder().encode(input.content) : input.content;
   await insertFileStatement(firmDatabase, {
     id: fileId,
     matterId: input.matterId,
@@ -338,6 +340,58 @@ async function seedQuarantinedFile(
   ).run();
 }
 
+// The browsable-archive sample's stable name — the convergence key, like the matter title above.
+const ARCHIVE_SAMPLE_NAME = "Case Documents.zip";
+
+// Real zip bytes with nested directories, so browsing inside an archive has something local to
+// read. Built through the same library the bundle download streams through, so the central
+// directory is a faithful one rather than a hand-maintained blob.
+async function sampleArchiveBytes(): Promise<Uint8Array> {
+  const lastModified = new Date("2026-05-14T10:30:00Z");
+  const entries = [
+    "case-documents/retainer-agreement.txt",
+    "case-documents/engagement-notes.txt",
+    "case-documents/pleadings/complaint.txt",
+    "case-documents/pleadings/answer.txt",
+    "case-documents/discovery/requests/first-set-requests.txt",
+    "case-documents/discovery/production/bates-000001.txt",
+    "case-documents/discovery/production/bates-000002.txt",
+    "case-documents/exhibits/exhibit-a-contract.txt",
+  ].map((name) => ({
+    name,
+    lastModified,
+    input: `Seeded archive member ${name} for local development.\n`,
+  }));
+  return new Uint8Array(await new Response(makeZip(entries)).arrayBuffer());
+}
+
+// Convergent like the owner account: local uploads cannot commit a version (the scan service is not
+// connected under `wrangler dev`), so without this sample no zip in a warm local tenant is ever
+// browsable. Runs on the resume branch as well as the fresh one, so a tenant seeded before the
+// sample existed picks it up on the next seed call.
+async function ensureArchiveSample(
+  env: Bindings,
+  firmDatabase: ProxyBatchDatabase,
+  matterId: MatterId,
+  ownerUserId: UserId,
+): Promise<void> {
+  const existing = await firmDatabase
+    .prepare("SELECT id FROM file WHERE matter_id = ?1 AND name = ?2 LIMIT 1")
+    .bind(matterId, ARCHIVE_SAMPLE_NAME)
+    .first<{ id: string }>();
+  if (existing !== null) return;
+  await seedCleanFile(env, firmDatabase, {
+    matterId,
+    folderId: null,
+    name: ARCHIVE_SAMPLE_NAME,
+    content: await sampleArchiveBytes(),
+    sniffedContentType: "application/zip",
+    scanVerdict: "clean",
+    uploadedBy: ownerUserId,
+    now: new Date().toISOString(),
+  });
+}
+
 // Seeds the matter, folders, and files — but only when the dev matter does not already exist, so a
 // re-run resumes rather than seeding a second copy. Returns the matter id (found or created).
 async function ensureSeededData(
@@ -350,12 +404,14 @@ async function ensureSeededData(
     .bind(DEV_MATTER_TITLE)
     .first<{ id: string }>();
   if (existing !== null) {
+    const matterId = assertIdentifier(existing.id, "matter");
+    await ensureArchiveSample(env, firmDatabase, matterId, ownerUserId);
     const count = await firmDatabase
       .prepare("SELECT COUNT(*) AS n FROM file WHERE matter_id = ?1")
       .bind(existing.id)
       .first<{ n: number }>();
     return {
-      matterId: assertIdentifier(existing.id, "matter"),
+      matterId,
       fileCount: count?.n ?? 0,
       created: false,
     };
@@ -434,8 +490,9 @@ async function ensureSeededData(
     uploadedBy: ownerUserId,
     now,
   });
+  await ensureArchiveSample(env, firmDatabase, matterId, ownerUserId);
 
-  return { matterId, fileCount: 5, created: true };
+  return { matterId, fileCount: 6, created: true };
 }
 
 export function registerDevSeedRoute(app: DevSeedApp): void {

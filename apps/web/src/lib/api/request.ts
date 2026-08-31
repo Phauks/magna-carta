@@ -18,7 +18,7 @@ import { readProblem, requestLine, type Failure, type Problem } from "./problem.
 import { platformHealth } from "$lib/diagnostics/platform-health.svelte.ts";
 
 export type { Failure, Problem, ProblemFieldError } from "./problem.ts";
-export { requestLine } from "./problem.ts";
+export { readProblem, requestLine } from "./problem.ts";
 
 /**
  * One page of a cursor-paged listing. `nextCursor` is a string when the record continues past this

@@ -91,6 +91,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   },
   { table: "incident", subjectKey: "reported_by", action: "pseudonymize-keep" },
   { table: "ai_detection_usage", subjectKey: "requested_by", action: "pseudonymize-keep" },
+  // The download shelf — a member's own transient list of what the platform produced for them.
+  // HARD-DELETE, and it is the rare table where that is unambiguously right: every row belongs to
+  // exactly one member, is theirs alone by construction (no read is firm-wide), holds nothing the
+  // firm is ever asked to account for, and expires within a week anyway. Pseudonymizing would leave
+  // a stranger's shelf pointing at a stored export document nobody can reach and nothing will
+  // delete; the audit rows that record the member's downloads live in audit_log, which is
+  // pseudonymize-keep above and is where that accountability belongs.
+  { table: "download_item", subjectKey: "member_id", action: "hard-delete" },
   // Append-only tables: pseudonymize the subject reference, never delete the row.
   { table: "audit_log", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   // A version records WHO committed it, and that reference outlives the member row by design —
@@ -436,6 +444,40 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "member_user_id",
     action: "retain-under-matter",
     note: "which firm member appeared, and when, is that matter's record of the appearance",
+  },
+  // The matter note. Three entries across two tables, and the split between them is the whole point.
+  //
+  // The BODY is report-manual, which is the action this registry defines as "free-text / document
+  // content — surfaced in the residue report, not auto-erased", and a note is precisely what that
+  // action was written for. A note body may name anybody — the client, the opposing party, a witness,
+  // a doctor, a person mentioned once in passing — and no automated pass can safely rewrite prose
+  // without either destroying the record's meaning or missing the reference it was asked to remove.
+  // So the platform neither silently erases a note nor silently refuses to: it reports it, and a
+  // person decides. This is also the one route by which bytes ever leave these tables, because the
+  // product has no delete path at all.
+  //
+  // The two AUTHOR columns are pseudonymize-keep on the user axis: append-only rows whose subject
+  // reference is replaced and never deleted. Erasing a member anonymizes the member row into a
+  // tombstone and the note's author column then points at that tombstone, which is the correct
+  // outcome — a note's attribution is not decoration, it is most of what makes a contemporaneous
+  // record worth having, and the federated timeline reads that column as the entry's actor.
+  {
+    table: "matter_note_revision",
+    subjectKey: "body",
+    action: "report-manual",
+    note: "the words themselves: attorney work product that may name anybody, with no structured subject column and no safe automated rewrite",
+  },
+  {
+    table: "matter_note",
+    subjectKey: "author_user_id",
+    action: "pseudonymize-keep",
+    note: "who first wrote the note; the reference is replaced at the member tombstone, never dropped",
+  },
+  {
+    table: "matter_note_revision",
+    subjectKey: "author_user_id",
+    action: "pseudonymize-keep",
+    note: "who wrote this particular body, which is not always who started the note",
   },
   // The firm's own calendar scope. A firm event's participant table takes the same three keys as a
   // matter event's, for the same three shapes — but the retention basis differs: attendance at the

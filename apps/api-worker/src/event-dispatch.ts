@@ -44,6 +44,7 @@ import {
   runStatusSnapshot,
   runStorageReconciliation,
 } from "./scheduled.ts";
+import { runDownloadShelfRetentionSweep } from "./downloads/shelf-retention-sweep.ts";
 import { runReextractionSweep } from "./search/reextraction-sweep.ts";
 import { discoveryProcessQueue } from "./discovery/process-consumer.ts";
 import type { DiscoveryLaneMessage } from "./discovery/discovery-process-types.ts";
@@ -206,6 +207,10 @@ export async function runScheduledPass(
             // Nothing is lost by the wait: the queue is the primary path and answers a cause within
             // one relay cycle; this only catches what the queue structurally cannot.
             await runConflictsRecheckSweep(env);
+            // The download shelf's retention pass, beside the other storage passes: a bounded
+            // delete per firm of shelf rows whose window has closed, and of the stored export
+            // documents behind them. Cheap, and the only thing keeping the shelf a shelf.
+            await runDownloadShelfRetentionSweep(env);
           },
         }
       : controller.cron === STATUS_SNAPSHOT_CRON

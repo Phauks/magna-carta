@@ -54,10 +54,19 @@ export const matterSections: readonly MatterSection[] = [
       "with their recoverable and billable treatment.",
   },
   {
+    slug: "fees",
+    label: "Fees",
+    core: true,
+    stage: "alpha",
+    description:
+      "Flat charges for professional services recorded on this matter — the fee agreement and " +
+      "the work-in-progress fee ledger, waiting to be claimed by a bill.",
+  },
+  {
     slug: "billing",
     label: "Billing",
     core: true,
-    stage: "soon",
+    stage: "alpha",
     description:
       "Invoices, payments, and the matter's billing arrangement — hourly, flat fee, or " +
       "contingency — with the full accounting of what has been billed and collected.",
@@ -75,7 +84,7 @@ export const matterSections: readonly MatterSection[] = [
     slug: "notes",
     label: "Notes",
     core: false,
-    stage: "soon",
+    stage: "alpha",
     description: "Matter notes and memoranda — dated, attributed, and searchable.",
   },
   {
