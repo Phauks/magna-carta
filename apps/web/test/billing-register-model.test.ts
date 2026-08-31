@@ -16,7 +16,15 @@ import {
   billColumns,
 } from "../src/lib/billing/bill-columns.ts";
 import { billCounts, billFigures } from "../src/lib/billing/bill-figures.ts";
-import { BILL_DEPENDENCIES, billActions, billRecordMenu } from "../src/lib/billing/bill-actions.ts";
+import {
+  BILL_DEPENDENCIES,
+  billAction,
+  billActions,
+  billRecordMenu,
+  invoiceBarActions,
+  invoiceMoneyActions,
+  isAdjustable,
+} from "../src/lib/billing/bill-actions.ts";
 // The pure model module, not the catalogue's index: the index also exports the rendering component.
 import { isEnabled, menuItem } from "../src/lib/records/record-menu-model.ts";
 
@@ -88,8 +96,12 @@ function column(id: string) {
 describe("the register's columns", () => {
   it("anchors the row on the invoice, which is what a bill is called out loud", () => {
     const [first] = COLUMNS;
-    expect(first?.id).toBe(BILL_COLUMN_IDENTIFIERS.invoiceNumber);
+    expect(first?.id).toBe(BILL_COLUMN_IDENTIFIERS.createdAt);
     expect(first?.anchored).toBe(true);
+    // The number follows immediately, where it is read — but it cannot anchor, because two of the
+    // three states have no number at all and an anchor that goes empty leaves the eye with nothing.
+    expect(COLUMNS[1]?.id).toBe(BILL_COLUMN_IDENTIFIERS.invoiceNumber);
+    expect(COLUMNS[1]?.anchored).toBeUndefined();
   });
 
   it("opens on what was raised most recently", () => {
@@ -97,13 +109,13 @@ describe("the register's columns", () => {
     expect(BILL_REGISTER_INITIAL_SORT.direction).toBe("descending");
   });
 
-  it("leads with THIS MATTER'S share and keeps the whole bill beside it, hidden", () => {
+  it("states THIS MATTER'S share and offers no column for the whole document", () => {
     const share = column(BILL_COLUMN_IDENTIFIERS.matterShare);
-    const whole = column(BILL_COLUMN_IDENTIFIERS.billTotal);
     expect(share.label).toBe("This Matter");
     expect(share.hidden).toBeUndefined();
-    expect(whole.label).toBe("Total (all matters)");
-    expect(whole.hidden).toBe(true);
+    // The whole document's total is a fact about the document. A matter's own register that carried
+    // it would invite a reader to add up a column that is not theirs.
+    expect(COLUMNS.some((candidate) => candidate.label === "Total (all matters)")).toBe(false);
 
     const shared = makeRow(
       { totalMinor: 300_000 },
@@ -119,20 +131,16 @@ describe("the register's columns", () => {
         ],
       },
     );
-    // The share column speaks for the matter; the total column speaks for the document. A register
-    // that summed the document under this heading would misstate the matter by the other matter.
     expect(share.value(shared)).toBe(2000);
-    expect(whole.value(shared)).toBe(3000);
   });
 
-  it("sums exactly the four money columns and nothing else", () => {
+  it("sums exactly the three money columns and nothing else", () => {
     const summed = COLUMNS.filter((candidate) => candidate.total === "sum").map(
       (candidate) => candidate.id,
     );
     expect(summed).toEqual([
       BILL_COLUMN_IDENTIFIERS.matterShare,
       BILL_COLUMN_IDENTIFIERS.matterUnpaid,
-      BILL_COLUMN_IDENTIFIERS.billTotal,
       BILL_COLUMN_IDENTIFIERS.credited,
     ]);
   });
@@ -240,34 +248,47 @@ describe("the verbs a bill offers", () => {
     money,
   };
 
-  it("offers a draft the two verbs a draft can take, and no others", () => {
-    const draft = makeRow({ status: "draft", invoiceNumber: null });
-    const identifiers = billActions(draft, context).map((action) => action.identifier);
-    expect(identifiers).toContain("finalize");
-    expect(identifiers).toContain("voidDraft");
-    expect(identifiers).not.toContain("creditNote");
-    expect(identifiers).not.toContain("recordDelivery");
+  it("keeps every verb on screen in every state, refusing rather than vanishing", () => {
+    // One action bar, fixed geometry: an act a bill refuses is disabled with the reason, never
+    // absent, so nothing moves as a reader walks from one bill to the next.
+    const draft = billActions(makeRow({ status: "draft", invoiceNumber: null }), context).map(
+      (action) => action.identifier,
+    );
+    const final = billActions(makeRow({}), context).map((action) => action.identifier);
+    expect(draft).toEqual(final);
+    expect(draft).toContain("adjust");
+    expect(draft).toContain("creditNote");
   });
 
-  it("never offers to void a finalized bill: it is corrected beside itself", () => {
-    const identifiers = billActions(makeRow({}), context).map((action) => action.identifier);
-    expect(identifiers).not.toContain("voidDraft");
-    expect(identifiers).toContain("creditNote");
+  it("refuses finalize on anything but a draft, and void on anything but a draft", () => {
+    const onFinal = billActions(makeRow({}), context);
+    expect(billAction(onFinal, "finalize")?.disabledReason).toContain("Only a draft finalizes");
+    expect(billAction(onFinal, "voidDraft")?.disabledReason).toContain("credit note");
   });
 
   it("keeps a not-yet-built capability on screen with what it waits on", () => {
-    const payment = billActions(makeRow({}), context).find(
-      (action) => action.identifier === "recordPayment",
-    );
+    const payment = billAction(billActions(makeRow({}), context), "recordPayment");
     expect(payment?.soonDependency).toBe(BILL_DEPENDENCIES.payment);
-    expect(payment === undefined ? true : isEnabled(payment)).toBe(false);
+    expect(payment === null ? true : isEnabled(payment)).toBe(false);
+  });
+
+  it("offers adjustment on a finalized bill with nothing applied, marked against its dependency", () => {
+    const untouched = makeRow({});
+    expect(isAdjustable(untouched)).toBe(true);
+    const adjust = billAction(billActions(untouched, context), "adjust");
+    expect(adjust?.soonDependency).toBe(BILL_DEPENDENCIES.adjustment);
+
+    // The moment anything is applied the bill locks, and the refusal names the correction path.
+    const applied = makeRow({ appliedMinor: 100_000 });
+    expect(isAdjustable(applied)).toBe(false);
+    expect(billAction(billActions(applied, context), "adjust")?.disabledReason).toContain(
+      "credit note",
+    );
   });
 
   it("refuses applying anything to a settled bill, and says why rather than hiding the verb", () => {
     const settled = makeRow({ appliedMinor: 100_000 });
-    const applyTrust = billActions(settled, context).find(
-      (action) => action.identifier === "applyTrust",
-    );
+    const applyTrust = billAction(billActions(settled, context), "applyTrust");
     expect(applyTrust?.disabledReason).toContain("settled");
   });
 
@@ -276,25 +297,67 @@ describe("the verbs a bill offers", () => {
       ...context,
       permissions: ["billing:read", "billing:draft"],
     });
-    const creditNote = withoutCredit.find((action) => action.identifier === "creditNote");
-    expect(creditNote?.disabledReason).toContain("billing:credit");
+    expect(billAction(withoutCredit, "creditNote")?.disabledReason).toContain("billing:credit");
   });
 
-  it("offers the client credit only where the client is carrying one", () => {
-    const without = billActions(makeRow({}), context).map((action) => action.identifier);
-    expect(without).not.toContain("applyClientCredit");
-    const withCredit = billActions(makeRow({}), {
-      ...context,
-      openClientCreditMinor: 120_000,
-    }).map((action) => action.identifier);
-    expect(withCredit).toContain("applyClientCredit");
+  it("refuses the client credit where the client is carrying none, and offers it where they are", () => {
+    const without = billAction(billActions(makeRow({}), context), "applyClientCredit");
+    expect(without?.disabledReason).toContain("no open credit");
+    const withCredit = billAction(
+      billActions(makeRow({}), { ...context, openClientCreditMinor: 120_000 }),
+      "applyClientCredit",
+    );
+    expect(withCredit?.disabledReason).toBeUndefined();
+    expect(withCredit?.label).toContain(money(120_000));
+  });
+
+  it("puts the draft verbs and the finalized verbs in the action bar, and the money in its tab", () => {
+    const draftBar = invoiceBarActions(
+      makeRow({ status: "draft", invoiceNumber: null }),
+      context,
+    ).map((action) => action.identifier);
+    expect(draftBar).toEqual(["finalize", "voidDraft"]);
+
+    const finalBar = invoiceBarActions(makeRow({}), context).map((action) => action.identifier);
+    expect(finalBar).toEqual(["adjust", "recordDelivery", "print", "exportLedes"]);
+
+    // A voided draft has no acts left; the bar states the record and nothing else.
+    expect(invoiceBarActions(makeRow({ status: "void" }), context)).toEqual([]);
+
+    const money = invoiceMoneyActions(makeRow({}), context).map((action) => action.identifier);
+    expect(money).toEqual([
+      "applyTrust",
+      "recordPayment",
+      "applyClientCredit",
+      "writeOff",
+      "creditNote",
+    ]);
+  });
+
+  it("keeps the row menu to what belongs on a list", () => {
+    // Every operation lives in the invoice window. The list opens the thing and copies its number,
+    // plus the four acts a firm reaches for straight off a register.
+    const menu = billRecordMenu(makeRow({}), context);
+    const offered = menu.flatMap((group) => group.items.map((item) => item.identifier));
+    expect(offered).toEqual([
+      "open",
+      "copyNumber",
+      "finalize",
+      "voidDraft",
+      "recordDelivery",
+      "applyTrust",
+    ]);
+    expect(offered).not.toContain("writeOff");
+    expect(offered).not.toContain("creditNote");
+    expect(offered).not.toContain("print");
   });
 
   it("groups the row menu so no separator ever bounds nothing", () => {
     const menu = billRecordMenu(makeRow({ status: "draft", invoiceNumber: null }), context);
     expect(menu.every((group) => group.items.length > 0)).toBe(true);
     expect(menuItem(menu, "open")).not.toBeNull();
-    // A draft has drawn no number, so nothing offers to copy one.
-    expect(menuItem(menu, "copyNumber")).toBeNull();
+    // A draft has drawn no number, so copying one is refused with the reason rather than removed.
+    const copy = menuItem(menu, "copyNumber");
+    expect(copy?.disabledReason).toContain("drawn at finalization");
   });
 });

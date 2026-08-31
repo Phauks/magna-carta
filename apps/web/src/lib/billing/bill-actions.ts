@@ -1,10 +1,16 @@
 /*
  * The verbs of a bill, decided once.
  *
- * The register offers the same acts in two places — the row menu and the details panel beside the
- * table — and the two must never disagree about which of them a given bill can take, or about why
- * one is refused. So the answer is a pure function over the bill and who is asking, and both
- * surfaces render what it says.
+ * EVERY OPERATION LIVES IN THE INVOICE WINDOW. The window's bottom bar carries the acts that change
+ * the document — finalize, void, adjust, record a delivery, print, export — and its money tab
+ * carries the acts that move money against it. The list keeps only the two verbs that belong to a
+ * list: open the thing, and copy its number. Anything else offered from a row would be a second
+ * place to learn where an act lives, and the two would drift.
+ *
+ * ONE ACTION BAR, FIXED GEOMETRY. Every invoice state renders its actions in the same place at the
+ * same size. Within a state, an act the bill refuses is DISABLED WITH THE REASON, never absent, so
+ * the bar never jumps as a reader moves between bills. That is why `invoiceBarActions` returns a
+ * state's whole set rather than filtering it down to what happens to be possible.
  *
  * THREE KINDS OF "CANNOT", AND THEY READ DIFFERENTLY.
  *   - A STATE refusal: this bill cannot take this verb (a finalized bill is not voided).
@@ -16,7 +22,6 @@
  * mind of its own.
  */
 import Ban from "@lucide/svelte/icons/ban";
-import ChevronRight from "@lucide/svelte/icons/chevron-right";
 import Copy from "@lucide/svelte/icons/copy";
 import Download from "@lucide/svelte/icons/download";
 import FileMinus from "@lucide/svelte/icons/file-minus";
@@ -25,6 +30,7 @@ import Printer from "@lucide/svelte/icons/printer";
 import Receipt from "@lucide/svelte/icons/receipt";
 import Send from "@lucide/svelte/icons/send";
 import Shield from "@lucide/svelte/icons/shield";
+import SquarePen from "@lucide/svelte/icons/square-pen";
 import Stamp from "@lucide/svelte/icons/stamp";
 import Undo2 from "@lucide/svelte/icons/undo-2";
 
@@ -38,12 +44,13 @@ import {
 import { BILLING_PERMISSIONS } from "./billing-api.ts";
 import { billUnpaidMinor, matterUnpaidMinor, type InvoiceRow } from "./invoice-standing.ts";
 
-/** Every act the register can offer. The identifiers are what a surface switches on. */
+/** Every act the register and the invoice window can offer. Surfaces switch on the identifier. */
 export type BillActionIdentifier =
   | "open"
   | "copyNumber"
   | "finalize"
   | "voidDraft"
+  | "adjust"
   | "recordDelivery"
   | "applyTrust"
   | "recordPayment"
@@ -68,16 +75,22 @@ export interface BillActionContext {
   readonly money: (amountMinor: number) => string;
 }
 
-/** What the payments slice, the invoice artifact and the LEDES path each wait on. */
+/** What each not-yet-served act waits on, as the noun phrase the Soon composition completes. */
 export const BILL_DEPENDENCIES = {
   payment:
     "the payments slice, whose first step is the manually recorded receipt — a cheque, wire, cash " +
     "or terminal payment",
   print: "the invoice artifact: the render model is served, but no renderer consumes it yet",
   ledes: "the LEDES export path and the guideline validation that goes with it",
+  adjustment:
+    "the revised billing model — a finalized bill with nothing applied becomes adjustable with a " +
+    "recorded revision, which the accepted finalized-is-immutable decision has to be revised for " +
+    "before the line-edit and revision routes exist",
   applications:
     "a read of what has been applied to a bill, which the invoice detail does not carry yet",
   claims: "a read of the claims a draft is holding, which the invoice detail does not carry yet",
+  history: "an endpoint that serves an invoice's recorded events",
+  reminders: "the billing automations slice, where reminder schedules and payment plans live",
 } as const;
 
 function lacks(context: BillActionContext, capability: string): boolean {
@@ -86,6 +99,34 @@ function lacks(context: BillActionContext, capability: string): boolean {
 
 function permissionRefusal(capability: string): string {
   return `This account does not hold the ${capability} capability.`;
+}
+
+/**
+ * Whether a finalized bill can still be adjusted.
+ *
+ * The rule is the owner's: a finalized invoice with NO payment applied can be corrected, and the
+ * edit lands as a numbered, reasoned revision — the number never changes. The moment ANY payment or
+ * trust application lands, the bill locks and the correction path is the credit note beside it.
+ */
+export function isAdjustable(row: InvoiceRow): boolean {
+  return row.summary.status === "final" && row.summary.appliedMinor === 0;
+}
+
+/** Why adjusting is offered or refused, in the sentence the control carries either way. */
+export function adjustReason(row: InvoiceRow): string {
+  if (row.summary.status !== "final") {
+    return "Only a finalized invoice is adjusted; a draft simply changes.";
+  }
+  if (isAdjustable(row)) {
+    return (
+      "Change a line's wording or its amount. The edit is recorded as a visible revision and the " +
+      "number never changes."
+    );
+  }
+  return (
+    "A payment has been applied to this bill, so it is locked — the correction path is a credit " +
+    "note beside it."
+  );
 }
 
 /**
@@ -104,151 +145,239 @@ export function billActions(
   const unpaid = isFinal ? billUnpaidMinor(row) : 0;
   const matterUnpaid = matterUnpaidMinor(row, context.matterId) ?? 0;
   const detailUnread = row.detail === null;
+  const standingWord = isDraft ? "a draft" : invoice.status === "void" ? "a voided draft" : "final";
 
   const actions: RecordMenuAction[] = [
     {
       kind: "action",
       identifier: "open",
-      label: "Open Details",
-      icon: ChevronRight,
+      label: "Open Invoice",
+      icon: Receipt,
     },
   ];
 
-  if (invoice.invoiceNumber !== null) {
-    actions.push({
-      kind: "action",
-      identifier: "copyNumber",
-      label: `Copy Invoice Number: ${invoice.invoiceNumber}`,
-      icon: Copy,
-    });
-  }
+  actions.push({
+    kind: "action",
+    identifier: "copyNumber",
+    label:
+      invoice.invoiceNumber === null
+        ? "Copy Invoice Number"
+        : `Copy Invoice Number: ${invoice.invoiceNumber}`,
+    icon: Copy,
+    ...(invoice.invoiceNumber === null
+      ? { disabledReason: "A draft has no number; one is drawn at finalization." }
+      : {}),
+  });
 
-  if (isDraft) {
-    actions.push({
-      kind: "action",
-      identifier: "finalize",
-      label: "Finalize…",
-      icon: Stamp,
-      ...(lacks(context, BILLING_PERMISSIONS.finalize)
+  actions.push({
+    kind: "action",
+    identifier: "finalize",
+    label: "Finalize…",
+    icon: Stamp,
+    ...(!isDraft
+      ? { disabledReason: `Only a draft finalizes. This invoice is ${standingWord}.` }
+      : lacks(context, BILLING_PERMISSIONS.finalize)
         ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.finalize) }
         : detailUnread
           ? { disabledReason: "This draft's lines have not been read yet." }
           : {}),
-    });
-    actions.push({
-      kind: "action",
-      identifier: "voidDraft",
-      label: "Void Draft…",
-      icon: Ban,
-      ...(lacks(context, BILLING_PERMISSIONS.draft)
-        ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.draft) }
-        : {}),
-    });
-  }
+  });
 
-  if (isFinal) {
-    actions.push({
-      kind: "action",
-      identifier: "recordDelivery",
-      label: "Record Delivery…",
-      icon: Send,
-      ...(lacks(context, BILLING_PERMISSIONS.draft)
+  actions.push({
+    kind: "action",
+    identifier: "voidDraft",
+    label: "Void Draft…",
+    icon: Ban,
+    ...(!isDraft
+      ? {
+          disabledReason:
+            "Only a draft can be voided — a finalized bill is corrected by a credit note beside it.",
+        }
+      : lacks(context, BILLING_PERMISSIONS.draft)
         ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.draft) }
         : {}),
-    });
-    actions.push({
-      kind: "action",
-      identifier: "applyTrust",
-      label: "Apply Trust Funds…",
-      icon: Shield,
-      ...(unpaid <= 0
+  });
+
+  /*
+   * Adjusting is designed and settled and has no route: the accepted billing model says a finalized
+   * bill is immutable, and revising that is a decision the routes wait on. It renders where it
+   * belongs, marked, rather than being left out of a bar the owner settled the shape of.
+   */
+  actions.push({
+    kind: "action",
+    identifier: "adjust",
+    label: "Adjust Invoice…",
+    icon: SquarePen,
+    ...(isAdjustable(row)
+      ? { soonDependency: BILL_DEPENDENCIES.adjustment }
+      : { disabledReason: adjustReason(row) }),
+  });
+
+  actions.push({
+    kind: "action",
+    identifier: "recordDelivery",
+    label: "Record Delivery…",
+    icon: Send,
+    ...(!isFinal
+      ? { disabledReason: "Only a finalized bill can be delivered." }
+      : lacks(context, BILLING_PERMISSIONS.draft)
+        ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.draft) }
+        : {}),
+  });
+
+  actions.push({
+    kind: "action",
+    identifier: "applyTrust",
+    label: "Apply Trust Funds…",
+    icon: Shield,
+    ...(!isFinal
+      ? { disabledReason: "Only a finalized bill takes an application." }
+      : unpaid <= 0
         ? { disabledReason: "This bill is settled: there is nothing left to apply against." }
         : lacks(context, BILLING_PERMISSIONS.apply)
           ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.apply) }
           : {}),
-    });
-    actions.push({
-      kind: "action",
-      identifier: "recordPayment",
-      label: "Record Payment",
-      icon: Receipt,
-      soonDependency: BILL_DEPENDENCIES.payment,
-    });
-    if (context.openClientCreditMinor !== null && context.openClientCreditMinor > 0) {
-      actions.push({
-        kind: "action",
-        identifier: "applyClientCredit",
-        label: `Apply Client Credit (${context.money(context.openClientCreditMinor)})`,
-        icon: HandCoins,
-        ...(unpaid <= 0
-          ? {
-              disabledReason:
-                "This bill is settled: there is nothing left to set a credit against.",
-            }
-          : lacks(context, BILLING_PERMISSIONS.apply)
-            ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.apply) }
-            : {}),
-      });
-    }
-    actions.push({
-      kind: "action",
-      identifier: "writeOff",
-      label: "Write Off…",
-      icon: FileMinus,
-      ...(matterUnpaid <= 0
-        ? { disabledReason: "This matter owes nothing on this bill." }
-        : lacks(context, BILLING_PERMISSIONS.credit)
-          ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.credit) }
+  });
+
+  actions.push({
+    kind: "action",
+    identifier: "recordPayment",
+    label: "Record Payment",
+    icon: Receipt,
+    soonDependency: BILL_DEPENDENCIES.payment,
+  });
+
+  const openCredit = context.openClientCreditMinor;
+  actions.push({
+    kind: "action",
+    identifier: "applyClientCredit",
+    label:
+      openCredit === null || openCredit <= 0
+        ? "Apply Client Credit"
+        : `Apply Client Credit (${context.money(openCredit)})`,
+    icon: HandCoins,
+    ...(openCredit === null || openCredit <= 0
+      ? { disabledReason: "The client holds no open credit." }
+      : !isFinal || unpaid <= 0
+        ? { disabledReason: "Nothing is owed on this bill." }
+        : lacks(context, BILLING_PERMISSIONS.apply)
+          ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.apply) }
           : {}),
-    });
-    actions.push({
-      kind: "action",
-      identifier: "creditNote",
-      label: "Credit Note…",
-      icon: Undo2,
-      ...(lacks(context, BILLING_PERMISSIONS.credit)
+  });
+
+  actions.push({
+    kind: "action",
+    identifier: "writeOff",
+    label: "Write Off…",
+    icon: FileMinus,
+    ...(matterUnpaid <= 0
+      ? { disabledReason: "This matter owes nothing on this bill." }
+      : lacks(context, BILLING_PERMISSIONS.credit)
         ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.credit) }
         : {}),
-    });
-    actions.push({
-      kind: "action",
-      identifier: "print",
-      label: "Print / PDF",
-      icon: Printer,
-      soonDependency: BILL_DEPENDENCIES.print,
-    });
-    actions.push({
-      kind: "action",
-      identifier: "exportLedes",
-      label: "Export LEDES",
-      icon: Download,
-      soonDependency: BILL_DEPENDENCIES.ledes,
-    });
-  }
+  });
+
+  actions.push({
+    kind: "action",
+    identifier: "creditNote",
+    label: "Credit Note…",
+    icon: Undo2,
+    ...(!isFinal
+      ? { disabledReason: "A correction stands beside a finalized bill; a draft simply changes." }
+      : lacks(context, BILLING_PERMISSIONS.credit)
+        ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.credit) }
+        : {}),
+  });
+
+  actions.push({
+    kind: "action",
+    identifier: "print",
+    label: "Print / PDF",
+    icon: Printer,
+    soonDependency: BILL_DEPENDENCIES.print,
+  });
+
+  actions.push({
+    kind: "action",
+    identifier: "exportLedes",
+    label: "Export LEDES",
+    icon: Download,
+    soonDependency: BILL_DEPENDENCIES.ledes,
+  });
 
   return actions;
 }
 
-/** The verbs of a bill, grouped the way the row menu draws them. */
+/** One act out of the catalogue, by name. */
+export function billAction(
+  actions: readonly RecordMenuAction[],
+  identifier: BillActionIdentifier,
+): RecordMenuAction | null {
+  return actions.find((action) => action.identifier === identifier) ?? null;
+}
+
+/**
+ * The action bar's contents for one bill, in the one order the bar draws them.
+ *
+ * The set is chosen by the invoice's own state, and everything in the set renders — an act this
+ * bill refuses is disabled with its reason. That is what makes the bar's geometry fixed: a reader
+ * moving from a settled bill to an unpaid one finds the same controls in the same places.
+ */
+export function invoiceBarActions(
+  row: InvoiceRow,
+  context: BillActionContext,
+): readonly RecordMenuAction[] {
+  const actions = billActions(row, context);
+  const wanted: BillActionIdentifier[] =
+    row.summary.status === "draft"
+      ? ["finalize", "voidDraft"]
+      : row.summary.status === "final"
+        ? ["adjust", "recordDelivery", "print", "exportLedes"]
+        : [];
+  return wanted
+    .map((identifier) => billAction(actions, identifier))
+    .filter((action): action is RecordMenuAction => action !== null);
+}
+
+/**
+ * The money acts, which live in the invoice window's Payments & Credits tab and nowhere else.
+ *
+ * They are the dangerous ones — money leaving a client's trust ledger, a balance given up, a
+ * correction recorded forever — so they sit behind an opened invoice rather than one row-click away
+ * on a list.
+ */
+export function invoiceMoneyActions(
+  row: InvoiceRow,
+  context: BillActionContext,
+): readonly RecordMenuAction[] {
+  const actions = billActions(row, context);
+  const wanted: BillActionIdentifier[] = [
+    "applyTrust",
+    "recordPayment",
+    "applyClientCredit",
+    "writeOff",
+    "creditNote",
+  ];
+  return wanted
+    .map((identifier) => billAction(actions, identifier))
+    .filter((action): action is RecordMenuAction => action !== null);
+}
+
+/**
+ * The verbs of a bill as the ROW MENU draws them.
+ *
+ * Two groups and no more: open it and copy its number, then the four acts a firm reaches for
+ * straight off a list. Everything else — the money, the artifact, the correction — is in the window,
+ * because that is where the reader can see what they are acting on.
+ */
 export function billRecordMenu(row: InvoiceRow, context: BillActionContext): RecordMenuModel {
   const actions = billActions(row, context);
   const at = (identifier: BillActionIdentifier): RecordMenuAction | null =>
-    actions.find((action) => action.identifier === identifier) ?? null;
+    billAction(actions, identifier);
 
   return menuOf([
     { identifier: "record", items: [at("open"), at("copyNumber")] },
-    {
-      identifier: "money",
-      items: [
-        at("recordDelivery"),
-        at("applyTrust"),
-        at("recordPayment"),
-        at("applyClientCredit"),
-        at("writeOff"),
-        at("creditNote"),
-      ],
-    },
-    { identifier: "artifact", items: [at("print"), at("exportLedes")] },
     { identifier: "draft", items: [at("finalize"), at("voidDraft")] },
+    { identifier: "final", items: [at("recordDelivery"), at("applyTrust")] },
   ]);
 }

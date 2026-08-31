@@ -130,8 +130,8 @@
 
     <Tabs.Root bind:value={openTab} class="flex min-h-0 flex-1 flex-col gap-12">
       <Tabs.List class="self-start">
-        <Tabs.Trigger value="bills">Bills</Tabs.Trigger>
         <Tabs.Trigger value="fees">Fees</Tabs.Trigger>
+        <Tabs.Trigger value="bills">Bills</Tabs.Trigger>
       </Tabs.List>
 
       <Tabs.Content value="bills" class="flex min-h-0 flex-1 flex-col">
@@ -139,6 +139,7 @@
           rows={rows ?? []}
           loading={rows === null}
           matterId={matter.id}
+          matterTitle={matter.title}
           matterNumber={matter.matterNumber}
           clientEntityId={billing.clientEntityId}
           {clientName}
@@ -148,25 +149,20 @@
           unbilledCosts={billing.unbilledCosts}
           clientCredits={billing.clientCredits}
           {permissions}
-          selectBill={selectedBillIdentifier}
-          onSelectionHandled={() => (selectedBillIdentifier = null)}
           onChanged={() => (reloadToken += 1)}
         />
       </Tabs.Content>
 
       <Tabs.Content value="fees" class="flex min-h-0 flex-1 flex-col">
         <FeeLedger
-          {charges}
-          rows={rows ?? []}
+          {fees}
           arrangement={billing.arrangement}
-          unbilledMinor={unbilledFeeMinor}
           loading={rows === null}
           matterId={matter.id}
           matterTitle={matter.title}
           matterNumber={matter.matterNumber}
           {currency}
           {permissions}
-          onShowBill={showBill}
           onAmended={() => (reloadToken += 1)}
         />
       </Tabs.Content>
