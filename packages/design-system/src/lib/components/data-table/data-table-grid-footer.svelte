@@ -14,8 +14,6 @@
 
   type Props = {
     grid: DataTableGridState<TRow>;
-    /** The surface's own leading content, ahead of the tally (a place marker, a crumb). */
-    start?: Snippet;
     /** The surface's own trailing content (labelled figures, seams). */
     end?: Snippet;
     /**
@@ -33,7 +31,6 @@
   };
   let {
     grid,
-    start,
     end,
     tallyText = undefined,
     selectAllToggle = false,
@@ -48,9 +45,6 @@
 </script>
 
 <div class={mergeClasses("mc-table-grid-footer", className)}>
-  {#if start}
-    {@render start()}
-  {/if}
   <span class="mc-table-grid-footer-tally">
     {#if grid.isFiltered}
       <span class="mc-table-grid-footer-filtered">

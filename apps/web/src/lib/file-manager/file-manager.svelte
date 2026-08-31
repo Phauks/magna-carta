@@ -1618,14 +1618,18 @@
                 {/if}
               </div>
 
-              <!-- No undo/redo, scale, or Select All in here: nothing moves inside an archive and
-                   no selection has an act yet, so the crumb and the extract seam get the room. -->
+              <!-- The archive's own line, directly ABOVE the footer: the crumb and its acts get a
+                   full row of their own, and the footer underneath keeps every standard tool. -->
+              <div class="flex items-center gap-8 border-t border-border-default px-12 py-4">
+                {@render archiveCrumb()}
+                <span class="ms-auto flex shrink-0 items-center gap-4">
+                  {@render archiveActions()}
+                </span>
+              </div>
+
               <FileManagerFooter
                 {manager}
                 grid={archiveGrid}
-                start={archiveCrumb}
-                extras={archiveActions}
-                standardControls={false}
                 onUndo={() => void undoMove()}
                 onRedo={() => void redoMove()}
               />
@@ -1970,14 +1974,15 @@
   </EmptyState>
 {/snippet}
 
-<!-- The archive's place marker, leading the footer: the zip itself, then each directory down to
-     the level shown. It lives in the FOOTER so entering a zip never moves the header. -->
+<!-- The archive's place marker: the zip itself, then each directory down to the level shown. It
+     lives on the archive's own line above the footer, so entering a zip never moves the header
+     and never costs the footer a tool. -->
 {#snippet archiveCrumb()}
   {#if archiveBrowse !== null}
-    <!-- The crumb is the footer's one YIELDING element, and it yields in a hierarchy: past two
+    <!-- The crumb is the line's one YIELDING element, and it yields in a hierarchy: past two
          levels the middle collapses to an ellipsis, then the zip's name and the middle segment give
          way to ellipses — the level being SHOWN never disappears. Every title carries the full
-         name, and the clip backstop means the crumb can never paint over the tally or controls. -->
+         name, and the clip backstop means the crumb can never paint over the acts beside it. -->
     {@const segments = archivePathSegments(archivePath)}
     {@const shownSegments = segments.length > 2 ? segments.slice(-2) : segments}
     {@const currentSegment = shownSegments.at(-1)}
