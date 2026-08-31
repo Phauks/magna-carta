@@ -527,23 +527,31 @@
                     },
                     "members": {
                       "type": "number"
+                    },
+                    "custodyItems": {
+                      "type": "number"
                     }
                   },
                   "required": [
                     "name",
                     "status",
                     "matters",
-                    "members"
+                    "members",
+                    "custodyItems"
                   ]
                 }
               },
               "mattersWithoutLocation": {
                 "type": "number"
+              },
+              "custodyItemsOffsite": {
+                "type": "number"
               }
             },
             "required": [
               "rows",
-              "mattersWithoutLocation"
+              "mattersWithoutLocation",
+              "custodyItemsOffsite"
             ]
           },
           "directory": {

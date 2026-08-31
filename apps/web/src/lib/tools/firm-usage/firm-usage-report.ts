@@ -14,7 +14,6 @@ import {
 } from "./firm-usage-format.ts";
 
 const NOT_YET_MEASURED = "Not yet measured";
-const NOT_YET_REPORTED = "Not yet reported";
 
 export function firmUsageExportDocument(
   usage: FirmUsageResponse,
@@ -33,6 +32,9 @@ export function firmUsageExportDocument(
     usage.byLocation.rows.reduce((sum, row) => sum + row.matters, 0) +
     usage.byLocation.mattersWithoutLocation;
   const totalMembers = usage.byLocation.rows.reduce((sum, row) => sum + row.members, 0);
+  const totalCustodyItems =
+    usage.byLocation.rows.reduce((sum, row) => sum + row.custodyItems, 0) +
+    usage.byLocation.custodyItemsOffsite;
 
   return {
     title: "Firm Usage",
@@ -121,7 +123,7 @@ export function firmUsageExportDocument(
             row.status === "active" ? "Active" : "Closed",
             formatCount(row.matters),
             formatCount(row.members),
-            NOT_YET_REPORTED,
+            formatCount(row.custodyItems),
           ]),
           ...(usage.byLocation.mattersWithoutLocation > 0
             ? [
@@ -130,11 +132,28 @@ export function firmUsageExportDocument(
                   ABSENT_MARKER,
                   formatCount(usage.byLocation.mattersWithoutLocation),
                   ABSENT_MARKER,
-                  NOT_YET_REPORTED,
+                  ABSENT_MARKER,
                 ],
               ]
             : []),
-          ["Total", "", formatCount(totalMatters), formatCount(totalMembers), ABSENT_MARKER],
+          ...(usage.byLocation.custodyItemsOffsite > 0
+            ? [
+                [
+                  "Held Offsite",
+                  ABSENT_MARKER,
+                  ABSENT_MARKER,
+                  ABSENT_MARKER,
+                  formatCount(usage.byLocation.custodyItemsOffsite),
+                ],
+              ]
+            : []),
+          [
+            "Total",
+            "",
+            formatCount(totalMatters),
+            formatCount(totalMembers),
+            formatCount(totalCustodyItems),
+          ],
         ],
       },
       {

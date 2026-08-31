@@ -25,8 +25,9 @@ const usage: FirmUsageResponse = {
     deletedFiles: { count: 0, bytes: 0 },
   },
   byLocation: {
-    rows: [{ name: "Main Office", status: "active", matters: 2, members: 4 }],
+    rows: [{ name: "Main Office", status: "active", matters: 2, members: 4, custodyItems: 3 }],
     mattersWithoutLocation: 1,
+    custodyItemsOffsite: 2,
   },
   directory: { people: 5, organizations: 2, activeMembers: 4 },
   aiUsage: {
@@ -60,15 +61,27 @@ describe("firmUsageExportDocument", () => {
 
   it("states absences instead of dropping them", () => {
     const cells = exportDocument.sections.flatMap((section) => section.rows.flat());
-    expect(cells).toContain("Not yet reported");
     expect(cells).toContain("Not yet measured");
     expect(cells).toContain("Managed Search Storage");
     expect(cells).toContain("No Location Assigned");
   });
 
+  it("rolls custody items into the location total, offsite included", () => {
+    const byLocation = exportDocument.sections[3];
+    expect(byLocation?.rows.some((row) => row[0] === "Held Offsite" && row[4] === "2")).toBe(true);
+    expect(byLocation?.rows.at(-1)?.at(-1)).toBe("5");
+  });
+
   it("omits the no-location row when every matter has a location", () => {
     const allLocated = firmUsageExportDocument(
-      { ...usage, byLocation: { rows: usage.byLocation.rows, mattersWithoutLocation: 0 } },
+      {
+        ...usage,
+        byLocation: {
+          rows: usage.byLocation.rows,
+          mattersWithoutLocation: 0,
+          custodyItemsOffsite: 0,
+        },
+      },
       new Date(),
     );
     const cells = allLocated.sections.flatMap((section) => section.rows.flat());

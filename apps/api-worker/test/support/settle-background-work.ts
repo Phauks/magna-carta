@@ -1,6 +1,14 @@
 import { afterEach } from "vitest";
 import { backgroundWorkStatus } from "../../src/background.ts";
 
+// The entrypoint reaches the app through a runtime dynamic import (src/index.ts keeps the startup
+// budget), and the test pool's module loader deadlocks when that import is first resolved INSIDE a
+// request: every SELF.fetch in the suite hung until workerd's watchdog canceled it. Importing the
+// module here — while this setup file evaluates, before any test runs — puts it in the loader's
+// cache, so the entrypoint's own import() resolves without touching the loader mid-request.
+// Production is unaffected either way; only the test pool resolves modules through the host.
+import "../../src/event-dispatch.ts";
+
 // The worker deliberately starts work that outlives the response — the request-path outbox sweep is
 // the big one — and a test that asserts on the response is finished long before that work is. When
 // the last test in a file returns, the harness tears the environment down, and anything the

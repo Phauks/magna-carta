@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./types": "./src/types.ts",
+    "./usage": "./src/usage.ts",
     "./validation": "./src/validation.ts",
     "./audit": "./src/audit.ts",
     "./location-statements": "./src/location-statements.ts",

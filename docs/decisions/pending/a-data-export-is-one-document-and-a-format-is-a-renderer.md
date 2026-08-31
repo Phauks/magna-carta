@@ -34,3 +34,24 @@ per-page answer would give the platform as many export implementations as screen
   second answer to what the firm's documents look like, which is exactly what those rules exist to
   prevent. The export document is the input a future assembly-backed renderer takes; the seam costs
   nothing to keep.
+
+**The .xlsx library evaluation (2026-08-31), on the owner's ask.** Two candidates compared:
+
+- **exceljs 4.4.0** — MIT, ~11.6M weekly downloads, but the last release is October 2023, the
+  maintainers describe the project as inactive (655 open issues, 140 open pull requests, a
+  community fork soliciting maintainers), and Snyk lists four UNFIXED advisories against every
+  released version, one critical (prototype pollution) and two high. It carries nine direct
+  dependencies (jszip, archiver, unzipper, tmp, fast-csv, and more), several of them Node-shaped,
+  and a large bundle. Adopting a package with standing unfixed advisories would fail the
+  platform's own dependency-advisory posture on day one. Rejected.
+- **write-excel-file 4.x** — MIT, actively released (latest within three months), one production
+  dependency (fflate, pure JavaScript, ~10 KB gzipped), a browser-first build with a `.toBlob()`
+  output that drops straight into the export seam's save path, TypeScript definitions, and the
+  feature set the tabular document needs: multiple worksheets (one per section), typed number
+  cells with number formats, bold, borders, column widths, and frozen header rows. Caveats worth
+  recording: a single maintainer, primary hosting moved to GitLab with GitHub as mirror, and a
+  recent 4.0 major — so the version is pinned exactly and the renderer isolates the library behind
+  the one `render-xlsx` module. **Recommended.**
+
+The renderer loads lazily (dynamic import on first use) so no page pays the library's weight until
+someone exports a spreadsheet.
