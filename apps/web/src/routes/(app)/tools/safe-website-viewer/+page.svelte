@@ -9,12 +9,16 @@
    * same flow, never anchors.
    *
    * The viewer is one framed unit rendered from page load, empty and calm — the browser window
-   * with its inspector tabs attached — so a capture fills a shape the reader already has. The
-   * shell populates only completed captures (nothing partial), and a failed capture's alert
-   * renders inside the shell's viewport so the frame holds. Back, forward, and refresh walk a
-   * client-side capture history (capture-history.ts): every successful capture pushes an entry
-   * stamped with when it completed and how long it took, stepping re-shows the stored view
-   * instantly with no re-fetch, and refresh re-captures the current entry's address in place.
+   * with its inspector tabs attached — so a capture fills a shape the reader already has. A
+   * capture runs staged: the redirect probe settles first and its facts (the landed address, the
+   * redirect count) show in the loading viewport while the renderer finishes the full-page shot;
+   * the result surfaces (screenshot, tabs) populate only on completion (nothing partial), and a
+   * failed capture's alert renders inside the shell's viewport so the frame holds. A capture that
+   * landed on a different site reports that on the Overview tab's Different Site row, its one
+   * home. Back, forward, and refresh walk a client-side capture history (capture-history.ts):
+   * every successful capture pushes an entry stamped with when it completed and how long it took,
+   * stepping re-shows the stored view instantly with no re-fetch, and refresh re-captures the
+   * current entry's address in place.
    *
    * The inspector's Registration tab reuses the WHOIS page's lookup seam against the landed host,
    * lazily on first activation and cached per host here, so switching tabs never re-queries the
@@ -24,16 +28,18 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import WebsiteShell from "$lib/tools/safe-browse/website-shell.svelte";
+  import WebsiteShell, {
+    probeNarrative,
+    type ProbeFacts,
+  } from "$lib/tools/safe-browse/website-shell.svelte";
   import SnapshotTabs, {
     type RegistrationState,
   } from "$lib/tools/safe-browse/snapshot-tabs.svelte";
   import {
-    landedOnDifferentHost,
     normalizeTarget,
     problemGuidance,
     screenshotSource,
-    viewSafely,
+    viewSafelyStaged,
     type SafeBrowseOutcome,
     type SafeWebsiteView,
   } from "$lib/tools/safe-browse/safe-browse.ts";
@@ -57,6 +63,10 @@
   let capturing = $state(false);
   // The address the running capture was asked for, shown by the shell's loading viewport.
   let capturingTarget = $state<string | null>(null);
+  // The running capture's settled redirect probe: where the link really leads and after how many
+  // redirects, known before the renderer finishes. The shell's loading viewport shows these two
+  // facts early; the tabs still wait for completion (nothing partial in the result surfaces).
+  let probe = $state<ProbeFacts | null>(null);
   let history = $state<CaptureHistory<SafeWebsiteView>>(emptyHistory());
   // The latest capture's failure, if it failed. Cleared by navigating the history (the stored
   // views are still good) and by the next capture starting.
@@ -82,11 +92,6 @@
   // on one screen.
   const currentCapture = $derived(failure === null ? currentEntry(history) : null);
   const displayView = $derived(currentCapture?.view ?? null);
-  const landedUrl = $derived(
-    !capturing && displayView !== null && landedOnDifferentHost(displayView)
-      ? displayView.finalUrl
-      : null,
-  );
   const downloadFilename = $derived(
     currentCapture !== null && screenshotSource(currentCapture.view.screenshotBase64) !== null
       ? screenshotFilename(currentCapture.view.finalUrl, currentCapture.capturedAt)
@@ -96,13 +101,23 @@
   async function capture(target: string, mode: "push" | "replace") {
     capturing = true;
     capturingTarget = target;
+    probe = null;
     failure = null;
     announcement = "";
     const startedAt = Date.now();
-    const result = await viewSafely(target);
+    // The staged capture reports the redirect probe as it settles, well before the renderer
+    // finishes its full-page shot; the probed fact reaches the loading viewport and the live
+    // region while the wait continues.
+    const result = await viewSafelyStaged(target, (progress) => {
+      if (progress.stage === "probed") {
+        probe = { redirectCount: progress.redirectCount, finalUrl: progress.finalUrl };
+        announcement = probeNarrative(probe);
+      }
+    });
     const elapsedMs = Date.now() - startedAt;
     capturing = false;
     capturingTarget = null;
+    probe = null;
     if (result.kind === "view") {
       const entry = {
         enteredUrl: target,
@@ -242,7 +257,7 @@
     canGoBack={canGoBack(history)}
     canGoForward={canGoForward(history)}
     canRefresh={currentEntry(history) !== null}
-    {landedUrl}
+    {probe}
     screenshot={displayView === null ? null : screenshotSource(displayView.screenshotBase64)}
     {downloadFilename}
     hasCapture={displayView !== null}

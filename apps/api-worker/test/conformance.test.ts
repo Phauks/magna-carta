@@ -89,6 +89,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Enqueues a conversion job through a Durable Object (no D1 write, no firm-database row): the DO + queue track the lifecycle; there is no audit_log row class that models a transient compute job.",
   "safeBrowse.post":
     "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
+  "safeBrowse.stream":
+    "The streaming twin of safeBrowse.post — the same pure read delivered as newline-delimited stage lines; nothing is written and the target URL is deliberately never logged (redaction).",
   "metadata.inspect":
     "Pure computation over the uploaded bytes — reports metadata findings; nothing is stored, no firm data is written.",
   "metadata.scrub":
@@ -1147,6 +1149,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "registrations.start",
       "reports.trustCompliancePack",
       "safeBrowse.post",
+      "safeBrowse.stream",
       "scan.diagnose",
       "scan.matter",
       "scanPolicy.get",

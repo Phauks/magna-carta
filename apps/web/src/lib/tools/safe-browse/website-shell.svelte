@@ -1,36 +1,76 @@
+<script module lang="ts">
+  import { finalHost } from "./capture-facts.ts";
+
+  /*
+   * The unified frame's top band is one continuous bar: the shell's address-bar row on the left
+   * and the inspector's tab strip on the right sit side by side at the same height, their bottom
+   * hairlines meeting as one line. Both rows size themselves from this one formula — the md
+   * control height, the bar's vertical padding, and the bottom hairline (border-box) — so the
+   * band cannot drift apart when either side's contents change. The tab strip
+   * (snapshot-tabs.svelte) imports it rather than guessing.
+   */
+  export const CHROME_ROW_MIN_BLOCK_SIZE =
+    "min-block-size: calc(var(--mc-density-control-md) + var(--mc-space-8) + var(--mc-space-8) + var(--mc-border-width-default))";
+
+  /** What the redirect probe settled on, reported while the renderer is still working. */
+  export interface ProbeFacts {
+    redirectCount: number;
+    finalUrl: string;
+  }
+
+  /**
+   * The loading viewport's status line once the probe has settled: where the link really leads
+   * and how many redirects it took, stated while the renderer still works on the screenshot.
+   * The page announces the same sentence to assistive technology, so it lives here once.
+   */
+  export function probeNarrative(probe: ProbeFacts): string {
+    if (probe.redirectCount === 0) {
+      return "The address answered directly. Rendering the page…";
+    }
+    const host = finalHost(probe.finalUrl) ?? probe.finalUrl;
+    const redirects =
+      probe.redirectCount === 1 ? "1 redirect" : `${probe.redirectCount} redirects`;
+    return `Landed on ${host} after ${redirects}. Rendering the page…`;
+  }
+</script>
+
 <script lang="ts">
   /*
    * The browser-shell for a safe-browse capture. The shell's top bar IS the page's one entry: the
    * address field, the Load Website action, back/forward/refresh over the page's capture history,
-   * copy controls for the entered and landed addresses, screenshot actions (download, full
-   * screen), and the Static/Live view toggle (Live is the interactive remote-browsing capability,
-   * rendered disabled with the Soon mark until it is served). The whole viewer is ONE framed unit:
-   * the browser window on the left and the caller's inspector panel (the information tabs)
-   * attached on the right, joined by a shared hairline so the two halves never read as separate
-   * cards; on narrow screens the panel stacks beneath the viewport inside the same frame.
+   * a copy control for the entered address, screenshot actions (download, full screen), and the
+   * Static/Live view toggle (Live is the interactive remote-browsing capability, rendered
+   * disabled until it is served; its dependency lives on the hover title and in the control's
+   * accessible description, never as visible chrome). The whole viewer is ONE framed unit: the
+   * browser window on the left and the caller's inspector panel (the information tabs) attached
+   * on the right, joined by a shared hairline so the two halves never read as separate cards; on
+   * narrow screens the panel stacks beneath the viewport inside the same frame. Where a capture
+   * lands somewhere other than it was asked, the inspector's Overview tab carries that fact —
+   * the shell's chrome stays clean.
    *
    * The frame renders from page load and holds its shape through every state: while the isolated
    * remote browser works the viewport names the address being captured, holds an indeterminate
-   * placeholder bar with a live elapsed readout, and states what the service is doing overall (the
-   * endpoint is one request, so no per-stage checklist is pretended); the finished screenshot
-   * appears only when a capture has completed (nothing partial), and a failed capture's alert
-   * renders inside the same viewport so the layout never collapses. Everything in the frame is
-   * inert — the screenshot is a plain <img> over a data: URL (full-screen included), and the
-   * landed address is text, never an anchor.
+   * placeholder bar with a live elapsed readout, and narrates the honest facts as they arrive —
+   * first that the link is being followed, then (once the redirect probe settles) where it landed
+   * and after how many redirects, while the renderer finishes the full-page shot. Only the probe's
+   * two facts show early; the finished screenshot and the inspector's tabs populate when the
+   * capture has completed (nothing partial), and a failed capture's alert renders inside the same
+   * viewport so the layout never collapses. Everything in the frame is inert — the screenshot is
+   * a plain <img> over a data: URL (full-screen included; captures are full-page and can be very
+   * tall, so both surfaces scroll the image inside themselves), and every address is text, never
+   * an anchor.
    */
   import type { Snippet } from "svelte";
-  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
-  import CornerDownRight from "@lucide/svelte/icons/corner-down-right";
   import Download from "@lucide/svelte/icons/download";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
@@ -44,7 +84,7 @@
     canGoBack = false,
     canGoForward = false,
     canRefresh = false,
-    landedUrl = null,
+    probe = null,
     screenshot = null,
     downloadFilename = null,
     hasCapture = false,
@@ -71,8 +111,8 @@
     canGoForward?: boolean;
     /** Whether there is a current capture to re-capture. */
     canRefresh?: boolean;
-    /** The address the capture landed on, only when it differs from the entered host. */
-    landedUrl?: string | null;
+    /** The running capture's settled probe facts, or null until the probe reports. */
+    probe?: ProbeFacts | null;
     /** The finished screenshot as an <img> source, or null when the renderer returned none. */
     screenshot?: string | null;
     /** What the screenshot saves as when downloaded, or null when there is none to save. */
@@ -92,16 +132,25 @@
 
   const addressInputIdentifier = $props.id();
   const invalidHintIdentifier = `${addressInputIdentifier}-invalid`;
+  const liveSoonIdentifier = `${addressInputIdentifier}-live-soon`;
+
+  // The Live toggle is designed but not served. SoonAffordance always draws the visible Soon
+  // badge, and this chrome carries none (docs/conventions/design-corrections.md: the top bar
+  // stays clean) — so the shell composes the same disabled/title/aria-describedby properties
+  // directly, keeping the one shared sentence. If SoonAffordance grows a badge-less mode, this
+  // composes through it instead.
+  const liveSoonProperties = soonControlProperties(
+    "the interactive remote-browsing service",
+    liveSoonIdentifier,
+  );
 
   let copiedAddress = $state(false);
   let addressCopyTimer: ReturnType<typeof setTimeout> | null = null;
-  let copiedLanded = $state(false);
-  let landedCopyTimer: ReturnType<typeof setTimeout> | null = null;
   let expanded = $state(false);
   let elapsedSeconds = $state(0);
 
   // The live elapsed readout beside the loading line. One interval per capture, torn down with
-  // the state — the endpoint reports no progress, so seconds elapsed is the one honest live fact.
+  // the state — alongside the probe's facts, seconds elapsed is the other honest live fact.
   $effect(() => {
     if (!capturing) return;
     elapsedSeconds = 0;
@@ -128,18 +177,6 @@
     }
   }
 
-  async function copyLandedUrl() {
-    if (landedUrl === null) return;
-    try {
-      await navigator.clipboard.writeText(landedUrl);
-      copiedLanded = true;
-      if (landedCopyTimer !== null) clearTimeout(landedCopyTimer);
-      landedCopyTimer = setTimeout(() => (copiedLanded = false), 1500);
-    } catch {
-      // The clipboard is unavailable here; nothing was copied, so nothing gets confirmed.
-    }
-  }
-
   // A programmatic anchor with the download attribute, so the data: screenshot saves under its
   // derived name; the anchor is never inserted into the page.
   function downloadScreenshot() {
@@ -156,6 +193,7 @@
     <form
       onsubmit={submit}
       class="flex min-w-0 flex-wrap items-center gap-8 border-b border-border-default bg-surface-sunken px-12 py-8"
+      style={CHROME_ROW_MIN_BLOCK_SIZE}
     >
       <div class="flex items-center gap-4">
         <Button
@@ -188,11 +226,10 @@
       </div>
       <div class="flex items-center gap-4" role="group" aria-label="View Mode">
         <Button variant="primary" size="sm" aria-pressed="true">Static</Button>
-        <SoonAffordance reason="the interactive remote-browsing service">
-          {#snippet control(soon)}
-            <Button variant="ghost" size="sm" aria-pressed="false" {...soon}>Live</Button>
-          {/snippet}
-        </SoonAffordance>
+        <Button variant="ghost" size="sm" aria-pressed="false" {...liveSoonProperties}>
+          Live
+        </Button>
+        <p id={liveSoonIdentifier} class="sr-only">{liveSoonProperties.title}</p>
       </div>
       <Label for={addressInputIdentifier} class="sr-only">Web address to view</Label>
       <Input
@@ -254,34 +291,20 @@
       </p>
     {/if}
 
-    {#if landedUrl !== null}
-      <div
-        class="flex min-w-0 items-center gap-8 border-b border-border-default bg-surface-sunken px-12 py-8"
-      >
-        <CornerDownRight class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
-        <span class="min-w-0 flex-1 truncate font-mono text-xs text-text-default" title={landedUrl}>
-          {landedUrl}
-        </span>
-        <Badge variant="warning" class="shrink-0">Different Site</Badge>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={copiedLanded ? "Copied" : "Copy Landed Address"}
-          onclick={copyLandedUrl}
-        >
-          {#if copiedLanded}
-            <Check class="size-16" aria-hidden="true" />
-          {:else}
-            <Copy class="size-16" aria-hidden="true" />
-          {/if}
-        </Button>
-      </div>
-    {/if}
-
     <div class="mc-scrollbar aspect-video grow overflow-y-auto bg-surface-sunken">
       {#if capturing}
+        <!-- The probe settles before the renderer, so once it reports the viewport shows its two
+             honest facts early: the landed address takes the mono line and the status line says
+             how many redirects it took. The tabs still wait for completion. -->
         <div class="flex h-full flex-col items-center justify-center gap-8 p-16">
-          {#if capturingUrl !== null}
+          {#if probe !== null}
+            <p
+              class="max-w-full truncate font-mono text-sm text-text-default"
+              title={probe.finalUrl}
+            >
+              {probe.finalUrl}
+            </p>
+          {:else if capturingUrl !== null}
             <p
               class="max-w-full truncate font-mono text-sm text-text-default"
               title={capturingUrl}
@@ -291,7 +314,9 @@
           {/if}
           <Skeleton class="h-8 w-1/2" />
           <p class="text-sm text-text-muted">
-            Opening the address in the isolated remote browser…
+            {probe !== null
+              ? probeNarrative(probe)
+              : "Following the link and opening the page in the isolated remote browser…"}
           </p>
           <p class="font-mono text-xs text-text-muted">{elapsedSeconds}s</p>
         </div>

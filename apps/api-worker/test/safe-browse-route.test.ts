@@ -218,3 +218,84 @@ describe("POST /api/v1/safe-browse", () => {
     expect(body).not.toContain(targetUrl);
   });
 });
+
+describe("POST /api/v1/safe-browse/stream", () => {
+  it("streams stage lines and ends with the complete view", async () => {
+    const { userId } = await seedCredentialedUser("safebrowse-stream@example.com", {
+      userName: "Stream OK",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Stream OK", poolFirmId);
+    const cookie = await signInForSessionCookie("safebrowse-stream@example.com");
+    const response = await app.request(
+      "https://example.com/api/v1/safe-browse/stream",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://example.com", cookie },
+        body: JSON.stringify({ url: "http://example.com" }),
+      },
+      env,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/x-ndjson");
+    const lines = (await response.text())
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as { stage: string; [key: string]: unknown });
+    expect(lines[0]).toEqual({ stage: "probing" });
+    expect(lines[1]).toMatchObject({ stage: "probed", redirectCount: 0 });
+    const terminal = lines.at(-1) as { stage: string; view?: { screenshotBase64: string } };
+    expect(terminal.stage).toBe("complete");
+    expect(terminal.view?.screenshotBase64).toBe("aGk=");
+  });
+
+  it("answers a clean 400 problem before the stream for a private target", async () => {
+    // The guard runs ahead of the stream, so a rejected target never sees a 200 that fails one
+    // line in — and the redacted problem document never echoes the address.
+    const { userId } = await seedCredentialedUser("safebrowse-stream-ssrf@example.com", {
+      userName: "Stream SSRF",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Stream SSRF", poolFirmId);
+    const cookie = await signInForSessionCookie("safebrowse-stream-ssrf@example.com");
+    const response = await app.request(
+      "https://example.com/api/v1/safe-browse/stream",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie },
+        body: JSON.stringify({ url: "http://127.0.0.1" }),
+      },
+      env,
+    );
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    expect(await response.text()).not.toContain("127.0.0.1");
+  });
+
+  it("delivers a renderer failure as the failed terminal line once the stream has begun", async () => {
+    const { userId } = await seedCredentialedUser("safebrowse-stream-502@example.com", {
+      userName: "Stream Renderer Failure",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Stream Renderer Failure", poolFirmId);
+    const cookie = await signInForSessionCookie("safebrowse-stream-502@example.com");
+    const response = await rendererFailureApp.request(
+      "https://example.com/api/v1/safe-browse/stream",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://example.com", cookie },
+        body: JSON.stringify({ url: "http://example.com" }),
+      },
+      env,
+    );
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    const terminal = JSON.parse(text.trim().split("\n").at(-1) ?? "{}") as {
+      stage: string;
+      problem?: { status: number };
+    };
+    expect(terminal).toEqual({ stage: "failed", problem: { status: 502 } });
+    // Redaction holds inside the stream too.
+    expect(text).not.toContain("suspect");
+  });
+});

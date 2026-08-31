@@ -6793,6 +6793,45 @@ export type SafeBrowsePostResponses = {
 
 export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
 
+export type SafeBrowseStreamData = {
+    body: {
+        url: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/stream';
+};
+
+export type SafeBrowseStreamErrors = {
+    /**
+     * The target URL resolves to a non-public address (SSRF guard rejected it)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseStreamError = SafeBrowseStreamErrors[keyof SafeBrowseStreamErrors];
+
+export type SafeBrowseStreamResponses = {
+    /**
+     * Newline-delimited JSON capture stages, ending with a complete or failed terminal line
+     */
+    200: string;
+};
+
+export type SafeBrowseStreamResponse = SafeBrowseStreamResponses[keyof SafeBrowseStreamResponses];
+
 export type DecryptionInspectData = {
     body: {
         fileBase64: string;
