@@ -823,12 +823,21 @@ importers:
       '@lucide/svelte':
         specifier: 'catalog:'
         version: 1.28.0(svelte@5.56.2)
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../../packages/access-control
+      '@magna-carta/conversion':
+        specifier: workspace:*
+        version: link:../../packages/conversion
       '@magna-carta/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
       '@magna-carta/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@magna-carta/file-type':
+        specifier: workspace:*
+        version: link:../../packages/file-type
       '@magna-carta/merge-field-catalog-contract':
         specifier: workspace:*
         version: link:../../packages/merge-field-catalog-contract

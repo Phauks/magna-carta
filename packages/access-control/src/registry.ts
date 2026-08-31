@@ -87,6 +87,7 @@ export const PERMISSIONS = [
   "tools:fileRepair", // recover content from a structurally corrupted / truncated / damaged file (stateless)
   "tools:ocr", // recognize text in a scanned image or PDF — returns text, word boxes, and confidence
   "tools:emailInspector", // inspect .eml/.msg/mbox headers, participants, attachments, and authenticity facts
+  "tools:fileWorkbench", // the file workbench — the Tools surface an unfiled file is brought to, where the file capabilities are run against it. Gates the surface; each capability inside it is gated by its own tool permission
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",

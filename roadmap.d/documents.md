@@ -58,11 +58,13 @@
   notes: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions. The stream that built it (claude/document-surface) has retired; folders, rename and download are the remaining additions.
 
 - id: documents.file-manager.file-inspector
-  name: File Inspector workbench
-  scope: Tools-host of the file surface for inspecting an ephemeral (non-matter) file through the same capability pane.
-  status: not-started
-  evidence: nothing on main — no inspector route, no inspector module, and no design under docs/specs/. The workbench design is one unmerged doc on the remote branch file-inspector-spec, so no accepted spec exists for `designed` to point at either.
-  notes: Was in-build on the strength of that branch, which carries a single documentation commit and no code. The branch it would build on (file-surface-web) is recorded abandoned and superseded.
+  name: File Workbench
+  scope: Tools-host for an ephemeral (non-matter) file — one drop, and every file capability addresses it.
+  status: partial
+  surface: screen
+  slices: file-workbench
+  evidence: apps/web/src/lib/tools/file-workbench/ — the capability registry, the ephemeral source, the browser-side type reading and digests — rendered at the file-workbench route under Tools; catalog entry `file-workbench` gated on `tools:fileWorkbench`.
+  notes: Two capabilities answer for real in the browser (file type from the leading bytes, SHA-256/SHA-1); the eight whose engines run in a container render their control disabled and name what they wait on. The firm-scoped scratch object is what unblocks them, and what makes the retention promise real. Not the same body as the matter file manager yet — converging the two is separate work.
 
 - id: documents.file-manager.content-hash
   name: Content hashing at write

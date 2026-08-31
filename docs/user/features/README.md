@@ -32,6 +32,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`safe-website-viewer.md`](safe-website-viewer.md) — Safe Website Viewer: what a suspicious link leads to, seen from an isolated remote browser (screen shipped; captures wait on the rendering service being enabled).
 - [`metadata-inspector-scrubber.md`](metadata-inspector-scrubber.md) — Metadata Inspector & Scrubber (stub; backend built, screens pending).
 - [`file-hash-integrity.md`](file-hash-integrity.md) — File Hash & Integrity (stub; backend built, screens pending).
+- [`file-workbench.md`](file-workbench.md) — File Workbench: the Tools screen a file that belongs to no matter is dropped on, where its real type, its fingerprints and every other file capability are read in one place — including for a file the scanner flagged.
 - [`file-unlock-password-recovery.md`](file-unlock-password-recovery.md) — File Unlock & Password Recovery (stub; backend built, screens pending).
 - [`product-changelog.md`](product-changelog.md) — What's new: how the changelog is organized and what it covers (stub; the content is built, the page is not).
 - [`seeing-what-version-you-are-on.md`](seeing-what-version-you-are-on.md) — Seeing what version you are on: the version chip at the top right, the overlay listing every part of the platform with its build, and the notice when the web app and the API differ.

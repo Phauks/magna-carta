@@ -554,6 +554,13 @@
       "when": 1788260401000,
       "tag": "20260831T230001_seed-download-register-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "6",
+      "when": 1788264000000,
+      "tag": "20260901T000000_seed-file-workbench-permission",
+      "breakpoints": true
     }
   ]
 }

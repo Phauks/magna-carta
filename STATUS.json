@@ -2347,6 +2347,47 @@
       "notes": "Slice 1 landed with **every gate closed**: no firm has the setting on, no instance exists for any\nfirm, and no feed object has been written. Built: the consent gate (`search.naturalLanguageEnabled`,\ndefault off) behind a firm-level **versioned disclosure** whose acceptance is the precondition the\nwrite path refuses without; the per-matter exclusion flag, which deletes a matter's existing feed\nobjects rather than merely stopping new ones; the derived text feed and its catalog, written by the\nexisting search index job as a **second consumer of the extraction it already computed**; the\ninstance lifecycle (derived opaque name, one versioned configuration constant, queue-dispatched\nprovisioning and teardown, weekly keep-alive); catalog-driven deletion with reconciliation against\nthe bucket; the usage meter, keeping authoritative counts structurally apart from the one estimated\nfigure and naming managed storage as an unmetered gap; audit and error-pipeline events carrying no\nquery text; both bindings declared-and-commented in `wrangler.jsonc` with the gateway posture in the\ndeploy runbook.\n\n**Deliberately not built: the retrieval adapter and route.** The managed index's metadata-filter\nsemantics have not been observed against a real instance, and a filter that fails open — or is\naccepted and silently ignored — cannot bear even the recall-optimization weight the design puts on\nit. Both ports resolve to typed unavailable outcomes reached through the production resolvers.\nOwner direction (ADR-0255) removed the general-availability gate: enablement waits on the firm's\nversioned disclosure, not on Cloudflare leaving beta."
     },
     {
+      "slice": "File workbench",
+      "group": "cross-cutting",
+      "order": 40,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "claude/file-analysis-tools-ui-iyw77g",
+      "activeWork": "docs/active-work/claude/file-analysis-tools-ui-iyw77g.md",
+      "next": "the firm-scoped scratch object, so the container-backed capabilities can address the bytes",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The Tools host every file capability is run from: the file-workbench route, a file dropped once and read by all ten. Two capabilities are real in the browser today — the file's true type, read from its leading bytes against what its name claims, and its SHA-256 and SHA-1. The eight whose engines run in a container render their own control disabled with the dependency named. The capability set is a registry, so adding one is a module and an array entry; the Overview is contributed by the modules rather than written by hand. Conversion acts on the whole selection, and offers only the formats every selected file can reach. Two rounds of owner review are recorded in `docs/conventions/file-workbench-rulings.md`; the second turned the file list into the product's one grid and moved four of its rulings into the standing set."
+    },
+    {
       "slice": "3·1 — Time tracking + WIP + rate engine",
       "group": "phase-3",
       "order": 1,
