@@ -81,7 +81,14 @@
   surface: screen
   slices: 3-6-financial-reporting
   adrs: ADR-0162
-  evidence: The tabular export framework is live on Firm Usage in every format — text, CSV, and Excel render in the browser ($lib/export), Word and PDF render server-side (POST /api/v1/reports/exports composes through document assembly, PDF across the live office-suite conversion edge). The trust-compliance pack is still served as JSON; adopting the menu on the financial reports is the remainder.
+  evidence: The tabular export framework is live on Firm Usage in every format — text, CSV, and Excel render in the browser ($lib/export), Word and PDF render server-side (POST /api/v1/reports/exports composes through document assembly, PDF across the live office-suite conversion edge). Every export taken is kept on the member's download register (/downloads) for seven days and can be taken again in any format. The trust-compliance pack is still served as JSON; adopting the menu on the financial reports is the remainder.
+
+- id: reports.download-register
+  name: Download register
+  scope: A per-member shelf of what the platform produced — exports, bundles, converted files — held for a short retention window and downloadable again until it expires.
+  status: partial
+  surface: screen
+  evidence: Built and reachable at /downloads (sidebar destination). The per-firm `download_item` table, the four `/api/v1/downloads` routes under `downloads:shelf`, and the daily retention sweep are live; export snapshots fill it today, storing the tabular document rather than a rendered file so every format stays available. The bundle and conversion producers write through `artifactShelfStatement` when their own surfaces land — neither has a client that can create one yet. Deliberately not the notification feed: notifications carry matter work (owner ruling, 2026-08-31). Spec: docs/specs/2026-08-31-download-register-design.md.
 
 - id: reports.custom-builder
   name: Custom report builder

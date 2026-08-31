@@ -91,6 +91,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   },
   { table: "incident", subjectKey: "reported_by", action: "pseudonymize-keep" },
   { table: "ai_detection_usage", subjectKey: "requested_by", action: "pseudonymize-keep" },
+  // The download shelf — a member's own transient list of what the platform produced for them.
+  // HARD-DELETE, and it is the rare table where that is unambiguously right: every row belongs to
+  // exactly one member, is theirs alone by construction (no read is firm-wide), holds nothing the
+  // firm is ever asked to account for, and expires within a week anyway. Pseudonymizing would leave
+  // a stranger's shelf pointing at a stored export document nobody can reach and nothing will
+  // delete; the audit rows that record the member's downloads live in audit_log, which is
+  // pseudonymize-keep above and is where that accountability belongs.
+  { table: "download_item", subjectKey: "member_id", action: "hard-delete" },
   // Append-only tables: pseudonymize the subject reference, never delete the row.
   { table: "audit_log", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   // A version records WHO committed it, and that reference outlives the member row by design —

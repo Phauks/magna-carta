@@ -12,6 +12,7 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import { toast } from "@magna-carta/design-system/toast";
+  import { keepExportOnShelf } from "./download-shelf.ts";
   import { renderCsvExport } from "./render-csv.ts";
   import { RemoteRenderError, renderRemoteExport } from "./render-remote.ts";
   import { renderTextExport } from "./render-text.ts";
@@ -86,6 +87,11 @@
         exportFilename(renderedDocument, format.extension),
         format.contentType,
       );
+      // Keep it on the member's shelf so they can take it again while it is still current. The file
+      // is already saved by this point, so a shelf that cannot take it costs nothing the member
+      // asked for — the failure is deliberately silent rather than a toast over a download that
+      // worked.
+      void keepExportOnShelf(fetch, renderedDocument, format.extension);
     } catch (failure) {
       // The document formats render server-side, so a render can fail after the click; the server's
       // own sentence is the actionable one, with its Error ID when the failure minted one.

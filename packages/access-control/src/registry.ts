@@ -275,6 +275,19 @@ export const PERMISSIONS = [
   "reports:operational", // operational volumes — matters, invoices, movements, reconciliations
   "reports:produce", // turn a report into a filed artifact and read the productions
   "reports:export", // render a tabular export the member already holds into a document file (Word/PDF)
+  // The download register — a member's own shelf of what the platform produced for them, held for a
+  // short retention window. ONE key covering the whole shelf, on the notifications:read reasoning:
+  // putting an export you already hold onto your own shelf, taking it back off, and clearing it are
+  // the same capability as seeing that it is there, and every statement behind the key is scoped to
+  // the session's own member id rather than to the firm. Holding it grants sight of nothing a member
+  // could not already reach — every row is something they asked the platform for. What may be
+  // PRODUCED is gated elsewhere and is not widened here: reports:export decides who may render a
+  // document, files:* who may bundle a matter, tools:fileConverter who may convert.
+  //
+  // Binds resource: "firm". A shelf spans every matter a member exported or bundled from, and an
+  // export that ran outside any matter has none at all, so binding it to "matter" would name a
+  // resource most rows do not have — the same reasoning notifications:read carries.
+  "downloads:shelf", // read, add to, fetch from, and clear one's own download shelf
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
