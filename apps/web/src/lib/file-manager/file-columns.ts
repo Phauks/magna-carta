@@ -14,12 +14,14 @@
  *   - The Safety cell speaks only the status register's safety words.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
+import { formatInstant } from "@magna-carta/design-system/formatters";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { DeletedFileSummary, FileHistoryEntry, MatterFile } from "./matter-file-api.ts";
+import type { ArchiveRow } from "./archive-browse.ts";
 import type { FileManagerRow, MatterFileIndex } from "./file-rows.ts";
 import { folderAggregate, folderSizeText, formatBytes } from "./file-rows.ts";
 import { displayName } from "./file-names.ts";
-import type { SafetyKey } from "./file-manager-vocabulary.ts";
+import { countPhrase, type SafetyKey } from "./file-manager-vocabulary.ts";
 
 /** Stable column identities. Nothing keys off a label — a label is what a reader sees. */
 export const FILE_COLUMN_IDENTIFIERS = {
@@ -192,6 +194,8 @@ export function browseColumns(context: FileColumnContext): GridColumn<FileManage
       filter: "dateRange",
       hidden: true,
       value: (row) => (row.kind === "folder" ? null : row.file.createdAt),
+      // The instant, not the type's date-only rendering: file work happens within a day.
+      text: (row) => (row.kind === "folder" ? "" : formatInstant(row.file.createdAt)),
     },
     {
       id: FILE_COLUMN_IDENTIFIERS.modified,
@@ -202,6 +206,11 @@ export function browseColumns(context: FileColumnContext): GridColumn<FileManage
         row.kind === "folder"
           ? emptyIfNull(aggregate(row.folder.id).latestModified)
           : row.file.updatedAt,
+      text: (row) => {
+        const instant =
+          row.kind === "folder" ? aggregate(row.folder.id).latestModified : row.file.updatedAt;
+        return instant === null ? "" : formatInstant(instant);
+      },
     },
   ];
 }
@@ -271,6 +280,8 @@ export function deletedColumns(
       type: "date",
       filter: "dateRange",
       value: (row) => row.deletedAt,
+      // When it happened matters to the minute here; the type's date-only text is not enough.
+      text: (row) => formatInstant(row.deletedAt),
     },
     {
       id: "deletedBy",
@@ -293,6 +304,58 @@ export function deletedColumns(
       label: "",
       type: "text",
       value: () => "",
+    },
+  ];
+}
+
+/**
+ * Inside an archive is still the matter's file list, so the columns keep the browse table's shape.
+ * A column an archive member has no answer for is EMPTY, never guessed: a member carries no version
+ * history, no document type, and no scan verdict of its own — the archive holds those, and saying
+ * otherwise would be a false statement about a file's safety.
+ */
+export function archiveColumns(): GridColumn<ArchiveRow>[] {
+  return [
+    {
+      id: "name",
+      label: "Name",
+      type: "text",
+      filter: "text",
+      anchored: true,
+      fitExtra: 28,
+      value: (row) => row.name,
+    },
+    {
+      id: "fileType",
+      label: "File Type",
+      type: "text",
+      filter: "set",
+      value: (row) => {
+        if (row.kind === "directory") return "";
+        const dot = row.name.lastIndexOf(".");
+        return dot > 0 && dot < row.name.length - 1 ? row.name.slice(dot + 1).toLowerCase() : "";
+      },
+    },
+    {
+      id: "size",
+      label: "Size",
+      type: "number",
+      filter: "range",
+      filterNote: "Uncompressed bytes, as the archive's directory records them.",
+      value: (row) => (row.kind === "directory" ? row.totalBytes : row.sizeBytes),
+      text: (row) =>
+        row.kind === "directory"
+          ? `${formatBytes(row.totalBytes)} · ${countPhrase(row.fileCount, "file")}`
+          : formatBytes(row.sizeBytes),
+    },
+    {
+      id: "modified",
+      label: "Date Modified",
+      type: "date",
+      filter: "dateRange",
+      value: (row) => (row.kind === "directory" ? null : row.modifiedAt),
+      text: (row) =>
+        row.kind === "directory" || row.modifiedAt === null ? "" : formatInstant(row.modifiedAt),
     },
   ];
 }
@@ -339,6 +402,8 @@ export function historyColumns(): GridColumn<FileHistoryEntry>[] {
       filter: "dateRange",
       anchored: true,
       value: (row) => row.at,
+      // A changelog's whole point is when, so the entry carries its time of day.
+      text: (row) => formatInstant(row.at),
     },
     {
       id: "action",
@@ -355,10 +420,25 @@ export function historyColumns(): GridColumn<FileHistoryEntry>[] {
       value: (row) => row.fileName,
     },
     {
+      id: "from",
+      label: "From",
+      type: "text",
+      filter: "text",
+      value: (row) => row.fromText ?? "",
+    },
+    {
+      id: "to",
+      label: "To",
+      type: "text",
+      filter: "text",
+      value: (row) => row.toText ?? "",
+    },
+    {
       id: "version",
       label: "Version",
       type: "number",
       filter: "range",
+      hidden: true,
       value: (row) => row.versionNumber,
       text: (row) => (row.versionNumber === null ? "" : String(row.versionNumber)),
     },

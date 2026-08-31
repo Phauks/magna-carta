@@ -171,6 +171,10 @@ export function readUploadPolicy(database: SqlDatabase): Promise<UploadPolicy> {
   return readFirmSetting(database, uploadPolicyDefinition);
 }
 
+export function readArchiveCaps(database: SqlDatabase): Promise<ArchiveCaps> {
+  return readFirmSetting(database, archiveCapsDefinition);
+}
+
 export function readInspectableSizeCap(database: SqlDatabase): Promise<number> {
   return readFirmSetting(database, inspectableSizeCapDefinition);
 }

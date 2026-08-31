@@ -126,6 +126,13 @@ export interface FileHistoryEntry {
   versionNumber: number | null;
   actorUserId: string | null;
   actorName: string | null;
+  /**
+   * What the act changed, resolved server-side per event: the old and new name for a rename, the
+   * old and new folder path for a move, the source folder for a delete, the landing folder for a
+   * restore. Null on rows recorded before the writes carried this — an honest blank, never a guess.
+   */
+  fromText: string | null;
+  toText: string | null;
   /** The redacted audit metadata, verbatim; shape varies by event. */
   detail: unknown;
 }
@@ -143,6 +150,27 @@ export function listFileHistory(
     fetchImpl,
     `/api/v1/matters/${encodeURIComponent(matterId)}/file-history${suffix}`,
   );
+}
+
+/** One member of an archive's central directory. Read, never extracted. */
+export interface ArchiveEntry {
+  path: string;
+  isDirectory: boolean;
+  compressedSizeBytes: number | null;
+  uncompressedSizeBytes: number | null;
+  modifiedAt: string | null;
+}
+
+/**
+ * A zip's central directory, read from the stored bytes with ranged requests and no extraction.
+ * A deleted zip reads the same as a live one — browsing restores nothing. `truncated` means the
+ * archive holds more entries than the cap and the listing stopped honestly.
+ */
+export function listArchiveEntries(
+  fetchImpl: typeof fetch,
+  fileId: string,
+): Promise<ApiOutcome<{ entries: ArchiveEntry[]; truncated: boolean }>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/archive-entries`);
 }
 
 /** One of the firm's document types. The vocabulary is the firm's own and it is editable. */

@@ -201,8 +201,13 @@ export async function initiateUpload(
 
   let fileId: FileId;
   let versionNumber: number;
+  // The folder the version lands in, recorded on the audit row (ids only, redact-by-default) so the
+  // history can place the upload without a read the trail cannot afford later. Known cheaply here:
+  // the caller named it for a new file, and the loaded row carries it for a new version.
+  let auditFolderId: FolderId | null;
   if (input.fileId !== undefined) {
     const existing = await requireLiveFile(database, input.fileId);
+    auditFolderId = existing.folderId;
     // A new version rides the existing file's matter; a payload claiming a different matter is a
     // mismatch (the folder is validated against that same matter above).
     if (existing.matterId !== input.matterId) {
@@ -219,6 +224,7 @@ export async function initiateUpload(
   } else {
     fileId = newIdentifier("file", options.randomSource);
     versionNumber = 1;
+    auditFolderId = input.folderId ?? null;
     statements.push(
       insertFileStatement(database, {
         id: fileId,
@@ -253,7 +259,9 @@ export async function initiateUpload(
       createdAt: options.clock.now(),
       expiresAt: input.expiresAt ?? null,
     }),
-    fileAuditStatement(database, options, "file.upload_initiated", versionId),
+    fileAuditStatement(database, options, "file.upload_initiated", versionId, {
+      folderId: auditFolderId,
+    }),
   );
   return {
     fileId,
@@ -954,6 +962,9 @@ export async function renameFile(
     effect: {
       statements: [
         renameFileStatement(database, fileId, name, options.clock.now()),
+        // Deliberately bare: a file name is free text a person routinely writes another person's
+        // name into, and audit metadata carries ids and non-privileged facts only (audit.ts) — so a
+        // rename's from/to names are never recorded, and the history renders honest blanks for them.
         fileAuditStatement(database, options, "file.renamed", fileId),
       ],
       outboxMessages: [],
@@ -985,7 +996,12 @@ export async function moveFile(
     effect: {
       statements: [
         moveFileStatement(database, fileId, folderId, options.clock.now()),
-        fileAuditStatement(database, options, "file.moved", fileId),
+        // Where it was and where it went — folder ids only (null = the matter root), never names;
+        // the history read resolves them to CURRENT path text. Uses the row already loaded above.
+        fileAuditStatement(database, options, "file.moved", fileId, {
+          fromFolderId: file.folderId,
+          toFolderId: folderId,
+        }),
       ],
       outboxMessages: [],
     },
@@ -1003,7 +1019,11 @@ export async function assignDocumentType(
     effect: {
       statements: [
         assignDocumentTypeStatement(database, fileId, documentTypeId, options.clock.now()),
-        fileAuditStatement(database, options, "file.document_type_assigned", fileId),
+        // The assigned type's id (an explicit null records the type being CLEARED); the history read
+        // resolves the id to the type's current name. Never the name itself — redact-by-default.
+        fileAuditStatement(database, options, "file.document_type_assigned", fileId, {
+          documentTypeId,
+        }),
       ],
       outboxMessages: [],
     },
@@ -1028,7 +1048,11 @@ export async function softDeleteFile(
       statements: [
         softDeleteFileStatement(database, fileId, options.clock.now()),
         clearCurrentObjectStatement(database, fileId, options.clock.now()),
-        fileAuditStatement(database, options, "file.deleted", fileId),
+        // The folder the file was deleted out of (null = the matter root) — the id only, from the
+        // row already loaded; the history read resolves it to current path text.
+        fileAuditStatement(database, options, "file.deleted", fileId, {
+          fromFolderId: file.folderId,
+        }),
       ],
       outboxMessages: [],
     },
@@ -1099,13 +1123,15 @@ export async function restoreFile(
           ? []
           : [moveFileStatement(database, fileId, targetFolderId, options.clock.now())]),
         // The metadata names where the file landed only when the restore moved it — the common
-        // straight-home restore stays a bare event (ids only, redact-by-default).
+        // straight-home restore stays a bare event (ids only, redact-by-default). The key matches
+        // the move event's `toFolderId`; the history read still resolves the `restoredToFolderId`
+        // key earlier restores recorded.
         fileAuditStatement(
           database,
           options,
           "file.restored",
           fileId,
-          targetFolderId === file.folderId ? undefined : { restoredToFolderId: targetFolderId },
+          targetFolderId === file.folderId ? undefined : { toFolderId: targetFolderId },
         ),
       ],
       outboxMessages: [],

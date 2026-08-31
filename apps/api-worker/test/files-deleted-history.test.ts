@@ -316,6 +316,8 @@ interface HistoryRow {
   actorUserId: string | null;
   actorName: string | null;
   detail: unknown;
+  fromText: string | null;
+  toText: string | null;
 }
 
 describe("GET /api/v1/matters/{matterId}/file-history", () => {
@@ -365,6 +367,62 @@ describe("GET /api/v1/matters/{matterId}/file-history", () => {
     const renameRow = body.data.find((row) => row.event === "file.renamed");
     expect(renameRow?.versionNumber).toBeNull();
     expect(renameRow?.detail).toBeNull();
+    // A rename's from/to are file names, which audit metadata never carries (redact-by-default) —
+    // the change texts are honest blanks, never guesses.
+    expect(renameRow?.fromText).toBeNull();
+    expect(renameRow?.toText).toBeNull();
+  });
+
+  it("resolves a move's and a delete's recorded folder ids to current path text", async () => {
+    const matterId = await seedMatter("History From-To Matter");
+    const origin = await seedFolder(matterId, "Pleadings");
+    const destination = await seedFolder(matterId, "Correspondence");
+    const { fileId } = await seedCleanFile(matterId, "travelling.txt", origin);
+
+    expect((await patch(`/api/v1/files/${fileId}`, { folderId: destination })).status).toBe(200);
+    expect((await del(`/api/v1/files/${fileId}`)).status).toBe(200);
+    expect((await restore(fileId, { folderId: null })).status).toBe(200);
+
+    const response = await get(`/api/v1/matters/${matterId}/file-history`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: HistoryRow[] };
+
+    const moveRow = body.data.find((row) => row.event === "file.moved");
+    expect(moveRow?.fromText).toBe("Pleadings");
+    expect(moveRow?.toText).toBe("Correspondence");
+    expect(moveRow?.detail).toEqual({ fromFolderId: origin, toFolderId: destination });
+
+    const deleteRow = body.data.find((row) => row.event === "file.deleted");
+    expect(deleteRow?.fromText).toBe("Correspondence");
+    expect(deleteRow?.toText).toBeNull();
+
+    // Restored to the matter root by explicit choice — the destination renders as "Home".
+    const restoreRow = body.data.find((row) => row.event === "file.restored");
+    expect(restoreRow?.fromText).toBeNull();
+    expect(restoreRow?.toText).toBe("Home");
+  });
+
+  it("renders honest nulls for an old-shape audit row whose metadata predates the from/to facts", async () => {
+    const matterId = await seedMatter("History Old Shape Matter");
+    const { fileId } = await seedCleanFile(matterId, "elder.txt", null);
+    // A raw metadata-less row, the shape every move recorded before from/to facts landed.
+    await insertAuditLogStatement(firmDatabase(), {
+      id: newIdentifier("auditLog"),
+      event: "file.moved",
+      actorUserId: ownerUserId,
+      subjectId: fileId,
+      metadata: null,
+      now: "2026-06-13T00:00:02.000Z",
+    }).run();
+
+    const response = await get(`/api/v1/matters/${matterId}/file-history`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: HistoryRow[] };
+    const moveRow = body.data.find((row) => row.event === "file.moved");
+    expect(moveRow).toBeDefined();
+    expect(moveRow?.detail).toBeNull();
+    expect(moveRow?.fromText).toBeNull();
+    expect(moveRow?.toText).toBeNull();
   });
 
   it("is matter-scoped: a second matter's file events do not appear", async () => {

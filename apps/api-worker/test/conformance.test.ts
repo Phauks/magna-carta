@@ -1022,6 +1022,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "fileRepair.repair",
       "fileRepair.repairAttach",
       "fileType.verify",
+      "files.archiveEntries",
       "files.delete",
       "files.download",
       "files.get",

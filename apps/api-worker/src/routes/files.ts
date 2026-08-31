@@ -16,12 +16,26 @@ import {
   getCurrentCleanVersion,
   getCurrentCleanVersionForPreview,
   getFileSummary,
+  getFileWithArchiveVersion,
   listCleanVersions,
   listDeletedFiles,
+  listDocumentTypeNamesByIds,
   listFileHistory,
   listFiles,
+  listFoldersByMatter,
   type FileListItem,
 } from "@magna-carta/file-manager/queries";
+import {
+  anyEntryReferencesAFolder,
+  collectReferencedDocumentTypeIds,
+  folderTextResolver,
+  resolveHistoryChangeTexts,
+} from "@magna-carta/file-manager/history-change-text";
+import {
+  readZipCentralDirectory,
+  ZipCentralDirectoryError,
+} from "@magna-carta/file-manager/zip-central-directory";
+import { readArchiveCaps } from "@magna-carta/file-manager/upload-policy";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
 import {
   readFlaggedTreatment,
@@ -30,7 +44,13 @@ import {
 import { documentSessionStub } from "../editing/document-session.ts";
 import { mintPreviewDeliveryToken } from "../files/preview-token.ts";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
-import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
+import type {
+  DocumentTypeId,
+  FileId,
+  FileVersionId,
+  FolderId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { Context } from "hono";
@@ -206,10 +226,41 @@ const FileHistoryItem = z
     actorName: z.string().nullable(),
     // The event's redacted metadata, passed through as recorded (null when the event carried none).
     detail: z.unknown().nullable(),
+    // The change's from/to as display text, resolved server-side per event kind: a move/delete/
+    // restore resolves its recorded folder ids to CURRENT path text ("Home" for the matter root; a
+    // fixed fallback for a folder no longer on the matter); a document-type assignment resolves the
+    // type's current name; a version commit renders its version number. Null wherever the recorded
+    // metadata predates these facts, and always null for a rename's names — audit metadata carries
+    // ids only, never file names, so those are honest blanks rather than guesses.
+    fromText: z.string().nullable(),
+    toText: z.string().nullable(),
   })
   .openapi("FileHistoryItem");
 
 const FileHistoryResponse = paginated(FileHistoryItem).openapi("FileHistoryResponse");
+
+const ArchiveEntry = z
+  .object({
+    // The entry's path inside the archive, normalized (forward slashes, no leading slash; traversal
+    // paths never appear — the parser skips them). The client renders the levels itself.
+    path: z.string(),
+    isDirectory: z.boolean(),
+    compressedSizeBytes: z.number().int(),
+    uncompressedSizeBytes: z.number().int(),
+    // The entry's recorded modification instant (the zip format keeps no zone; read as UTC), null
+    // when the archive recorded none.
+    modifiedAt: z.string().nullable(),
+  })
+  .openapi("ArchiveEntry");
+
+const ArchiveEntriesResponse = z
+  .object({
+    entries: z.array(ArchiveEntry),
+    // True when a cap bit (the firm's archive entry cap, or the central-directory read bound) — the
+    // listing is a prefix of the archive, not the whole of it.
+    truncated: z.boolean(),
+  })
+  .openapi("ArchiveEntriesResponse");
 
 const fileParam = z.object({ id: identifierPathParam("file", "id") });
 const matterParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
@@ -363,6 +414,20 @@ const restoreFileMeta: RouteMeta = {
   audited: true,
   idempotency: "required",
   idempotencyStore: "firm",
+  rateLimit: "default",
+};
+
+// Browse Inside a zip: the files.list/get read posture (any authenticated firm member, gated by
+// which matter the member can reach), not audited for the same reason preview is not — a cheap
+// in-place metadata read; pulling actual bytes still goes through the audited /download path.
+const archiveEntriesMeta: RouteMeta = {
+  operationId: "files.archiveEntries",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
   rateLimit: "default",
 };
 
@@ -599,6 +664,36 @@ const restoreFileRoute = defineOpenAPIRoute(restoreFileMeta, {
       content: { "application/problem+json": { schema: Problem } },
     },
     422: idempotencyErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const archiveEntriesRoute = defineOpenAPIRoute(archiveEntriesMeta, {
+  method: "get",
+  path: "/api/v1/files/{id}/archive-entries",
+  description:
+    "Lists a zip file's entries by reading only the archive's central directory from storage — " +
+    "nothing is extracted, and the archive's bytes are never fetched. Works for a live file and " +
+    "for a soft-deleted one alike (browsing a deleted zip restores nothing). The flat entry list " +
+    "carries each entry's path, directory flag, sizes, and recorded modification time; truncated " +
+    "reports when the firm's archive entry cap cut the listing short. 409 when the file has no " +
+    "committed bytes yet; 422 when the file is not a zip archive.",
+  request: { params: fileParam },
+  responses: {
+    200: {
+      description: "The archive's entry listing",
+      content: { "application/json": { schema: ArchiveEntriesResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    409: {
+      description: "The file has no committed version yet, so there are no bytes to read",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description: "The file is not a zip archive",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: authErrors[429],
   },
 });
@@ -1232,6 +1327,95 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     },
   );
 
+  // GET /api/v1/files/{id}/archive-entries — Browse Inside a zip, central directory only
+  app.openapi(
+    {
+      ...archiveEntriesRoute,
+      middleware: chokepointMiddleware(chokepoint, archiveEntriesRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      // Deliberately NOT loadVisibleFile: a soft-deleted zip browses exactly like a live one
+      // (browsing reads the already-committed bytes and restores nothing), so the read keeps the
+      // deleted row and only the version's clean gate decides whether there are bytes.
+      const file = await getFileWithArchiveVersion(firm.firmDatabase, id);
+      if (file === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such file in this firm.",
+        });
+      }
+      if (file.currentVersion === null) {
+        return problemJson(c, {
+          type: "conflict",
+          title: "File has no committed bytes",
+          status: 409,
+          detail:
+            "This file has no committed version yet, so there are no bytes to read inside — try " +
+            "again once the upload finishes processing.",
+        });
+      }
+      // The sniffed type is what the bytes actually are; a file that was never sniffed falls back to
+      // its stored name's extension. Anything else is not an archive this endpoint can browse.
+      const sniffed = file.currentVersion.sniffedContentType;
+      const looksLikeZip =
+        sniffed === null
+          ? file.name.toLowerCase().endsWith(".zip")
+          : (sniffed.toLowerCase().split(";")[0]?.trim() ?? "") === "application/zip";
+      if (!looksLikeZip) {
+        return problemJson(c, {
+          type: "not-an-archive",
+          title: "Not an archive",
+          status: 422,
+          detail: "This file is not a zip archive, so it has no entries to browse.",
+        });
+      }
+      const caps = await readArchiveCaps(firm.firmDatabase);
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      try {
+        const listing = await readZipCentralDirectory(bucket, file.currentVersion.r2Key, {
+          maxEntries: caps.maxEntries,
+        });
+        if (listing === null) {
+          return problemJson(c, {
+            type: "not-found",
+            title: "Not found",
+            status: 404,
+            detail: "The file's stored bytes are no longer available.",
+          });
+        }
+        return c.json(
+          {
+            entries: listing.entries.map((entry) => ({
+              path: entry.path,
+              isDirectory: entry.isDirectory,
+              compressedSizeBytes: entry.compressedSizeBytes,
+              uncompressedSizeBytes: entry.uncompressedSizeBytes,
+              modifiedAt: entry.modifiedAt,
+            })),
+            truncated: listing.truncated,
+          } as z.infer<typeof ArchiveEntriesResponse>,
+          200,
+        );
+      } catch (caught) {
+        // Bytes that carry a zip name or declared type but no readable zip end structures: not an
+        // archive as far as browsing is concerned, and the caller can act on that — never a 500.
+        if (caught instanceof ZipCentralDirectoryError) {
+          return problemJson(c, {
+            type: "not-an-archive",
+            title: "Not an archive",
+            status: 422,
+            detail: "This file's content is not a readable zip archive.",
+          });
+        }
+        throw caught;
+      }
+    },
+  );
+
   // GET /api/v1/matters/{matterId}/file-history — the matter's file activity trail
   app.openapi(
     {
@@ -1246,20 +1430,56 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         ...(cursor === undefined ? {} : { cursor }),
         ...(pageSize === undefined ? {} : { pageSize }),
       });
+      // The stored metadata is redacted JSON written by this platform; parse it back into the object
+      // the writer recorded. A row that carried none passes through as null.
+      const rows = page.data.map((row) => ({
+        row,
+        metadata: row.metadataJson === null ? null : (JSON.parse(row.metadataJson) as unknown),
+      }));
+      // Resolve the ids the page's metadata references into display text — two bounded reads at
+      // most, each skipped when no entry on the page needs it. Folder ids resolve against the
+      // matter's CURRENT tree; a recorded folder that no longer exists renders its honest fallback.
+      const changeInputs = rows.map(({ row, metadata }) => ({
+        event: row.event,
+        versionNumber: row.versionNumber,
+        metadata,
+      }));
+      const folderText = anyEntryReferencesAFolder(changeInputs)
+        ? folderTextResolver(await listFoldersByMatter(firm.firmDatabase, matterId))
+        : folderTextResolver([]);
+      const referencedTypeIds = collectReferencedDocumentTypeIds(changeInputs);
+      const documentTypeNames =
+        referencedTypeIds.length === 0
+          ? new Map<string, string>()
+          : await listDocumentTypeNamesByIds(
+              firm.firmDatabase,
+              referencedTypeIds as DocumentTypeId[],
+            );
       return c.json(
         {
-          data: page.data.map((row) => ({
-            at: row.at,
-            event: row.event,
-            fileId: row.fileId,
-            fileName: row.fileName,
-            versionNumber: row.versionNumber,
-            actorUserId: row.actorUserId,
-            actorName: row.actorName,
-            // The stored metadata is redacted JSON written by this platform; parse it back into the
-            // object the writer recorded. A row that carried none passes through as null.
-            detail: row.metadataJson === null ? null : (JSON.parse(row.metadataJson) as unknown),
-          })),
+          data: rows.map(({ row, metadata }, index) => {
+            const changeInput = changeInputs[index];
+            const { fromText, toText } =
+              changeInput === undefined
+                ? { fromText: null, toText: null }
+                : resolveHistoryChangeTexts(changeInput, {
+                    folderText,
+                    documentTypeName: (documentTypeId) =>
+                      documentTypeNames.get(documentTypeId as DocumentTypeId) ?? null,
+                  });
+            return {
+              at: row.at,
+              event: row.event,
+              fileId: row.fileId,
+              fileName: row.fileName,
+              versionNumber: row.versionNumber,
+              actorUserId: row.actorUserId,
+              actorName: row.actorName,
+              detail: metadata,
+              fromText,
+              toText,
+            };
+          }),
           nextCursor: page.nextCursor,
         } as z.infer<typeof FileHistoryResponse>,
         200,

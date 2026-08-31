@@ -32,7 +32,7 @@
   import Checkbox from "@magna-carta/design-system/checkbox";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import * as Select from "@magna-carta/design-system/select";
-  import { formatInstant, placeholderOf } from "@magna-carta/design-system/formatters";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import type {
     FolderColorName,
     FolderIconName,
@@ -40,8 +40,10 @@
     FolderTreeNode,
     FolderTreeView,
   } from "@magna-carta/design-system/folder-tree";
+  import FileArchive from "@lucide/svelte/icons/file-archive";
   import FileSearch from "@lucide/svelte/icons/file-search";
   import History from "@lucide/svelte/icons/history";
+  import X from "@lucide/svelte/icons/x";
   import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
@@ -60,6 +62,7 @@
   import {
     createDocumentType,
     fileDownloadUrl,
+    listArchiveEntries,
     listDeletedFiles,
     listDocumentTypes,
     listFileHistory,
@@ -67,6 +70,7 @@
     listMatterFiles,
     restoreFile,
     verifyFileIntegrity,
+    type ArchiveEntry,
     type DeletedFileSummary,
     type DocumentTypeSummary,
     type FileHistoryEntry,
@@ -74,6 +78,11 @@
     type MatterFile,
     type MatterFileVersion,
   } from "./matter-file-api.ts";
+  import {
+    archiveLevelRows,
+    archivePathSegments,
+    type ArchiveRow,
+  } from "./archive-browse.ts";
   import {
     uploadIntoFolder,
     UPLOAD_STAGE_NARRATION,
@@ -88,6 +97,7 @@
     folderAggregate,
   } from "./file-rows.ts";
   import {
+    archiveColumns,
     browseColumns,
     deletedColumns,
     historyColumns,
@@ -104,16 +114,9 @@
     renameFieldValue,
     splitName,
   } from "./file-names.ts";
-  import {
-    countPhrase,
-    ISSUE_KINDS,
-    type IssueKind,
-    type SeverityBandKey,
-  } from "./file-manager-vocabulary.ts";
+  import { countPhrase } from "./file-manager-vocabulary.ts";
   import {
     allIssues,
-    countsByBand,
-    countsByKind,
     issueKey,
     issueReportText,
     issuesOnFile,
@@ -216,8 +219,6 @@
    * and the view says so rather than implying they will be there tomorrow.
    */
   let ignoredIssues = $state<ReadonlySet<string>>(new Set());
-  let analysisBand = $state<SeverityBandKey | null>(null);
-  let analysisKind = $state<IssueKind | null>(null);
   let showingIgnored = $state(false);
 
   const everyIssue = $derived(allIssues(files ?? []));
@@ -225,13 +226,14 @@
   const ignoredIssueList = $derived(
     everyIssue.filter((issue) => ignoredIssues.has(issueKey(issue))),
   );
-  /** The issues the view is currently showing: the open/ignored choice, then the two narrowings. */
-  const shownIssues = $derived.by((): readonly Issue[] => {
-    const base = showingIgnored ? ignoredIssueList : openIssues;
-    return base
-      .filter((issue) => analysisBand === null || ISSUE_KINDS[issue.kind].band === analysisBand)
-      .filter((issue) => analysisKind === null || issue.kind === analysisKind);
-  });
+  /*
+   * The issues the view is currently showing: the open set, or the ignored set when asked. No
+   * severity or kind narrowing up here — the Safety column already filters, and a second set of
+   * filters above the table said the same thing twice.
+   */
+  const shownIssues = $derived.by((): readonly Issue[] =>
+    showingIgnored ? ignoredIssueList : openIssues,
+  );
   const analysisFileIds = $derived(new Set(shownIssues.map((issue) => issue.fileId)));
 
   const rows = $derived.by((): FileManagerRow[] => {
@@ -366,6 +368,17 @@
   function activate(row: FileManagerRow): void {
     if (row.kind === "folder") {
       manager.openFolder(row.folder.id);
+      return;
+    }
+    // A zip with bytes opens INTO itself: what somebody wants from an archive is what is in it,
+    // and the central directory answers that without extracting anything.
+    if (isZip(row.file.name, row.file.sniffedContentType) && row.file.currentVersionId !== null) {
+      enterArchive({
+        fileId: row.file.id,
+        fileName: row.file.name,
+        deleted: false,
+        unscanned: row.file.scanVerdict !== "clean",
+      });
       return;
     }
     // One "Open". A file with bytes opens its preview in the panel; a file without any opens the
@@ -1005,6 +1018,16 @@
         if (only?.kind === "file") saveVersionFor = only.file;
         filePicker?.click();
         return;
+      case "browseInside":
+        if (only?.kind === "file") {
+          enterArchive({
+            fileId: only.file.id,
+            fileName: only.file.name,
+            deleted: false,
+            unscanned: only.file.scanVerdict !== "clean",
+          });
+        }
+        return;
       default:
         return;
     }
@@ -1189,6 +1212,7 @@
     if (manager.panelOpen && inspectorPane.isCollapsed()) inspectorPane.expand();
   });
 
+
   // --- the deleted-files and history views ----------------------------------------------------------
 
   /*
@@ -1267,7 +1291,12 @@
     rows: () => (manager.view === "deleted" ? [...deletedFiles] : []),
     rowKey: (row) => row.id,
     itemNoun: { singular: "deleted file", plural: "deleted files" },
-    onActivate: (row) => beginRestore(row),
+    // A deleted zip still browses — reading its directory restores nothing — so opening one looks
+    // inside it; everything else opens the restore question, which is the only act it has.
+    onActivate: (row) =>
+      isZip(row.name, row.sniffedContentType) && row.currentVersionId !== null
+        ? enterArchive({ fileId: row.id, fileName: row.name, deleted: true, unscanned: false })
+        : beginRestore(row),
   });
 
   const historyGrid = DataTable.createDataTableGrid<FileHistoryEntry>({
@@ -1307,6 +1336,85 @@
     deletedFiles = deletedFiles.filter((row) => row.id !== target.id);
     reload();
   }
+
+  // --- browsing inside an archive -------------------------------------------------------------------
+
+  /*
+   * Browsing a zip reads its central directory out of the stored bytes — nothing is extracted and
+   * nothing changes, which is why a deleted zip browses the same as a live one. The view stands in
+   * for the file list while it is open; stepping anywhere else — a folder, a rail view — steps out.
+   */
+  interface ArchiveBrowseState {
+    readonly fileId: string;
+    readonly fileName: string;
+    /** Entered from Deleted Files. Browsing restores nothing, and the bar says where it came from. */
+    readonly deleted: boolean;
+    /** The zip's own safety check has not come back clean, which the reader sees before trusting it. */
+    readonly unscanned: boolean;
+  }
+
+  let archiveBrowse = $state<ArchiveBrowseState | null>(null);
+  /** The level being shown: "" is the archive's root, otherwise a directory prefix ending in "/". */
+  let archivePath = $state("");
+  let archiveEntriesHeld = $state<readonly ArchiveEntry[]>([]);
+  let archiveTruncated = $state(false);
+  let archiveLoading = $state(false);
+  let archiveFailure = $state<string | null>(null);
+
+  /** What the row's own facts say: sniffed as a zip, or named one when nothing was sniffed. */
+  function isZip(name: string, sniffedContentType: string | null): boolean {
+    return sniffedContentType === "application/zip" || name.toLowerCase().endsWith(".zip");
+  }
+
+  function enterArchive(target: ArchiveBrowseState): void {
+    archiveBrowse = target;
+    archivePath = "";
+    archiveEntriesHeld = [];
+    archiveTruncated = false;
+    archiveFailure = null;
+    archiveLoading = true;
+    void (async () => {
+      const outcome = await listArchiveEntries(fetch, target.fileId);
+      // The reader may have stepped out, or into another zip, while this one was being read.
+      if (archiveBrowse?.fileId !== target.fileId) return;
+      archiveLoading = false;
+      if (outcome.kind !== "ok") {
+        archiveFailure =
+          outcome.kind === "problem"
+            ? problemGuidance(outcome.problem).message
+            : "Nothing answered. The archive itself is unaffected.";
+        return;
+      }
+      archiveEntriesHeld = outcome.value.entries;
+      archiveTruncated = outcome.value.truncated;
+    })();
+  }
+
+  function leaveArchive(): void {
+    archiveBrowse = null;
+    archivePath = "";
+    archiveEntriesHeld = [];
+    archiveTruncated = false;
+    archiveLoading = false;
+    archiveFailure = null;
+  }
+
+  // Navigating anywhere — a folder, a rail view — is stepping out of the archive.
+  $effect(() => {
+    void manager.place;
+    leaveArchive();
+  });
+
+  const archiveGrid = DataTable.createDataTableGrid<ArchiveRow>({
+    columns: () => archiveColumns(),
+    rows: () =>
+      archiveBrowse === null ? [] : archiveLevelRows([...archiveEntriesHeld], archivePath),
+    rowKey: (row) => row.path,
+    itemNoun: { singular: "member", plural: "members" },
+    onActivate: (row) => {
+      if (row.kind === "directory") archivePath = row.path;
+    },
+  });
 
   // --- the rail's right-click -----------------------------------------------------------------------
 
@@ -1485,12 +1593,103 @@
               onUpload={() => filePicker?.click()}
             />
 
+            {#if archiveBrowse !== null}
+              <!-- Inside a zip, the archive stands in for the list: the crumb walks the zip itself,
+                   then each directory down to the level shown. Extraction is a separate decision,
+                   and its control renders here saying what it waits on. -->
+              <div
+                class="flex flex-wrap items-center gap-4 border-b border-border-default px-12 py-8"
+              >
+                <FileArchive class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={archivePath === ""}
+                  onclick={() => (archivePath = "")}
+                >
+                  {displayName(archiveBrowse.fileName, manager.hideExtensions)}
+                </Button>
+                {#if archiveBrowse.deleted}
+                  <Badge variant="neutral">Deleted</Badge>
+                {/if}
+                {#each archivePathSegments(archivePath) as segment (segment.path)}
+                  <span class="text-text-subtle" aria-hidden="true">/</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-pressed={segment.path === archivePath}
+                    onclick={() => (archivePath = segment.path)}
+                  >
+                    {segment.name}
+                  </Button>
+                {/each}
+                <div class="ms-auto flex items-center gap-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled
+                    title={waitingReason("archive-extract")}
+                  >
+                    Extract Into This Matter
+                    <Badge variant="neutral">Soon</Badge>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Close the archive"
+                    aria-label="Close the archive"
+                    onclick={leaveArchive}
+                  >
+                    <X class="size-16" aria-hidden="true" />
+                  </Button>
+                </div>
+              </div>
+
+              {#if archiveBrowse.unscanned}
+                <div class="border-b border-border-default px-12 py-8 text-xs text-text-muted">
+                  This archive has not come back clean from the safety check yet. Its directory
+                  reads all the same; treat what it names accordingly.
+                </div>
+              {/if}
+
+              {#if archiveFailure !== null}
+                <div class="border-b border-border-default p-12">
+                  <Alert.Root variant="warning">
+                    <Alert.Title>The Archive Could Not Be Read</Alert.Title>
+                    <Alert.Description>{archiveFailure}</Alert.Description>
+                  </Alert.Root>
+                </div>
+              {/if}
+
+              <div class="flex min-h-0 flex-1 flex-col">
+                <DataTable.Grid
+                  grid={archiveGrid}
+                  cell={archiveCell}
+                  caption="Inside this archive"
+                  empty={emptyArchive}
+                  loading={archiveLoading}
+                  density={manager.scalePercent < 100 ? "compact" : "comfortable"}
+                  class="h-full rounded-none border-0"
+                />
+                {#if archiveTruncated}
+                  <div class="border-t border-border-default px-12 py-4 text-xs text-text-muted">
+                    This archive holds more members than one read returns, so the listing stops
+                    here.
+                  </div>
+                {/if}
+              </div>
+
+              <FileManagerFooter
+                {manager}
+                grid={archiveGrid}
+                onUndo={() => void undoMove()}
+                onRedo={() => void redoMove()}
+              />
+            {:else}
+
             {#if manager.view === "analysis"}
               <FileAnalysisBar
-                countsByBand={countsByBand(showingIgnored ? ignoredIssueList : openIssues)}
-                countsByKind={countsByKind(showingIgnored ? ignoredIssueList : openIssues)}
-                bind:activeBand={analysisBand}
-                bind:activeKind={analysisKind}
+                shownCount={shownIssues.length}
                 bind:showingIgnored
                 ignoredCount={ignoredIssueList.length}
                 onCopyReport={() => void copyIssueReport()}
@@ -1678,6 +1877,8 @@
                 onRedo={() => void redoMove()}
               />
             {/if}
+
+            {/if}
           </div>
         </Resizable.Pane>
 
@@ -1802,12 +2003,36 @@
       <span class="truncate">{text}</span>
     </span>
   {:else if column.id === "deleted"}
-    <span class="whitespace-nowrap">{text === "" ? "" : formatInstant(text)}</span>
+    <span class="whitespace-nowrap">{text}</span>
   {:else if column.id === "restore"}
     <Button variant="secondary" size="sm" onclick={() => beginRestore(row)}>Restore</Button>
   {:else}
     {text}
   {/if}
+{/snippet}
+
+{#snippet archiveCell({ row, column, text }: DataTable.GridCellContext<ArchiveRow>)}
+  {#if column.id === "name"}
+    <span class="flex min-w-0 items-center gap-8">
+      {#if row.kind === "directory"}
+        <FileIcon folder class="size-16 shrink-0" />
+      {:else}
+        <FileIcon fileName={row.name} class="size-16 shrink-0" />
+      {/if}
+      <span class="truncate">{text}</span>
+    </span>
+  {:else if column.id === "modified"}
+    <span class="whitespace-nowrap">{text}</span>
+  {:else}
+    {text}
+  {/if}
+{/snippet}
+
+{#snippet emptyArchive()}
+  <EmptyState title="Nothing to List">
+    This archive's directory names no members at this level. The file itself is unchanged — browsing
+    reads, it never extracts.
+  </EmptyState>
 {/snippet}
 
 {#snippet emptyDeleted()}
@@ -1925,14 +2150,7 @@
   {:else if column.id === "fileType"}
     <span class="font-mono text-xs">{row.kind === "folder" ? "" : fileExtension(row.file)}</span>
   {:else if column.id === "modified" || column.id === "created"}
-    <span class="whitespace-nowrap">
-      {#if row.kind === "folder" && column.id === "created"}
-        <!-- A folder has no creation stamp of its own on the record, so the cell is blank rather
-             than borrowing one from its contents. -->
-      {:else}
-        {text === "" ? "" : formatInstant(text)}
-      {/if}
-    </span>
+    <span class="whitespace-nowrap">{text}</span>
   {:else}
     {text}
   {/if}

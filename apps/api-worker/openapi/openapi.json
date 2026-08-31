@@ -5959,6 +5959,54 @@
           }
         }
       },
+      "ArchiveEntriesResponse": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArchiveEntry"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entries",
+          "truncated"
+        ]
+      },
+      "ArchiveEntry": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "isDirectory": {
+            "type": "boolean"
+          },
+          "compressedSizeBytes": {
+            "type": "integer"
+          },
+          "uncompressedSizeBytes": {
+            "type": "integer"
+          },
+          "modifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "isDirectory",
+          "compressedSizeBytes",
+          "uncompressedSizeBytes",
+          "modifiedAt"
+        ]
+      },
       "FileHistoryResponse": {
         "type": "object",
         "properties": {
@@ -6013,7 +6061,19 @@
               "null"
             ]
           },
-          "detail": {}
+          "detail": {},
+          "fromText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "toText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         },
         "required": [
           "at",
@@ -6022,7 +6082,9 @@
           "fileName",
           "versionNumber",
           "actorUserId",
-          "actorName"
+          "actorName",
+          "fromText",
+          "toText"
         ]
       },
       "BundleReady": {
@@ -41780,6 +41842,101 @@
           },
           "422": {
             "description": "The Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/archive-entries": {
+      "get": {
+        "description": "Lists a zip file's entries by reading only the archive's central directory from storage — nothing is extracted, and the archive's bytes are never fetched. Works for a live file and for a soft-deleted one alike (browsing a deleted zip restores nothing). The flat entry list carries each entry's path, directory flag, sizes, and recorded modification time; truncated reports when the firm's archive entry cap cut the listing short. 409 when the file has no committed bytes yet; 422 when the file is not a zip archive.",
+        "operationId": "files.archiveEntries",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.archiveEntries",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The archive's entry listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveEntriesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file has no committed version yet, so there are no bytes to read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file is not a zip archive",
             "content": {
               "application/problem+json": {
                 "schema": {

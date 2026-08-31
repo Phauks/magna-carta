@@ -1462,6 +1462,19 @@ export type RestoreFileRequest = {
     folderId?: string | null;
 };
 
+export type ArchiveEntriesResponse = {
+    entries: Array<ArchiveEntry>;
+    truncated: boolean;
+};
+
+export type ArchiveEntry = {
+    path: string;
+    isDirectory: boolean;
+    compressedSizeBytes: number;
+    uncompressedSizeBytes: number;
+    modifiedAt: string | null;
+};
+
 export type FileHistoryResponse = {
     data: Array<FileHistoryItem>;
     nextCursor: string | null;
@@ -1476,6 +1489,8 @@ export type FileHistoryItem = {
     actorUserId: string | null;
     actorName: string | null;
     detail?: unknown;
+    fromText: string | null;
+    toText: string | null;
 };
 
 export type BundleReady = {
@@ -12232,6 +12247,49 @@ export type FilesRestoreResponses = {
 };
 
 export type FilesRestoreResponse = FilesRestoreResponses[keyof FilesRestoreResponses];
+
+export type FilesArchiveEntriesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/archive-entries';
+};
+
+export type FilesArchiveEntriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * The file has no committed version yet, so there are no bytes to read
+     */
+    409: Problem;
+    /**
+     * The file is not a zip archive
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesArchiveEntriesError = FilesArchiveEntriesErrors[keyof FilesArchiveEntriesErrors];
+
+export type FilesArchiveEntriesResponses = {
+    /**
+     * The archive's entry listing
+     */
+    200: ArchiveEntriesResponse;
+};
+
+export type FilesArchiveEntriesResponse = FilesArchiveEntriesResponses[keyof FilesArchiveEntriesResponses];
 
 export type FilesHistoryData = {
     body?: never;

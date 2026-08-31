@@ -112,8 +112,15 @@ const CAPABILITIES: readonly Capability[] = [
   {
     id: "archive-browse",
     label: "Browse inside a zip",
+    reach: "served",
+  },
+  {
+    id: "archive-extract",
+    label: "Extract an archive's members into the matter",
     reach: "waiting",
-    waitingOn: "the archive-extraction engine.",
+    waitingOn:
+      "the archive-extraction engine. Reading the directory is not extraction; pulling members " +
+      "out commits and scans each one like any upload.",
   },
   {
     id: "convert",
