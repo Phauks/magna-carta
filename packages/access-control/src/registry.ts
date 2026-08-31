@@ -87,6 +87,7 @@ export const PERMISSIONS = [
   "tools:fileRepair", // recover content from a structurally corrupted / truncated / damaged file (stateless)
   "tools:ocr", // recognize text in a scanned image or PDF — returns text, word boxes, and confidence
   "tools:emailInspector", // inspect .eml/.msg/mbox headers, participants, attachments, and authenticity facts
+  "tools:fileWorkbench", // the file workbench — the Tools surface an unfiled file is brought to, where the file capabilities are run against it. Gates the surface; each capability inside it is gated by its own tool permission
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",
@@ -180,6 +181,21 @@ export const PERMISSIONS = [
   // firm-wide calendar, which is a matter-scoped read repeated under the same visibility predicate.
   "calendar:read", // read matter timelines, events, deadlines, and the firm-wide calendar
   "calendar:manage", // record, edit, and cancel events; record, satisfy, vacate, and supersede deadlines; manage the event-type catalog
+  // Matter notes — what the firm wrote down about a case that no other record holds. THREE keys, and
+  // the third is the whole point. Reading and writing split for the ordinary reason: a note is
+  // attorney work product and the most candid text the firm produces, so "may read this matter's
+  // notes" is a grant a firm makes deliberately and separately from "works this matter". Retraction
+  // gets its own key because it is the one act that removes a COLLEAGUE'S words from view — it does
+  // not delete anything, but it stops a body rendering everywhere and drops the note out of the
+  // federated timeline, and an act with that reach should not ride an ordinary write permission that
+  // every fee-earner holds. There is deliberately no delete key, because there is no delete path: a
+  // note is corrected by appending a revision and withdrawn by retraction, and the one case where
+  // bytes must genuinely leave routes through the erasure residue report and a person, never an API.
+  // All three bind resource: "matter" — a note IS one matter's record and cannot exist without one,
+  // the matterAssets:* binding rather than custody:*'s firm binding.
+  "notes:read", // read a matter's notes, one note's revision chain, and the retraction record on a withdrawn one
+  "notes:write", // write a note on a matter, and append a revision correcting one
+  "notes:retract", // withdraw a note: its body stops rendering everywhere and it leaves the timeline, with a required reason
   // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
   // because the register concentrates a matter's financially sensitive facts (what the estate owns,
   // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a

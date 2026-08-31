@@ -37,6 +37,7 @@ describe("tool catalog", () => {
       "firm-usage",
       "whois-lookup",
       "safe-website-viewer",
+      "file-workbench",
       "file-converter",
       "metadata-scrubber",
       "file-hash-integrity",
