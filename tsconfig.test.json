@@ -110,6 +110,9 @@
       "path": "packages/encryption/tsconfig.test.json"
     },
     {
+      "path": "packages/export-document/tsconfig.test.json"
+    },
+    {
       "path": "packages/feature-flags/tsconfig.test.json"
     },
     {
