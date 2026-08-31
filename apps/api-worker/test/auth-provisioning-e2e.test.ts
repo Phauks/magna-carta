@@ -239,6 +239,8 @@ describe("end-to-end", () => {
       // firm:manageReleaseChannel (0024_seed-release-channel-permission, Owner/Admin only) + the
       // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Owner/Admin) +
       // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role) +
+      // tools:fileWorkbench (20260831T120000_seed-file-workbench-permission, seeded onto every
+      // default role: it opens the bench, and each capability inside it still carries its own key) +
       // firm:manageScanPolicy (0030_seed-scan-policy-permission, Owner/Admin only) + the support:
       // grants (0031_support-access-permissions: support:request onto every default role,
       // support:cosign / support:manage onto Owner/Admin) +
@@ -384,6 +386,7 @@ describe("end-to-end", () => {
         "tools:fileIntegrity",
         "tools:fileRepair",
         "tools:fileTypeVerifier",
+        "tools:fileWorkbench",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:ocr",
