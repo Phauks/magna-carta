@@ -27,6 +27,18 @@ const RDAP_EVENT_EXPIRATION = "expiration";
 const RDAP_EVENT_LAST_CHANGED = "last changed";
 
 /**
+ * The RDAP server answered with something other than a record or a not-found. Carries only the
+ * upstream HTTP status — never the target or the URL, which are user-supplied and must not leak
+ * into an error message or a log (docs/conventions/error-logging.md).
+ */
+export class RdapUpstreamFailure extends Error {
+  constructor(readonly status: number) {
+    super(`The RDAP server answered ${status}.`);
+    this.name = "RdapUpstreamFailure";
+  }
+}
+
+/**
  * Resolve the authoritative RDAP base URL for a given domain or IP target by consulting
  * the IANA bootstrap registry. Returns `null` when the TLD or IP block has no registered
  * RDAP server (the registry omits entries for those, so absence is a valid signal).
@@ -51,7 +63,10 @@ export async function resolveRdapBase(target: string, http: HttpClient): Promise
     headers: { accept: "application/json" },
   });
 
-  if (response.status !== 200) return null;
+  // A bootstrap document that cannot be fetched is a fault, not an absent registry entry — a null
+  // here routes the lookup down the legacy path (or to "cannot be looked up"), which turns a
+  // transient IANA hiccup into a wrong answer about the registry.
+  if (response.status !== 200) throw new RdapUpstreamFailure(response.status);
 
   const document = (await response.json()) as BootstrapDocument;
   const services = document.services ?? [];
@@ -97,8 +112,14 @@ export async function queryRdap(
     headers: { accept: "application/rdap+json" },
   });
 
-  // A non-200 response still returns a partial result with source set so callers can
-  // distinguish "RDAP responded but the domain was not found" from "RDAP unavailable".
+  // RDAP distinguishes "this name or block is not registered" (a 404 — an answer) from every
+  // other non-200 (a rate limit, an outage — a fault). Only the 404 may parse as absence: folding
+  // faults into the empty result made a registry's transient 429 read as "no registration record
+  // found" on the page, which the very next retry contradicted with the real record.
+  if (response.status !== 200 && response.status !== 404) {
+    throw new RdapUpstreamFailure(response.status);
+  }
+
   const rawBody = response.status === 200 ? await response.json() : {};
   const body = (rawBody ?? {}) as Record<string, unknown>;
 
@@ -110,7 +131,8 @@ export async function queryRdap(
     lastChangedAt: extractEventDate(body, RDAP_EVENT_LAST_CHANGED),
     nameservers: extractNameservers(body),
     statuses: extractStatuses(body),
-    registrar: extractRegistrar(body),
+    registrar: extractEntityName(body, "registrar"),
+    registrant: extractEntityName(body, "registrant"),
   };
 }
 
@@ -322,15 +344,16 @@ function extractStatuses(body: Record<string, unknown>): readonly string[] | und
 }
 
 /**
- * Find the registrar entity — the entity whose `roles` array contains `"registrar"` —
- * and extract its formatted name (`fn`) from its jCard / vCard representation.
+ * Find the entity holding `role` — `"registrar"` on a domain record, `"registrant"` on a domain
+ * or an IP-network record (an address block's holder, e.g. the organization ARIN delegated it
+ * to) — and extract its formatted name (`fn`) from its jCard / vCard representation.
  *
  * The vCard array format (RFC 7095 / jCard) is:
  *   ["vcard", [ [propertyName, params, type, value], ... ]]
  *
  * We look for the tuple whose first element is `"fn"` and return its fourth element.
  */
-function extractRegistrar(body: Record<string, unknown>): string | undefined {
+function extractEntityName(body: Record<string, unknown>, role: string): string | undefined {
   const entities = body["entities"];
   if (!Array.isArray(entities)) return undefined;
 
@@ -339,9 +362,9 @@ function extractRegistrar(body: Record<string, unknown>): string | undefined {
 
     const entityRecord = entity as Record<string, unknown>;
     const roles = entityRecord["roles"];
-    if (!Array.isArray(roles) || !roles.includes("registrar")) continue;
+    if (!Array.isArray(roles) || !roles.includes(role)) continue;
 
-    // Found the registrar entity — extract fn from its vCard.
+    // Found the entity holding the role — extract fn from its vCard.
     const vcardArray = entityRecord["vcardArray"];
     if (!Array.isArray(vcardArray) || vcardArray.length < 2) continue;
 

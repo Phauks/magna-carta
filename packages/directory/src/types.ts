@@ -83,3 +83,58 @@ export const IDENTIFIER_TYPES = [
   "bar_number",
 ] as const;
 export type IdentifierType = (typeof IDENTIFIER_TYPES)[number];
+
+// ── ContactSystem ─────────────────────────────────────────────────────────────
+// What communications technology answers a telephone number. Orthogonal to the CONTEXT the number
+// is used in (that is ContactUse below), and the two are separate columns because one flat axis
+// cannot express them: "mobile fax" and "work mobile" are both real, and a single list containing
+// both `fax` and `work` makes the pair uninterpretable.
+//
+// Fax is a technology and not a label. A delivery path asking "may this be faxed to opposing
+// counsel" must not answer from a column where `fax`, `Fax`, `facsimile` and `office/fax` mean the
+// same thing to a person and nothing to a program; service by facsimile is a distinct permitted
+// method whose consent the firm records; and a voice line must never be fax-dialled.
+//
+// A number that answers BOTH voice and fax is two rows, not a combined value: they are separately
+// verifiable facts carrying separate verification dates, and one row cannot hold two.
+//
+// The directory_phone.contact_system column carries no closed CHECK — a committed migration is
+// immutable, so a closed IN (...) would make every catalog addition a migration against every firm.
+// The route's enum is the gate; this array is the catalog it gates against.
+export const CONTACT_SYSTEMS = ["voice", "fax", "sms", "pager"] as const;
+export type ContactSystem = (typeof CONTACT_SYSTEMS)[number];
+
+// ── ContactUse ────────────────────────────────────────────────────────────────
+// The CONTEXT a telephone number or email address is used in, independent of the technology behind
+// it. Shared by directory_phone and directory_email so a screen offers one vocabulary.
+export const CONTACT_USES = ["work", "home", "mobile", "other", "former", "temporary"] as const;
+export type ContactUse = (typeof CONTACT_USES)[number];
+
+// ── AddressUse / AddressType ──────────────────────────────────────────────────
+// A postal address's context, and whether the location physically exists. The two are separate
+// because personal service turns on the second one: a post office box is `postal` and cannot be
+// served, while a registered office is `physical` and can.
+export const ADDRESS_USES = [
+  "residential",
+  "business",
+  "postal",
+  "registered",
+  "service",
+  "former",
+  "temporary",
+] as const;
+export type AddressUse = (typeof ADDRESS_USES)[number];
+
+export const ADDRESS_TYPES = ["physical", "postal", "both"] as const;
+export type AddressType = (typeof ADDRESS_TYPES)[number];
+
+// ── ContactVerificationStatus ─────────────────────────────────────────────────
+// Whether the firm has confirmed that a contact point is still true, and the record of it having
+// stopped being true. `failed` is the state that earns the column: returned mail, a bounced message,
+// a disconnected line — the three facts a firm most needs recorded and had nowhere to record.
+//
+// A failure NEVER gates a send. It is surfaced to the member who is about to send, and the send
+// proceeds: a bounce is frequently temporary, and a platform that refuses on a stale failure teaches
+// its users that the warning is noise. Recording and surfacing are the whole of the behaviour.
+export const CONTACT_VERIFICATION_STATUSES = ["unverified", "verified", "failed"] as const;
+export type ContactVerificationStatus = (typeof CONTACT_VERIFICATION_STATUSES)[number];

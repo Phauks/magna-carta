@@ -95,9 +95,9 @@
   name: Storage metering
   scope: Per-firm rollup of bytes and object counts by storage class and key prefix, exact in D1, reconciled against R2, feeding firm-usage diagnostics.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0078, ADR-0103
-  evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/api-worker/src/routes/firm-usage.ts; slice 1-1 fragment lists metering crons built. No Analytics Engine trend is kept and the declared port for one is withdrawn — metering-statements.ts records why; the operational rate signals ride declared counters in packages/telemetry/src/metrics.ts.
+  evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/api-worker/src/routes/firm-usage.ts, rendered by the Firm Usage screen built over apps/web/src/lib/tools/firm-usage/; slice 1-1 fragment lists metering crons built. No Analytics Engine trend is kept and the declared port for one is withdrawn — metering-statements.ts records why; the operational rate signals ride declared counters in packages/telemetry/src/metrics.ts.
 
 - id: documents.upload
   name: Upload & ingest pipeline

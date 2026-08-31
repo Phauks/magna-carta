@@ -53,6 +53,7 @@
     "./record-chain": "./src/lib/components/record-chain/index.ts",
     "./record-window": "./src/lib/components/record-window/index.ts",
     "./resizable": "./src/lib/components/resizable/index.ts",
+    "./screen-search": "./src/lib/components/screen-search/index.ts",
     "./select": "./src/lib/components/select/index.ts",
     "./status-register": "./src/lib/status-register/index.ts",
     "./sidebar": "./src/lib/components/sidebar/index.ts",

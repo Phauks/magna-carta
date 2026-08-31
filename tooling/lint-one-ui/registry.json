@@ -42,6 +42,10 @@
     {
       "name": "RecordMenu",
       "home": "apps/web/src/lib/records"
+    },
+    {
+      "name": "ScreenSearch",
+      "home": "packages/design-system/src/lib/components/screen-search"
     }
   ],
 
@@ -146,12 +150,6 @@
       "file": "packages/design-system/src/lib/components/data-table/data-table-column-filter.svelte",
       "text": "Search values…",
       "reason": "predates the placeholder ruling; the field's name is Value."
-    },
-    {
-      "rule": "placeholder",
-      "file": "packages/design-system/src/lib/components/data-table/data-table-search.svelte",
-      "text": "Search…",
-      "reason": "predates the placeholder ruling; a search box's field name IS Search, so only the trailing ellipsis fails it. This is the default prop value, not an attribute, which is why it is worth deciding once here rather than at every caller."
     },
     {
       "rule": "placeholder",

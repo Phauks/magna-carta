@@ -7,6 +7,13 @@
    * resets the text to whatever is actually selected, so typed-but-unchosen text is never mistaken
    * for a value.
    *
+   * THE FIELD SHOWS WHO IS IN THE SEAT, WHICHEVER WAY IT WAS FILLED. Two callers use this control
+   * differently: one HOLDS a person (the responsible attorney — exactly one seat) and one COLLECTS
+   * them (the assigned lists, which empty the field after each pick and show the people as chips).
+   * Both may hand over `onpick`, so the reset cannot key on that: it keys on whether anything is
+   * actually selected. A held seat that rendered its ghost text read as an empty field with nobody
+   * in it, on a screen whose whole job is saying who carries the matter.
+   *
    * WHO IT OFFERS. Members who are still here, minus anybody already holding a seat on this matter.
    * A departed colleague is deliberately absent: there is nobody to hand new work to. That is the
    * opposite of how their name is treated on a matter they already carry, where it always renders —
@@ -42,7 +49,18 @@
     onpick?: (memberId: string) => void;
   } = $props();
 
+  /** What has been typed. Meaningful only while the field is being edited. */
   let query = $state("");
+  /**
+   * Whether the reader is searching rather than reading the seat.
+   *
+   * The field has two jobs and they want two different texts in it: at rest it must say who holds
+   * the seat, and while somebody is looking for a colleague it must say what they have typed. The
+   * flag is what keeps the second from overwriting the first — without it, a seat that is already
+   * filled narrows the roster to the person already in it, and the only way to name somebody else
+   * is to empty the field first.
+   */
+  let searching = $state(false);
 
   const offered = $derived(
     members.filter((member) => member.status === "active" && !exclude.includes(member.userId)),
@@ -57,41 +75,71 @@
     return offered.filter((member) => member.displayName.toLowerCase().includes(needle));
   });
 
+  /** Searching stops the moment a person is chosen, so the field goes back to naming the seat. */
+  function settle(): void {
+    searching = false;
+    query = "";
+  }
+
+  /**
+   * Bumped after every pick a CALLER owns, which remounts the control.
+   *
+   * The primitive's input text is its own: it writes the chosen person's name into the field and
+   * offers no way to set it back afterwards. That is right for a control that holds its selection
+   * and wrong for one that hands the person over and must be ready for the next — the field went on
+   * printing the last person's name beside the chip that had already been made from them. So a
+   * caller-owned pick starts a fresh control, whose text is read from the seat as it now stands.
+   */
+  let handedOver = $state(0);
+
   function pick(picked: string | string[]): void {
     const memberId = Array.isArray(picked) ? (picked[0] ?? "") : picked;
     if (memberId === "") {
       value = null;
-      query = "";
+      settle();
       return;
     }
     if (onpick) {
       onpick(memberId);
-      query = "";
+      settle();
+      handedOver += 1;
       return;
     }
     value = memberId;
-    query = members.find((member) => member.userId === memberId)?.displayName ?? "";
+    settle();
   }
 </script>
 
-<Combobox.Root
-  type="single"
-  {disabled}
-  items={matching.map((member) => ({ value: member.userId, label: member.displayName }))}
-  inputValue={query}
-  onValueChange={pick}
-  onOpenChange={(open) => {
-    if (!open) query = onpick ? "" : selectedName;
-  }}
->
-  <Combobox.Input
-    id={inputId}
-    placeholder={label}
-    oninput={(event) => (query = event.currentTarget.value)}
-  />
-  <Combobox.Content>
-    {#each matching as member (member.userId)}
-      <Combobox.Item value={member.userId} label={member.displayName} />
-    {/each}
-  </Combobox.Content>
-</Combobox.Root>
+{#key handedOver}
+  <Combobox.Root
+    type="single"
+    {disabled}
+    items={matching.map((member) => ({ value: member.userId, label: member.displayName }))}
+    inputValue={searching ? query : selectedName}
+    onValueChange={pick}
+    onOpenChange={(open) => {
+      if (!open) settle();
+    }}
+  >
+    <Combobox.Input
+      id={inputId}
+      placeholder={label}
+      onfocus={() => {
+        // Arriving in the field is asking to search, so the whole roster is on offer again rather
+        // than the one person whose name happens to be sitting in it.
+        searching = true;
+        query = "";
+      }}
+      onblur={settle}
+      oninput={(event) => {
+        searching = true;
+        query = event.currentTarget.value;
+      }}
+    />
+    <Combobox.Content>
+      {#each matching as member (member.userId)}
+        <Combobox.Item value={member.userId} label={member.displayName} />
+      {/each}
+    </Combobox.Content>
+  </Combobox.Root>
+{/key}

@@ -34,12 +34,13 @@ function draft(overrides: Partial<IntakeDraft> = {}): IntakeDraft {
 
 describe("the intake's sections", () => {
   it("names each section once, in the order the work is done", () => {
-    expect(INTAKE_SECTIONS.map((section) => section.id)).toEqual([
-      "matter",
-      "client",
-      "people",
-      "clearance",
-    ]);
+    expect(INTAKE_SECTIONS.map((section) => section.id)).toEqual(["matter", "client", "people"]);
+  });
+
+  it("holds only what is ENTERED — clearance is a gate beside the entry, never a section of it", () => {
+    // A conflict check and the money that changes hands are what the entry has to pass, not more
+    // of the entry. Behind a tab they are a gate somebody has to remember to go and look at.
+    expect(INTAKE_SECTIONS.map((section) => section.id)).not.toContain("clearance");
   });
 });
 

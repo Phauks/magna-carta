@@ -18,7 +18,9 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EventRail from "@magna-carta/design-system/event-rail";
+  import Label from "@magna-carta/design-system/label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
+  import Textarea from "@magna-carta/design-system/textarea";
   import RecordAttachments, {
     ATTACHMENTS_TAB_KEY,
     type AttachableDocument,
@@ -60,16 +62,36 @@
     editRefused: false,
     countlessTabs: false,
     namedTab: false,
+    editingInPlace: false,
     sheet: false,
     sparseSheet: false,
   });
 
   /*
-   * What the window reported back. Edit has nothing to open on a review page, so rather than
-   * pretending otherwise the page states that the window asked for it. The window itself is the
-   * thing under review; where it hands off is the consuming screen's business.
+   * What the window reported back. The window itself is the thing under review; where a report
+   * hands off is the consuming screen's business, so the page states what it was told rather than
+   * pretending to act on it.
    */
   let lastReport = $state<string | null>(null);
+
+  /*
+   * The editing specimen's own state. It is a real round trip rather than a frozen "fields" look:
+   * the fields are bound, Save writes what was typed back into the record and returns the pane to
+   * reading, and abandoning puts the typed text back the way it was — which is what makes the
+   * unsaved-changes question walkable instead of describable.
+   */
+  let editing = $state(false);
+  let recordedDescription = $state(GALLERY_CHARGE_ON_PAPER.description);
+  let typedDescription = $state(GALLERY_CHARGE_ON_PAPER.description);
+
+  function saveTypedDescription(): void {
+    recordedDescription = typedDescription;
+    editing = false;
+  }
+
+  function forgetWhatWasTyped(): void {
+    typedDescription = recordedDescription;
+  }
 
   /*
    * The attachments the record carries. Real state rather than a frozen list, so detaching a row
@@ -143,6 +165,7 @@
     showing.editRefused = false;
     showing.countlessTabs = false;
     showing.namedTab = false;
+    showing.editingInPlace = false;
   }
 </script>
 
@@ -152,7 +175,12 @@
   {GALLERY_RECORD.reference} · {GALLERY_MATTER.title}
 {/snippet}
 
-{#snippet recordPane()}
+<!--
+  ONE pane for both modes. The values and the fields are the same snippet in the same geometry, so
+  a reviewer can see that editing happens IN this window rather than in a second one, and so the
+  two can never drift into layouts that disagree about where a field sits.
+-->
+{#snippet recordPane({ editing: fieldsOpen }: { editing: boolean })}
   <dl class="grid grid-cols-3 items-baseline gap-x-12 gap-y-8">
     {#each GALLERY_RECORD_FIELDS as field (field.label)}
       <dt class="text-xs text-text-muted">{field.label}</dt>
@@ -164,7 +192,14 @@
       </dd>
     {/each}
   </dl>
-  <p>{GALLERY_CHARGE_ON_PAPER.description}</p>
+  {#if fieldsOpen}
+    <div class="flex flex-col gap-4">
+      <Label for="gallery-record-description">Description</Label>
+      <Textarea id="gallery-record-description" rows={3} bind:value={typedDescription} />
+    </div>
+  {:else}
+    <p>{recordedDescription}</p>
+  {/if}
   {#if lastReport !== null}
     <p class="text-xs text-text-muted">The window reported: {lastReport}</p>
   {/if}
@@ -197,9 +232,14 @@
   />
 {/snippet}
 
-{#snippet recordActions()}
-  <Button variant="secondary" onclick={closeEveryWindow}>Discard</Button>
-  <Button onclick={() => (lastReport = "save")}>Save</Button>
+<!--
+  The caller's verbs only. Reading a record offers putting it away; while its fields are open the
+  window itself appends the abandon and the commit after this, so no record type names them.
+-->
+{#snippet recordActions({ editing: fieldsOpen }: { editing: boolean })}
+  {#if !fieldsOpen}
+    <Button variant="secondary" onclick={closeEveryWindow}>Close</Button>
+  {/if}
 {/snippet}
 
 {#snippet vocabularyChips(vocabulary: StatusVocabulary)}
@@ -272,6 +312,21 @@
           feels like it stayed pressed: pressing expand in one specimen is carried into the next one
           that does not state its own answer.
         </p>
+        <p class="text-sm text-text-muted">
+          Editing happens here, in place. Pressing Edit turns the left pane into fields without
+          opening anything: the same window, the same tabs, the same bar, with the abandon and the
+          commit appended to the bar by the window rather than named by the record. The tabs stay
+          reachable throughout, because somebody changing a record routinely needs to see what is
+          attached to it. Type into the description and then press Escape, or the close control, or
+          Cancel: each asks before it throws the typing away, and each is the same question because
+          they are the same gesture.
+        </p>
+        <p class="text-sm text-text-muted">
+          A record that fits opens at the size of its content and scrolls nowhere. Only a record too
+          long for the screen caps at it, and then the body alone moves while the header and the
+          action bar hold still. The record itself stops at a readable measure however wide the
+          window gets; the width past that goes to the tabs, which are the side that can use it.
+        </p>
       </div>
       <div class="flex flex-wrap gap-8">
         <Button variant="secondary" onclick={() => (showing.atRest = true)}>
@@ -289,6 +344,15 @@
         <Button variant="secondary" onclick={() => (showing.namedTab = true)}>
           Opening on a named tab
         </Button>
+        <Button
+          variant="secondary"
+          onclick={() => {
+            editing = true;
+            showing.editingInPlace = true;
+          }}
+        >
+          Open in its fields
+        </Button>
       </div>
       <p class="max-w-prose text-sm text-text-muted">
         The first specimen carries counted tabs, a live attachments tab and a printable sheet on its
@@ -296,7 +360,8 @@
         rather than hiding the control, and keeps Print available, because printing is not editing.
         The fourth drops the counts, for a tab set whose contents are one continuous thing. The
         fifth opens on History rather than the first tab, the way a record arriving with something
-        waiting in a tab puts that tab in front of the reader.
+        waiting in a tab puts that tab in front of the reader. The sixth opens straight into its
+        fields, the way a record entered from nothing does.
       </p>
     </section>
 
@@ -534,7 +599,8 @@
     record={recordPane}
     tabs={tabsWithCounts}
     actions={recordActions}
-    onEdit={() => (lastReport = "edit")}
+    onSave={saveTypedDescription}
+    onCancel={forgetWhatWasTyped}
     onPrint={() => (showing.sheet = true)}
   />
 
@@ -546,7 +612,25 @@
     record={recordPane}
     tabs={tabsWithCounts}
     actions={recordActions}
-    onEdit={() => (lastReport = "edit")}
+    onSave={saveTypedDescription}
+    onCancel={forgetWhatWasTyped}
+    onPrint={() => (showing.sheet = true)}
+  />
+
+  <!-- The mode itself, opened straight into its fields the way a record that arrives needing a
+       change does. Everything else about the window is unchanged: same geometry, same tabs, same
+       bar — which is the whole claim being reviewed. -->
+  <RecordWindow
+    bind:open={showing.editingInPlace}
+    bind:editing
+    heading={GALLERY_RECORD.heading}
+    subtitle={recordSubtitle}
+    record={recordPane}
+    tabs={tabsWithCounts}
+    actions={recordActions}
+    unsavedChanges={typedDescription !== recordedDescription}
+    onSave={saveTypedDescription}
+    onCancel={forgetWhatWasTyped}
     onPrint={() => (showing.sheet = true)}
   />
 
@@ -558,7 +642,6 @@
     tabs={tabsWithCounts}
     actions={recordActions}
     editDisabledReason="This record is on a finalized invoice. A correction is a credit note beside the bill."
-    onEdit={() => undefined}
     onPrint={() => (showing.sheet = true)}
   />
 
@@ -569,7 +652,8 @@
     record={recordPane}
     tabs={tabsWithoutCounts}
     actions={recordActions}
-    onEdit={() => (lastReport = "edit")}
+    onSave={saveTypedDescription}
+    onCancel={forgetWhatWasTyped}
     onPrint={() => (showing.sheet = true)}
   />
 
@@ -581,7 +665,8 @@
     tabs={tabsWithCounts}
     defaultTab="history"
     actions={recordActions}
-    onEdit={() => (lastReport = "edit")}
+    onSave={saveTypedDescription}
+    onCancel={forgetWhatWasTyped}
     onPrint={() => (showing.sheet = true)}
   />
 

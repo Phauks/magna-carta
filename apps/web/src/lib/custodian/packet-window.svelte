@@ -447,7 +447,6 @@
   ] satisfies RecordWindowTab[]}
   defaultTab="history"
   editDisabledReason={`Not built yet. Waiting on ${PACKET_FORM}.`}
-  onEdit={() => undefined}
   onPrint={() => (printOpen = true)}
 />
 

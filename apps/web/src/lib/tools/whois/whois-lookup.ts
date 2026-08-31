@@ -96,6 +96,18 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
         "That domain's registry does not publish a lookup service this tool can reach. Check the registry's own WHOIS page directly.",
     };
   }
+  // 502 is the registry itself rate-limiting or being away — transient and retryable, so it is
+  // separated from the server-fault band before the band is checked: an upstream hiccup is not a
+  // fault worth quoting to support, and before this branch existed it read as "no registration
+  // record found", which the very next retry contradicted.
+  if (problem.status === 502) {
+    return {
+      tone: "warning",
+      title: "The registry did not answer",
+      message:
+        "The registry's lookup service is rate-limiting or unavailable. Wait a moment, then try again.",
+    };
+  }
   if (problem.status >= 500) {
     return {
       tone: "danger",

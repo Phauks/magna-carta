@@ -5,11 +5,12 @@
  * resolves to, and the human label for each subject group. A covering test asserts this layer
  * stays complete against the catalog, so a tool added to the catalog cannot render blank.
  *
- * A tool stays `soon` until its own page exists. Three have one today, all `alpha`: the network
- * speed test, the WHOIS lookup, and the file workbench — which is the host the ten file utilities
- * are run from rather than a tool beside them, so their own entries stay `soon` until each names
- * the workbench capability it opens. As a tool's page is built its entry advances
- * (alpha/beta/ready) and the listing entry becomes launchable; nothing here is faked meanwhile.
+ * A tool stays `soon` until its own page exists; five have one today, all `alpha` — the network
+ * speed test, the WHOIS lookup, the safe website viewer, the firm usage report, and the file
+ * workbench. The workbench is the odd one: it is the HOST the ten file utilities are run from
+ * rather than a tool beside them, so their own entries stay `soon` until each names the workbench
+ * capability it opens. As a tool's page is built its entry advances (alpha/beta/ready) and the
+ * listing entry becomes launchable; nothing here is faked meanwhile.
  */
 import type { Component } from "svelte";
 import House from "@lucide/svelte/icons/house";
@@ -68,11 +69,11 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     description: "Measure this connection's download, upload, latency, and quality.",
     stage: "alpha",
   },
-  "firm-usage": { description: "See the firm's storage and platform consumption.", stage: "soon" },
+  "firm-usage": { description: "See the firm's storage and platform consumption.", stage: "alpha" },
   "whois-lookup": { description: "Look up who registered a domain, and when.", stage: "alpha" },
   "safe-website-viewer": {
     description: "Open an untrusted website at arm's length.",
-    stage: "soon",
+    stage: "alpha",
   },
   "file-workbench": {
     description: "Bring a file that belongs to no matter, and read it every way at once.",

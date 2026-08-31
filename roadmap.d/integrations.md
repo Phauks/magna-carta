@@ -198,13 +198,13 @@
 
 - id: integrations.tools-area.diagnostics-group
   name: Diagnostics group (firm usage)
-  scope: Read-only firm usage and connectivity snapshot in the Tools area.
+  scope: Read-only firm usage snapshot in the Tools area, computed on request — storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0103
   spec: docs/specs/2026-06-17-firm-usage-diagnostics-design.md
-  evidence: apps/api-worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage).
-  notes: Backend only — no screen yet. Entity counts verified correct against a seeded firm; storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
+  evidence: apps/api-worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage) composing per-domain reads from matters, file-manager, locations, directory, data-access, and search; the tables-only screen built over apps/web/src/lib/tools/firm-usage/ per docs/decisions/pending/firm-usage-is-quantitative-tables-computed-on-request.md.
+  notes: Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings are a reserved column and per-firm compute a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral).
 
 - id: integrations.tools-area.network-speed-test
   name: Network speed test
@@ -255,10 +255,10 @@
   name: Safe website viewer
   scope: Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links).
   status: partial
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0119, ADR-0120
-  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts built; no dedicated tool page yet.
-  notes: The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md.
+  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts, with its own page in the app's tools section over apps/web/src/lib/tools/safe-browse/ (stage alpha).
+  notes: The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md; until it is enabled the page answers every capture with the honest renderer-unavailable state, which is why status stays partial with a screen shipped.
 
 - id: integrations.tools.metadata
   name: Metadata inspector & scrubber

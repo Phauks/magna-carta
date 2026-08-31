@@ -122,6 +122,12 @@
       }
     });
 
+    await step("The search rests as an icon and expands when it is wanted", async () => {
+      await expect(canvas.queryByRole("searchbox", { name: "Search table" })).toBeNull();
+      await userEvent.click(canvas.getByRole("button", { name: "Search table" }));
+      await expect(canvas.getByRole("searchbox", { name: "Search table" })).toHaveFocus();
+    });
+
     await step("Search matches the displayed value, including dates", async () => {
       const search = canvas.getByRole("searchbox", { name: "Search table" });
       await userEvent.type(search, "Acme Corp");
