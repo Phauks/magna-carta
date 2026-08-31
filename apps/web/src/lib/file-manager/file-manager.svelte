@@ -19,6 +19,7 @@
    * on. Removing them would hide the shape of the surface and move the rows around every time the
    * reader changed view.
    */
+  import * as ContextMenu from "@magna-carta/design-system/context-menu";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -35,6 +36,7 @@
   import type {
     FolderColorName,
     FolderIconName,
+    FolderTreeMenuTarget,
     FolderTreeNode,
     FolderTreeView,
   } from "@magna-carta/design-system/folder-tree";
@@ -58,16 +60,26 @@
   import {
     createDocumentType,
     fileDownloadUrl,
+    listDeletedFiles,
     listDocumentTypes,
+    listFileHistory,
     listFileVersions,
     listMatterFiles,
+    restoreFile,
     verifyFileIntegrity,
+    type DeletedFileSummary,
     type DocumentTypeSummary,
+    type FileHistoryEntry,
     type IntegrityVerification,
     type MatterFile,
     type MatterFileVersion,
   } from "./matter-file-api.ts";
-  import { uploadIntoFolder, type UploadStage } from "./file-upload.ts";
+  import {
+    uploadIntoFolder,
+    UPLOAD_STAGE_NARRATION,
+    type UploadOutcome,
+    type UploadProgressItem,
+  } from "./file-upload.ts";
   import {
     MatterFileIndex,
     fileKey,
@@ -75,7 +87,14 @@
     type FileManagerRow,
     folderAggregate,
   } from "./file-rows.ts";
-  import { browseColumns, locatedColumns, safetyKeyOf, fileExtension } from "./file-columns.ts";
+  import {
+    browseColumns,
+    deletedColumns,
+    historyColumns,
+    locatedColumns,
+    safetyKeyOf,
+    fileExtension,
+  } from "./file-columns.ts";
   import {
     collidingSibling,
     committedRename,
@@ -100,7 +119,7 @@
     issuesOnFile,
     type Issue,
   } from "./file-analysis.ts";
-  import { capability } from "./file-manager-availability.ts";
+  import { capability, waitingReason } from "./file-manager-availability.ts";
   import { backgroundMenu, rowMenu, type FileMenuCommand } from "./file-menu-model.ts";
   import { FileManagerState, type FileManagerView } from "./file-manager-state.svelte.ts";
   import FileManagerToolbar from "./file-manager-toolbar.svelte";
@@ -109,12 +128,13 @@
   import FileIconGrid from "./file-icon-grid.svelte";
   import FileInspector from "./file-inspector.svelte";
   import FolderDeleteDialog from "./folder-delete-dialog.svelte";
+  import RestoreFileDialog from "./restore-file-dialog.svelte";
   import UploadDestinationDialog from "./upload-destination-dialog.svelte";
   import SafetyMark from "./safety-mark.svelte";
   import FileAnalysisBar from "./file-analysis-bar.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
 
-  let { matterId }: { matterId: string } = $props();
+  let { matterId, matterTitle }: { matterId: string; matterTitle: string } = $props();
 
   const manager = new FileManagerState();
 
@@ -611,7 +631,17 @@
   // --- downloading ---------------------------------------------------------------------------------
 
   function download(targets: readonly FileManagerRow[]): void {
-    const fileRows = targets.filter(
+    // A folder downloads as its files: the subtree is expanded here, because the row itself has no
+    // bytes. Bundling them into one archive is the download route's job, which this list does not
+    // call yet, so asking for several opens several.
+    const expanded = targets.flatMap((row): FileManagerRow[] =>
+      row.kind === "file"
+        ? [row]
+        : index
+            .subtreeFiles(row.folder.id)
+            .map((file) => ({ kind: "file", key: fileKey(file.id), file }) as const),
+    );
+    const fileRows = expanded.filter(
       (row) => row.kind === "file" && row.file.currentVersionId !== null,
     );
     if (fileRows.length === 0) {
@@ -629,59 +659,125 @@
 
   // --- uploading -----------------------------------------------------------------------------------
 
+  /*
+   * The bytes never wait on the destination question. The batch starts uploading the moment it is
+   * picked — into the folder the reader is standing in — while the Upload dialog shows each file's
+   * own progress and asks where the batch belongs. Confirming a different folder re-files each
+   * file as it lands (a move is one metadata write); closing the dialog abandons nothing.
+   */
   let filePicker = $state<HTMLInputElement | null>(null);
-  let pendingUploads = $state<readonly File[]>([]);
   let uploadOpen = $state(false);
-  let uploadRunning = $state(false);
-  let uploadStage = $state<UploadStage | null>(null);
-  let uploadCompleted = $state(0);
-  let uploadFailures = $state<readonly { name: string; reason: string }[]>([]);
+  let uploadItems = $state<readonly UploadProgressItem[]>([]);
+  let uploadBaseFolderId = $state<string | null>(null);
+  let uploadConfirmed = $state(false);
+  let uploadChosenFolderId = $state<string | null>(null);
+  /** The committed file ids, by batch position, for the re-file on confirm. */
+  let uploadLandedFileIds: (string | null)[] = [];
+  /** Guards a superseded batch: its late updates must not touch a newer dialog. */
+  let uploadBatchToken = 0;
 
   function offerUpload(chosen: readonly File[]): void {
     if (chosen.length === 0) return;
-    pendingUploads = chosen;
-    uploadFailures = [];
-    uploadCompleted = 0;
-    uploadStage = null;
+    uploadBaseFolderId = manager.view === "browse" ? manager.currentFolderId : null;
+    uploadItems = chosen.map((file) => ({ name: file.name, stage: "reserving" as const }));
+    uploadConfirmed = false;
+    uploadChosenFolderId = null;
+    uploadLandedFileIds = chosen.map(() => null);
     uploadOpen = true;
+    uploadBatchToken += 1;
+    void runUploadBatch(chosen, uploadBaseFolderId, uploadBatchToken);
   }
 
-  async function runUploads(destinationFolderId: string | null): Promise<void> {
-    uploadRunning = true;
-    uploadCompleted = 0;
-    const failures: { name: string; reason: string }[] = [];
+  function setUploadItem(at: number, next: UploadProgressItem): void {
+    uploadItems = uploadItems.map((item, position) => (position === at ? next : item));
+  }
+
+  /** The failure line carries the stage and the Error ID: a report needs both, and a bare
+   * "unexpected error" was exactly the undiagnosable answer this replaces. */
+  function uploadFailureReason(outcome: UploadOutcome & { kind: "problem" }): string {
+    const where = UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase();
+    const errorId = outcome.problem.errorId;
+    return (
+      problemGuidance(outcome.problem).message +
+      ` (failed while ${where}` +
+      (errorId === undefined ? ")" : `; Error ID ${errorId})`)
+    );
+  }
+
+  async function runUploadBatch(
+    chosen: readonly File[],
+    baseFolderId: string | null,
+    batch: number,
+  ): Promise<void> {
     const taken = index
-      .filesIn(destinationFolderId)
+      .filesIn(baseFolderId)
       .map((file) => ({ key: fileKey(file.id), name: file.name }));
 
-    for (const file of pendingUploads) {
+    for (let at = 0; at < chosen.length; at += 1) {
+      const file = chosen[at];
+      if (file === undefined) continue;
       // An upload that lands on a name already taken disambiguates in the copy convention: the
       // reader asked for this file to be here, and refusing it would be the worse answer.
       const name = disambiguated(file.name, taken);
       const outcome = await uploadIntoFolder({
         fetchImpl: fetch,
         matterId,
-        folderId: destinationFolderId,
+        folderId: baseFolderId,
         file,
         name,
-        onStage: (stage) => (uploadStage = stage),
+        onStage: (stage) => {
+          if (batch === uploadBatchToken) setUploadItem(at, { name: file.name, stage });
+        },
       });
       taken.push({ key: `pending:${name}`, name });
-      uploadCompleted += 1;
+      if (batch !== uploadBatchToken) return;
       if (outcome.kind === "problem") {
-        failures.push({ name: file.name, reason: problemGuidance(outcome.problem).message });
+        setUploadItem(at, { name: file.name, stage: "failed", reason: uploadFailureReason(outcome) });
       } else if (outcome.kind === "transport") {
-        failures.push({ name: file.name, reason: "Nothing answered while " + outcome.stage + "." });
+        setUploadItem(at, {
+          name: file.name,
+          stage: "failed",
+          reason:
+            "Nothing answered while " + UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase() + ".",
+        });
+      } else {
+        uploadLandedFileIds[at] = outcome.fileId;
+        // A destination confirmed while this file was still in flight applies to it now.
+        if (uploadConfirmed && uploadChosenFolderId !== baseFolderId) {
+          await patchFile(fetch, outcome.fileId, { folderId: uploadChosenFolderId });
+        }
+        setUploadItem(at, { name: file.name, stage: "settled" });
+        reload();
       }
     }
+    finishUploadIfDone();
+  }
 
-    uploadRunning = false;
-    uploadFailures = failures;
-    if (failures.length === 0) {
-      uploadOpen = false;
-      pendingUploads = [];
-      // The upload landed where it was asked to land, so show that folder.
-      if (destinationFolderId !== manager.currentFolderId) manager.openFolder(destinationFolderId);
+  async function confirmUploadDestination(destinationFolderId: string | null): Promise<void> {
+    uploadConfirmed = true;
+    uploadChosenFolderId = destinationFolderId;
+    if (destinationFolderId !== uploadBaseFolderId) {
+      for (const landedFileId of uploadLandedFileIds) {
+        if (landedFileId !== null) {
+          await patchFile(fetch, landedFileId, { folderId: destinationFolderId });
+        }
+      }
+      reload();
+    }
+    finishUploadIfDone();
+  }
+
+  function finishUploadIfDone(): void {
+    const allSettled =
+      uploadItems.length > 0 &&
+      uploadItems.every((item) => item.stage === "settled" || item.stage === "failed");
+    const anyFailed = uploadItems.some((item) => item.stage === "failed");
+    if (!uploadConfirmed || !allSettled || anyFailed) return;
+    uploadOpen = false;
+    const destination = uploadChosenFolderId;
+    // The batch landed where it was asked to land, so show that folder.
+    if (manager.view === "browse" && destination !== manager.currentFolderId) {
+      manager.openFolder(destination);
     }
     reload();
   }
@@ -1048,14 +1144,223 @@
 
   let dragDepth = $state(0);
   const dragOver = $derived(dragDepth > 0);
+
+  /** Only a drag that carries FILES is an upload; a row or folder being moved must not open it. */
+  function carriesFiles(event: DragEvent): boolean {
+    return [...(event.dataTransfer?.types ?? [])].includes("Files");
+  }
+
+  // --- the side panes -------------------------------------------------------------------------------
+
+  /*
+   * Both side panes stay MOUNTED and collapse in place. Unmounting one made the group re-lay out
+   * every pane proportionally, so closing the folder tree visibly widened the details panel;
+   * collapsing hands the freed space to the list alone.
+   */
+  interface PaneHandle {
+    collapse: () => void;
+    expand: () => void;
+    isCollapsed: () => boolean;
+  }
+  let railPane = $state<PaneHandle | null>(null);
+  let inspectorPane = $state<PaneHandle | null>(null);
+
+  function toggleRail(): void {
+    if (railPane === null) return;
+    if (railPane.isCollapsed()) railPane.expand();
+    else railPane.collapse();
+  }
+
+  function togglePanel(): void {
+    if (inspectorPane === null) return;
+    if (inspectorPane.isCollapsed()) inspectorPane.expand();
+    else inspectorPane.collapse();
+  }
+
+  // The remembered open/closed choice is applied once the panes exist; after that the panes
+  // themselves are the source of truth and the preference just records their state.
+  let panesAligned = false;
+  $effect(() => {
+    if (panesAligned || railPane === null || inspectorPane === null) return;
+    panesAligned = true;
+    if (!manager.railOpen && !railPane.isCollapsed()) railPane.collapse();
+    if (manager.railOpen && railPane.isCollapsed()) railPane.expand();
+    if (!manager.panelOpen && !inspectorPane.isCollapsed()) inspectorPane.collapse();
+    if (manager.panelOpen && inspectorPane.isCollapsed()) inspectorPane.expand();
+  });
+
+  // --- the deleted-files and history views ----------------------------------------------------------
+
+  /*
+   * Deleted files are matter files that happen to be deleted, and the changelog is a table of
+   * facts — so both render on the product's one table, each with its own column set. The reads are
+   * cursor-paged; the first page loads when the view opens and Load More walks the rest.
+   */
+  let deletedFiles = $state<readonly DeletedFileSummary[]>([]);
+  let deletedCursor = $state<string | null>(null);
+  let deletedLoading = $state(false);
+  let historyEntries = $state<readonly FileHistoryEntry[]>([]);
+  let historyCursor = $state<string | null>(null);
+  let historyLoading = $state(false);
+
+  $effect(() => {
+    void reloadToken;
+    if (manager.view !== "deleted") return;
+    let cancelled = false;
+    deletedLoading = true;
+    void (async () => {
+      const outcome = await listDeletedFiles(fetch, matterId);
+      if (cancelled) return;
+      deletedLoading = false;
+      if (outcome.kind !== "ok") {
+        actionFailure = "The deleted files could not be read. Nothing about them changed.";
+        return;
+      }
+      deletedFiles = outcome.value.data;
+      deletedCursor = outcome.value.nextCursor;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  $effect(() => {
+    void reloadToken;
+    if (manager.view !== "history") return;
+    let cancelled = false;
+    historyLoading = true;
+    void (async () => {
+      const outcome = await listFileHistory(fetch, matterId);
+      if (cancelled) return;
+      historyLoading = false;
+      if (outcome.kind !== "ok") {
+        actionFailure = "The history could not be read. The record itself is unaffected.";
+        return;
+      }
+      historyEntries = outcome.value.data;
+      historyCursor = outcome.value.nextCursor;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  async function loadMoreDeleted(): Promise<void> {
+    if (deletedCursor === null) return;
+    const outcome = await listDeletedFiles(fetch, matterId, deletedCursor);
+    if (outcome.kind !== "ok") return;
+    deletedFiles = [...deletedFiles, ...outcome.value.data];
+    deletedCursor = outcome.value.nextCursor;
+  }
+
+  async function loadMoreHistory(): Promise<void> {
+    if (historyCursor === null) return;
+    const outcome = await listFileHistory(fetch, matterId, historyCursor);
+    if (outcome.kind !== "ok") return;
+    historyEntries = [...historyEntries, ...outcome.value.data];
+    historyCursor = outcome.value.nextCursor;
+  }
+
+  const deletedGrid = DataTable.createDataTableGrid<DeletedFileSummary>({
+    columns: () =>
+      deletedColumns({ index, hideExtensions: manager.hideExtensions, documentTypeName }),
+    rows: () => (manager.view === "deleted" ? [...deletedFiles] : []),
+    rowKey: (row) => row.id,
+    itemNoun: { singular: "deleted file", plural: "deleted files" },
+    onActivate: (row) => beginRestore(row),
+  });
+
+  const historyGrid = DataTable.createDataTableGrid<FileHistoryEntry>({
+    columns: () => historyColumns(),
+    rows: () => (manager.view === "history" ? [...historyEntries] : []),
+    rowKey: (row) => `${row.at}:${row.fileId}:${row.event}`,
+    itemNoun: { singular: "entry", plural: "entries" },
+  });
+
+  let restoreTarget = $state<DeletedFileSummary | null>(null);
+  let restoreOpen = $state(false);
+  let restoreRunning = $state(false);
+  let restoreFailure = $state<string | null>(null);
+
+  function beginRestore(row: DeletedFileSummary): void {
+    restoreTarget = row;
+    restoreFailure = null;
+    restoreOpen = true;
+  }
+
+  async function confirmRestore(destination: { folderId?: string | null }): Promise<void> {
+    const target = restoreTarget;
+    if (target === null) return;
+    restoreRunning = true;
+    restoreFailure = null;
+    const outcome = await restoreFile(fetch, target.id, destination, crypto.randomUUID());
+    restoreRunning = false;
+    if (outcome.kind !== "ok") {
+      restoreFailure =
+        outcome.kind === "problem"
+          ? problemGuidance(outcome.problem).message
+          : "Nothing answered. The file stays deleted, and nothing else changed.";
+      return;
+    }
+    restoreOpen = false;
+    restoreTarget = null;
+    deletedFiles = deletedFiles.filter((row) => row.id !== target.id);
+    reload();
+  }
+
+  // --- the rail's right-click -----------------------------------------------------------------------
+
+  /*
+   * The folder tree's right-click carries the same acts the list's right-click carries — open,
+   * download, pin, rename, cut, paste, delete — with the design system's colour and mark flyouts
+   * beneath them. One vocabulary for a folder wherever it is pointed at.
+   */
+  function railRowOf(folderId: string | null): FileManagerRow | null {
+    return folderId === null ? null : findRowAnywhere(folderKey(folderId));
+  }
+
+  function renameFromRail(row: FileManagerRow): void {
+    if (row.kind !== "folder") return;
+    // The rename field lives on the row in the LIST, so the list is first brought to the level the
+    // folder sits at; the field then opens on the right row.
+    manager.openFolder(row.folder.parentFolderId);
+    beginRename(row);
+  }
+
+  async function pasteIntoFolder(folderId: string | null): Promise<void> {
+    const clipboard = manager.clipboard;
+    if (clipboard === null) return;
+    await moveRows(
+      clipboard.keys,
+      folderId,
+      `moving ${countPhrase(clipboard.keys.length, "item")} to ${index.pathText(folderId)}`,
+    );
+    manager.clearClipboard();
+  }
+
+  // --- the footer's tally ---------------------------------------------------------------------------
+
+  /** "2 folders, 5 files" — the artifact's phrasing; folders lead because they render first. */
+  const footerTally = $derived.by(() => {
+    const folderCount = rows.filter((row) => row.kind === "folder").length;
+    const fileCount = rows.length - folderCount;
+    if (rows.length === 0) return "Nothing here";
+    return [
+      folderCount > 0 ? countPhrase(folderCount, "folder") : "",
+      countPhrase(fileCount, "file"),
+    ]
+      .filter(Boolean)
+      .join(", ");
+  });
 </script>
 
 <svelte:window onkeydown={onKeyDown} />
 
-<!-- The height is explicit because the shell's main is a block container: a flex child of a block
-     parent sizes to its content, so `flex: 1` alone stretched nothing and the three panes collapsed
-     to the height of the shortest one. -->
-<div class="flex h-full min-h-0 flex-col">
+<!-- Growth, not a percentage: the ancestors' heights come from flex-grow over a min-height
+     container, which the percentage-resolution rules treat as indefinite — an h-full here silently
+     collapsed the panes to their content height. flex-1 grows into the same space without asking
+     the parent to be definite. -->
+<div class="flex min-h-0 flex-1 flex-col">
   {#if loadFailure !== null}
     <!-- The error view is a PANE, not a dialog: it scrolls inside its own container, so a long
          explanation can never push its own controls off the screen. -->
@@ -1078,8 +1383,6 @@
       </div>
     </div>
   {:else}
-    <FileManagerToolbar {manager} {grid} {trail} viewTitle={VIEW_TITLES[manager.view]} />
-
     {#if actionFailure !== null}
       <div class="px-16 pt-12">
         <Alert.Root variant="warning">
@@ -1089,12 +1392,29 @@
       </div>
     {/if}
 
-    <div class="min-h-0 flex-1">
-      <Resizable.PaneGroup direction="horizontal" autoSaveId="matter-files-panes">
-        {#if manager.railOpen}
-          <Resizable.Pane defaultSize={20} minSize={12} maxSize={36}>
-            <FolderTree
-              class="h-full"
+    <!-- The pane group GROWS rather than asking for 100%: every height above it comes from
+         flex-grow over a min-height container, which percentage resolution treats as indefinite. -->
+    <div class="flex min-h-0 flex-1 flex-col">
+      <Resizable.PaneGroup
+        direction="horizontal"
+        autoSaveId="matter-files-panes"
+        class="min-h-0 flex-1"
+      >
+        <Resizable.Pane
+          bind:this={railPane}
+          defaultSize={20}
+          minSize={12}
+          maxSize={36}
+          collapsible
+          collapsedSize={0}
+          class="flex min-h-0 flex-col"
+          onCollapse={() => manager.setRailOpen(false)}
+          onExpand={() => manager.setRailOpen(true)}
+        >
+          <!-- The sunken surface sets the rail apart from the list — a sidebar the same white as
+               the work area reads as more work area. -->
+          <FolderTree
+              class="min-h-0 flex-1 bg-surface-sunken"
               folders={treeNodes}
               bind:selectedFolderId={
                 () => (manager.view === "browse" ? manager.currentFolderId : null),
@@ -1124,29 +1444,47 @@
               onChangeIcon={({ folderId, icon }) => {
                 folderAppearance = { ...folderAppearance, [folderId]: { ...folderAppearance[folderId], icon } };
               }}
+              menuItems={railMenuItems}
             />
-          </Resizable.Pane>
-          <Resizable.Handle withHandle />
-        {/if}
+        </Resizable.Pane>
+        <Resizable.Handle />
 
-        <Resizable.Pane defaultSize={54} minSize={30}>
+        <Resizable.Pane defaultSize={54} minSize={30} class="flex min-h-0 flex-col">
           <div
-            class="flex h-full min-h-0 flex-col"
+            class="flex min-h-0 flex-1 flex-col"
             role="presentation"
-            data-dragover={dragOver ? "true" : undefined}
+            style={dragOver
+              ? "box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0) var(--mc-focus-ring-width) var(--mc-accent-strong)"
+              : undefined}
             ondragenter={(event) => {
+              if (!carriesFiles(event)) return;
               event.preventDefault();
               dragDepth += 1;
             }}
-            ondragover={(event) => event.preventDefault()}
+            ondragover={(event) => {
+              if (carriesFiles(event)) event.preventDefault();
+            }}
             ondragleave={() => (dragDepth = Math.max(0, dragDepth - 1))}
             ondrop={(event) => {
+              if (!carriesFiles(event)) return;
               event.preventDefault();
               dragDepth = 0;
               const dropped = event.dataTransfer?.files;
               if (dropped && dropped.length > 0) offerUpload([...dropped]);
             }}
           >
+            <FileManagerToolbar
+              {manager}
+              {grid}
+              {trail}
+              viewTitle={VIEW_TITLES[manager.view]}
+              onToggleRail={toggleRail}
+              onTogglePanel={togglePanel}
+              onNewFolder={() => void makeFolder()}
+              onNewDocument={() => filePicker?.click()}
+              onUpload={() => filePicker?.click()}
+            />
+
             {#if manager.view === "analysis"}
               <FileAnalysisBar
                 countsByBand={countsByBand(showingIgnored ? ignoredIssueList : openIssues)}
@@ -1256,33 +1594,42 @@
                   retarget(event, row);
                 }}
               >
-                {#if manager.view === "deleted" || manager.view === "history"}
-                  <!-- The view opens and states its case in full rather than being a row nobody
-                       can press. Its own columns are designed and not built, so it does not borrow
-                       the browse table's: an empty table under somebody else's headings would be a
-                       half-truth about what is coming. -->
-                  <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto p-16">
-                    <Alert.Root variant="info">
-                      <Alert.Title>
-                        {VIEW_TITLES[manager.view]}
-                        <Badge variant="neutral" class="ms-8">Soon</Badge>
-                      </Alert.Title>
-                      <Alert.Description>
-                        <span class="block">
-                          {capability(manager.view === "deleted" ? "deleted-files" : "history")
-                            .waitingOn}
-                        </span>
-                        <span class="mt-4 block">
-                          {#if manager.view === "deleted"}
-                            Deleting a file here is a soft delete: the bytes and every version stay,
-                            and this is where they come back from.
-                          {:else}
-                            Every act on this matter's files is already audited. This is where it
-                            becomes readable: time, action, file, from, to, and source.
-                          {/if}
-                        </span>
-                      </Alert.Description>
-                    </Alert.Root>
+                {#if manager.view === "deleted"}
+                  <div class="flex min-h-0 flex-1 flex-col">
+                    <DataTable.Grid
+                      grid={deletedGrid}
+                      cell={deletedCell}
+                      caption="This matter's deleted files"
+                      empty={emptyDeleted}
+                      loading={deletedLoading}
+                      density={manager.scalePercent < 100 ? "compact" : "comfortable"}
+                      class="h-full rounded-none border-0"
+                    />
+                    {#if deletedCursor !== null}
+                      <div class="border-t border-border-default px-12 py-4">
+                        <Button variant="ghost" size="sm" onclick={() => void loadMoreDeleted()}>
+                          Load More
+                        </Button>
+                      </div>
+                    {/if}
+                  </div>
+                {:else if manager.view === "history"}
+                  <div class="flex min-h-0 flex-1 flex-col">
+                    <DataTable.Grid
+                      grid={historyGrid}
+                      caption="This matter's file changelog"
+                      empty={emptyHistory}
+                      loading={historyLoading}
+                      density={manager.scalePercent < 100 ? "compact" : "comfortable"}
+                      class="h-full rounded-none border-0"
+                    />
+                    {#if historyCursor !== null}
+                      <div class="border-t border-border-default px-12 py-4">
+                        <Button variant="ghost" size="sm" onclick={() => void loadMoreHistory()}>
+                          Load More
+                        </Button>
+                      </div>
+                    {/if}
                   </div>
                 {:else if manager.listMode === "icons" && manager.view === "browse"}
                   <FileIconGrid
@@ -1293,6 +1640,8 @@
                     onRowContextMenu={retarget}
                   />
                 {:else}
+                  <!-- Edge to edge: the toolbar above and the footer below already frame the list,
+                       so the table-card's own rounded frame would draw a box inside a box. -->
                   <DataTable.Grid
                     {grid}
                     {cell}
@@ -1300,24 +1649,51 @@
                     empty={emptyFolder}
                     {loading}
                     density={manager.scalePercent < 100 ? "compact" : "comfortable"}
-                    class="h-full"
+                    class="h-full rounded-none border-0"
                   />
                 {/if}
               </div>
             </FileContextMenu>
 
-            <FileManagerFooter
-              {manager}
-              {grid}
-              onUndo={() => void undoMove()}
-              onRedo={() => void redoMove()}
-            />
+            {#if manager.view === "deleted"}
+              <FileManagerFooter
+                {manager}
+                grid={deletedGrid}
+                onUndo={() => void undoMove()}
+                onRedo={() => void redoMove()}
+              />
+            {:else if manager.view === "history"}
+              <FileManagerFooter
+                {manager}
+                grid={historyGrid}
+                onUndo={() => void undoMove()}
+                onRedo={() => void redoMove()}
+              />
+            {:else}
+              <FileManagerFooter
+                {manager}
+                {grid}
+                tally={footerTally}
+                onUndo={() => void undoMove()}
+                onRedo={() => void redoMove()}
+              />
+            {/if}
           </div>
         </Resizable.Pane>
 
-        {#if manager.panelOpen}
-          <Resizable.Handle withHandle />
-          <Resizable.Pane defaultSize={26} minSize={18} maxSize={44}>
+        <Resizable.Handle />
+        <Resizable.Pane
+          bind:this={inspectorPane}
+          defaultSize={26}
+          minSize={18}
+          maxSize={44}
+          collapsible
+          collapsedSize={0}
+          class="flex min-h-0 flex-col"
+          onCollapse={() => manager.setPanelOpen(false)}
+          onExpand={() => manager.setPanelOpen(true)}
+        >
+          {#if manager.panelOpen}
             <FileInspector
               row={inspectedRow}
               hideExtensions={manager.hideExtensions}
@@ -1329,7 +1705,7 @@
               {integrityRunning}
               folderAggregateOf={(folderId) => folderAggregate(index, folderId, safetyKeyOf)}
               bind:tab={manager.inspectorTab}
-              onClose={() => manager.setPanelOpen(false)}
+              onClose={togglePanel}
               onRename={() => {
                 if (inspectedRow !== null) beginRename(inspectedRow);
               }}
@@ -1352,8 +1728,8 @@
                   "does not run yet. Every version is still kept.";
               }}
             />
-          </Resizable.Pane>
-        {/if}
+          {/if}
+        </Resizable.Pane>
       </Resizable.PaneGroup>
     </div>
   {/if}
@@ -1378,16 +1754,27 @@
 <UploadDestinationDialog
   bind:open={uploadOpen}
   {index}
-  currentFolderId={manager.view === "browse" ? manager.currentFolderId : null}
-  files={pendingUploads}
-  running={uploadRunning}
-  stage={uploadStage}
-  completed={uploadCompleted}
-  failures={uploadFailures}
-  onConfirm={(destinationFolderId) => void runUploads(destinationFolderId)}
-  onCancel={() => {
+  baseFolderId={uploadBaseFolderId}
+  {matterTitle}
+  items={uploadItems}
+  confirmed={uploadConfirmed}
+  onConfirm={(destinationFolderId) => void confirmUploadDestination(destinationFolderId)}
+  onClose={() => {
     uploadOpen = false;
-    pendingUploads = [];
+    reload();
+  }}
+/>
+
+<RestoreFileDialog
+  bind:open={restoreOpen}
+  {index}
+  file={restoreTarget}
+  running={restoreRunning}
+  failure={restoreFailure}
+  onConfirm={(destination) => void confirmRestore(destination)}
+  onCancel={() => {
+    restoreOpen = false;
+    restoreTarget = null;
   }}
 />
 
@@ -1403,6 +1790,77 @@
     folderToDelete = null;
   }}
 />
+
+{#snippet deletedCell({ row, column, text }: DataTable.GridCellContext<DeletedFileSummary>)}
+  {#if column.id === "name"}
+    <span class="flex min-w-0 items-center gap-8">
+      <FileIcon
+        contentType={row.sniffedContentType ?? undefined}
+        fileName={row.name}
+        class="size-16 shrink-0"
+      />
+      <span class="truncate">{text}</span>
+    </span>
+  {:else if column.id === "deleted"}
+    <span class="whitespace-nowrap">{text === "" ? "" : formatInstant(text)}</span>
+  {:else if column.id === "restore"}
+    <Button variant="secondary" size="sm" onclick={() => beginRestore(row)}>Restore</Button>
+  {:else}
+    {text}
+  {/if}
+{/snippet}
+
+{#snippet emptyDeleted()}
+  <EmptyState title="Nothing Has Been Deleted">
+    Deleting a file here is a soft delete: the bytes and every version stay, and this is where they
+    come back from.
+  </EmptyState>
+{/snippet}
+
+{#snippet emptyHistory()}
+  <EmptyState title="Nothing Has Happened Yet">
+    Every act on this matter's files lands here as it happens: time, action, file, and source.
+  </EmptyState>
+{/snippet}
+
+{#snippet railMenuItems(target: FolderTreeMenuTarget)}
+  {@const row = railRowOf(target.folderId)}
+  {#if row !== null && row.kind === "folder"}
+    <ContextMenu.Item onSelect={() => manager.openFolder(row.folder.id)}>Open</ContextMenu.Item>
+    <ContextMenu.Item onSelect={() => download([row])}>Download</ContextMenu.Item>
+    <ContextMenu.Separator />
+    <ContextMenu.Item onSelect={() => manager.setPinned([row.key], !manager.isPinned(row.key))}>
+      {manager.isPinned(row.key) ? "Unpin" : "Pin to Top"}
+    </ContextMenu.Item>
+    <ContextMenu.Item onSelect={() => renameFromRail(row)}>Rename</ContextMenu.Item>
+    <ContextMenu.Separator />
+    <ContextMenu.Item disabled title={waitingReason("copy-paste")}>
+      Copy
+      <Badge variant="neutral" class="ms-auto">Soon</Badge>
+    </ContextMenu.Item>
+    <ContextMenu.Item onSelect={() => manager.mark([row.key], "cut")}>Cut</ContextMenu.Item>
+    <ContextMenu.Item
+      disabled={manager.clipboard === null}
+      title={manager.clipboard === null ? "Nothing is on the clipboard yet." : undefined}
+      onSelect={() => void pasteIntoFolder(row.folder.id)}
+    >
+      Paste
+    </ContextMenu.Item>
+    <ContextMenu.Separator />
+    <ContextMenu.Item onSelect={() => void deleteRows([row])}>Delete</ContextMenu.Item>
+  {:else}
+    <!-- Home is a destination, not a folder: it opens, and it takes a paste; there is nothing on
+         it to rename, colour, or delete. -->
+    <ContextMenu.Item onSelect={() => manager.openFolder(null)}>Open</ContextMenu.Item>
+    <ContextMenu.Item
+      disabled={manager.clipboard === null}
+      title={manager.clipboard === null ? "Nothing is on the clipboard yet." : undefined}
+      onSelect={() => void pasteIntoFolder(null)}
+    >
+      Paste
+    </ContextMenu.Item>
+  {/if}
+{/snippet}
 
 {#snippet emptyFolder()}
   <EmptyState title="Nothing in This Folder">

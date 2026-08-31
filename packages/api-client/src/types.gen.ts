@@ -1435,6 +1435,49 @@ export type PreviewGrant = {
     downloadUrl: string;
 };
 
+export type DeletedFileListResponse = {
+    data: Array<DeletedFileItem>;
+    nextCursor: string | null;
+};
+
+export type DeletedFileItem = {
+    id: string;
+    name: string;
+    folderId: string | null;
+    documentTypeId: string | null;
+    deletedAt: string;
+    deletedBy: string | null;
+    deletedByName: string | null;
+    currentVersionId: string | null;
+    sizeBytes: number | null;
+    sniffedContentType: string | null;
+};
+
+export type RestoredFileAck = {
+    fileId: string;
+    folderId: string | null;
+};
+
+export type RestoreFileRequest = {
+    folderId?: string | null;
+};
+
+export type FileHistoryResponse = {
+    data: Array<FileHistoryItem>;
+    nextCursor: string | null;
+};
+
+export type FileHistoryItem = {
+    at: string;
+    event: string;
+    fileId: string;
+    fileName: string;
+    versionNumber: number | null;
+    actorUserId: string | null;
+    actorName: string | null;
+    detail?: unknown;
+};
+
 export type BundleReady = {
     url: string;
 };
@@ -12097,6 +12140,136 @@ export type FilesPreviewResponses = {
 };
 
 export type FilesPreviewResponse = FilesPreviewResponses[keyof FilesPreviewResponses];
+
+export type FilesListDeletedData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/matters/{matterId}/files/deleted';
+};
+
+export type FilesListDeletedErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesListDeletedError = FilesListDeletedErrors[keyof FilesListDeletedErrors];
+
+export type FilesListDeletedResponses = {
+    /**
+     * A page of the matter's deleted files
+     */
+    200: DeletedFileListResponse;
+};
+
+export type FilesListDeletedResponse = FilesListDeletedResponses[keyof FilesListDeletedResponses];
+
+export type FilesRestoreData = {
+    body: RestoreFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/restore';
+};
+
+export type FilesRestoreErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * The file is not deleted (nothing to restore), or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesRestoreError = FilesRestoreErrors[keyof FilesRestoreErrors];
+
+export type FilesRestoreResponses = {
+    /**
+     * The file was restored; folderId reports where it landed
+     */
+    200: RestoredFileAck;
+};
+
+export type FilesRestoreResponse = FilesRestoreResponses[keyof FilesRestoreResponses];
+
+export type FilesHistoryData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/matters/{matterId}/file-history';
+};
+
+export type FilesHistoryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesHistoryError = FilesHistoryErrors[keyof FilesHistoryErrors];
+
+export type FilesHistoryResponses = {
+    /**
+     * A page of the matter's file history
+     */
+    200: FileHistoryResponse;
+};
+
+export type FilesHistoryResponse = FilesHistoryResponses[keyof FilesHistoryResponses];
 
 export type DownloadsZipData = {
     body: ZipDownloadRequest;

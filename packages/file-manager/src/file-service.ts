@@ -1035,22 +1035,78 @@ export async function softDeleteFile(
   };
 }
 
+export interface RestoreFileDestination {
+  // Present = restore INTO this folder (null = the matter root), validated against the file's
+  // matter. Absent = keep the folder the file was deleted from — unless that folder no longer
+  // exists, in which case the restore falls back to the matter root rather than stranding the file
+  // under a pointer nothing can browse to.
+  readonly folderId?: FolderId | null;
+}
+
 // Undeletes a soft-deleted file: clears deleted_at so it returns to the default listing. The `current`
 // working copy re-materializes lazily from current_version_id on the next edit launch (GetFile falls
-// back to the committed version when `current` is absent), so nothing is copied here.
+// back to the committed version when `current` is absent), so nothing is copied here. Returns the
+// folder the file lands in so the caller can report where the restore put it.
 export async function restoreFile(
   database: SqlDatabase,
   fileId: FileId,
   options: FileServiceOptions,
-): Promise<{ effect: EffectWrite }> {
-  // The one write that must resolve a soft-deleted row — undeleting a live file is a harmless no-op,
-  // undeleting a deleted one is the whole point.
-  await requireFileIncludingDeleted(database, fileId);
+  destination: RestoreFileDestination = {},
+): Promise<{ effect: EffectWrite; folderId: FolderId | null }> {
+  // The one write that must resolve a soft-deleted row — an undelete has to find the row precisely
+  // because it is soft-deleted.
+  const file = await requireFileIncludingDeleted(database, fileId);
+  // Restoring a live file refuses rather than no-opping: a second restore would write another audit
+  // row claiming a recovery that never happened, and the caller deserves to learn its picture of the
+  // file is stale.
+  if (file.deletedAt === null) {
+    throw new FileManagerValidationError("file-not-deleted", `file is not deleted: ${fileId}`);
+  }
+  let targetFolderId: FolderId | null;
+  if (destination.folderId !== undefined) {
+    if (destination.folderId !== null) {
+      // The chosen destination must exist and live in the file's matter — the same guard every move
+      // enforces, so a restore can never park a file under another matter's folder.
+      const folderMatterId = await loadFolderMatter(database, destination.folderId);
+      if (folderMatterId === undefined) {
+        throw new FileManagerValidationError(
+          "unknown-folder",
+          `no such folder: ${destination.folderId}`,
+        );
+      }
+      if (folderMatterId !== file.matterId) {
+        throw new FileManagerValidationError(
+          "file-cross-matter",
+          "a file's restore destination must belong to the same matter",
+        );
+      }
+    }
+    targetFolderId = destination.folderId;
+  } else if (file.folderId !== null) {
+    // No destination chosen: keep the stored folder when it still exists, otherwise fall back to the
+    // matter root — a restored file must land somewhere the folder tree can reach.
+    targetFolderId =
+      (await loadFolderMatter(database, file.folderId)) === undefined ? null : file.folderId;
+  } else {
+    targetFolderId = null;
+  }
   return {
+    folderId: targetFolderId,
     effect: {
       statements: [
         restoreFileStatement(database, fileId, options.clock.now()),
-        fileAuditStatement(database, options, "file.restored", fileId),
+        ...(targetFolderId === file.folderId
+          ? []
+          : [moveFileStatement(database, fileId, targetFolderId, options.clock.now())]),
+        // The metadata names where the file landed only when the restore moved it — the common
+        // straight-home restore stays a bare event (ids only, redact-by-default).
+        fileAuditStatement(
+          database,
+          options,
+          "file.restored",
+          fileId,
+          targetFolderId === file.folderId ? undefined : { restoredToFolderId: targetFolderId },
+        ),
       ],
       outboxMessages: [],
     },

@@ -67,7 +67,9 @@
 </script>
 
 <ContextMenu.Root {onOpenChange}>
-  <ContextMenu.Trigger>
+  <!-- The trigger region IS the list area, so it has to grow with the column it sits in: an
+       auto-height trigger left the table at its content height and the footer floating mid-screen. -->
+  <ContextMenu.Trigger class="flex min-h-0 flex-1 flex-col">
     {@render children()}
   </ContextMenu.Trigger>
   <ContextMenu.Content>

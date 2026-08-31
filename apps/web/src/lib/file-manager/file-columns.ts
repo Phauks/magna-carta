@@ -15,7 +15,7 @@
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { statusEntry } from "@magna-carta/design-system/status-register";
-import type { MatterFile } from "./matter-file-api.ts";
+import type { DeletedFileSummary, FileHistoryEntry, MatterFile } from "./matter-file-api.ts";
 import type { FileManagerRow, MatterFileIndex } from "./file-rows.ts";
 import { folderAggregate, folderSizeText, formatBytes } from "./file-rows.ts";
 import { displayName } from "./file-names.ts";
@@ -214,4 +214,160 @@ export function locatedColumns(context: FileColumnContext): GridColumn<FileManag
   return browseColumns(context).map((column) =>
     column.id === FILE_COLUMN_IDENTIFIERS.location ? { ...column, hidden: false } : column,
   );
+}
+
+/**
+ * The Deleted Files view's columns: the file's identity plus the two facts that only make sense
+ * here — when it went and who sent it — because sorting by deletion time is the whole reason a
+ * person opens this list. "Was In" resolves against the folders that exist NOW; a path whose
+ * folder went with the file says so rather than reading blank.
+ */
+export function deletedColumns(
+  context: Pick<FileColumnContext, "index" | "hideExtensions" | "documentTypeName">,
+): GridColumn<DeletedFileSummary>[] {
+  const { index, hideExtensions, documentTypeName } = context;
+  const wasIn = (row: DeletedFileSummary): string => {
+    if (row.folderId === null) return "Home";
+    return index.folderById(row.folderId) === undefined
+      ? "A folder deleted with it"
+      : index.pathText(row.folderId);
+  };
+  return [
+    {
+      id: "name",
+      label: "Name",
+      type: "text",
+      filter: "text",
+      anchored: true,
+      fitExtra: 28,
+      value: (row) => displayName(row.name, hideExtensions),
+    },
+    {
+      id: "fileType",
+      label: "File Type",
+      type: "text",
+      filter: "set",
+      value: (row) => fileExtension(row),
+    },
+    {
+      id: "documentType",
+      label: "Document Type",
+      type: "text",
+      filter: "set",
+      value: (row) => documentTypeName(row.documentTypeId),
+    },
+    {
+      id: "size",
+      label: "Size",
+      type: "number",
+      filter: "range",
+      filterNote: "In bytes, as stored.",
+      value: (row) => row.sizeBytes,
+      text: (row) => formatBytes(row.sizeBytes),
+    },
+    {
+      id: "deleted",
+      label: "Deleted",
+      type: "date",
+      filter: "dateRange",
+      value: (row) => row.deletedAt,
+    },
+    {
+      id: "deletedBy",
+      label: "Deleted By",
+      type: "text",
+      filter: "set",
+      value: (row) => row.deletedByName ?? "",
+    },
+    {
+      id: "wasIn",
+      label: "Was In",
+      type: "text",
+      filter: "set",
+      value: wasIn,
+    },
+    {
+      // The way back rides the row itself: a list of recoverable files where recovery is a trip
+      // to a menu is a list of chores. The surface renders the control in this cell.
+      id: "restore",
+      label: "",
+      type: "text",
+      value: () => "",
+    },
+  ];
+}
+
+/**
+ * What each audit event reads as in the History view's Action column. The raw event name is the
+ * record; this is only its reading voice, and an event this map does not know renders its own
+ * suffix in words rather than being dropped.
+ */
+const HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
+  "file.upload_initiated": "Upload Started",
+  "file.upload_completed": "Uploaded",
+  "file.upload_aborted": "Upload Abandoned",
+  "file.version_committed": "New Version",
+  "file.version_rescanned": "Re-scanned",
+  "file.version_restored": "Version Restored",
+  "file.version_skipped": "Version Skipped",
+  "file.renamed": "Renamed",
+  "file.moved": "Moved",
+  "file.deleted": "Deleted",
+  "file.restored": "Restored",
+  "file.document_type_assigned": "Document Type Set",
+  "file.quarantined": "Flagged",
+  "document.checkin_initiated": "Check-in Started",
+};
+
+export function historyActionLabel(event: string): string {
+  const known = HISTORY_ACTION_LABELS[event];
+  if (known !== undefined) return known;
+  const tail = event.split(".").at(-1) ?? event;
+  return tail
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+/** The History view's columns: the matter changelog on the matter's own table. */
+export function historyColumns(): GridColumn<FileHistoryEntry>[] {
+  return [
+    {
+      id: "time",
+      label: "Time",
+      type: "date",
+      filter: "dateRange",
+      anchored: true,
+      value: (row) => row.at,
+    },
+    {
+      id: "action",
+      label: "Action",
+      type: "text",
+      filter: "set",
+      value: (row) => historyActionLabel(row.event),
+    },
+    {
+      id: "file",
+      label: "File",
+      type: "text",
+      filter: "text",
+      value: (row) => row.fileName,
+    },
+    {
+      id: "version",
+      label: "Version",
+      type: "number",
+      filter: "range",
+      value: (row) => row.versionNumber,
+      text: (row) => (row.versionNumber === null ? "" : String(row.versionNumber)),
+    },
+    {
+      id: "source",
+      label: "Source",
+      type: "text",
+      filter: "set",
+      value: (row) => row.actorName ?? "",
+    },
+  ];
 }

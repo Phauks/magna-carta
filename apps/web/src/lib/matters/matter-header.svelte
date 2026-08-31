@@ -61,7 +61,18 @@
 <Masthead.Root>
   <Masthead.Heading>
     <Masthead.Eyebrow>
-      {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`}
+      <span class="flex items-center gap-8">
+        {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`}
+        <!-- The status seal rides the ledger line, beside the matter number — the top-left corner
+             is where the matter's standing is read, not the action rail. -->
+        <Badge
+          variant={seal.variant}
+          class="uppercase"
+          style="letter-spacing: var(--mc-tracking-caps)"
+        >
+          {seal.label}
+        </Badge>
+      </span>
     </Masthead.Eyebrow>
     <Masthead.Title>{matter.title}</Masthead.Title>
     <Masthead.Meta>
@@ -75,12 +86,6 @@
   </Masthead.Heading>
   <Masthead.Actions>
     {@const LifecycleIcon = lifecycle.icon}
-    <!-- The status seal sits with the actions — right where you act on it — rather than up in the
-         eyebrow: the lifecycle action in the menu is the thing that changes it. Closed reads quiet
-         neutral (archived-but-additive), never destructive. -->
-    <Badge variant={seal.variant} class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-      {seal.label}
-    </Badge>
     <DropdownMenu.Root>
       <!-- The overflow (⋯) carries a token border so it reads as a control at rest, not just on
            hover — the quiet ghost was too easy to miss. The lifecycle action lives inside it,

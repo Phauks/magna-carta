@@ -43,6 +43,12 @@ export const DEFAULT_UPLOAD_POLICY: UploadPolicy = {
     "audio/*",
     "video/*",
     "application/zip",
+    // Windows browsers declare a .zip as application/x-zip-compressed (and some legacy stacks as
+    // application/x-compressed), so allowing only application/zip refuses every zip uploaded from
+    // Windows at initiate. The gate still re-checks the SNIFFED type, which reports the real
+    // container, so admitting the declared aliases widens nothing at the byte level.
+    "application/x-zip-compressed",
+    "application/x-compressed",
     "application/x-7z-compressed",
     "application/x-tar",
     "application/gzip",

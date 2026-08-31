@@ -428,18 +428,24 @@
         Clear Filters
       </Button>
     {/if}
+    <!-- The Time Sheet is the top right's PRIMARY act — the capture surface the owner built is
+         what recording time means here; a lone one-off entry is the secondary path beside it. -->
     <Button
       variant="secondary"
+      size="sm"
+      title="Record one entry on this matter. It saves as a draft."
+      onclick={openLogTime}
+    >
+      <Plus class="size-16" aria-hidden="true" />
+      Log Time
+    </Button>
+    <Button
       size="sm"
       title="Open the Time Sheet: the day's rows in a grid, typed straight into, with the timer"
       onclick={() => (sheetOpen = true)}
     >
       <Timer class="size-16" aria-hidden="true" />
       Time Sheet
-    </Button>
-    <Button size="sm" title="Record time on this matter. It saves as a draft." onclick={openLogTime}>
-      <Plus class="size-16" aria-hidden="true" />
-      Log Time
     </Button>
     <DataTable.GridColumnsMenu {grid} />
     <Button

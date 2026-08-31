@@ -8,6 +8,7 @@ import {
   assignDocumentType,
   moveFile,
   renameFile,
+  restoreFile,
   softDeleteFile,
 } from "@magna-carta/file-manager/file-service";
 import { selectFileStatement } from "@magna-carta/file-manager/file-statements";
@@ -16,6 +17,8 @@ import {
   getCurrentCleanVersionForPreview,
   getFileSummary,
   listCleanVersions,
+  listDeletedFiles,
+  listFileHistory,
   listFiles,
   type FileListItem,
 } from "@magna-carta/file-manager/queries";
@@ -149,7 +152,67 @@ const PatchFileRequest = z
 
 const FileActionAck = z.object({ fileId: z.string() }).openapi("FileActionAck");
 
+const DeletedFileItem = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    // The folder the file was in when it was deleted, as stored — the folder row itself may be gone
+    // by now; the restore path resolves whether the pointer still leads anywhere.
+    folderId: z.string().nullable(),
+    documentTypeId: z.string().nullable(),
+    deletedAt: z.string(),
+    // Resolved from the audit trail (the latest file.deleted row), so a system deletion or a
+    // departed member renders an honest null rather than a fabricated actor.
+    deletedBy: z.string().nullable(),
+    deletedByName: z.string().nullable(),
+    currentVersionId: z.string().nullable(),
+    // The clean current version's facts; null for a file deleted before any version committed.
+    sizeBytes: z.number().int().nullable(),
+    sniffedContentType: z.string().nullable(),
+  })
+  .openapi("DeletedFileItem");
+
+const DeletedFileListResponse = paginated(DeletedFileItem).openapi("DeletedFileListResponse");
+
+const RestoreFileRequest = z
+  .object({
+    // Present = restore INTO this folder (explicit null = the matter root). Absent = the file goes
+    // back where it was, falling back to the matter root when that folder no longer exists.
+    folderId: identifierField("folder").nullable().optional(),
+  })
+  .openapi("RestoreFileRequest");
+
+const RestoredFileAck = z
+  .object({
+    fileId: z.string(),
+    // Where the restore actually put the file (null = the matter root) — it can differ from the
+    // stored folder when the original folder is gone or a destination was chosen.
+    folderId: z.string().nullable(),
+  })
+  .openapi("RestoredFileAck");
+
+const FileHistoryItem = z
+  .object({
+    at: z.string(),
+    // The raw audit event string (e.g. "file.renamed", "file.version_committed",
+    // "document.checkin_committed").
+    event: z.string(),
+    fileId: z.string(),
+    // The file's CURRENT name, resolved at read time — a rename updates every past row's display.
+    fileName: z.string(),
+    // Present for version-subject events (uploads, commits, downloads); null for file-subject ones.
+    versionNumber: z.number().int().nullable(),
+    actorUserId: z.string().nullable(),
+    actorName: z.string().nullable(),
+    // The event's redacted metadata, passed through as recorded (null when the event carried none).
+    detail: z.unknown().nullable(),
+  })
+  .openapi("FileHistoryItem");
+
+const FileHistoryResponse = paginated(FileHistoryItem).openapi("FileHistoryResponse");
+
 const fileParam = z.object({ id: identifierPathParam("file", "id") });
+const matterParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
 
 const authErrors = {
   401: {
@@ -266,6 +329,45 @@ const downloadFileMeta: RouteMeta = {
 // the full file, the audited /download path records it. Reasoning home: docs/conventions/security.md.
 const previewFileMeta: RouteMeta = {
   operationId: "files.preview",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+// The recovery view's list — the same read posture as files.list (any authenticated firm member;
+// access is gated by which matter the member can reach in the firm's physically-isolated D1).
+const listDeletedFilesMeta: RouteMeta = {
+  operationId: "files.listDeleted",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+// Restore rides files:delete: deleting and undeleting are the same custody bracket — a separate
+// restore capability would be a permission nobody would set differently (the deleted-files
+// retention design records this as an owner recommendation).
+const restoreFileMeta: RouteMeta = {
+  operationId: "files.restore",
+  surface: "app",
+  authenticated: true,
+  permission: FILES_DELETE,
+  resource: "matter",
+  audited: true,
+  idempotency: "required",
+  idempotencyStore: "firm",
+  rateLimit: "default",
+};
+
+const fileHistoryMeta: RouteMeta = {
+  operationId: "files.history",
   surface: "app",
   authenticated: true,
   permission: null,
@@ -441,12 +543,98 @@ const previewFileRoute = defineOpenAPIRoute(previewFileMeta, {
   },
 });
 
+const listDeletedFilesRoute = defineOpenAPIRoute(listDeletedFilesMeta, {
+  method: "get",
+  path: "/api/v1/matters/{matterId}/files/deleted",
+  description:
+    "Lists a matter's soft-deleted files — the recovery view — newest deletion first, " +
+    "cursor-paginated. Each row carries when it was deleted, who deleted it (resolved from the " +
+    "audit trail; null for a system deletion), the folder it was in (the folder itself may since " +
+    "be gone), and the clean current version's size and sniffed type when one exists. Deleted " +
+    "files stay restorable indefinitely by default.",
+  request: {
+    params: matterParam,
+    query: z.object({
+      cursor: z.string().optional(),
+      pageSize: z.coerce.number().int().positive().max(200).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "A page of the matter's deleted files",
+      content: { "application/json": { schema: DeletedFileListResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const restoreFileRoute = defineOpenAPIRoute(restoreFileMeta, {
+  method: "post",
+  path: "/api/v1/files/{id}/restore",
+  description:
+    "Restores a soft-deleted file to the default listing. With no folderId the file returns to the " +
+    "folder it was deleted from, falling back to the matter root if that folder no longer exists; " +
+    "pass folderId to restore into a chosen folder (null = the matter root; the folder must belong " +
+    "to the file's matter). A file that is not deleted answers 409.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: fileParam,
+    body: { content: { "application/json": { schema: RestoreFileRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The file was restored; folderId reports where it landed",
+      content: { "application/json": { schema: RestoredFileAck } },
+    },
+    400: idempotencyErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: {
+      description:
+        "The file is not deleted (nothing to restore), or a request with this Idempotency-Key is " +
+        "still in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: idempotencyErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const fileHistoryRoute = defineOpenAPIRoute(fileHistoryMeta, {
+  method: "get",
+  path: "/api/v1/matters/{matterId}/file-history",
+  description:
+    "The matter's file activity trail, read from the audit log: uploads, version commits, renames, " +
+    "moves, document-type changes, deletions, restores, downloads, and check-in/checkout events — " +
+    "newest first, cursor-paginated. File names are the files' current names, resolved at read " +
+    "time; detail passes through each event's recorded (redacted) metadata.",
+  request: {
+    params: matterParam,
+    query: z.object({
+      cursor: z.string().optional(),
+      pageSize: z.coerce.number().int().positive().max(200).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "A page of the matter's file history",
+      content: { "application/json": { schema: FileHistoryResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
 type FilesApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 function fileErrorResponse(
   c: Context,
   error: FileManagerValidationError,
-): ProblemResponse<404> | ProblemResponse<422> {
+): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
   // A blank or whitespace-only name: well-formed request, unusable value — unprocessable, not missing.
   if (error.code === "invalid-name") {
     return problemJson(c, {
@@ -454,6 +642,16 @@ function fileErrorResponse(
       title: "File name is not usable",
       status: 422,
       detail: error.message,
+    });
+  }
+  // Restoring a file that is not deleted: the file is visible to the caller, so the honest answer is
+  // a conflict — the caller's picture of the file is stale — never a fabricated absence.
+  if (error.code === "file-not-deleted") {
+    return problemJson(c, {
+      type: "conflict",
+      title: "File is not deleted",
+      status: 409,
+      detail: "This file is not deleted, so there is nothing to restore.",
     });
   }
   if (
@@ -949,6 +1147,123 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         downloadUrl,
       };
       return c.json(grant, 200, { "Cache-Control": "private, no-store" });
+    },
+  );
+
+  // GET /api/v1/matters/{matterId}/files/deleted — the recovery view's list
+  app.openapi(
+    {
+      ...listDeletedFilesRoute,
+      middleware: chokepointMiddleware(chokepoint, listDeletedFilesRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const { cursor, pageSize } = c.req.valid("query");
+      const page = await listDeletedFiles(firm.firmDatabase, matterId, {
+        ...(cursor === undefined ? {} : { cursor }),
+        ...(pageSize === undefined ? {} : { pageSize }),
+      });
+      return c.json(
+        {
+          data: page.data.map((row) => ({
+            id: row.id,
+            name: row.name,
+            folderId: row.folderId,
+            documentTypeId: row.documentTypeId,
+            deletedAt: row.deletedAt,
+            deletedBy: row.deletedBy,
+            deletedByName: row.deletedByName,
+            currentVersionId: row.currentVersionId,
+            sizeBytes: row.sizeBytes,
+            sniffedContentType: row.sniffedContentType,
+          })),
+          nextCursor: page.nextCursor,
+        } as z.infer<typeof DeletedFileListResponse>,
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/files/{id}/restore — undelete, into the stored folder / a chosen one / the root
+  app.openapi(
+    {
+      ...restoreFileRoute,
+      middleware: chokepointMiddleware(chokepoint, restoreFileRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
+      const now = () => new Date().toISOString();
+      try {
+        const result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          effect: async () => {
+            const restored = await restoreFile(
+              firm.firmDatabase,
+              id,
+              { clock: { now }, actorUserId: userId },
+              body.folderId === undefined ? {} : { folderId: body.folderId },
+            );
+            return {
+              write: restored.effect,
+              responseCode: 200,
+              responseBody: canonicalJsonStringify({ fileId: id, folderId: restored.folderId }),
+            };
+          },
+        });
+        if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+          return problemResponseForIdempotencyConflict(c, result);
+        }
+        if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+        const responseBody = JSON.parse(storedResponseBody(result)) as z.infer<
+          typeof RestoredFileAck
+        >;
+        return c.json(responseBody, 200);
+      } catch (caught) {
+        if (caught instanceof FileManagerValidationError) return fileErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  // GET /api/v1/matters/{matterId}/file-history — the matter's file activity trail
+  app.openapi(
+    {
+      ...fileHistoryRoute,
+      middleware: chokepointMiddleware(chokepoint, fileHistoryRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const { cursor, pageSize } = c.req.valid("query");
+      const page = await listFileHistory(firm.firmDatabase, matterId, {
+        ...(cursor === undefined ? {} : { cursor }),
+        ...(pageSize === undefined ? {} : { pageSize }),
+      });
+      return c.json(
+        {
+          data: page.data.map((row) => ({
+            at: row.at,
+            event: row.event,
+            fileId: row.fileId,
+            fileName: row.fileName,
+            versionNumber: row.versionNumber,
+            actorUserId: row.actorUserId,
+            actorName: row.actorName,
+            // The stored metadata is redacted JSON written by this platform; parse it back into the
+            // object the writer recorded. A row that carried none passes through as null.
+            detail: row.metadataJson === null ? null : (JSON.parse(row.metadataJson) as unknown),
+          })),
+          nextCursor: page.nextCursor,
+        } as z.infer<typeof FileHistoryResponse>,
+        200,
+      );
     },
   );
 }
