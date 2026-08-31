@@ -44,7 +44,6 @@ export function firmUsageExportDocument(
 
   return {
     title: "Firm Usage",
-    slug: "firm-usage",
     generatedAt,
     sections: [
       {
