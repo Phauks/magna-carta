@@ -122,7 +122,6 @@ describe("renderCsvExport", () => {
   it("quotes a field carrying a comma and doubles inner quotes", () => {
     const csv = renderCsvExport({
       title: "Quoting",
-      slug: "quoting",
       generatedAt: new Date(2026, 0, 1),
       sections: [{ title: "S", headers: ["A"], rows: [['Say "hi", twice']] }],
     });
@@ -131,10 +130,11 @@ describe("renderCsvExport", () => {
 });
 
 describe("workbookPlan", () => {
-  const worksheets = workbookPlan(exportDocument);
+  const worksheets = workbookPlan(exportDocument, "worksheet-per-section");
 
-  it("plans one worksheet per section with a bold frozen header row", () => {
+  it("leads with a cover sheet naming the report and its instant, then one sheet per section", () => {
     expect(worksheets.map((worksheet) => worksheet.sheet)).toEqual([
+      "Firm Usage",
       "Storage",
       "Matters by Type",
       "Files and Versioning",
@@ -143,20 +143,40 @@ describe("workbookPlan", () => {
       "AI Usage",
       "Compute and Activity",
     ]);
-    for (const worksheet of worksheets) {
+    const coverSheet = worksheets[0];
+    expect(coverSheet?.data[0]?.[0]).toEqual({ value: "Firm Usage", fontWeight: "bold" });
+    expect(String(coverSheet?.data[1]?.[0]?.value)).toMatch(/^Generated /);
+    // The time stands on its own line, in the reader's clock with the zone named beside it.
+    expect(String(coverSheet?.data[2]?.[0]?.value)).toMatch(/\d:\d\d:\d\d.*[A-Za-z]/);
+    expect(String(coverSheet?.data[2]?.[0]?.value)).not.toMatch(/^Generated /);
+    for (const worksheet of worksheets.slice(1)) {
       expect(worksheet.stickyRowsCount).toBe(1);
       expect(worksheet.data[0]?.every((cell) => cell.fontWeight === "bold")).toBe(true);
     }
   });
 
+  it("stacks every section on one worksheet in the single-sheet layout", () => {
+    const single = workbookPlan(exportDocument, "single-worksheet");
+    expect(single).toHaveLength(1);
+    const sheet = single[0];
+    expect(sheet?.sheet).toBe("Firm Usage");
+    expect(String(sheet?.data[1]?.[0]?.value)).toMatch(/^Generated /);
+    expect(String(sheet?.data[2]?.[0]?.value)).toMatch(/\d:\d\d:\d\d.*[A-Za-z]/);
+    const firstCells = (sheet?.data ?? []).map((row) => row[0]?.value);
+    for (const sectionTitle of ["Storage", "Matters by Type", "AI Usage", "Compute and Activity"]) {
+      expect(firstCells).toContain(sectionTitle);
+    }
+    expect(firstCells).toContain("Magnus Input Tokens");
+  });
+
   it("writes counts as real number cells with the grouped format", () => {
-    const aiUsage = worksheets[5];
+    const aiUsage = worksheets[6];
     const inputTokensCell = aiUsage?.data[1]?.[1];
     expect(inputTokensCell).toEqual({ value: 1_000_000, type: Number, format: "#,##0" });
   });
 
   it("keeps stated absences as text cells", () => {
-    const compute = worksheets[6];
+    const compute = worksheets[7];
     expect(compute?.data[1]?.[1]).toEqual({ value: "Not yet measured" });
   });
 
@@ -172,24 +192,26 @@ describe("workbookPlan", () => {
 
 describe("workbookPlan hardening", () => {
   it("never writes a non-finite figure as a number cell", () => {
-    const worksheets = workbookPlan({
-      title: "Hardening",
-      slug: "hardening",
-      generatedAt: new Date(2026, 0, 1),
-      sections: [
-        {
-          title: "S",
-          headers: ["A", "B"],
-          rows: [
-            [
-              { text: "-", number: Number.NaN },
-              { text: "?", number: Number.POSITIVE_INFINITY },
+    const worksheets = workbookPlan(
+      {
+        title: "Hardening",
+        generatedAt: new Date(2026, 0, 1),
+        sections: [
+          {
+            title: "S",
+            headers: ["A", "B"],
+            rows: [
+              [
+                { text: "-", number: Number.NaN },
+                { text: "?", number: Number.POSITIVE_INFINITY },
+              ],
             ],
-          ],
-        },
-      ],
-    });
-    expect(worksheets[0]?.data[1]).toEqual([{ value: "-" }, { value: "?" }]);
+          },
+        ],
+      },
+      "single-worksheet",
+    );
+    expect(worksheets[0]?.data.at(-1)).toEqual([{ value: "-" }, { value: "?" }]);
   });
 });
 
@@ -203,7 +225,7 @@ describe("worksheetName", () => {
 describe("exportFilename", () => {
   it("stamps the file to the second in the local clock with padded parts", () => {
     const stamped = firmUsageExportDocument(usage, new Date(2026, 0, 5, 9, 7, 3));
-    expect(exportFilename(stamped, "txt")).toBe("firm-usage-2026-01-05-090703.txt");
-    expect(exportFilename(stamped, "csv")).toBe("firm-usage-2026-01-05-090703.csv");
+    expect(exportFilename(stamped, "txt")).toBe("Firm Usage 2026-01-05 09-07-03.txt");
+    expect(exportFilename(stamped, "xlsx")).toBe("Firm Usage 2026-01-05 09-07-03.xlsx");
   });
 });

@@ -35,10 +35,16 @@
 
   const FORMATS: readonly ExportFormat[] = [
     {
-      label: "Excel Workbook (.xlsx)",
+      label: "Excel, Sheet per Table (.xlsx)",
       extension: "xlsx",
       contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      render: renderXlsxExport,
+      render: (renderedDocument) => renderXlsxExport(renderedDocument, "worksheet-per-section"),
+    },
+    {
+      label: "Excel, Single Sheet (.xlsx)",
+      extension: "xlsx",
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      render: (renderedDocument) => renderXlsxExport(renderedDocument, "single-worksheet"),
     },
     {
       label: "CSV (.csv)",
@@ -76,7 +82,7 @@
     <ChevronDown class="size-16" aria-hidden="true" />
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">
-    {#each FORMATS as format (format.extension)}
+    {#each FORMATS as format (format.label)}
       <DropdownMenu.Item onSelect={() => void download(format)}>
         <!-- The same per-type symbol the file manager draws for this format, resolved from the
              format's own MIME type so the two surfaces can never disagree. -->

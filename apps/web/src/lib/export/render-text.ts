@@ -5,6 +5,8 @@
  */
 import {
   exportCellText,
+  exportGeneratedDateLine,
+  exportGeneratedTimeLine,
   type TabularExportCell,
   type TabularExportDocument,
   type TabularExportSection,
@@ -39,7 +41,8 @@ export function renderTextExport(exportDocument: TabularExportDocument): string 
   );
   return [
     exportDocument.title.toUpperCase(),
-    `Generated ${exportDocument.generatedAt.toLocaleString()}`,
+    exportGeneratedDateLine(exportDocument),
+    exportGeneratedTimeLine(exportDocument),
     "",
     sections.join("\n\n"),
     "",
