@@ -20,7 +20,9 @@
 </script>
 
 {#if trouble !== null}
-  <div class="px-16 pt-16">
+  <!-- No inset of its own: the shell's canvas is already padded, and adding to it would set the
+       notice in from the content it sits above. Only the gap below it belongs here. -->
+  <div class="pb-16">
     <Alert.Root variant="warning">
       <Alert.Title>
         {trouble === "skew" ? "Magna Carta is mid-update" : "Several reads are failing"}

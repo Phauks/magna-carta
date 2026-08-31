@@ -32,8 +32,15 @@
   }: WithElementRef<HTMLAttributes<HTMLDivElement>, HTMLDivElement> & {
     /** The facts worth scanning, in the order they answer "what failed, and when". */
     rows: readonly FailureDetailRow[];
-    /** The whole report, as one block of text. Copied whether or not it is shown. */
-    trace: string;
+    /**
+     * The whole report, as one block of text. Copied whether or not it is shown.
+     *
+     * A FUNCTION, where the report carries a timestamp. The block is assembled when the failure
+     * renders and copied whenever somebody presses the button, and on a crash screen left open those
+     * are not the same minute — a fixed string would put a time in the report that reads as "when I
+     * copied this" and is not. Pass a getter and it is re-read at the press.
+     */
+    trace: string | (() => string);
     /**
      * Render the trace as well as the rows. True where the failure owns the screen and there is room
      * to be complete; false in a panel, where the rows are already the answer and the trace would
@@ -42,11 +49,13 @@
     showTrace?: boolean;
   } = $props();
 
+  const shown = $derived(typeof trace === "function" ? trace() : trace);
+
   let result = $state<CopyResult | null>(null);
   let resetTimer: ReturnType<typeof setTimeout> | undefined;
 
   async function copy(): Promise<void> {
-    result = await copyText(trace);
+    result = await copyText(typeof trace === "function" ? trace() : trace);
     clearTimeout(resetTimer);
     // A failure holds longer than a success: it carries an instruction the reader has to act on.
     resetTimer = setTimeout(() => (result = null), result === "copied" ? 2000 : 6000);
@@ -70,7 +79,7 @@
   </dl>
 
   {#if showTrace}
-    <pre class="mc-failure-details-trace">{trace}</pre>
+    <pre class="mc-failure-details-trace">{shown}</pre>
   {/if}
 
   <div class="mc-failure-details-actions">

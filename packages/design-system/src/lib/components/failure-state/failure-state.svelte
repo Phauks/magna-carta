@@ -45,7 +45,7 @@
     /** One more fact the message had no room for — attempts remaining, most often. */
     note?: string;
     rows: readonly FailureDetailRow[];
-    trace: string;
+    trace: string | (() => string);
     showTrace?: boolean;
     /** What to try, in order. Rendered as a numbered list under the diagnostics. */
     steps?: readonly string[];

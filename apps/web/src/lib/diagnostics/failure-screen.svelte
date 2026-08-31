@@ -49,7 +49,9 @@
 
   const guidance = $derived(guidanceFor(failure, subject));
   const message = $derived(failure.problem?.detail ?? fallback ?? guidance.message);
-  const trace = $derived(currentTrace(failure, page.url.pathname));
+  // A GETTER, not a string: the trace carries the moment it was copied, and a block assembled when
+  // the failure rendered would report that instead. It is re-read at the press.
+  const trace = $derived(() => currentTrace(failure, page.url.pathname));
   const remedySteps = $derived(
     steps ?? (scale === "screen" ? STANDARD_REMEDY_STEPS : undefined),
   );
