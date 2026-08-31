@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 760 nodes of the feature ledger in
+is the complete register rather than a digest: all 775 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**760 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
-below. 133 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **627 that are units of work**, for the reason set out under [What a roll-up is
+**775 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 137 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **638 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 267 | 43% |
+| Done | shipped | 274 | 43% |
 | Part-built | partial, in-build | 114 | 18% |
-| Ahead | designed, planned, researching, not-started | 206 | 33% |
+| Ahead | designed, planned, researching, not-started | 210 | 33% |
 | Parked | deferred, cut | 40 | 6% |
-| **All units of work** | | **627** | **100%** |
+| **All units of work** | | **638** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 267 | 43% |
+| `shipped` | 274 | 43% |
 | `partial` | 113 | 18% |
 | `in-build` | 1 | 0% |
-| `designed` | 43 | 7% |
+| `designed` | 45 | 7% |
 | `planned` | 16 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 142 | 23% |
+| `not-started` | 144 | 23% |
 | `deferred` | 38 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **627** | **100%** |
+| **All statuses** | **638** | **100%** |
 
 ### What a roll-up is not
 
-**133 of the 760 nodes are parents, and 105 of those parents are `partial`.** A parent's status is a
+**137 of the 775 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 267 of 627 (43%). Shipped plus partial is 380 (61%).**
+**Shipped alone is 274 of 638 (43%). Shipped plus partial is 387 (61%).**
 
 The 113 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**381 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**388 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 29 | 8% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 47% |
-| No user surface by nature (`internal`) | 172 | 45% |
+| A person can open it today (`screen`) | 31 | 8% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
+| No user surface by nature (`internal`) | 177 | 46% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **381** | **100%** |
+| **Everything with something built** | **388** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,6 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 6 | 0% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
+| Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 0 | 11 | 64% |
 | Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
 | Observability & Diagnostics | 11 | 1 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 20 | 55% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
@@ -125,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **267** | **113** | **1** | **43** | **16** | **5** | **142** | **38** | **2** | **627** | **43%** |
+| **All areas** | **274** | **113** | **1** | **45** | **16** | **5** | **144** | **38** | **2** | **638** | **43%** |
 
 ## Where we have been
 
@@ -288,7 +289,7 @@ in this one.
 
 ## Waiting on you
 
-**32 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**33 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -306,6 +307,7 @@ in this one.
 - **Public intake forms** (`intake.public-forms`) — **Not built.** Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 - **Conflict check at intake** (`intake.conflict-check`) — **Not built.** A professional-conduct question with a build attached: may a decline be recorded before a conflicts check has completed? A firm declining instantly on subject matter — we do not do that kind of work — should not be forced through a check; a firm declining because of a conflict must have the record. The two are indistinguishable to the platform at the moment of the click, so the answer decides whether the decline path gates on the check or merely notes its absence. Client intake design flag J5.
 - **Lead-to-matter conversion** (`intake.conversion`) — **Not built.** A professional-conduct question rather than a product one. When the four conversion preconditions are unmet — an open re-check request among them — does opening the matter refuse outright, or proceed on an override with a recorded reason? The conditions are facts about the firm's own procedure rather than conclusions about the client, so gating on them concludes nothing; but a hard refusal will, at some point, stop a firm opening a matter on a day it needed to. The design refuses only to leave an override untraced. Client intake design flag J2.
+- **Firm-wide note search** (`notes.search.firm-wide`) — **Not built.** Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
 - **Payments port** (`payments.port`) — **Not built.** Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
 - **Manually recorded receipt** (`payments.manual-receipt`) — **Not built.** Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
 - **ACH rail (default)** (`payments.ach`) — **Not built.** Who presses the button on the first electronic payment, given the client portal is not started. Staff-operated only, where the firm opens the hosted modal on the client's behalf in the office or over the phone; a one-time pay link, on the precedent of the one-time link that already proves a mailbox; or wait for the portal and ship no electronic rail until then. This decides whether the first payments slice has any client-facing surface at all. Payments design flag K7.
@@ -404,6 +406,8 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `financial.billing.automations.payment-plans` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied.
 - `financial.billing.automations.replenishment` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
+- `notes.search.firm-wide` · **Firm-wide note search** — Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
+- `notes.entity-note` · **Notes on a Directory entity** — The same primitive keyed to a Directory entity, read on the entity's own surface.
 - `payments` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
 - `payments.port` · **Payments port** — Vendor-swappable payments adapter behind the plugin/port system.
 - `payments.manual-receipt` · **Manually recorded receipt** — Record a cheque, cash, wire or in-person terminal payment against a finalized invoice, with no processor, port or adapter involved.
@@ -1047,6 +1051,26 @@ to change a line here, edit the node in its area file and re-run the build.
     - `maintenance-agents.docs-maintenance.weekly-routine` · `partial` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR. _Note: Partial rather than in-build: the skill and its trigger configuration exist and the Routine itself is not created, which is an owner decision rather than work in progress._
     - `maintenance-agents.docs-maintenance.run-reports` · `shipped` · **Run-report registry** — One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state. _Note: Was in-build against the branch the registry was written on; the registry is on main and in use._
     - `maintenance-agents.docs-maintenance.ci-doc-hygiene` · `partial` · **Deterministic doc-hygiene CI rules** — CI-side lint for cross-reference violations, process-ref scanning, and fragment validity — the deterministic residue the agent must not own.
+
+### Matter Notes and Activity
+
+[`roadmap.d/notes.md`](../roadmap.d/notes.md) — 11 units of work, 64% shipped. 7 done, 0 part-built, 4 ahead, 0 parked.
+
+- `notes` · `partial` · **Matter notes and activity** — The note primitive — a dated, attributed record on a matter, corrected by appended revision and withdrawn rather than deleted — and its entry on the federated activity read.
+  - `notes.matter-note` · `shipped` · **The matter note** — An identity row carrying the matter, the original author, the created instant and the state, with the body held as revisions beside it.
+    - `notes.matter-note.revisions` · `shipped` · **Correction by appended revision** — An edit appends a revision and moves the head; every prior body is retained with its own author and instant, and is readable from the note's own history.
+    - `notes.matter-note.append-only-enforcement` · `shipped` · **Append-only revisions, enforced by the database** — Three RAISE(ABORT) triggers refuse UPDATE, DELETE and INSERT OR REPLACE on the revision table; none guards the note head, whose state must move for withdrawal. _Note: Honouring a court-ordered destruction is therefore a reviewed migration rather than a query, which was the accepted cost._
+    - `notes.matter-note.retraction` · `shipped` · **Withdrawal** — A state with its own actor, instant and required reason. The body stops rendering everywhere and the note leaves the federated read; the row and every revision remain.
+    - `notes.matter-note.no-delete` · `shipped` · **No delete path** — No route, no capability, and no statement in the package deletes a note. The one case where bytes must genuinely leave routes through the erasure residue report and a person.
+  - `notes.activity` · `shipped` · **The note on the matter's activity history** — One declared source on the calendar's federated read — keyed matterNote, matter-anchored, declaring no label — reading the note table in place. _Note: No second activity stream was built; a note joins the register that already exists, which is why nothing projects or backfills._
+    - `notes.activity.no-label` · `shipped` · **No privileged text on the federated read** — The source projects NULL AS label, so an entry says a note was written, on this matter, then, by them, and never a word of it.
+    - `notes.confidentiality.no-merge-field` · `shipped` · **No merge field reaches a note** — A source scan and a catalogue scan refuse any merge-field entry, subject or batched read that resolves to a note table. _Note: The PDF metadata scrub is structurally blind to this route, because merge-filled text is page content rather than a document-level surface._
+    - `notes.confidentiality.outside-discovery` · `shipped` · **Notes stay outside discovery collection** — review_document.source_kind keeps its three values; producing a note means exporting it as a document into the matter's file record and collecting that. _Note: Owner decision, notes design flag W5. Widening that enum is the change that must not be made quietly._
+  - `notes.search` · `partial` · **Finding a note again** — Search within one matter, matched against the notes' current text only; a corrected note stops being findable by the words taken out of it. _Note: PARTIAL because it is within one matter. Firm-wide note search is unbuilt and needs an index decision — see notes.search.firm-wide._
+    - `notes.search.firm-wide` · `designed` · **Firm-wide note search** — Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
+  - `notes.entity-note` · `designed` · **Notes on a Directory entity** — The same primitive keyed to a Directory entity, read on the entity's own surface. _Note: Deferred deliberately (notes design flag W2). Joining the federated read needs a THIRD visibilityAnchor with its own predicate — an entity note can carry matter-derived confidentiality on a firm-wide record — and registering one as firm-anchored would be a silent loosening of the package's one reviewed exemption._
+  - `notes.document-note` · `not-started` · **Notes on a document** — An annotation on a document rather than on a matter. _Note: Deliberately not designed. A different product with a different privilege story, plausibly a PDF annotation rather than a row._
+  - `notes.client-visible-comment` · `not-started` · **Client-visible comments** — A threaded comment a client can read through the portal — a separate entity from an internal note, with no path by which one becomes the other. _Note: Belongs to the portal's own slice. The shape was decided ahead of it so the portal inherits a decision: two entities, no visibility flag, and no promotion path. See portal.capabilities.comment._
 
 ### Notifications
 

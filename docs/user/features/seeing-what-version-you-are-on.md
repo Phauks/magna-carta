@@ -40,7 +40,7 @@ Press the caret beside **Workers** to fold away everything except the two worker
 
 **Compare the page against the server**
 
-The page in your browser and the server answering it are delivered separately, so `magna-carta-web` and `magna-carta` are allowed to report different build identifiers; the overlay says so beneath the two of them, and a difference on its own is not a problem. The signal that asks for action is the Update Available notice, which appears when a newer version of the page itself has shipped.
+The page in your browser and the server answering it are delivered separately, so `magna-carta-web` and `magna-carta` are allowed to report different build identifiers. A badge beneath the two of them shows how they compare: green **In sync** once they match, amber **Web behind** when `magna-carta-web` is running the older build, and a neutral **Different builds** for any other difference — deploying separately means differing is often normal, so only "Web behind" is calling for anything. It appears only once both sides have reported a real version to compare. The signal that asks for action on your own page is the separate Update Available notice, which appears when a newer version of the page itself has shipped.
 
 ## Tips and edge cases
 

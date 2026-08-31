@@ -1,6 +1,6 @@
 ---
 slug: a-note-outlives-its-author-and-keeps-their-name
-status: Proposed
+status: Accepted — built
 area: Notes and activity
 date: 2026-08-15
 summary: "A note's author is a plain foreign key to member.user_id and it never nulls, never repoints, and is not anonymized when a member leaves the firm. An unattributed contemporaneous record is worth a fraction of an attributed one, the foreign key is what the federated timeline reads as the entry's actor, and every sibling subsystem here already made this choice — custody movements, trust movements, calendar events and deadlines, conflicts checks and filed email all name their actor as a member reference and none of them clears it, while matter_assignment deliberately keeps ended rows because who carried a file is the matter's record. What changes when a member leaves is presentation and not storage: a note authored by a former member renders with a former-member signal derived from a read-time join on member.status, never a stored flag, on the same reasoning that keeps overdue out of the calendar's schema — a fact that is a join cannot drift from the row it joins. The one case that genuinely moves is a member who is themselves the subject of an erasure request, where the member row anonymizes to a tombstone and the author reference correctly points at it under the PII registry's pseudonymize-keep action, with the note body handled separately as report-manual because it may name the departed member and no automated pass can safely rewrite prose."

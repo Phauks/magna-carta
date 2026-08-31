@@ -70,17 +70,62 @@ export function versionChipLabel(commit: string): string {
   return isRealCommit(commit) ? commit : "dev";
 }
 
-/*
- * DELIBERATELY ABSENT: a page-versus-API "different builds" warning. The panel carried one while
- * the bundle shipped inside the API Worker, when a difference meant this tab predated the one
- * deployment there was. Since the interface moved onto its own Worker (magna-carta-web, serving
- * the app's address by route pattern), the page and the API deploy separately and their commits
- * differ whenever one has shipped more recently than the other — a normal state, not an anomaly,
- * and a standing warning about a normal state teaches people to ignore warnings. The reload signal
- * is the version poll (UPDATE_AVAILABLE_EXPLANATION below), which compares this tab against the
- * deployment that actually serves it. The rows still show every commit; the reader who needs the
- * comparison has it, without an alarm attached.
+/**
+ * Whether the two Workers that serve the app's address — `magna-carta-web` and `magna-carta` — are
+ * running the same build, and if not, which side is behind. Comparable only when both sides carry
+ * a real commit: a dev build or a web row that has not reported (unbound/unreachable/unreported)
+ * gives no basis for a comparison, so the panel shows no indicator then rather than guessing.
  */
+export type ApiWebSyncState = "in-sync" | "web-behind" | "mismatch";
+
+/**
+ * Compares the API's own commit against the `magna-carta-web` row. "web-behind" only when the
+ * commit times say so directly — a build time earlier than the API's — so an unresolvable order
+ * (a missing timestamp, or the API the one that is behind) falls into the calmer "mismatch" bucket
+ * rather than a claim this function cannot back up.
+ */
+export function apiWebSyncState(
+  api: { commit: string; commitTime: string | null },
+  web: ServiceVersionRow | null,
+): ApiWebSyncState | null {
+  if (!isRealCommit(api.commit)) return null;
+  if (web === null || web.state !== "reported" || !isRealCommit(web.commit)) return null;
+  if (web.commit === api.commit) return "in-sync";
+  if (web.commitTime === null || api.commitTime === null) return "mismatch";
+  const webTime = Date.parse(web.commitTime);
+  const apiTime = Date.parse(api.commitTime);
+  if (Number.isNaN(webTime) || Number.isNaN(apiTime)) return "mismatch";
+  return webTime < apiTime ? "web-behind" : "mismatch";
+}
+
+/**
+ * The badge colour for each sync state. Calm, not alarmed: the two Workers deploy separately, so
+ * differing is a normal state the reader should be able to see at a glance, not a fault — "warning"
+ * is reserved for the one case that is actually actionable, `magna-carta-web` running behind the
+ * API it serves.
+ */
+export function syncStateBadgeVariant(state: ApiWebSyncState): "success" | "warning" | "neutral" {
+  switch (state) {
+    case "in-sync":
+      return "success";
+    case "web-behind":
+      return "warning";
+    case "mismatch":
+      return "neutral";
+  }
+}
+
+/** The badge's text for each sync state. */
+export function syncStateLabel(state: ApiWebSyncState): string {
+  switch (state) {
+    case "in-sync":
+      return "In sync";
+    case "web-behind":
+      return "Web behind";
+    case "mismatch":
+      return "Different builds";
+  }
+}
 
 /** The honest label for a service that could not report a version. Reported rows carry none. */
 export function serviceStateLabel(state: ServiceVersionState): string | null {
@@ -249,15 +294,6 @@ export function showsPageBuildRow(panel: {
   if (panel.read === "pending") return false;
   return panel.webRow === null || panel.webRow.state !== "reported";
 }
-
-/**
- * The topology in one line, where a reader comparing the rows will look for it. The app's address
- * is split by route pattern: magna-carta-web serves the interface, magna-carta answers the API.
- * They deploy separately, which is why their commits are allowed to differ without a warning.
- */
-export const WEB_TOPOLOGY_NOTICE =
-  "This page is served by magna-carta-web and the API answers from magna-carta. The two deploy " +
-  "separately, so their versions can differ.";
 
 /**
  * The deployment list's order: the two Workers that serve the app's address lead — magna-carta

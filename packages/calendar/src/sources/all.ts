@@ -228,6 +228,38 @@ const documentFiledSource = directInstantSource({
   section: "files",
 });
 
+// A note written on the matter. DECLARES NO LABEL, and it is not close.
+//
+// A note body is the successor to a time entry's narrative as the most privileged free-text field in
+// this platform, and its first eight words are frequently the whole disclosure — "Client admits she
+// was driving" projected onto a read that spans every matter is the exact leak the label discipline
+// exists to prevent. The entry says a note was written, on this matter, then, by them; the words are
+// one authenticated request away behind the link.
+//
+// Reads `matter_note` and never `matter_note_revision`, which is what keeps an edited note as ONE
+// entry: a note is a chain of revisions, and a source over the revision table would put a fresh entry
+// on the timeline every time somebody fixed a typo, each claiming to be a thing that happened. The
+// sort key is the note's own created instant, so correcting a note does not move it up the history —
+// a contemporaneous record belongs at the moment it was written.
+//
+// Retracted notes are excluded entirely, on the documentFiled soft-delete precedent: a note the firm
+// has withdrawn is not on its timeline. The state filter sits beside the date filter deliberately —
+// filtering on a date column and forgetting the status column beside it is the failure this file
+// calls out in the custody constants.
+const matterNoteSource = directInstantSource({
+  key: "matterNote",
+  kind: "matterNote",
+  table: "matter_note",
+  sortColumn: "matter_note.created_at",
+  idColumn: "matter_note.id",
+  matterColumn: "matter_note.matter_id",
+  actorExpression: "matter_note.author_user_id",
+  labelExpression: "NULL",
+  declaresLabel: false,
+  extraConditions: ["matter_note.state = 'active'"],
+  section: "notes",
+});
+
 // Time and cost entries are the densest sources in the platform by row count and would dominate an
 // unfiltered timeline. They are REGISTERED rather than omitted, so a firm that wants them can have
 // them, and a calendar surface defaults them off through the ordinary kind filter — which is a user
@@ -773,6 +805,7 @@ export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   emailFiledSource,
   documentAssemblySource,
   documentFiledSource,
+  matterNoteSource,
   timeEntrySource,
   costEntrySource,
   conflictsCheckSource,
