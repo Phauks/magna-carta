@@ -53,7 +53,6 @@
   import Separator from "@magna-carta/design-system/separator";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Check from "@lucide/svelte/icons/check";
-  import Copy from "@lucide/svelte/icons/copy";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { updated } from "$app/state";
@@ -65,6 +64,7 @@
     describeRetainedRows,
     formatVersionTimestamp,
     isRealCommit,
+    partitionDeploymentRows,
     readsServiceAggregate,
     serviceStateDescription,
     serviceStateLabel,
@@ -230,11 +230,11 @@
             buildTime: part.buildTime,
           })}
       >
+        <!-- No copy glyph: the button's own shape says it is pressable, and the check appearing
+             is the confirmation. The aria-label keeps stating the action for a screen reader. -->
         {part.commit}
         {#if copiedRow === part.rowKey}
           <Check class="size-16" aria-hidden="true" />
-        {:else}
-          <Copy class="size-16" aria-hidden="true" />
         {/if}
       </Button>
     {:else if stateLabel !== null}
@@ -372,8 +372,11 @@
           {#if value.services.length === 0}
             <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
           {:else}
+            {@const deploymentRows = partitionDeploymentRows(value.services)}
+            <!-- The two Workers that serve the app's address lead the list, with the topology
+                 line that explains them; the rest of the fleet sits beneath the separator. -->
             <div class="flex flex-col">
-              {#each value.services as service (service.id)}
+              {#each deploymentRows.front as service (service.id)}
                 {@render partRow({
                   rowKey: service.id,
                   name: service.service,
@@ -385,10 +388,24 @@
                 })}
               {/each}
             </div>
+            <p class="text-xs text-text-muted">{WEB_TOPOLOGY_NOTICE}</p>
+            {#if deploymentRows.rest.length > 0}
+              <Separator />
+              <div class="flex flex-col">
+                {#each deploymentRows.rest as service (service.id)}
+                  {@render partRow({
+                    rowKey: service.id,
+                    name: service.service,
+                    isWorkerName: true,
+                    state: service.state,
+                    commit: service.commit,
+                    commitTime: service.commitTime,
+                    buildTime: service.buildTime,
+                  })}
+                {/each}
+              </div>
+            {/if}
           {/if}
-          <!-- The split topology, said where a reader comparing the rows will look for it — and
-               the reason a page-versus-API difference carries no warning. -->
-          <p class="text-xs text-text-muted">{WEB_TOPOLOGY_NOTICE}</p>
         {:else}
           <div class="flex flex-col gap-8" aria-busy="true">
             <Skeleton class="h-16 w-full" />

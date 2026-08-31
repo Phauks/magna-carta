@@ -26,6 +26,7 @@ import {
   describeRetainedRows,
   formatVersionTimestamp,
   isRealCommit,
+  partitionDeploymentRows,
   readsServiceAggregate,
   serviceStateDescription,
   serviceStateLabel,
@@ -364,15 +365,40 @@ describe("the chip's row identities and refresh", () => {
     expect(chip).not.toMatch(/"magna-carta-[a-z-]+"/);
   });
 
-  it("keeps the build line and the deployment list apart, and states the topology beneath them", () => {
+  it("leads with the pair that serves the app's address, then the fleet below a separator", () => {
     expect(chip).toMatch(/rowKey: "page",\s*name: PAGE_BUILD_ROW_NAME/);
     expect(chip).toMatch(/rowKey: "api",\s*name: API_WORKER_UNIT_NAME/);
+    expect(chip).toContain("partitionDeploymentRows(value.services)");
     expect(chip).toContain("{WEB_TOPOLOGY_NOTICE}");
-    // The line belongs under the list whose rows it explains: after magna-carta and its siblings.
-    expect(chip.indexOf('rowKey: "api"')).toBeLessThan(chip.indexOf("{#each value.services"));
-    expect(chip.indexOf("{#each value.services")).toBeLessThan(
+    // Order: magna-carta, then magna-carta-web (the front partition), then the topology line that
+    // explains the pair, then the separator, then the rest of the fleet.
+    expect(chip.indexOf('rowKey: "api"')).toBeLessThan(chip.indexOf("deploymentRows.front"));
+    expect(chip.indexOf("deploymentRows.front")).toBeLessThan(
       chip.indexOf("{WEB_TOPOLOGY_NOTICE}"),
     );
+    expect(chip.indexOf("{WEB_TOPOLOGY_NOTICE}")).toBeLessThan(chip.indexOf("deploymentRows.rest"));
+  });
+
+  it("splits the deployment rows so the interface Worker leads and nothing is dropped", () => {
+    const row = (id: string) => ({
+      id,
+      service: `magna-carta-${id}`,
+      state: "reported" as const,
+      commit: "a1b2c3d",
+      commitTime: null,
+      buildTime: null,
+    });
+    const { front, rest } = partitionDeploymentRows([row("bundle"), row("web"), row("scan")]);
+    expect(front.map((r) => r.id)).toEqual(["web"]);
+    expect(rest.map((r) => r.id)).toEqual(["bundle", "scan"]);
+  });
+
+  it("shows no copy glyph on a commit: the button's shape carries the affordance", () => {
+    // Owner request 2026-08-31. The check on a successful copy stays (it is the confirmation),
+    // and the aria-label keeps stating the action for a screen reader.
+    expect(chip).not.toContain("icons/copy");
+    expect(chip).toContain('aria-label="Copy the {part.name} version"');
+    expect(chip).toContain("icons/check");
   });
 
   it("offers a refresh that re-runs the read and is inert while one is in flight", () => {

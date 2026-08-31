@@ -224,6 +224,23 @@ export const WEB_TOPOLOGY_NOTICE =
   "separately, so their versions can differ.";
 
 /**
+ * The deployment list's order: the two Workers that serve the app's address lead — magna-carta
+ * (the API, rendered from the aggregate's own `api` object) and then magna-carta-web (the Worker
+ * this page came from) — and the rest of the fleet sits beneath a separator. The pair is what a
+ * reader comparing against the "This page" line needs first; the fleet below is reference. Keyed
+ * by the wire's own id so a rename of the Worker cannot silently demote it.
+ */
+export function partitionDeploymentRows(services: readonly ServiceVersionRow[]): {
+  front: ServiceVersionRow[];
+  rest: ServiceVersionRow[];
+} {
+  return {
+    front: services.filter((row) => row.id === "web"),
+    rest: services.filter((row) => row.id !== "web"),
+  };
+}
+
+/**
  * The line the update poller earns, and it has a direction: the app's own version poll saw a
  * bundle newer than the one this tab loaded, so a reload moves forward.
  */
