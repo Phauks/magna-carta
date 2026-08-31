@@ -25,6 +25,7 @@
     "./party": "./src/party.ts",
     "./contact-email": "./src/contact-email.ts",
     "./statements": "./src/statements.ts",
+    "./usage": "./src/usage.ts",
     "./topics": "./src/topics.ts",
     "./audit": "./src/audit.ts",
     "./run-directory-effect": "./src/run-directory-effect.ts"

@@ -65,6 +65,52 @@ export function readFileCount(database: SqlDatabase): Promise<number> {
   return count(database, `SELECT COUNT(*) AS c FROM ${FILE_TABLE} WHERE deleted_at IS NULL`);
 }
 
+export interface CountAndBytes {
+  readonly count: number;
+  readonly bytes: number;
+}
+
+// The versioning breakdown behind the storage total: what is current, what is history, and what is
+// deleted but not yet swept. Prior versions are derived (all minus current) so the three published
+// rows always sum: currentFiles + priorVersions = allVersions, with deletedFiles beside them.
+export interface FileUsageBreakdown {
+  readonly currentFiles: CountAndBytes; // live files with a clean current version
+  readonly priorVersions: CountAndBytes; // superseded clean versions retained on live files
+  readonly allVersions: CountAndBytes; // every clean version on a live file
+  readonly deletedFiles: CountAndBytes; // soft-deleted files; bytes are their retained clean versions
+}
+
+async function countAndBytes(database: SqlDatabase, sql: string): Promise<CountAndBytes> {
+  const { results } = await database.prepare(sql).all<{ c: number; b: number }>();
+  return { count: results[0]?.c ?? 0, bytes: results[0]?.b ?? 0 };
+}
+
+export async function readFileUsageBreakdown(database: SqlDatabase): Promise<FileUsageBreakdown> {
+  const [currentFiles, allVersions, deletedFiles] = await Promise.all([
+    countAndBytes(
+      database,
+      `SELECT COUNT(*) AS c, COALESCE(SUM(version.size_bytes), 0) AS b FROM ${FILE_TABLE} AS file JOIN ${FILE_VERSION_TABLE} AS version ON version.id = file.current_version_id AND version.status = 'clean' WHERE file.deleted_at IS NULL`,
+    ),
+    countAndBytes(
+      database,
+      `SELECT COUNT(*) AS c, COALESCE(SUM(version.size_bytes), 0) AS b FROM ${FILE_VERSION_TABLE} AS version JOIN ${FILE_TABLE} AS file ON file.id = version.file_id AND file.deleted_at IS NULL WHERE version.status = 'clean'`,
+    ),
+    countAndBytes(
+      database,
+      `SELECT COUNT(DISTINCT file.id) AS c, COALESCE(SUM(version.size_bytes), 0) AS b FROM ${FILE_TABLE} AS file LEFT JOIN ${FILE_VERSION_TABLE} AS version ON version.file_id = file.id AND version.status = 'clean' WHERE file.deleted_at IS NOT NULL`,
+    ),
+  ]);
+  return {
+    currentFiles,
+    priorVersions: {
+      count: allVersions.count - currentFiles.count,
+      bytes: allVersions.bytes - currentFiles.bytes,
+    },
+    allVersions,
+    deletedFiles,
+  };
+}
+
 export function readCleanVersionCount(database: SqlDatabase): Promise<number> {
   return count(database, `SELECT COUNT(*) AS c FROM ${FILE_VERSION_TABLE} WHERE status = 'clean'`);
 }

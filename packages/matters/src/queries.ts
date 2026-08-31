@@ -9,6 +9,7 @@ import {
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import { MATTER_TABLE, type MatterStatus } from "./matter-statements.ts";
+import { MATTER_TYPE_TABLE } from "./matter-type-statements.ts";
 
 // List queries return the uniform cursor-paginated envelope (cursor-based, never offset): the cursor
 // is an opaque continuation over the (created_at, id) sort key — stable under concurrent inserts,
@@ -257,6 +258,62 @@ export async function readMatterCounts(database: SqlDatabase): Promise<MatterCou
     }
   }
   return counts;
+}
+
+export interface MatterTypeCounts {
+  // Null when the matter carries no type: those matters still count, as their own row, because a
+  // rollup that dropped them would report fewer matters than the firm has.
+  readonly matterTypeName: string | null;
+  readonly prospective: number;
+  readonly open: number;
+  readonly closed: number;
+  readonly total: number;
+}
+
+// Per-firm matter counts grouped by the firm's own matter-type catalog. System matters are
+// platform-owned plumbing and are excluded, the same rule the caseload list applies. Rows arrive
+// largest practice first so the reader sees where the firm's work is without re-sorting.
+export async function readMatterCountsByType(
+  database: SqlDatabase,
+): Promise<readonly MatterTypeCounts[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT matter_type.name AS type_name, ${MATTER_TABLE}.status AS status, COUNT(*) AS c FROM ${MATTER_TABLE} LEFT JOIN ${MATTER_TYPE_TABLE} AS matter_type ON matter_type.id = ${MATTER_TABLE}.matter_type_id WHERE ${MATTER_TABLE}.system_key IS NULL GROUP BY matter_type.name, ${MATTER_TABLE}.status`,
+    )
+    .all<{ type_name: string | null; status: string; c: number }>();
+  const byName = new Map<string | null, { prospective: number; open: number; closed: number }>();
+  for (const row of results) {
+    const bucket = byName.get(row.type_name) ?? { prospective: 0, open: 0, closed: 0 };
+    if (row.status === "prospective" || row.status === "open" || row.status === "closed") {
+      bucket[row.status] += row.c;
+    }
+    byName.set(row.type_name, bucket);
+  }
+  return [...byName.entries()]
+    .map(([matterTypeName, bucket]) => ({
+      matterTypeName,
+      ...bucket,
+      total: bucket.prospective + bucket.open + bucket.closed,
+    }))
+    .sort((a, b) => b.total - a.total || (a.matterTypeName ?? "").localeCompare(b.matterTypeName ?? ""));
+}
+
+export interface MatterLocationCount {
+  readonly locationId: LocationId | null; // null: the matter names no location
+  readonly matters: number;
+}
+
+// Per-firm matter counts grouped by location, system matters excluded as above. Locations are
+// identified by id so the caller can join names from the location domain's own read.
+export async function readMatterCountsByLocation(
+  database: SqlDatabase,
+): Promise<readonly MatterLocationCount[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT location_id, COUNT(*) AS c FROM ${MATTER_TABLE} WHERE system_key IS NULL GROUP BY location_id`,
+    )
+    .all<{ location_id: LocationId | null; c: number }>();
+  return results.map((row) => ({ locationId: row.location_id, matters: row.c }));
 }
 
 export async function listConsultations(

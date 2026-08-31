@@ -1,13 +1,23 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { readAiDetectionUsage } from "@magna-carta/data-access/ai-detection-usage-statements";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { readActiveMemberCount } from "@magna-carta/data-access/member-statements";
+import { readTokenUsage } from "@magna-carta/data-access/token-usage-statements";
+import { readDirectoryCounts } from "@magna-carta/directory/usage";
 import {
   readCleanVersionCount,
   readFileCount,
+  readFileUsageBreakdown,
   readFolderCount,
   readStorageUsage,
 } from "@magna-carta/file-manager/usage";
-import { readLocationCount } from "@magna-carta/locations/statements";
-import { readMatterCounts } from "@magna-carta/matters/queries";
+import { readLocationCount, readLocationUsageRows } from "@magna-carta/locations/statements";
+import {
+  readMatterCounts,
+  readMatterCountsByLocation,
+  readMatterCountsByType,
+} from "@magna-carta/matters/queries";
+import { readUsageMeterTotals } from "@magna-carta/search/natural-language-statements";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts";
@@ -17,6 +27,8 @@ import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
 const ClassTotals = z.object({ bytes: z.number(), objects: z.number() });
+
+const CountAndBytes = z.object({ count: z.number(), bytes: z.number() });
 
 const FirmUsageResponse = z
   .object({
@@ -36,6 +48,54 @@ const FirmUsageResponse = z
       fileVersions: z.number(),
       folders: z.number(),
       locations: z.number(),
+    }),
+    // One row per matter type in the firm's own catalog; matterTypeName null collects the matters
+    // that carry no type. System matters are excluded, the same rule the caseload list applies.
+    mattersByType: z.array(
+      z.object({
+        matterTypeName: z.string().nullable(),
+        prospective: z.number(),
+        open: z.number(),
+        closed: z.number(),
+        total: z.number(),
+      }),
+    ),
+    // The versioning breakdown: currentFiles + priorVersions = allVersions, deletedFiles beside
+    // them. Derived artifacts (previews, extracts) count toward storage but are not files.
+    files: z.object({
+      currentFiles: CountAndBytes,
+      priorVersions: CountAndBytes,
+      allVersions: CountAndBytes,
+      deletedFiles: CountAndBytes,
+    }),
+    byLocation: z.object({
+      rows: z.array(
+        z.object({
+          name: z.string(),
+          status: z.enum(["active", "closed"]),
+          matters: z.number(),
+          members: z.number(),
+        }),
+      ),
+      mattersWithoutLocation: z.number(),
+    }),
+    directory: z.object({
+      people: z.number(),
+      organizations: z.number(),
+      activeMembers: z.number(),
+    }),
+    // Each meter is written where the work happens and only read here; totals are all-time.
+    // notMetered names what this feature costs that cannot be measured per firm, so the surface
+    // says so rather than showing a zero.
+    aiUsage: z.object({
+      magnusTokens: z.object({
+        inputTokens: z.number(),
+        outputTokens: z.number(),
+        requests: z.number(),
+      }),
+      searchQueries: z.object({ semantic: z.number(), fullText: z.number() }),
+      detection: z.object({ requests: z.number(), words: z.number() }),
+      notMetered: z.array(z.string()),
     }),
   })
   .openapi("FirmUsageResponse");
@@ -58,7 +118,7 @@ export const firmUsageRoute = defineOpenAPIRoute(firmUsageMeta, {
   method: "get",
   path: "/api/v1/firm-usage",
   description:
-    "The firm's own usage: storage consumed (by class) and entity counts (matters by status, files, versions, folders, locations).",
+    "The firm's own usage, computed when requested: storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.",
   responses: {
     200: {
       description: "The firm usage snapshot",
@@ -84,17 +144,87 @@ export const firmUsageRoute = defineOpenAPIRoute(firmUsageMeta, {
 });
 
 // Compose the per-domain reads over the firm database. Each read queries only its own domain's tables;
-// this is the one place they assemble.
+// this is the one place they assemble. Everything is computed on this request — nothing is cached or
+// stored — so a page that is never opened costs nothing, and one that is opened is current.
 async function readFirmUsage(database: SqlDatabase) {
-  const [storage, files, fileVersions, folders, matters, locations] = await Promise.all([
+  const [
+    storage,
+    files,
+    fileVersions,
+    folders,
+    matters,
+    locations,
+    mattersByType,
+    fileBreakdown,
+    locationRows,
+    mattersByLocation,
+    directoryCounts,
+    activeMembers,
+    tokenUsage,
+    searchUsage,
+    detectionUsage,
+  ] = await Promise.all([
     readStorageUsage(database),
     readFileCount(database),
     readCleanVersionCount(database),
     readFolderCount(database),
     readMatterCounts(database),
     readLocationCount(database),
+    readMatterCountsByType(database),
+    readFileUsageBreakdown(database),
+    readLocationUsageRows(database),
+    readMatterCountsByLocation(database),
+    readDirectoryCounts(database),
+    readActiveMemberCount(database),
+    readTokenUsage(database),
+    readUsageMeterTotals(database),
+    readAiDetectionUsage(database),
   ]);
-  return { storage, counts: { matters, files, fileVersions, folders, locations } };
+
+  const mattersAtLocation = new Map(mattersByLocation.map((row) => [row.locationId, row.matters]));
+  const magnusTokens = tokenUsage.reduce(
+    (sum, row) => ({
+      inputTokens: sum.inputTokens + row.inputTokens,
+      outputTokens: sum.outputTokens + row.outputTokens,
+      requests: sum.requests + row.requestCount,
+    }),
+    { inputTokens: 0, outputTokens: 0, requests: 0 },
+  );
+
+  return {
+    storage,
+    counts: { matters, files, fileVersions, folders, locations },
+    mattersByType: mattersByType.map((row) => ({
+      matterTypeName: row.matterTypeName,
+      prospective: row.prospective,
+      open: row.open,
+      closed: row.closed,
+      total: row.total,
+    })),
+    files: fileBreakdown,
+    byLocation: {
+      rows: locationRows.map((row) => ({
+        name: row.name,
+        status: row.status,
+        matters: mattersAtLocation.get(row.id) ?? 0,
+        members: row.members,
+      })),
+      mattersWithoutLocation: mattersAtLocation.get(null) ?? 0,
+    },
+    directory: { ...directoryCounts, activeMembers },
+    aiUsage: {
+      magnusTokens,
+      searchQueries: {
+        semantic: searchUsage.authoritative.semanticQueryCount,
+        fullText: searchUsage.authoritative.fullTextQueryCount,
+      },
+      detection: {
+        requests: detectionUsage.totalRequests,
+        words: detectionUsage.totalWords,
+      },
+      notMetered: [...searchUsage.notMetered],
+    },
+  };
 }
 
 export function registerFirmUsageRoute(

@@ -102,6 +102,61 @@ export type FirmUsageResponse = {
         folders: number;
         locations: number;
     };
+    mattersByType: Array<{
+        matterTypeName: string | null;
+        prospective: number;
+        open: number;
+        closed: number;
+        total: number;
+    }>;
+    files: {
+        currentFiles: {
+            count: number;
+            bytes: number;
+        };
+        priorVersions: {
+            count: number;
+            bytes: number;
+        };
+        allVersions: {
+            count: number;
+            bytes: number;
+        };
+        deletedFiles: {
+            count: number;
+            bytes: number;
+        };
+    };
+    byLocation: {
+        rows: Array<{
+            name: string;
+            status: 'active' | 'closed';
+            matters: number;
+            members: number;
+        }>;
+        mattersWithoutLocation: number;
+    };
+    directory: {
+        people: number;
+        organizations: number;
+        activeMembers: number;
+    };
+    aiUsage: {
+        magnusTokens: {
+            inputTokens: number;
+            outputTokens: number;
+            requests: number;
+        };
+        searchQueries: {
+            semantic: number;
+            fullText: number;
+        };
+        detection: {
+            requests: number;
+            words: number;
+        };
+        notMetered: Array<string>;
+    };
 };
 
 export type ToolsConnectionResponse = {
