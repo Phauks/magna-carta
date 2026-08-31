@@ -1,3 +1,4 @@
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { DEFAULT_CAPTURE_ROOT_DOMAIN } from "@magna-carta/email-filing/capture-address";
 import { MAX_CAPTURED_MESSAGE_BYTES } from "@magna-carta/email-filing/message-format";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
@@ -55,6 +56,16 @@ function makeFirmResolver(env: Bindings): FirmResolver {
 }
 
 export default {
+  // The only HTTP surface this worker has, and it exists for one caller: the app worker's aggregate
+  // version endpoint, probing over a service binding (this worker has no public route and
+  // workers_dev stays off — mail arrives through Email Routing's email() below, never over HTTP).
+  // Everything that is not the version read is a 404 so no second HTTP surface can grow here
+  // unnoticed.
+  fetch(request: Request): Response {
+    if (isVersionRequest(request)) return versionResponse();
+    return new Response("Not Found", { status: 404 });
+  },
+
   async email(message: ForwardableEmailMessage, env: Bindings): Promise<void> {
     const rootDomain = env.CAPTURE_ROOT_DOMAIN ?? DEFAULT_CAPTURE_ROOT_DOMAIN;
     const routing = await resolveCaptureRouting(message.to, rootDomain, makeFirmResolver(env));

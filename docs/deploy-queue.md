@@ -353,6 +353,30 @@ build** (or its deploy hook) after step 1.
 and `SEARCH_SERVICE` is not in the app Worker's `services` array; that row is reporting the truth and
 changes when the Worker ships (_Search engine activation_ above).
 
+**Update 2026-08-31 — the roster is now the whole fleet, and that adds two dashboard checks.** The
+aggregate lists every worker under `apps/` (the edit, email, status and web workers joined it), each
+row named by its deployed Worker, and the app Worker gained three version-read-only service bindings
+(`EDIT_SERVICE`, `STATUS_SERVICE`, `WEB_SERVICE`). What that changes here:
+
+1. **The merge carrying those bindings requires `magna-carta-edit`, `magna-carta-status` and
+   `magna-carta-web` to exist on the account when it lands** (the code-10143 rule in
+   `operations.md`; all three are recorded as existing — edit API-confirmed 2026-08-24, status
+   holding its hostname, web connected on `main` since 2026-08-29 — but existence is live state:
+   verify with the scripts listing before merging if in doubt).
+2. **The new rows answer only after their own projects rebuild from a commit carrying this change**,
+   so steps 1 and 2 above (branch + `packages/build-identity/*` in Watch Paths) now apply to the
+   edit and status projects too; until then their rows read "Not reporting", truthfully. The web
+   row reports once `magna-carta-web` rebuilds (its answer is a static `/__version` file the SPA
+   build now emits); its project watches `apps/web/*`, which this change touches, so its next build
+   picks it up.
+3. **`magna-carta-email` reads "Not deployed", correctly** — the worker is not on the account
+   (_Email capture activation_ above). When it ships, add
+   `{ "binding": "EMAIL_SERVICE", "service": "magna-carta-email" }` to the app Worker's `services`
+   array in the same change; the worker already carries the version-only `fetch` surface.
+
+The overlay's Refresh control now forces a fresh probe (`?fresh=true`), so "press Refresh and watch
+the row light up" is a real acceptance check after each project rebuilds.
+
 ## The `magna-carta` project — the repoint this file asked for was the wrong fix; the deploy filter is the real one
 
 `apps/worker` is now `apps/api-worker` on `main`, and the package inside it is now

@@ -255,7 +255,7 @@
           "id": {
             "type": "string"
           },
-          "label": {
+          "service": {
             "type": "string"
           },
           "state": {
@@ -288,7 +288,7 @@
         },
         "required": [
           "id",
-          "label",
+          "service",
           "state",
           "commit",
           "commitTime",
@@ -28107,7 +28107,7 @@
     },
     "/api/v1/meta/versions": {
       "get": {
-        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for each dedicated service worker it is bound to. A service that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.",
+        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.",
         "operationId": "meta.versions",
         "tags": [
           "meta"
@@ -28125,6 +28125,19 @@
           "meta"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "fresh",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The deployment's build identities",

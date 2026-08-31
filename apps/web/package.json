@@ -5,7 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "build": "vp build",
+    "build": "vp build && node scripts/emit-version-asset.mjs",
     "dev": "vp dev",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "prepare": "svelte-kit sync || echo ''",

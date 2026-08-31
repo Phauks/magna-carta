@@ -485,7 +485,15 @@ one. The domains/records read above is the reliable answer; a browser is the rel
 ### The version surface reads what was deployed, so Watch Paths decide what it can say
 
 `GET /api/v1/meta/versions` (and the version chip above it) asks every dedicated Worker what commit
-it is running, over its service binding, on the `/__version` route in `packages/build-identity`. A
+it is running, over its service binding, on the `/__version` route in `packages/build-identity`.
+The roster is the **whole fleet** — every `apps/*/wrangler.jsonc` worker except the app Worker
+itself, pinned by a fitness test in `apps/web/test/version-overlay.test.ts` — so adding a worker
+under `apps/` means rostering it in `apps/api-worker/src/routes/meta-versions.ts` in the same
+commit, and usually adding a service binding for the probe (see the version-read-only trio in the
+app Worker's `services` array; a binding must name a worker that exists on the account or the app
+Worker's own deploy fails, which is why `EMAIL_SERVICE` waits for `magna-carta-email` to ship). The
+assets-only `magna-carta-web` has no script to mount the route on; its answer is the static
+`/__version` file the SPA build emits into `apps/web/build`. A
 Worker answers only if that route was in the build it was deployed from. A Worker deployed from an
 earlier commit 404s the probe, which the aggregate records as `unreported` and the chip renders as
 **"Not reporting"** — true, and easy to mistake for an outage, because the Worker is healthy and
