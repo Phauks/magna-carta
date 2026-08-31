@@ -2,26 +2,35 @@
   /*
    * The file manager's toolbar: where the reader stands, how they got here, and how the panes are
    * arranged. Back, forward and up are all three here — a file manager without them is one somebody
-   * has to leave and re-enter to get out of.
+   * has to leave and re-enter to get out of. It sits at the top of the LIST column, not across the
+   * whole surface: the path describes the list, so it starts where the list starts, directly above
+   * the files rather than above the folder tree.
    *
    * The breadcrumb's root is the HOME ICON, the same Lucide house the rail's root row draws, so the
-   * two names for one place cannot drift into two glyphs. Its hover box is the toolbar button's box
-   * exactly: same size, same radius, same surface, because a control that changes shape between
-   * neighbours reads as a different kind of control.
+   * two names for one place cannot drift into two glyphs.
    *
-   * The hovers say what the control does and the key that does the same thing — "Back", "Forward",
-   * "Up" — and nothing else. A tooltip that explains a back button is a tooltip nobody reads twice.
+   * The New control anchors the toolbar's far end — the one create affordance for the surface,
+   * carrying the three ways something new lands here. Views that have no current folder keep the
+   * control visible and disabled with the reason, so the toolbar never changes shape under the
+   * pointer.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Button from "@magna-carta/design-system/button";
+  import { buttonClasses } from "@magna-carta/design-system/button";
+  import Checkbox from "@magna-carta/design-system/checkbox";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
+  import FolderPlus from "@lucide/svelte/icons/folder-plus";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import List from "@lucide/svelte/icons/list";
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
+  import Plus from "@lucide/svelte/icons/plus";
+  import Upload from "@lucide/svelte/icons/upload";
   import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
   import type { DataTableGridState } from "@magna-carta/design-system/data-table";
   import type { FileManagerRow } from "./file-rows.ts";
@@ -33,6 +42,11 @@
     /** Home first, then each ancestor, ending here. Empty past Home means the reader is at the root. */
     trail,
     viewTitle = null,
+    onToggleRail,
+    onTogglePanel,
+    onNewFolder,
+    onNewDocument,
+    onUpload,
   }: {
     manager: FileManagerState;
     grid: DataTableGridState<FileManagerRow>;
@@ -42,10 +56,41 @@
      * heading beneath it — one name for where you are, in the place the name already lives.
      */
     viewTitle?: string | null;
+    onToggleRail: () => void;
+    onTogglePanel: () => void;
+    onNewFolder: () => void;
+    onNewDocument: () => void;
+    onUpload: () => void;
   } = $props();
 
   const HomeIcon = FOLDER_TREE_HOME_ICON;
+
+
+  /** Creating needs a current folder; the views that show rows from many folders have none. */
+  const noDestinationReason = $derived(
+    manager.view === "browse"
+      ? undefined
+      : "This view has no current folder to create into. Open a folder first.",
+  );
 </script>
+
+{#snippet displaySettings()}
+  <!-- The surface's own display settings ride the columns menu, beside the columns they change. -->
+  <label class="flex cursor-pointer items-center gap-8 rounded-sm px-8 py-4 text-sm">
+    <Checkbox
+      bind:checked={() => manager.hideExtensions, (next) => manager.setHideExtensions(next)}
+      aria-label="Hide file extensions"
+    />
+    <span>Hide file extensions</span>
+  </label>
+  <label class="flex cursor-pointer items-center gap-8 rounded-sm px-8 py-4 text-sm">
+    <Checkbox
+      bind:checked={() => manager.showSidebarCounts, (next) => manager.setShowSidebarCounts(next)}
+      aria-label="Show file counts in the sidebar"
+    />
+    <span>Show file counts in the sidebar</span>
+  </label>
+{/snippet}
 
 <div class="flex items-center gap-4 border-b border-border-default px-8 py-4">
   <Button
@@ -126,15 +171,15 @@
         <LayoutGrid class="size-16" aria-hidden="true" />
       {/if}
     </Button>
-    <DataTable.GridColumnsMenu {grid} />
-    <!-- An active pane toggle carries no dark fill. The complaint was always the fill. -->
+    <DataTable.GridColumnsMenu {grid} iconOnly settings={displaySettings} />
+    <!-- An active pane toggle reads through its glyph and hairline, never a dark fill. -->
     <Button
       variant="ghost"
       size="icon"
       aria-pressed={manager.railOpen}
       title="Show or hide the folder tree"
       aria-label="Show or hide the folder tree"
-      onclick={() => manager.setRailOpen(!manager.railOpen)}
+      onclick={onToggleRail}
     >
       <PanelLeft class="size-16" aria-hidden="true" />
     </Button>
@@ -144,9 +189,35 @@
       aria-pressed={manager.panelOpen}
       title="Show or hide the details panel"
       aria-label="Show or hide the details panel"
-      onclick={() => manager.setPanelOpen(!manager.panelOpen)}
+      onclick={onTogglePanel}
     >
       <PanelRight class="size-16" aria-hidden="true" />
     </Button>
+
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        class={buttonClasses({ variant: "primary", size: "icon" })}
+        title={noDestinationReason ?? "New"}
+        aria-label="New"
+        disabled={noDestinationReason !== undefined}
+      >
+        <Plus class="size-16" aria-hidden="true" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+        <DropdownMenu.Item onSelect={onNewDocument}>
+          <FilePlus2 class="size-16" aria-hidden="true" />
+          New Document
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={onNewFolder}>
+          <FolderPlus class="size-16" aria-hidden="true" />
+          New Folder
+        </DropdownMenu.Item>
+        <DropdownMenu.Separator />
+        <DropdownMenu.Item onSelect={onUpload}>
+          <Upload class="size-16" aria-hidden="true" />
+          Upload Files
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   </div>
 </div>

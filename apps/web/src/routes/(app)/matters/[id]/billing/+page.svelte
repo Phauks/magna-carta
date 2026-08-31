@@ -1,11 +1,9 @@
 <script lang="ts">
   /*
-   * The matter's Billing section: the fees recorded on it, and the bills its client has been given.
-   *
-   * TWO SURFACES, ONE SECTION. FEES is a work-in-progress ledger — flat charges for professional
-   * services, recorded by hand, waiting to be billed. BILLS is the register of the documents the
-   * client has actually been given, and the window each of them opens in. A fee reaches a bill the
-   * same way a cost does: a draft invoice claims it.
+   * The matter's Billing section: the register of the bills the client has actually been given,
+   * and the window each of them opens in. The work-in-progress fee ledger lives in its own Fees
+   * section at the same level as Time and Costs; a fee reaches a bill the same way a cost does —
+   * a draft invoice claims it.
    *
    * THE PAGE IS THE READ AND THE STATE SET; the surfaces below it are the screens. A SAMPLE matter
    * (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no firm behind it
@@ -17,14 +15,11 @@
    * person needs to report the failure.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Tabs from "@magna-carta/design-system/tabs";
   import { readSession } from "$lib/matters/matters-api.ts";
   import BillRegister from "$lib/billing/bill-register.svelte";
   import BillingErrorState from "$lib/billing/billing-error-state.svelte";
   import BillingProblemReportDialog from "$lib/billing/billing-problem-report-dialog.svelte";
-  import FeeLedger from "$lib/billing/fee-ledger.svelte";
   import { MatterBilling } from "$lib/billing/matter-billing.svelte.ts";
-  import type { FeeRecord } from "$lib/billing/fee-record.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -40,7 +35,6 @@
   let reportOpen = $state(false);
   /* Bumped after a write, so the section re-reads what the server now holds rather than guessing. */
   let reloadToken = $state(0);
-  let openTab = $state("bills");
 
   $effect(() => {
     void (async () => {
@@ -72,16 +66,6 @@
 
   /* The currency the matter's own bills are written in; the firm's default until one is read. */
   const currency = $derived(rows?.[0]?.summary.currency ?? "USD");
-
-  /*
-   * The matter's fees.
-   *
-   * A fee is a first-class work-in-progress record — its own dated draft with a timekeeper, a
-   * description, an amount and a billing disposition — and no route serves one yet. The ledger is
-   * therefore handed an empty set and says on the screen what it is waiting for, rather than being
-   * handed the matter's invoice LINES, which is what a bill does to a fee and not what a fee is.
-   */
-  const fees: readonly FeeRecord[] = [];
 </script>
 
 <svelte:head>
@@ -128,45 +112,22 @@
       </Alert.Root>
     {/if}
 
-    <Tabs.Root bind:value={openTab} class="flex min-h-0 flex-1 flex-col gap-12">
-      <Tabs.List class="self-start">
-        <Tabs.Trigger value="fees">Fees</Tabs.Trigger>
-        <Tabs.Trigger value="bills">Bills</Tabs.Trigger>
-      </Tabs.List>
-
-      <Tabs.Content value="bills" class="flex min-h-0 flex-1 flex-col">
-        <BillRegister
-          rows={rows ?? []}
-          loading={rows === null}
-          matterId={matter.id}
-          matterTitle={matter.title}
-          matterNumber={matter.matterNumber}
-          clientEntityId={billing.clientEntityId}
-          {clientName}
-          {currency}
-          unbilled={billing.unbilled}
-          unbilledTime={billing.unbilledTime}
-          unbilledCosts={billing.unbilledCosts}
-          clientCredits={billing.clientCredits}
-          {permissions}
-          onChanged={() => (reloadToken += 1)}
-        />
-      </Tabs.Content>
-
-      <Tabs.Content value="fees" class="flex min-h-0 flex-1 flex-col">
-        <FeeLedger
-          {fees}
-          arrangement={billing.arrangement}
-          loading={rows === null}
-          matterId={matter.id}
-          matterTitle={matter.title}
-          matterNumber={matter.matterNumber}
-          {currency}
-          {permissions}
-          onAmended={() => (reloadToken += 1)}
-        />
-      </Tabs.Content>
-    </Tabs.Root>
+    <BillRegister
+      rows={rows ?? []}
+      loading={rows === null}
+      matterId={matter.id}
+      matterTitle={matter.title}
+      matterNumber={matter.matterNumber}
+      clientEntityId={billing.clientEntityId}
+      {clientName}
+      {currency}
+      unbilled={billing.unbilled}
+      unbilledTime={billing.unbilledTime}
+      unbilledCosts={billing.unbilledCosts}
+      clientCredits={billing.clientCredits}
+      {permissions}
+      onChanged={() => (reloadToken += 1)}
+    />
 
     {#if billing.nextCursor !== null}
       <p class="text-xs text-text-muted">

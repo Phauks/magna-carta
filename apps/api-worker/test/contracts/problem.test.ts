@@ -61,6 +61,7 @@ describe("problem-type URI registry", () => {
         "upload-not-allowed",
         "malware-flagged",
         "unsupported-conversion",
+        "not-an-archive",
         "wrong-password",
         "internal",
         "invitation-not-redeemable",

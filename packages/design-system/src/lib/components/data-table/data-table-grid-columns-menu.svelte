@@ -10,6 +10,7 @@
    * and FILL is the only difference between pinned and not. A second geometry (the crossed-out
    * pin) reads as a different thing and was the settled defect here.
    */
+  import type { Snippet } from "svelte";
   import Columns3 from "@lucide/svelte/icons/columns-3";
   import Pin from "@lucide/svelte/icons/pin";
   import * as Popover from "../popover/index.ts";
@@ -20,14 +21,31 @@
     grid: DataTableGridState<TRow>;
     /** The trigger's label. */
     label?: string;
+    /**
+     * Renders the trigger as a quiet icon button instead of the labelled secondary button, for
+     * toolbars whose controls are all glyphs (the file manager's) — a lone labelled box among
+     * icon buttons reads as a different kind of control.
+     */
+    iconOnly?: boolean;
+    /**
+     * The surface's own display settings, rendered under the shared ones so a surface's toggles
+     * (hide extensions, sidebar counts) live in the same menu as the columns they sit beside.
+     */
+    settings?: Snippet;
   };
-  let { grid, label = "Columns" }: Props = $props();
+  let { grid, label = "Columns", iconOnly = false, settings }: Props = $props();
 </script>
 
 <Popover.Root>
-  <Popover.Trigger class="mc-button mc-button-secondary mc-button-sm" title="Choose columns">
+  <Popover.Trigger
+    class={iconOnly
+      ? "mc-button mc-button-ghost mc-button-icon"
+      : "mc-button mc-button-secondary mc-button-sm"}
+    title="Choose columns"
+    aria-label={iconOnly ? label : undefined}
+  >
     <Columns3 class="mc-table-toolbar-icon" aria-hidden="true" />
-    {label}
+    {#if !iconOnly}{label}{/if}
   </Popover.Trigger>
   <Popover.Content align="end" class="mc-table-grid-columns">
     <p class="mc-table-filter-heading">Columns</p>
@@ -69,5 +87,8 @@
       <Checkbox bind:checked={grid.zebra} aria-label="Shade alternate rows" />
       <span>Shade alternate rows</span>
     </label>
+    {#if settings}
+      {@render settings()}
+    {/if}
   </Popover.Content>
 </Popover.Root>

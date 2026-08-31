@@ -246,8 +246,10 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
       kind: "item",
       command: "browseInside",
       label: "Browse Inside",
-      disabledReason: waitingReason("archive-browse"),
-      soon: true,
+      disabledReason:
+        singleFile?.currentVersionId === null
+          ? "This file has no committed version yet, so there is nothing to read inside."
+          : undefined,
     });
   }
 

@@ -7,7 +7,9 @@ import {
   type SortCursor,
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { AUDIT_LOG_TABLE } from "@magna-carta/data-access/audit-statements";
 import { INDEX_SPLIT_TABLE } from "@magna-carta/data-access/index-split-statements";
+import { MEMBER_TABLE } from "@magna-carta/data-access/member-statements";
 import type {
   DocumentCheckoutId,
   DocumentTypeId,
@@ -16,7 +18,9 @@ import type {
   FolderId,
   MatterId,
   UploadSessionId,
+  UserId,
 } from "@magna-carta/identifiers/types";
+import { DOCUMENT_TYPE_TABLE } from "./document-type-statements.ts";
 import { FILE_TABLE, FILE_VERSION_TABLE, UPLOAD_SESSION_TABLE } from "./file-statements.ts";
 import { FOLDER_TABLE } from "./folder-statements.ts";
 
@@ -375,6 +379,58 @@ export async function getFileWithNamedVersion(
             versionNumber: row.version_number as number,
             scanVerdict: row.scan_verdict,
             scanDetail: row.scan_detail,
+          },
+  };
+}
+
+// The archive-browse read: the file row plus its current clean version's key and sniffed type,
+// DELIBERATELY without a deleted_at predicate — a soft-deleted zip browses exactly like a live one,
+// because browsing reads already-committed bytes and restores nothing. A sibling of
+// getFileWithCurrentCleanVersion rather than an extension of it, because each reader projects its
+// own columns; the LEFT JOIN stays gated on status = 'clean', so a pending or quarantined version is
+// never the one browsed.
+export interface FileWithArchiveVersion {
+  readonly name: string;
+  readonly matterId: MatterId;
+  readonly deletedAt: string | null;
+  // The current clean version, or null when the file has none yet (pending-only / quarantined-only).
+  readonly currentVersion: {
+    readonly id: FileVersionId;
+    readonly r2Key: string;
+    readonly sniffedContentType: string | null;
+  } | null;
+}
+
+export async function getFileWithArchiveVersion(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<FileWithArchiveVersion | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT f.name, f.matter_id, f.deleted_at, v.id AS version_id, v.r2_key, v.sniffed_content_type FROM ${FILE_TABLE} f LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id AND v.status = 'clean' WHERE f.id = ?1`,
+    )
+    .bind(fileId)
+    .all<{
+      name: string;
+      matter_id: MatterId;
+      deleted_at: string | null;
+      version_id: FileVersionId | null;
+      r2_key: string | null;
+      sniffed_content_type: string | null;
+    }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    name: row.name,
+    matterId: row.matter_id,
+    deletedAt: row.deleted_at,
+    currentVersion:
+      row.version_id === null
+        ? null
+        : {
+            id: row.version_id,
+            r2Key: row.r2_key as string,
+            sniffedContentType: row.sniffed_content_type,
           },
   };
 }
@@ -1094,4 +1150,214 @@ export async function listMatterIdsByFileIds(
     for (const row of results) found.set(row.id, row.matter_id);
   }
   return found;
+}
+
+// The current names of a set of document types — the file-history read resolves the type ids its
+// audit metadata recorded into display names, a page's distinct ids at a time (never one query per
+// row). Grouped IN for the same bound-parameter reason listMatterIdsByFileIds gives; a deactivated
+// type still resolves (its row survives), and an id whose row is gone is simply absent from the map.
+export async function listDocumentTypeNamesByIds(
+  database: SqlDatabase,
+  documentTypeIds: readonly DocumentTypeId[],
+): Promise<Map<DocumentTypeId, string>> {
+  const found = new Map<DocumentTypeId, string>();
+  for (let start = 0; start < documentTypeIds.length; start += MATTER_LOOKUP_GROUP_SIZE) {
+    const group = documentTypeIds.slice(start, start + MATTER_LOOKUP_GROUP_SIZE);
+    const placeholders = group.map(() => "?").join(", ");
+    const { results } = await database
+      .prepare(`SELECT id, name FROM ${DOCUMENT_TYPE_TABLE} WHERE id IN (${placeholders})`)
+      .bind(...group)
+      .all<{ id: DocumentTypeId; name: string }>();
+    for (const row of results) found.set(row.id, row.name);
+  }
+  return found;
+}
+
+// A matter's soft-deleted files — the recovery ("Deleted Files") view, newest deletion first, one
+// page at a time on a (deleted_at, id) keyset. The deleter is resolved from the audit trail rather
+// than a column: the latest 'file.deleted' audit row for the file names the actor, and the member
+// mirror supplies the display name — an actor whose member row is gone (or a system deletion with no
+// actor) renders an honest null. folder_id is returned as stored even when the folder row itself was
+// deleted, because the restore path is what decides whether that pointer still resolves. The display
+// facts (size, sniffed type) come from the clean current version when one exists; a file deleted
+// before any version committed carries nulls.
+export interface DeletedFileListItem {
+  readonly id: FileId;
+  readonly name: string;
+  readonly folderId: FolderId | null;
+  readonly documentTypeId: DocumentTypeId | null;
+  readonly deletedAt: string;
+  readonly deletedBy: UserId | null;
+  readonly deletedByName: string | null;
+  readonly currentVersionId: FileVersionId | null;
+  readonly sizeBytes: number | null;
+  readonly sniffedContentType: string | null;
+}
+
+export function listDeletedFilesStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+  cursor: SortCursor | undefined,
+  limit: number,
+): SqlStatement {
+  const conditions = ["f.matter_id = ?", "f.deleted_at IS NOT NULL"];
+  const bindings: unknown[] = [matterId];
+  // The keyset orders by deleted_at (the fact this view sorts on), not created_at; the shared cursor
+  // shape carries it in its sort-value slot.
+  if (cursor !== undefined) {
+    conditions.push("(f.deleted_at < ? OR (f.deleted_at = ? AND f.id < ?))");
+    bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+  }
+  bindings.push(limit);
+  return database
+    .prepare(
+      `SELECT f.id, f.name, f.folder_id, f.document_type_id, f.deleted_at, f.current_version_id, ` +
+        `dv.size_bytes, dv.sniffed_content_type, ` +
+        `da.actor_user_id AS deleted_by, m.display_name AS deleted_by_name ` +
+        `FROM ${FILE_TABLE} f ` +
+        `LEFT JOIN ${FILE_VERSION_TABLE} dv ON dv.id = f.current_version_id AND dv.status = 'clean' ` +
+        `LEFT JOIN ${AUDIT_LOG_TABLE} da ON da.id = (` +
+        `SELECT a.id FROM ${AUDIT_LOG_TABLE} a WHERE a.subject_id = f.id AND a.event = 'file.deleted' ` +
+        `ORDER BY a.created_at DESC, a.id DESC LIMIT 1) ` +
+        `LEFT JOIN ${MEMBER_TABLE} m ON m.user_id = da.actor_user_id ` +
+        `WHERE ${conditions.join(" AND ")} ORDER BY f.deleted_at DESC, f.id DESC LIMIT ?`,
+    )
+    .bind(...bindings);
+}
+
+export async function listDeletedFiles(
+  database: SqlDatabase,
+  matterId: MatterId,
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<DeletedFileListItem>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const { results } = await listDeletedFilesStatement(
+    database,
+    matterId,
+    decodeCursor(options.cursor),
+    // One more than the page, as the has-more probe.
+    pageSize + 1,
+  ).all<{
+    id: FileId;
+    name: string;
+    folder_id: FolderId | null;
+    document_type_id: DocumentTypeId | null;
+    deleted_at: string;
+    current_version_id: FileVersionId | null;
+    size_bytes: number | null;
+    sniffed_content_type: string | null;
+    deleted_by: UserId | null;
+    deleted_by_name: string | null;
+  }>();
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.deleted_at, last.id) : null,
+    data: rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      folderId: row.folder_id,
+      documentTypeId: row.document_type_id,
+      deletedAt: row.deleted_at,
+      deletedBy: row.deleted_by,
+      deletedByName: row.deleted_by_name,
+      currentVersionId: row.current_version_id,
+      sizeBytes: row.size_bytes,
+      sniffedContentType: row.sniffed_content_type,
+    })),
+  };
+}
+
+// A matter's file activity trail, read straight off the per-firm audit_log: every 'file.*' and
+// 'document.*' event whose subject resolves to one of this matter's files, newest first on a
+// (created_at, id) keyset. Two subject shapes exist and both are resolved in one pass: rename/move/
+// delete/restore/document-type/check-in events carry the FILE id, while upload/version/download
+// events carry the FILE VERSION id — the LEFT JOIN to file_version turns the second shape back into
+// its file, and the COALESCE join to file scopes both to the matter. The file name is the file's
+// CURRENT name, resolved at read time, never baked into the event. Metadata is passed through as the
+// stored JSON string (already redacted at write time); actor names resolve through the member mirror
+// like every other surface, null when the actor is the system or the member row is gone.
+export interface FileHistoryItem {
+  readonly at: string;
+  readonly event: string;
+  readonly fileId: FileId;
+  readonly fileName: string;
+  readonly versionNumber: number | null;
+  readonly actorUserId: UserId | null;
+  readonly actorName: string | null;
+  // The audit row's redacted metadata JSON, verbatim (null when the event carried none).
+  readonly metadataJson: string | null;
+}
+
+export function listFileHistoryStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+  cursor: SortCursor | undefined,
+  limit: number,
+): SqlStatement {
+  const conditions = ["(a.event LIKE 'file.%' OR a.event LIKE 'document.%')"];
+  const bindings: unknown[] = [matterId];
+  if (cursor !== undefined) {
+    conditions.push("(a.created_at < ? OR (a.created_at = ? AND a.id < ?))");
+    bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+  }
+  bindings.push(limit);
+  // The join to file_version resolves a version-subject event back to its file and version number —
+  // it deliberately spans every status, because the history includes what happened to versions that
+  // were quarantined or abandoned. It serves no bytes: it projects version_number only, never an
+  // r2_key. fitness:allow-no-status
+  return database
+    .prepare(
+      `SELECT a.id, a.created_at, a.event, a.actor_user_id, a.metadata, ` +
+        `f.id AS file_id, f.name AS file_name, v.version_number, ` +
+        `m.display_name AS actor_name ` +
+        `FROM ${AUDIT_LOG_TABLE} a ` +
+        `LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = a.subject_id ` +
+        `JOIN ${FILE_TABLE} f ON f.id = COALESCE(v.file_id, a.subject_id) AND f.matter_id = ?1 ` +
+        `LEFT JOIN ${MEMBER_TABLE} m ON m.user_id = a.actor_user_id ` +
+        `WHERE ${conditions.join(" AND ")} ORDER BY a.created_at DESC, a.id DESC LIMIT ?`,
+    )
+    .bind(...bindings);
+}
+
+export async function listFileHistory(
+  database: SqlDatabase,
+  matterId: MatterId,
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<FileHistoryItem>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const { results } = await listFileHistoryStatement(
+    database,
+    matterId,
+    decodeCursor(options.cursor),
+    // One more than the page, as the has-more probe.
+    pageSize + 1,
+  ).all<{
+    id: string;
+    created_at: string;
+    event: string;
+    actor_user_id: UserId | null;
+    metadata: string | null;
+    file_id: FileId;
+    file_name: string;
+    version_number: number | null;
+    actor_name: string | null;
+  }>();
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
+    data: rows.map((row) => ({
+      at: row.created_at,
+      event: row.event,
+      fileId: row.file_id,
+      fileName: row.file_name,
+      versionNumber: row.version_number,
+      actorUserId: row.actor_user_id,
+      actorName: row.actor_name,
+      metadataJson: row.metadata,
+    })),
+  };
 }

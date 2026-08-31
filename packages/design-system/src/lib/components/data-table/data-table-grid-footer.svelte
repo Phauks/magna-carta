@@ -16,12 +16,32 @@
     grid: DataTableGridState<TRow>;
     /** The surface's own trailing content (labelled figures, seams). */
     end?: Snippet;
+    /**
+     * Replaces the unfiltered tally's "{n} items" with the surface's own phrasing (the file
+     * manager's "2 folders, 5 files"). The filtered tally keeps the shared wording either way, so
+     * "Showing n of m · filtered" reads the same on every table.
+     */
+    tallyText?: string;
+    /**
+     * Offers "Select all" beside the counts whenever rows exist and not all of them are selected.
+     * "Select none" already shows with any selection; together they make the pair a toggle.
+     */
+    selectAllToggle?: boolean;
     class?: string;
   };
-  let { grid, end, class: className }: Props = $props();
+  let {
+    grid,
+    end,
+    tallyText = undefined,
+    selectAllToggle = false,
+    class: className,
+  }: Props = $props();
 
   const noun = $derived(grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural);
   const selectedCount = $derived(grid.selectedKeys.length);
+  const allSelected = $derived(
+    grid.rowsInViewCount > 0 && selectedCount >= grid.rowsInViewCount,
+  );
 </script>
 
 <div class={mergeClasses("mc-table-grid-footer", className)}>
@@ -41,10 +61,24 @@
       >
         Show all
       </button>
+    {:else if tallyText !== undefined}
+      <span>{tallyText}</span>
     {:else}
       <span class="mc-table-grid-footer-count">{grid.totalRowCount}</span> {noun}
     {/if}
   </span>
+  {#if selectAllToggle && grid.rowsInViewCount > 0 && !allSelected}
+    <button
+      type="button"
+      class="mc-table-grid-footer-link"
+      title="Select all {grid.rowsInViewCount} {grid.rowsInViewCount === 1
+        ? grid.itemNoun.singular
+        : grid.itemNoun.plural} in view"
+      onclick={() => grid.selectAll()}
+    >
+      Select all
+    </button>
+  {/if}
   {#if selectedCount > 0}
     <span class="mc-table-grid-footer-tally">
       · <span class="mc-table-grid-footer-count">{selectedCount}</span> selected ·

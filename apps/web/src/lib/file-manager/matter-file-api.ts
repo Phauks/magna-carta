@@ -68,6 +68,111 @@ export function listFileVersions(
   return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/versions`);
 }
 
+/** One soft-deleted file, as the Deleted Files view reads it: the record plus the deletion facts. */
+export interface DeletedFileSummary {
+  id: string;
+  name: string;
+  /** The folder it was in, as stored. The folder row itself may be gone. */
+  folderId: string | null;
+  documentTypeId: string | null;
+  deletedAt: string;
+  deletedBy: string | null;
+  deletedByName: string | null;
+  currentVersionId: string | null;
+  sizeBytes: number | null;
+  sniffedContentType: string | null;
+}
+
+/** The matter's soft-deleted files, newest deletion first. */
+export function listDeletedFiles(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  cursor?: string,
+): Promise<ApiOutcome<{ data: DeletedFileSummary[]; nextCursor: string | null }>> {
+  const query = new URLSearchParams();
+  if (cursor !== undefined) query.set("cursor", cursor);
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return requestJson(
+    fetchImpl,
+    `/api/v1/matters/${encodeURIComponent(matterId)}/files/deleted${suffix}`,
+  );
+}
+
+/**
+ * Bring a deleted file back. With no destination the file returns to its stored folder, falling
+ * back to the matter root when that folder no longer exists; an explicit folder (null = the root)
+ * overrides. The answer reports where it actually landed.
+ */
+export function restoreFile(
+  fetchImpl: typeof fetch,
+  fileId: string,
+  destination: { folderId?: string | null },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ fileId: string; folderId: string | null }>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/restore`, {
+    method: "POST",
+    body: destination.folderId === undefined ? {} : { folderId: destination.folderId },
+    idempotencyKey,
+  });
+}
+
+/** One audited act on the matter's files, resolved for reading: names now, not names then. */
+export interface FileHistoryEntry {
+  at: string;
+  /** The audit event, e.g. "file.renamed" — the label is derived client-side. */
+  event: string;
+  fileId: string;
+  fileName: string;
+  versionNumber: number | null;
+  actorUserId: string | null;
+  actorName: string | null;
+  /**
+   * What the act changed, resolved server-side per event: the old and new name for a rename, the
+   * old and new folder path for a move, the source folder for a delete, the landing folder for a
+   * restore. Null on rows recorded before the writes carried this — an honest blank, never a guess.
+   */
+  fromText: string | null;
+  toText: string | null;
+  /** The redacted audit metadata, verbatim; shape varies by event. */
+  detail: unknown;
+}
+
+/** The matter's file changelog, newest first. */
+export function listFileHistory(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  cursor?: string,
+): Promise<ApiOutcome<{ data: FileHistoryEntry[]; nextCursor: string | null }>> {
+  const query = new URLSearchParams();
+  if (cursor !== undefined) query.set("cursor", cursor);
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return requestJson(
+    fetchImpl,
+    `/api/v1/matters/${encodeURIComponent(matterId)}/file-history${suffix}`,
+  );
+}
+
+/** One member of an archive's central directory. Read, never extracted. */
+export interface ArchiveEntry {
+  path: string;
+  isDirectory: boolean;
+  compressedSizeBytes: number | null;
+  uncompressedSizeBytes: number | null;
+  modifiedAt: string | null;
+}
+
+/**
+ * A zip's central directory, read from the stored bytes with ranged requests and no extraction.
+ * A deleted zip reads the same as a live one — browsing restores nothing. `truncated` means the
+ * archive holds more entries than the cap and the listing stopped honestly.
+ */
+export function listArchiveEntries(
+  fetchImpl: typeof fetch,
+  fileId: string,
+): Promise<ApiOutcome<{ entries: ArchiveEntry[]; truncated: boolean }>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/archive-entries`);
+}
+
 /** One of the firm's document types. The vocabulary is the firm's own and it is editable. */
 export interface DocumentTypeSummary {
   id: string;
