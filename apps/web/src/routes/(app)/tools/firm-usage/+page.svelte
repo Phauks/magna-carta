@@ -11,6 +11,7 @@
    * capability still renders, disabled, honestly.
    */
   import { onMount } from "svelte";
+  import Download from "@lucide/svelte/icons/download";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -21,6 +22,10 @@
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import ByLocationTable from "$lib/tools/firm-usage/by-location-table.svelte";
   import { readFirmUsage, type FirmUsageResponse } from "$lib/tools/firm-usage/firm-usage-api.ts";
+  import {
+    firmUsageReportFilename,
+    renderFirmUsageReport,
+  } from "$lib/tools/firm-usage/firm-usage-report.ts";
   import {
     formatByteSize,
     formatCount,
@@ -75,6 +80,21 @@
 
   /** The cells of a totals or subtotal row: a rule above, and the figure set bold. */
   const TOTALS_CELL = "border-t border-border-strong font-semibold";
+
+  // The report is the page's tables as one plain-text file, the delivery the speed test settled
+  // on. Rendered from the same response the tables drew, so the file and the screen agree.
+  function downloadReport(): void {
+    if (usage === null) return;
+    const generatedAt = new Date();
+    const url = URL.createObjectURL(
+      new Blob([renderFirmUsageReport(usage, generatedAt)], { type: "text/plain;charset=utf-8" }),
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = firmUsageReportFilename(generatedAt);
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 </script>
 
 <svelte:head><title>Firm Usage · Magna Carta</title></svelte:head>
@@ -82,15 +102,12 @@
 <Masthead.Root class="mb-24">
   <Masthead.Heading>
     <Masthead.Title>Firm Usage</Masthead.Title>
-    <Masthead.Meta>
-      <span>Computed when this page is opened</span>
-      <Masthead.MetaSeparator />
-      <span>Runs outside any matter</span>
-      <Masthead.MetaSeparator />
-      <span>Owner and Admin only</span>
-    </Masthead.Meta>
   </Masthead.Heading>
   <Masthead.Actions>
+    <Button variant="ghost" disabled={usage === null} onclick={downloadReport}>
+      <Download class="size-16" aria-hidden="true" />
+      Download Report
+    </Button>
     <Button variant="ghost" disabled={loading} onclick={() => void loadUsage()}>
       <RefreshCw class="size-16" aria-hidden="true" />
       Refresh
@@ -433,7 +450,3 @@
     {title}
   </h2>
 {/snippet}
-
-<footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
-  Assembled from the firm's own records. Runs outside any matter, and nothing is saved.
-</footer>
