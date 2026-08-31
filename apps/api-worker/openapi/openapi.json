@@ -28247,6 +28247,16 @@
                 }
               }
             }
+          },
+          "502": {
+            "description": "The registry's lookup service answered with a fault (rate limit or outage) rather than a record or a not-found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }

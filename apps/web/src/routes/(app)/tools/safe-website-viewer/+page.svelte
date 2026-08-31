@@ -2,33 +2,34 @@
   /*
    * Safe Website Viewer — open an untrusted website at arm's length. The member pastes a suspect
    * link; the worker opens it in Cloudflare's isolated remote browser and returns a static
-   * snapshot: a screenshot, the extracted text, the redirect chain, and the response headers. The
-   * suspect page never loads in the member's browser, and everything shown here stays inert: the
-   * screenshot is a plain image, the extracted text renders as escaped preformatted text, and the
-   * page's outbound links render as text only, never as anchors. The fetch and the branching that
-   * decides which state to show live in safe-browse.ts so they stay testable off the DOM.
+   * snapshot. The suspect page never loads in the member's browser, and everything shown here
+   * stays inert: the screenshot is a plain image, the extracted text renders as escaped
+   * preformatted text, and the page's outbound links render as text only, never as anchors. The
+   * fetch and the branching that decides which state to show live in safe-browse.ts so they stay
+   * testable off the DOM.
    *
-   * The query form is the run control and sits at the content's reading edge below the masthead,
-   * above the intro text, which stays visible through every state — so a result rendering below
-   * never reflows the control or the copy above it. The states are designed honestly: a capture
-   * that came back without a screenshot says so instead of showing a broken image, a link that
-   * landed on a different site than it started on is called out plainly, and a failure surfaces
-   * its correlated Error ID. Runs outside any matter and stores nothing.
+   * The query form is the run control and sits at the content's reading edge below the masthead;
+   * the screen carries no explanatory prose (owner-directed) — controls, labels, and results only.
+   * The result is two columns: the website shell on the left, which renders its frame the moment a
+   * capture starts and populates the screenshot only when the capture has completed (nothing
+   * partial ever appears — the safety point of the shell), and the information tabs on the right.
+   * A capture that came back without a screenshot says so inside the same frame, a link that
+   * landed on a different site than it started on is called out in the shell's top bar, and a
+   * failure surfaces its correlated Error ID. Runs outside any matter and stores nothing.
    */
-  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Card from "@magna-carta/design-system/card";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import WebsiteShell from "$lib/tools/safe-browse/website-shell.svelte";
+  import SnapshotTabs from "$lib/tools/safe-browse/snapshot-tabs.svelte";
   import {
     landedOnDifferentHost,
     normalizeTarget,
     problemGuidance,
     screenshotSource,
-    sortedHeaders,
     viewSafely,
     type SafeBrowseOutcome,
   } from "$lib/tools/safe-browse/safe-browse.ts";
@@ -36,7 +37,7 @@
   let query = $state("");
   let phase = $state<"idle" | "loading" | "done">("idle");
   let outcome = $state<SafeBrowseOutcome | null>(null);
-  // A short summary announced to assistive technology when the snapshot cards arrive. Problem and
+  // A short summary announced to assistive technology when the snapshot arrives. Problem and
   // transport states render as an Alert, which announces itself via its role, so they are left out
   // of this region to avoid a double reading.
   let announcement = $state("");
@@ -102,15 +103,8 @@
 {/if}
 
 <!-- Polite live region: announces an arrived snapshot to a screen reader without re-reading the
-     whole card set. Alert-rendered states announce themselves through their own role. -->
+     whole result. Alert-rendered states announce themselves through their own role. -->
 <div aria-live="polite" class="sr-only">{announcement}</div>
-
-<p class="mb-24 max-w-xl text-sm text-text-muted">
-  Paste a link you do not trust to see what is behind it without visiting it. The address is opened
-  in an isolated remote browser, and what comes back is a static screenshot and plain facts: where
-  the link really leads, what the page says, and which addresses it points at. The live page never
-  reaches your browser.
-</p>
 
 {#if phase !== "idle"}
   <section aria-busy={loading}>
@@ -121,193 +115,51 @@
       Result
     </h2>
 
-    {#if loading}
-      <Card.Root>
-        <Card.Header>
-          <Skeleton class="h-20 w-96" />
-        </Card.Header>
-        <Card.Content class="flex flex-col gap-12">
-          <Skeleton class="h-16 w-full" />
-          <Skeleton class="h-16 w-full" />
-          <Skeleton class="h-96 w-full" />
-        </Card.Content>
-      </Card.Root>
-    {:else if outcome}
-      {#if outcome.kind === "problem"}
-        {@const guidance = problemGuidance(outcome.problem)}
-        <Alert.Root variant={guidance.tone}>
-          <Alert.Title>{guidance.title}</Alert.Title>
-          <Alert.Description>
-            {guidance.message}
-            {#if guidance.tone === "danger" && outcome.problem.errorId}
-              <span class="mt-8 block">
-                Error ID: <span class="font-mono">{outcome.problem.errorId}</span>
-              </span>
-            {/if}
-          </Alert.Description>
-        </Alert.Root>
-      {:else if outcome.kind === "transport"}
-        <Alert.Root variant="danger">
-          <Alert.Title>The capture service did not respond</Alert.Title>
-          <Alert.Description>
-            Nothing answered the request. Check your connection, then try again.
-          </Alert.Description>
-        </Alert.Root>
-      {:else}
-        {@const view = outcome.view}
-        {@const screenshot = screenshotSource(view.screenshotBase64)}
-        {@const headers = sortedHeaders(view.responseHeaders)}
-        <div class="flex flex-col gap-16">
-          <Card.Root>
-            <Card.Header>
-              <div class="flex flex-wrap items-center gap-8">
-                <Card.Title>{view.title ? view.title : "Untitled Page"}</Card.Title>
-                {#if landedOnDifferentHost(view)}
-                  <Badge variant="warning">Different Site</Badge>
-                {/if}
-              </div>
-              <Card.Description>
-                {#if landedOnDifferentHost(view)}
-                  The capture started at the address you entered and ended on a different site;
-                  check the redirect chain below before trusting the link. Nothing shown here is
-                  live.
-                {:else}
-                  What the isolated browser saw when it opened the address. Nothing shown here is
-                  live.
-                {/if}
-              </Card.Description>
-            </Card.Header>
-            <Card.Content class="flex flex-col gap-16">
-              <dl class="flex flex-col gap-16">
-                {@render addressField("Requested URL", view.requestedUrl)}
-                {@render addressField("Final URL", view.finalUrl)}
-                {#if view.redirectChain.length > 0}
-                  <div class="flex flex-col gap-4 sm:flex-row sm:gap-16">
-                    <dt
-                      class="text-xs text-text-muted uppercase sm:w-96 sm:shrink-0"
-                      style="letter-spacing: var(--mc-tracking-caps)"
-                    >
-                      Redirects
-                    </dt>
-                    <dd class="min-w-0">
-                      <ol class="flex flex-col gap-4 text-sm text-text-default">
-                        {#each view.redirectChain as hop, index (index)}
-                          <li class="flex items-baseline gap-8">
-                            <span class="shrink-0 text-xs text-text-muted">{hop.status}</span>
-                            <span class="min-w-0 font-mono break-all">{hop.url}</span>
-                          </li>
-                        {/each}
-                      </ol>
-                    </dd>
-                  </div>
-                {/if}
-              </dl>
-            </Card.Content>
-          </Card.Root>
-
-          <Card.Root>
-            <Card.Header>
-              <Card.Title>Screenshot</Card.Title>
-              <Card.Description>
-                A static image of the page as the isolated browser rendered it. It cannot run
-                anything.
-              </Card.Description>
-            </Card.Header>
-            <Card.Content>
-              {#if screenshot}
-                <img
-                  src={screenshot}
-                  alt="Static screenshot of the captured page"
-                  class="max-w-full border border-border-default"
-                />
-              {:else}
-                <p class="text-sm text-text-muted">
-                  The renderer returned no screenshot for this page.
-                </p>
-              {/if}
-            </Card.Content>
-          </Card.Root>
-
-          {#if view.markdown}
-            <Card.Root>
-              <Card.Header>
-                <Card.Title>Extracted Text</Card.Title>
-                <Card.Description>
-                  The page's text, extracted by the remote browser and shown verbatim. It is not
-                  rendered as markup.
-                </Card.Description>
-              </Card.Header>
-              <Card.Content>
-                <pre
-                  class="overflow-x-auto font-mono text-sm break-words whitespace-pre-wrap text-text-default">{view.markdown}</pre>
-              </Card.Content>
-            </Card.Root>
-          {/if}
-
-          {#if view.links.length > 0}
-            <Card.Root>
-              <Card.Header>
-                <Card.Title>Outbound Links</Card.Title>
-                <Card.Description>
-                  {view.links.length === 1
-                    ? "1 address the page links out to"
-                    : `${view.links.length} addresses the page links out to`}, shown as text only.
-                  None of them is clickable here.
-                </Card.Description>
-              </Card.Header>
-              <Card.Content>
-                <ul class="flex flex-col gap-4">
-                  {#each view.links as link, index (index)}
-                    <li class="min-w-0 font-mono text-sm break-all text-text-default">{link}</li>
-                  {/each}
-                </ul>
-              </Card.Content>
-            </Card.Root>
-          {/if}
-
-          <Card.Root>
-            <Card.Header>
-              <Card.Title>Response Headers</Card.Title>
-              <Card.Description>
-                The headers the final response arrived with, sorted by name.
-              </Card.Description>
-            </Card.Header>
-            <Card.Content>
-              {#if headers.length > 0}
-                <dl class="flex flex-col gap-8">
-                  {#each headers as [name, value] (name)}
-                    <div class="flex flex-col gap-4 sm:flex-row sm:gap-16">
-                      <dt class="font-mono text-xs break-all text-text-muted sm:w-96 sm:shrink-0">
-                        {name}
-                      </dt>
-                      <dd class="min-w-0 font-mono text-sm break-all text-text-default">{value}</dd>
-                    </div>
-                  {/each}
-                </dl>
-              {:else}
-                <p class="text-sm text-text-muted">The response carried no headers.</p>
-              {/if}
-            </Card.Content>
-          </Card.Root>
+    {#if loading || (outcome !== null && outcome.kind === "view")}
+      {@const view = outcome !== null && outcome.kind === "view" ? outcome.view : null}
+      <div class="flex flex-col gap-16 lg:flex-row">
+        <div class="min-w-0 lg:w-3/5">
+          <WebsiteShell
+            capturing={loading}
+            finalUrl={view === null ? null : view.finalUrl}
+            differentHost={view === null ? false : landedOnDifferentHost(view)}
+            screenshot={view === null ? null : screenshotSource(view.screenshotBase64)}
+          />
         </div>
-      {/if}
+        <div class="min-w-0 lg:w-2/5">
+          {#if view !== null}
+            <SnapshotTabs {view} />
+          {:else}
+            <div class="flex flex-col gap-16">
+              <Skeleton class="h-32 w-full" />
+              <Skeleton class="h-16 w-full" />
+              <Skeleton class="h-16 w-3/4" />
+              <Skeleton class="h-16 w-full" />
+              <Skeleton class="h-16 w-1/2" />
+            </div>
+          {/if}
+        </div>
+      </div>
+    {:else if outcome !== null && outcome.kind === "problem"}
+      {@const guidance = problemGuidance(outcome.problem)}
+      <Alert.Root variant={guidance.tone}>
+        <Alert.Title>{guidance.title}</Alert.Title>
+        <Alert.Description>
+          {guidance.message}
+          {#if guidance.tone === "danger" && outcome.problem.errorId}
+            <span class="mt-8 block">
+              Error ID: <span class="font-mono">{outcome.problem.errorId}</span>
+            </span>
+          {/if}
+        </Alert.Description>
+      </Alert.Root>
+    {:else if outcome !== null && outcome.kind === "transport"}
+      <Alert.Root variant="danger">
+        <Alert.Title>The capture service did not respond</Alert.Title>
+        <Alert.Description>
+          Nothing answered the request. Check your connection, then try again.
+        </Alert.Description>
+      </Alert.Root>
     {/if}
   </section>
 {/if}
-
-{#snippet addressField(label: string, value: string)}
-  <div class="flex flex-col gap-4 sm:flex-row sm:gap-16">
-    <dt
-      class="text-xs text-text-muted uppercase sm:w-96 sm:shrink-0"
-      style="letter-spacing: var(--mc-tracking-caps)"
-    >
-      {label}
-    </dt>
-    <dd class="min-w-0 font-mono text-sm break-all text-text-default">{value}</dd>
-  </div>
-{/snippet}
-
-<footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
-  The address is checked against public sites only; private, local, and internal addresses are
-  refused. This tool runs outside any matter, and nothing is saved: no history, no local storage.
-</footer>

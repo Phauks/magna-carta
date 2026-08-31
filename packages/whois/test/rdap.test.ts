@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { resolveRdapBase, queryRdap } from "../src/rdap.ts";
+import { RdapUpstreamFailure, resolveRdapBase, queryRdap } from "../src/rdap.ts";
 import type { HttpClient } from "@magna-carta/integrations/http";
 
 function fakeHttp(routes: Record<string, unknown>): HttpClient {
@@ -192,4 +192,72 @@ test("queryRdap is defensive when optional fields are absent", async () => {
   expect(result.nameservers).toBeUndefined();
   expect(result.statuses).toBeUndefined();
   expect(result.registrar).toBeUndefined();
+});
+
+test("queryRdap parses a 404 as absence — the registry's answer for an unregistered name", async () => {
+  const http: HttpClient = {
+    async request() {
+      return { status: 404, json: async () => ({ errorCode: 404 }) };
+    },
+  };
+  const result = await queryRdap("unregistered.example", "https://rdap.example.com/", http);
+  expect(result.source).toBe("rdap");
+  expect(result.registeredAt).toBeUndefined();
+  expect(result.registrar).toBeUndefined();
+});
+
+test("queryRdap throws RdapUpstreamFailure on any other non-200 rather than parsing it as absence", async () => {
+  // A rate limit is a fault about the registry, not a fact about the target. Folding it into the
+  // empty result made a transient 429 read as "no registration record found" on the page.
+  const http: HttpClient = {
+    async request() {
+      return { status: 429, json: async () => ({}) };
+    },
+  };
+  const rejection = expect(queryRdap("example.com", "https://rdap.example.com/", http)).rejects;
+  await rejection.toBeInstanceOf(RdapUpstreamFailure);
+  await rejection.toMatchObject({ status: 429 });
+});
+
+test("RdapUpstreamFailure never carries the target or URL in its message", async () => {
+  const http: HttpClient = {
+    async request() {
+      return { status: 503, json: async () => ({}) };
+    },
+  };
+  const error = await queryRdap("sensitive-target.example", "https://rdap.example.com/", http).then(
+    () => null,
+    (thrown: Error) => thrown,
+  );
+  expect(error?.message).not.toContain("sensitive-target");
+  expect(error?.message).not.toContain("rdap.example.com");
+});
+
+test("queryRdap extracts the registrant entity — the shape an IP-network record carries", async () => {
+  const http = fakeHttp({
+    "https://rdap.arin.example/ip/8.8.8.8": {
+      events: [{ eventAction: "registration", eventDate: "2023-12-28T17:24:56Z" }],
+      status: ["active"],
+      entities: [
+        { roles: ["registrant"], vcardArray: ["vcard", [["fn", {}, "text", "Google LLC"]]] },
+      ],
+    },
+  });
+  const result = await queryRdap("8.8.8.8", "https://rdap.arin.example/", http);
+  expect(result.registrant).toBe("Google LLC");
+  expect(result.registrar).toBeUndefined();
+});
+
+test("resolveRdapBase throws RdapUpstreamFailure when the bootstrap itself cannot be fetched", async () => {
+  // A failed bootstrap fetch is a fault, not an absent registry entry — returning null here would
+  // route the lookup down the legacy path and turn an IANA hiccup into a wrong answer.
+  const http: HttpClient = {
+    async request() {
+      return { status: 503, json: async () => ({}) };
+    },
+  };
+  await expect(resolveRdapBase("example.com", http)).rejects.toMatchObject({
+    name: "RdapUpstreamFailure",
+    status: 503,
+  });
 });

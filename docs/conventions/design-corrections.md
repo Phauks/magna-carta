@@ -127,9 +127,13 @@ is usually the fastest way to understand the rule.
   actions slot.** Left-aligned below the masthead, where the eye starts; the far right is for
   secondary actions. Results render below it, so nothing about the control reflows when they
   arrive. _(WHOIS Lookup tool page, 2026-08-31)_
-- **Orienting text persists through every state.** Running a page's action must not remove the copy
-  that explains the page; the result section renders beneath it, and only the results change.
-  _(WHOIS Lookup tool page, 2026-08-31)_
+- **No info lines.** A screen carries no explanatory prose about itself: no intro paragraph saying
+  what the tool does, no footer stating what is or is not saved, no reassurance line. Controls,
+  labels, and results carry the meaning; explanation lives in the user guides (`docs/user/`). The
+  owner has issued this deletion repeatedly; it is recorded so it stops being issued. It supersedes
+  the same-day "orienting text persists" ruling, which presumed the text should exist — copy that
+  does legitimately exist (an honest empty-state or error line stating a fact about this result)
+  still must not vanish or move between states. _(safe website viewer, 2026-08-31)_
 
 ### List screens
 
@@ -202,7 +206,13 @@ them:
 - The intro text vanished the moment a search ran (it was gated on the idle state); it stays
   visible, with results rendering beneath it.
 
-Two follow-ups from the same round, both from the owner:
+Follow-ups from the same round, all from the owner:
+
+- **Info lines are deleted, everywhere, and stop being written.** Issued against the Safe Website
+  Viewer's intro paragraph ("Paste a link you do not trust…"), with the note that this deletion has
+  been issued repeatedly before. Promoted above as _No info lines_; it supersedes this round's
+  "orienting text persists" ruling, which is why that bullet no longer appears in the standing
+  list. Both web-domains pages lose their intro paragraphs and footers.
 
 - **Alert-title casing: the owner has no preference**, so no ruling binds. The working choice on
   the web-domains pages is sentence case — an alert is a message, not a header, so "Headers are
