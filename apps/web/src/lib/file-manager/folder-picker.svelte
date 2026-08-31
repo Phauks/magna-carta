@@ -1,19 +1,18 @@
 <script lang="ts">
   /*
    * Choosing a folder — the one picker every destination question uses: where an upload lands, and
-   * where a folder's contents go when the folder around them is deleted.
+   * where a folder's contents go when the folder around it is deleted.
    *
-   * Home is the picker's FIRST ROW rather than a separate radio beside it, because the matter root
-   * is a destination like any other and splitting it out made two controls out of one decision.
+   * It is the design system's FolderTree, not a second tree: the same rows, the same twisties, the
+   * same Home-as-first-row shape the rail has, so picking a destination is navigating the exact
+   * structure the reader already knows. The flat indented list this replaces crammed the whole
+   * matter into a few rows with no way to fold anything.
    *
    * A picker can EXCLUDE a subtree, which is what keeps a folder from being asked to move inside
    * itself: the excluded folder and everything beneath it are simply not offered.
    */
-  import Button from "@magna-carta/design-system/button";
-  import Folder from "@lucide/svelte/icons/folder";
-  import Check from "@lucide/svelte/icons/check";
-  import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
-  import type { FolderSummary } from "./folder-api.ts";
+  import FolderTree from "@magna-carta/design-system/folder-tree";
+  import type { FolderTreeNode } from "@magna-carta/design-system/folder-tree";
   import type { MatterFileIndex } from "./file-rows.ts";
 
   let {
@@ -30,72 +29,60 @@
     label?: string;
   } = $props();
 
-  const HomeIcon = FOLDER_TREE_HOME_ICON;
-
   const excluded = $derived(
     excludeFolderId === null
       ? new Set<string>()
       : new Set([excludeFolderId, ...index.descendantFolderIds(excludeFolderId)]),
   );
 
-  interface PickerRow {
-    readonly folder: FolderSummary;
-    readonly depth: number;
-  }
-
-  /** The tree flattened in reading order, so one keyboard pass walks it top to bottom. */
-  const rows = $derived.by((): PickerRow[] => {
-    const collected: PickerRow[] = [];
-    const walk = (parentFolderId: string | null, depth: number): void => {
-      for (const folder of index.childrenOf(parentFolderId)) {
-        if (excluded.has(folder.id)) continue;
-        collected.push({ folder, depth });
-        walk(folder.id, depth + 1);
-      }
-    };
-    walk(null, 0);
-    return collected;
+  const treeNodes = $derived.by((): FolderTreeNode[] => {
+    const build = (parentFolderId: string | null): FolderTreeNode[] =>
+      index
+        .childrenOf(parentFolderId)
+        .filter((folder) => !excluded.has(folder.id))
+        .map((folder) => {
+          const children = build(folder.id);
+          const node: FolderTreeNode = { id: folder.id, label: folder.name };
+          return children.length > 0 ? { ...node, children } : node;
+        });
+    return build(null);
   });
 
-  /** Indentation is a spacing step per level, applied as padding on the row's own control. */
-  const INDENT_CLASSES = ["ps-8", "ps-16", "ps-24", "ps-32", "ps-40", "ps-48"];
-  const indentOf = (depth: number): string =>
-    INDENT_CLASSES[Math.min(depth, INDENT_CLASSES.length - 1)] ?? "ps-8";
+  // The picker starts with every folder open: a destination should be one click away, and the
+  // reader folds what they do not need rather than unfolding what they do.
+  let expandedFolderIds = $state<string[]>([]);
+  let seeded = false;
+  $effect(() => {
+    if (seeded) return;
+    const withChildren: string[] = [];
+    const walk = (nodes: readonly FolderTreeNode[]): void => {
+      for (const node of nodes) {
+        if (node.children !== undefined && node.children.length > 0) {
+          withChildren.push(node.id);
+          walk(node.children);
+        }
+      }
+    };
+    walk(treeNodes);
+    if (withChildren.length > 0 || treeNodes.length > 0) {
+      expandedFolderIds = withChildren;
+      seeded = true;
+    }
+  });
 </script>
 
 <div
-  class="mc-scrollbar flex max-h-96 flex-col gap-4 overflow-y-auto rounded-md border border-border-default p-4"
-  role="listbox"
-  aria-label={label}
+  class="mc-scrollbar overflow-y-auto rounded-md border border-border-default"
+  style="max-block-size: min(calc(var(--mc-size-sidebar) + var(--mc-space-64)), 50vh)"
 >
-  <Button
-    variant={chosenFolderId === null ? "secondary" : "ghost"}
-    size="sm"
-    class="justify-start ps-8"
-    role="option"
-    aria-selected={chosenFolderId === null}
-    onclick={() => (chosenFolderId = null)}
-  >
-    <HomeIcon class="size-16" aria-hidden="true" />
-    Home
-    {#if chosenFolderId === null}
-      <Check class="ms-auto size-16" aria-hidden="true" />
-    {/if}
-  </Button>
-  {#each rows as row (row.folder.id)}
-    <Button
-      variant={chosenFolderId === row.folder.id ? "secondary" : "ghost"}
-      size="sm"
-      class="justify-start {indentOf(row.depth + 1)}"
-      role="option"
-      aria-selected={chosenFolderId === row.folder.id}
-      onclick={() => (chosenFolderId = row.folder.id)}
-    >
-      <Folder class="size-16" aria-hidden="true" />
-      {row.folder.name}
-      {#if chosenFolderId === row.folder.id}
-        <Check class="ms-auto size-16" aria-hidden="true" />
-      {/if}
-    </Button>
-  {/each}
+  <FolderTree
+    folders={treeNodes}
+    bind:selectedFolderId={chosenFolderId}
+    bind:expandedFolderIds
+    showFileCounts={false}
+    {label}
+    homeLabel="Home"
+    emptyMessage="No folders yet — everything lands at the top level."
+    newFolderDisabledReason="Folders are made from the file list, not from this picker."
+  />
 </div>

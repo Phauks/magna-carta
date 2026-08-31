@@ -1,12 +1,18 @@
 ---
 worktree: /home/user/magna-carta
-area: Firm Usage tool — route extension + first screen
+area: The download register — a per-member shelf of what the platform produced, and the export snapshots that fill it
 status: building
-touches: apps/api-worker/src/routes/firm-usage.ts, apps/api-worker/openapi/openapi.json, packages/api-client, packages/matters/src/queries.ts, packages/file-manager/src/usage.ts, packages/locations/src/statements.ts, packages/directory, packages/data-access/src/member-statements.ts, apps/web/src/routes/(app)/tools/firm-usage/, apps/web/src/lib/tools/tool-presentation.ts, status.d/tools-area.md, roadmap.d/integrations.md, roadmap.d/documents.md, docs/user/
+touches: packages/database/drizzle/per-firm, packages/access-control, packages/data-access, apps/api-worker/src/routes, apps/api-worker/src/downloads, apps/api-worker/src/conversions, apps/api-worker/openapi/openapi.json, packages/api-client, apps/web/src/lib/export, apps/web/src/lib/navigation/destinations.ts, apps/web/src/routes/(app)/downloads, roadmap.d/reports.md, changelog.d/
 ---
 
-Builds the Firm Usage screen (the diagnostics tool that has been backend-only since ADR-0103) and
-extends `GET /api/v1/firm-usage` with the rollups the owner-approved design shows: matters by type
-and by location, the file versioning breakdown with sizes, Directory and member counts, and the
-three AI meters that were written but never read by any route. Regenerates the OpenAPI snapshot and
-the API client, so any concurrent contract change should merge `main` before re-emitting.
+Building the download register: a per-member list of what the platform made for you, held for a
+short retention window, downloadable again until it expires. The export framework and its server-side
+Word/PDF renderer landed on this branch already; this stream gives what they produce a home.
+
+Two things a concurrent stream should know. **This stream does not touch
+`apps/web/src/lib/components/app-shell.svelte`** — the register is a sidebar destination and a page,
+not new top-bar chrome, and both `slice-0-7b-app-shell` and `claude/focused-cori-b8z77b` have claims
+over the shell. **It also stays out of `docs/conventions/design-corrections.md`** at
+`claude/focused-cori-b8z77b`'s request; the owner ruling this stream is built on (notifications carry
+matter work, downloads are not matter work) is recorded in this stream's spec and ADR fragment, and
+belongs in the ruling ledger once that branch lands.

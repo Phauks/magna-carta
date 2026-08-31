@@ -39,7 +39,7 @@
   status: shipped
   slices: 4-4-matter-notes
   surface: internal
-  evidence: packages/database/drizzle/per-firm/20260831T000000_matter-notes.sql; packages/notes/test/append-only.test.ts issues each refused statement by hand
+  evidence: packages/database/drizzle/per-firm/20260901T000000_matter-notes.sql; packages/notes/test/append-only.test.ts issues each refused statement by hand
   notes: Honouring a court-ordered destruction is therefore a reviewed migration rather than a query, which was the accepted cost.
 
 - id: notes.matter-note.retraction

@@ -184,3 +184,4 @@ export type NotificationEventId = Identifier<"notificationEvent">;
 export type NotificationRecipientId = Identifier<"notificationRecipient">;
 export type NotificationDeliveryId = Identifier<"notificationDelivery">;
 export type NotificationDigestId = Identifier<"notificationDigest">;
+export type DownloadItemId = Identifier<"downloadItem">;

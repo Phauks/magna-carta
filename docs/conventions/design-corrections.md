@@ -150,6 +150,28 @@ is usually the fastest way to understand the rule.
   the same-day "orienting text persists" ruling, which presumed the text should exist — copy that
   does legitimately exist (an honest empty-state or error line stating a fact about this result)
   still must not vanish or move between states. _(safe website viewer, 2026-08-31)_
+- **One fact, once, under the name that can act on it.** Where a panel can state the same fact two
+  ways, it states it the way a reader could do something about. The version overlay carried both a
+  "This page" line and a `magna-carta-web` row; they are the same commit, and the Worker's name is
+  the one someone can open in a dashboard. The duplicate goes, and comes back only as a fallback for
+  the case where the surviving line cannot answer. _(Build Versions panel, 2026-08-31)_
+- **A confirmation changes the control's fill, never its width.** Feedback on a press (copied,
+  saved, applied) tints or fills the control for about a second. It does not append a glyph beside
+  the value: the width change reads as the value itself changing, which is the one thing a
+  confirmation must not suggest. _(Build Versions panel, 2026-08-31)_
+- **Text that grows on a clock never shares a row with a control.** A line whose length changes on
+  its own ("checked 2 minutes ago" becoming "checked 14 minutes ago") sits under the header, not
+  beside the buttons, so nothing the reader is aiming at moves while they aim. _(Build Versions
+  panel, 2026-08-31)_
+- **The action that answers a signal sits with the surface's other controls, as a symbol.** A
+  panel's gestures belong in one cluster in its header, where a reader looks for any of them, and a
+  state-triggered action joins that cluster rather than opening a second control somewhere in the
+  body. Distinguish it by its own icon and register, never by repeating the neighbour's glyph.
+  _(Build Versions panel, 2026-08-31)_
+- **A long reference list folds, remembers the fold, and counts what folding hides.** Behind a
+  caret, per browser, defaulting to open. A shut heading still states any fault among the rows it
+  hides, because the reason a list is exhaustive is that omissions read as health. _(Build Versions
+  panel, 2026-08-31)_
 
 ### List screens
 
@@ -245,6 +267,24 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-08-31 — the Build Versions panel
+
+Five corrections against the version overlay, all from the owner, all promoted above:
+
+- The **"This page / committed … · built …"** line was deleted as duplicative of the
+  `magna-carta-web` row. It survives only as the fallback for a panel nothing else can speak for:
+  signed out, a failed read, or a silent web row.
+- **"Services checked … ago"** moved off the header row and under the header. It grows and shrinks
+  as the clock ticks, and on the header row that motion pushed the Refresh control around.
+- The **Reload** control moved into the header beside Refresh and became a symbol (a warning-tinted
+  `rotate-cw`, distinct from Refresh's `refresh-cw`). The Update Available block keeps the badge and
+  the sentence and no longer carries a second copy of the gesture.
+- The **Workers** beneath the leading pair fold behind a caret, and the fold is remembered per
+  browser. It defaults to open, and a shut heading counts any worker that came back without a
+  version, so the fold never turns the fleet list into a claim of health.
+- **Copy feedback stopped being a check glyph** and became the control darkening for a second. The
+  glyph widened the button on every press, which read as the identifier itself changing.
+
 ### 2026-08-31 — WHOIS Lookup tool page, deployed-site review
 
 The owner walked the WHOIS page on the deployed site while the Safe Website Viewer page was being
@@ -294,6 +334,31 @@ that runs the WHOIS lookup in place for the captured host through the shared loo
 owner does not want a redirect to the WHOIS page; the information comes to the viewer. Facts that
 would need new backend probes (resolved IP, TLS certificate details, hosting provider) are
 recorded as wanted, not faked.
+
+A fifth round the same day, from the owner's first real captures (YouTube shot mid-load, first
+viewport only; the Registration lookup failed instantly). Mostly engineering, recorded here
+because the corrections were issued in review: the renderer now waits for the page to finish
+(networkidle plus a settle beat) and captures the FULL page; a WHOIS query for a hostname walks up
+to the registrable domain that actually answers (www.youtube.com is a registry 404, youtube.com is
+the record the member meant); the capture streams real stage lines (probing, then the settled
+redirect chain while the render continues) so the loading viewport narrates facts rather than a
+generic spinner-plus-elapsed. Screen-local: the tab strip matches the address bar's height so the
+unified frame's top band is one continuous bar; the Different Site indicator lives ONLY on the
+right side (the landed URL, its badge, and its copy control move into the Overview tab — the left
+chrome stays clean); the Soon marker leaves the chrome entirely, surviving only on the Live
+control's hover and accessible description; and the WHOIS page renders its result frame at rest
+per the furniture rule.
+
+A sixth round the same day. The "That address cannot be viewed" failures for youtube.com, google
+and 8.8.8.8 were one defect wearing three names: the interface and the API deploy as separate
+Workers since this morning, so the fresh page called the streaming route on an older API, the 404
+fell through problem guidance's default input case, and the member's address was blamed for deploy
+skew. Now: a 404 from our own API reads as "the service is mid-update", never an input fault; the
+staged capture falls back to the non-streaming route when the streaming one is not deployed (the
+member loses the narration, not the capture); and a bare single label ("google") is refused at the
+field with the inline hint rather than spent on a round trip. Screen-local: the export menu's
+format rows carry the same file symbols the file manager uses for those types, and Static/Live
+join into one segmented control whose halves touch.
 
 ### 2026-08-30 — the matters screens, second round
 

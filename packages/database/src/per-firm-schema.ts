@@ -76,6 +76,7 @@ import type {
   IndexSplitId,
   IntegrationConnectionId,
   InvoiceApplicationId,
+  DownloadItemId,
   InvoiceDeliveryId,
   InvoiceId,
   InvoiceLineId,
@@ -8795,5 +8796,90 @@ export const aiSearchDisclosureAcknowledgement = sqliteTable(
   },
   (table) => [
     check("ai_search_disclosure_acknowledgement_scope_check", sql`${table.scope} = 'firm'`),
+  ],
+);
+
+// The download register — one member's shelf of what the platform produced for them, held for a
+// short retention window and then swept. A SHELF, NOT A HISTORY: "what have I ever downloaded" is an
+// audit question `audit_log` already answers under a different key, and nothing here is the firm's
+// record — filing an export into a matter stays a separate, audited act producing a real document.
+//
+// The gap it closes: a bulk bundle is addressed by the content hash of its selection and a
+// conversion by its job id, both held only in a Durable Object and an R2 object, so a member who
+// closed the tab had no way back to an artifact that sat in the bucket, paid for, until its
+// lifecycle rule reaped it.
+export const downloadItem = sqliteTable(
+  "download_item",
+  {
+    id: text("id").primaryKey().$type<DownloadItemId>(), // downloadItem_ handle
+    // WHOSE SHELF. Every read is scoped to this column, never to the firm alone: a colleague's
+    // exports are not the reader's business. A bundle is content-addressed and genuinely shared
+    // between two members who selected the same files — the artifact is shared, these rows are not.
+    memberId: text("member_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // What the reader sees, composed by the producer from what the member asked for. Never a key.
+    title: text("title").notNull(),
+    // TWO KINDS, and the distinction decides what "download again" does. An `artifact` points at
+    // bytes that cannot be re-derived (a bundle of the firm's own files, a conversion result) and
+    // re-downloads as a freshly minted presigned GET. A `snapshot` is an export, and stores the
+    // tabular DOCUMENT rather than a rendered file — this platform holds that an export is a
+    // document and formats are renderers, so one row serves every format and the figures stay frozen
+    // at the instant of the export rather than being recomputed into a different answer.
+    kind: text("kind", { enum: ["artifact", "snapshot"] }).notNull(),
+    // WHICH PRODUCER made it. Closed now rather than later: SQLite cannot widen a table CHECK without
+    // a destructive rebuild. `bundle` and `conversion` are here with no client able to create one yet
+    // — both producers exist server-side and neither has a screen — because the alternative is
+    // rebuilding this table on the day one lands.
+    producer: text("producer", { enum: ["export", "bundle", "conversion"] }).notNull(),
+    // For an artifact, the producer's own key under the producer's own prefix, which is what keeps
+    // this table a catalog rather than a second store. For a snapshot, this register's own object
+    // holding the stored document, swept with the row.
+    objectKey: text("object_key").notNull(),
+    // Bytes where the producer knows them. Null on a snapshot, whose size is a property of a
+    // rendering nobody has asked for yet rather than of the row.
+    byteSize: integer("byte_size"),
+    // WHAT HAS BEEN TAKEN — format tokens, appended to rather than replaced. The half of the ask a
+    // plain list does not answer: a member who can see they already took the Word copy is looking at
+    // a shelf, and one who cannot is looking at a pile. Empty means built and never fetched, which is
+    // a real and visible state.
+    downloadedFormatsJson: text("downloaded_formats_json").notNull().default("[]"),
+    createdAt: text("created_at").notNull(),
+    // When the shelf lets go, written by the producer from one constant so a row and the lifecycle
+    // rule over its prefix cannot drift into the register outliving the bytes it points at.
+    expiresAt: text("expires_at").notNull(),
+    // `building` is why this is a column rather than a derivation: a bundle is enqueued before its
+    // bytes exist, and a member watching a large archive build should see it here rather than wonder
+    // whether the request was taken. `failed` is terminal and keeps the row so the outcome is learned
+    // instead of the row vanishing. `expired` is written by the sweep, but a read that finds the
+    // object already gone reports it without waiting for the sweep to catch up.
+    state: text("state", { enum: ["building", "ready", "failed", "expired"] }).notNull(),
+  },
+  (table) => [
+    // The shelf read: one member's rows, newest first, walked by the (created_at, id) pair so the
+    // order is total and a page boundary cannot repeat or drop a row sharing an instant with its
+    // neighbour.
+    index("download_item_member_created_index").on(table.memberId, table.createdAt, table.id),
+    // The sweep's read, across the firm rather than one member. Leading with the expiry is what keeps
+    // the daily pass a range scan over the tail rather than a walk of every shelf in the firm.
+    index("download_item_expiry_index").on(table.expiresAt, table.state),
+    check("download_item_kind_check", sql`${table.kind} IN ('artifact', 'snapshot')`),
+    check(
+      "download_item_producer_check",
+      sql`${table.producer} IN ('export', 'bundle', 'conversion')`,
+    ),
+    check(
+      "download_item_state_check",
+      sql`${table.state} IN ('building', 'ready', 'failed', 'expired')`,
+    ),
+    check("download_item_title_nonempty_check", sql`length(trim(${table.title})) > 0`),
+    check("download_item_object_key_nonempty_check", sql`length(trim(${table.objectKey})) > 0`),
+    // A snapshot has no byte size and an artifact's is never negative; zero is a real answer (an
+    // empty archive) and stays representable.
+    check(
+      "download_item_byte_size_check",
+      sql`${table.byteSize} IS NULL OR ${table.byteSize} >= 0`,
+    ),
   ],
 );

@@ -24,21 +24,44 @@ import {
   copyLineForPart,
   describeObservationAge,
   describeRetainedRows,
+  findWebWorkerRow,
   formatVersionTimestamp,
   isRealCommit,
   partitionDeploymentRows,
   readsServiceAggregate,
   serviceStateDescription,
   serviceStateLabel,
+  showsPageBuildRow,
+  summarizeSilentWorkers,
   versionChipLabel,
   API_WORKER_UNIT_NAME,
+  FLEET_SECTION_LABEL,
   PAGE_BUILD_ROW_NAME,
   READ_IN_FLIGHT_NOTICE,
   RELOAD_ACTION_LABEL,
   SIGNED_OUT_ESTATE_NOTICE,
   UPDATE_AVAILABLE_EXPLANATION,
   WEB_TOPOLOGY_NOTICE,
+  WEB_WORKER_ROW_ID,
+  type ServiceVersionRow,
+  type ServiceVersionState,
 } from "../src/lib/versions/version-overlay-model.ts";
+
+/** A service row with everything but the fields a case is actually about held constant. */
+function serviceRow(
+  id: string,
+  state: ServiceVersionState = "reported",
+  commit: string | null = "a1b2c3d",
+): ServiceVersionRow {
+  return {
+    id,
+    service: `magna-carta-${id}`,
+    state,
+    commit: state === "reported" ? commit : null,
+    commitTime: null,
+    buildTime: null,
+  };
+}
 
 const SOURCE_ROOT = join(import.meta.dirname, "../src");
 const REPOSITORY_ROOT = join(import.meta.dirname, "../../..");
@@ -320,13 +343,24 @@ describe("the chip in its public scope", () => {
     expect(chip).toContain("if (!open || !readsAggregate) return;");
   });
 
-  it("shows this build's own identity unconditionally, from the baked-in stamp", () => {
-    // The build line comes from the bundle, not the network, so it renders in both scopes and
-    // with the API unreachable: it must sit outside every conditional in the panel.
+  it("shows this build's own identity from the baked-in stamp, never from the network", () => {
     const pageRow = /\{@render partRow\(\{\s*rowKey: "page",[\s\S]*?\}\)\}/.exec(chip);
     expect(pageRow).not.toBeNull();
     expect(pageRow?.[0]).toContain("BUILD_IDENTITY.committedAt");
-    expect(openBlockDepthAt(chip, chip.indexOf('rowKey: "page"'))).toBe(0);
+    expect(pageRow?.[0]).toContain("BUILD_IDENTITY.builtAt");
+  });
+
+  it("keeps the build line on the signed-out panel, where nothing else can state it", () => {
+    // The aggregate is not readable here, so this row is the only version the panel has.
+    expect(showsPageBuildRow({ readsAggregate: false, read: "pending", webRow: null })).toBe(true);
+    expect(showsPageBuildRow({ readsAggregate: false, read: "failed", webRow: null })).toBe(true);
+    expect(
+      showsPageBuildRow({
+        readsAggregate: false,
+        read: "answered",
+        webRow: serviceRow(WEB_WORKER_ROW_ID),
+      }),
+    ).toBe(true);
   });
 
   it("keeps the aggregate's own rows inside the scope that may read them", () => {
@@ -380,25 +414,29 @@ describe("the chip's row identities and refresh", () => {
   });
 
   it("splits the deployment rows so the interface Worker leads and nothing is dropped", () => {
-    const row = (id: string) => ({
-      id,
-      service: `magna-carta-${id}`,
-      state: "reported" as const,
-      commit: "a1b2c3d",
-      commitTime: null,
-      buildTime: null,
-    });
-    const { front, rest } = partitionDeploymentRows([row("bundle"), row("web"), row("scan")]);
-    expect(front.map((r) => r.id)).toEqual(["web"]);
-    expect(rest.map((r) => r.id)).toEqual(["bundle", "scan"]);
+    const { front, rest } = partitionDeploymentRows([
+      serviceRow("bundle"),
+      serviceRow(WEB_WORKER_ROW_ID),
+      serviceRow("scan"),
+    ]);
+    expect(front.map((row) => row.id)).toEqual([WEB_WORKER_ROW_ID]);
+    expect(rest.map((row) => row.id)).toEqual(["bundle", "scan"]);
   });
 
-  it("shows no copy glyph on a commit: the button's shape carries the affordance", () => {
-    // Owner request 2026-08-31. The check on a successful copy stays (it is the confirmation),
-    // and the aria-label keeps stating the action for a screen reader.
+  it("confirms a copy by filling the control, not by growing a glyph inside it", () => {
+    // Owner rulings 2026-08-31: no copy glyph on the control, and no check appearing on a
+    // successful copy either. A glyph arriving beside the commit widened the button every time
+    // it was pressed, and the width change read as the identifier itself changing; the control
+    // takes the selected fill for a moment instead, which moves nothing. The aria-label keeps
+    // stating the action for a screen reader.
     expect(chip).not.toContain("icons/copy");
+    expect(chip).not.toContain("icons/check");
     expect(chip).toContain('aria-label="Copy the {part.name} version"');
-    expect(chip).toContain("icons/check");
+    // A step beyond ghost's own hover fill: whoever just clicked the control is hovering it, so a
+    // confirmation painted in the hover colour would be invisible exactly when it is needed.
+    expect(chip).toMatch(/copiedRow === part\.rowKey[\s\S]*bg-action-secondary-hover/);
+    // "for a second" — the fill clears on its own, and only if this row is still the copied one.
+    expect(chip).toMatch(/if \(copiedRow === rowKey\) copiedRow = null;\s*\}, 1000\);/);
   });
 
   it("offers a refresh that re-runs the read and is inert while one is in flight", () => {
@@ -451,6 +489,167 @@ describe("the chip's row identities and refresh", () => {
     expect(chip).toContain("Error ID:");
     expect(chip).toContain("failure.problem.errorId");
     expect(chip.indexOf("Error ID:")).toBeLessThan(chip.indexOf('rowKey: "page"'));
+  });
+});
+
+describe("the retired duplicate of magna-carta-web", () => {
+  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+
+  it("drops the build line once the Worker that serves this page reports", () => {
+    /*
+     * Owner ruling 2026-08-31: the standing "This page / committed … · built …" row duplicated
+     * magna-carta-web. That Worker serves the interface, so its commit and timestamps ARE this
+     * page's, said once under a name someone can act on.
+     */
+    expect(
+      showsPageBuildRow({
+        readsAggregate: true,
+        read: "answered",
+        webRow: serviceRow(WEB_WORKER_ROW_ID),
+      }),
+    ).toBe(false);
+  });
+
+  it("brings it back whenever nothing else can state this build", () => {
+    // A silent web row is a row with no commit on it, so dropping the build line as well would
+    // leave the panel reporting no version at all.
+    for (const state of ["unbound", "unreachable", "unreported"] as const) {
+      expect(
+        showsPageBuildRow({
+          readsAggregate: true,
+          read: "answered",
+          webRow: serviceRow(WEB_WORKER_ROW_ID, state),
+        }),
+        state,
+      ).toBe(true);
+    }
+    // A read that failed, and a roster with no web row in it at all.
+    expect(showsPageBuildRow({ readsAggregate: true, read: "failed", webRow: null })).toBe(true);
+    expect(showsPageBuildRow({ readsAggregate: true, read: "answered", webRow: null })).toBe(true);
+  });
+
+  it("stays away while the first read is still in flight", () => {
+    // The skeletons hold that space; a row that appears for a moment and then vanishes when the
+    // answer lands reads as a glitch rather than as an answer.
+    expect(showsPageBuildRow({ readsAggregate: true, read: "pending", webRow: null })).toBe(false);
+  });
+
+  it("finds the web row by the wire's own id, so a rename cannot hide the duplication", () => {
+    expect(findWebWorkerRow([serviceRow("scan"), serviceRow(WEB_WORKER_ROW_ID)])?.id).toBe(
+      WEB_WORKER_ROW_ID,
+    );
+    expect(findWebWorkerRow([serviceRow("scan")])).toBeNull();
+  });
+
+  it("the component asks the rule rather than rendering the row outright", () => {
+    expect(chip).toContain(
+      "showsPageBuildRow({ readsAggregate, read: readPhase, webRow: webWorkerRow })",
+    );
+    expect(chip).toMatch(/\{#if showsOwnBuild\}[\s\S]*rowKey: "page"/);
+    // A retained answer still counts as answered: its web row goes on speaking for this build.
+    expect(chip).toContain('value !== null ? "answered" : failure !== null ? "failed" : "pending"');
+  });
+});
+
+describe("the panel header", () => {
+  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const header = /<div class="flex flex-col gap-4">([\s\S]*?)\n    <\/div>/.exec(chip)?.[1] ?? "";
+
+  it("puts the services line under the header instead of beside the controls", () => {
+    // Owner ruling 2026-08-31. The age line grows and shrinks as the clock ticks, and on the
+    // header row that motion pushed the two controls around.
+    expect(header).not.toBe("");
+    expect(header.indexOf("Build Versions")).toBeLessThan(
+      header.indexOf("Services {observationAge}"),
+    );
+    expect(header.indexOf("Refresh the version read")).toBeLessThan(
+      header.indexOf("Services {observationAge}"),
+    );
+  });
+
+  it("seats the reload control beside refresh, as a symbol, only when an update is live", () => {
+    const reload = /<Button[^>]*aria-label=\{RELOAD_ACTION_LABEL\}[\s\S]*?<\/Button>/.exec(header);
+    expect(reload).not.toBeNull();
+    expect(reload?.[0]).toContain('size="icon"');
+    expect(reload?.[0]).toContain("location.reload()");
+    expect(reload?.[0]).toContain("RotateCw");
+    // Its own icon, not the refresh glyph: two controls that look identical read as one repeated.
+    expect(reload?.[0]).not.toContain("RefreshCw");
+    expect(header).toMatch(/\{#if updateAvailable\}[\s\S]*aria-label=\{RELOAD_ACTION_LABEL\}/);
+    // Beside refresh, in that order, inside the one controls cluster.
+    expect(header.indexOf("aria-label={RELOAD_ACTION_LABEL}")).toBeLessThan(
+      header.indexOf('aria-label="Refresh the version read"'),
+    );
+  });
+
+  it("carries the reload gesture once, so the update callout is words only", () => {
+    expect(chip.match(/location\.reload\(\)/g) ?? []).toHaveLength(1);
+  });
+
+  it("offers reload in every scope and refresh only where there is an aggregate to re-read", () => {
+    // The update poll reads a public asset of this bundle, so a signed-out tab gets stale too.
+    expect(header).toMatch(/\{#if readsAggregate\}[\s\S]*aria-label="Refresh the version read"/);
+    expect(header.indexOf("aria-label={RELOAD_ACTION_LABEL}")).toBeLessThan(
+      header.indexOf("{#if readsAggregate}"),
+    );
+  });
+});
+
+describe("the fleet fold", () => {
+  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
+
+  it("folds only the Workers beneath the pair that serves the app's address", () => {
+    expect(chip).toMatch(/\{#if !fleetSectionPreference\.collapsed\}[\s\S]*deploymentRows\.rest/);
+    // The leading pair and the topology line never fold: they are what the panel is opened for.
+    expect(chip.indexOf("{WEB_TOPOLOGY_NOTICE}")).toBeLessThan(
+      chip.indexOf("fleetSectionPreference.collapsed"),
+    );
+  });
+
+  it("is a disclosure: its own label names it and aria-expanded carries the state", () => {
+    expect(chip).toContain("{FLEET_SECTION_LABEL}");
+    expect(chip).toContain("aria-expanded={!fleetSectionPreference.collapsed}");
+    expect(chip).toContain("onclick={() => fleetSectionPreference.toggle()}");
+    expect(FLEET_SECTION_LABEL).toBe("Workers");
+  });
+
+  it("turns its caret rather than swapping the glyph, and holds still under reduced motion", () => {
+    expect(chip).toContain("icons/chevron-right");
+    expect(chip).toMatch(/fleetSectionPreference\.collapsed\s*\?\s*''\s*:\s*'rotate-90'/);
+    expect(chip).toContain("motion-reduce:transition-none");
+  });
+
+  it("counts the silent Workers a fold would otherwise hide", () => {
+    // The list exists to show the whole fleet, so folding may hide rows and never a fault.
+    expect(summarizeSilentWorkers([serviceRow("scan"), serviceRow("bundle")])).toBeNull();
+    expect(summarizeSilentWorkers([serviceRow("scan"), serviceRow("bundle", "unreachable")])).toBe(
+      "1 without a version",
+    );
+    expect(
+      summarizeSilentWorkers([
+        serviceRow("scan", "unbound"),
+        serviceRow("bundle", "unreachable"),
+        serviceRow("search", "unreported"),
+      ]),
+    ).toBe("3 without a version");
+  });
+
+  it("shows that count on the heading exactly while the fold is shut", () => {
+    expect(chip).toMatch(
+      /\{#if fleetSectionPreference\.collapsed && silentWorkers !== null\}[\s\S]*\{silentWorkers\}/,
+    );
+  });
+
+  it("remembers the fold per browser, and arrives open", () => {
+    // Arriving folded would hide an unreachable Worker from someone who opened the panel to find
+    // one, so the fold is a choice this remembers, never the state it starts in.
+    expect(preferences).toContain('"expanded"');
+    expect(preferences).toMatch(/\["expanded", "collapsed"\], "expanded"/);
+    // On the shared primitive: storage hazards swallowed there, and two open tabs kept in step.
+    expect(preferences).toContain("createPersistedPreference");
+    expect(preferences).toContain("stringUnionPreference");
+    expect(preferences).toContain("followAcrossTabs()");
   });
 });
 

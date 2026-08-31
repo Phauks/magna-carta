@@ -85,6 +85,14 @@ describe("content-type allow-list matching (DEFAULT_UPLOAD_POLICY)", () => {
     expect(() => allow("text/plain", "notes.txt")).not.toThrow();
   });
 
+  it("allows the Windows-declared zip aliases beside application/zip", () => {
+    // Windows browsers declare a .zip as application/x-zip-compressed; a policy that only names
+    // application/zip refuses every zip uploaded from Windows at initiate.
+    expect(() => allow("application/zip", "bundle.zip")).not.toThrow();
+    expect(() => allow("application/x-zip-compressed", "bundle.zip")).not.toThrow();
+    expect(() => allow("application/x-compressed", "bundle.zip")).not.toThrow();
+  });
+
   it("rejects a content type outside the allow-list", () => {
     expect(() => allow("application/x-msdownload", "evil.exe")).toThrow();
   });

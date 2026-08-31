@@ -195,6 +195,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // or documents:forceReleaseLock (displacing a colleague's hold), so both are absent here.
         "documents:checkout",
         "documents:edit",
+        // The download shelf is where a generated file waits to be collected, and it reaches every
+        // default role: a member who could ask for the file is the member who collects it.
+        "downloads:shelf",
         "emails:file",
         "emails:manageLinks",
         "emails:read",
@@ -270,6 +273,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:run",
         "costs:approve",
         "custody:read",
+        // The download shelf reaches every default role: whoever could ask for a generated file is
+        // whoever collects it.
+        "downloads:shelf",
         "emails:read",
         "firm:readMembers",
         "firm:reportIncident",
@@ -308,6 +314,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:read",
         "conflicts:run",
         "custody:read",
+        "downloads:shelf",
         "emails:read",
         "firm:readMembers",
         "firm:reportIncident",

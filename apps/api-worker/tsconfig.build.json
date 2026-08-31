@@ -75,6 +75,9 @@
       "path": "../../packages/encryption/tsconfig.build.json"
     },
     {
+      "path": "../../packages/export-document/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/feature-flags/tsconfig.build.json"
     },
     {

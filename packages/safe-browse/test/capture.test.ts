@@ -47,3 +47,21 @@ test("assembles a SafeView from probe + render", async () => {
   expect(view.links).toEqual(["https://x.example/"]);
   expect(view.title).toBe("Hi");
 });
+
+test("reports probing then probed with the chain facts while the render is still due", async () => {
+  const stages: Array<{ stage: string; redirectCount?: number; finalUrl?: string }> = [];
+  await captureSafeView("http://start.example/", deps(), (stage) => stages.push(stage));
+  expect(stages[0]).toEqual({ stage: "probing" });
+  expect(stages[1]).toEqual({
+    stage: "probed",
+    redirectCount: 1,
+    finalUrl: "https://final.example/",
+  });
+});
+
+test("a throwing stage listener never fails the capture", async () => {
+  const view = await captureSafeView("http://start.example/", deps(), () => {
+    throw new Error("listener bug");
+  });
+  expect(view.screenshotBase64).toBe("aGVsbG8=");
+});

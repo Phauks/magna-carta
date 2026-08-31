@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 774 nodes of the feature ledger in
+is the complete register rather than a digest: all 775 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**774 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**775 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 137 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **637 that are units of work**, for the reason set out under [What a roll-up is
+count the **638 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,29 +31,29 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 274 | 43% |
-| Part-built | partial, in-build | 111 | 18% |
-| Ahead | designed, planned, researching, not-started | 212 | 33% |
+| Part-built | partial, in-build | 113 | 18% |
+| Ahead | designed, planned, researching, not-started | 211 | 33% |
 | Parked | deferred, cut | 40 | 6% |
-| **All units of work** | | **637** | **100%** |
+| **All units of work** | | **638** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 274 | 43% |
-| `partial` | 110 | 17% |
+| `partial` | 112 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 45 | 7% |
-| `planned` | 17 | 3% |
+| `planned` | 16 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 145 | 23% |
 | `deferred` | 38 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **637** | **100%** |
+| **All statuses** | **638** | **100%** |
 
 ### What a roll-up is not
 
-**137 of the 774 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**137 of the 775 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 274 of 637 (43%). Shipped plus partial is 384 (60%).**
+**Shipped alone is 274 of 638 (43%). Shipped plus partial is 386 (61%).**
 
-The 110 units between those two numbers are work that is engineered and paid for and is not
+The 112 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**385 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**387 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 28 | 7% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 47% |
+| A person can open it today (`screen`) | 30 | 8% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
 | No user surface by nature (`internal`) | 177 | 46% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **385** | **100%** |
+| **Everything with something built** | **387** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -121,12 +121,12 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
-| Reports | 1 | 1 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 10 | 10% |
+| Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **274** | **110** | **1** | **45** | **17** | **5** | **145** | **38** | **2** | **637** | **43%** |
+| **All areas** | **274** | **112** | **1** | **45** | **16** | **5** | **145** | **38** | **2** | **638** | **43%** |
 
 ## Where we have been
 
@@ -422,7 +422,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `reports.operational` · **Operational reports** — Operational reporting over firm activity.
 - `reports.location-rollups` · **Per-location roll-ups** — Financial and productivity reports filter and subtotal by office; trust reports inherently per-account/per-location.
 - `reports.scheduling` · **Scheduled generation** — Scheduled/automated report generation, archival, and optional email delivery.
-- `reports.exports` · **Exports** — PDF, Excel/CSV, and print export of reports.
 - `self-serve.firm-lifecycle` · **Firm lifecycle states** — The states a firm passes through beyond provisioning — dormant, suspended, closing and closed, plus the read-only state a lapsed subscription lands in — and the activity signal that moves it between them.
 - `self-serve.reaping` · **Reaping an abandoned tenant** — The warning ladder for a free workspace nobody has touched, what destruction means when it finally happens, and which firms may never be proposed for it at all.
 - `self-serve.entitlements` · **Entitlement model** — A tier catalog in code naming permission keys, a per-firm tier and its overrides in the control plane, and the mask that intersects a principal's permissions with what their firm's tier permits at the one existing chokepoint.
@@ -1302,7 +1301,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Reports
 
-[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 10 units of work, 10% shipped. 1 done, 1 part-built, 6 ahead, 2 parked.
+[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 units of work, 9% shipped. 1 done, 3 part-built, 5 ahead, 2 parked.
 
 - `reports` · `partial` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
   - `reports.projections` · `shipped` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date. _Note: Backend only, no screen. Two blocks in the trust-compliance pack are labelled as outside the claim — the three-way proof beside each attestation, and the outstanding-item, unmatched-line and stored-balance checks — because their owning reads take no knowledge instant and a second definition of them is refused._
@@ -1312,7 +1311,8 @@ to change a line here, edit the node in its area file and re-run the build.
   - `reports.operational` · `planned` · **Operational reports** — Operational reporting over firm activity.
   - `reports.location-rollups` · `planned` · **Per-location roll-ups** — Financial and productivity reports filter and subtotal by office; trust reports inherently per-account/per-location.
   - `reports.scheduling` · `planned` · **Scheduled generation** — Scheduled/automated report generation, archival, and optional email delivery.
-  - `reports.exports` · `planned` · **Exports** — PDF, Excel/CSV, and print export of reports.
+  - `reports.exports` · `partial` · **Exports** — PDF, Excel/CSV, and print export of reports.
+  - `reports.download-register` · `partial` · **Download register** — A per-member shelf of what the platform produced — exports, bundles, converted files — held for a short retention window and downloadable again until it expires.
   - `reports.custom-builder` · `deferred` · **Custom report builder** — User-defined custom reports.
   - `reports.dashboards` · `deferred` · **Live dashboards** — Live operational/financial dashboards.
 

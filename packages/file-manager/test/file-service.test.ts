@@ -560,6 +560,92 @@ describe("restoreFile", () => {
     await commitEffectBatch(database, restored.effect, { now });
     expect((await listFiles(database, { matterId })).data.map((row) => row.id)).toEqual([fileId]);
   });
+
+  it("refuses to restore a file that is not deleted", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    await expect(restoreFile(database, fileId, options)).rejects.toMatchObject({
+      code: "file-not-deleted",
+    });
+  });
+
+  it("keeps the stored folder when it still exists, and falls back to the matter root when it is gone", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const folder = await createFolder(database, { matterId, name: "Pleadings" }, options);
+    await commitEffectBatch(database, folder.effect, { now });
+    const { fileId, versionId } = await initiate(database, matterId, {
+      folderId: folder.folderId,
+    });
+    await commit(database, versionId, "hash-a");
+    await commitEffectBatch(database, (await softDeleteFile(database, fileId, options)).effect, {
+      now,
+    });
+
+    // The folder survives: the file goes straight home.
+    const home = await restoreFile(database, fileId, options);
+    expect(home.folderId).toBe(folder.folderId);
+    await commitEffectBatch(database, home.effect, { now });
+    await commitEffectBatch(database, (await softDeleteFile(database, fileId, options)).effect, {
+      now,
+    });
+
+    // The folder is gone by the second restore: the file must not be stranded under a pointer
+    // nothing can browse to, so it lands at the matter root. The folder service refuses to delete a
+    // non-empty folder, so the orphaned pointer is forced directly with enforcement off — the
+    // fallback exists precisely for a state no normal path should produce.
+    await database.prepare("PRAGMA foreign_keys = OFF").run();
+    await database.prepare("DELETE FROM folder WHERE id = ?1").bind(folder.folderId).run();
+    await database.prepare("PRAGMA foreign_keys = ON").run();
+    const fallback = await restoreFile(database, fileId, options);
+    expect(fallback.folderId).toBeNull();
+    await commitEffectBatch(database, fallback.effect, { now });
+    const { results } = await database
+      .prepare("SELECT folder_id, deleted_at FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ folder_id: string | null; deleted_at: string | null }>();
+    expect(results[0]?.folder_id).toBeNull();
+    expect(results[0]?.deleted_at).toBeNull();
+  });
+
+  it("restores into a chosen folder, refusing an unknown or cross-matter destination", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const otherMatterId = await seedSecondMatter(database);
+    const destination = await createFolder(database, { matterId, name: "Restored" }, options);
+    await commitEffectBatch(database, destination.effect, { now });
+    const foreign = await createFolder(
+      database,
+      { matterId: otherMatterId, name: "Elsewhere" },
+      options,
+    );
+    await commitEffectBatch(database, foreign.effect, { now });
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    await commitEffectBatch(database, (await softDeleteFile(database, fileId, options)).effect, {
+      now,
+    });
+
+    await expect(
+      restoreFile(database, fileId, options, { folderId: "folder_missing" as FolderId }),
+    ).rejects.toMatchObject({ code: "unknown-folder" });
+    await expect(
+      restoreFile(database, fileId, options, { folderId: foreign.folderId }),
+    ).rejects.toMatchObject({ code: "file-cross-matter" });
+
+    const chosen = await restoreFile(database, fileId, options, {
+      folderId: destination.folderId,
+    });
+    expect(chosen.folderId).toBe(destination.folderId);
+    await commitEffectBatch(database, chosen.effect, { now });
+    const { results } = await database
+      .prepare("SELECT folder_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ folder_id: string | null }>();
+    expect(results[0]?.folder_id).toBe(destination.folderId);
+  });
 });
 
 // A soft-deleted file is invisible to every consumer read, so a write that still landed on one would

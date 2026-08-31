@@ -16,9 +16,14 @@
   <title>{data.matter.title} · Magna Carta</title>
 </svelte:head>
 
-<div class="mb-24 flex flex-col gap-16">
-  <MatterHeader matter={data.matter} />
-  <MatterSectionNav matterId={data.matter.id} />
-</div>
+<!-- A full-height flex column, so a section that manages its own scrolling (Files) can take
+     exactly the remaining viewport height and pin its own footer to the bottom of the screen.
+     Sections that scroll normally are unaffected: min-h-full lets content grow past the fold. -->
+<div class="flex min-h-full flex-col">
+  <div class="mb-24 flex flex-none flex-col gap-16">
+    <MatterHeader matter={data.matter} />
+    <MatterSectionNav matterId={data.matter.id} />
+  </div>
 
-{@render children()}
+  {@render children()}
+</div>

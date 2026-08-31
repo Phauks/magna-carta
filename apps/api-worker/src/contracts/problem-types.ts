@@ -37,6 +37,10 @@ export const PROBLEM_TYPES = {
   // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
   // `validation` (request-shape) — the request is well-formed; the registry has no path.
   "unsupported-conversion": "unsupported-conversion",
+  // An archive-browse of a file that is not a zip (HTTP 422): the sniffed type says other bytes, or
+  // the bytes carry no readable zip end structures. DISTINCT from `validation` (request-shape) —
+  // the request is well-formed; the file's content is not a browsable archive.
+  "not-an-archive": "not-an-archive",
   // A decryption attempt that failed because the supplied password did not open the file (HTTP 400).
   // Generic — does not reveal whether the file or its format was otherwise valid; only that the
   // password was wrong. The client can retry with a different password without re-uploading.

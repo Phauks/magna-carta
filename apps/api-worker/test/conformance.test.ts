@@ -89,6 +89,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Enqueues a conversion job through a Durable Object (no D1 write, no firm-database row): the DO + queue track the lifecycle; there is no audit_log row class that models a transient compute job.",
   "safeBrowse.post":
     "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
+  "safeBrowse.stream":
+    "The streaming twin of safeBrowse.post — the same pure read delivered as newline-delimited stage lines; nothing is written and the target URL is deliberately never logged (redaction).",
   "metadata.inspect":
     "Pure computation over the uploaded bytes — reports metadata findings; nothing is stored, no firm data is written.",
   "metadata.scrub":
@@ -113,6 +115,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
   "trust.previewStatementImport":
     "Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it — the column mapping, every readable row and what it would become, every unreadable row and why. Nothing is stored; storing takes the separate, audited import route quoting this report's fingerprint back.",
+  "reports.exportRender":
+    "A printer, not a data source: pure composition of the tabular document the caller already holds into a Word or PDF file, returned as bytes. Nothing is stored; filing a produced export would be a separate route riding reports:produce.",
   // The three notification-settling routes. They DO write — a read receipt on the member's own feed
   // row — and are exempt on the aiDetection.detect reasoning rather than the pure-computation one:
   // the write records nothing about the firm's conduct, only that one member cleared one badge, and
@@ -222,6 +226,11 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
+  // downloads:* governs a member's own shelf of what the platform produced for them. It binds the
+  // FIRM rather than the matter, on the custody:* reasoning: a shelf spans every matter a member
+  // bundled or exported from, and an export that ran outside any matter (the Firm Usage report) has
+  // none at all, so binding to "matter" would name a resource most rows do not have.
+  downloads: "firm",
   // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
   // carries), so its routes carry the matter resource.
   documents: "matter",
@@ -986,6 +995,10 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documents.viewSession",
       "downloads.bundleEvents",
       "downloads.bundleStatus",
+      "downloads.fetch",
+      "downloads.recordSnapshot",
+      "downloads.remove",
+      "downloads.shelf",
       "downloads.zip",
       "emailInspector.inspect",
       "emails.accept",
@@ -1022,11 +1035,15 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "fileRepair.repair",
       "fileRepair.repairAttach",
       "fileType.verify",
+      "files.archiveEntries",
       "files.delete",
       "files.download",
       "files.get",
+      "files.history",
       "files.list",
+      "files.listDeleted",
       "files.preview",
+      "files.restore",
       "files.update",
       "files.versions",
       "firm.setReleaseChannel",
@@ -1145,8 +1162,10 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "rates.reRateDrafts",
       "registrations.confirm",
       "registrations.start",
+      "reports.exportRender",
       "reports.trustCompliancePack",
       "safeBrowse.post",
+      "safeBrowse.stream",
       "scan.diagnose",
       "scan.matter",
       "scanPolicy.get",
@@ -1622,18 +1641,23 @@ describe("conformance — the committed contract holds, and each rule catches a 
   //
   // The one write the surface will ever have — turning a report into a filed firm record — is the
   // caller's, rides `reports:produce`, and is the single exemption below. Every other reports route
-  // is a GET, and no `reports:` key may appear on a mutating route in any other namespace either:
-  // that is how a future route is stopped from borrowing one.
+  // is a GET or an allow-listed non-mutating POST (a pure computation the write-method rule cannot
+  // tell from a write — reports.exportRender, the export printer, is one), and no `reports:` key may
+  // appear on a mutating route in any other namespace either: that is how a future route is stopped
+  // from borrowing one. The allow-list is NON_MUTATING_POST_ALLOW_LIST — one declaration of
+  // "this POST writes nothing" shared with the audited-mutating rule, so the two cannot disagree
+  // about which routes those are.
   describe("the reporting surface is read-only", () => {
     const REPORTS_WRITE_KEY = "reports:produce";
 
     function reportsWriteViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
       const violations: string[] = [];
-      for (const { path, method, operation } of operations(document)) {
+      for (const { path, method, operation, operationId } of operations(document)) {
         const permission = operation["x-mc-permission"];
         if (typeof permission !== "string" || !permission.startsWith("reports:")) continue;
         if (!isMutatingMethod(method)) continue;
         if (permission === REPORTS_WRITE_KEY) continue;
+        if (operationId in NON_MUTATING_POST_ALLOW_LIST) continue;
         violations.push(
           `${method.toUpperCase()} ${path}: a reports: read key may not gate a mutating route — only ${REPORTS_WRITE_KEY} may, and only on the route that files a produced report`,
         );
@@ -1650,8 +1674,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
         (entry) => entry.namespace === "reports",
       );
       expect(reportsOperations.length).toBeGreaterThan(0);
-      // And every one of them is a GET today.
-      expect(reportsOperations.every((entry) => entry.method === "get")).toBe(true);
+      // And every one of them is a GET or a declared non-mutating POST today.
+      expect(
+        reportsOperations.every(
+          (entry) => entry.method === "get" || entry.operationId in NON_MUTATING_POST_ALLOW_LIST,
+        ),
+      ).toBe(true);
     });
 
     it("flags a mutating route gated on a reports: read key", () => {

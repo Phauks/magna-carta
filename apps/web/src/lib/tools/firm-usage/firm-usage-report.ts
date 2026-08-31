@@ -44,12 +44,12 @@ export function firmUsageExportDocument(
 
   return {
     title: "Firm Usage",
-    slug: "firm-usage",
     generatedAt,
     sections: [
       {
         title: "Storage",
         headers: ["Storage Class", "Objects", "Size", "Share"],
+        endAlignedColumns: [1, 2, 3],
         rows: [
           [
             "Standard",
@@ -77,6 +77,7 @@ export function firmUsageExportDocument(
       {
         title: "Matters by Type",
         headers: ["Matter Type", "Prospective", "Open", "Closed", "Total"],
+        endAlignedColumns: [1, 2, 3, 4],
         rows: [
           ...usage.mattersByType.map((row) => [
             row.matterTypeName ?? "No Type Assigned",
@@ -97,6 +98,7 @@ export function firmUsageExportDocument(
       {
         title: "Files and Versioning",
         headers: ["Category", "Count", "Size"],
+        endAlignedColumns: [1, 2],
         rows: [
           [
             "Current Files",
@@ -123,6 +125,7 @@ export function firmUsageExportDocument(
       {
         title: "By Location",
         headers: ["Location", "Status", "Matters", "Members", "Custodian Items"],
+        endAlignedColumns: [2, 3, 4],
         rows: [
           ...usage.byLocation.rows.map((row) => [
             row.name,
@@ -159,6 +162,7 @@ export function firmUsageExportDocument(
       {
         title: "People and Organizations",
         headers: ["Record", "Count"],
+        endAlignedColumns: [1],
         rows: [
           ["People", count(usage.directory.people)],
           ["Organizations", count(usage.directory.organizations)],
@@ -168,6 +172,7 @@ export function firmUsageExportDocument(
       {
         title: "AI Usage",
         headers: ["Meter", "All Time"],
+        endAlignedColumns: [1],
         rows: [
           ["Magnus Input Tokens", count(usage.aiUsage.magnusTokens.inputTokens)],
           ["Magnus Output Tokens", count(usage.aiUsage.magnusTokens.outputTokens)],
@@ -182,6 +187,7 @@ export function firmUsageExportDocument(
       {
         title: "Compute and Activity",
         headers: ["Measure", "Last 30 Days"],
+        endAlignedColumns: [1],
         rows: [
           ["API Requests", NOT_YET_MEASURED],
           ["Workers CPU Time", NOT_YET_MEASURED],

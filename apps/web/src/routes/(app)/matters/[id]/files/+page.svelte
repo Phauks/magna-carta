@@ -30,9 +30,12 @@
     </Alert.Root>
   </section>
 {:else}
-  <!-- The file area takes the remaining height and keeps it, so the screen does not reflow as rows
-       arrive, as a filter narrows them, or as an empty state replaces them. -->
-  <div class="flex h-full min-h-0 flex-col">
-    <FileManager matterId={matter.id} />
+  <!-- The file area takes the remaining viewport height and keeps it, so the screen does not
+       reflow as rows arrive, as a filter narrows them, or as an empty state replaces them. The
+       negative margins cancel the work canvas's padding and the layout's gap below the section
+       strip: the surface runs edge to edge, the toolbar sits directly under the tabs, and the
+       counts footer lands on the bottom of the screen. -->
+  <div class="-mx-24 -mt-24 -mb-24 flex min-h-0 flex-1 flex-col">
+    <FileManager matterId={matter.id} matterTitle={matter.title} />
   </div>
 {/if}

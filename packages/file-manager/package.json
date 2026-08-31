@@ -26,6 +26,8 @@
     "./bundle-paths": "./src/bundle-paths.ts",
     "./zip-composition": "./src/zip-composition.ts",
     "./zip-entries-from-r2": "./src/zip-entries-from-r2.ts",
+    "./zip-central-directory": "./src/zip-central-directory.ts",
+    "./history-change-text": "./src/history-change-text.ts",
     "./audit": "./src/audit.ts",
     "./bundle-layout": "./src/bundle-layout.ts",
     "./bundle-options": "./src/bundle-options.ts",
@@ -52,6 +54,7 @@
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "drizzle-orm": "catalog:",
+    "fflate": "^0.8.3",
     "vitest": "catalog:"
   }
 }
