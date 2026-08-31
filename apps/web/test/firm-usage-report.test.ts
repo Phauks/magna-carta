@@ -54,6 +54,18 @@ describe("firmUsageExportDocument", () => {
     ]);
   });
 
+  it("end-aligns every figure column and only figure columns", () => {
+    for (const section of exportDocument.sections) {
+      const aligned = section.endAlignedColumns ?? [];
+      expect(aligned.length).toBeGreaterThan(0);
+      // The first column is always the row's label, never a figure.
+      expect(aligned).not.toContain(0);
+      for (const columnIndex of aligned) {
+        expect(columnIndex).toBeLessThan(section.headers.length);
+      }
+    }
+  });
+
   it("sums the matters-by-type totals row and names the untyped bucket", () => {
     const matters = exportDocument.sections[1];
     expect(matters?.rows.some((row) => row[0] === "No Type Assigned")).toBe(true);
