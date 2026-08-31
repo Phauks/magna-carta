@@ -10,6 +10,7 @@
   import Download from "@lucide/svelte/icons/download";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import FileIcon from "@magna-carta/design-system/file-icon";
   import { renderCsvExport } from "./render-csv.ts";
   import { renderTextExport } from "./render-text.ts";
   import { renderXlsxExport } from "./render-xlsx.ts";
@@ -77,6 +78,9 @@
   <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">
     {#each FORMATS as format (format.extension)}
       <DropdownMenu.Item onSelect={() => void download(format)}>
+        <!-- The same per-type symbol the file manager draws for this format, resolved from the
+             format's own MIME type so the two surfaces can never disagree. -->
+        <FileIcon contentType={format.contentType} class="size-16 shrink-0" />
         {format.label}
       </DropdownMenu.Item>
     {/each}

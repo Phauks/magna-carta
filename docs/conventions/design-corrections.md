@@ -309,6 +309,17 @@ chrome stays clean); the Soon marker leaves the chrome entirely, surviving only 
 control's hover and accessible description; and the WHOIS page renders its result frame at rest
 per the furniture rule.
 
+A sixth round the same day. The "That address cannot be viewed" failures for youtube.com, google
+and 8.8.8.8 were one defect wearing three names: the interface and the API deploy as separate
+Workers since this morning, so the fresh page called the streaming route on an older API, the 404
+fell through problem guidance's default input case, and the member's address was blamed for deploy
+skew. Now: a 404 from our own API reads as "the service is mid-update", never an input fault; the
+staged capture falls back to the non-streaming route when the streaming one is not deployed (the
+member loses the narration, not the capture); and a bare single label ("google") is refused at the
+field with the inline hint rather than spent on a round trip. Screen-local: the export menu's
+format rows carry the same file symbols the file manager uses for those types, and Static/Live
+join into one segmented control whose halves touch.
+
 ### 2026-08-30 — the matters screens, second round
 
 Four of the five corrections in this round had been issued before and not carried out, which is the

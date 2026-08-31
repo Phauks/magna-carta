@@ -87,6 +87,10 @@ export function normalizeTarget(input: string): string | null {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
   if (parsed.hostname === "") return null;
+  // A single bare label ("google") is not a website address: it parses as a URL but names no
+  // public host, so it would only cost a round trip to be refused. A dot (domains, IPv4) or a
+  // colon (bracketed IPv6) is the shape of something the capture can actually visit.
+  if (!parsed.hostname.includes(".") && !parsed.hostname.includes(":")) return null;
   return parsed.href;
 }
 
@@ -127,6 +131,17 @@ export function sortedHeaders(headers: Record<string, string>): [string, string]
  * other server fault carries an Error ID for the member to quote.
  */
 export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
+  // A 404 from our own API is never about the member's input: the page and the service are on
+  // different versions (they deploy as separate Workers), which reads as "address cannot be
+  // viewed" if it falls through to the input case — the exact misdiagnosis this branch prevents.
+  if (problem.status === 404) {
+    return {
+      tone: "warning",
+      title: "The service is mid-update",
+      message:
+        "The page and the capture service appear to be on different versions, which usually means an update is still rolling out. Refresh the page, then try again.",
+    };
+  }
   if (problem.status === 502) {
     return {
       tone: "warning",
@@ -224,6 +239,11 @@ export async function viewSafelyStaged(
   }
 
   if (!response.ok) {
+    // A 404 means the API behind this page is an older build without the streaming route (the
+    // page and the service deploy as separate Workers). The non-streaming capture has existed
+    // since the tool shipped, so fall back to it rather than failing on deploy skew — the member
+    // loses the narration, not the capture.
+    if (response.status === 404) return viewSafely(url, fetchImpl);
     return { kind: "problem", problem: await readProblem(response) };
   }
   if (response.body === null) return { kind: "transport" };

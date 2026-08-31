@@ -188,7 +188,12 @@
   }
 </script>
 
-<div class="flex flex-col overflow-hidden rounded-md border border-border-default lg:flex-row">
+<!-- The framed unit takes the page column's remaining height on wide screens (min-h-96 keeps a
+     short window from crushing it to nothing; below that the page scrolls). Stacked narrow
+     screens size naturally: the viewport keeps its video aspect and the panels their square. -->
+<div
+  class="flex flex-col overflow-hidden rounded-md border border-border-default lg:min-h-96 lg:flex-1 lg:flex-row"
+>
   <div class="flex min-w-0 flex-col lg:w-3/5">
     <form
       onsubmit={submit}
@@ -224,9 +229,20 @@
           <RotateCw class="size-16" aria-hidden="true" />
         </Button>
       </div>
-      <div class="flex items-center gap-4" role="group" aria-label="View Mode">
-        <Button variant="primary" size="sm" aria-pressed="true">Static</Button>
-        <Button variant="ghost" size="sm" aria-pressed="false" {...liveSoonProperties}>
+      <!-- One segmented button, not two: the halves touch with square inner edges, a single
+           hairline between them, and the group's rounding on the outer corners only, so the pair
+           reads as one two-state control whose filled side is the active view. -->
+      <div class="inline-flex items-center" role="group" aria-label="View Mode">
+        <Button variant="primary" size="sm" class="rounded-e-none" aria-pressed="true">
+          Static
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="rounded-s-none border-s border-border-default"
+          aria-pressed="false"
+          {...liveSoonProperties}
+        >
           Live
         </Button>
         <p id={liveSoonIdentifier} class="sr-only">{liveSoonProperties.title}</p>
@@ -291,7 +307,9 @@
       </p>
     {/if}
 
-    <div class="mc-scrollbar aspect-video grow overflow-y-auto bg-surface-sunken">
+    <div
+      class="mc-scrollbar aspect-video grow overflow-y-auto bg-surface-sunken lg:aspect-auto lg:min-h-0"
+    >
       {#if capturing}
         <!-- The probe settles before the renderer, so once it reports the viewport shows its two
              honest facts early: the landed address takes the mono line and the status line says
@@ -339,7 +357,9 @@
   </div>
 
   {#if inspector}
-    <div class="min-w-0 border-t border-border-default lg:w-2/5 lg:border-s lg:border-t-0">
+    <div
+      class="min-w-0 border-t border-border-default lg:flex lg:min-h-0 lg:w-2/5 lg:flex-col lg:border-s lg:border-t-0"
+    >
       {@render inspector()}
     </div>
   {/if}

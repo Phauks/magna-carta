@@ -71,6 +71,11 @@ describe("normalizeTarget", () => {
     expect(normalizeTarget("")).toBeNull();
   });
 
+  it("refuses a bare single label — it parses as a URL but names no public host", () => {
+    expect(normalizeTarget("google")).toBeNull();
+    expect(normalizeTarget("localhost")).toBeNull();
+  });
+
   it("refuses input longer than the route accepts", () => {
     expect(normalizeTarget(`https://example.com/${"a".repeat(2048)}`)).toBeNull();
   });
@@ -185,6 +190,13 @@ describe("problemGuidance", () => {
     expect(problemGuidance({ status: 400 }).tone).toBe("warning");
   });
 
+  it("never blames the input for a 404 — that is deploy skew, not an address fault", () => {
+    const guidance = problemGuidance({ status: 404 });
+    expect(guidance.tone).toBe("warning");
+    expect(guidance.message).not.toContain("address");
+    expect(guidance.message).toContain("Refresh");
+  });
+
   it("cannot echo the target back — guidance is a constant of the status alone", () => {
     // The function takes no URL, so a distinctive user input can never reach a message. This
     // guards that the SSRF-generic 400 stays generic rather than being "improved" to reflect input.
@@ -232,6 +244,17 @@ describe("viewSafelyStaged", () => {
       })) as unknown as typeof fetch;
     const outcome = await viewSafelyStaged("https://example.com/", () => {}, refusing);
     expect(outcome).toEqual({ kind: "problem", problem: { status: 403, errorId: "error_x" } });
+  });
+
+  it("falls back to the non-streaming capture when the stream route is not deployed", async () => {
+    // The page and the API deploy as separate Workers, so a fresh page can meet an older API
+    // whose build predates the streaming route. The member loses the narration, not the capture.
+    const skewedApi = (async (input: RequestInfo | URL) =>
+      String(input).includes("/stream")
+        ? new Response("not found", { status: 404 })
+        : new Response(JSON.stringify(capturedView), { status: 200 })) as unknown as typeof fetch;
+    const outcome = await viewSafelyStaged("https://short.example/a", () => {}, skewedApi);
+    expect(outcome).toEqual({ kind: "view", view: capturedView });
   });
 
   it("reports transport when the stream ends without a terminal line", async () => {

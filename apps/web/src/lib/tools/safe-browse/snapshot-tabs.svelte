@@ -23,7 +23,9 @@
    * address bar — both size from the shell's shared formula — so the frame's top band reads as one
    * continuous bar). The structure renders from page load: with no capture the panels sit empty,
    * while a capture is running they hold placeholder rows, and a completed capture fills them.
-   * Each panel is a fixed-height scroll region so switching tabs never reflows the column. A
+   * On wide screens each panel stretches to the frame's remaining height (on stacked narrow
+   * screens it keeps a fixed square instead), and each is its own scroll region either way, so
+   * switching tabs never reflows the column. A
    * capture that landed on a different site than it was asked for reports that here, on the
    * Overview tab's Different Site row — the warning mark, the landed address, and its copy
    * control — which is that fact's one home; the shell's chrome carries none of it.
@@ -128,7 +130,7 @@
   );
 </script>
 
-<Tabs.Root bind:value={activeTab} class="gap-0">
+<Tabs.Root bind:value={activeTab} class="gap-0 lg:min-h-0 lg:flex-1">
   <!-- The strip stretches to the shell's shared chrome-row height so its bottom hairline meets
        the address bar's as one line; the stretched triggers keep the active indicator on that
        shared edge. -->
@@ -143,8 +145,8 @@
     </Tabs.List>
   </div>
 
-  <Tabs.Content value="overview">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="overview" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -200,8 +202,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="redirects">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="redirects" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -238,8 +240,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="page-text">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="page-text" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -253,8 +255,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="links">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="links" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -281,8 +283,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="headers">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="headers" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -302,8 +304,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="registration">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="registration" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
