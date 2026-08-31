@@ -91,7 +91,7 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
   if (problem.status === 501) {
     return {
       tone: "info",
-      title: "This registry cannot be looked up",
+      title: "This Registry Cannot Be Looked Up",
       message:
         "That domain's registry does not publish a lookup service this tool can reach. Check the registry's own WHOIS page directly.",
     };
@@ -99,7 +99,7 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
   if (problem.status >= 500) {
     return {
       tone: "danger",
-      title: "The lookup failed",
+      title: "The Lookup Failed",
       message: "Something went wrong on our side. Quote the Error ID below to support.",
     };
   }
@@ -107,27 +107,27 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
     case 401:
       return {
         tone: "info",
-        title: "You are not signed in",
+        title: "You Are Not Signed In",
         message:
           "WHOIS lookups run against an authenticated session. In local development there is no session yet, so the lookup returns nothing.",
       };
     case 403:
       return {
         tone: "warning",
-        title: "You do not have permission",
+        title: "You Do Not Have Permission",
         message: "Your account is not allowed to run WHOIS lookups.",
       };
     case 429:
       return {
         tone: "warning",
-        title: "Too many lookups",
+        title: "Too Many Lookups",
         message: "You have run several lookups in a short time. Wait a moment, then try again.",
       };
     default:
       // 400 (invalid/blocked target) and 422 (the query failed validation) — both are input faults.
       return {
         tone: "warning",
-        title: "That is not something this tool can look up",
+        title: "That Is Not Something This Tool Can Look Up",
         message:
           "Enter a domain name (example.com) or an IP address. Private, local, and internal addresses are not accepted.",
       };

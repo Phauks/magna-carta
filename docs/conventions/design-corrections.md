@@ -53,6 +53,9 @@ is usually the fastest way to understand the rule.
   Password". Not sentence case, not all caps. _(auth flow, 2026-08-07)_
 - **No em dashes in user-facing copy.** They read as machine-written. Restructure the sentence or
   use a colon. Internal documents are unaffected. _(auth flow, 2026-08-07)_
+- **Short explanatory copy is one flowing paragraph.** A few sentences split across stacked
+  paragraph elements read as a hard line break in the middle of one thought; join them unless the
+  sentences genuinely address different subjects. _(WHOIS Lookup tool page, 2026-08-31)_
 - **Durations render from configuration, never hard-coded in a string.** A screen that says "30
   days" reads the number from the value that actually governs the behavior, so the copy cannot drift
   from the system. _(auth flow, 2026-08-07)_
@@ -79,6 +82,13 @@ is usually the fastest way to understand the rule.
 - **A capability the backend does not serve yet still renders**, disabled, with the "Soon" badge and
   one honest line naming what it waits on. This is the standing rule from
   [`ui-design.md`](ui-design.md); it is repeated here because it is the one most often skipped.
+- **A page's primary query control sits at the reading edge, not in the masthead's far-right
+  actions slot.** Left-aligned below the masthead, where the eye starts; the far right is for
+  secondary actions. Results render below it, so nothing about the control reflows when they
+  arrive. _(WHOIS Lookup tool page, 2026-08-31)_
+- **Orienting text persists through every state.** Running a page's action must not remove the copy
+  that explains the page; the result section renders beneath it, and only the results change.
+  _(WHOIS Lookup tool page, 2026-08-31)_
 
 ### Spacing and rhythm
 
@@ -101,6 +111,19 @@ is usually the fastest way to understand the rule.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-08-31 — WHOIS Lookup tool page, deployed-site review
+
+The owner walked the WHOIS page on the deployed site while the Safe Website Viewer page was being
+built. All three corrections generalized and are promoted above; both web-domains tool pages apply
+them:
+
+- The idle intro rendered as two stacked paragraphs, which read as a hard line break in one
+  thought; it is one flowing paragraph now.
+- The query form sat in the masthead's far-right actions slot; it moves to the left, below the
+  masthead, at the content's reading edge.
+- The intro text vanished the moment a search ran (it was gated on the idle state); it stays
+  visible, with results rendering beneath it.
 
 ### 2026-08-07 — auth flow, mockup revisions v4 through v18
 

@@ -5,8 +5,10 @@
    * API (a raw fetch — apps/web does not depend on @magna-carta/api-client), and the branching that
    * decides which state to show lives in whois-lookup.ts so it stays testable off the DOM.
    *
-   * The query form is the run control and sits in the masthead, so a result rendering below it never
-   * reflows the control. The states are all designed honestly: an RDAP registry that answers with no
+   * The query form is the run control and sits at the content's reading edge below the masthead,
+   * above the intro text, which stays visible through every state — so a result rendering below
+   * never reflows the control or the copy above it. The states are all designed honestly: an RDAP
+   * registry that answers with no
    * details is a real "nothing found", not a broken card; a legacy port-43 registry returns raw text
    * shown verbatim and labelled unparsed; and a failure surfaces its correlated Error ID. Runs
    * outside any matter and stores nothing.
@@ -64,40 +66,37 @@
       <span>Registration records for a domain or IP address</span>
     </Masthead.Meta>
   </Masthead.Heading>
-  <Masthead.Actions>
-    <form onsubmit={runLookup} class="flex items-center gap-8">
-      <Label for="whois-query" class="sr-only">Domain or IP address</Label>
-      <Input
-        id="whois-query"
-        name="query"
-        class="w-3xs"
-        bind:value={query}
-        placeholder="example.com or 8.8.8.8"
-        autocomplete="off"
-        autocapitalize="none"
-        spellcheck={false}
-        disabled={loading}
-      />
-      <Button type="submit" variant="primary" disabled={!canSubmit}>
-        {loading ? "Looking up…" : "Look up"}
-      </Button>
-    </form>
-  </Masthead.Actions>
 </Masthead.Root>
+
+<form onsubmit={runLookup} class="mb-16 flex items-center gap-8">
+  <Label for="whois-query" class="sr-only">Domain or IP address</Label>
+  <Input
+    id="whois-query"
+    name="query"
+    class="w-3xs"
+    bind:value={query}
+    placeholder="example.com or 8.8.8.8"
+    autocomplete="off"
+    autocapitalize="none"
+    spellcheck={false}
+    disabled={loading}
+  />
+  <Button type="submit" variant="primary" disabled={!canSubmit}>
+    {loading ? "Looking up…" : "Look up"}
+  </Button>
+</form>
 
 <!-- Polite live region: announces a found record to a screen reader as it arrives, without
      re-reading the whole card. Alert-rendered states announce themselves through their own role. -->
 <div aria-live="polite" class="sr-only">{announcement}</div>
 
-{#if phase === "idle"}
-  <div class="flex max-w-xl flex-col gap-8 text-sm text-text-muted">
-    <p>Enter a domain name or an IP address to see who registered it and when.</p>
-    <p>
-      Most registries answer with structured fields. A few country-code registries answer only over
-      legacy WHOIS, which comes back as raw text.
-    </p>
-  </div>
-{:else}
+<p class="mb-24 max-w-xl text-sm text-text-muted">
+  Enter a domain name or an IP address to see who registered it and when. Most registries answer
+  with structured fields. A few country-code registries answer only over legacy WHOIS, which comes
+  back as raw text.
+</p>
+
+{#if phase !== "idle"}
   <section aria-busy={loading}>
     <h2
       class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
@@ -133,14 +132,14 @@
         </Alert.Root>
       {:else if outcome.kind === "transport"}
         <Alert.Root variant="danger">
-          <Alert.Title>The lookup service did not respond</Alert.Title>
+          <Alert.Title>The Lookup Service Did Not Respond</Alert.Title>
           <Alert.Description>
             Nothing answered the request. Check your connection, then try again.
           </Alert.Description>
         </Alert.Root>
       {:else if outcome.kind === "empty"}
         <Alert.Root variant="info">
-          <Alert.Title>No registration record found</Alert.Title>
+          <Alert.Title>No Registration Record Found</Alert.Title>
           <Alert.Description>
             The RDAP registry answered, but returned no public registration details for
             {outcome.result.target}. The domain may be unregistered, or its registry may not publish
@@ -246,5 +245,5 @@
 
 <footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
   The query is checked against public registries only; private, local, and internal addresses are
-  refused. This tool runs outside any matter, and nothing is saved — no history, no local storage.
+  refused. This tool runs outside any matter, and nothing is saved: no history, no local storage.
 </footer>
