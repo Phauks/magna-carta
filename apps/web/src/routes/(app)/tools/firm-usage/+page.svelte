@@ -11,16 +11,23 @@
    * capability still renders, disabled, honestly.
    */
   import { onMount } from "svelte";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import Download from "@lucide/svelte/icons/download";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import * as Alert from "@magna-carta/design-system/alert";
-  import Button from "@magna-carta/design-system/button";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import ByLocationTable from "$lib/tools/firm-usage/by-location-table.svelte";
+  import { renderCsvExport } from "$lib/export/render-csv.ts";
+  import { renderTextExport } from "$lib/export/render-text.ts";
+  import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
   import { readFirmUsage, type FirmUsageResponse } from "$lib/tools/firm-usage/firm-usage-api.ts";
+  import { firmUsageExportDocument } from "$lib/tools/firm-usage/firm-usage-report.ts";
   import {
     formatByteSize,
     formatCount,
@@ -75,6 +82,26 @@
 
   /** The cells of a totals or subtotal row: a rule above, and the figure set bold. */
   const TOTALS_CELL = "border-t border-border-strong font-semibold";
+
+  // The report is the page's tables as one $lib/export document; each format is a renderer over
+  // that same document, so every file carries exactly the figures the screen showed.
+  function downloadReport(format: "text" | "csv"): void {
+    if (usage === null) return;
+    const exportDocument = firmUsageExportDocument(usage, new Date());
+    if (format === "csv") {
+      saveExport(
+        renderCsvExport(exportDocument),
+        exportFilename(exportDocument, "csv"),
+        "text/csv;charset=utf-8",
+      );
+      return;
+    }
+    saveExport(
+      renderTextExport(exportDocument),
+      exportFilename(exportDocument, "txt"),
+      "text/plain;charset=utf-8",
+    );
+  }
 </script>
 
 <svelte:head><title>Firm Usage · Magna Carta</title></svelte:head>
@@ -82,15 +109,27 @@
 <Masthead.Root class="mb-24">
   <Masthead.Heading>
     <Masthead.Title>Firm Usage</Masthead.Title>
-    <Masthead.Meta>
-      <span>Computed when this page is opened</span>
-      <Masthead.MetaSeparator />
-      <span>Runs outside any matter</span>
-      <Masthead.MetaSeparator />
-      <span>Owner and Admin only</span>
-    </Masthead.Meta>
   </Masthead.Heading>
   <Masthead.Actions>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        disabled={usage === null}
+        class={buttonClasses({ variant: "ghost", size: "default" })}
+        aria-label="Download the report"
+      >
+        <Download class="size-16" aria-hidden="true" />
+        Download Report
+        <ChevronDown class="size-16" aria-hidden="true" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">
+        <DropdownMenu.Item onSelect={() => downloadReport("text")}>
+          Plain Text (.txt)
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => downloadReport("csv")}>
+          Spreadsheet (.csv)
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
     <Button variant="ghost" disabled={loading} onclick={() => void loadUsage()}>
       <RefreshCw class="size-16" aria-hidden="true" />
       Refresh
@@ -433,7 +472,3 @@
     {title}
   </h2>
 {/snippet}
-
-<footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
-  Assembled from the firm's own records. Runs outside any matter, and nothing is saved.
-</footer>

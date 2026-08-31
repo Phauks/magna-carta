@@ -3,7 +3,9 @@
 Firm Usage shows what your firm holds on the platform and what it uses, as plain figures. Find it
 under **Tools → Firm Usage**. It is visible to Owner and Admin seats, runs outside any matter, and
 saves nothing — every number is computed at the moment you open the page, so what you see is
-current. **Refresh** recomputes on the spot.
+current. **Refresh** recomputes on the spot, and **Download Report** saves everything on the page
+as a file — plain text to paste into an email, or CSV to open in Excel or any spreadsheet. The
+file's name carries the date and time it was generated, so two snapshots never blur together.
 
 ## Storage
 
