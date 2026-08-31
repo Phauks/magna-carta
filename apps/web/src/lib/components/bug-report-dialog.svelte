@@ -2,24 +2,25 @@
   /*
    * The issue-report dialog ("Report an Issue" — owner-renamed from "Report a bug") — reachable
    * from the profile menu on EVERY screen (owner ask 2026-07-02: report from any location). The
-   * user describes what happened; the dialog assembles that description plus the same
-   * trace-shaped diagnostics the error surfaces emit (error-details.svelte is the sibling
-   * idiom: build identity, time, path, browser — but NO error id line, because this is a
-   * user-initiated report, not a caught failure) into one paste-ready block behind the Copy
-   * action.
+   * user describes what happened; the dialog assembles that description plus the same trace every
+   * other failure surface copies ($lib/diagnostics/failure-trace.ts — build identity, route,
+   * environment and the breadcrumb ring, with no failing call because nobody's call provoked this
+   * one) into one paste-ready block behind the Copy action.
    *
-   * Honesty rule: submission is not wired. The Submit Issue button renders disabled + Soon (the
-   * designed-but-not-wired rule) until the platform's report-ingest endpoint ships; Copy is the
-   * working carrier. The optional in-office recipients and the email-me-a-copy flag join the
-   * FILED report's payload when that ingest ships (the transactional email sender does not
-   * exist yet either) — until then the copy block records them so a pasted report still tells
-   * the administrator who else was told.
+   * SUBMISSION IS WIRED. It files through the firm's own pipeline, the same one the failure screens
+   * use. It was Soon-marked for a long time on the belief that the platform had no report-ingest
+   * endpoint; it had one, and two area dialogs were already posting to it — this dialog is the
+   * always-available door the standard asks for, so during an incident a member does not have to
+   * find a broken panel in costs or billing before they can tell anybody.
+   *
+   * Still Soon: the optional in-office recipients and the email-me-a-copy flag. Those are not the
+   * ingest — the incident route carries no recipients — so they stay honestly marked, and the copy
+   * block still records them so a pasted report tells the administrator who else was meant to know.
    *
    * The profile menu owns the trigger state (`bind:open`); this component renders no trigger.
    */
   import { page } from "$app/state";
   import * as Dialog from "@magna-carta/design-system/dialog";
-  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
@@ -28,9 +29,12 @@
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
-  import { buildIdentityLine } from "$lib/build-identity.ts";
+  import * as Alert from "@magna-carta/design-system/alert";
+  import { copyText } from "@magna-carta/design-system/failure-details";
   import RecipientPicker from "$lib/components/recipient-picker.svelte";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
+  import { currentTrace } from "$lib/diagnostics/current-trace.ts";
+  import { reportProblem } from "$lib/diagnostics/report.ts";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -38,8 +42,11 @@
   // half-written report.
   let description = $state("");
   let diagnosticsExpanded = $state(false);
-  let copied = $state(false);
+  let copied = $state<"copied" | "failed" | null>(null);
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
+  let sending = $state(false);
+  let sendFailure = $state<string | null>(null);
+  let filedIdentifier = $state<string | null>(null);
 
   // OPTIONAL in-office recipients (any colleague — the whole roster, not a permission slice)
   // and the email-me-a-copy flag. Zero recipients is fine: the report still files to the
@@ -65,32 +72,38 @@
 
   // Snapshotted when the dialog opens (guarded on `open`, so it recomputes per open and never
   // touches `navigator` before the dialog is ever shown): the time and route pin the moment the
-  // user reached for the report, not the moment the page loaded.
-  const diagnostics = $derived.by(() => {
-    if (!open) {
-      return "";
-    }
-    return [
-      `build: ${buildIdentityLine()}`,
-      `time: ${new Date().toISOString()}`,
-      `path: ${page.url.pathname}${page.url.search}`,
-      `browser: ${navigator.userAgent}`,
-    ].join("\n");
-  });
+  // user reached for the report, not the moment the page loaded. `null` for the failure, because
+  // nobody's call provoked this — the trace says so rather than inventing a request line.
+  const diagnostics = $derived(open ? currentTrace(null, page.url.pathname) : "");
 
   const descriptionEmpty = $derived(description.trim().length === 0);
 
   async function copyReport(): Promise<void> {
-    const report = [
-      "Magna Carta — bug report",
-      "",
-      description.trim(),
-      "",
-      diagnostics,
-    ].join("\n");
-    await navigator.clipboard.writeText(report);
-    copied = true;
-    setTimeout(() => (copied = false), 2000);
+    const report = ["Magna Carta — bug report", "", description.trim(), "", diagnostics].join("\n");
+    copied = await copyText(report);
+    setTimeout(() => (copied = null), copied === "copied" ? 2000 : 6000);
+  }
+
+  /** File the report through the firm's own pipeline — the same one the failure screens use. */
+  async function submitReport(): Promise<void> {
+    if (descriptionEmpty || sending) return;
+    sending = true;
+    sendFailure = null;
+    const outcome = await reportProblem(fetch, {
+      description: description.trim(),
+      // Nothing here was a caught failure, so there is no platform handle to correlate it to.
+      errorIds: [],
+      route: page.url.pathname,
+    });
+    sending = false;
+    if (outcome.kind === "ok") {
+      filedIdentifier = outcome.value.id;
+      return;
+    }
+    sendFailure =
+      outcome.kind === "transport"
+        ? "Nothing answered. The report was not sent — copy it instead and send it on."
+        : (outcome.problem.detail ?? "The report was not sent — copy it instead and send it on.");
   }
 
   function focusDescription(event: Event): void {
@@ -142,8 +155,8 @@
     <div class="flex flex-col gap-4">
       <Label for="issue-report-recipients">Also Send To</Label>
       <p id="issue-report-recipients-hint" class="text-xs text-text-muted">
-        Optional — colleagues who should see this report; they ride the filed report when
-        submission ships
+        Optional — colleagues who should see this report; they ride the filed report once it carries
+        recipients
       </p>
       <RecipientPicker
         {members}
@@ -162,36 +175,56 @@
     <div class="flex items-center justify-between gap-16">
       <div class="flex min-w-0 flex-col gap-4">
         <Label for="issue-report-email-me">Email Me a Copy</Label>
-        <!-- Part of the Soon-marked submission, not the Copy action: emailing rides the
-             platform's transactional email when the report ingest ships. -->
-        <p class="text-xs text-text-muted">Sends with the report when submission ships</p>
+        <!-- Not part of the filing, which is wired: emailing rides the platform's transactional
+             email, which does not exist yet. -->
+        <p class="text-xs text-text-muted">Sends with the report once email delivery ships</p>
       </div>
       <Switch id="issue-report-email-me" bind:checked={emailMeCopy} />
     </div>
 
+    {#if sendFailure !== null}
+      <Alert.Root variant="danger">
+        <Alert.Title>Not Sent</Alert.Title>
+        <Alert.Description>{sendFailure}</Alert.Description>
+      </Alert.Root>
+    {/if}
+    {#if filedIdentifier !== null}
+      <Alert.Root variant="success">
+        <Alert.Title>Report Filed</Alert.Title>
+        <Alert.Description>
+          It was recorded as {filedIdentifier}. Quoting that reference gets support to it directly.
+        </Alert.Description>
+      </Alert.Root>
+    {/if}
+    {#if copied === "failed"}
+      <p class="text-xs text-text-muted">
+        Your browser would not let us copy. Select the diagnostics above and copy them by hand.
+      </p>
+    {/if}
+
     <p class="text-xs text-text-muted">
-      In-application submission arrives when the platform's report endpoint ships; until then,
-      send the copied report to your firm's administrator.
+      This goes to the firm&rsquo;s own reporting pipeline, not to a third party. No document, file
+      name, client name or matter content leaves the firm.
     </p>
     <div class="flex justify-end gap-8">
       <Button variant="ghost" onclick={() => (open = false)}>Close</Button>
-      <!-- Designed-but-not-wired actions render disabled + Soon rather than being omitted —
-           the dialog shows its final anatomy (owner rule). Submission lights up when the
-           platform's report endpoint ships. -->
-      <Button variant="secondary" disabled>
-        Submit Issue
-        <Badge variant="neutral">Soon</Badge>
-      </Button>
-      <!-- Disabled while the description is empty: a report with no words is never worth
-           copying, and the diagnostics alone say nothing about what went wrong. -->
-      <Button variant="primary" disabled={descriptionEmpty} onclick={copyReport}>
-        {#if copied}
+      <!-- Disabled while the description is empty: a report with no words is read by a person who
+           has nothing to go on, and the diagnostics alone say nothing about what went wrong. -->
+      <Button variant="secondary" disabled={descriptionEmpty} onclick={copyReport}>
+        {#if copied === "copied"}
           <Check class="size-16" aria-hidden="true" />
           Copied
         {:else}
           <Copy class="size-16" aria-hidden="true" />
           Copy report
         {/if}
+      </Button>
+      <Button
+        variant="primary"
+        disabled={descriptionEmpty || sending || filedIdentifier !== null}
+        onclick={() => void submitReport()}
+      >
+        Submit Issue
       </Button>
     </div>
   </Dialog.Content>

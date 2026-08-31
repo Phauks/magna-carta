@@ -15,6 +15,7 @@
  * last two into one `catch` loses the only distinction that changes what a person should do about it.
  */
 import { readProblem, requestLine, type Failure, type Problem } from "./problem.ts";
+import { platformHealth } from "$lib/diagnostics/platform-health.svelte.ts";
 
 export type { Failure, Problem, ProblemFieldError } from "./problem.ts";
 export { requestLine } from "./problem.ts";
@@ -94,19 +95,32 @@ export async function requestJson<T>(
       body: request.body === undefined ? undefined : JSON.stringify(request.body),
     });
   } catch {
-    return { kind: "transport", failure: { problem: null, request: line, failedAt: new Date() } };
+    return failed(transportOutcome(line));
   }
 
   if (!response.ok) {
     const problem = await readProblem(response);
-    return { kind: "problem", problem, failure: { problem, request: line, failedAt: new Date() } };
+    return failed(problemOutcome(problem, line));
   }
 
   try {
-    return { kind: "ok", value: (await response.json()) as T };
+    const value = (await response.json()) as T;
+    // A read that worked is evidence too: it clears a platform notice rather than leaving one up
+    // until it ages out, so recovery is visible as soon as it happens.
+    platformHealth.noteSuccess();
+    return { kind: "ok", value };
   } catch {
     // The server answered successfully and the body will not parse. Nothing described a failure, so
     // this is the "nothing answered" case rather than a refusal, and it says so.
-    return { kind: "transport", failure: { problem: null, request: line, failedAt: new Date() } };
+    return failed(transportOutcome(line));
   }
+}
+
+/**
+ * Every failing outcome passes through here, which is what makes the platform notice complete: no
+ * surface has to remember to report its failures, and one that forgot would be invisible to it.
+ */
+function failed<T>(outcome: ApiOutcome<T>): ApiOutcome<T> {
+  if (outcome.kind !== "ok") platformHealth.note(outcome.failure);
+  return outcome;
 }

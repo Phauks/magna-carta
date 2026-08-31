@@ -12,12 +12,14 @@
  * issued)" is a finding — it means the failure never reached the platform's error boundary — whereas
  * a missing line is indistinguishable from a report that got truncated.
  *
- * Pure, so it is tested against fixed inputs rather than eyeballed in a browser: `currentTrace`
- * reads the environment and hands it to `buildFailureTrace`, which never touches a global.
+ * PURE, AND DELIBERATELY IN ITS OWN FILE. Reading the build identity means reading constants baked
+ * in by the bundler, and a module that does cannot be imported by a plain unit test at all — it
+ * throws on `__MC_BUILD_COMMIT__` before a single assertion runs. So the assembly lives here with no
+ * globals of any kind, and ./current-trace.ts gathers the environment and hands it over. One extra
+ * file buys a testable model, which is the same trade the reporter already makes.
  */
 import type { Failure } from "$lib/api/problem.ts";
-import { buildIdentityLine } from "$lib/build-identity.ts";
-import { breadcrumbs, type Breadcrumb } from "./breadcrumbs.ts";
+import type { Breadcrumb } from "./breadcrumbs.ts";
 
 /** What the browser can tell us about the moment, gathered at the point of copying. */
 export interface TraceEnvironment {
@@ -43,24 +45,33 @@ function line(key: string, value: string): string {
 }
 
 /**
- * Assemble the trace. `failure` may carry no problem at all — that is the "nothing answered" case,
- * and it is said in as many words rather than left as an absence the reader has to infer.
+ * Assemble the trace.
+ *
+ * `failure` is null for a report nobody's call provoked — somebody reaching for "Report a problem"
+ * from the help menu because something looked wrong. That report still wants the build, the route,
+ * the environment and the breadcrumbs; what it has no honest answer for is which call failed, so it
+ * says so rather than inventing one.
+ *
+ * A failure that carries no problem at all is the "nothing answered" case, and that too is stated in
+ * as many words rather than left as an absence the reader has to infer.
  */
 export function buildFailureTrace(
-  failure: Failure,
+  failure: Failure | null,
   environment: TraceEnvironment,
   crumbs: readonly Breadcrumb[] = [],
 ): string {
-  const problem = failure.problem;
+  const problem = failure?.problem ?? null;
   const lines: string[] = ["Magna Carta — error report"];
 
   lines.push(line("build", environment.buildIdentity));
   lines.push(line("route", environment.route));
-  lines.push(line("request", failure.request));
-  lines.push(line("failed", failure.failedAt.toISOString()));
+  lines.push(line("request", failure?.request ?? "(no failing call — reported by hand)"));
+  lines.push(line("failed", failure?.failedAt.toISOString() ?? "(not a caught failure)"));
   lines.push(line("copied", environment.copiedAt.toISOString()));
 
-  if (problem === null) {
+  if (failure === null) {
+    lines.push(line("answer", "nothing failed — this report was raised by a person"));
+  } else if (problem === null) {
     // The distinction that changes what a person should do about it, stated rather than implied.
     lines.push(line("answer", "nothing answered — the request did not complete"));
   } else {
@@ -103,35 +114,4 @@ export function buildFailureTrace(
   }
 
   return lines.join("\n");
-}
-
-/**
- * Read the environment. Every accessor is guarded: this runs on a crash screen, which is precisely
- * where an assumption about what exists is least safe, and a trace that throws while being built is
- * worse than one missing a line.
- */
-export function currentEnvironment(route?: string): TraceEnvironment {
-  const hasWindow = typeof window !== "undefined";
-  const hasNavigator = typeof navigator !== "undefined";
-  let timeZone = "(unknown)";
-  try {
-    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "(unknown)";
-  } catch {
-    // An environment without a resolvable zone still gets a trace.
-  }
-  return {
-    buildIdentity: buildIdentityLine(),
-    route: route ?? (hasWindow ? window.location.pathname : "(unknown)"),
-    userAgent: hasNavigator ? navigator.userAgent : "(unknown)",
-    language: hasNavigator ? navigator.language : "(unknown)",
-    timeZone,
-    viewport: hasWindow ? `${window.innerWidth}x${window.innerHeight}` : "(unknown)",
-    online: hasNavigator ? navigator.onLine : true,
-    copiedAt: new Date(),
-  };
-}
-
-/** The trace for one failure, as the screen would copy it right now. */
-export function currentTrace(failure: Failure, route?: string): string {
-  return buildFailureTrace(failure, currentEnvironment(route), breadcrumbs());
 }

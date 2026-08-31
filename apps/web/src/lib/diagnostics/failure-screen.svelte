@@ -13,7 +13,7 @@
   import FailureRemedy from "./failure-remedy.svelte";
   import { guidanceFor } from "./guidance.ts";
   import { failureRows, STANDARD_REMEDY_STEPS } from "./failure-view.ts";
-  import { currentTrace } from "./failure-trace.ts";
+  import { currentTrace } from "./current-trace.ts";
   import type { Failure } from "$lib/api/problem.ts";
 
   let {
