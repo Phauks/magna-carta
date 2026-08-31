@@ -39,7 +39,7 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 **Check that a file is what it claims to be**
 
 1. Open **Tools**, then **File Workbench**.
-2. Drop the file anywhere on the list at the left, or use **Add Files** above it.
+2. Drop the file anywhere on the list at the left, or use **Add Files** at the top right.
 3. Open the **Type** tab. It says what the bytes read as, what the name claims, and whether the two agree.
 
 **Confirm a file matches a hash you were given**
@@ -56,16 +56,17 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 
 **Sort and narrow the list**
 
-The list is a table. Click a column heading to sort by it; click again to reverse. **Columns** above the list adds **Added** and **Safety**, which start hidden because the pane is narrow, and it can hide any column you do not want. Each heading also carries a filter, so you can show only the PDFs, or only files above a size.
+The list is a table. Click a column heading to sort by it; click again to reverse. **Columns** at the top right adds **Added** and **Safety**, which start hidden because the pane is narrow, and it can hide any column you do not want. Each heading also carries a filter, so you can show only the PDFs, or only files above a size.
 
 **Get rid of a file**
 
-Each row has a **⋮** menu with **Discard** in it, along with **Copy Name** and **Copy SHA-256**. To clear several at once, select them and use **Discard** above the list. Everything goes when you close the page in any case.
+Each row has a **⋮** menu with **Discard** in it, along with **Copy Name** and **Copy SHA-256**. Right-clicking the row opens the same menu. Everything goes when you close the page in any case.
 
 ## Things worth knowing
 
 - **The fingerprints are calculated on your own computer.** They are the right figure for checking a file against one somebody sent you. A fingerprint that goes into a court record is calculated by Magna Carta's servers over the file they received, which is a different guarantee, and the tab says which one you are looking at.
-- **Some files have no preview.** An archive, a program, and an encrypted document have nothing to show, and the workbench says so rather than holding an empty frame open. **Hide Preview** at the top right closes the picture on every tab and gives the readings the width; **Show Preview** brings it back.
+- **Some files have no preview.** An archive, a program, and an encrypted document have nothing to show, and the workbench says so rather than holding an empty frame open. **Hide Preview** at the top right closes the picture on every tab and gives the readings the width; **Show Preview** brings it back, and the button beside it moves the file to the other side of the readings. Both choices are remembered.
+- **Nothing is kept, and nothing is sent anywhere.** Files on the workbench stay in your own browser: they are not uploaded, not attached to a matter, and not recorded as having been looked at. Closing the page clears them.
 - **The name is not the answer.** Everything here reads the file itself. Where the file and its name disagree, the workbench reports the file.
 - **Recovering a lost password is not done here.** Unlocking a document you have the password for takes a moment. Searching for a password nobody has can run for days, so it does not run on a bench that clears itself; it goes to a screen of its own that can be left running.
 

@@ -45,3 +45,33 @@ pinning, the selection gestures and the footer counts are the same behaviours th
 have, and this surface cannot drift from them. The bespoke selection module that preceded it is
 deleted: the grid owns selection. The narrow pane is why Arrival and Safety start hidden — the
 columns menu at the top of the list shows them, and the grid remembers.
+
+## R3 — third round: the list keeps its own verbs
+
+| #   | Ruling                                                                                                                           | Status  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| W17 | No standing Discard button. Throwing a file away is that file's own verb: its triple-dot menu, and the same menu on right-click. | settled |
+| W18 | The reader chooses which side of the readings the file is drawn on, and the choice is remembered.                                | settled |
+| W19 | Resizable edges carry no grip. The edge is the affordance; a grip drawn on it is furniture on a work surface.                    | settled |
+
+## R4 — fourth round: two containers, and the screen's controls together
+
+| #   | Ruling                                                                                                                    | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | ------- |
+| W20 | Add Files and the columns menu sit at the top right with the rest of the screen's controls, not in a strip over the list. | settled |
+| W21 | With that strip gone, the list starts at the top of its pane.                                                             | settled |
+| W22 | The tabs read as tabs: they sit on the top edge of the panel they switch, not floating over open page.                    | settled |
+| W23 | The whole right side is a container with edges, the same way the file list is.                                            | settled |
+
+**Where the controls live, and why it moved code.** Every control in the masthead acts on the
+surface — adding files, which columns the list shows, whether the file is drawn and on which side —
+so the masthead moved into the screen component and the route became thin. A route holding those
+would have had to reach into the list's grid to render its columns menu.
+
+## Standing questions this surface has already answered
+
+- **"Are these files deleted after a while? Should we say so?"** Today, no: nothing is uploaded, so
+  there is no retention to report — the files never leave the browser and closing the page clears
+  them. The masthead says exactly that. When the firm-scoped scratch object lands, the same line
+  becomes the retention promise (what is held, and until when), and the surface gains the Discard
+  that deletes it now. The line is the one place that sentence lives.

@@ -18,7 +18,8 @@
 - `ephemeral-source.svelte.ts` — where files come from in this host. The seam a matter host replaces.
 - `rail-columns.ts` — what the file list is sorted and filtered by. `row-menu.ts` — what one row's triple-dot menu offers, and when each verb is refused.
 - `identify.ts` · `digest.ts` · `conversion-targets.ts` · `drop-target.svelte.ts` — DOM-free logic, each with its own test.
-- `file-rail.svelte` — the file list, as `DataTable.Grid`. `workbench.svelte` — the three panes and the tab strip.
+- `file-rail.svelte` — the file list, as `DataTable.Grid`. `workbench.svelte` — the masthead, the grid, the panes and the tab strip. The route is thin: it supplies the source and the permissions and nothing else.
+- `workbench-preferences.svelte.ts` — whether the file is drawn, and on which side. Persisted, and held across capability tabs.
 
 ## Local conventions
 
@@ -53,5 +54,8 @@
 - **The rail's ids are `crypto.randomUUID()`, not minted identifiers.** A workbench file is not an entity and never becomes one. A `file_…` handle here would read as a document that exists somewhere.
 - **The preview pane is not rendered when there is nothing to draw**, and the reason moves into `file-header.svelte`. Do not reintroduce an always-present pane: an empty frame held open for a picture that is not coming is the thing that was removed. The reader's show/hide choice is a separate axis and holds across tabs — a file with nothing to draw must not clear it.
 - **The rail takes a drop without drawing a dropzone.** `DropTarget` is the behaviour on its own, because the design system's `Dropzone` is a visible dashed box and a box over a table either covers the rows or takes their space. Do not put the component back.
-- **Arrival and Safety start hidden.** The rail is narrow; four data columns push the name off. The columns menu at the top of the rail shows them, and the grid remembers. Do not "fix" the missing columns by widening the default rail.
+- **Arrival and Safety start hidden.** The rail is narrow; four data columns push the name off. The columns menu in the masthead shows them, and the grid remembers. Do not "fix" the missing columns by widening the default rail.
+- **The grid lives in `workbench.svelte`, not in the rail.** Its columns menu belongs in the masthead with the screen's other controls, and the list has to begin at the top of its pane — both need the grid one level up.
+- **Do not use the grid's `onRowContextMenu` to open a menu.** It calls `preventDefault`, which stops the very menu it is meant to summon. The rail re-targets from its own `oncontextmenu` on a presentational wrapper, which is the matter ledgers' pattern too. A `ContextMenu.Content` behind an `{#if}` on the target never renders either: the menu opens before the condition can become true.
+- **Discarding is a row's verb only.** No standing Discard button: one up there acts on whatever happens to be selected, and that is the button that throws away the wrong thing.
 - **Nothing is uploaded yet.** The masthead says so, and it is true — the readings that are real happen in the browser. When the firm-scoped scratch object lands, that line changes to the retention promise, and `ephemeral-source.svelte.ts` is the only module that has to.
