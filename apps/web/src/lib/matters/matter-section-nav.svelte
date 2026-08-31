@@ -3,14 +3,19 @@
    * The matter's section strip — route-driven navigation styled in the tabs register. The design
    * system's Tabs is Bits UI's state-based ARIA tablist, the wrong semantics for links that
    * change the address, so this strip renders real anchors inside a nav landmark and speaks the
-   * Tabs recipe's visual language through tokens (hairline track, quiet triggers, the gold bar
-   * under the active section). No tablist ARIA is faked onto the links; the current section is
-   * stated with aria-current="page". One identical strip for every matter status — status never
-   * gates navigation.
+   * Tabs recipe's visual language through tokens (quiet triggers, the gold bar under the active
+   * section). No tablist ARIA is faked onto the links; the current section is stated with
+   * aria-current="page". One identical strip for every matter status — status never gates
+   * navigation.
+   *
+   * IT DRAWS NO RULE OF ITS OWN. The strip sits in the inline-end column of the matter's header
+   * band (matter-header.svelte), flush against the band's bottom border, and packed to the end of
+   * that column. The band owns the rule; the gold active bar lands on it. A border here would
+   * draw a second line a few pixels above the first.
    *
    * Overflow is measurement-driven, not breakpoint-driven: an invisible mirror of the full strip
-   * reports each tab's width (bind:clientWidth), and as the container narrows, trailing sections
-   * fold into the More menu. The registry orders non-core sections last, so they fold first and
+   * reports each tab's width (bind:clientWidth), and as the column narrows, trailing sections fold
+   * into the More menu. The registry orders non-core sections last, so they fold first and
    * trailing core sections follow only when the strip is genuinely too narrow. The arithmetic and
    * the two rules it has to keep live in section-overflow.svelte.ts.
    */
@@ -55,8 +60,8 @@
   const tabActiveClasses = "font-semibold text-text-default";
 </script>
 
-<nav aria-label="Matter sections" class="relative border-b border-border-default">
-  <div class="flex items-center" bind:clientWidth={overflow.containerWidth}>
+<nav aria-label="Matter sections" class="relative w-full">
+  <div class="flex items-center justify-end" bind:clientWidth={overflow.containerWidth}>
     {#each visibleSections as section (section.slug)}
       {@const current = isCurrentSection(section, page.url.pathname)}
       <a
@@ -67,7 +72,7 @@
         {section.label}
         <MaturityBadge stage={section.stage} />
         {#if current}
-          <!-- The gold bar over the track — the active mark of the tabs register. -->
+          <!-- The gold bar over the band's rule — the active mark of the tabs register. -->
           <span
             class="absolute inset-x-12 bottom-0 bg-accent-default"
             style="block-size: var(--mc-focus-ring-width)"
