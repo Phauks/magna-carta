@@ -3,7 +3,12 @@
 Firm Usage shows what your firm holds on the platform and what it uses, as plain figures. Find it
 under **Tools → Firm Usage**. It is visible to Owner and Admin seats, runs outside any matter, and
 saves nothing — every number is computed at the moment you open the page, so what you see is
-current. **Refresh** recomputes on the spot.
+current. **Refresh** recomputes on the spot, and **Download Report** saves everything on the page
+as a file — an Excel workbook with each section on its own worksheet, an Excel workbook with
+everything on one sheet, a CSV for any spreadsheet, or plain text to paste into an email. Every
+count in the workbooks is a real, summable number, each file opens by saying when it was
+generated, and the file's name carries the report's name with the date and time to the second, so
+two snapshots never blur together.
 
 ## Storage
 
@@ -31,10 +36,11 @@ so the two sections measure different things on purpose.
 
 ## By Location
 
-One row per office or file room, with its matter and staff counts. Click any column heading to
-sort. A matter that names no location is counted on the **No Location Assigned** row. **Custodian
-Items** is reserved: physical holdings tracked in Custodian will report here when that rollup is
-connected.
+One row per office or file room, with its matter and staff counts and how many original items the
+firm holds in safekeeping there through Custodian. Click any column heading to sort. A matter that
+names no location is counted on the **No Location Assigned** row, and items kept at an external
+site, such as a bank vault, appear on the **Held Offsite** row. An item counts where it physically
+sits: one that is checked out counts nowhere, because the shelf really is empty.
 
 ## People and Organizations
 

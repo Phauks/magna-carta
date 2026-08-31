@@ -57,8 +57,8 @@ export function notMeteredLabel(meter: string): string {
 
 // ---- the By Location sort ---------------------------------------------------------------------
 
-/** The sortable columns. `custodianItems` is reserved — every value is equal, so its sort holds. */
-export type LocationSortKey = "name" | "status" | "matters" | "members" | "custodianItems";
+/** The sortable columns. */
+export type LocationSortKey = "name" | "status" | "matters" | "members" | "custodyItems";
 
 export type LocationSortDirection = "ascending" | "descending";
 
@@ -76,9 +76,8 @@ function compareLocationRows(
       return first.matters - second.matters;
     case "members":
       return first.members - second.members;
-    case "custodianItems":
-      // Reserved column — nothing is reported yet, so every row compares equal.
-      return 0;
+    case "custodyItems":
+      return first.custodyItems - second.custodyItems;
   }
 }
 

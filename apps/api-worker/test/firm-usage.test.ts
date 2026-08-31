@@ -111,6 +111,22 @@ describe("GET /api/v1/firm-usage", () => {
       )
       .bind(userId, t)
       .run();
+    // A custody tree that exercises the office rollup's walk: an HQ root binding loc_u with a shelf
+    // under it holding one item; a second packet checked out (no location, so it counts nowhere);
+    // and an offsite root binding no office, whose item lands in the offsite bucket.
+    for (const statement of [
+      "INSERT INTO custody_location (id, name, kind, parent_location_id, firm_location_id, address, status, notes, created_at, updated_at) VALUES ('custodyLocation_root','HQ Vault','office',NULL,'loc_u',NULL,'active',NULL,?1,?1)",
+      "INSERT INTO custody_location (id, name, kind, parent_location_id, firm_location_id, address, status, notes, created_at, updated_at) VALUES ('custodyLocation_shelf','Shelf A','shelf','custodyLocation_root',NULL,NULL,'active',NULL,?1,?1)",
+      "INSERT INTO custody_location (id, name, kind, parent_location_id, firm_location_id, address, status, notes, created_at, updated_at) VALUES ('custodyLocation_bank','Bank Vault','bank',NULL,NULL,NULL,'active',NULL,?1,?1)",
+      "INSERT INTO custody_packet (id, custody_number, number_source, name, current_location_id, status, matter_id, depositor_entity_id, deposited_at, notes, created_at, updated_at) VALUES ('custodyPacket_u','CUS-00001','manual','Example Wallet','custodyLocation_shelf','held',NULL,NULL,NULL,NULL,?1,?1)",
+      "INSERT INTO custody_packet (id, custody_number, number_source, name, current_location_id, status, matter_id, depositor_entity_id, deposited_at, notes, created_at, updated_at) VALUES ('custodyPacket_out','CUS-00002','manual','Deed Out',NULL,'out',NULL,NULL,NULL,NULL,?1,?1)",
+      "INSERT INTO custody_packet (id, custody_number, number_source, name, current_location_id, status, matter_id, depositor_entity_id, deposited_at, notes, created_at, updated_at) VALUES ('custodyPacket_bank','CUS-00003','manual','Deposited Deed','custodyLocation_bank','held',NULL,NULL,NULL,NULL,?1,?1)",
+      "INSERT INTO custody_item (id, packet_id, ordinal, item_type_id, description, instrument_date, intrinsic_value, declared_value_amount_minor, declared_value_currency, status, created_at, updated_at) VALUES ('custodyItem_u','custodyPacket_u',1,NULL,'Original will',NULL,0,NULL,NULL,'held',?1,?1)",
+      "INSERT INTO custody_item (id, packet_id, ordinal, item_type_id, description, instrument_date, intrinsic_value, declared_value_amount_minor, declared_value_currency, status, created_at, updated_at) VALUES ('custodyItem_out','custodyPacket_out',1,NULL,'Deed at completion',NULL,0,NULL,NULL,'out',?1,?1)",
+      "INSERT INTO custody_item (id, packet_id, ordinal, item_type_id, description, instrument_date, intrinsic_value, declared_value_amount_minor, declared_value_currency, status, created_at, updated_at) VALUES ('custodyItem_bank','custodyPacket_bank',1,NULL,'Deposited deed',NULL,0,NULL,NULL,'held',?1,?1)",
+    ]) {
+      await firmDatabase.prepare(statement).bind(t).run();
+    }
 
     const cookie = await signInForSessionCookie("usage-ok@example.com");
     const response = await SELF.fetch("https://example.com/api/v1/firm-usage", {
@@ -145,8 +161,9 @@ describe("GET /api/v1/firm-usage", () => {
         deletedFiles: { count: 0, bytes: 0 },
       },
       byLocation: {
-        rows: [{ name: "HQ", status: "active", matters: 1, members: 1 }],
+        rows: [{ name: "HQ", status: "active", matters: 1, members: 1, custodyItems: 1 }],
         mattersWithoutLocation: 1,
+        custodyItemsOffsite: 1,
       },
       directory: { people: 1, organizations: 1, activeMembers: 1 },
       aiUsage: {

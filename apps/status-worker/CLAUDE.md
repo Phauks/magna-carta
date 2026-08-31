@@ -6,7 +6,7 @@
 
 ## Key files / entry points
 
-- `src/index.ts` — the Worker's routes: `GET /api/status.json` (the machine-readable feed), `GET /` (the public status page), and the two immutable same-origin `/assets` routes (the content-hashed stylesheet and the bundled Atkinson woff2 — the page loads nothing from anywhere else). The feed and the page read `STATUS_KV`, parse the three stored documents (`status:derived`, `status:authored`, `status:history`), and call `mergeSnapshot()` from `@magna-carta/status` with `audience: "public"`.
+- `src/index.ts` — the Worker's routes: `GET /api/status.json` (the machine-readable feed), `GET /` (the public status page), `GET /__version` (this worker's own build identity, a read about this worker itself — served `no-store` so a fresh deploy is never misreported from the edge cache), and the two immutable same-origin `/assets` routes (the content-hashed stylesheet and the bundled Atkinson woff2 — the page loads nothing from anywhere else). The feed and the page read `STATUS_KV`, parse the three stored documents (`status:derived`, `status:authored`, `status:history`), and call `mergeSnapshot()` from `@magna-carta/status` with `audience: "public"`.
 - `src/render-status-page.ts` — the pure page renderer (snapshot -> HTML string). The page is server-rendered and COMPLETE with zero JavaScript (a meta refresh keeps it current); the inline scripts are progressive enhancement only (countdown, scheme toggle, text-size ladder, the subscribe panel). **Every snapshot-sourced string is HTML-escaped at the sink** — operator and upstream text is untrusted; keep that property for any new interpolation. `src/page-styles.ts` (stylesheet + hashed asset path) and `src/country-dial-codes.ts` (dial codes + the unit-tested phone formatter injected verbatim into the page script) support it.
 - `wrangler.jsonc` — the binding set. Read this file before adding anything to it; see "Invariants" below.
 - `../worker/src/routes/platform-status.ts` — the sibling write side (a different worker, a different app): the operator-gated endpoints that populate `status:authored`. The cron in `../worker/src/status/derived-snapshot.ts` populates `status:derived` and appends to `status:history`. This worker never writes any of the three keys.
@@ -30,8 +30,8 @@
 
 ## Dependencies & contracts
 
-- Depends on `@magna-carta/status` for the schema, parsing (`parseDerived`/`parseAuthored`/`parseHistory`), and `mergeSnapshot`. Depends on nothing else — no other `@magna-carta/*` package, no shared app code from `apps/api-worker`.
-- Nothing depends on this worker at build or runtime except its own deploy and its own route (`status.<domain>`); it is not imported by, and does not import, `apps/api-worker`.
+- Depends on `@magna-carta/status` for the schema, parsing (`parseDerived`/`parseAuthored`/`parseHistory`), and `mergeSnapshot`, plus `@magna-carta/build-identity` for the shared `GET /__version` read the app Worker's version aggregate probes. The second is a deliberate, bounded exception to "nothing else": a pure leaf package (no bindings, no app code, no other dependency), so it adds no coupling that could take this page down with the application. No shared app code from `apps/api-worker` — that part is unchanged and stays so.
+- Nothing depends on this worker at **runtime**; it is not imported by, and does not import, `apps/api-worker`. Two arms-length couplings exist and are acceptable because a status-worker outage degrades them, never the reverse: the app Worker probes `/__version` over its `STATUS_SERVICE` service binding (a failed probe reads as "Unreachable" in the version overlay), and — because a service binding must name a worker that exists — the app Worker's **deploy** now requires `magna-carta-status` to exist on the account. Deleting this worker means removing that binding in the same change.
 
 ## Gotchas
 

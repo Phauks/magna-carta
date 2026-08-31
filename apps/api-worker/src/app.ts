@@ -74,7 +74,11 @@ import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
 import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentials.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
-import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
+import {
+  registerSafeBrowseRoute,
+  registerSafeBrowseStreamRoute,
+  type SafeBrowseRouteDeps,
+} from "./routes/safe-browse.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
@@ -234,6 +238,27 @@ export type Bindings = {
   // absent in every test environment and until the deploy-time binding is added; while unset,
   // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
   SEARCH_SERVICE?: Fetcher;
+  // The in-app document-editing worker (magna-carta-edit), reached over a service binding ONLY for
+  // the aggregate version read — the editing traffic itself flows the other way (that worker calls
+  // this one's WOPI host over its own APP_WORKER binding). Optional: absent in every test
+  // environment; while unset, its version row reads "unbound".
+  EDIT_SERVICE?: Fetcher;
+  // The inbound email-capture worker (magna-carta-email), for the aggregate version read alone —
+  // capture itself arrives over Cloudflare Email Routing plus the shared queue, never over HTTP.
+  // Optional, and DELIBERATELY absent from wrangler.jsonc today: the worker is not on the account
+  // yet, and a service binding naming a missing worker fails this worker's own deploy. The binding
+  // line lands with that worker's first deploy (docs/deploy-queue.md, email capture activation).
+  EMAIL_SERVICE?: Fetcher;
+  // The public status-page worker (magna-carta-status), for the aggregate version read alone — the
+  // status page's own data flows through KV, never through this worker. Optional: absent in every
+  // test environment; while unset, its version row reads "unbound".
+  STATUS_SERVICE?: Fetcher;
+  // The assets-only SPA worker (magna-carta-web) — since the 2026-08-31 cutover the Worker that
+  // serves the interface at the app's address — bound here for the aggregate version read alone.
+  // It holds no script, so the probe is answered by its asset server: the SPA build emits the
+  // version shape as a static /__version file, and a deployment older than that file answers
+  // index.html, which the probe reads as "unreported". Optional: absent in every test environment.
+  WEB_SERVICE?: Fetcher;
   // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
   // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
   // environment today — while unset, resolveNaturalLanguageProvisioningPort returns the
@@ -643,6 +668,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // without touching the BROWSER binding. Production: createBrowserRenderer(c.env.BROWSER) +
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
+  registerSafeBrowseStreamRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerDecryptionRoutes(app, chokepoint);
   // Password recovery: mints a job and fans it out through the recovery coordinator Durable
   // Object. Registered beside decryption — the button-initiated surface for the SAME extracted

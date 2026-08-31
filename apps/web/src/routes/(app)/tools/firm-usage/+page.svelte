@@ -5,10 +5,9 @@
    * Directory and member counts, and the AI meters. One GET feeds the whole page (firm-usage-api.ts);
    * everything below the masthead is a table, because every figure here is a quantity.
    *
-   * Two columns are honest gaps rather than omissions: the By Location table reserves a Custodian
-   * Items column the custody rollup does not feed yet, and the Compute and Activity section renders
-   * disabled with the one line naming what it waits on — the standing rule that an unserved
-   * capability still renders, disabled, honestly.
+   * One section is an honest gap rather than an omission: Compute and Activity renders disabled
+   * with the one line naming what it waits on — the standing rule that an unserved capability
+   * still renders, disabled, honestly.
    */
   import { onMount } from "svelte";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -18,9 +17,11 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import ExportMenu from "$lib/export/export-menu.svelte";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import ByLocationTable from "$lib/tools/firm-usage/by-location-table.svelte";
   import { readFirmUsage, type FirmUsageResponse } from "$lib/tools/firm-usage/firm-usage-api.ts";
+  import { firmUsageExportDocument } from "$lib/tools/firm-usage/firm-usage-report.ts";
   import {
     formatByteSize,
     formatCount,
@@ -82,15 +83,12 @@
 <Masthead.Root class="mb-24">
   <Masthead.Heading>
     <Masthead.Title>Firm Usage</Masthead.Title>
-    <Masthead.Meta>
-      <span>Computed when this page is opened</span>
-      <Masthead.MetaSeparator />
-      <span>Runs outside any matter</span>
-      <Masthead.MetaSeparator />
-      <span>Owner and Admin only</span>
-    </Masthead.Meta>
   </Masthead.Heading>
   <Masthead.Actions>
+    <ExportMenu
+      disabled={usage === null}
+      exportDocument={() => (usage === null ? null : firmUsageExportDocument(usage, new Date()))}
+    />
     <Button variant="ghost" disabled={loading} onclick={() => void loadUsage()}>
       <RefreshCw class="size-16" aria-hidden="true" />
       Refresh
@@ -433,7 +431,3 @@
     {title}
   </h2>
 {/snippet}
-
-<footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
-  Assembled from the firm's own records. Runs outside any matter, and nothing is saved.
-</footer>

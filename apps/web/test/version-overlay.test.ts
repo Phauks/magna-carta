@@ -1,13 +1,13 @@
 /*
- * The version overlay's honesty rules, exercised on the pure model: a placeholder identity never
- * claims a skew, every non-answer keeps its own name, a cached observation states its age once it
+ * The version overlay's honesty rules, exercised on the pure model: every non-answer keeps its
+ * own name, a cached observation states its age once it
  * has one, a re-ask that fails never leaves its rows looking current, and a copied identifier line
  * carries only what was actually known.
  *
  * The deployed-unit names are pinned to the things that deploy them rather than to this file's
- * word: the API's service roster and the app Worker's own service bindings are read off disk, and
- * every rostered service must resolve to the script name its binding actually targets. A name
- * invented here, or a service added to the roster and forgotten here, fails.
+ * word: the API's service roster, the app Worker's own service bindings, and the fleet itself
+ * (every wrangler.jsonc under apps/) are read off disk. A rostered name that does not match what
+ * its binding targets, or a fleet worker the roster forgot, fails.
  *
  * The scope rules are asserted twice over. The decision itself is a pure function and is tested as
  * one; that the component actually obeys it is read off the component's source, because this
@@ -17,29 +17,27 @@
  * signed-out panel issues no authenticated request at all — and a source assertion states it for
  * every path into the call rather than only the one a render happened to exercise.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  buildsDiffer,
   copyLineForPart,
-  deployedUnitName,
   describeObservationAge,
   describeRetainedRows,
   formatVersionTimestamp,
   isRealCommit,
-  joinDetailSegments,
+  partitionDeploymentRows,
   readsServiceAggregate,
   serviceStateDescription,
   serviceStateLabel,
   versionChipLabel,
-  API_ROW_DESCRIPTION,
   API_WORKER_UNIT_NAME,
-  BUILD_SKEW_EXPLANATION,
+  PAGE_BUILD_ROW_NAME,
   READ_IN_FLIGHT_NOTICE,
+  RELOAD_ACTION_LABEL,
   SIGNED_OUT_ESTATE_NOTICE,
-  WEB_APP_ROW_DESCRIPTION,
-  WEB_APP_SHIPS_INSIDE_API_NOTICE,
+  UPDATE_AVAILABLE_EXPLANATION,
+  WEB_TOPOLOGY_NOTICE,
 } from "../src/lib/versions/version-overlay-model.ts";
 
 const SOURCE_ROOT = join(import.meta.dirname, "../src");
@@ -89,41 +87,24 @@ describe("what counts as a real commit", () => {
   });
 });
 
-describe("the web-versus-API skew call", () => {
-  it("two different real commits are a skew", () => {
-    expect(buildsDiffer("f4b6d82", "a1b2c3d")).toBe(true);
+describe("the retired page-versus-API warning stays retired", () => {
+  it("the panel raises no alarm about the page and the API differing", () => {
+    // The interface and the API deploy as separate Workers (magna-carta-web serves the app's
+    // address by route pattern), so their commits differ whenever one shipped more recently — a
+    // normal state. A standing warning about a normal state teaches people to ignore warnings;
+    // the reload signal is the version poll, which compares this tab against the deployment that
+    // actually serves it. This asserts the old warning does not quietly return.
+    const chip = stripComments(source("lib/versions/version-chip.svelte"));
+    expect(chip).not.toContain("Different Builds");
+    expect(chip).not.toContain("buildsDiffer");
   });
 
-  it("the same commit on both sides is not", () => {
-    expect(buildsDiffer("f4b6d82", "f4b6d82")).toBe(false);
-  });
-
-  it("a placeholder on either side says no identity, never a different identity", () => {
-    expect(buildsDiffer("unknown", "a1b2c3d")).toBe(false);
-    expect(buildsDiffer("f4b6d82", "dev")).toBe(false);
-    expect(buildsDiffer("f4b6d82", null)).toBe(false);
-  });
-
-  it("two abbreviations of one commit are the same build, however long each side is", () => {
-    // The web app's stamp comes from git; a Worker built where git could not answer takes the
-    // build runner's commit variable and abbreviates it itself. Same commit, different lengths,
-    // and an equality test would warn about a deployment that is in step.
-    expect(buildsDiffer("f4b6d82", "f4b6d8291")).toBe(false);
-    expect(buildsDiffer("f4b6d8291", "f4b6d82")).toBe(false);
-    expect(buildsDiffer("F4B6D82", "f4b6d8291")).toBe(false);
-  });
-
-  it("a prefix too short to identify a commit is not treated as agreement", () => {
-    expect(buildsDiffer("f4b6", "f4b6d8291")).toBe(true);
-  });
-
-  it("explains the difference as one deployment behind, not two deploys out of step", () => {
-    // The SPA is bundled into the API Worker, so there is only one deployable to be out of step
-    // WITH. A difference means the page in this tab predates the Worker now answering it.
-    expect(BUILD_SKEW_EXPLANATION).toContain(API_WORKER_UNIT_NAME);
-    expect(BUILD_SKEW_EXPLANATION).toMatch(/reload/i);
+  it("the topology line explains the difference instead", () => {
+    expect(WEB_TOPOLOGY_NOTICE).toContain("magna-carta-web");
+    expect(WEB_TOPOLOGY_NOTICE).toContain(API_WORKER_UNIT_NAME);
+    expect(WEB_TOPOLOGY_NOTICE).toMatch(/deploy separately/i);
     // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
-    expect(BUILD_SKEW_EXPLANATION).not.toContain("—");
+    expect(WEB_TOPOLOGY_NOTICE).not.toContain("—");
   });
 });
 
@@ -161,15 +142,16 @@ describe("the honest non-answers", () => {
 
 describe("the deployed unit a row names", () => {
   /*
-   * The roster the API actually probes, and the service bindings the app Worker actually declares.
-   * Both are read off disk so a name here can only be right by matching the thing that deploys it.
+   * The roster the API actually probes, the service bindings the app Worker actually declares, and
+   * the fleet on disk. All three are read here so a name can only be right by matching the thing
+   * that deploys it — and so a worker added under apps/ cannot silently stay off the overlay.
    */
   const rosterSource = repositoryFile("apps/api-worker/src/routes/meta-versions.ts");
   const rosterEntries = [
     ...rosterSource.matchAll(
-      /\{ id: "(?<id>\w+)", label: "(?<label>[^"]+)", binding: "(?<binding>\w+)" \}/g,
+      /\{ id: "(?<id>\w+)", service: "(?<service>[\w-]+)", binding: "(?<binding>\w+)" \}/g,
     ),
-  ].map((match) => match.groups as unknown as { id: string; label: string; binding: string });
+  ].map((match) => match.groups as unknown as { id: string; service: string; binding: string });
 
   const wranglerSource = repositoryFile("apps/api-worker/wrangler.jsonc");
   const boundScriptNames = new Map(
@@ -185,68 +167,49 @@ describe("the deployed unit a row names", () => {
     expect(boundScriptNames.size).toBeGreaterThan(0);
   });
 
-  it("names every service the API reports on", () => {
-    for (const entry of rosterEntries) {
-      expect(deployedUnitName(entry.id), entry.id).not.toBeNull();
-    }
+  it("rosters the whole fleet: every deployed worker name under apps/, and nothing else", () => {
+    // The overlay's promise is "every magna-carta worker is on this list" — a worker missing from
+    // it reads as "everything is listed and healthy". So the roster is pinned to the fleet on
+    // disk: each apps/*/wrangler.jsonc names its worker, and every one except the app Worker
+    // itself (the prober, whose identity is the aggregate's own `api` object) must be rostered.
+    const appsDirectory = join(REPOSITORY_ROOT, "apps");
+    const fleet = readdirSync(appsDirectory)
+      .map((entry) => {
+        try {
+          return readFileSync(join(appsDirectory, entry, "wrangler.jsonc"), "utf8");
+        } catch {
+          return null;
+        }
+      })
+      .filter((config): config is string => config !== null)
+      .map((config) => /"name":\s*"(?<name>[\w-]+)"/.exec(config)?.groups?.name ?? "")
+      .filter((name) => name !== "" && name !== API_WORKER_UNIT_NAME)
+      .sort();
+    expect(fleet.length).toBeGreaterThan(0);
+    expect(rosterEntries.map((entry) => entry.service).sort()).toEqual(fleet);
   });
 
   it("names each bound service exactly as its service binding targets it", () => {
     for (const entry of rosterEntries) {
       const boundName = boundScriptNames.get(entry.binding);
       if (boundName === undefined) continue;
-      expect(deployedUnitName(entry.id), entry.id).toBe(boundName);
+      expect(entry.service, entry.id).toBe(boundName);
     }
   });
 
-  it("a service with no binding takes the name the operations runbook gives it", () => {
-    // Keyword search has no binding in the app Worker and no connected project, so its row reads
-    // "Not deployed". The name still has to come from somewhere real rather than be inferred from
-    // the pattern of its siblings.
-    const runbook = repositoryFile("docs/conventions/operations.md");
-    for (const entry of rosterEntries) {
-      if (boundScriptNames.has(entry.binding)) continue;
-      const name = deployedUnitName(entry.id) ?? "";
-      expect(name, entry.id).not.toBe("");
-      expect(runbook, entry.id).toContain(name);
-    }
-  });
-
-  it("leaves a service it has no name for unnamed rather than guessing one", () => {
-    expect(deployedUnitName("a-service-added-after-this-build")).toBeNull();
-  });
-
-  it("names the one Worker that carries both the page and the API", () => {
+  it("names the API Worker, which still carries the SPA copy that backs dev and rollback", () => {
     expect(API_WORKER_UNIT_NAME).toBe("magna-carta");
     expect(wranglerSource).toContain(`"name": "${API_WORKER_UNIT_NAME}"`);
-    // The claim the two rows rest on: the SPA build output is this Worker's static assets.
+    // The assets block deliberately SURVIVES the cutover to magna-carta-web: `wrangler dev` and
+    // the e2e suite serve the whole app from it, and it is the one-gesture rollback (repoint the
+    // /* route back here). If it is ever removed, this test is the reminder that both of those
+    // need a replacement first.
     expect(wranglerSource).toMatch(/"assets":\s*\{[\s\S]*?"directory":\s*"\.\.\/web\/build"/);
   });
 
-  it("says the web app ships inside the API Worker, naming the project that does not serve it", () => {
-    expect(WEB_APP_SHIPS_INSIDE_API_NOTICE).toContain("magna-carta deploys");
-    expect(WEB_APP_SHIPS_INSIDE_API_NOTICE).toContain("magna-carta-web");
-    // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
-    expect(WEB_APP_SHIPS_INSIDE_API_NOTICE).not.toContain("—");
-  });
-
-  it("the two rows sharing one name are told apart by what each reports on", () => {
-    expect(WEB_APP_ROW_DESCRIPTION).not.toBe(API_ROW_DESCRIPTION);
-    expect(WEB_APP_ROW_DESCRIPTION).toMatch(/bundle/i);
-    expect(API_ROW_DESCRIPTION).toMatch(/API Worker/i);
-  });
-});
-
-describe("a row's detail line", () => {
-  it("joins what is known and drops what is not", () => {
-    expect(joinDetailSegments(["Malware Scan", "committed 29 Aug"])).toBe(
-      "Malware Scan · committed 29 Aug",
-    );
-    expect(joinDetailSegments([null, "This deployment is not wired to it."])).toBe(
-      "This deployment is not wired to it.",
-    );
-    expect(joinDetailSegments(["Malware Scan", null])).toBe("Malware Scan");
-    expect(joinDetailSegments([null, null])).toBeNull();
+  it("the build line is named for the bundle in this tab, never for the Worker that served it", () => {
+    expect(PAGE_BUILD_ROW_NAME).toBe("This page");
+    expect(PAGE_BUILD_ROW_NAME).not.toContain("magna-carta");
   });
 });
 
@@ -306,13 +269,13 @@ describe("the copied identifier line", () => {
   it("carries the part, the commit, and both timestamps when known", () => {
     expect(
       copyLineForPart({
-        label: "magna-carta-scan (Malware Scan)",
+        label: "magna-carta-scan",
         commit: "a1b2c3d",
         commitTime: "2026-08-29T10:00:00Z",
         buildTime: "2026-08-29T10:05:00Z",
       }),
     ).toBe(
-      "magna-carta-scan (Malware Scan): a1b2c3d · committed 2026-08-29T10:00:00Z · built 2026-08-29T10:05:00Z",
+      "magna-carta-scan: a1b2c3d · committed 2026-08-29T10:00:00Z · built 2026-08-29T10:05:00Z",
     );
   });
 
@@ -343,7 +306,9 @@ describe("the chip in its public scope", () => {
   it("reads the aggregate from exactly one place, and that place refuses the public scope", () => {
     const calls = chip.match(/requestJson</g) ?? [];
     expect(calls).toHaveLength(1);
-    const refreshBody = /async function refresh\(\): Promise<void> \{([\s\S]*?)\n  \}/.exec(chip);
+    const refreshBody = /async function refresh\([^)]*\): Promise<void> \{([\s\S]*?)\n  \}/.exec(
+      chip,
+    );
     expect(refreshBody).not.toBeNull();
     const body = refreshBody?.[1] ?? "";
     expect(body).toContain("if (!readsAggregate) return;");
@@ -356,12 +321,12 @@ describe("the chip in its public scope", () => {
   });
 
   it("shows this build's own identity unconditionally, from the baked-in stamp", () => {
-    // The web row comes from the bundle, not the network, so it renders in both scopes and with
-    // the API unreachable: it must sit outside every conditional in the panel.
-    const webRow = /\{@render partRow\(\{\s*rowKey: "web",[\s\S]*?\}\)\}/.exec(chip);
-    expect(webRow).not.toBeNull();
-    expect(webRow?.[0]).toContain("BUILD_IDENTITY.committedAt");
-    expect(openBlockDepthAt(chip, chip.indexOf('rowKey: "web"'))).toBe(0);
+    // The build line comes from the bundle, not the network, so it renders in both scopes and
+    // with the API unreachable: it must sit outside every conditional in the panel.
+    const pageRow = /\{@render partRow\(\{\s*rowKey: "page",[\s\S]*?\}\)\}/.exec(chip);
+    expect(pageRow).not.toBeNull();
+    expect(pageRow?.[0]).toContain("BUILD_IDENTITY.committedAt");
+    expect(openBlockDepthAt(chip, chip.indexOf('rowKey: "page"'))).toBe(0);
   });
 
   it("keeps the aggregate's own rows inside the scope that may read them", () => {
@@ -385,33 +350,55 @@ describe("the chip in its public scope", () => {
 describe("the chip's row identities and refresh", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
 
-  it("heads every row with its deployed unit and drops the description beneath it", () => {
-    expect(chip).toContain("{@const heading = part.unitName ?? part.description}");
-    expect(chip).toContain("{heading}</span");
-    // Monospace is the identifier signal, so it rides on having a name rather than on the row.
-    expect(chip).toMatch(/part\.unitName === null\s*\? "text-sm text-text-default"/);
-    expect(chip).toMatch(
-      /joinDetailSegments\(\[\s*part\.unitName === null \? null : part\.description/,
-    );
+  it("heads every row with one name and nothing else, monospaced only when it is a Worker's", () => {
+    expect(chip).toContain("{part.name}</span");
+    // Monospace is the identifier signal: a Worker's name carries it, the build line does not.
+    expect(chip).toMatch(/part\.isWorkerName\s*\? "font-mono text-sm text-text-default"/);
+    // No second line of invented naming: the detail under a name is its timestamps or its state
+    // sentence, never a description of what the worker is for.
+    expect(chip).not.toContain("part.description");
   });
 
-  it("takes each service row's name from the shared map, keyed by the wire's own id", () => {
-    expect(chip).toMatch(/unitName: deployedUnitName\(service\.id\)/);
-    // No name is written into the component: the map is the one home for them.
+  it("takes each deployment row's name from the wire itself", () => {
+    expect(chip).toMatch(/name: service\.service/);
+    // No sibling's name is written into the component: the API's roster is the one home for them.
     expect(chip).not.toMatch(/"magna-carta-[a-z-]+"/);
   });
 
-  it("names the same Worker on the web row and the API row, and says why", () => {
-    expect(chip).toMatch(/rowKey: "web",\s*unitName: API_WORKER_UNIT_NAME/);
-    expect(chip).toMatch(/rowKey: "api",\s*unitName: API_WORKER_UNIT_NAME/);
-    expect(chip).toContain("{WEB_APP_SHIPS_INSIDE_API_NOTICE}");
-    // The line belongs beside the comparison it explains: after both rows, before the services.
-    expect(chip.indexOf('rowKey: "api"')).toBeLessThan(
-      chip.indexOf("{WEB_APP_SHIPS_INSIDE_API_NOTICE}"),
+  it("leads with the pair that serves the app's address, then the fleet below a separator", () => {
+    expect(chip).toMatch(/rowKey: "page",\s*name: PAGE_BUILD_ROW_NAME/);
+    expect(chip).toMatch(/rowKey: "api",\s*name: API_WORKER_UNIT_NAME/);
+    expect(chip).toContain("partitionDeploymentRows(value.services)");
+    expect(chip).toContain("{WEB_TOPOLOGY_NOTICE}");
+    // Order: magna-carta, then magna-carta-web (the front partition), then the topology line that
+    // explains the pair, then the separator, then the rest of the fleet.
+    expect(chip.indexOf('rowKey: "api"')).toBeLessThan(chip.indexOf("deploymentRows.front"));
+    expect(chip.indexOf("deploymentRows.front")).toBeLessThan(
+      chip.indexOf("{WEB_TOPOLOGY_NOTICE}"),
     );
-    expect(chip.indexOf("{WEB_APP_SHIPS_INSIDE_API_NOTICE}")).toBeLessThan(
-      chip.indexOf("{#each value.services"),
-    );
+    expect(chip.indexOf("{WEB_TOPOLOGY_NOTICE}")).toBeLessThan(chip.indexOf("deploymentRows.rest"));
+  });
+
+  it("splits the deployment rows so the interface Worker leads and nothing is dropped", () => {
+    const row = (id: string) => ({
+      id,
+      service: `magna-carta-${id}`,
+      state: "reported" as const,
+      commit: "a1b2c3d",
+      commitTime: null,
+      buildTime: null,
+    });
+    const { front, rest } = partitionDeploymentRows([row("bundle"), row("web"), row("scan")]);
+    expect(front.map((r) => r.id)).toEqual(["web"]);
+    expect(rest.map((r) => r.id)).toEqual(["bundle", "scan"]);
+  });
+
+  it("shows no copy glyph on a commit: the button's shape carries the affordance", () => {
+    // Owner request 2026-08-31. The check on a successful copy stays (it is the confirmation),
+    // and the aria-label keeps stating the action for a screen reader.
+    expect(chip).not.toContain("icons/copy");
+    expect(chip).toContain('aria-label="Copy the {part.name} version"');
+    expect(chip).toContain("icons/check");
   });
 
   it("offers a refresh that re-runs the read and is inert while one is in flight", () => {
@@ -421,7 +408,17 @@ describe("the chip's row identities and refresh", () => {
     const control = refreshControl?.[0] ?? "";
     expect(control).toContain("disabled={loading}");
     expect(control).toContain("aria-busy={loading}");
-    expect(control).toContain("onclick={() => refresh()}");
+    expect(control).toContain("onclick={() => refresh({ fresh: true })}");
+  });
+
+  it("the explicit gestures probe fresh; the automatic on-open read takes the cached path", () => {
+    // Refresh and Retry both answer a member who asked what is running NOW, so both skip the
+    // API's brief cache — otherwise the age line keeps climbing and the button reads as broken.
+    // The on-open read is the one the cache exists for, and it stays plain.
+    const explicitGestures = chip.match(/refresh\(\{ fresh: true \}\)/g) ?? [];
+    expect(explicitGestures).toHaveLength(2);
+    expect(chip).toContain("void refresh();");
+    expect(chip).toContain("?fresh=true");
   });
 
   it("shows the read in flight, and never a stale age line while it is", () => {
@@ -435,14 +432,14 @@ describe("the chip's row identities and refresh", () => {
 
   it("marks the read in flight around the call itself, not around the panel", () => {
     const body =
-      /async function refresh\(\): Promise<void> \{([\s\S]*?)\n  \}/.exec(chip)?.[1] ?? "";
+      /async function refresh\([^)]*\): Promise<void> \{([\s\S]*?)\n  \}/.exec(chip)?.[1] ?? "";
     expect(body.indexOf("loading = true;")).toBeLessThan(body.indexOf("requestJson<"));
     expect(body.indexOf("requestJson<")).toBeLessThan(body.indexOf("loading = false;"));
   });
 
   it("keeps the rows a failed refresh could not replace, and says they are the older read's", () => {
     const body =
-      /async function refresh\(\): Promise<void> \{([\s\S]*?)\n  \}/.exec(chip)?.[1] ?? "";
+      /async function refresh\([^)]*\): Promise<void> \{([\s\S]*?)\n  \}/.exec(chip)?.[1] ?? "";
     // Blanking the rows would trade a stale answer for no answer; the sentence is what keeps the
     // retained rows from reading as current.
     expect(body).not.toContain("value = null");
@@ -453,7 +450,48 @@ describe("the chip's row identities and refresh", () => {
   it("still surfaces the Error ID on a failure, above the rows it could not refresh", () => {
     expect(chip).toContain("Error ID:");
     expect(chip).toContain("failure.problem.errorId");
-    expect(chip.indexOf("Error ID:")).toBeLessThan(chip.indexOf('rowKey: "web"'));
+    expect(chip.indexOf("Error ID:")).toBeLessThan(chip.indexOf('rowKey: "page"'));
+  });
+});
+
+describe("the upstream-update notice", () => {
+  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const svelteConfig = repositoryFile("apps/web/svelte.config.js");
+
+  it("names each build by its commit and polls for a newer one", () => {
+    // The poll compares version names, so the name has to change exactly when the bytes do: the
+    // commit, from the same shared resolution every Worker stamp uses.
+    expect(svelteConfig).toContain("resolveCommitIdentity");
+    expect(svelteConfig).toContain("pollInterval");
+  });
+
+  it("watches the poll and answers it with the one gesture", () => {
+    expect(chip).toContain("updated.current");
+    expect(chip).toContain("UPDATE_AVAILABLE_EXPLANATION");
+    expect(chip).toContain("location.reload()");
+    expect(chip).toContain("{RELOAD_ACTION_LABEL}");
+  });
+
+  it("the notice states a direction and ends in the one gesture", () => {
+    expect(UPDATE_AVAILABLE_EXPLANATION).toMatch(/newer/i);
+    expect(UPDATE_AVAILABLE_EXPLANATION).toMatch(/reload/i);
+    // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
+    expect(UPDATE_AVAILABLE_EXPLANATION).not.toContain("—");
+    expect(RELOAD_ACTION_LABEL).toBe("Reload");
+  });
+
+  it("a manual refresh re-checks for the update before the scope guard, so every scope gets it", () => {
+    const body =
+      /async function refresh\([^)]*\): Promise<void> \{([\s\S]*?)\n  \}/.exec(chip)?.[1] ?? "";
+    expect(body).toContain("updated.check()");
+    expect(body.indexOf("updated.check()")).toBeLessThan(
+      body.indexOf("if (!readsAggregate) return;"),
+    );
+  });
+
+  it("signals on the always-visible chip, not only inside the panel", () => {
+    const trigger = /<Popover\.Trigger[\s\S]*?<\/Popover\.Trigger>/.exec(chip)?.[0] ?? "";
+    expect(trigger).toContain("{#if updateAvailable}");
   });
 });
 

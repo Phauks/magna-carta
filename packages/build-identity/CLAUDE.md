@@ -2,10 +2,13 @@
 
 **Purpose.** The build identity every deployed Worker knows about itself — the git commit it was
 built from, that commit's time, and the build time — plus the tiny `GET /__version` route each
-dedicated Worker exposes over its service binding so the app Worker's aggregate version endpoint
-(`GET /api/v1/meta/versions`) can ask what is actually running. The web app does not use this
-package: its identity is baked in by vite define (`apps/web/vite.config.ts` →
-`apps/web/src/lib/build-identity.ts`).
+dedicated Worker exposes so the app Worker's aggregate version endpoint
+(`GET /api/v1/meta/versions`) can ask what is actually running. The web app does not use the
+package's runtime exports: its identity is baked in by vite define (`apps/web/vite.config.ts` →
+`apps/web/src/lib/build-identity.ts`), but that define, the SPA's static `/__version` asset
+(`apps/web/scripts/emit-version-asset.mjs` — the assets-only `magna-carta-web` Worker's version
+answer), and the SvelteKit version-poll name (`apps/web/svelte.config.js`) all resolve the commit
+through this package's `scripts/commit-identity.mjs`, the one shared resolution.
 
 ## Key files
 
@@ -14,6 +17,10 @@ package: its identity is baked in by vite define (`apps/web/vite.config.ts` →
   `wrangler deploy` that follows bundles the real commit. Never commit a stamped copy.
 - `src/build-identity.ts` — the `BuildIdentity` type and the resolved `BUILD_IDENTITY`.
 - `src/version-route.ts` — `VERSION_ROUTE_PATH`, `isVersionRequest`, `versionResponse`.
+- `scripts/commit-identity.mjs` — the shared "which commit is this build from" resolution (git
+  first, the build runner's commit variable second), used by the stamp below, the web app's vite
+  define, its static version asset, and its version-poll name. Its hand-written declaration
+  (`commit-identity.d.mts`) must be kept in step.
 - `scripts/generate-build-identity.mjs` — the stamping step, prepended to every Worker package's
   `build` script. Writes only under CI (`CI`/`WORKERS_CI`) or `--force`, so a local build never
   dirties the tree with an identity that would go stale.
@@ -26,9 +33,15 @@ package: its identity is baked in by vite define (`apps/web/vite.config.ts` →
   (`WORKERS_CI_COMMIT_SHA`, `GITHUB_SHA`) for a runner whose tree git cannot answer for. The second
   is the checkout system stating what it checked out, not an inference — and it abbreviates to its
   own length, which is why the overlay compares commits by prefix rather than by equality.
-- **The version route is service-binding-only surface.** No sibling Worker is publicly routable;
-  the route carries no auth because the binding is the trust boundary. Do not mount it on a
-  publicly routed Worker without adding a guard.
+- **The version route carries no auth; what that means depends on where it is mounted.** On the
+  internal siblings the service binding is the trust boundary. Two publicly routable Workers mount
+  it deliberately: `magna-carta-status` (the public status page) and `magna-carta-edit` (the
+  browser loads the editor from it). Both answer a build commit and two timestamps — the same
+  identity the web app already shows signed-out visitors on the sign-in screen's chip — so the
+  disclosure is nothing new; a Worker whose identity would say more than that still needs a guard
+  before mounting it publicly. The assets-only `magna-carta-web` cannot mount a route at all: its
+  answer is the static `/__version` file the SPA build emits — the same file that answers on the
+  app's own address, since that Worker serves the interface there.
 - **A Worker only reports a version if it was built with the version route in it.** A sibling
   deployed from a commit that predates `src/version-route.ts` answers 404 on `/__version`, which
   the aggregate reads as `unreported` and the overlay renders as "Not reporting" — an honest

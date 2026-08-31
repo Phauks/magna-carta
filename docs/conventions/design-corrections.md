@@ -114,6 +114,14 @@ is usually the fastest way to understand the rule.
 - **A resend action uses the countdown-button pattern:** the timer starts at the first send, the
   remaining time is visible, and the control is disabled until it expires. Never a bare "Resend"
   that silently rate-limits. _(auth flow, 2026-08-07)_
+- **What acts like a link looks like a link.** A text affordance that navigates or loads content
+  when activated wears the standard hyperlink register (the app's link color, underline, pointer),
+  even where containment demands it be a button under the hood — the safe viewer's outbound
+  addresses load in its own viewport and are buttons, and they still read as links. _(safe website
+  viewer, 2026-08-31)_
+- **A toggle's active side is unmistakable at a glance.** A segmented or two-state control shows
+  which side is selected through fill/register, not only a subtle border. _(safe website viewer
+  Static/Live toggle, 2026-08-31)_
 - **An advance control validates before it enables.** Where the next step cannot succeed without a
   well-formed input, the control is disabled and an inline hint says what is wrong. Do not let the
   user press it and receive a server error that was predictable on the client. _(auth flow,
@@ -123,6 +131,14 @@ is usually the fastest way to understand the rule.
 - **A capability the backend does not serve yet still renders**, disabled, with the "Soon" badge and
   one honest line naming what it waits on. This is the standing rule from
   [`ui-design.md`](ui-design.md); it is repeated here because it is the one most often skipped.
+- **A result region is furniture, not a reward.** The structure that will hold results (a frame, a
+  panel set, tabs) renders at rest, empty and calm, so arriving data fills a shape the reader
+  already has and population is never a surprise. The list-screen "table holds the vertical space"
+  ruling is the same judgment. _(safe website viewer, 2026-08-31)_
+- **Retry a transient upstream fault yourself, visibly.** Where a backing service faults
+  transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
+  number of times before reporting failure, and shows each attempt as it happens; the member is
+  never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
 - **A page's primary query control sits at the reading edge, not in the masthead's far-right
   actions slot.** Left-aligned below the masthead, where the eye starts; the far right is for
   secondary actions. Results render below it, so nothing about the control reflows when they
@@ -258,6 +274,51 @@ Follow-ups from the same round, all from the owner:
 - **The network speed test is not retrofitted.** Its run controls stay in the masthead where they
   are; the reading-edge rule above binds new and reworked surfaces, not a shipped page nobody is
   changing.
+
+A third round the same day, issued against both pages on the deployed site. The generalizable
+parts (the always-rendered result structure; visible bounded retries) are promoted above. Local to
+the Safe Website Viewer: the URL entry moves into the shell's own address bar (one entry, "Load
+Website"), with the landed URL as a secondary row when it differs; back/forward/refresh navigate a
+client-side capture history; outbound links load in the viewer as new captures (buttons, never
+anchors); the URL is click-to-copy; a Static/Live view toggle renders with Live seamed behind the
+Soon affordance until interactive remote browsing exists; tab panels are boxed structures.
+
+A fourth round the same day, against the viewer's shell-and-tabs build. Generalizable parts (link
+formatting; the unmistakable toggle) promoted above. Local: the landed-URL row gets its own copy
+control; the screenshot gains Download Image and a full-screen overlay; shell and tabs compose as
+one unified frame rather than two cards; the loading viewport says what is happening (the URL
+being captured, elapsed seconds, one honest status line — no fabricated server stages); a new
+Overview tab leads the right side with facts already in hand (final status, content type, server,
+redirect and link counts, captured-at, duration, the different-site flag) plus a Registration tab
+that runs the WHOIS lookup in place for the captured host through the shared lookup seam — the
+owner does not want a redirect to the WHOIS page; the information comes to the viewer. Facts that
+would need new backend probes (resolved IP, TLS certificate details, hosting provider) are
+recorded as wanted, not faked.
+
+A fifth round the same day, from the owner's first real captures (YouTube shot mid-load, first
+viewport only; the Registration lookup failed instantly). Mostly engineering, recorded here
+because the corrections were issued in review: the renderer now waits for the page to finish
+(networkidle plus a settle beat) and captures the FULL page; a WHOIS query for a hostname walks up
+to the registrable domain that actually answers (www.youtube.com is a registry 404, youtube.com is
+the record the member meant); the capture streams real stage lines (probing, then the settled
+redirect chain while the render continues) so the loading viewport narrates facts rather than a
+generic spinner-plus-elapsed. Screen-local: the tab strip matches the address bar's height so the
+unified frame's top band is one continuous bar; the Different Site indicator lives ONLY on the
+right side (the landed URL, its badge, and its copy control move into the Overview tab — the left
+chrome stays clean); the Soon marker leaves the chrome entirely, surviving only on the Live
+control's hover and accessible description; and the WHOIS page renders its result frame at rest
+per the furniture rule.
+
+A sixth round the same day. The "That address cannot be viewed" failures for youtube.com, google
+and 8.8.8.8 were one defect wearing three names: the interface and the API deploy as separate
+Workers since this morning, so the fresh page called the streaming route on an older API, the 404
+fell through problem guidance's default input case, and the member's address was blamed for deploy
+skew. Now: a 404 from our own API reads as "the service is mid-update", never an input fault; the
+staged capture falls back to the non-streaming route when the streaming one is not deployed (the
+member loses the narration, not the capture); and a bare single label ("google") is refused at the
+field with the inline hint rather than spent on a round trip. Screen-local: the export menu's
+format rows carry the same file symbols the file manager uses for those types, and Static/Live
+join into one segmented control whose halves touch.
 
 ### 2026-08-30 — the matters screens, second round
 

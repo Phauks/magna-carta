@@ -14,9 +14,16 @@ routes requests through the chokepoint into those packages.
 
 ## Key files / entry points
 
-- `src/index.ts` — the `ExportedHandler`: `fetch` (the Hono app), `scheduled` (Cron → sweep router), and
-  `queue` (routes each batch by `batch.queue` name to its consumer). Also re-exports every Durable Object
-  class so the runtime can instantiate the classes named in `wrangler.jsonc`.
+- `src/index.ts` — the `ExportedHandler`, kept THIN on purpose: it re-exports every Durable Object
+  class (the one thing that must be synchronous at startup) and reaches everything else through one
+  dynamic import of `src/event-dispatch.ts`. Deploys are validated against a startup CPU budget
+  (error 10021) that the entrypoint's static module graph spends; this Worker crossed it on
+  2026-08-31. Never add a static import to `index.ts` — see `docs/conventions/build-performance.md`
+  (_A Worker entrypoint spends a validated startup budget_).
+- `src/event-dispatch.ts` — what the Worker does when an event arrives: `resolveApp()` (the Hono app,
+  built lazily on the first request), `runScheduledPass` (Cron → sweep router), and `routeQueueBatch`
+  (routes each batch by `batch.queue` name to its consumer). A new consumer, sweep, or route joins
+  this module's graph.
 - `src/app.ts` — `createApp()` + the `Bindings` env shape (the no-barrel single home for the env type).
   Builds the chokepoint once over the real ports and registers every route through it.
 - `src/chokepoint/` — the ordered enforcement middleware + its ports; `defineOpenAPIRoute` carries each
@@ -117,15 +124,22 @@ which is the asymmetry `@magna-carta/notifications` exists to prevent — it wan
   fails any new write path that omits them; a genuine exception carries an inline
   `fitness:allow-no-dimensions` marker with its reason. Objects that predate the stamp are repaired by
   `files/dimension-backfill-sweep.ts` on the daily storage pass.
-- **A new top-level path family is also a `wrangler.jsonc` change.** Workers Static Assets routes
-  asset-server-FIRST: every path `assets.run_worker_first` does not name is looked for among the SPA's
-  files, and on a miss the `single-page-application` not-found handling answers `/index.html` with a 200. A route registered outside the named families therefore does not 404 — it answers the app shell
-  with a success status and the handler never runs. So `run_worker_first` lists every family this
-  Worker serves (`/api/*`, `/wopi/*`, `/search-objects/*`, `/__dev/*`), not just the API, and adding a
-  fifth means adding a line there in the same commit. `test/worker-first-routing-scan.test.ts` reads
-  the array against the app's live Hono dispatch table and fails when they disagree — the local test
-  pool cannot catch it any other way, because `SELF.fetch` reaches the Worker without crossing the
-  asset server.
+- **A new top-level path family is a `wrangler.jsonc` change AND a zone-route operator step.** Two
+  mechanisms route around this Worker's handlers, and both fail the same way — the caller gets the
+  SPA shell with a 200 and the handler never runs. In production, the app's hostname is split by
+  **route patterns on the zone** (since 2026-08-31): `magna-carta-web` serves every path except the
+  families routed here, so a family with no zone route never reaches this Worker at all — adding
+  the route is an operator step ([`docs/conventions/operations.md`](../../docs/conventions/operations.md)).
+  Locally and on this Worker's own URL, Workers Static Assets routes asset-server-FIRST: every path
+  `assets.run_worker_first` does not name is looked for among the SPA's files, and a miss answers
+  `/index.html` with a 200. So `run_worker_first` lists every family this Worker serves (`/api/*`,
+  `/wopi/*`, `/search-objects/*`, `/__dev/*`) and doubles as the in-repository mirror of the zone's
+  route list — adding a fifth family means a line there in the same commit plus the zone route.
+  `test/worker-first-routing-scan.test.ts` reads the array against the app's live Hono dispatch
+  table and fails when they disagree — the local test pool cannot catch it any other way, because
+  `SELF.fetch` reaches the Worker without crossing the asset server. The `assets` block itself is
+  the local-dev vehicle and rollback fallback, not how the deployed site serves the interface; the
+  note on it in `wrangler.jsonc` says what must exist before anyone removes it.
 - **Bulk bytes never buffer in the Worker.** Streaming only: R2 bodies flow straight through `client-zip`
   and out; an archive of unknown length is written to R2 as a **multipart** upload, never a single
   length-bound `put`.

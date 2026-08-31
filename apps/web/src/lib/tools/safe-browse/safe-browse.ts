@@ -87,6 +87,10 @@ export function normalizeTarget(input: string): string | null {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
   if (parsed.hostname === "") return null;
+  // A single bare label ("google") is not a website address: it parses as a URL but names no
+  // public host, so it would only cost a round trip to be refused. A dot (domains, IPv4) or a
+  // colon (bracketed IPv6) is the shape of something the capture can actually visit.
+  if (!parsed.hostname.includes(".") && !parsed.hostname.includes(":")) return null;
   return parsed.href;
 }
 
@@ -127,6 +131,17 @@ export function sortedHeaders(headers: Record<string, string>): [string, string]
  * other server fault carries an Error ID for the member to quote.
  */
 export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
+  // A 404 from our own API is never about the member's input: the page and the service are on
+  // different versions (they deploy as separate Workers), which reads as "address cannot be
+  // viewed" if it falls through to the input case — the exact misdiagnosis this branch prevents.
+  if (problem.status === 404) {
+    return {
+      tone: "warning",
+      title: "The service is mid-update",
+      message:
+        "The page and the capture service appear to be on different versions, which usually means an update is still rolling out. Refresh the page, then try again.",
+    };
+  }
   if (problem.status === 502) {
     return {
       tone: "warning",
@@ -185,6 +200,83 @@ async function readProblem(response: Response): Promise<SafeBrowseProblem> {
   } catch {
     return { status: response.status };
   }
+}
+
+const SAFE_BROWSE_STREAM_ENDPOINT = "/api/v1/safe-browse/stream";
+
+/**
+ * Progress the streaming capture reports while it runs. The worker's probe and renderer run in
+ * parallel, so this is not a pipeline: "probing" arrives when both are dispatched, and "probed"
+ * arrives when the redirect probe settles — usually well before the renderer, which is the point:
+ * the page can say where the link really leads while the screenshot is still being rendered.
+ * Mirrors CaptureStage in packages/safe-browse (the same mirroring note as SafeWebsiteView above).
+ */
+export type CaptureProgress =
+  | { stage: "probing" }
+  | { stage: "probed"; redirectCount: number; finalUrl: string };
+
+/**
+ * Capture with live progress: POSTs the streaming endpoint and reads its newline-delimited JSON
+ * lines, invoking `onProgress` for each stage line and resolving on the terminal line
+ * ({stage:"complete",view} or {stage:"failed",problem}). Pre-stream refusals (the SSRF 400, 401,
+ * 403, 429) arrive as ordinary problem documents before anything streams. Never throws: a thrown
+ * fetch, an unreadable stream, or a stream that ends without a terminal line reports `transport`.
+ */
+export async function viewSafelyStaged(
+  url: string,
+  onProgress: (progress: CaptureProgress) => void,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SafeBrowseOutcome> {
+  let response: Response;
+  try {
+    response = await fetchImpl(SAFE_BROWSE_STREAM_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/x-ndjson" },
+      body: JSON.stringify({ url }),
+    });
+  } catch {
+    return { kind: "transport" };
+  }
+
+  if (!response.ok) {
+    // A 404 means the API behind this page is an older build without the streaming route (the
+    // page and the service deploy as separate Workers). The non-streaming capture has existed
+    // since the tool shipped, so fall back to it rather than failing on deploy skew — the member
+    // loses the narration, not the capture.
+    if (response.status === 404) return viewSafely(url, fetchImpl);
+    return { kind: "problem", problem: await readProblem(response) };
+  }
+  if (response.body === null) return { kind: "transport" };
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (value !== undefined) buffered += decoder.decode(value, { stream: true });
+      // Process every complete line; a terminal line resolves the capture.
+      for (;;) {
+        const newline = buffered.indexOf("\n");
+        if (newline === -1) break;
+        const line = buffered.slice(0, newline).trim();
+        buffered = buffered.slice(newline + 1);
+        if (line === "") continue;
+        const parsed = JSON.parse(line) as
+          | CaptureProgress
+          | { stage: "complete"; view: SafeWebsiteView }
+          | { stage: "failed"; problem: SafeBrowseProblem };
+        if (parsed.stage === "complete") return { kind: "view", view: parsed.view };
+        if (parsed.stage === "failed") return { kind: "problem", problem: parsed.problem };
+        onProgress(parsed);
+      }
+      if (done) break;
+    }
+  } catch {
+    return { kind: "transport" };
+  }
+  // The stream ended without a terminal line — the capture died mid-flight.
+  return { kind: "transport" };
 }
 
 /**

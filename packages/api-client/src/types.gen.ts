@@ -68,7 +68,7 @@ export type MetaVersionsResponse = {
 
 export type ServiceVersion = {
     id: string;
-    label: string;
+    service: string;
     state: 'reported' | 'unbound' | 'unreachable' | 'unreported';
     commit: string | null;
     commitTime: string | null;
@@ -133,8 +133,10 @@ export type FirmUsageResponse = {
             status: 'active' | 'closed';
             matters: number;
             members: number;
+            custodyItems: number;
         }>;
         mattersWithoutLocation: number;
+        custodyItemsOffsite: number;
     };
     directory: {
         people: number;
@@ -6618,7 +6620,9 @@ export type MeGetResponse = MeGetResponses[keyof MeGetResponses];
 export type MetaVersionsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        fresh?: 'true';
+    };
     url: '/api/v1/meta/versions';
 };
 
@@ -6848,6 +6852,45 @@ export type SafeBrowsePostResponses = {
 };
 
 export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
+
+export type SafeBrowseStreamData = {
+    body: {
+        url: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/stream';
+};
+
+export type SafeBrowseStreamErrors = {
+    /**
+     * The target URL resolves to a non-public address (SSRF guard rejected it)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseStreamError = SafeBrowseStreamErrors[keyof SafeBrowseStreamErrors];
+
+export type SafeBrowseStreamResponses = {
+    /**
+     * Newline-delimited JSON capture stages, ending with a complete or failed terminal line
+     */
+    200: string;
+};
+
+export type SafeBrowseStreamResponse = SafeBrowseStreamResponses[keyof SafeBrowseStreamResponses];
 
 export type DecryptionInspectData = {
     body: {

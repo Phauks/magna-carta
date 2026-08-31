@@ -1,3 +1,4 @@
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import {
   mergeSnapshot,
   parseAuthored,
@@ -85,6 +86,17 @@ export default {
     }
     try {
       const url = new URL(request.url);
+      // The build-identity read the app worker's aggregate version endpoint probes over
+      // STATUS_SERVICE. This worker is publicly routable, so the answer — a build commit and two
+      // timestamps — is readable by anyone; that is the same disclosure the page itself makes by
+      // existing (a public status page's build identity is operational, not privileged), and the
+      // web app already shows its own commit to signed-out visitors. Never cached: a version read
+      // pinned at the edge would misreport a fresh deploy for as long as the cache held it.
+      if (isVersionRequest(request)) {
+        const response = versionResponse();
+        response.headers.set("cache-control", NEVER_CACHE);
+        return response;
+      }
       const now = new Date().toISOString();
       if (url.pathname === "/api/status.json") {
         return Response.json(await publicSnapshot(env, now), {

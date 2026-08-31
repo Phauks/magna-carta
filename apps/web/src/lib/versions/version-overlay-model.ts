@@ -1,8 +1,8 @@
 /*
  * The version overlay's pure model: the wire shape of GET /api/v1/meta/versions (hand-written,
  * mirroring apps/api-worker/openapi/openapi.json, like every surface's shapes — see
- * $lib/api/request.ts), and the small decisions the panel renders — when two builds count as
- * skewed, what each honest non-answer is called and what it actually means, how a cached
+ * $lib/api/request.ts), and the small decisions the panel renders — what each honest non-answer
+ * is called and what it actually means, how a cached
  * observation states its age, the one-line identifier a copy click puts on the clipboard, and the
  * deployed unit each row is reporting on (the Cloudflare Worker someone would open to act on it).
  * Kept free of Svelte and of the vite define constants so the node-pool tests exercise every rule
@@ -40,7 +40,8 @@ export const SIGNED_OUT_ESTATE_NOTICE =
 
 export interface ServiceVersionRow {
   id: string;
-  label: string;
+  /** The Cloudflare Worker the row reports on — the name someone would open in the dashboard. */
+  service: string;
   state: ServiceVersionState;
   commit: string | null;
   commitTime: string | null;
@@ -69,35 +70,17 @@ export function versionChipLabel(commit: string): string {
   return isRealCommit(commit) ? commit : "dev";
 }
 
-/**
- * The shortest abbreviation two commit stamps must agree on before they are read as the same
- * commit. Git's own rule: one abbreviation of a hash is a prefix of any longer one, and seven hex
- * characters is the floor below which a shared prefix stops meaning anything.
+/*
+ * DELIBERATELY ABSENT: a page-versus-API "different builds" warning. The panel carried one while
+ * the bundle shipped inside the API Worker, when a difference meant this tab predated the one
+ * deployment there was. Since the interface moved onto its own Worker (magna-carta-web, serving
+ * the app's address by route pattern), the page and the API deploy separately and their commits
+ * differ whenever one has shipped more recently than the other — a normal state, not an anomaly,
+ * and a standing warning about a normal state teaches people to ignore warnings. The reload signal
+ * is the version poll (UPDATE_AVAILABLE_EXPLANATION below), which compares this tab against the
+ * deployment that actually serves it. The rows still show every commit; the reader who needs the
+ * comparison has it, without an alarm attached.
  */
-const SHORTEST_COMPARABLE_COMMIT_LENGTH = 7;
-
-/**
- * Whether two real commit stamps name the same commit. They are compared by prefix rather than by
- * equality because the two sides abbreviate independently: the web app's stamp comes from git in
- * its own build, and a Worker built where git was unavailable stamps itself from the build
- * runner's commit variable instead. Same commit, possibly different number of characters, and an
- * equality test would call that a skew and raise a warning about a deployment that is in step.
- */
-function commitsAgree(left: string, right: string): boolean {
-  const shorter = left.length <= right.length ? left : right;
-  const longer = left.length <= right.length ? right : left;
-  if (shorter.length < SHORTEST_COMPARABLE_COMMIT_LENGTH) return false;
-  return longer.toLowerCase().startsWith(shorter.toLowerCase());
-}
-
-/**
- * Whether the web app and the API are visibly running different builds. Only two REAL commits can
- * disagree: a dev placeholder on either side says "no identity", not "a different identity", and
- * claiming a skew from it would be a false alarm on every local run.
- */
-export function buildsDiffer(webCommit: string, apiCommit: string | null): boolean {
-  return isRealCommit(webCommit) && isRealCommit(apiCommit) && !commitsAgree(webCommit, apiCommit);
-}
 
 /** The honest label for a service that could not report a version. Reported rows carry none. */
 export function serviceStateLabel(state: ServiceVersionState): string | null {
@@ -147,10 +130,10 @@ function ageInWords(ageMilliseconds: number): string {
 
 /**
  * How old the service observation is, in words — or null while it is fresh enough that an age
- * line would be noise. The API caches the aggregate briefly, so an open panel can be reading an
- * observation up to a minute old; past ten seconds the panel says so instead of implying "now".
- * A manual re-ask that lands inside that cache window gets the same observation back, and this
- * line is what keeps that honest: the age goes on climbing rather than resetting to "now".
+ * line would be noise. The API caches the aggregate briefly, so a panel opened inside that window
+ * can be reading an observation up to a minute old; past ten seconds the panel says so instead of
+ * implying "now". A manual Refresh asks for a fresh probe (fresh=true skips the cache), so its
+ * answer starts this clock over — the line exists for the cached automatic reads.
  */
 export function describeObservationAge(
   observedAtIso: string,
@@ -209,82 +192,62 @@ export function formatVersionTimestamp(iso: string | null): string | null {
 }
 
 /*
- * THE DEPLOYED UNIT EACH ROW REPORTS ON.
- *
- * A row labelled by what a service DOES ("Malware Scan") does not tell a reader which project to
- * open when it says "Not reporting". The identity does, so the identity leads and the description
- * follows it.
- *
- * Every name below is read off something that deploys it, never guessed:
- * - the eight service bindings in apps/api-worker/wrangler.jsonc (`services[].service`), which is
- *   the script name Cloudflare resolves the binding to;
- * - `magna-carta-search`, which docs/conventions/operations.md names as the project that will hold
- *   the search index Worker. It is not a connected project and `SEARCH_SERVICE` is not in the
- *   bindings array, so that row reads "Not deployed" and the name is what will exist, stated as
- *   the target rather than as a running thing.
- *
- * An id with no entry here keeps its description as the row heading rather than borrowing a name
- * from a neighbour: a service added to the API's roster and not to this map is unnamed, not
- * misnamed.
+ * NAMING RULE: every deployment row is headed by the Cloudflare Worker it reports on — the name
+ * someone would open in the dashboard — and by nothing else. The names arrive from the API's own
+ * roster (each row's `service` field), which reads them off the wrangler configs that deploy them,
+ * so this file no longer keeps a map of its own and no row carries an invented product name. The
+ * one row that is not a Worker is the build line: the bundle this browser is running, named for
+ * what it is rather than for the Worker that happened to serve it.
  */
-const DEPLOYED_UNIT_NAMES: Readonly<Record<string, string>> = {
-  scan: "magna-carta-scan",
-  bundle: "magna-carta-bundle",
-  convert: "magna-carta-convert",
-  fileRepair: "magna-carta-file-repair",
-  recovery: "magna-carta-recovery",
-  ocr: "magna-carta-ocr",
-  sign: "magna-carta-sign",
-  discovery: "magna-carta-discovery",
-  search: "magna-carta-search",
-};
-
-/** The Cloudflare Worker a service row reports on, or null when this build has no name for it. */
-export function deployedUnitName(serviceId: string): string | null {
-  return DEPLOYED_UNIT_NAMES[serviceId] ?? null;
-}
 
 /**
- * The Worker that serves both the API and this page. `apps/api-worker/wrangler.jsonc` declares
- * `assets: { directory: "../web/build" }`, so the SPA is bundled into this Worker's deployment
- * rather than deployed beside it.
+ * The Worker that serves the API. It also still bundles a copy of the SPA build as static assets —
+ * the local-dev vehicle (`wrangler dev` serves the whole app from it) and the routing fallback —
+ * but on the deployed site the interface is served by `magna-carta-web` (see the notice below).
  */
 export const API_WORKER_UNIT_NAME = "magna-carta";
 
-/** What the web row reports on: the bundle the browser is running right now. */
-export const WEB_APP_ROW_DESCRIPTION = "Web app bundle this page loaded";
-
-/** What the API row reports on: the Worker that answered the read a moment ago. */
-export const API_ROW_DESCRIPTION = "API Worker answering now";
+/**
+ * The build line's name. The old panel headed this row "magna-carta", which was the Worker that
+ * SERVED the bundle, not the thing the row reports on — the bundle the browser is running right
+ * now, which can outlive the deployment that served it by however long the tab stays open.
+ */
+export const PAGE_BUILD_ROW_NAME = "This page";
 
 /**
- * The architectural fact the two rows above are otherwise silent about, and the one that cost the
- * owner a confused deploy watch: the SPA has its own Workers Builds project (`magna-carta-web`, an
- * assets-only second door to the same files), and that project going green changes nothing about
- * what this site serves. The bytes a visitor gets come from the API Worker's own assets, so they
- * change on the API Worker's deploy and on nothing else.
+ * The topology in one line, where a reader comparing the rows will look for it. The app's address
+ * is split by route pattern: magna-carta-web serves the interface, magna-carta answers the API.
+ * They deploy separately, which is why their commits are allowed to differ without a warning.
  */
-export const WEB_APP_SHIPS_INSIDE_API_NOTICE =
-  "The web app is bundled into the API Worker: a new bundle reaches this site when " +
-  "magna-carta deploys, not when magna-carta-web builds.";
+export const WEB_TOPOLOGY_NOTICE =
+  "This page is served by magna-carta-web and the API answers from magna-carta. The two deploy " +
+  "separately, so their versions can differ.";
 
 /**
- * What a difference between the two commits actually means. It is not two deployables that have
- * drifted apart, because there is only one: the bundle and the Worker ship together. So a
- * difference says the page in this tab and the Worker answering it were served by two different
- * deployments, and a reload is what settles that: it takes whatever the deployment answering now
- * actually serves. The advice is deliberately direction-free, because two commit stamps cannot be
- * put in order.
+ * The deployment list's order: the two Workers that serve the app's address lead — magna-carta
+ * (the API, rendered from the aggregate's own `api` object) and then magna-carta-web (the Worker
+ * this page came from) — and the rest of the fleet sits beneath a separator. The pair is what a
+ * reader comparing against the "This page" line needs first; the fleet below is reference. Keyed
+ * by the wire's own id so a rename of the Worker cannot silently demote it.
  */
-export const BUILD_SKEW_EXPLANATION =
-  "This page and the API answering it come from different deployments of magna-carta. Reload to " +
-  "line the page up with the deployment answering now.";
-
-/** The line under the Services heading when the deployment is wired to no service at all. */
-export const NO_SERVICES_NOTICE = "This deployment is not wired to any backend service.";
-
-/** Joins a row's detail segments, dropping the ones that were not known. */
-export function joinDetailSegments(segments: readonly (string | null)[]): string | null {
-  const present = segments.filter((segment): segment is string => segment !== null);
-  return present.length === 0 ? null : present.join(" · ");
+export function partitionDeploymentRows(services: readonly ServiceVersionRow[]): {
+  front: ServiceVersionRow[];
+  rest: ServiceVersionRow[];
+} {
+  return {
+    front: services.filter((row) => row.id === "web"),
+    rest: services.filter((row) => row.id !== "web"),
+  };
 }
+
+/**
+ * The line the update poller earns, and it has a direction: the app's own version poll saw a
+ * bundle newer than the one this tab loaded, so a reload moves forward.
+ */
+export const UPDATE_AVAILABLE_EXPLANATION = "A newer deployment is live. Reload to pick it up.";
+
+/** The Reload control's one label. */
+export const RELOAD_ACTION_LABEL = "Reload";
+
+/** The line under the Deployment heading when the read reports no sibling worker at all. */
+export const NO_SERVICES_NOTICE = "This deployment reports no sibling worker.";

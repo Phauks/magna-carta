@@ -255,7 +255,7 @@
           "id": {
             "type": "string"
           },
-          "label": {
+          "service": {
             "type": "string"
           },
           "state": {
@@ -288,7 +288,7 @@
         },
         "required": [
           "id",
-          "label",
+          "service",
           "state",
           "commit",
           "commitTime",
@@ -527,23 +527,31 @@
                     },
                     "members": {
                       "type": "number"
+                    },
+                    "custodyItems": {
+                      "type": "number"
                     }
                   },
                   "required": [
                     "name",
                     "status",
                     "matters",
-                    "members"
+                    "members",
+                    "custodyItems"
                   ]
                 }
               },
               "mattersWithoutLocation": {
                 "type": "number"
+              },
+              "custodyItemsOffsite": {
+                "type": "number"
               }
             },
             "required": [
               "rows",
-              "mattersWithoutLocation"
+              "mattersWithoutLocation",
+              "custodyItemsOffsite"
             ]
           },
           "directory": {
@@ -28354,7 +28362,7 @@
     },
     "/api/v1/meta/versions": {
       "get": {
-        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for each dedicated service worker it is bound to. A service that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.",
+        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.",
         "operationId": "meta.versions",
         "tags": [
           "meta"
@@ -28372,6 +28380,19 @@
           "meta"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "fresh",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The deployment's build identities",
@@ -28837,6 +28858,100 @@
           },
           "502": {
             "description": "The remote browser renderer is unavailable or at capacity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/safe-browse/stream": {
+      "post": {
+        "description": "The streaming variant of the safe-browse capture: renders a potentially malicious URL in an isolated remote browser, emitting newline-delimited JSON stage lines while it works ({\"stage\":\"probing\"}, {\"stage\":\"probed\",...}) and ending with a terminal line — {\"stage\":\"complete\",\"view\":...} carrying the same SafeWebsiteView the non-streaming route returns, or {\"stage\":\"failed\",\"problem\":{...}} when the capture fails after the stream began.",
+        "operationId": "safeBrowse.stream",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.stream",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Newline-delimited JSON capture stages, ending with a complete or failed terminal line",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The target URL resolves to a non-public address (SSRF guard rejected it)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
