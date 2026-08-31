@@ -3,14 +3,42 @@ import type { SqlStatement } from "@magna-carta/data-access/idempotency-statemen
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryEmailId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
+import {
+  CONTACT_FIELD_SELECT,
+  contactPointStateFromRow,
+  resolveContactFields,
+  type ContactPointState,
+  type ContactPreferenceInput,
+  type ContactVerificationInput,
+  type StoredContactFields,
+} from "./contact-preference.ts";
 import { assertEntityExists, nodeTableForEntityId } from "./entity-kind.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
 import {
+  demoteEntityPreferredContactStatements,
   demoteEntityPrimaryEmailsStatement,
   insertEmailStatement,
   softDeleteEmailStatement,
   updateEmailStatement,
 } from "./statements.ts";
+import { CONTACT_USES, type ContactUse } from "./types.ts";
+
+// Thrown when a use outside the catalog is supplied. directory_email.contact_use carries no closed
+// CHECK — a committed migration is immutable, so a closed IN (...) would turn a catalog addition into
+// a migration against every firm — so this is where the catalog is actually enforced.
+export class InvalidEmailUseError extends Error {
+  readonly code = "invalid-email-use";
+  constructor(contactUse: string) {
+    super(`directory: not a known email use: ${JSON.stringify(contactUse)} (invalid-email-use)`);
+    this.name = "InvalidEmailUseError";
+  }
+}
+
+function assertContactUse(contactUse: ContactUse | null): void {
+  if (contactUse !== null && !CONTACT_USES.includes(contactUse)) {
+    throw new InvalidEmailUseError(contactUse);
+  }
+}
 
 // Thrown when an address is empty or has no local@domain shape. Contact addresses are captured from
 // real correspondence, so the check is deliberately permissive — exactly one '@' with a non-empty part
@@ -62,9 +90,13 @@ function prepareAddress(address: string): { stored: string; normalized: string }
 export interface AddEmailInput {
   readonly entityId: string;
   readonly address: string;
+  /** The legacy free-text label. Retained for the capture path; contactUse is what a screen writes. */
   readonly label?: string | null;
+  readonly contactUse?: ContactUse | null;
   // Make this the entity's primary email; any existing primary is demoted in the same batch.
   readonly isPrimary?: boolean;
+  readonly preference?: ContactPreferenceInput;
+  readonly verification?: ContactVerificationInput;
 }
 
 // Attach an email address to a directory entity within an atomic batch that also writes the domain
@@ -77,24 +109,34 @@ export async function addEmail(
 ): Promise<DirectoryEmailId> {
   await assertEntityExists(database, input.entityId);
   const { stored, normalized } = prepareAddress(input.address);
+  const contactUse = input.contactUse ?? null;
+  assertContactUse(contactUse);
 
   const emailId = newIdentifier("directoryEmail", options.randomSource);
   const now = options.clock.now();
   const isPrimary: 0 | 1 = input.isPrimary ? 1 : 0;
+  const contactFields = resolveContactFields(input, null, options, now);
 
   const statements: SqlStatement[] = [];
   if (isPrimary === 1) {
     statements.push(demoteEntityPrimaryEmailsStatement(database, input.entityId, now));
+  }
+  // The preferred contact point is one answer about every channel, so promoting this address demotes
+  // whatever was preferred in ANY of the three contact tables.
+  if (contactFields.contactPreferred === 1) {
+    statements.push(...demoteEntityPreferredContactStatements(database, input.entityId, now));
   }
   statements.push(
     insertEmailStatement(database, {
       id: emailId,
       entityId: input.entityId,
       label: input.label ?? null,
+      contactUse,
       address: stored,
       normalizedAddress: normalized,
       isPrimary,
       createdAt: now,
+      ...contactFields,
     }),
     directoryAuditStatement(database, options, "directory.email.added", emailId),
   );
@@ -109,23 +151,24 @@ export async function addEmail(
   }));
 }
 
-interface EmailRow {
+interface EmailRow extends StoredContactFields {
   readonly id: DirectoryEmailId;
   readonly entity_id: string;
   readonly label: string | null;
+  readonly contact_use: string | null;
   readonly address: string;
   readonly is_primary: number;
   readonly deleted_at: string | null;
 }
+
+const EMAIL_SELECT = `id, entity_id, label, contact_use, address, is_primary, ${CONTACT_FIELD_SELECT}`;
 
 async function readLiveEmailRow(
   database: BatchDatabase,
   emailId: string,
 ): Promise<EmailRow | null> {
   const { results } = await database
-    .prepare(
-      `SELECT id, entity_id, label, address, is_primary, deleted_at FROM directory_email WHERE id = ?1`,
-    )
+    .prepare(`SELECT ${EMAIL_SELECT}, deleted_at FROM directory_email WHERE id = ?1`)
     .bind(emailId)
     .all<EmailRow>();
   const row = results[0];
@@ -139,7 +182,10 @@ export interface UpdateEmailInput {
   // current values re-bound, so the SQL column list never varies).
   readonly address?: string;
   readonly label?: string | null;
+  readonly contactUse?: ContactUse | null;
   readonly isPrimary?: boolean;
+  readonly preference?: ContactPreferenceInput;
+  readonly verification?: ContactVerificationInput;
 }
 
 // Update a live email's fields within an atomic batch. Reads the current row first (D1 has no
@@ -158,21 +204,35 @@ export async function updateEmail(
       ? { stored: current.address, normalized: normalizeEmailAddress(current.address) }
       : prepareAddress(input.address);
   const label = input.label === undefined ? current.label : input.label;
+  const contactUse =
+    input.contactUse === undefined ? (current.contact_use as ContactUse | null) : input.contactUse;
+  assertContactUse(contactUse);
   const isPrimary: 0 | 1 =
     input.isPrimary === undefined ? (current.is_primary === 1 ? 1 : 0) : input.isPrimary ? 1 : 0;
 
   const now = options.clock.now();
   const emailId = current.id;
+  const contactFields = resolveContactFields(input, current, options, now);
   const statements: SqlStatement[] = [];
   // Demote siblings only when this row is becoming primary and was not already the primary.
   if (isPrimary === 1 && current.is_primary !== 1) {
     statements.push(demoteEntityPrimaryEmailsStatement(database, current.entity_id, now));
   }
+  if (contactFields.contactPreferred === 1 && current.contact_preferred !== 1) {
+    statements.push(...demoteEntityPreferredContactStatements(database, current.entity_id, now));
+  }
   statements.push(
     updateEmailStatement(
       database,
       emailId,
-      { label, address: prepared.stored, normalizedAddress: prepared.normalized, isPrimary },
+      {
+        label,
+        contactUse,
+        address: prepared.stored,
+        normalizedAddress: prepared.normalized,
+        isPrimary,
+        ...contactFields,
+      },
       now,
     ),
     directoryAuditStatement(database, options, "directory.email.updated", emailId),
@@ -215,9 +275,12 @@ export async function removeEmail(
 export interface DirectoryEmailRow {
   readonly id: DirectoryEmailId;
   readonly entityId: string;
-  readonly label: string | null;
   readonly address: string;
+  readonly contactUse: ContactUse | null;
   readonly isPrimary: boolean;
+  readonly state: ContactPointState;
+  /** The legacy free-text label, retained read-only until it is dropped. */
+  readonly label: string | null;
 }
 
 // The live email rows on an entity, primary first, then oldest first for a stable read.
@@ -227,22 +290,18 @@ export async function readEmails(
 ): Promise<DirectoryEmailRow[]> {
   const { results } = await database
     .prepare(
-      `SELECT id, entity_id, label, address, is_primary FROM directory_email WHERE entity_id = ?1 AND deleted_at IS NULL ORDER BY is_primary DESC, created_at ASC, id ASC`,
+      `SELECT ${EMAIL_SELECT} FROM directory_email WHERE entity_id = ?1 AND deleted_at IS NULL ORDER BY is_primary DESC, created_at ASC, id ASC`,
     )
     .bind(entityId)
-    .all<{
-      id: DirectoryEmailId;
-      entity_id: string;
-      label: string | null;
-      address: string;
-      is_primary: number;
-    }>();
+    .all<EmailRow>();
   return results.map((row) => ({
     id: row.id,
     entityId: row.entity_id,
-    label: row.label,
     address: row.address,
+    contactUse: row.contact_use as ContactUse | null,
     isPrimary: row.is_primary === 1,
+    state: contactPointStateFromRow(row),
+    label: row.label,
   }));
 }
 

@@ -9,8 +9,9 @@
    * about it.
    *
    * THE RECORD IS NOT EDITABLE, EVER. The conflicts log is append-only at the database, so Edit
-   * renders refused and says why rather than disappearing. Answering the hit is a different act and
-   * it appends a row of its own.
+   * renders refused and says why rather than disappearing, and this window hands the shell no way
+   * to commit a change — which is the other half of the same refusal. Answering the hit is a
+   * different act and it appends a row of its own.
    *
    * A WAIVER'S RECORD IS SHOWN FIELD BY FIELD, AND SO IS WHAT IT IS MISSING. Recording that a waiver
    * was obtained now records who consented, whether the consent was confirmed in writing, the filed
@@ -357,7 +358,6 @@
   })) satisfies RecordWindowTab[]}
   defaultTab="evidence"
   editDisabledReason={EDIT_REFUSAL}
-  onEdit={() => undefined}
   onPrint={() => (printOpen = true)}
 />
 

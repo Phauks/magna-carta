@@ -54,12 +54,17 @@
       "$value": { "value": 480, "unit": "px" }
     },
     "record-window": {
-      "$description": "How wide a record opens before it stops growing. A record is read, not spread out: past this the left pane's lines run longer than the eye tracks comfortably, and the window starts competing with the screen instead of sitting on it. The expanded state deliberately ignores this — that is what expanding is for.",
+      "$description": "How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for.",
       "$type": "dimension",
-      "$value": { "value": 1024, "unit": "px" }
+      "$value": { "value": 1280, "unit": "px" }
+    },
+    "record-pane": {
+      "$description": "How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it.",
+      "$type": "dimension",
+      "$value": { "value": 640, "unit": "px" }
     },
     "record-context": {
-      "$description": "The record window's right pane — the tabs standing beside the record. Fixed rather than proportional: attachments, history and the chain each have a natural comfortable width, and a pane that grew with the screen would stretch them without showing more. The left pane takes whatever is left, so a wider window widens the record itself.",
+      "$description": "How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it.",
       "$type": "dimension",
       "$value": { "value": 400, "unit": "px" }
     }

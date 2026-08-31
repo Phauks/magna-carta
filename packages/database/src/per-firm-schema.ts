@@ -1270,6 +1270,33 @@ export const directoryPerson = sqliteTable(
     // because nothing in the five forms says it: "they" agrees plurally and "xe" singularly, and
     // no rule over the letters tells them apart.
     pronounVerbNumber: text("pronoun_verb_number"), // 'singular' | 'plural'
+    // A DATE OF BIRTH IS A FACT ABOUT A PERSON, NOT AN IDENTIFIER OF ONE, and it is stored here as
+    // an ordinary ISO date rather than as a sealed directory_identifier row. It used to be the
+    // latter, which is why a firm could not record one usefully: the identifier table matches by
+    // exact blind index, a date of birth is too low-entropy to index safely, and so the code
+    // deliberately refused to index it. Every question a firm actually asks of a date of birth is a
+    // RANGE — is this client a minor, has a limitation period tolled, is this person over
+    // sixty-five, whose birthday falls this month — and a range query over ciphertext is not a
+    // query. Filing it as an identifier made it unaskable.
+    //
+    // Held in the clear on the same reasoning as the pronoun columns above it: it is printed in
+    // pleadings, discovery responses and court forms all day, so a permission gate and an audit row
+    // on every document render buys no confidentiality against a member who already has the file
+    // open, and costs enough that the practical result is a firm that stops recording it. It is
+    // registered in the erasure registry (packages/data-access/src/pii-registry.ts) and covered by
+    // the standing redaction default, so erasure reaches it and no log line ever carries it.
+    //
+    // The `dob` identifier type is NOT dropped. Values already sealed under it stay readable
+    // forever; it is closed to new writes.
+    dateOfBirth: text("date_of_birth"), // ISO 8601 date, no time
+    // Wanted by a consumer that already exists: the schema carries decedent_entity_id for an estate
+    // and had nowhere to record when that person died.
+    dateOfDeath: text("date_of_death"), // ISO 8601 date, no time
+    // Separate from the date because "known dead, date unknown" is a state probate work meets
+    // constantly and a nullable date alone cannot express it. The write path holds the implication
+    // that a recorded date of death means deceased; a CHECK cannot be added to a table that already
+    // holds rows without rebuilding it.
+    deceased: integer("deceased").notNull().default(0), // 0/1
     status: text("status").notNull().default("active"), // 'active' | 'merged_into'
     mergedIntoId: text("merged_into_id").$type<DirectoryPersonId>(), // set when status = 'merged_into'
     needsReview: integer("needs_review").notNull().default(0), // 0/1; set by provisional imports awaiting review
@@ -1285,6 +1312,7 @@ export const directoryPerson = sqliteTable(
       .where(sql`${table.memberId} IS NOT NULL`),
     check("directory_person_status_check", sql`${table.status} IN ('active', 'merged_into')`),
     check("directory_person_needs_review_check", sql`${table.needsReview} IN (0, 1)`),
+    check("directory_person_deceased_check", sql`${table.deceased} IN (0, 1)`),
     check(
       "directory_person_pronoun_verb_number_check",
       sql`${table.pronounVerbNumber} IS NULL OR ${table.pronounVerbNumber} IN ('singular', 'plural')`,
@@ -1568,6 +1596,32 @@ export const directoryEmail = sqliteTable(
     // the write path always populates it, so a null only ever means a row predating the write path.
     normalizedAddress: text("normalized_address"),
     isPrimary: integer("is_primary").notNull().default(0), // 0/1
+    contactUse: text("contact_use"), // 'work' | 'home' | 'other' | 'former' | 'temporary'
+    // ── Whether the firm MAY use this contact point, and whether it SHOULD ──
+    // Two different facts, and a single flag cannot hold both. `contact_permitted` is the person's
+    // stated permission: a number they asked the firm never to ring is recorded rather than deleted,
+    // because deleting it loses the instruction along with the value and the next member re-enters it.
+    // `contact_preferred` is the route they asked to be reached by, and the write path keeps at most
+    // one preferred contact point per entity ACROSS email, phone and address — "reach me by post" is
+    // an answer about all three at once, which is why it cannot live in one table's own flag.
+    //
+    // `is_primary` is neither: it is this CHANNEL's default row, the address a message goes to when
+    // the sender named no address. A person may be permitted three numbers, prefer email, and still
+    // have a primary number.
+    //
+    // NOT a Rule 4.2 no-contact flag. A represented party may not be contacted about the subject of
+    // ONE matter, which is a fact about that matter and stays matter-scoped and derived; this column
+    // is the person's own standing preference and applies everywhere.
+    contactPermitted: integer("contact_permitted").notNull().default(1), // 0/1
+    contactPreferred: integer("contact_preferred").notNull().default(0), // 0/1
+    contactNote: text("contact_note"), // why it may not be used, or how it should be
+    // ── Whether the firm has confirmed this is still true ──
+    // 'unverified' (default) | 'verified' | 'failed'. `failed` is returned mail, a bounced message, a
+    // disconnected line. A failure is surfaced to whoever is about to send and NEVER blocks the send.
+    verificationStatus: text("verification_status").notNull().default("unverified"),
+    verifiedAt: text("verified_at"),
+    verifiedBy: text("verified_by").$type<UserId>(),
+    verificationDetail: text("verification_detail"), // what the failure said, in the words it said it
     validFrom: text("valid_from"),
     validTo: text("valid_to"),
     createdAt: text("created_at").notNull(),
@@ -1579,6 +1633,8 @@ export const directoryEmail = sqliteTable(
     index("directory_email_normalized_address_index").on(table.normalizedAddress),
     check("directory_email_address_nonempty_check", sql`length(${table.address}) > 0`),
     check("directory_email_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
+    check("directory_email_contact_permitted_check", sql`${table.contactPermitted} IN (0, 1)`),
+    check("directory_email_contact_preferred_check", sql`${table.contactPreferred} IN (0, 1)`),
   ],
 );
 
@@ -1588,9 +1644,51 @@ export const directoryPhone = sqliteTable(
   {
     id: text("id").primaryKey().$type<DirectoryPhoneId>(), // directoryPhone_ handle
     entityId: text("entity_id").notNull(),
-    label: text("label"), // e.g. 'mobile', 'office', 'fax'
+    label: text("label"), // legacy free text; retained read-only now the typed columns below exist
+    // The number AS ENTERED, never overwritten. A number the parser cannot split is still stored and
+    // still displayed; only the structured columns go null, so an unparseable input is recorded
+    // honestly rather than guessed at or refused.
     number: text("number").notNull(),
+    // What technology answers it ('voice' | 'fax' | 'sms' | 'pager') and in what context
+    // ('work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary'). Two columns because they are
+    // orthogonal: one flat list holding both `fax` and `work` cannot express a work fax.
+    contactSystem: text("contact_system"),
+    contactUse: text("contact_use"),
+    // The number split the way it is dialled. The country calling code and the national number are
+    // separate so a dialler can reach the number from anywhere, and the extension is a third column
+    // because E.164 has no extension concept and one embedded in the canonical string breaks every
+    // downstream dialler. countryRegionCode records the region the number was read against, so a
+    // re-parse is reproducible.
+    countryCallingCode: text("country_calling_code"), // digits only, no leading '+'
+    nationalNumber: text("national_number"), // digits only
+    extension: text("extension"),
+    countryRegionCode: text("country_region_code"), // ISO 3166-1 alpha-2
     isPrimary: integer("is_primary").notNull().default(0), // 0/1
+    // ── Whether the firm MAY use this contact point, and whether it SHOULD ──
+    // Two different facts, and a single flag cannot hold both. `contact_permitted` is the person's
+    // stated permission: a number they asked the firm never to ring is recorded rather than deleted,
+    // because deleting it loses the instruction along with the value and the next member re-enters it.
+    // `contact_preferred` is the route they asked to be reached by, and the write path keeps at most
+    // one preferred contact point per entity ACROSS email, phone and address — "reach me by post" is
+    // an answer about all three at once, which is why it cannot live in one table's own flag.
+    //
+    // `is_primary` is neither: it is this CHANNEL's default row, the address a message goes to when
+    // the sender named no address. A person may be permitted three numbers, prefer email, and still
+    // have a primary number.
+    //
+    // NOT a Rule 4.2 no-contact flag. A represented party may not be contacted about the subject of
+    // ONE matter, which is a fact about that matter and stays matter-scoped and derived; this column
+    // is the person's own standing preference and applies everywhere.
+    contactPermitted: integer("contact_permitted").notNull().default(1), // 0/1
+    contactPreferred: integer("contact_preferred").notNull().default(0), // 0/1
+    contactNote: text("contact_note"), // why it may not be used, or how it should be
+    // ── Whether the firm has confirmed this is still true ──
+    // 'unverified' (default) | 'verified' | 'failed'. `failed` is returned mail, a bounced message, a
+    // disconnected line. A failure is surfaced to whoever is about to send and NEVER blocks the send.
+    verificationStatus: text("verification_status").notNull().default("unverified"),
+    verifiedAt: text("verified_at"),
+    verifiedBy: text("verified_by").$type<UserId>(),
+    verificationDetail: text("verification_detail"), // what the failure said, in the words it said it
     validFrom: text("valid_from"),
     validTo: text("valid_to"),
     createdAt: text("created_at").notNull(),
@@ -1601,6 +1699,15 @@ export const directoryPhone = sqliteTable(
     index("directory_phone_entity_id_index").on(table.entityId),
     check("directory_phone_number_nonempty_check", sql`length(${table.number}) > 0`),
     check("directory_phone_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
+    check("directory_phone_contact_permitted_check", sql`${table.contactPermitted} IN (0, 1)`),
+    check("directory_phone_contact_preferred_check", sql`${table.contactPreferred} IN (0, 1)`),
+    // The dialable form, sought when a number is looked up rather than displayed. Two columns
+    // because the pair IS the canonical number; a third column holding them concatenated would be a
+    // derived value to keep in sync forever.
+    index("directory_phone_national_number_index").on(
+      table.countryCallingCode,
+      table.nationalNumber,
+    ),
   ],
 );
 
@@ -1611,13 +1718,58 @@ export const directoryAddress = sqliteTable(
   {
     id: text("id").primaryKey().$type<DirectoryAddressId>(), // directoryAddress_ handle
     entityId: text("entity_id").notNull(),
-    label: text("label"), // e.g. 'registered', 'postal', 'residential'
-    street: text("street"),
-    city: text("city"),
-    region: text("region"),
-    postal: text("postal"),
-    country: text("country"),
+    label: text("label"), // legacy free text; retained read-only now addressUse/addressType exist
+    // THE FIELD SET IS THE INTERNATIONAL ONE, not the American one. Which fields a country uses,
+    // what they are called and what order they read in all vary — Japan writes the postal code
+    // first, Ireland has no state at all, Brazil has a neighbourhood line — so the columns are named
+    // for their POSITION in a postal address rather than for what one country calls them, following
+    // the address-internationalization field set: recipient, organization, address lines, dependent
+    // locality, locality, administrative area, postal code, sorting code, country. Nothing here
+    // assumes a state and a five-digit ZIP.
+    recipient: text("recipient"), // the addressee line, where it differs from the entity's own name
+    organizationName: text("organization_name"), // the care-of organization line
+    street: text("street"), // first address line
+    streetTwo: text("street_two"), // second address line — a suite or unit had nowhere to go
+    dependentLocality: text("dependent_locality"), // neighbourhood, district, suburb, county
+    city: text("city"), // locality
+    region: text("region"), // administrative area — state, province, prefecture, county
+    postal: text("postal"), // postal code
+    sortingCode: text("sorting_code"), // CEDEX and its equivalents
+    country: text("country"), // ISO 3166-1 alpha-2
+    // Context, and whether the place physically exists. Personal service turns on the second: a post
+    // office box is 'postal' and cannot be served; a registered office is 'physical' and can.
+    addressUse: text("address_use"),
+    addressType: text("address_type"), // 'physical' | 'postal' | 'both'
+    // Lowercased, punctuation-stripped concatenation of the address lines — the duplicate-detection
+    // key, mirroring what normalized_address does for email. Nullable: a row predating the write path
+    // has none, and the write path always populates it.
+    normalizedKey: text("normalized_key"),
     isPrimary: integer("is_primary").notNull().default(0), // 0/1
+    // ── Whether the firm MAY use this contact point, and whether it SHOULD ──
+    // Two different facts, and a single flag cannot hold both. `contact_permitted` is the person's
+    // stated permission: a number they asked the firm never to ring is recorded rather than deleted,
+    // because deleting it loses the instruction along with the value and the next member re-enters it.
+    // `contact_preferred` is the route they asked to be reached by, and the write path keeps at most
+    // one preferred contact point per entity ACROSS email, phone and address — "reach me by post" is
+    // an answer about all three at once, which is why it cannot live in one table's own flag.
+    //
+    // `is_primary` is neither: it is this CHANNEL's default row, the address a message goes to when
+    // the sender named no address. A person may be permitted three numbers, prefer email, and still
+    // have a primary number.
+    //
+    // NOT a Rule 4.2 no-contact flag. A represented party may not be contacted about the subject of
+    // ONE matter, which is a fact about that matter and stays matter-scoped and derived; this column
+    // is the person's own standing preference and applies everywhere.
+    contactPermitted: integer("contact_permitted").notNull().default(1), // 0/1
+    contactPreferred: integer("contact_preferred").notNull().default(0), // 0/1
+    contactNote: text("contact_note"), // why it may not be used, or how it should be
+    // ── Whether the firm has confirmed this is still true ──
+    // 'unverified' (default) | 'verified' | 'failed'. `failed` is returned mail, a bounced message, a
+    // disconnected line. A failure is surfaced to whoever is about to send and NEVER blocks the send.
+    verificationStatus: text("verification_status").notNull().default("unverified"),
+    verifiedAt: text("verified_at"),
+    verifiedBy: text("verified_by").$type<UserId>(),
+    verificationDetail: text("verification_detail"), // what the failure said, in the words it said it
     validFrom: text("valid_from"),
     validTo: text("valid_to"),
     createdAt: text("created_at").notNull(),
@@ -1627,6 +1779,9 @@ export const directoryAddress = sqliteTable(
   (table) => [
     index("directory_address_entity_id_index").on(table.entityId),
     check("directory_address_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
+    check("directory_address_contact_permitted_check", sql`${table.contactPermitted} IN (0, 1)`),
+    check("directory_address_contact_preferred_check", sql`${table.contactPreferred} IN (0, 1)`),
+    index("directory_address_normalized_key_index").on(table.normalizedKey),
   ],
 );
 

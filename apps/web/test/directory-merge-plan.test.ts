@@ -44,6 +44,9 @@ function person(overrides: Partial<DirectoryPersonDetail> = {}): DirectoryEntity
       status: "active",
       mergedIntoId: null,
       pronouns: null,
+      dateOfBirth: null,
+      dateOfDeath: null,
+      deceased: false,
       ...overrides,
     },
   };

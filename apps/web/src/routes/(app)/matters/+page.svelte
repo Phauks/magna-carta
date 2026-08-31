@@ -6,17 +6,17 @@
    * per-column filters, column show/hide, reorder, pinning, resize and the selection model are the
    * same machinery every other matter surface uses. Nothing here is a fixture.
    *
-   * THE BAND ABOVE THE TABLE BELONGS TO THE TABLE. Everything that is not the data is one row of
-   * controls: the primary action, then search and narrowing as icons that open what they need when
-   * they are needed. A labelled dropdown and a labelled search box, each with a sentence under it,
-   * cost three rows of a screen whose subject is a list.
+   * IT SHOWS EVERY MATTER, AND THE TABLE IS THE ONLY THING THAT NARROWS IT. There is no separate
+   * control choosing between the working docket, open matters, closed matters and consultations:
+   * those are values of the Status column, and the column filters this table already carries are
+   * what a reader narrows by. Reading the whole record costs a second request (matters-api's
+   * listEveryMatter says why), which is cheaper than a second narrowing mechanism a reader can
+   * leave set without seeing it.
    *
-   * ONE PLACE TO NARROW. Three mechanisms narrow this list and they are not the same kind of thing:
-   * the scope is a server read (a consultation is unreachable without it, because the listing's own
-   * default leaves unnumbered matters out), the search is also the server's, and the column filters
-   * are the table's own. They sit behind one control because from where a reader sits they answer
-   * one question, and answering it in three places is how somebody ends up staring at an empty
-   * table with a filter set on a control they are not looking at.
+   * THE BAND ABOVE THE TABLE BELONGS TO THE TABLE. Everything that is not the data is one row of
+   * controls: the primary action, then search and the clear-filters control as icons. The
+   * clear-filters control exists only while something is narrowing the view — its absence is the
+   * signal that nothing is.
    *
    * TWO HONEST LIMITS. The listing is cursor-paged, so the column filters run over what has been
    * loaded rather than over the firm. And the responsible attorney, practice area and Location
@@ -27,26 +27,22 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import * as Popover from "@magna-carta/design-system/popover";
-  import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import Badge from "@magna-carta/design-system/badge";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
-  import Separator from "@magna-carta/design-system/separator";
-  import ListFilter from "@lucide/svelte/icons/list-filter";
+  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import Plus from "@lucide/svelte/icons/plus";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import { goto } from "$app/navigation";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
+    listEveryMatter,
     listLocations,
     listMatterTypes,
-    listMatters,
     readSession,
     type LocationSummary,
-    type MatterScope,
     type MatterSummary,
     type MatterTypeSummary,
     type SessionBootstrap,
@@ -61,8 +57,6 @@
   import {
     docketIsNarrowed,
     docketNarrowingSummary,
-    DEFAULT_MATTER_SCOPE,
-    MATTER_SCOPE_ITEMS,
   } from "$lib/matters/matter-docket-filters.ts";
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
   import NewMatterDialog from "$lib/matters/new-matter-dialog.svelte";
@@ -70,7 +64,6 @@
 
   // ---- what the screen is asking for ----------------------------------------------------------
 
-  let scope = $state<MatterScope>(DEFAULT_MATTER_SCOPE);
   let searchText = $state("");
   let appliedSearch = $state("");
   let searchOpen = $state(false);
@@ -150,23 +143,23 @@
   const list = new PagedList<MatterSummary>("The firm's matters could not be read.");
   const matters = $derived(list.items);
   const loadFailure = $derived(list.failure);
-  // A change of scope or of the settled query is a different question, so it is a different read.
-  const subject = $derived(`${scope}|${appliedSearch.trim()}`);
+  // A change of the settled query is a different question, so it is a different read.
+  const subject = $derived(appliedSearch.trim());
 
   $effect(() => {
     const asked = subject;
     if (list.showing(asked)) return;
     list.reset(asked);
-    void list.load((cursor) => listMatters(fetch, { scope, search: appliedSearch, cursor }));
+    void list.load((cursor) => listEveryMatter(fetch, { search: appliedSearch, cursor }));
   });
 
   function loadMore(): void {
-    void list.loadMore((cursor) => listMatters(fetch, { scope, search: appliedSearch, cursor }));
+    void list.loadMore((cursor) => listEveryMatter(fetch, { search: appliedSearch, cursor }));
   }
 
   function reread(): void {
     list.reset(subject);
-    void list.load((cursor) => listMatters(fetch, { scope, search: appliedSearch, cursor }));
+    void list.load((cursor) => listEveryMatter(fetch, { search: appliedSearch, cursor }));
   }
 
   const grid = DataTable.createDataTableGrid<MatterSummary>({
@@ -175,13 +168,13 @@
     rowKey: (matter) => matter.id,
     initialSort: MATTER_INITIAL_SORT,
     itemNoun: { singular: "matter", plural: "matters" },
-    // Double-click and Enter open the matter. The title stays a real link beside it, so the
-    // browser's own gestures still work; nobody has to hit the link precisely.
+    // Double-click and Enter open the matter, anywhere on the row. The title stays a real link
+    // beside it so the browser's own gestures (middle-click, open in new tab) still work, but
+    // nobody has to hit it.
     onActivate: (matter) => void goto(`/matters/${matter.id}`),
   });
 
   const narrowing = $derived({
-    scope,
     search: appliedSearch,
     columnFilterCount: grid.activeFilterCount,
   });
@@ -190,7 +183,6 @@
   const searching = $derived(appliedSearch.trim() !== "");
 
   function clearNarrowing(): void {
-    scope = DEFAULT_MATTER_SCOPE;
     searchText = "";
     grid.clearAllFilters();
   }
@@ -259,39 +251,20 @@
         <Search class="size-16" aria-hidden="true" />
       </Button>
 
-      <Popover.Root>
-        <Popover.Trigger
-          class={`${buttonClasses({ variant: "ghost", size: "icon" })} ${narrowed ? "text-accent-default" : ""}`}
-          aria-label={narrowed ? `Filters: ${narrowingSummary}` : "Filters"}
-          title={narrowed ? narrowingSummary : "Filters"}
+      {#if narrowed}
+        <!-- The control exists only while something is narrowing the view: its absence says
+             nothing is, which is a thing a reader can see without reading anything. -->
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Show every matter: {narrowingSummary}"
+          title={narrowingSummary}
+          class="text-accent-default"
+          onclick={clearNarrowing}
         >
-          <ListFilter class="size-16" aria-hidden="true" />
-        </Popover.Trigger>
-        <Popover.Content class="flex flex-col gap-12">
-          <RadioGroup.Root bind:value={scope} aria-label="Which matters to read" class="flex flex-col gap-8">
-            {#each MATTER_SCOPE_ITEMS as item (item.value)}
-              <div class="flex items-center gap-8">
-                <RadioGroup.Item value={item.value} id="matters-scope-{item.value}" />
-                <label class="text-sm" for="matters-scope-{item.value}">{item.label}</label>
-              </div>
-            {/each}
-          </RadioGroup.Root>
-
-          {#if grid.activeFilterCount > 0}
-            <Separator />
-            <ul class="flex flex-col gap-4">
-              {#each grid.activeFilterLabels as label (label)}
-                <li class="text-xs text-text-muted">{label}</li>
-              {/each}
-            </ul>
-          {/if}
-
-          {#if narrowed}
-            <Separator />
-            <Button variant="secondary" onclick={clearNarrowing}>Show every matter</Button>
-          {/if}
-        </Popover.Content>
-      </Popover.Root>
+          <FunnelX class="size-16" aria-hidden="true" />
+        </Button>
+      {/if}
 
       <DataTable.GridColumnsMenu {grid} />
     </Masthead.Actions>
@@ -344,10 +317,6 @@
           <EmptyState title="Nothing Matches That Search">
             No matter answers to that title, number or client.
           </EmptyState>
-        {:else if scope === "prospective"}
-          <EmptyState title="No Consultations Yet">
-            A consultation carries no number until the firm opens it.
-          </EmptyState>
         {:else}
           <EmptyState title="No Matters Yet">
             {#snippet actions()}
@@ -367,11 +336,17 @@
       {/snippet}
     </DataTable.Grid>
 
-    {#if list.nextCursor !== null}
-      <Button variant="secondary" class="self-start" onclick={loadMore} disabled={list.loadingMore}>
-        {list.loadingMore ? "Loading" : "Load more matters"}
-      </Button>
-    {/if}
+    <!-- The counts strip: how much of the record is on screen, what is hiding the rest, and the
+         one-click way back to all of it. One line at a fixed height, so it never reflows. -->
+    <DataTable.GridFooter {grid}>
+      {#snippet end()}
+        {#if list.nextCursor !== null}
+          <Button variant="secondary" size="sm" onclick={loadMore} disabled={list.loadingMore}>
+            {list.loadingMore ? "Loading" : "Load more matters"}
+          </Button>
+        {/if}
+      {/snippet}
+    </DataTable.GridFooter>
   {/if}
 </div>
 

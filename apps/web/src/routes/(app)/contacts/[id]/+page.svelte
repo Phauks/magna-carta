@@ -42,6 +42,8 @@
   } from "$lib/directory/entity-presentation.ts";
   import { entitySectionsFor } from "$lib/directory/entity-sections.ts";
   import CategoriesPane from "$lib/directory/categories-pane.svelte";
+  import ContactPane from "$lib/directory/contact-pane.svelte";
+  import LifeDatesPane from "$lib/directory/life-dates-pane.svelte";
   import DuplicatesPane from "$lib/directory/duplicates-pane.svelte";
   import IdentifiersPane from "$lib/directory/identifiers-pane.svelte";
   import MattersPane from "$lib/directory/matters-pane.svelte";
@@ -212,7 +214,20 @@
       <NamesPane {entity} {mayEdit} {editDisabledReason} onRecorded={reread} />
     </Tabs.Content>
 
+    <Tabs.Content value="contact">
+      <ContactPane entityId={data.entityId} {mayEdit} {editDisabledReason} />
+    </Tabs.Content>
+
     {#if entity.kind === "person"}
+      <Tabs.Content value="dates">
+        <LifeDatesPane
+          person={entity.person}
+          {mayEdit}
+          {editDisabledReason}
+          onRecorded={reread}
+        />
+      </Tabs.Content>
+
       <Tabs.Content value="pronouns">
         <PronounsPane
           person={entity.person}

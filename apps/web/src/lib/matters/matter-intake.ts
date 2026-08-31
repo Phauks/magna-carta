@@ -5,8 +5,8 @@
  * and they are separable because a different person often does each one: it records what the work
  * IS, it records WHO the work is for, it decides WHO INSIDE THE FIRM carries it, and it clears the
  * work to be taken at all — the conflict check, and whatever money has to change hands before the
- * firm starts. Those four are the sections of the intake, and this module is what they are before
- * anything renders them.
+ * firm starts. The first three are entered; the fourth is a gate on the other three. This module is
+ * what all four are before anything renders them.
  *
  * WHY THE MODEL IS SEPARATE FROM THE SCREEN. Every question worth arguing about here is a question
  * about data: whether a draft is complete enough to send, which member holds which seat, what a
@@ -40,28 +40,28 @@ export type StartingStatus = "open" | "prospective";
 /** The seats a member can hold on a matter. One person holds at most one of them. */
 export type TeamSeat = "responsible" | "assignedAttorney" | "supportStaff";
 
-/** The sections the intake is walked through, in the order the work is actually done. */
-export type IntakeSectionIdentifier = "matter" | "client" | "people" | "clearance";
+/** The tabbed data sections on the intake's entry side, in the order the work is actually done. */
+export type IntakeSectionIdentifier = "matter" | "client" | "people";
 
 export interface IntakeSection {
   readonly id: IntakeSectionIdentifier;
-  /** The tab's own word. Title case, and short enough that five of them fit one strip. */
+  /** The tab's own word. Title case, and short enough that the strip fits one line. */
   readonly label: string;
 }
 
 /**
- * The sections, fixed here so the dialog cannot quietly grow a sixth.
+ * The sections, fixed here so the intake cannot quietly grow a fourth.
  *
- * Conflicts and money are ONE section, deliberately. Both are clearance — questions of whether the
- * firm may take the work and on what terms — both are answered before the file is worked, and
- * neither has a server surface yet. Two tabs that are each half-empty teach the reader that tabs
- * are decoration; one tab that holds the whole gate reads as the gate it is.
+ * These are the three things a firm RECORDS when it takes on work: what the work is, who it is for,
+ * and who inside the firm carries it. Clearance — the conflict check and the money that changes
+ * hands before the file is worked — is deliberately NOT one of them: it is not data being entered,
+ * it is the gate the entry has to pass, so it stays visible beside the tabs rather than hiding
+ * behind one of them. A gate a person has to go and look for is a gate that gets skipped.
  */
 export const INTAKE_SECTIONS: readonly IntakeSection[] = [
   { id: "matter", label: "The Matter" },
   { id: "client", label: "Client" },
   { id: "people", label: "People" },
-  { id: "clearance", label: "Conflicts & Money" },
 ];
 
 /**

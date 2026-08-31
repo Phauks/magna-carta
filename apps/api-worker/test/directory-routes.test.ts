@@ -296,6 +296,57 @@ describe("directory person pronoun routes", () => {
   });
 });
 
+describe("the directory index", () => {
+  // The read that answers "show me everyone". It exists because a firm that has entered records
+  // expects to open the directory and see them; the ranked search answers a name and is capped, and
+  // one can never stand in for the other.
+  it("lists both kinds in one sequence, and says how many the firm holds", async () => {
+    const person = await post("/api/v1/directory/persons", {
+      given: "Index",
+      family: "Person",
+    });
+    const { id: personId } = (await person.json()) as { id: string };
+    const organization = await post("/api/v1/directory/organizations", {
+      legalName: "Index Organization Limited",
+    });
+    const { id: organizationId } = (await organization.json()) as { id: string };
+
+    const response = await get("/api/v1/directory/entities");
+    expect(response.status).toBe(200);
+    const page = (await response.json()) as {
+      data: { entityId: string; entityKind: string; displayName: string | null }[];
+      nextCursor: string | null;
+      total: number;
+    };
+
+    const listed = page.data.map((row) => row.entityId);
+    expect(listed).toContain(personId);
+    expect(listed).toContain(organizationId);
+    // The count is of the firm's record, so it is at least the two just written.
+    expect(page.total).toBeGreaterThanOrEqual(2);
+    expect(page.total).toBeGreaterThanOrEqual(page.data.length);
+  });
+
+  it("narrows to one side of the book without needing a second endpoint", async () => {
+    const response = await get("/api/v1/directory/entities?kind=organization");
+    expect(response.status).toBe(200);
+    const page = (await response.json()) as {
+      data: { entityKind: string }[];
+      total: number;
+    };
+
+    expect(page.data.length).toBeGreaterThan(0);
+    expect(page.data.every((row) => row.entityKind === "organization")).toBe(true);
+  });
+
+  it("is refused without a session, like every other firm-scoped read", async () => {
+    const response = await SELF.fetch("https://example.com/api/v1/directory/entities", {
+      headers: { origin: "https://example.com" },
+    });
+    expect(response.status).toBe(401);
+  });
+});
+
 describe("directory organization + duplicate-candidate routes", () => {
   it("creates an organization and surfaces a duplicate candidate", async () => {
     const created = await post("/api/v1/directory/organizations", {

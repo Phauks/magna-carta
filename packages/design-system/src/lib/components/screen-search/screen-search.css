@@ -1,0 +1,186 @@
+@layer components {
+  /*
+   * ScreenSearch (Tier 1). At rest the control is one icon button at the action row's height, so a
+   * screen that nobody is searching pays nothing for the affordance. Expanded, the field is a
+   * composed surface rather than a bare Input: the leading glyph, the surface's scope control and
+   * the match count all sit INSIDE the field's edge, so the whole search reads as one object in the
+   * action row instead of three controls in a cluster.
+   *
+   * The field therefore carries the text-field treatment itself (the same hairline, radius, surface
+   * and merged focus edge the Input recipe uses) while the inner <input> is stripped bare — one
+   * edge around the whole thing, never a box inside a box.
+   *
+   * Identity here is a single hairline: while a query is live the field's edge takes the accent, so
+   * a narrowed list carries a quiet mark of why. It is an edge, not a wash — the rows below stay
+   * calm.
+   */
+  .mc-screen-search {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--mc-space-4);
+  }
+
+  /* The field surface — the Input recipe's treatment, applied to the wrapper. */
+  .mc-screen-search-field {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-inline: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-field);
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /*
+   * Sizes — the control scale the Button and Input share, through the density aliases, driven from
+   * ONE data attribute on the root so the resting icon and the expanded field can never disagree
+   * about the row height they are sitting in. min-block-size, not block-size, so OS text-only
+   * scaling can grow the row without clipping the value.
+   */
+  .mc-screen-search[data-size="sm"] .mc-screen-search-field {
+    min-block-size: var(--mc-density-control-sm);
+  }
+  .mc-screen-search[data-size="default"] .mc-screen-search-field {
+    min-block-size: var(--mc-density-control-md);
+  }
+  .mc-screen-search[data-size="lg"] .mc-screen-search-field {
+    min-block-size: var(--mc-density-control-lg);
+  }
+  .mc-screen-search[data-size="sm"] .mc-screen-search-trigger {
+    inline-size: var(--mc-density-control-sm);
+    block-size: var(--mc-density-control-sm);
+  }
+  .mc-screen-search[data-size="default"] .mc-screen-search-trigger {
+    inline-size: var(--mc-density-control-md);
+    block-size: var(--mc-density-control-md);
+  }
+  .mc-screen-search[data-size="lg"] .mc-screen-search-trigger {
+    inline-size: var(--mc-density-control-lg);
+    block-size: var(--mc-density-control-lg);
+  }
+  /* The merged focus edge, matching Input: one thicker coloured edge, never a box-plus-ring. */
+  .mc-screen-search-field:focus-within {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /* A live query marks the field at its edge. Focus outranks it — the caret is the louder fact. */
+  .mc-screen-search[data-searching="true"] .mc-screen-search-field {
+    border-color: var(--mc-accent-strong);
+  }
+  .mc-screen-search[data-searching="true"] .mc-screen-search-field:focus-within {
+    border-color: var(--mc-focus-ring);
+  }
+
+  /* The bare field: the wrapper owns every edge, so the input contributes none of its own. */
+  .mc-screen-search-input {
+    min-inline-size: var(--mc-space-0);
+    padding: var(--mc-space-0);
+    border-style: none;
+    background-color: transparent;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    outline-style: none;
+  }
+  .mc-screen-search-input::placeholder {
+    color: var(--mc-text-muted);
+  }
+  /*
+   * The native clear affordance is off by ruling: a search that clears with Escape does not also
+   * carry a glyph that clears it, and the browser's own control is neither tokenized nor themed.
+   */
+  .mc-screen-search-input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .mc-screen-search-input:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+
+  /* The scope control's seat, at the field's inline start (the ruled position). */
+  .mc-screen-search-scope {
+    display: flex;
+    flex: none;
+    align-items: center;
+  }
+
+  /* The count, at the field's inline end. Tabular figures so it does not jitter as it counts. */
+  .mc-screen-search-summary {
+    flex: none;
+    color: var(--mc-text-subtle);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /*
+   * The resting icon. Its own small recipe rather than a ghost Button: it must square off at the
+   * action row's height and carry no label box, and the Button recipe's inline padding fights that.
+   */
+  .mc-screen-search-trigger {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-0);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: background-color, color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-screen-search-trigger:hover {
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-text-default);
+  }
+  /* No resting border, so the trigger takes the Button's detached offset ring. */
+  .mc-screen-search-trigger:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  /*
+   * A query that is live while the control is collapsed still has to say so — otherwise a narrowed
+   * list has no visible reason on screen. Placed after :hover so the mark survives the pointer.
+   */
+  .mc-screen-search[data-searching="true"] .mc-screen-search-trigger:not(:disabled) {
+    color: var(--mc-accent-default);
+  }
+  /* Disabled reads at REST, not only on hover — it mutes colour, never just the cursor. */
+  .mc-screen-search-trigger:disabled {
+    background-color: transparent;
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+
+  .mc-screen-search-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    flex: none;
+  }
+  .mc-screen-search-field .mc-screen-search-icon {
+    color: var(--mc-text-subtle);
+  }
+  .mc-screen-search[data-searching="true"] .mc-screen-search-field .mc-screen-search-icon {
+    color: var(--mc-accent-default);
+  }
+}
