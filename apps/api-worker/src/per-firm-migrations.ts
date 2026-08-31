@@ -79,7 +79,8 @@ import directoryContactPointsSql from "@magna-carta/database/drizzle/per-firm/20
 import seedReportExportPermissionSql from "@magna-carta/database/drizzle/per-firm/20260831T210000_seed-report-export-permission.sql";
 import downloadRegisterSql from "@magna-carta/database/drizzle/per-firm/20260831T230000_download-register.sql";
 import seedDownloadRegisterPermissionSql from "@magna-carta/database/drizzle/per-firm/20260831T230001_seed-download-register-permission.sql";
-import matterNotesSql from "@magna-carta/database/drizzle/per-firm/20260901T000000_matter-notes.sql";
+import seedFileWorkbenchPermissionSql from "@magna-carta/database/drizzle/per-firm/20260901T000000_seed-file-workbench-permission.sql";
+import matterNotesSql from "@magna-carta/database/drizzle/per-firm/20260901T010000_matter-notes.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -170,9 +171,10 @@ export function perFirmMigrations(): Migration[] {
     "20260831T210000_seed-report-export-permission": seedReportExportPermissionSql,
     "20260831T230000_download-register": downloadRegisterSql,
     "20260831T230001_seed-download-register-permission": seedDownloadRegisterPermissionSql,
-    // Dated after main's three on the merge: a tag has to stay monotonic with its idx, so a branch
-    // that lands second renames its own migration rather than slotting in under an earlier stamp.
-    "20260901T000000_matter-notes": matterNotesSql,
+    "20260901T000000_seed-file-workbench-permission": seedFileWorkbenchPermissionSql,
+    // Dated after main's on each merge: a tag has to stay monotonic with its idx, so the branch that
+    // lands second renames its own migration rather than slotting in under an earlier stamp.
+    "20260901T010000_matter-notes": matterNotesSql,
   });
 }
 

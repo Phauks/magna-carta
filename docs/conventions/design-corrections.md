@@ -39,6 +39,9 @@ and graduate into _Standing rules_ above when they turn out to bind everywhere.
 - **Matter file manager** — [`file-manager-rulings.md`](file-manager-rulings.md). Machine-checkable
   entries are asserted by [`tooling/file-manager-rulings/`](../../tooling/file-manager-rulings/),
   which opens the surface in a browser and exercises each one.
+- **File Workbench** — [`file-workbench-rulings.md`](file-workbench-rulings.md). The Tools surface an
+  unfiled file is brought to. Two rounds so far; the rulings that generalize beyond it are promoted
+  into _Standing rules_ below.
 
 ---
 
@@ -62,6 +65,11 @@ is usually the fastest way to understand the rule.
 - **Error copy is per-channel and specific.** One generic failure message across channels that fail
   differently is wrong: only authenticator codes rotate, so only their message says so. _(auth flow,
   2026-08-07)_
+- **A surface states findings; it does not explain itself to the reader.** No standing note beside a
+  result telling somebody what the product does or why it is good ("Every file that arrives here is
+  scanned before anything else touches it"). It is read once, skipped ever after, and it takes room
+  from the answer the reader came for. A fact that a reader must have to read the result correctly
+  is part of the result, in its own row. _(file workbench, 2026-08-31)_
 
 ### Lists and tables
 
@@ -139,6 +147,20 @@ is usually the fastest way to understand the rule.
   transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
   number of times before reporting failure, and shows each attempt as it happens; the member is
   never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
+- **An empty screen is the filled screen lacking information**, not a different screen. The same
+  regions render, each saying what it is missing. A centred card that replaces the layout teaches a
+  person nothing about where things will be, and it makes the first real use of the screen a second
+  first impression. _(file workbench, 2026-08-31)_
+- **No pill describing a result's provenance.** A chip reading "Ran on arrival" or "Needs your
+  consent" beside a finding annotates the mechanism rather than the answer. Where when-it-ran
+  matters, it is a row in the result. _(file workbench, 2026-08-31)_
+- **Values are encapsulated, never floating.** A set of readings renders inside something with a
+  heading and edges — a table — so a reader can see where one set ends and the next begins. A bare
+  label-and-value list poured onto the page reads as text, and a long value runs into the heading
+  under it. _(file workbench, 2026-08-31)_
+- **A list of records is the product's one grid**, with its sorting, its per-column filters, its
+  show/hide, its selection gestures and its footer counts. A pane being narrow is a reason to start
+  columns hidden, never a reason to hand-roll a second list. _(file workbench, 2026-08-31)_
 - **A page's primary query control sits at the reading edge, not in the masthead's far-right
   actions slot.** Left-aligned below the masthead, where the eye starts; the far right is for
   secondary actions. Results render below it, so nothing about the control reflows when they

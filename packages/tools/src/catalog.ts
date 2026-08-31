@@ -97,6 +97,19 @@ export const CATALOG: readonly ToolManifest[] = [
     matterContext: "none",
   },
   {
+    id: "file-workbench",
+    name: "File Workbench",
+    icon: "microscope",
+    subjectGroup: "files",
+    permission: assertPermission("tools:fileWorkbench"),
+    contextTags: ["file", "none"],
+    // The host the other file utilities are run from: a file is brought here once and every
+    // capability addresses it, rather than each tool asking for the same bytes again. Ephemeral by
+    // definition — nothing here is attached to a matter, so there is no matter context to carry.
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
+  {
     id: "file-converter",
     name: "File Converter",
     icon: "file-cog",
