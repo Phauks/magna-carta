@@ -2377,7 +2377,7 @@
         }
       },
       "branch": "claude/file-analysis-tools-ui-iyw77g",
-      "activeWork": "docs/active-work/claude/file-analysis-tools-ui-iyw77g.md",
+      "activeWork": null,
       "next": "the firm-scoped scratch object, so the container-backed capabilities can address the bytes",
       "links": {
         "spec": null,
