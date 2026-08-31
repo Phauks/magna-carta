@@ -14,12 +14,16 @@
    * trailing core sections follow only when the strip is genuinely too narrow. The mirror
    * measures every tab at the active weight (the widest state) so activating a section never
    * changes what fits, and the row carries no gap so the per-tab widths sum exactly to the row.
+   *
+   * THE STRIP CARRIES NO MATURITY BADGES. A tab names a place; how far along that place is belongs
+   * to the place itself, where a reader is already looking at it. Eleven pillboxes strung across
+   * one row read as chrome, crowded out the labels they were attached to, and made the strip about
+   * the build rather than about the matter.
    */
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import { matterSections, type MatterSection } from "$lib/matters/sections.ts";
 
   let { matterId }: { matterId: string } = $props();
@@ -93,7 +97,6 @@
         class="{tabClasses} {current ? tabActiveClasses : tabInactiveClasses}"
       >
         {section.label}
-        <MaturityBadge stage={section.stage} />
         {#if current}
           <!-- The gold bar over the track — the active mark of the tabs register. -->
           <span
@@ -134,7 +137,6 @@
               class={current ? "font-semibold" : undefined}
             >
               {section.label}
-              <MaturityBadge stage={section.stage} class="ms-auto" />
             </DropdownMenu.Item>
           {/each}
         </DropdownMenu.Content>
@@ -143,7 +145,7 @@
   </div>
 
   <!-- The measuring mirror: every tab plus the More trigger, rendered identically (at the active
-       weight, badges included) but invisible, inert, and out of flow, so each width can be read
+       weight) but invisible, inert, and out of flow, so each width can be read
        without ever being seen. overflow-hidden clips the full-width row so it never expands the
        work canvas's scroll width (each child's clientWidth is intrinsic and unaffected by the
        clip); without it the off-screen mirror grows a phantom horizontal scrollbar. -->
@@ -154,7 +156,6 @@
     {#each matterSections as section, index (section.slug)}
       <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={tabWidths[index]}>
         {section.label}
-        <MaturityBadge stage={section.stage} />
       </span>
     {/each}
     <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={moreTriggerWidth}>

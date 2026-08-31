@@ -19,6 +19,8 @@
   import Button from "@magna-carta/design-system/button";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
+  import Input from "@magna-carta/design-system/input";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
@@ -30,6 +32,7 @@
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import Plus from "@lucide/svelte/icons/plus";
+  import Search from "@lucide/svelte/icons/search";
   import Upload from "@lucide/svelte/icons/upload";
   import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
   import type { DataTableGridState } from "@magna-carta/design-system/data-table";
@@ -47,6 +50,7 @@
     onNewFolder,
     onNewDocument,
     onUpload,
+    onSearch,
   }: {
     manager: FileManagerState;
     grid: DataTableGridState<FileManagerRow>;
@@ -61,7 +65,11 @@
     onNewFolder: () => void;
     onNewDocument: () => void;
     onUpload: () => void;
+    /** What the reader typed. Searching opens the results view; emptying it goes back. */
+    onSearch: (query: string) => void;
   } = $props();
+
+  let searchOpen = $state(false);
 
   const HomeIcon = FOLDER_TREE_HOME_ICON;
 
@@ -157,6 +165,44 @@
   </nav>
 
   <div class="ms-auto flex items-center gap-4">
+    <!--
+      SEARCH LIVES AT THE TOP, with the surface's other controls, not in a strip over the table.
+      As a strip it sat between the breadcrumb and the column headers, so the table's own titles
+      started in a different place in that view than in every other one. Here it opens as an
+      overlay across the breadcrumb's slack: nothing on the row moves when it opens, and searching
+      is reachable from any view rather than only from the one named after it.
+    -->
+    <span class="relative inline-flex">
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-pressed={manager.searchQuery !== ""}
+        aria-expanded={searchOpen}
+        title="Search this matter's files"
+        aria-label="Search"
+        onclick={() => (searchOpen = true)}
+      >
+        <Search class="size-16" aria-hidden="true" />
+      </Button>
+      {#if searchOpen}
+        <div
+          class="absolute end-0 top-0 z-dropdown"
+          style="inline-size: var(--mc-size-record-context)"
+        >
+          <Input
+            class="w-full"
+            value={manager.searchQuery}
+            placeholder={placeholderOf("Search")}
+            aria-label="Search this matter's files"
+            oninput={(event) => onSearch(event.currentTarget.value)}
+            onblur={() => {
+              if (manager.searchQuery === "") searchOpen = false;
+            }}
+            {@attach (field: HTMLInputElement) => field.focus()}
+          />
+        </div>
+      {/if}
+    </span>
     <Button
       variant="ghost"
       size="icon"

@@ -2170,11 +2170,26 @@ export const timeEntry = sqliteTable(
     // (not audit_log.metadata) so it inherits the entry's tenancy, RBAC, and retention, and
     // can be read back by the timekeeper without a privileged audit-log read.
     kickBackReason: text("kick_back_reason"),
+    // The firm's own note about the entry — one audience, the firm. It never reaches a bill, a
+    // print sheet, the client portal, or audit_log.metadata (an audit row records THAT the memo
+    // changed, never what it says). Nullable: most entries carry none.
+    memo: text("memo"),
+    // The matter-scoped human reference, e.g. "2026-0147.0042" — the matter's number, a dot, and a
+    // zero-padded per-matter sequence drawn at capture. Immutable once assigned and never reused (a
+    // void keeps its number). Null on every entry captured before the sequence existed: an honest
+    // gap, never a backfilled guess.
+    entryNumber: text("entry_number"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"), // actor user handle (not an FK)
   },
   (table) => [
+    // Rendered-string backstop, mirroring matter_number: the allocation primary key catches the
+    // counter race; this catches a rendered collision the counter cannot see. Partial, so the
+    // pre-sequence null rows stay unconstrained.
+    uniqueIndex("time_entry_entry_number_unique_index")
+      .on(table.entryNumber)
+      .where(sql`${table.entryNumber} IS NOT NULL`),
     index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
     index("time_entry_matter_status_index").on(table.matterId, table.status),
     index("time_entry_status_work_date_index").on(table.status, table.workDate),
@@ -2201,6 +2216,55 @@ export const timeEntry = sqliteTable(
       "time_entry_amount_paired_null_check",
       sql`(${table.amountMinor} IS NULL) = (${table.rateE4} IS NULL)`,
     ),
+  ],
+);
+
+// The per-matter entry-number sequence (scope_key = the matter id). Same two-table draw as the
+// matter and invoice numbers, through @magna-carta/sequence-numbering: the counter row is what a
+// drawer reads, the allocation primary key is what aborts a losing draw's whole batch.
+export const timeEntryNumberCounter = sqliteTable("time_entry_number_counter", {
+  scopeKey: text("scope_key").primaryKey(), // the matter id — one sequence per matter
+  nextValue: integer("next_value").notNull(),
+});
+
+export const timeEntryNumberAllocation = sqliteTable(
+  "time_entry_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(), // the time_entry_number_counter row this value came from
+    drawnValue: integer("drawn_value").notNull(), // the counter value this draw consumed
+    timeEntryId: text("time_entry_id")
+      .notNull()
+      .$type<TimeEntryId>()
+      .references(() => timeEntry.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("time_entry_number_allocation_time_entry_id_index").on(table.timeEntryId),
+  ],
+);
+
+// A time entry's attached files — references to documents already in the entry's matter, many per
+// entry. Detaching deletes THIS row only; the file stays in the matter (the audit trail keeps the
+// attach/detach history). The attach path refuses a file on another matter, so an entry can never
+// point outside its own matter's record.
+export const timeEntryAttachment = sqliteTable(
+  "time_entry_attachment",
+  {
+    timeEntryId: text("time_entry_id")
+      .notNull()
+      .$type<TimeEntryId>()
+      .references(() => timeEntry.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"), // actor user handle (not an FK); null for system writes
+  },
+  (table) => [
+    primaryKey({ columns: [table.timeEntryId, table.fileId] }),
+    index("time_entry_attachment_file_id_index").on(table.fileId),
   ],
 );
 

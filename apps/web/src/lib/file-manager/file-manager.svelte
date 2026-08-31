@@ -27,10 +27,10 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
+  import FolderGlyph from "@magna-carta/design-system/folder-glyph";
   import FolderTree from "@magna-carta/design-system/folder-tree";
   import Input from "@magna-carta/design-system/input";
   import Checkbox from "@magna-carta/design-system/checkbox";
-  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { statusEntry } from "@magna-carta/design-system/status-register";
@@ -61,6 +61,7 @@
     patchFolder,
     listMatterFolders,
     deleteFile,
+    writeKey,
     type FolderSummary,
   } from "./folder-api.ts";
   import {
@@ -368,6 +369,19 @@
 
   // --- acts ------------------------------------------------------------------------------------
 
+  /**
+   * Searching from the toolbar.
+   *
+   * The field is one control on one surface, so typing into it is what OPENS the results view and
+   * emptying it is what leaves: a reader who clears the box has said they are done searching, and
+   * being left staring at an empty results table would make them find their own way back.
+   */
+  function runSearch(query: string): void {
+    manager.searchQuery = query;
+    if (query.trim() !== "" && manager.view !== "results") manager.openView("results");
+    else if (query.trim() === "" && manager.view === "results") manager.openFolder(null);
+  }
+
   function activate(row: FileManagerRow): void {
     if (row.kind === "folder") {
       manager.openFolder(row.folder.id);
@@ -456,8 +470,8 @@
     }
     const result =
       row.kind === "folder"
-        ? await patchFolder(fetch, row.folder.id, { name: wanted })
-        : await patchFile(fetch, row.file.id, { name: wanted });
+        ? await patchFolder(fetch, row.folder.id, { name: wanted }, writeKey())
+        : await patchFile(fetch, row.file.id, { name: wanted }, writeKey());
     manager.renamingKey = null;
     renameConflict = null;
     if (result.kind === "ok") reload();
@@ -487,13 +501,16 @@
           continue;
         }
         origins.set(key, row.folder.parentFolderId);
-        const outcome = await patchFolder(fetch, row.folder.id, {
-          parentFolderId: destinationFolderId,
-        });
+        const outcome = await patchFolder(
+          fetch,
+          row.folder.id,
+          { parentFolderId: destinationFolderId },
+          writeKey(),
+        );
         results.push(outcome.kind === "ok");
       } else {
         origins.set(key, row.file.folderId);
-        const outcome = await patchFile(fetch, row.file.id, { folderId: destinationFolderId });
+        const outcome = await patchFile(fetch, row.file.id, { folderId: destinationFolderId }, writeKey());
         results.push(outcome.kind === "ok");
       }
     }
@@ -522,10 +539,19 @@
     for (const [key, origin] of move.origins) {
       const row = findRowAnywhere(key);
       if (row === null) continue;
-      if (row.kind === "folder") await patchFolder(fetch, row.folder.id, { parentFolderId: origin });
-      else await patchFile(fetch, row.file.id, { folderId: origin });
+      if (row.kind === "folder") await patchFolder(fetch, row.folder.id, { parentFolderId: origin }, writeKey());
+      else await patchFile(fetch, row.file.id, { folderId: origin }, writeKey());
     }
     reload();
+  }
+
+  /** Walk back through several recorded moves at once, from the stack. */
+  async function undoMoves(steps: number): Promise<void> {
+    for (let taken = 0; taken < steps; taken += 1) await undoMove();
+  }
+
+  async function redoMoves(steps: number): Promise<void> {
+    for (let taken = 0; taken < steps; taken += 1) await redoMove();
   }
 
   async function redoMove(): Promise<void> {
@@ -536,9 +562,14 @@
       const row = findRowAnywhere(key);
       if (row === null) continue;
       if (row.kind === "folder") {
-        await patchFolder(fetch, row.folder.id, { parentFolderId: move.destinationFolderId });
+        await patchFolder(
+          fetch,
+          row.folder.id,
+          { parentFolderId: move.destinationFolderId },
+          writeKey(),
+        );
       } else {
-        await patchFile(fetch, row.file.id, { folderId: move.destinationFolderId });
+        await patchFile(fetch, row.file.id, { folderId: move.destinationFolderId }, writeKey());
       }
     }
     reload();
@@ -563,7 +594,7 @@
       if (contents === 0 && subfolders === 0) {
         // An empty folder deletes with no dialog: there is no decision to make about contents
         // that do not exist.
-        const outcome = await deleteFolderRequest(fetch, only.folder.id);
+        const outcome = await deleteFolderRequest(fetch, only.folder.id, writeKey());
         if (outcome.kind !== "ok") actionFailure = "That folder could not be deleted.";
         reload();
         return;
@@ -576,7 +607,7 @@
 
     // A soft delete: the row leaves the list, the bytes and every version stay.
     const outcomes = await Promise.all(
-      fileRows.map((row) => (row.kind === "file" ? deleteFile(fetch, row.file.id) : null)),
+      fileRows.map((row) => (row.kind === "file" ? deleteFile(fetch, row.file.id, writeKey()) : null)),
     );
     if (outcomes.some((outcome) => outcome !== null && outcome.kind !== "ok")) {
       actionFailure =
@@ -604,31 +635,37 @@
       // Keeping the contents means moving them out first: the route refuses a folder that still
       // holds anything, which is the right refusal and the reason this is two steps.
       for (const file of held) {
-        const outcome = await patchFile(fetch, file.id, {
-          folderId: choice.destinationFolderId,
-        });
+        const outcome = await patchFile(
+          fetch,
+          file.id,
+          { folderId: choice.destinationFolderId },
+          writeKey(),
+        );
         if (outcome.kind !== "ok") trouble = true;
       }
       for (const folderId of index.childrenOf(target.id).map((folder) => folder.id)) {
-        const outcome = await patchFolder(fetch, folderId, {
-          parentFolderId: choice.destinationFolderId,
-        });
+        const outcome = await patchFolder(
+          fetch,
+          folderId,
+          { parentFolderId: choice.destinationFolderId },
+          writeKey(),
+        );
         if (outcome.kind !== "ok") trouble = true;
       }
     } else {
       for (const file of held) {
-        const outcome = await deleteFile(fetch, file.id);
+        const outcome = await deleteFile(fetch, file.id, writeKey());
         if (outcome.kind !== "ok") trouble = true;
       }
       // Deepest first, because a folder cannot go while it still holds one.
       for (const folderId of descendants.toReversed()) {
-        const outcome = await deleteFolderRequest(fetch, folderId);
+        const outcome = await deleteFolderRequest(fetch, folderId, writeKey());
         if (outcome.kind !== "ok") trouble = true;
       }
     }
 
     if (!trouble) {
-      const outcome = await deleteFolderRequest(fetch, target.id);
+      const outcome = await deleteFolderRequest(fetch, target.id, writeKey());
       if (outcome.kind !== "ok") trouble = true;
     }
 
@@ -760,7 +797,7 @@
         uploadLandedFileIds[at] = outcome.fileId;
         // A destination confirmed while this file was still in flight applies to it now.
         if (uploadConfirmed && uploadChosenFolderId !== baseFolderId) {
-          await patchFile(fetch, outcome.fileId, { folderId: uploadChosenFolderId });
+          await patchFile(fetch, outcome.fileId, { folderId: uploadChosenFolderId }, writeKey());
         }
         setUploadItem(at, { name: file.name, stage: "settled" });
         reload();
@@ -775,7 +812,7 @@
     if (destinationFolderId !== uploadBaseFolderId) {
       for (const landedFileId of uploadLandedFileIds) {
         if (landedFileId !== null) {
-          await patchFile(fetch, landedFileId, { folderId: destinationFolderId });
+          await patchFile(fetch, landedFileId, { folderId: destinationFolderId }, writeKey());
         }
       }
       reload();
@@ -1060,7 +1097,7 @@
     const fileRows = targets.filter((row) => row.kind === "file");
     const outcomes = await Promise.all(
       fileRows.map((row) =>
-        row.kind === "file" ? patchFile(fetch, row.file.id, { documentTypeId }) : null,
+        row.kind === "file" ? patchFile(fetch, row.file.id, { documentTypeId }, writeKey()) : null,
       ),
     );
     if (outcomes.some((outcome) => outcome !== null && outcome.kind !== "ok")) {
@@ -1584,6 +1621,7 @@
               onNewFolder={() => void makeFolder()}
               onNewDocument={() => filePicker?.click()}
               onUpload={() => filePicker?.click()}
+              onSearch={runSearch}
             />
 
             {#if archiveBrowse !== null}
@@ -1632,50 +1670,43 @@
                 grid={archiveGrid}
                 onUndo={() => void undoMove()}
                 onRedo={() => void redoMove()}
+                onUndoSteps={(steps) => void undoMoves(steps)}
+                onRedoSteps={(steps) => void redoMoves(steps)}
               />
             {:else}
 
             {#if manager.view === "results"}
-              <!-- The results view's own header: the field where the view is named, the match count
-                   beside it, and the index's standing pulled to the far edge. It sits ABOVE the
-                   table, so a search that returns thirty rows does not push it down the page. -->
-              <div class="flex items-center gap-8 border-b border-border-default px-12 py-8">
-                <ScreenSearch
-                  bind:value={manager.searchQuery}
-                  expanded
-                  size="sm"
-                  label="Search this matter"
-                  matchSummary={countPhrase(rows.length, "match")}
-                  shortcut={null}
+              <!-- What the results view still says for itself: how the search was scoped, how many
+                   rows matched it, and how far the index actually reaches. The FIELD is not here —
+                   it lives with the surface's other controls at the top, so the table's own titles
+                   start in the same place in this view as in every other. -->
+              <div
+                class="flex items-center gap-8 border-b border-border-default px-12 py-4 text-xs text-text-muted"
+              >
+                <span>{countPhrase(rows.length, "match")}</span>
+                <Select.Root
+                  type="single"
+                  items={SEARCH_SCOPES}
+                  allowDeselect={false}
+                  bind:value={
+                    () => manager.searchScope,
+                    (next) => (manager.searchScope = next as typeof manager.searchScope)
+                  }
                 >
-                  {#snippet scope()}
-                    <!-- The vocabulary names the matter and no wider: searching everything is the
-                         top bar's job, not this control's. -->
-                    <Select.Root
-                      type="single"
-                      items={SEARCH_SCOPES}
-                      allowDeselect={false}
-                      bind:value={
-                        () => manager.searchScope,
-                        (next) => (manager.searchScope = next as typeof manager.searchScope)
-                      }
-                    >
-                      <Select.Trigger aria-label="Search in">
-                        <Select.Value placeholder={placeholderOf("Scope")} />
-                      </Select.Trigger>
-                      <Select.Content>
-                        {#each SEARCH_SCOPES as option (option.value)}
-                          <Select.Item value={option.value} label={option.label} />
-                        {/each}
-                      </Select.Content>
-                    </Select.Root>
-                  {/snippet}
-                </ScreenSearch>
-                <label class="flex items-center gap-4 text-xs text-text-muted">
+                  <Select.Trigger aria-label="Search in">
+                    <Select.Value placeholder={placeholderOf("Scope")} />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each SEARCH_SCOPES as option (option.value)}
+                      <Select.Item value={option.value} label={option.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <label class="flex items-center gap-4">
                   <Checkbox bind:checked={manager.searchIncludesDeleted} />
                   Include deleted files
                 </label>
-                <span class="ms-auto flex items-center gap-4 text-xs text-text-subtle">
+                <span class="ms-auto flex items-center gap-4 text-text-subtle">
                   <Badge variant="neutral">Soon</Badge>
                   Names only for now: {capability("search").waitingOn}
                 </span>
@@ -1771,6 +1802,7 @@
                 {:else if manager.listMode === "icons" && manager.view === "browse"}
                   <FileIconGrid
                     {grid}
+                    {folderAppearance}
                     hideExtensions={manager.hideExtensions}
                     scalePercent={manager.scalePercent}
                     onActivate={activate}
@@ -1798,6 +1830,8 @@
                 grid={deletedGrid}
                 onUndo={() => void undoMove()}
                 onRedo={() => void redoMove()}
+                onUndoSteps={(steps) => void undoMoves(steps)}
+                onRedoSteps={(steps) => void redoMoves(steps)}
               />
             {:else if manager.view === "history"}
               <FileManagerFooter
@@ -1805,6 +1839,8 @@
                 grid={historyGrid}
                 onUndo={() => void undoMove()}
                 onRedo={() => void redoMove()}
+                onUndoSteps={(steps) => void undoMoves(steps)}
+                onRedoSteps={(steps) => void redoMoves(steps)}
               />
             {:else}
               <FileManagerFooter
@@ -1814,6 +1850,8 @@
                 extras={manager.view === "analysis" ? analysisExtras : undefined}
                 onUndo={() => void undoMove()}
                 onRedo={() => void redoMove()}
+                onUndoSteps={(steps) => void undoMoves(steps)}
+                onRedoSteps={(steps) => void redoMoves(steps)}
               />
             {/if}
 
@@ -2158,7 +2196,13 @@
   {#if column.id === "name"}
     <span class="flex min-w-0 items-center gap-8">
       {#if row.kind === "folder"}
-        <FileIcon folder class="size-16 shrink-0" />
+        <!-- The folder's own colour and mark, the same glyph the rail draws: a colour that showed
+             in one place and not the other read as a colour that had not saved. -->
+        <FolderGlyph
+          class="size-16 shrink-0"
+          color={folderAppearance[row.folder.id]?.color}
+          icon={folderAppearance[row.folder.id]?.icon}
+        />
       {:else}
         <FileIcon
           contentType={row.file.sniffedContentType ?? undefined}

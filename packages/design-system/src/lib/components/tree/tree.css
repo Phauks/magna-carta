@@ -57,19 +57,28 @@
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-space-0);
   }
+  /*
+   * Hover, selected and marked have to be legible AGAINST THE RAIL THEY SIT ON, and the rail is not
+   * always the same surface: a file manager sinks its side panels so they read as chrome. Hover was
+   * `surface-sunken` and selection `surface-selected`, which on a sunken rail are the rail's own
+   * colour — so pointing at a row did nothing visible and the chosen folder could not be told from
+   * its neighbours. Hover now takes a wash DARKER than either ground, and selection a pale accent
+   * tint with the gilt edge, so the two never collapse into each other or into the rail.
+   */
   .mc-tree-item-row:hover {
-    background-color: var(--mc-surface-sunken);
+    background-color: var(--mc-action-secondary-hover);
   }
-  /* Selected — a calm filled row and the one thin gilt edge the work surface is allowed. The edge
+  /* Selected — a tinted row and the one thin gilt edge the work surface is allowed. The edge
      occupies width the row already reserves, so selecting moves nothing. */
   .mc-tree-item[aria-selected="true"] > .mc-tree-item-row {
-    background-color: var(--mc-surface-selected);
+    background-color: var(--mc-accent-subtle);
     border-inline-start-color: var(--mc-accent-default);
     color: var(--mc-text-default);
   }
-  /* The object of a gesture in progress: the row a drag is over, or the row a menu was opened on. */
+  /* The object of a gesture in progress: the row a drag is over, or the row a menu was opened on.
+     The neutral wash keeps it distinct from a chosen row; its stronger edge says it is transient. */
   .mc-tree-item[data-tree-marked="true"] > .mc-tree-item-row {
-    background-color: var(--mc-surface-sunken);
+    background-color: var(--mc-action-secondary-hover);
     border-inline-start-color: var(--mc-accent-strong);
   }
   /* The house flush focus ring, on the focused treeitem's row. */

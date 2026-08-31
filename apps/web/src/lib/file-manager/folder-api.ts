@@ -10,6 +10,15 @@ import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
  * than throws so a caller can tell a server that answered from a server that did not.
  */
 
+/*
+ * EVERY WRITE HERE TAKES AN IDEMPOTENCY KEY, BECAUSE THE CONTRACT REQUIRES ONE ON EVERY WRITE.
+ * Rename, move, delete and document-type all declare it required, and the chokepoint enforces the
+ * header ahead of the handler — so a call without a key is refused with a 400 before anything looks
+ * at the body. Making the key a REQUIRED PARAMETER of each function is what keeps that from being a
+ * thing a caller can forget: an omission is a type error at the call site rather than a rename that
+ * silently never lands, which is exactly how these four went out unable to write at all.
+ */
+
 /**
  * One node of a matter's folder tree, in adjacency-list form. The server sends a flat list and the
  * client assembles the shape — which is the right split: a tree is a rendering decision, and a flat
@@ -46,19 +55,23 @@ export function patchFolder(
   fetchImpl: typeof fetch,
   folderId: string,
   changes: { name?: string; parentFolderId?: string | null },
+  idempotencyKey: string,
 ): Promise<ApiOutcome<{ folderId: string }>> {
   return requestJson(fetchImpl, `/api/v1/folders/${encodeURIComponent(folderId)}`, {
     method: "PATCH",
     body: changes,
+    idempotencyKey,
   });
 }
 
 export function deleteFolder(
   fetchImpl: typeof fetch,
   folderId: string,
+  idempotencyKey: string,
 ): Promise<ApiOutcome<{ folderId: string }>> {
   return requestJson(fetchImpl, `/api/v1/folders/${encodeURIComponent(folderId)}`, {
     method: "DELETE",
+    idempotencyKey,
   });
 }
 
@@ -74,10 +87,12 @@ export function patchFile(
   fetchImpl: typeof fetch,
   fileId: string,
   changes: { name?: string; folderId?: string | null; documentTypeId?: string | null },
+  idempotencyKey: string,
 ): Promise<ApiOutcome<{ fileId: string }>> {
   return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}`, {
     method: "PATCH",
     body: changes,
+    idempotencyKey,
   });
 }
 
@@ -89,9 +104,11 @@ export function patchFile(
 export function deleteFile(
   fetchImpl: typeof fetch,
   fileId: string,
+  idempotencyKey: string,
 ): Promise<ApiOutcome<{ fileId: string }>> {
   return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}`, {
     method: "DELETE",
+    idempotencyKey,
   });
 }
 
@@ -102,4 +119,9 @@ export function deleteFile(
  */
 export function downloadUrl(fileId: string): string {
   return `/api/v1/files/${encodeURIComponent(fileId)}/download`;
+}
+
+/** A fresh idempotency key for one write attempt and its retries. */
+export function writeKey(): string {
+  return crypto.randomUUID();
 }

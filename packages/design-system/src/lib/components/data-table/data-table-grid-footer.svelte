@@ -67,32 +67,32 @@
       <span class="mc-table-grid-footer-count">{grid.totalRowCount}</span> {noun}
     {/if}
   </span>
-  {#if selectAllToggle && grid.rowsInViewCount > 0 && !allSelected}
+  {#if selectedCount > 0}
+    <span class="mc-table-grid-footer-tally">
+      · <span class="mc-table-grid-footer-count">{selectedCount}</span> selected
+    </span>
+  {/if}
+  <!--
+    ONE control in ONE place, never two. Select all and Select none are the two ends of a single
+    choice, so they take turns in the same spot rather than standing side by side: two controls
+    that both act on the selection, both present, made the reader work out which one they wanted.
+    Everything selected offers the way back; anything less offers the way to all of it.
+  -->
+  {#if selectAllToggle && grid.rowsInViewCount > 0}
     <button
       type="button"
       class="mc-table-grid-footer-link"
-      title="Select all {grid.rowsInViewCount} {grid.rowsInViewCount === 1
-        ? grid.itemNoun.singular
-        : grid.itemNoun.plural} in view"
-      onclick={() => grid.selectAll()}
+      title={allSelected
+        ? `Let go of all ${String(selectedCount)} selected ${
+            selectedCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural
+          }`
+        : `Select all ${String(grid.rowsInViewCount)} ${
+            grid.rowsInViewCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural
+          } in view`}
+      onclick={() => (allSelected ? grid.clearSelection() : grid.selectAll())}
     >
-      Select all
+      {allSelected ? "Select none" : "Select all"}
     </button>
-  {/if}
-  {#if selectedCount > 0}
-    <span class="mc-table-grid-footer-tally">
-      · <span class="mc-table-grid-footer-count">{selectedCount}</span> selected ·
-      <button
-        type="button"
-        class="mc-table-grid-footer-link"
-        title="Let go of {selectedCount === 1
-          ? 'the selected ' + grid.itemNoun.singular
-          : 'all ' + selectedCount + ' selected ' + grid.itemNoun.plural}"
-        onclick={() => grid.clearSelection()}
-      >
-        Select none
-      </button>
-    </span>
   {/if}
   {#if end}
     <span class="mc-table-grid-footer-end">

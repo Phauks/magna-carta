@@ -60,16 +60,21 @@
   /*
    * Three distinguishable body-row states, kept CALM — this is a work surface, so the identity lives
    * at the row's EDGE, not washed across the data. Zebra is the faintest (sunken); hover is a neutral
-   * wash (secondary); selection takes the same neutral fill BUT a gold accent bar on its leading edge
-   * (below) — a thin gilt marker, not a gold row. The header does none.
+   * wash (secondary); selection is a pale ACCENT tint plus the gold bar on its leading edge — a
+   * tinted row with a gilt marker, not a gold row. The header does none.
+   *
+   * Selection and hover used to take the same fill: `surface-selected` and `action-secondary` both
+   * resolve to the same neutral today, so "what is selected" was legible only from a two-pixel edge
+   * that the first column often hid. They are two different questions a reader asks at once — what
+   * is under my pointer, and what have I chosen — so they get two different answers. Selection wins
+   * where they meet, because a row stops being hovered the moment the pointer leaves and does not
+   * stop being chosen.
    */
   .mc-table-body .mc-table-row:hover {
     background-color: var(--mc-action-secondary);
   }
   .mc-table-body .mc-table-row[data-state="selected"] {
-    /* Selection has its OWN semantic role (not the hover/secondary fill), so a theme or a future
-       design pass can diverge chosen-state from hover without touching recipes. Same value today. */
-    background-color: var(--mc-surface-selected);
+    background-color: var(--mc-accent-subtle);
   }
   /* The last body row drops its cell hairline so it meets the table-card frame cleanly. */
   .mc-table-body .mc-table-row:last-child .mc-table-cell {
@@ -565,7 +570,7 @@
   }
   .mc-table-grid .mc-table-body [data-state="selected"] .mc-table-grid-cell[data-pinned],
   .mc-table-grid .mc-table-body [data-state="selected"] .mc-table-grid-cell[data-pinned-end] {
-    background-color: var(--mc-surface-selected);
+    background-color: var(--mc-accent-subtle);
   }
   .mc-table-grid[data-zebra="on"]
     .mc-table-body
@@ -596,7 +601,7 @@
     background-color: var(--mc-action-secondary);
   }
   .mc-table-grid .mc-table-body .mc-table-grid-detail-row[data-state="selected"] {
-    background-color: var(--mc-surface-selected);
+    background-color: var(--mc-accent-subtle);
   }
   /* The selection's gilt edge runs down BOTH lines of the pair. */
   .mc-table-grid
