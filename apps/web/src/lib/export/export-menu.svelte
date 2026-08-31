@@ -12,6 +12,7 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import { renderCsvExport } from "./render-csv.ts";
   import { renderTextExport } from "./render-text.ts";
+  import { renderXlsxExport } from "./render-xlsx.ts";
   import { exportFilename, saveExport, type TabularExportDocument } from "./tabular-export.ts";
 
   let {
@@ -27,29 +28,36 @@
     readonly label: string;
     readonly extension: string;
     readonly contentType: string;
-    readonly render: (renderedDocument: TabularExportDocument) => string;
+    /** Sync string for the text formats; the Excel renderer loads its library lazily, so a Blob promise. */
+    readonly render: (renderedDocument: TabularExportDocument) => string | Promise<Blob>;
   }
 
   const FORMATS: readonly ExportFormat[] = [
+    {
+      label: "Excel Workbook (.xlsx)",
+      extension: "xlsx",
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      render: renderXlsxExport,
+    },
+    {
+      label: "CSV (.csv)",
+      extension: "csv",
+      contentType: "text/csv;charset=utf-8",
+      render: renderCsvExport,
+    },
     {
       label: "Plain Text (.txt)",
       extension: "txt",
       contentType: "text/plain;charset=utf-8",
       render: renderTextExport,
     },
-    {
-      label: "Spreadsheet (.csv)",
-      extension: "csv",
-      contentType: "text/csv;charset=utf-8",
-      render: renderCsvExport,
-    },
   ];
 
-  function download(format: ExportFormat): void {
+  async function download(format: ExportFormat): Promise<void> {
     const renderedDocument = exportDocument();
     if (renderedDocument === null) return;
     saveExport(
-      format.render(renderedDocument),
+      await format.render(renderedDocument),
       exportFilename(renderedDocument, format.extension),
       format.contentType,
     );
@@ -68,7 +76,7 @@
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">
     {#each FORMATS as format (format.extension)}
-      <DropdownMenu.Item onSelect={() => download(format)}>
+      <DropdownMenu.Item onSelect={() => void download(format)}>
         {format.label}
       </DropdownMenu.Item>
     {/each}

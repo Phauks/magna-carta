@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderCsvExport } from "$lib/export/render-csv.ts";
 import { renderTextExport } from "$lib/export/render-text.ts";
-import { exportFilename } from "$lib/export/tabular-export.ts";
+import { workbookPlan, worksheetName } from "$lib/export/render-xlsx.ts";
+import { exportCellText, exportFilename } from "$lib/export/tabular-export.ts";
 import type { FirmUsageResponse } from "$lib/tools/firm-usage/firm-usage-api.ts";
 import { firmUsageExportDocument } from "$lib/tools/firm-usage/firm-usage-report.ts";
 
@@ -56,11 +57,13 @@ describe("firmUsageExportDocument", () => {
   it("sums the matters-by-type totals row and names the untyped bucket", () => {
     const matters = exportDocument.sections[1];
     expect(matters?.rows.some((row) => row[0] === "No Type Assigned")).toBe(true);
-    expect(matters?.rows.at(-1)).toEqual(["Total", "1", "1", "1", "3"]);
+    expect(matters?.rows.at(-1)?.map(exportCellText)).toEqual(["Total", "1", "1", "1", "3"]);
   });
 
   it("states absences instead of dropping them", () => {
-    const cells = exportDocument.sections.flatMap((section) => section.rows.flat());
+    const cells = exportDocument.sections.flatMap((section) =>
+      section.rows.flat().map(exportCellText),
+    );
     expect(cells).toContain("Not yet measured");
     expect(cells).toContain("Managed Search Storage");
     expect(cells).toContain("No Location Assigned");
@@ -68,8 +71,13 @@ describe("firmUsageExportDocument", () => {
 
   it("rolls custody items into the location total, offsite included", () => {
     const byLocation = exportDocument.sections[3];
-    expect(byLocation?.rows.some((row) => row[0] === "Held Offsite" && row[4] === "2")).toBe(true);
-    expect(byLocation?.rows.at(-1)?.at(-1)).toBe("5");
+    expect(
+      byLocation?.rows.some(
+        (row) => row[0] === "Held Offsite" && exportCellText(row[4] ?? "") === "2",
+      ),
+    ).toBe(true);
+    const totalsRow = byLocation?.rows.at(-1);
+    expect(exportCellText(totalsRow?.at(-1) ?? "")).toBe("5");
   });
 
   it("omits the no-location row when every matter has a location", () => {
@@ -84,7 +92,7 @@ describe("firmUsageExportDocument", () => {
       },
       new Date(),
     );
-    const cells = allLocated.sections.flatMap((section) => section.rows.flat());
+    const cells = allLocated.sections.flatMap((section) => section.rows.flat().map(exportCellText));
     expect(cells).not.toContain("No Location Assigned");
   });
 });
@@ -119,6 +127,53 @@ describe("renderCsvExport", () => {
       sections: [{ title: "S", headers: ["A"], rows: [['Say "hi", twice']] }],
     });
     expect(csv).toContain('"Say ""hi"", twice"');
+  });
+});
+
+describe("workbookPlan", () => {
+  const worksheets = workbookPlan(exportDocument);
+
+  it("plans one worksheet per section with a bold frozen header row", () => {
+    expect(worksheets.map((worksheet) => worksheet.sheet)).toEqual([
+      "Storage",
+      "Matters by Type",
+      "Files and Versioning",
+      "By Location",
+      "People and Organizations",
+      "AI Usage",
+      "Compute and Activity",
+    ]);
+    for (const worksheet of worksheets) {
+      expect(worksheet.stickyRowsCount).toBe(1);
+      expect(worksheet.data[0]?.every((cell) => cell.fontWeight === "bold")).toBe(true);
+    }
+  });
+
+  it("writes counts as real number cells with the grouped format", () => {
+    const aiUsage = worksheets[5];
+    const inputTokensCell = aiUsage?.data[1]?.[1];
+    expect(inputTokensCell).toEqual({ value: 1_000_000, type: Number, format: "#,##0" });
+  });
+
+  it("keeps stated absences as text cells", () => {
+    const compute = worksheets[6];
+    expect(compute?.data[1]?.[1]).toEqual({ value: "Not yet measured" });
+  });
+
+  it("sizes columns from content within bounds", () => {
+    for (const worksheet of worksheets) {
+      for (const column of worksheet.columns) {
+        expect(column.width).toBeGreaterThanOrEqual(10);
+        expect(column.width).toBeLessThanOrEqual(40);
+      }
+    }
+  });
+});
+
+describe("worksheetName", () => {
+  it("strips the characters Excel refuses and bounds the length", () => {
+    expect(worksheetName("A/B: C?*[]")).toBe("A B C");
+    expect(worksheetName("x".repeat(40)).length).toBe(31);
   });
 });
 
