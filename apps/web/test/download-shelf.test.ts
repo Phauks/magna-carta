@@ -35,6 +35,28 @@ describe("the stored snapshot shape", () => {
 });
 
 describe("keepExportOnShelf", () => {
+  it("drops a number face that is not real, rather than losing the whole item", () => {
+    // The regression: the register requires a finite number on a two-faced cell and rejects the
+    // WHOLE document otherwise, so one unmeasured figure silently cost the member the shelf item.
+    const withBrokenFigure: TabularExportDocument = {
+      title: "Firm Usage",
+      generatedAt: new Date(2026, 7, 31),
+      sections: [
+        {
+          title: "AI Usage",
+          headers: ["Meter", "All Time"],
+          rows: [
+            ["Magnus Input Tokens", { text: "-", number: Number.NaN }],
+            ["Semantic Search Queries", { text: "7", number: 7 }],
+          ],
+        },
+      ],
+    };
+    const stored = storedFromExport(withBrokenFigure);
+    expect(stored.sections[0]?.rows[0]?.[1]).toBe("-");
+    expect(stored.sections[0]?.rows[1]?.[1]).toEqual({ text: "7", number: 7 });
+  });
+
   it("posts the stored document with the format that was taken", async () => {
     let captured: { url: string; body: Record<string, unknown> } | undefined;
     const fakeFetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -45,16 +67,25 @@ describe("keepExportOnShelf", () => {
       });
     }) as typeof fetch;
 
-    expect(await keepExportOnShelf(fakeFetch, exportDocument, "xlsx")).toBe("downloadItem_one");
+    const outcome = await keepExportOnShelf(fakeFetch, exportDocument, "xlsx");
+    expect(outcome).toEqual({ kind: "ok", value: { id: "downloadItem_one" } });
     expect(captured?.url).toBe("/api/v1/downloads/snapshots");
     expect(captured?.body).toMatchObject({ title: "Firm Usage", format: "xlsx" });
   });
 
-  it("answers undefined rather than throwing when the shelf will not take it", async () => {
-    // The member already has the file they asked for, so a shelf failure must never surface as an
-    // error over a download that worked.
-    const fakeFetch = (async () => new Response("{}", { status: 503 })) as typeof fetch;
-    expect(await keepExportOnShelf(fakeFetch, exportDocument, "csv")).toBeUndefined();
+  it("reports a refusal rather than swallowing it", async () => {
+    // It never throws — the member already has their file — but the caller must be able to say so.
+    // Swallowing this is what made a refused document look like a download that never arrived.
+    const fakeFetch = (async () =>
+      new Response(JSON.stringify({ detail: "past the bounds", errorId: "error_y" }), {
+        status: 422,
+        headers: { "content-type": "application/problem+json" },
+      })) as typeof fetch;
+    const outcome = await keepExportOnShelf(fakeFetch, exportDocument, "csv");
+    expect(outcome.kind).toBe("problem");
+    if (outcome.kind !== "problem") return;
+    expect(outcome.problem.status).toBe(422);
+    expect(outcome.problem.errorId).toBe("error_y");
   });
 });
 
