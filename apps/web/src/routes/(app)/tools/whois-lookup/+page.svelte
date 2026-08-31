@@ -5,9 +5,9 @@
    * API (a raw fetch — apps/web does not depend on @magna-carta/api-client), and the branching that
    * decides which state to show lives in whois-lookup.ts so it stays testable off the DOM.
    *
-   * The query form is the run control and sits at the content's reading edge below the masthead,
-   * above the intro text, which stays visible through every state — so a result rendering below
-   * never reflows the control or the copy above it. The states are all designed honestly: an RDAP
+   * The query form is the run control and sits at the content's reading edge below the masthead;
+   * it carries no info prose around it (docs/conventions/design-corrections.md, "No info lines"),
+   * and a result rendering below never reflows it. The states are all designed honestly: an RDAP
    * registry that answers with no
    * details is a real "nothing found", not a broken card; a legacy port-43 registry returns raw text
    * shown verbatim and labelled unparsed; and a failure surfaces its correlated Error ID. Runs
@@ -89,12 +89,6 @@
 <!-- Polite live region: announces a found record to a screen reader as it arrives, without
      re-reading the whole card. Alert-rendered states announce themselves through their own role. -->
 <div aria-live="polite" class="sr-only">{announcement}</div>
-
-<p class="mb-24 max-w-xl text-sm text-text-muted">
-  Enter a domain name or an IP address to see who registered it and when. Most registries answer
-  with structured fields. A few country-code registries answer only over legacy WHOIS, which comes
-  back as raw text.
-</p>
 
 {#if phase !== "idle"}
   <section aria-busy={loading}>
@@ -242,8 +236,3 @@
     <dd class="text-sm text-text-default">{value}</dd>
   </div>
 {/snippet}
-
-<footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
-  The query is checked against public registries only; private, local, and internal addresses are
-  refused. This tool runs outside any matter, and nothing is saved: no history, no local storage.
-</footer>

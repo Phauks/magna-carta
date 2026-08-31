@@ -1,5 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { lookupRegistration, UnsupportedRegistry } from "@magna-carta/whois";
+import { lookupRegistration, RdapUpstreamFailure, UnsupportedRegistry } from "@magna-carta/whois";
 import type { WhoisDeps } from "@magna-carta/whois/types";
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
 import type { Bindings } from "../app.ts";
@@ -80,6 +80,11 @@ export const whoisRoute = defineOpenAPIRoute(whoisMeta, {
         "The target's registry publishes no lookup service this platform can reach (no RDAP entry, no known port-43 host)",
       content: { "application/problem+json": { schema: Problem } },
     },
+    502: {
+      description:
+        "The registry's lookup service answered with a fault (rate limit or outage) rather than a record or a not-found",
+      content: { "application/problem+json": { schema: Problem } },
+    },
   },
 });
 
@@ -115,6 +120,19 @@ export function registerWhoisRoute(
             status: 501,
             title: "This registry cannot be looked up",
             detail: `The ".${error.tld}" registry publishes no lookup service this tool can reach. Check the registry's own WHOIS page directly.`,
+          });
+        }
+        if (error instanceof RdapUpstreamFailure) {
+          // The registry (or the IANA bootstrap) answered with a fault — a rate limit or an
+          // outage. Before this branch existed the empty body was parsed as a record with no
+          // fields, and the page reported "no registration record found" for a target whose
+          // record a retry then returned. A transient upstream fault is retryable, so no Error ID.
+          return problemJson(c, {
+            type: "service-unavailable",
+            status: 502,
+            title: "The registry did not answer",
+            detail:
+              "The registry's lookup service is rate-limiting or unavailable. Try again shortly.",
           });
         }
         if (error instanceof SsrfRejection) {
