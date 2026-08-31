@@ -123,6 +123,14 @@ is usually the fastest way to understand the rule.
 - **A capability the backend does not serve yet still renders**, disabled, with the "Soon" badge and
   one honest line naming what it waits on. This is the standing rule from
   [`ui-design.md`](ui-design.md); it is repeated here because it is the one most often skipped.
+- **A result region is furniture, not a reward.** The structure that will hold results (a frame, a
+  panel set, tabs) renders at rest, empty and calm, so arriving data fills a shape the reader
+  already has and population is never a surprise. The list-screen "table holds the vertical space"
+  ruling is the same judgment. _(safe website viewer, 2026-08-31)_
+- **Retry a transient upstream fault yourself, visibly.** Where a backing service faults
+  transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
+  number of times before reporting failure, and shows each attempt as it happens; the member is
+  never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
 - **A page's primary query control sits at the reading edge, not in the masthead's far-right
   actions slot.** Left-aligned below the masthead, where the eye starts; the far right is for
   secondary actions. Results render below it, so nothing about the control reflows when they
@@ -222,6 +230,14 @@ Follow-ups from the same round, all from the owner:
 - **The network speed test is not retrofitted.** Its run controls stay in the masthead where they
   are; the reading-edge rule above binds new and reworked surfaces, not a shipped page nobody is
   changing.
+
+A third round the same day, issued against both pages on the deployed site. The generalizable
+parts (the always-rendered result structure; visible bounded retries) are promoted above. Local to
+the Safe Website Viewer: the URL entry moves into the shell's own address bar (one entry, "Load
+Website"), with the landed URL as a secondary row when it differs; back/forward/refresh navigate a
+client-side capture history; outbound links load in the viewer as new captures (buttons, never
+anchors); the URL is click-to-copy; a Static/Live view toggle renders with Live seamed behind the
+Soon affordance until interactive remote browsing exists; tab panels are boxed structures.
 
 ### 2026-08-30 — the matters screens, second round
 

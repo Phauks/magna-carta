@@ -23,14 +23,19 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import {
     formatTimestamp,
-    lookupWhois,
+    lookupWhoisWithRetries,
     problemGuidance,
+    type AttemptProgress,
     type WhoisOutcome,
   } from "$lib/tools/whois/whois-lookup.ts";
 
   let query = $state("");
   let phase = $state<"idle" | "loading" | "done">("idle");
   let outcome = $state<WhoisOutcome | null>(null);
+  // The attempt now running. A first attempt is the ordinary loading state; a second or third is
+  // the registry having faulted once already, and the retry line below makes that visible instead
+  // of a silent stall.
+  let attempt = $state<AttemptProgress | null>(null);
   // A short summary announced to assistive technology when a Card result arrives. Error, empty, and
   // no-session states render as an Alert, which announces itself via its role, so they are left out
   // of this region to avoid a double reading.
@@ -38,6 +43,7 @@
 
   const loading = $derived(phase === "loading");
   const canSubmit = $derived(!loading && query.trim() !== "");
+  const retrying = $derived(attempt !== null && attempt.attempt > 1);
 
   async function runLookup(event: SubmitEvent) {
     event.preventDefault();
@@ -45,8 +51,14 @@
     const target = query.trim();
     phase = "loading";
     outcome = null;
+    attempt = null;
     announcement = "";
-    const result = await lookupWhois(target);
+    const result = await lookupWhoisWithRetries(target, (progress) => {
+      attempt = progress;
+      if (progress.attempt > 1) {
+        announcement = `The registry did not answer. Trying again, attempt ${progress.attempt} of ${progress.maxAttempts}.`;
+      }
+    });
     outcome = result;
     phase = "done";
     if (result.kind === "rdap") {
@@ -102,7 +114,16 @@
     {#if loading}
       <Card.Root>
         <Card.Header>
-          <Skeleton class="h-20 w-96" />
+          {#if retrying && attempt !== null}
+            <div class="flex flex-wrap items-center gap-8">
+              <Badge variant="warning">Retrying</Badge>
+              <span class="text-sm text-text-muted">
+                The registry did not answer. Trying again, attempt {attempt.attempt} of {attempt.maxAttempts}…
+              </span>
+            </div>
+          {:else}
+            <Skeleton class="h-20 w-96" />
+          {/if}
         </Card.Header>
         <Card.Content class="flex flex-col gap-12">
           <Skeleton class="h-16 w-full" />
