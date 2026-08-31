@@ -18,6 +18,10 @@ export interface CaptureEntry<View> {
   enteredUrl: string;
   /** The completed capture for that address. */
   view: View;
+  /** When the capture completed, epoch milliseconds. */
+  capturedAt: number;
+  /** How long the capture took, milliseconds measured around the request. */
+  elapsedMs: number;
 }
 
 export interface CaptureHistory<View> {

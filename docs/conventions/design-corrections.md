@@ -114,6 +114,14 @@ is usually the fastest way to understand the rule.
 - **A resend action uses the countdown-button pattern:** the timer starts at the first send, the
   remaining time is visible, and the control is disabled until it expires. Never a bare "Resend"
   that silently rate-limits. _(auth flow, 2026-08-07)_
+- **What acts like a link looks like a link.** A text affordance that navigates or loads content
+  when activated wears the standard hyperlink register (the app's link color, underline, pointer),
+  even where containment demands it be a button under the hood — the safe viewer's outbound
+  addresses load in its own viewport and are buttons, and they still read as links. _(safe website
+  viewer, 2026-08-31)_
+- **A toggle's active side is unmistakable at a glance.** A segmented or two-state control shows
+  which side is selected through fill/register, not only a subtle border. _(safe website viewer
+  Static/Live toggle, 2026-08-31)_
 - **An advance control validates before it enables.** Where the next step cannot succeed without a
   well-formed input, the control is disabled and an inline hint says what is wrong. Do not let the
   user press it and receive a server error that was predictable on the client. _(auth flow,
@@ -274,6 +282,18 @@ Website"), with the landed URL as a secondary row when it differs; back/forward/
 client-side capture history; outbound links load in the viewer as new captures (buttons, never
 anchors); the URL is click-to-copy; a Static/Live view toggle renders with Live seamed behind the
 Soon affordance until interactive remote browsing exists; tab panels are boxed structures.
+
+A fourth round the same day, against the viewer's shell-and-tabs build. Generalizable parts (link
+formatting; the unmistakable toggle) promoted above. Local: the landed-URL row gets its own copy
+control; the screenshot gains Download Image and a full-screen overlay; shell and tabs compose as
+one unified frame rather than two cards; the loading viewport says what is happening (the URL
+being captured, elapsed seconds, one honest status line — no fabricated server stages); a new
+Overview tab leads the right side with facts already in hand (final status, content type, server,
+redirect and link counts, captured-at, duration, the different-site flag) plus a Registration tab
+that runs the WHOIS lookup in place for the captured host through the shared lookup seam — the
+owner does not want a redirect to the WHOIS page; the information comes to the viewer. Facts that
+would need new backend probes (resolved IP, TLS certificate details, hosting provider) are
+recorded as wanted, not faked.
 
 ### 2026-08-30 — the matters screens, second round
 

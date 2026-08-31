@@ -17,9 +17,15 @@ import {
   type CaptureHistory,
 } from "../src/lib/tools/safe-browse/capture-history.ts";
 
-// The stack is generic over the view; a string stands in for a captured view here.
+// The stack is generic over the view; a string stands in for a captured view here. The timing
+// fields ride every entry (the Overview tab reads them back), so the helper carries fixed values.
 function entry(name: string) {
-  return { enteredUrl: `https://${name}.example/`, view: name };
+  return {
+    enteredUrl: `https://${name}.example/`,
+    view: name,
+    capturedAt: 1700000000000,
+    elapsedMs: 1200,
+  };
 }
 
 function walked(names: string[]): CaptureHistory<string> {
@@ -61,6 +67,16 @@ describe("pushCapture", () => {
     pushCapture(before, entry("second"));
     expect(before.entries).toHaveLength(1);
     expect(before.index).toBe(0);
+  });
+
+  it("keeps each entry's own completion time and duration through pushes and stepping", () => {
+    const first = { enteredUrl: "https://a.example/", view: "a", capturedAt: 100, elapsedMs: 40 };
+    const second = { enteredUrl: "https://b.example/", view: "b", capturedAt: 200, elapsedMs: 60 };
+    const history = pushCapture(pushCapture(emptyHistory<string>(), first), second);
+    expect(currentEntry(history)?.capturedAt).toBe(200);
+    expect(currentEntry(history)?.elapsedMs).toBe(60);
+    expect(currentEntry(back(history))?.capturedAt).toBe(100);
+    expect(currentEntry(back(history))?.elapsedMs).toBe(40);
   });
 });
 
