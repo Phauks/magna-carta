@@ -19,6 +19,7 @@
  * and the deliberate judgment is that it is not a bulk gesture. It stays on screen over a selection
  * and says so, rather than vanishing.
  */
+import ArrowRightLeft from "@lucide/svelte/icons/arrow-right-left";
 import CircleSlash from "@lucide/svelte/icons/circle-slash";
 import Copy from "@lucide/svelte/icons/copy";
 import CopyPlus from "@lucide/svelte/icons/copy-plus";
@@ -61,6 +62,19 @@ export interface LedgerMenuContext {
    * does not appear at all.
    */
   readonly reviewGateEnabled: boolean;
+  /**
+   * Whether this surface offers moving a record to another ledger, and what it says about the one
+   * the menu is speaking for.
+   *
+   * Optional, and absent by default: a surface that has not built the move does not advertise it,
+   * and every existing caller keeps exactly the menu it had. Given, the verb renders — enabled with
+   * its invitation, or disabled with the reason a record that is evidence cannot move.
+   */
+  readonly reclassify?: {
+    readonly allowed: boolean;
+    /** Why it can, or why it cannot. Either way it is the verb's hover. */
+    readonly reason: string;
+  };
 }
 
 /**
@@ -87,6 +101,7 @@ export function ledgerRecordMenu(
   return menuOf([
     { identifier: "record", items: [openVerb(), duplicateVerb(), copyValuesFlyout()] },
     { identifier: "chain", items: [submitVerb(), approveVerb(), kickBackVerb()] },
+    { identifier: "ledger", items: [reclassifyVerb()] },
     { identifier: "destructive", items: [voidVerb()] },
   ]);
 
@@ -169,6 +184,27 @@ export function ledgerRecordMenu(
       identifier: "kickBack",
       label: countedLabel({ verb: "Kick Back", count: submitted.length, noun }),
       icon: Reply,
+    };
+  }
+
+  /*
+   * Moving a charge to another ledger: a misfiled record stops being stuck.
+   *
+   * It is a ONE-RECORD gesture and stays singular: each pair of ledgers carries different facts
+   * across, so a move over a mixed selection would be several different decisions taken with one
+   * press. A surface that has not built it passes nothing and the verb is simply not there.
+   */
+  function reclassifyVerb(): RecordMenuAction | null {
+    const move = context.reclassify;
+    if (move === undefined) return null;
+    return {
+      kind: "action",
+      identifier: "reclassify",
+      label: "Move to Another Ledger…",
+      icon: ArrowRightLeft,
+      ...(move.allowed
+        ? oneRecordGesture(count, "A record moves between ledgers one at a time.")
+        : { disabledReason: move.reason }),
     };
   }
 

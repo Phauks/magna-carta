@@ -234,6 +234,26 @@ export type Bindings = {
   // absent in every test environment and until the deploy-time binding is added; while unset,
   // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
   SEARCH_SERVICE?: Fetcher;
+  // The in-app document-editing worker (magna-carta-edit), reached over a service binding ONLY for
+  // the aggregate version read — the editing traffic itself flows the other way (that worker calls
+  // this one's WOPI host over its own APP_WORKER binding). Optional: absent in every test
+  // environment; while unset, its version row reads "unbound".
+  EDIT_SERVICE?: Fetcher;
+  // The inbound email-capture worker (magna-carta-email), for the aggregate version read alone —
+  // capture itself arrives over Cloudflare Email Routing plus the shared queue, never over HTTP.
+  // Optional, and DELIBERATELY absent from wrangler.jsonc today: the worker is not on the account
+  // yet, and a service binding naming a missing worker fails this worker's own deploy. The binding
+  // line lands with that worker's first deploy (docs/deploy-queue.md, email capture activation).
+  EMAIL_SERVICE?: Fetcher;
+  // The public status-page worker (magna-carta-status), for the aggregate version read alone — the
+  // status page's own data flows through KV, never through this worker. Optional: absent in every
+  // test environment; while unset, its version row reads "unbound".
+  STATUS_SERVICE?: Fetcher;
+  // The assets-only SPA worker (magna-carta-web), for the aggregate version read alone. It holds no
+  // script, so the probe is answered by its asset server: the SPA build emits the version shape as
+  // a static /__version file, and a deployment older than that file answers index.html, which the
+  // probe reads as "unreported". Optional: absent in every test environment.
+  WEB_SERVICE?: Fetcher;
   // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
   // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
   // environment today — while unset, resolveNaturalLanguageProvisioningPort returns the

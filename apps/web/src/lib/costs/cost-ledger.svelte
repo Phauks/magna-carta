@@ -12,16 +12,15 @@
    * the totals row, the filtered-empty state and the counts strip are all the product's one grid;
    * this file declares cells and verbs, and decides none of that behaviour.
    *
-   * THE REVIEW VOCABULARY IS PRESENT HERE, AND THE SERVER IS ITS AUTHORITY. The costs routes carry
-   * submit, approve and kick-back, and the firm setting that gates them is not served to this app.
-   * Rather than hide a chain the backend actually runs, the surface offers it and lets a refusal be
-   * stated in the reader's own words. That is the opposite of the Time tab's answer, and the
-   * difference is not a style choice: time's chain verbs were absent because nothing behind them
-   * was reachable, and these are reachable.
+   * THE REVIEW VOCABULARY IS ABSENT, NOT DISABLED. Whether a firm runs review is a firm setting and
+   * it is not served, so the lifecycle reads draft to billed, nothing solicits a submission, and no
+   * Review control appears. A disabled "Submit" would be soliciting a workflow this firm has not
+   * been asked about, and the Time tab reads the same setting the same way — one matter must not
+   * show two different firms.
    *
-   * WHAT THE FOOTER CARRIES IS WHAT NO COLUMN CARRIES. Advanced, recoverable, billed, absorbed —
-   * the shape of the money in the language a receivable actually behaves in. A cost advanced is a
-   * loan to the client until it is billed and repaid, and a total alone would hide that.
+   * WHAT THE FOOTER CARRIES IS WHAT NO COLUMN CARRIES. Unbilled, billed, absorbed — where the money
+   * has got to, and the firm's own decision to absorb some of it kept visible. It states figures
+   * and nothing else: the link from a cost to its bill belongs on the cost.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -37,8 +36,6 @@
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import Plus from "@lucide/svelte/icons/plus";
-  import Receipt from "@lucide/svelte/icons/receipt";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import { RecordMenu, type RecordMenuAction, type RecordMenuModel } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
@@ -51,7 +48,6 @@
   import CostVoidDialog from "./cost-void-dialog.svelte";
   import {
     COST_COLUMN_IDENTIFIERS,
-    SOFT_COST_RECEIPT_NOTE,
     costLedgerColumns,
     expenseCodeReading,
     expenseCodeText,
@@ -60,7 +56,7 @@
   } from "./cost-columns.ts";
   import { ExpenseCodeCatalogue } from "./cost-expense-codes.svelte.ts";
   import { footerFigures, ledgerCurrency, submittedCount } from "./cost-figures.ts";
-  import { gapCellTitle, gapReason } from "./cost-gaps.ts";
+  import { REVIEW_GATE_ENABLED, gapCellTitle } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
   import { costRecordMenu, type CostMenuRecord } from "./cost-record-menu.ts";
   import {
@@ -72,8 +68,6 @@
   } from "./cost-operations.ts";
   import {
     ABSORBED_MEANING,
-    CLASS_LABELS,
-    CLASS_MEANINGS,
     GONE_PAYEE_NOTE,
     billingLabel,
     countsInTotals,
@@ -209,7 +203,6 @@
       entryNumber: null,
       description: cost.description,
       amount: money(cost.amountMinor),
-      disbursementClass: cost.disbursementClass,
     };
   }
 
@@ -217,8 +210,7 @@
     const target = menuScope[0];
     if (target === undefined) return [];
     return costRecordMenu(menuScope.map(describeForMenu), describeForMenu(target), {
-      // The firm's review setting is not served; the routes behind these verbs are the authority.
-      reviewGateEnabled: true,
+      reviewGateEnabled: REVIEW_GATE_ENABLED,
     });
   });
 
@@ -368,19 +360,15 @@
     <span class="whitespace-nowrap tabular-nums">{formatDate(row.incurredDate)}</span>
   {:else if column.id === COST_COLUMN_IDENTIFIERS.payee}
     {@const state = payeeState(row)}
-    {#if state.kind === "soft"}
-      <span class="text-text-muted" title={CLASS_MEANINGS.soft}>&mdash;</span>
-    {:else if state.kind === "unrecorded"}
+    {#if state.kind === "unrecorded"}
       <span class="text-text-muted">Not recorded</span>
     {:else if state.kind === "gone"}
       <span class="text-text-subtle" title={GONE_PAYEE_NOTE}>No longer in the directory</span>
     {:else}
       <span class="block truncate" title={state.name}>{state.name}</span>
     {/if}
-  {:else if column.id === COST_COLUMN_IDENTIFIERS.info}
+  {:else if column.id === COST_COLUMN_IDENTIFIERS.description}
     <span class="block truncate" title={row.description}>{row.description}</span>
-  {:else if column.id === COST_COLUMN_IDENTIFIERS.disbursementClass}
-    <span title={CLASS_MEANINGS[row.disbursementClass]}>{CLASS_LABELS[row.disbursementClass]}</span>
   {:else if column.id === COST_COLUMN_IDENTIFIERS.expenseCode}
     {@const reading = expenseCodeReading(row, expenseCodes.labelFor)}
     {#if reading === null}
@@ -389,12 +377,6 @@
       <span class="tabular-nums" title={expenseCodeText(row, expenseCodes.labelFor)}>
         {reading.code}
       </span>
-    {/if}
-  {:else if column.id === COST_COLUMN_IDENTIFIERS.receipt}
-    {#if row.disbursementClass === "soft"}
-      <span class="text-text-muted" title={SOFT_COST_RECEIPT_NOTE}>&mdash;</span>
-    {:else}
-      <span class="text-text-subtle" title={gapCellTitle("receipt")}>&mdash;</span>
     {/if}
   {:else if column.id === COST_COLUMN_IDENTIFIERS.amount}
     <span class="whitespace-nowrap tabular-nums">
@@ -419,10 +401,9 @@
 {/snippet}
 
 {#snippet emptyLedger()}
-  <EmptyState title="No Costs Advanced Yet">
-    Filing fees, service, transcripts, experts: every cost advanced for this matter lands here with
-    its payee and its receipt, and every charge-back of the firm&rsquo;s own copies, postage and
-    research beside them. Recoverable or absorbed, hard or soft, the whole record.
+  <EmptyState title="No Costs Recorded Yet">
+    Filing fees, service, transcripts, experts: every cost paid or consumed for this matter lands
+    here.
     {#snippet actions()}
       <Button onclick={openRecordACost}>
         <Plus class="size-16" aria-hidden="true" />
@@ -442,16 +423,6 @@
       <span class="text-text-subtle">{figure.label}</span>
       <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
     </span>
-    {#if figure.identifier === "recoverable"}
-      <SoonAffordance reason={gapReason("billing")}>
-        {#snippet control(soon)}
-          <Button variant="ghost" size="sm" {...soon}>
-            <Receipt class="size-16" aria-hidden="true" />
-            Open in Billing
-          </Button>
-        {/snippet}
-      </SoonAffordance>
-    {/if}
   {/each}
 {/snippet}
 
@@ -470,16 +441,18 @@
         Clear Filters
       </Button>
     {/if}
-    <Button
-      variant="secondary"
-      size="sm"
-      disabled={waitingForReview === 0}
-      title={reviewTitle}
-      onclick={openReview}
-    >
-      <ListChecks class="size-16" aria-hidden="true" />
-      {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
-    </Button>
+    {#if REVIEW_GATE_ENABLED}
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={waitingForReview === 0}
+        title={reviewTitle}
+        onclick={openReview}
+      >
+        <ListChecks class="size-16" aria-hidden="true" />
+        {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
+      </Button>
+    {/if}
     <DataTable.GridColumnsMenu {grid} />
     <Button
       variant="secondary"
@@ -493,7 +466,7 @@
     </Button>
     <Button
       size="sm"
-      title="Record a cost advanced or charged back on this matter. It saves as a draft."
+      title="Record a cost paid or consumed on this matter. It saves as a draft."
       onclick={openRecordACost}
     >
       <Plus class="size-16" aria-hidden="true" />
@@ -538,7 +511,7 @@
               {grid}
               {cell}
               class="max-h-svh"
-              caption="Costs advanced for this matter"
+              caption="Costs recorded on this matter"
               empty={emptyLedger}
               {loading}
             />

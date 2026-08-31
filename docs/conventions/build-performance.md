@@ -43,6 +43,31 @@ Note: BuildKit cache mounts are build-local. Persisting them across Workers Buil
 
 Work that would otherwise happen on every cold start belongs in the image, fetched and pre-processed once at build time: baked databases, compiled/serialized rule blobs, prebuilt indexes. The scan Container is the worked example — it bakes the ClamAV signature DB and a compiled YARA-rule blob at build time, so the runtime container neither downloads nor recompiles them. This trades a slightly longer build for a fast, network-free start; prefer it whenever a runtime input is large and slow-changing.
 
+### A Worker entrypoint spends a validated startup budget — keep it thin
+
+Cloudflare validates every Worker deploy against a startup CPU budget covering all module-scope
+work (error 10021, "Script startup exceeded CPU time limit"), and a deploy that exceeds it is
+REFUSED — with `main` as production, that means merges stop reaching users until someone notices.
+The app worker crossed the budget on 2026-08-31: its entrypoint statically imported the whole
+route/consumer/sweep graph, and every route module builds its zod schemas and OpenAPI metadata at
+module scope, so the aggregate finally outgrew the budget as routes accumulated.
+
+The standing shape, worked in `apps/api-worker/src/index.ts` + `src/event-dispatch.ts`:
+
+- **The entrypoint keeps only what must be synchronous at startup** — the Durable Object class
+  re-exports the runtime instantiates by name. Nothing else is statically imported.
+- **Everything that runs on an event** (the Hono app, the Cron pass router, the queue router, and
+  their whole import graph) lives behind ONE dynamic `import()`, which the runtime evaluates on
+  the first event instead of at validation. The dynamic import is cached per isolate, so the cost
+  is paid once per cold start, off the validated budget.
+- **Measure before shipping an entrypoint change:** `pnpm --filter @magna-carta/api-worker exec
+wrangler check startup` writes a local CPU profile and total. The split took the app worker from
+  roughly 1.5 s to 0.24 s of local startup work. Local CPU is not Cloudflare CPU; treat the number
+  as a trend, not the deployed truth.
+
+The same rule binds every worker in the fleet: a new consumer, sweep, or route joins the
+event-dispatch graph, never the entrypoint's static imports.
+
 ## Type-checking and static analysis — the local feedback loop
 
 The other half of "build time fast" is the **static-check loop** every contributor runs constantly:

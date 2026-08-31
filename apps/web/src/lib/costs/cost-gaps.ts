@@ -2,9 +2,10 @@
  * What the cost ledger is designed to show and the server does not yet answer.
  *
  * The screen was designed whole, against a record that carries an entry number, both dates, the
- * person who recorded it, the receipt riding it, the invoice it was billed onto, an internal memo,
- * a recorded kick-back reason and a history. The listing answers a smaller record than that: the
- * columns exist in the table `cost_entry` and simply are not projected onto the listing's response.
+ * person who recorded it, the files attached to it, the invoice it was billed onto, an internal
+ * memo, a recorded kick-back reason and a history. The listing answers a smaller record than that:
+ * the columns exist in the table `cost_entry` and simply are not projected onto the listing's
+ * response.
  *
  * Two wrong ways to handle the difference were available: invent the missing values, or quietly
  * drop the columns and controls that carry them. Both leave a reader unable to tell what the
@@ -37,12 +38,12 @@ export const COST_LEDGER_GAPS = {
     field: "Entered By",
     waitsOn: "the recorder being served on the cost listing",
   },
-  receipt: {
-    field: "Receipt",
-    waitsOn: "the attached receipt being served on the cost listing",
+  attachments: {
+    field: "Attachments",
+    waitsOn: "a cost's attached files being served on the cost listing",
   },
-  receiptPicker: {
-    field: "Attach Receipt",
+  attachmentPicker: {
+    field: "Attach File",
     waitsOn: "a picker that reaches the matter's own files",
   },
   invoice: {
@@ -65,9 +66,9 @@ export const COST_LEDGER_GAPS = {
     field: "Delete Draft",
     waitsOn: "a route that removes a draft that never entered review",
   },
-  billing: {
-    field: "Open in Billing",
-    waitsOn: "the Billing section",
+  unsubmit: {
+    field: "Unsubmit",
+    waitsOn: "a route that returns a submitted cost to draft at its own recorder's hand",
   },
   reviewGate: {
     field: "Review",
@@ -90,7 +91,7 @@ export type CostLedgerGapName = keyof typeof COST_LEDGER_GAPS;
  *
  * It is the same sentence the Soon affordance says about a control, because it is the same fact:
  * the column is real, the value is not there yet, and here is what it waits on. A bare blank would
- * read as a cost that has no receipt rather than as a product that cannot yet say.
+ * read as a cost that has no files rather than as a product that cannot yet say.
  */
 export function gapCellTitle(name: CostLedgerGapName): string {
   const gap = COST_LEDGER_GAPS[name];
@@ -101,3 +102,16 @@ export function gapCellTitle(name: CostLedgerGapName): string {
 export function gapReason(name: CostLedgerGapName): string {
   return COST_LEDGER_GAPS[name].waitsOn;
 }
+
+/**
+ * Whether this firm runs the review flow.
+ *
+ * It is a firm setting and nothing serves it to this app, so the surface takes the settled default:
+ * off. Off means the review vocabulary is ABSENT rather than disabled — nothing solicits a
+ * submission, no chain is drawn, and the lifecycle a reader sees runs draft to billed. A disabled
+ * "Submit" would be soliciting a workflow this firm has never been asked about, and the Time tab
+ * reads the same setting the same way, so one matter cannot show two different firms.
+ *
+ * When the setting is served, this constant becomes the read of it.
+ */
+export const REVIEW_GATE_ENABLED: boolean = false;

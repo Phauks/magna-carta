@@ -11,16 +11,11 @@
   import { formatDate } from "@magna-carta/design-system/data-table";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
+  import { matterStatusLabel } from "$lib/matters/matter-status.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
   const matter = $derived(data.matter);
-
-  const STATUS_LABEL: Record<MatterRecord["status"], string> = {
-    prospective: "Prospective",
-    open: "Open",
-    closed: "Closed",
-  };
 
   interface KeyFact {
     label: string;
@@ -32,7 +27,9 @@
   const keyFacts: KeyFact[] = $derived.by(() => {
     const facts: KeyFact[] = [
       { label: "Matter number", value: matter.matterNumber ?? "Unnumbered — consultation" },
-      { label: "Status", value: STATUS_LABEL[matter.status] },
+      // The word comes from the product's one status register, so this page, the header and the
+      // docket cannot end up calling the same matter three things.
+      { label: "Status", value: matterStatusLabel(matter.status) },
     ];
     if (matter.matterTypeName) {
       facts.push({ label: "Matter type", value: matter.matterTypeName });

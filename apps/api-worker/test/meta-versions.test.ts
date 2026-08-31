@@ -74,8 +74,30 @@ describe("collectServiceVersions", () => {
     });
     expect(reportFor(services, "scan")).toMatchObject({
       state: "reported",
+      service: "magna-carta-scan",
       ...REPORTED_IDENTITY,
     });
+  });
+
+  it("every row names the Cloudflare Worker it reports on, never an invented product name", async () => {
+    const services = await collectServiceVersions({});
+    for (const service of services) {
+      expect(service.service).toMatch(/^magna-carta-/);
+    }
+  });
+
+  it("a 200 whose body is not JSON is unreported — the assets-only worker's index.html fallback", async () => {
+    const htmlFetcher = {
+      fetch: () =>
+        Promise.resolve(
+          new Response("<!doctype html><html></html>", {
+            status: 200,
+            headers: { "content-type": "text/html" },
+          }),
+        ),
+    } as unknown as Fetcher;
+    const services = await collectServiceVersions({ WEB_SERVICE: htmlFetcher });
+    expect(reportFor(services, "web").state).toBe("unreported");
   });
 
   it("a bound service without the version route (404) is unreported", async () => {
@@ -141,5 +163,26 @@ describe("the brief aggregate cache", () => {
     expect(probeCount).toBe(1);
     expect(second.observedAt).toBe(first.observedAt);
     expect(second.services).toEqual(first.services);
+  });
+
+  it("a forced read re-probes inside the window and becomes the observation later reads serve", async () => {
+    let probeCount = 0;
+    const env: ServiceVersionBindings = {
+      SCAN_SERVICE: {
+        fetch: () => {
+          probeCount += 1;
+          return Promise.resolve(Response.json(REPORTED_IDENTITY));
+        },
+      } as unknown as Fetcher,
+    };
+    await readServiceVersionsThroughCache(env);
+    // The panel's explicit Refresh gesture: the member asked what is running NOW, so the cache is
+    // skipped — and the probe just paid for replaces it, so a following cached read serves the
+    // fresh observation rather than the older one.
+    const forced = await readServiceVersionsThroughCache(env, { forceFresh: true });
+    expect(probeCount).toBe(2);
+    const after = await readServiceVersionsThroughCache(env);
+    expect(probeCount).toBe(2);
+    expect(after.observedAt).toBe(forced.observedAt);
   });
 });

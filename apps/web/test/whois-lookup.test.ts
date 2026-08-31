@@ -9,6 +9,7 @@ import {
   formatTimestamp,
   hasRegistrationDetail,
   lookupWhois,
+  lookupWhoisWithRetries,
   problemGuidance,
   type WhoisResult,
 } from "../src/lib/tools/whois/whois-lookup.ts";
@@ -112,6 +113,100 @@ describe("lookupWhois", () => {
   it("reports transport when a 200 body is not valid JSON", async () => {
     const outcome = await lookupWhois("example.com", respondWith("<html>not json</html>", 200));
     expect(outcome).toEqual({ kind: "transport" });
+  });
+});
+
+describe("lookupWhoisWithRetries", () => {
+  const noDelay = async () => {};
+
+  // A fetch that serves the given responses in order, repeating the last one.
+  function respondInSequence(bodies: Array<{ body: unknown; status: number }>): typeof fetch {
+    let call = 0;
+    return (async () => {
+      const next = bodies[Math.min(call, bodies.length - 1)]!;
+      call += 1;
+      return new Response(typeof next.body === "string" ? next.body : JSON.stringify(next.body), {
+        status: next.status,
+      });
+    }) as unknown as typeof fetch;
+  }
+
+  it("returns a first-attempt success after exactly one attempt", async () => {
+    const attempts: number[] = [];
+    const outcome = await lookupWhoisWithRetries(
+      "example.com",
+      (progress) => attempts.push(progress.attempt),
+      respondInSequence([{ body: rdapFound, status: 200 }]),
+      noDelay,
+    );
+    expect(outcome.kind).toBe("rdap");
+    expect(attempts).toEqual([1]);
+  });
+
+  it("retries through registry faults and returns the record a later attempt finds", async () => {
+    // The reported bug: a registry's transient fault read as "no record", and the member had to be
+    // the retry loop. The page now retries visibly and lands on the real record.
+    const attempts: number[] = [];
+    const outcome = await lookupWhoisWithRetries(
+      "example.com",
+      (progress) => attempts.push(progress.attempt),
+      respondInSequence([
+        { body: {}, status: 502 },
+        { body: {}, status: 502 },
+        { body: rdapFound, status: 200 },
+      ]),
+      noDelay,
+    );
+    expect(outcome.kind).toBe("rdap");
+    expect(attempts).toEqual([1, 2, 3]);
+  });
+
+  it("retries a transport fault where nothing answered at all", async () => {
+    let calls = 0;
+    const flaky = (async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError("network down");
+      return new Response(JSON.stringify(rdapFound), { status: 200 });
+    }) as unknown as typeof fetch;
+    const outcome = await lookupWhoisWithRetries("example.com", () => {}, flaky, noDelay);
+    expect(outcome.kind).toBe("rdap");
+    expect(calls).toBe(2);
+  });
+
+  it("stops after the attempt budget and surfaces the last fault", async () => {
+    const attempts: number[] = [];
+    const outcome = await lookupWhoisWithRetries(
+      "example.com",
+      (progress) => attempts.push(progress.attempt),
+      respondInSequence([{ body: {}, status: 502 }]),
+      noDelay,
+    );
+    expect(outcome).toEqual({ kind: "problem", problem: { status: 502, errorId: undefined } });
+    expect(attempts).toEqual([1, 2, 3]);
+  });
+
+  it("does not retry an answer — a 400 input fault comes back after one attempt", async () => {
+    const attempts: number[] = [];
+    const outcome = await lookupWhoisWithRetries(
+      "bad",
+      (progress) => attempts.push(progress.attempt),
+      respondInSequence([{ body: {}, status: 400 }]),
+      noDelay,
+    );
+    expect(outcome.kind).toBe("problem");
+    expect(attempts).toEqual([1]);
+  });
+
+  it("does not retry the platform's own rate limit — that would dig the hole deeper", async () => {
+    const attempts: number[] = [];
+    const outcome = await lookupWhoisWithRetries(
+      "example.com",
+      (progress) => attempts.push(progress.attempt),
+      respondInSequence([{ body: {}, status: 429 }]),
+      noDelay,
+    );
+    expect(outcome).toEqual({ kind: "problem", problem: { status: 429, errorId: undefined } });
+    expect(attempts).toEqual([1]);
   });
 });
 

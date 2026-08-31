@@ -7,22 +7,23 @@
  *
  * NO HOURS AND NO RATE, AND THE ABSENCE IS THE POINT. A cost is an exact amount as spent, so the
  * honest difference from the time ledger is a missing column rather than an emptied one. What
- * replaces them is the cost's own vocabulary: the payee, the hard/soft class, the expense code and
- * the receipt.
+ * replaces them is the cost's own vocabulary: the payee, the expense code and the files attached.
+ *
+ * THE DESCRIPTION CARRIES THE WIDTH. It is the line the client reads on the bill, so it leads the
+ * record's own facts and the payee sits beside it; everything narrow and fixed follows.
  *
  * A COLUMN THE LISTING CANNOT FILL STILL EXISTS. Its label is real, it appears in the columns menu,
  * and its cells say what they are waiting on instead of showing a value nobody recorded. Entry
  * Number, Date Entered and Entered By start hidden, because a column of identical gap marks in
- * front of every reader is noise. Receipt stays visible because it is not uniformly a gap: a soft
- * cost genuinely has no vendor invoice to keep, and that is a fact the column tells truthfully
- * today for every soft row on the matter.
+ * front of every reader is noise. Attachments stays showing, because a cost's files are part of
+ * what a reader came to check and the shape of the record is the thing worth seeing.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { CostSummary } from "$lib/matters/cost-api.ts";
 import { costStatusKey } from "$lib/matters/cost-api.ts";
 import { gapCellTitle, type CostLedgerGapName } from "./cost-gaps.ts";
-import { CLASS_LABELS, billingLabel, costAmount, payeeText } from "./cost-vocabulary.ts";
+import { billingLabel, costAmount, payeeText } from "./cost-vocabulary.ts";
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const COST_COLUMN_IDENTIFIERS = {
@@ -30,11 +31,10 @@ export const COST_COLUMN_IDENTIFIERS = {
   entryNumber: "entryNumber",
   dateEntered: "dateEntered",
   enteredBy: "enteredBy",
+  description: "description",
   payee: "payee",
-  info: "info",
-  disbursementClass: "disbursementClass",
   expenseCode: "expenseCode",
-  receipt: "receipt",
+  attachments: "attachments",
   amount: "amount",
   billing: "billing",
   status: "status",
@@ -45,6 +45,7 @@ export const UNSERVED_COST_COLUMNS: Readonly<Record<string, CostLedgerGapName>> 
   [COST_COLUMN_IDENTIFIERS.entryNumber]: "entryNumber",
   [COST_COLUMN_IDENTIFIERS.dateEntered]: "dateEntered",
   [COST_COLUMN_IDENTIFIERS.enteredBy]: "enteredBy",
+  [COST_COLUMN_IDENTIFIERS.attachments]: "attachments",
 };
 
 /** Whether this column's values can be read at all yet. */
@@ -104,19 +105,6 @@ export function expenseCodeText(cost: CostSummary, labels: ExpenseCodeLabels): s
 }
 
 /**
- * What the Receipt column says.
- *
- * A soft cost has no vendor invoice to keep, and says so with a settled dash. A hard cost's
- * receipt is not served on the listing at all, so the cell states the gap rather than asserting
- * that no receipt was ever attached.
- */
-export function receiptText(cost: CostSummary): string {
-  return cost.disbursementClass === "soft" ? "—" : "Not served";
-}
-
-export const SOFT_COST_RECEIPT_NOTE = "A soft cost has no vendor invoice to keep.";
-
-/**
  * The ledger's columns, in the order the design puts them.
  *
  * `currency` follows the rows rather than being assumed: a matter's costs are written in the
@@ -163,25 +151,18 @@ export function costLedgerColumns(options: {
       text: () => "",
     },
     {
+      id: COST_COLUMN_IDENTIFIERS.description,
+      label: "Description",
+      type: "text",
+      value: (cost) => cost.description,
+    },
+    {
       id: COST_COLUMN_IDENTIFIERS.payee,
       label: "Payee",
       type: "text",
       filter: "set",
       fitExtra: 30,
       value: (cost) => payeeText(cost),
-    },
-    {
-      id: COST_COLUMN_IDENTIFIERS.info,
-      label: "Info",
-      type: "text",
-      value: (cost) => cost.description,
-    },
-    {
-      id: COST_COLUMN_IDENTIFIERS.disbursementClass,
-      label: "Class",
-      type: "text",
-      filter: "set",
-      value: (cost) => CLASS_LABELS[cost.disbursementClass],
     },
     {
       id: COST_COLUMN_IDENTIFIERS.expenseCode,
@@ -191,12 +172,13 @@ export function costLedgerColumns(options: {
       value: (cost) => expenseCodeText(cost, expenseCodeLabels),
     },
     {
-      id: COST_COLUMN_IDENTIFIERS.receipt,
-      label: "Receipt",
+      id: COST_COLUMN_IDENTIFIERS.attachments,
+      label: "Attachments",
       type: "text",
-      filter: "set",
+      filter: "none",
       fitExtra: 20,
-      value: (cost) => receiptText(cost),
+      value: () => null,
+      text: () => "",
     },
     {
       id: COST_COLUMN_IDENTIFIERS.amount,
@@ -204,7 +186,7 @@ export function costLedgerColumns(options: {
       type: "money",
       currency,
       total: "sum",
-      filterNote: "In the matter's currency, as advanced or charged back.",
+      filterNote: "In $, as spent.",
       value: (cost) => costAmount(cost),
     },
     {

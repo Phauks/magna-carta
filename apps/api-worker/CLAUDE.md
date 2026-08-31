@@ -14,9 +14,16 @@ routes requests through the chokepoint into those packages.
 
 ## Key files / entry points
 
-- `src/index.ts` — the `ExportedHandler`: `fetch` (the Hono app), `scheduled` (Cron → sweep router), and
-  `queue` (routes each batch by `batch.queue` name to its consumer). Also re-exports every Durable Object
-  class so the runtime can instantiate the classes named in `wrangler.jsonc`.
+- `src/index.ts` — the `ExportedHandler`, kept THIN on purpose: it re-exports every Durable Object
+  class (the one thing that must be synchronous at startup) and reaches everything else through one
+  dynamic import of `src/event-dispatch.ts`. Deploys are validated against a startup CPU budget
+  (error 10021) that the entrypoint's static module graph spends; this Worker crossed it on
+  2026-08-31. Never add a static import to `index.ts` — see `docs/conventions/build-performance.md`
+  (_A Worker entrypoint spends a validated startup budget_).
+- `src/event-dispatch.ts` — what the Worker does when an event arrives: `resolveApp()` (the Hono app,
+  built lazily on the first request), `runScheduledPass` (Cron → sweep router), and `routeQueueBatch`
+  (routes each batch by `batch.queue` name to its consumer). A new consumer, sweep, or route joins
+  this module's graph.
 - `src/app.ts` — `createApp()` + the `Bindings` env shape (the no-barrel single home for the env type).
   Builds the chokepoint once over the real ports and registers every route through it.
 - `src/chokepoint/` — the ordered enforcement middleware + its ports; `defineOpenAPIRoute` carries each

@@ -49,8 +49,10 @@
   import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
+  import MatterPicker from "./matter-picker.svelte";
   import { timekeeperOf } from "./time-columns.ts";
   import { gapReason, TIME_LEDGER_GAPS } from "./time-gaps.ts";
+  import { matterDisplay, type SheetMatter } from "./time-sheet-model.ts";
   import {
     createTimeEntry,
     draftRefusal,
@@ -68,6 +70,8 @@
     editing = $bindable(false),
     matterId,
     matterTitle,
+    matters = [],
+    mattersCapped = false,
     members,
     sessionUserId,
     canWorkDraft,
@@ -88,8 +92,20 @@
      * straight into its fields, and so this file can lower it when a save has actually landed.
      */
     editing?: boolean;
-    matterId: string;
-    matterTitle: string;
+    /**
+     * The matter a NEW entry starts on, or null where nothing has decided one.
+     *
+     * The Time Sheet is firm-wide, so a person can open the full record from a sheet that is on no
+     * matter at all. The window then asks for one, because capture takes a matter; opened from a
+     * matter it starts there and can still be pointed elsewhere before it is saved.
+     */
+    matterId: string | null;
+    /** That matter's name, where there is one. */
+    matterTitle: string | null;
+    /** The firm's matters, for the new-entry picker. A caller that always has one passes none. */
+    matters?: readonly SheetMatter[];
+    /** Whether that list is a page of the record rather than all of it, so the picker says so. */
+    mattersCapped?: boolean;
     /** Whose work an entry may be recorded as. A departed colleague is not offered new work. */
     members: readonly FirmMemberSummary[];
     sessionUserId: string | null;
@@ -112,6 +128,14 @@
   let workDateText = $state("");
   let durationText = $state("");
   let timekeeperUserId = $state("");
+  /**
+   * The matter a new entry is being written on, which the reader may still change.
+   *
+   * It is held here rather than read off the prop because the prop is where the entry STARTS: a
+   * window opened from the firm-wide sheet starts on nothing, and the only way it can ever be saved
+   * is for somebody to choose one in the field.
+   */
+  let chosenMatterId = $state<string | null>(null);
   let billableChoice = $state("billable");
   let saving = $state(false);
   let saveFailure = $state<string | null>(null);
@@ -127,6 +151,7 @@
     workDate: "",
     duration: "",
     timekeeperUserId: "",
+    matterId: null as string | null,
     billing: "billable",
   });
 
@@ -135,6 +160,7 @@
     seeded.workDate = workDateText;
     seeded.duration = durationText;
     seeded.timekeeperUserId = timekeeperUserId;
+    seeded.matterId = chosenMatterId;
     seeded.billing = billableChoice;
   }
 
@@ -165,6 +191,7 @@
     workDateText = start?.workDate ?? new Date().toISOString().slice(0, 10);
     durationText = start === null ? "" : formatDuration(start.rawDurationMinutes).clock;
     timekeeperUserId = start?.timekeeperUserId ?? sessionUserId ?? "";
+    chosenMatterId = entry?.matterId ?? matterId;
     billableChoice = start === null || start.billable ? "billable" : "nonbillable";
     rememberWhatIsInTheFields();
   });
@@ -174,6 +201,7 @@
       workDateText !== seeded.workDate ||
       durationText !== seeded.duration ||
       timekeeperUserId !== seeded.timekeeperUserId ||
+      chosenMatterId !== seeded.matterId ||
       billableChoice !== seeded.billing,
   );
 
@@ -188,6 +216,7 @@
     workDateText = seeded.workDate;
     durationText = seeded.duration;
     timekeeperUserId = seeded.timekeeperUserId;
+    chosenMatterId = seeded.matterId;
     billableChoice = seeded.billing;
     saveFailure = null;
     if (entry === null) open = false;
@@ -250,9 +279,16 @@
     return "—";
   });
 
-  const refusal = $derived(
-    editing ? draftRefusal({ durationText, description: descriptionText }) : null,
-  );
+  /*
+   * Why the entry cannot be written as it stands. The matter is the first of the reasons on a new
+   * entry, because capture takes one: an advance control validates before it enables, so the field
+   * says what is missing rather than the server answering a refusal the window could have named.
+   */
+  const refusal = $derived.by((): string | null => {
+    if (!editing) return null;
+    if (creating && chosenMatterId === null) return "Choose the matter this time belongs to";
+    return draftRefusal({ durationText, description: descriptionText });
+  });
 
   /** Why the change cannot be committed as it stands. A save in flight is one of those reasons. */
   const saveRefusal = $derived(saving ? "Saving this entry." : (refusal ?? undefined));
@@ -281,11 +317,18 @@
     return verdict.allowed ? undefined : verdict.reason;
   });
 
+  /** The matter in hand as it reads: the one chosen in the field, else whatever the caller named. */
+  const chosenMatterName = $derived.by((): string => {
+    const chosen = matters.find((matter) => matter.id === chosenMatterId);
+    if (chosen !== undefined) return matterDisplay(chosen);
+    return matterTitle ?? "";
+  });
+
   const sheet = $derived(
     entry === null
       ? null
       : timeEntrySheet(entry, {
-          matterTitle,
+          matterTitle: chosenMatterName,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
           date: (isoDate) => formatDate(isoDate),
           printedAt: formatInstant(new Date()),
@@ -296,6 +339,10 @@
     if (refusal !== null || saving) return;
     const minutes = parseDurationText(durationText);
     if (minutes === null) return;
+    // The refusal above has already established a new entry has a matter; reading it into a
+    // constant is what lets the type system agree, and what keeps a capture without one impossible.
+    const writeToMatter = chosenMatterId;
+    if (entry === null && writeToMatter === null) return;
     saving = true;
     saveFailure = null;
     const outcome =
@@ -303,7 +350,9 @@
         ? await createTimeEntry(
             fetch,
             {
-              matterId,
+              // The matter the reader chose in the field, never the one the window opened on: on a
+              // firm-wide sheet those are two different answers.
+              matterId: writeToMatter ?? "",
               timekeeperUserId,
               workDate: workDateText,
               rawDurationMinutes: minutes,
@@ -346,7 +395,7 @@
 
 {#snippet subtitle()}
   {#if entry === null}
-    <span>{matterTitle}</span>
+    <span>{chosenMatterName === "" ? "No matter chosen yet" : chosenMatterName}</span>
   {:else}
     <span title={TIME_LEDGER_GAPS.entryNumber.field + " is not recorded yet."}>
       Entry number not yet recorded
@@ -408,7 +457,27 @@
         <Input id="time-record-work-date" type="date" disabled={readOnly} bind:value={workDateText} />
       </div>
 
-      {@render unservedField("Matter", "matter", "Matter")}
+      <!--
+        A NEW entry's matter is a real choice, because capture takes one and nothing has been
+        written yet. An entry the firm already holds is a different question: nothing in the
+        contract moves one between matters, so that field stays refused and says what it waits on.
+      -->
+      {#if creating}
+        <div class="flex flex-col gap-4">
+          <Label for="time-record-matter">Matter</Label>
+          <MatterPicker
+            inputId="time-record-matter"
+            {matters}
+            value={chosenMatterId}
+            capped={mattersCapped}
+            disabled={readOnly}
+            title="Where this time belongs. Type the number or the name; either finds it."
+            onpick={(picked) => (chosenMatterId = picked)}
+          />
+        </div>
+      {:else}
+        {@render unservedField("Matter", "matter", "Matter")}
+      {/if}
 
       <div class="flex flex-col gap-4">
         <Label for="time-record-staff">Staff</Label>

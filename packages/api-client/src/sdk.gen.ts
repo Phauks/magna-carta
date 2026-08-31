@@ -29,7 +29,7 @@ export const healthRead = <ThrowOnError extends boolean = false>(options?: Optio
 export const meGet = <ThrowOnError extends boolean = false>(options?: Options<MeGetData, ThrowOnError>): RequestResult<MeGetResponses, MeGetErrors, ThrowOnError> => (options?.client ?? client).get<MeGetResponses, MeGetErrors, ThrowOnError>({ url: '/api/v1/me', ...options });
 
 /**
- * The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for each dedicated service worker it is bound to. A service that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.
+ * The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.
  */
 export const metaVersions = <ThrowOnError extends boolean = false>(options?: Options<MetaVersionsData, ThrowOnError>): RequestResult<MetaVersionsResponses, MetaVersionsErrors, ThrowOnError> => (options?.client ?? client).get<MetaVersionsResponses, MetaVersionsErrors, ThrowOnError>({ url: '/api/v1/meta/versions', ...options });
 

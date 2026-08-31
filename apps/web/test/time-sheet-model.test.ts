@@ -4,23 +4,32 @@
  * The load-bearing rule is that EXISTING and being COMPLETE are two different facts about a row: a
  * row holds what is typed into it from the moment it exists, and what it is still short of is said
  * out loud rather than standing between the person and their typing.
+ *
+ * The matter is one of those facts and not a condition of the row, because the sheet is firm-wide:
+ * a person captures time before they know where it belongs, so a matterless row is legal, holds a
+ * provisional code, and says that the matter is one of the things it is waiting for.
  */
 import { describe, expect, it } from "vitest";
 import type { TimeEntrySummary } from "../src/lib/matters/time-api.ts";
 import {
+  NO_MATTER_TEXT,
   clockText,
   decimalHoursText,
   incompleteCount,
   isIncomplete,
   isWorkable,
+  matterDisplay,
+  matterMatches,
   minutesFromSeconds,
   missingFacts,
   newSheetRow,
   parseDurationSeconds,
+  provisionalTimeCode,
   saveStateTitle,
   searchMatches,
   sheetHonesty,
   sheetRowFromEntry,
+  type SheetMatter,
   type SheetRow,
 } from "../src/lib/time/time-sheet-model.ts";
 
@@ -42,15 +51,28 @@ function entry(overrides: Partial<TimeEntrySummary> = {}): TimeEntrySummary {
   };
 }
 
+/** A row a person has just added on the firm-wide sheet: no matter, and a provisional code. */
 function blankRow(): SheetRow {
   return newSheetRow({
     key: "unwritten-1",
     workDate: "2026-08-26",
+    matterId: null,
+    provisionalCode: provisionalTimeCode(1),
     timekeeperUserId: "user_1",
     timekeeperName: "Rosalind Osei",
     currency: "USD",
   });
 }
+
+/** The same row as it is once somebody has said where the time belongs. */
+function filedRow(): SheetRow {
+  return { ...blankRow(), matterId: "matter_1" };
+}
+
+const MATTERS: readonly SheetMatter[] = [
+  { id: "matter_1", matterNumber: "2026-0147", title: "Pemberton v. Hale Construction Co." },
+  { id: "matter_2", matterNumber: null, title: "Okafor Holdings, initial consultation" },
+];
 
 describe("a row read off the record", () => {
   it("keeps BOTH durations, because the difference between them is where rounding shows", () => {
@@ -74,21 +96,83 @@ describe("a fresh row", () => {
     expect(saveStateTitle(row)).toContain("Not written");
   });
 
-  it("is incomplete, and names EVERY fact it is short of", () => {
-    expect(missingFacts(blankRow())).toEqual(["a description", "a duration"]);
+  it("is incomplete, and names EVERY fact it is short of, the matter first", () => {
+    expect(missingFacts(blankRow())).toEqual(["a matter", "a description", "a duration"]);
     expect(isIncomplete(blankRow())).toBe(true);
   });
 
+  it("carries a provisional code, so a row nobody has filed still has a name", () => {
+    expect(blankRow().provisionalCode).toBe("TMP-0001");
+    expect(provisionalTimeCode(114)).toBe("TMP-0114");
+  });
+
+  it("starts on the matter the sheet was opened from, and on none when it was not", () => {
+    expect(blankRow().matterId).toBeNull();
+    expect(filedRow().matterId).toBe("matter_1");
+  });
+
   it("stops being short of a fact as that fact arrives", () => {
-    const withDescription = { ...blankRow(), description: "Drafting the demand letter" };
+    const withDescription = { ...filedRow(), description: "Drafting the demand letter" };
     expect(missingFacts(withDescription)).toEqual(["a duration"]);
     const complete = { ...withDescription, workedSeconds: 1800 };
     expect(missingFacts(complete)).toEqual([]);
     expect(isIncomplete(complete)).toBe(false);
   });
 
+  it("is short of a matter alone once it holds the words and the time", () => {
+    const typedInto = {
+      ...blankRow(),
+      description: "Reviewed the incoming discovery",
+      workedSeconds: 1440,
+    };
+    expect(missingFacts(typedInto)).toEqual(["a matter"]);
+  });
+
   it("does not treat whitespace as a description", () => {
     expect(missingFacts({ ...blankRow(), description: "   " })).toContain("a description");
+  });
+});
+
+describe("what a row nobody has filed says about itself", () => {
+  it("says it is not written, names the matter as the reason, and gives its provisional code", () => {
+    const said = saveStateTitle({
+      ...blankRow(),
+      description: "Reviewed the incoming discovery",
+      workedSeconds: 1440,
+    });
+    expect(said).toContain("Not written to the firm's record yet");
+    expect(said).toContain("a matter");
+    expect(said).toContain("TMP-0001");
+  });
+
+  it("does not read as a save that failed", () => {
+    expect(saveStateTitle(blankRow())).not.toContain("failed");
+  });
+});
+
+describe("naming a matter", () => {
+  it("reads as the number and the name together", () => {
+    expect(matterDisplay(MATTERS[0] as SheetMatter)).toBe(
+      "2026-0147 · Pemberton v. Hale Construction Co.",
+    );
+  });
+
+  it("reads as the name alone where the matter carries no number yet", () => {
+    expect(matterDisplay(MATTERS[1] as SheetMatter)).toBe("Okafor Holdings, initial consultation");
+  });
+
+  it("is found by either half, case-blind", () => {
+    expect(matterMatches(MATTERS[0] as SheetMatter, "0147")).toBe(true);
+    expect(matterMatches(MATTERS[0] as SheetMatter, "pemberton")).toBe(true);
+    expect(matterMatches(MATTERS[0] as SheetMatter, "okafor")).toBe(false);
+  });
+
+  it("offers everything when nothing is typed", () => {
+    expect(MATTERS.every((matter) => matterMatches(matter, "  "))).toBe(true);
+  });
+
+  it("gives a row on no matter WORDS rather than a blank, so the column can be filtered by it", () => {
+    expect(NO_MATTER_TEXT).toBe("No matter");
   });
 });
 
@@ -156,6 +240,17 @@ describe("searching the rows in view", () => {
 
   it("does not reach what is not there", () => {
     expect(searchMatches(row, "deposition")).toBe(false);
+  });
+
+  it("reaches the row's matter, which on a firm-wide sheet is how a row is found", () => {
+    expect(searchMatches(row, "pemberton", "2026-0147 · Pemberton v. Hale Construction Co.")).toBe(
+      true,
+    );
+    expect(searchMatches(row, "0147", "2026-0147 · Pemberton v. Hale Construction Co.")).toBe(true);
+  });
+
+  it("reaches a row by the provisional code it is held under", () => {
+    expect(searchMatches(blankRow(), "tmp-0001")).toBe(true);
   });
 });
 

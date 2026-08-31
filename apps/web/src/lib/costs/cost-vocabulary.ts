@@ -1,25 +1,22 @@
 /*
  * The words the cost ledger uses, and the small judgments behind them.
  *
- * A COST IS NOT A FEE. Money advanced or consumed for a matter is a payee-and-receipt record that
- * is legally a receivable: an advanced client cost is a loan until it is recovered. That is why
- * this file talks about advancing, recovering and absorbing rather than about charging, and why the
- * hard/soft class is load-bearing accounting data rather than a cosmetic tag.
+ * A COST IS NOT A FEE. Money paid out or consumed for a matter is a payee-and-amount record: a
+ * cost is typed exactly as spent, never computed from a rate and a quantity, and whether the
+ * client is asked for it is a separate decision the ledger keeps visible.
  *
- * THE PAYEE HAS FOUR HONEST STATES AND THEY STAY DISTINCT. A soft cost has no payee by design,
- * because the firm's own resource was consumed and nobody outside was paid. A hard cost may have
- * none recorded. A recorded payee may have lost its directory entry, in which case the listing
- * serves no name for it. Otherwise there is a name. Collapsing any two of those into one blank
- * would hide a different fact each time.
+ * THE PAYEE IS OPTIONAL, AND ITS THREE STATES STAY DISTINCT. Some costs name who was paid, some
+ * record nobody, and some name a directory entry that has since been deleted, in which case the
+ * listing serves no name for it. Collapsing any two of those into one blank would hide a different
+ * fact each time.
  *
  * WHAT A WORD MEANS RIDES A HOVER, NEVER A PRINTED SENTENCE. The status words themselves come from
  * the product's one status register, not from a second spelling here.
  */
-import type { CostStatus, CostSummary, DisbursementClass } from "$lib/matters/cost-api.ts";
+import type { CostStatus, CostSummary } from "$lib/matters/cost-api.ts";
 
-/** Who the money went to, in the only four shapes the record can honestly be in. */
+/** Who the money went to, in the only three shapes the record can honestly be in. */
 export type PayeeState =
-  | { readonly kind: "soft" }
   | { readonly kind: "unrecorded" }
   | { readonly kind: "gone" }
   | { readonly kind: "named"; readonly name: string };
@@ -32,7 +29,6 @@ export type PayeeState =
  * both.
  */
 export function payeeState(cost: CostSummary): PayeeState {
-  if (cost.disbursementClass === "soft") return { kind: "soft" };
   if (cost.vendorId === null) return { kind: "unrecorded" };
   const name = cost.vendorName ?? null;
   return name === null ? { kind: "gone" } : { kind: "named", name };
@@ -42,8 +38,6 @@ export function payeeState(cost: CostSummary): PayeeState {
 export function payeeText(cost: CostSummary): string {
   const state = payeeState(cost);
   switch (state.kind) {
-    case "soft":
-      return "— (soft cost)";
     case "unrecorded":
       return "Not recorded";
     case "gone":
@@ -64,27 +58,13 @@ export const GONE_PAYEE_NOTE =
   "The directory entry behind this payee was deleted, and the listing serves no name for it. " +
   "Recording the name on the cost at capture, as time does for timekeepers, is an open gap.";
 
-export const CLASS_LABELS: Readonly<Record<DisbursementClass, string>> = {
-  hard: "Hard",
-  soft: "Soft",
-};
-
-export const CLASS_MEANINGS: Readonly<Record<DisbursementClass, string>> = {
-  hard:
-    "A hard cost: cash the firm paid to a third party for this matter. Until it is billed and " +
-    "repaid it is money advanced, a receivable rather than an expense.",
-  soft:
-    "A soft cost: the firm's own resource consumed and charged back, such as copies, postage or " +
-    "research. No third party was paid, and the amount is the firm's set rate.",
-};
-
-/** The two words the recovery decision wears. Absorbing is a decision, so it is kept visible. */
+/** The two words the billing decision wears. Absorbing is a decision, so it is kept visible. */
 export function billingLabel(billable: boolean): string {
-  return billable ? "Recoverable" : "Absorbed";
+  return billable ? "Billable" : "Absorbed";
 }
 
 export function billingSentence(billable: boolean): string {
-  return billable ? "Recoverable from the client" : "Absorbed by the firm";
+  return billable ? "Billable" : "Absorbed by the firm";
 }
 
 export const ABSORBED_MEANING =
@@ -115,7 +95,7 @@ export function costAmount(cost: CostSummary): number {
   return cost.amountMinor / 100;
 }
 
-/** A withdrawn cost was never advanced, so it counts toward nothing. It stays on the record. */
+/** A withdrawn cost was never charged, so it counts toward nothing. It stays on the record. */
 export function countsInTotals(cost: CostSummary): boolean {
   return cost.status !== "void";
 }

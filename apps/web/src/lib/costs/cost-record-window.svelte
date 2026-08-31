@@ -8,18 +8,16 @@
    * tab set and the action bar, which is the whole of what a record type is allowed to contribute.
    *
    * THERE IS NO ARITHMETIC, AND THAT IS THE DESIGN. A cost is an exact amount as spent: no hours,
-   * no rate, nothing multiplied. What stands in the place the time record puts its arithmetic is
-   * the CONSEQUENCE of the two choices that actually matter — hard or soft, recoverable or absorbed
-   * — written out as a sentence, so neither is ever a mystery toggle.
+   * no rate, nothing multiplied. The window states what the amount will be recorded as and stops
+   * there, because there is no working to show.
    *
-   * THE PAYEE FIELD IS ABSENT ON A SOFT COST, NOT DISABLED. Nobody outside was paid, so there is no
-   * third party to name: absence is the truth here, where a lock would imply a name exists and is
-   * being withheld.
+   * THE PAYEE IS OPTIONAL. Plenty of real costs were consumed rather than paid to anybody, so the
+   * field is offered on every cost, and leaving it empty is an answer rather than an omission.
    *
    * WHAT IS DESIGNED AND NOT YET SERVED STAYS ON SCREEN. The entry number, the entered date, the
-   * recorder, the receipt, the invoice a billed cost rides, the history and the internal memo are
-   * all part of this record; the listing carries none of them. Each is rendered where it belongs,
-   * refused, saying what it waits on.
+   * recorder, the attachments, the invoice a billed cost rides, the history and the internal memo
+   * are all part of this record; the listing carries none of them. Each is rendered where it
+   * belongs, refused, saying what it waits on.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Select from "@magna-carta/design-system/select";
@@ -41,10 +39,10 @@
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
-  import { costStatusKey, type DisbursementClass } from "$lib/matters/cost-api.ts";
+  import { costStatusKey } from "$lib/matters/cost-api.ts";
   import CostPayeePicker from "./cost-payee-picker.svelte";
   import type { ExpenseCodeCatalogue } from "./cost-expense-codes.svelte.ts";
-  import { COST_LEDGER_GAPS, gapCellTitle, gapReason } from "./cost-gaps.ts";
+  import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
   import {
     costDraftRefusal,
@@ -54,12 +52,7 @@
     writeKey,
     type CostLedgerEntry,
   } from "./cost-operations.ts";
-  import {
-    CLASS_LABELS,
-    CLASS_MEANINGS,
-    billingSentence,
-    payeeText,
-  } from "./cost-vocabulary.ts";
+  import { billingSentence, payeeText } from "./cost-vocabulary.ts";
 
   let {
     open = $bindable(false),
@@ -98,8 +91,7 @@
   let incurredDateText = $state("");
   let amountText = $state("");
   let descriptionText = $state("");
-  let disbursementClass = $state<DisbursementClass>("hard");
-  let billingChoice = $state("recoverable");
+  let billingChoice = $state("billable");
   let vendorId = $state<string | null>(null);
   let vendorName = $state<string | null>(null);
   let expenseCodeId = $state("");
@@ -116,8 +108,7 @@
     incurredDate: "",
     amount: "",
     description: "",
-    disbursementClass: "hard" as DisbursementClass,
-    billing: "recoverable",
+    billing: "billable",
     vendorId: null as string | null,
     expenseCodeId: "",
   });
@@ -126,7 +117,6 @@
     seeded.incurredDate = incurredDateText;
     seeded.amount = amountText;
     seeded.description = descriptionText;
-    seeded.disbursementClass = disbursementClass;
     seeded.billing = billingChoice;
     seeded.vendorId = vendorId;
     seeded.expenseCodeId = expenseCodeId;
@@ -149,8 +139,7 @@
     incurredDateText = entry?.incurredDate ?? new Date().toISOString().slice(0, 10);
     amountText = entry === null ? "" : (entry.amountMinor / 100).toFixed(2);
     descriptionText = entry?.description ?? "";
-    disbursementClass = entry?.disbursementClass ?? "hard";
-    billingChoice = entry === null || entry.billable ? "recoverable" : "absorbed";
+    billingChoice = entry === null || entry.billable ? "billable" : "absorbed";
     vendorId = entry?.vendorId ?? null;
     vendorName = entry?.vendorName ?? null;
     expenseCodeId = entry?.utbmsExpenseCodeId ?? "";
@@ -161,7 +150,6 @@
     incurredDateText !== seeded.incurredDate ||
       amountText !== seeded.amount ||
       descriptionText !== seeded.description ||
-      disbursementClass !== seeded.disbursementClass ||
       billingChoice !== seeded.billing ||
       vendorId !== seeded.vendorId ||
       expenseCodeId !== seeded.expenseCodeId,
@@ -171,7 +159,6 @@
     incurredDateText = seeded.incurredDate;
     amountText = seeded.amount;
     descriptionText = seeded.description;
-    disbursementClass = seeded.disbursementClass;
     billingChoice = seeded.billing;
     vendorId = seeded.vendorId;
     expenseCodeId = seeded.expenseCodeId;
@@ -179,23 +166,14 @@
     if (entry === null) open = false;
   }
 
-  const CLASS_CHOICES = [
-    { value: "hard", label: "Hard: paid to a third party" },
-    { value: "soft", label: "Soft: the firm's own resource" },
-  ] as const;
-
   const BILLING_CHOICES = [
-    { value: "recoverable", label: "Recoverable, next invoice" },
+    { value: "billable", label: "Billable, next invoice" },
     { value: "absorbed", label: "Absorbed by the firm" },
   ] as const;
 
-  const recoverable = $derived(billingChoice === "recoverable");
-  const hard = $derived(disbursementClass === "hard");
+  const billable = $derived(billingChoice === "billable");
   const amountMinor = $derived(parseAmountMinor(amountText));
 
-  const classLabel = $derived(
-    CLASS_CHOICES.find((choice) => choice.value === disbursementClass)?.label ?? "",
-  );
   const billingChoiceLabel = $derived(
     BILLING_CHOICES.find((choice) => choice.value === billingChoice)?.label ?? "",
   );
@@ -213,35 +191,8 @@
     amountMinor === null ? "—" : formatMoney(amountMinor / 100, { currency }),
   );
 
-  /**
-   * What choosing this class and this disposition actually does to the firm's books, in one
-   * sentence. It is the reason the class control is not a mystery toggle.
-   */
-  const consequence = $derived.by((): string => {
-    if (amountMinor === null) {
-      return "Enter the amount as spent: a cost is recorded exactly, never computed.";
-    }
-    const payeePart = hard && vendorName !== null ? ` advanced to ${vendorName}` : "";
-    return hard
-      ? `A hard cost${payeePart}: the firm's cash out of pocket, ` +
-          (recoverable
-            ? "carried as recoverable from the client until it is billed and repaid."
-            : "absorbed by the firm. It will not appear on a bill.")
-      : "A soft cost: the firm's own resource charged back at its set rate. No third party was paid" +
-          (recoverable
-            ? "; the client may be asked for it on the next invoice."
-            : "; the firm absorbs it.");
-  });
-
   const refusal = $derived(
-    editing
-      ? costDraftRefusal({
-          amountText,
-          description: descriptionText,
-          disbursementClass,
-          vendorId: hard ? vendorId : null,
-        })
-      : null,
+    editing ? costDraftRefusal({ amountText, description: descriptionText }) : null,
   );
 
   /** Why the change cannot be committed as it stands. A save in flight is one of those reasons. */
@@ -291,8 +242,6 @@
     if (minor === null) return;
     saving = true;
     saveFailure = null;
-    // A soft cost has no payee by design, so one is never sent even if a name was picked first.
-    const payee = hard ? vendorId : null;
     const code = expenseCodeId === "" ? null : expenseCodeId;
     const outcome =
       entry === null
@@ -300,12 +249,11 @@
             fetch,
             {
               matterId,
-              vendorId: payee,
+              vendorId,
               incurredDate: incurredDateText,
               amountMinor: minor,
               currency,
-              disbursementClass,
-              billable: recoverable,
+              billable,
               utbmsExpenseCodeId: code,
               description: descriptionText.trim(),
             },
@@ -315,11 +263,10 @@
             fetch,
             entry.id,
             {
-              vendorId: payee,
+              vendorId,
               incurredDate: incurredDateText,
               amountMinor: minor,
-              disbursementClass,
-              billable: recoverable,
+              billable,
               utbmsExpenseCodeId: code,
               description: descriptionText.trim(),
             },
@@ -379,7 +326,7 @@
       </Alert.Root>
     {/if}
 
-    <div class="grid gap-12 sm:grid-cols-3">
+    <div class="grid gap-12 sm:grid-cols-2">
       <div class="flex flex-col gap-4">
         <Label for="{fieldPrefix}-incurred">Date Incurred</Label>
         <Input
@@ -391,48 +338,9 @@
       </div>
 
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-class">Class</Label>
-        {#if readOnly}
-          <Input
-            id="{fieldPrefix}-class"
-            value={CLASS_LABELS[disbursementClass]}
-            title={CLASS_MEANINGS[disbursementClass]}
-            disabled
-          />
-        {:else}
-          <Select.Root
-            type="single"
-            items={[...CLASS_CHOICES]}
-            allowDeselect={false}
-            bind:value={
-              () => disbursementClass, (next) => (disbursementClass = next as DisbursementClass)
-            }
-          >
-            <Select.Trigger
-              id="{fieldPrefix}-class"
-              aria-label="Class"
-              class="w-full"
-              title={CLASS_MEANINGS[disbursementClass]}
-            >
-              <Select.Value placeholder={classLabel} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each CLASS_CHOICES as choice (choice.value)}
-                <Select.Item
-                  value={choice.value}
-                  label={choice.label}
-                  title={CLASS_MEANINGS[choice.value]}
-                />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        {/if}
-      </div>
-
-      <div class="flex flex-col gap-4">
         <Label for="{fieldPrefix}-billing">Billing</Label>
         {#if readOnly}
-          <Input id="{fieldPrefix}-billing" value={billingSentence(recoverable)} disabled />
+          <Input id="{fieldPrefix}-billing" value={billingSentence(billable)} disabled />
         {:else}
           <Select.Root
             type="single"
@@ -459,27 +367,22 @@
     </div>
 
     <div class="grid gap-12 sm:grid-cols-2">
-      <!-- A soft cost has no payee by design, so the field is absent rather than locked. -->
-      {#if hard}
-        <div class="flex flex-col gap-4">
-          <Label for="{fieldPrefix}-payee">Payee</Label>
-          {#if readOnly}
-            <Input
-              id="{fieldPrefix}-payee"
-              value={entry === null ? (vendorName ?? "Not recorded") : payeeText(entry)}
-              disabled
-            />
-          {:else}
-            <CostPayeePicker
-              inputId="{fieldPrefix}-payee"
-              selectedName={vendorName}
-              onPick={pickPayee}
-            />
-          {/if}
-        </div>
-      {:else}
-        <p class="text-xs text-text-muted">{CLASS_MEANINGS.soft}</p>
-      {/if}
+      <div class="flex flex-col gap-4">
+        <Label for="{fieldPrefix}-payee">Payee</Label>
+        {#if readOnly}
+          <Input
+            id="{fieldPrefix}-payee"
+            value={entry === null ? (vendorName ?? "Not recorded") : payeeText(entry)}
+            disabled
+          />
+        {:else}
+          <CostPayeePicker
+            inputId="{fieldPrefix}-payee"
+            selectedName={vendorName}
+            onPick={pickPayee}
+          />
+        {/if}
+      </div>
 
       <div class="flex flex-col gap-4">
         <Label for="{fieldPrefix}-expense-code">Expense Code</Label>
@@ -533,17 +436,16 @@
           <span class="pb-8 tabular-nums">{recordedAs}</span>
         </div>
       </div>
-      <p class="text-xs text-text-muted">{consequence}</p>
     </div>
 
     <div class="grid gap-12 sm:grid-cols-2">
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-info">Info</Label>
+        <Label for="{fieldPrefix}-description">Description</Label>
         <Textarea
-          id="{fieldPrefix}-info"
+          id="{fieldPrefix}-description"
           rows={3}
-          placeholder={placeholderOf("Info")}
-          title="Info"
+          placeholder={placeholderOf("Description")}
+          title="Description"
           disabled={readOnly}
           bind:value={descriptionText}
         />
@@ -562,11 +464,11 @@
   </div>
 {/snippet}
 
-{#snippet receiptTab()}
+{#snippet attachmentsTab()}
   <RecordAttachments
     attachments={[]}
     canEdit={false}
-    attachDisabledReason="Not built yet. Waiting on {gapReason('receiptPicker')}."
+    attachDisabledReason="Not built yet. Waiting on {gapReason('attachmentPicker')}."
   />
 {/snippet}
 
@@ -588,7 +490,10 @@
         </Badge>
       </div>
       {#if entry.status !== "void"}
-        <RecordChain current={entry.status} reviewGate />
+        <RecordChain
+          current={REVIEW_GATE_ENABLED || entry.status === "billed" ? entry.status : "draft"}
+          reviewGate={REVIEW_GATE_ENABLED}
+        />
       {/if}
       <div class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="size-16 shrink-0" aria-hidden="true" />
@@ -598,8 +503,8 @@
           {:else if entry.status === "void"}
             Withdrawn. A void cost stays on the record and counts toward nothing.
           {:else}
-            Not on a bill yet. Recoverable costs flow onto a draft invoice in the Billing section,
-            one line per cost.
+            Not on a bill yet. Billable costs flow onto a draft invoice in the Billing section, one
+            line per cost.
           {/if}
         </span>
       </div>
@@ -636,10 +541,22 @@
   {:else if fieldsOpen}
     <span class="mr-auto flex items-center gap-4 text-xs text-text-muted">
       <SquarePen class="size-12" aria-hidden="true" />
-      Saves as a draft. Submit for Review is its own step on the cost.
+      Saves as a draft.
     </span>
   {/if}
   {#if !fieldsOpen}
+    <!--
+      Withdrawing a submission is a real act of this record and no route serves it, so it is
+      rendered where the design puts it rather than left out. It appears only against the status it
+      belongs to: a verb offered where it could never apply says nothing true even when refused.
+    -->
+    {#if entry?.status === "submitted"}
+      <SoonAffordance reason={gapReason("unsubmit")}>
+        {#snippet control(soon)}
+          <Button variant="secondary" {...soon}>Unsubmit</Button>
+        {/snippet}
+      </SoonAffordance>
+    {/if}
     <Button onclick={() => (open = false)}>Close</Button>
   {:else if creating}
     <!-- The one verb this record type adds: costs arrive in runs, and a person who has just
@@ -647,7 +564,7 @@
     <Button
       variant="secondary"
       disabled={saveRefusal !== undefined}
-      title={saveRefusal ?? "Save this draft and record another with the same date and class"}
+      title={saveRefusal ?? "Save this draft and record another with the same date"}
       onclick={() => void save(true)}
     >
       Save &amp; New
@@ -663,7 +580,7 @@
   {record}
   {actions}
   tabs={[
-    { key: "receipt", label: "Receipt", content: receiptTab },
+    { key: "attachments", label: "Attachments", content: attachmentsTab },
     { key: "history", label: "History", content: historyTab },
     { key: "billing", label: "Billing", content: billingTab },
   ] satisfies RecordWindowTab[]}

@@ -339,6 +339,8 @@
   //     /archive/*). While unbound the composite extraction port falls back to the in-Worker PDF
   //     reader plus recognition, which reads strictly less — every non-PDF review document parks
   //     rather than being recorded unreadable.
+  //   EDIT_SERVICE / STATUS_SERVICE / WEB_SERVICE: version-read-only bindings (see the note on
+  //     them below); nothing but GET /api/v1/meta/versions calls through them.
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
@@ -348,6 +350,19 @@
     { "binding": "OCR_SERVICE", "service": "magna-carta-ocr" },
     { "binding": "SIGN_SERVICE", "service": "magna-carta-sign" },
     { "binding": "DISCOVERY_SERVICE", "service": "magna-carta-discovery" },
+    // The three below exist ONLY for the aggregate version read (GET /api/v1/meta/versions): the
+    // edit worker's real traffic flows the other way (its APP_WORKER binding), the status page
+    // reads KV, and the web worker is assets-only. A service binding must name a worker that
+    // exists or THIS worker's deploy fails (code 10143) — all three are on the account
+    // (magna-carta-edit connected and green, magna-carta-status holding the status hostname,
+    // magna-carta-web connected on main). EMAIL_SERVICE is deliberately NOT here for the same
+    // rule: magna-carta-email is not on the account yet — add
+    // { "binding": "EMAIL_SERVICE", "service": "magna-carta-email" } with that worker's first
+    // deploy (docs/deploy-queue.md, email capture activation), and its version row reads
+    // "Not deployed" until then.
+    { "binding": "EDIT_SERVICE", "service": "magna-carta-edit" },
+    { "binding": "STATUS_SERVICE", "service": "magna-carta-status" },
+    { "binding": "WEB_SERVICE", "service": "magna-carta-web" },
   ],
   // MANAGED NATURAL-LANGUAGE SEARCH — the two bindings, both DECLARED AND COMMENTED OUT.
   //

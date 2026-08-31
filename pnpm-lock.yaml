@@ -559,6 +559,9 @@ importers:
       '@cloudflare/containers':
         specifier: 'catalog:'
         version: 0.3.7
+      '@magna-carta/build-identity':
+        specifier: workspace:*
+        version: link:../../packages/build-identity
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
@@ -581,6 +584,9 @@ importers:
 
   apps/email-worker:
     dependencies:
+      '@magna-carta/build-identity':
+        specifier: workspace:*
+        version: link:../../packages/build-identity
       '@magna-carta/email-filing':
         specifier: workspace:*
         version: link:../../packages/email-filing
@@ -777,6 +783,9 @@ importers:
 
   apps/status-worker:
     dependencies:
+      '@magna-carta/build-identity':
+        specifier: workspace:*
+        version: link:../../packages/build-identity
       '@magna-carta/status':
         specifier: workspace:*
         version: link:../../packages/status

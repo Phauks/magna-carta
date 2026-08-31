@@ -68,7 +68,7 @@ export type MetaVersionsResponse = {
 
 export type ServiceVersion = {
     id: string;
-    label: string;
+    service: string;
     state: 'reported' | 'unbound' | 'unreachable' | 'unreported';
     commit: string | null;
     commitTime: string | null;
@@ -133,8 +133,10 @@ export type FirmUsageResponse = {
             status: 'active' | 'closed';
             matters: number;
             members: number;
+            custodyItems: number;
         }>;
         mattersWithoutLocation: number;
+        custodyItemsOffsite: number;
     };
     directory: {
         people: number;
@@ -6560,7 +6562,9 @@ export type MeGetResponse = MeGetResponses[keyof MeGetResponses];
 export type MetaVersionsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        fresh?: 'true';
+    };
     url: '/api/v1/meta/versions';
 };
 

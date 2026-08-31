@@ -33,14 +33,18 @@ function draft(overrides: Partial<IntakeDraft> = {}): IntakeDraft {
 }
 
 describe("the intake's sections", () => {
-  it("names each section once, in the order the work is done", () => {
-    expect(INTAKE_SECTIONS.map((section) => section.id)).toEqual(["matter", "client", "people"]);
+  it("tabs only what genuinely takes turns: the matter, then the people who carry it", () => {
+    expect(INTAKE_SECTIONS.map((section) => section.id)).toEqual(["matter", "people"]);
+    expect(INTAKE_SECTIONS.map((section) => section.label)).toEqual(["Matter", "People"]);
   });
 
-  it("holds only what is ENTERED — clearance is a gate beside the entry, never a section of it", () => {
-    // A conflict check and the money that changes hands are what the entry has to pass, not more
-    // of the entry. Behind a tab they are a gate somebody has to remember to go and look at.
-    expect(INTAKE_SECTIONS.map((section) => section.id)).not.toContain("clearance");
+  it("keeps the client and the clearance OUT of the tabs, because both stay in view", () => {
+    // Who the work is for is the fact every other answer is about, and the conflict check plus the
+    // money are the gate all of it has to pass. Behind a tab, the first is a client somebody writes
+    // the caption without and the second is a gate somebody has to remember to go and look at.
+    const identifiers = INTAKE_SECTIONS.map((section) => section.id);
+    expect(identifiers).not.toContain("client");
+    expect(identifiers).not.toContain("clearance");
   });
 });
 

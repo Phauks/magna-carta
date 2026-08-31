@@ -25,6 +25,19 @@ export interface GridColumn<TRow> {
   type?: GridColumnType;
   /** The filter control; defaults from `type` (number/money → range, date → dateRange, text → text). */
   filter?: GridColumnFilterKind;
+  /**
+   * The values a SET filter always offers, whether or not any loaded row carries them.
+   *
+   * A set filter's options are otherwise read off the rows in hand, which is right for a column
+   * whose values are whatever the data happens to hold (a client name) and WRONG for a column over
+   * a vocabulary the firm declares (a lifecycle status, a matter type, an office). A firm with
+   * nothing closed today can still hold closed matters, and a filter that drops "Closed" because
+   * none is loaded tells the reader the firm cannot have one. So a column over a declared
+   * vocabulary declares it here: those values lead, in this order, each carrying its true count —
+   * zero when nothing on screen has it — and any value the rows carry that the vocabulary does not
+   * name follows them alphabetically.
+   */
+  filterValues?: readonly string[];
   /** The comparable/filterable value for a row. `null`/`undefined` sorts last and renders muted. */
   value: (row: TRow) => GridColumnValue;
   /** The display text when the consumer supplies no cell snippet; also the double-click-fit measure.

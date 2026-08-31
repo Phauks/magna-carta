@@ -97,6 +97,41 @@ describe("set filter counts", () => {
       ["Draft", 2],
     ]);
   });
+
+  it("offers a column's DECLARED values whole, in declared order, counting zero for the absent", () => {
+    // A column over a vocabulary the firm declares must offer all of it: a set filter that drops a
+    // value because no loaded row carries it tells the reader the firm cannot hold one.
+    const declared: GridColumn<Entry> = {
+      ...statusColumn,
+      filterValues: ["Draft", "Submitted", "Approved", "Billed", "Void"],
+    };
+    expect([...gridSetFilterCounts(declared, ROWS).entries()]).toEqual([
+      ["Draft", 2],
+      ["Submitted", 0],
+      ["Approved", 1],
+      ["Billed", 1],
+      ["Void", 0],
+    ]);
+  });
+
+  it("offers the declared values even over NO rows at all", () => {
+    const declared: GridColumn<Entry> = { ...statusColumn, filterValues: ["Draft", "Void"] };
+    expect([...gridSetFilterCounts(declared, []).entries()]).toEqual([
+      ["Draft", 0],
+      ["Void", 0],
+    ]);
+  });
+
+  it("puts a value the rows carry but the vocabulary does not name AFTER the declared ones", () => {
+    // An undeclared value is still real and still filterable — a matter type deactivated after the
+    // rows were written, say — so it follows the vocabulary rather than displacing it.
+    const declared: GridColumn<Entry> = { ...statusColumn, filterValues: ["Billed", "Draft"] };
+    expect([...gridSetFilterCounts(declared, ROWS).keys()]).toEqual([
+      "Billed",
+      "Draft",
+      "Approved",
+    ]);
+  });
 });
 
 describe("filter lifecycle", () => {

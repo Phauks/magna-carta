@@ -122,6 +122,14 @@ is usually the fastest way to understand the rule.
 - **A resend action uses the countdown-button pattern:** the timer starts at the first send, the
   remaining time is visible, and the control is disabled until it expires. Never a bare "Resend"
   that silently rate-limits. _(auth flow, 2026-08-07)_
+- **What acts like a link looks like a link.** A text affordance that navigates or loads content
+  when activated wears the standard hyperlink register (the app's link color, underline, pointer),
+  even where containment demands it be a button under the hood — the safe viewer's outbound
+  addresses load in its own viewport and are buttons, and they still read as links. _(safe website
+  viewer, 2026-08-31)_
+- **A toggle's active side is unmistakable at a glance.** A segmented or two-state control shows
+  which side is selected through fill/register, not only a subtle border. _(safe website viewer
+  Static/Live toggle, 2026-08-31)_
 - **An advance control validates before it enables.** Where the next step cannot succeed without a
   well-formed input, the control is disabled and an inline hint says what is wrong. Do not let the
   user press it and receive a server error that was predictable on the client. _(auth flow,
@@ -131,6 +139,14 @@ is usually the fastest way to understand the rule.
 - **A capability the backend does not serve yet still renders**, disabled, with the "Soon" badge and
   one honest line naming what it waits on. This is the standing rule from
   [`ui-design.md`](ui-design.md); it is repeated here because it is the one most often skipped.
+- **A result region is furniture, not a reward.** The structure that will hold results (a frame, a
+  panel set, tabs) renders at rest, empty and calm, so arriving data fills a shape the reader
+  already has and population is never a surprise. The list-screen "table holds the vertical space"
+  ruling is the same judgment. _(safe website viewer, 2026-08-31)_
+- **Retry a transient upstream fault yourself, visibly.** Where a backing service faults
+  transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
+  number of times before reporting failure, and shows each attempt as it happens; the member is
+  never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
 - **An empty screen is the filled screen lacking information**, not a different screen. The same
   regions render, each saying what it is missing. A centred card that replaces the layout teaches a
   person nothing about where things will be, and it makes the first real use of the screen a second
@@ -156,6 +172,42 @@ is usually the fastest way to understand the rule.
   the same-day "orienting text persists" ruling, which presumed the text should exist — copy that
   does legitimately exist (an honest empty-state or error line stating a fact about this result)
   still must not vanish or move between states. _(safe website viewer, 2026-08-31)_
+
+### List screens
+
+Issued against the matters list and re-issued against the directory. They bind every List/Index
+surface, which is most of the product.
+
+- **A heading carries no explanatory sub-text.** No sub-heading under a page title, no sentence
+  under a section heading restating what the section obviously is. "The firm's active docket" under
+  _Matters_, and "Clients, parties, counsel and courts, in one book" under _Directory_, were both
+  removed for the same reason: they spend vertical space on a working screen and tell a working user
+  nothing they did not know before they clicked. This is not the same as an honest line that carries
+  a CONSEQUENCE — "revealing a value is recorded in the firm's audit log" stays, because it says
+  something a reader must know before they press. The test is whether removing the line loses a
+  fact. _(matters list, 2026-08-30)_
+- **Actions collapse into one compact action row.** Everything above the data that is not the data
+  is a single row: the primary action, then narrowing and searching as icon controls that open what
+  they need when they are needed. A labelled dropdown and a labelled search box, each with a
+  sentence under it, cost three rows of a screen whose subject is a list. Where a screen would carry
+  a button per variant of one action ("New person", "New organization"), it carries ONE primary
+  action with a menu instead. _(matters list, 2026-08-30)_
+- **The table holds the vertical space it would occupy when full.** The list region takes the
+  remaining height and keeps it, so the screen does not reflow as rows arrive, as a filter narrows
+  them, or as an empty state replaces them. In practice: the page is a full-height column and the
+  table is `min-h-0 flex-1` inside it. _(matters list, 2026-08-30)_
+- **One place to narrow.** Where several mechanisms narrow the same list — a server-side scope, a
+  server-side search, the table's own column filters — they sit behind one control, because from
+  where a reader sits they answer one question. Answering it in three places is how somebody ends up
+  staring at an empty table with a filter set on a control they are not looking at. _(matters list,
+  2026-08-30)_
+- **A listing states how many there are; a capped answer states that it is capped.** These are the
+  two shapes a list of records comes in and they must not be presented alike. A LISTING is sorted,
+  walkable to the end, and carries the size of the whole record — not of the page in hand. A RANKED
+  ANSWER is in the server's relevance order, is never re-sorted on the client (that would put the
+  best of an arbitrary slice at the top and read as the best of the firm's record), and says so
+  when more matches exist than were returned. A screen that has both shows them as two different
+  objects. Never fake a listing out of a search. _(directory, 2026-08-30)_
 
 ### List screens
 
@@ -244,6 +296,26 @@ Follow-ups from the same round, all from the owner:
 - **The network speed test is not retrofitted.** Its run controls stay in the masthead where they
   are; the reading-edge rule above binds new and reworked surfaces, not a shipped page nobody is
   changing.
+
+A third round the same day, issued against both pages on the deployed site. The generalizable
+parts (the always-rendered result structure; visible bounded retries) are promoted above. Local to
+the Safe Website Viewer: the URL entry moves into the shell's own address bar (one entry, "Load
+Website"), with the landed URL as a secondary row when it differs; back/forward/refresh navigate a
+client-side capture history; outbound links load in the viewer as new captures (buttons, never
+anchors); the URL is click-to-copy; a Static/Live view toggle renders with Live seamed behind the
+Soon affordance until interactive remote browsing exists; tab panels are boxed structures.
+
+A fourth round the same day, against the viewer's shell-and-tabs build. Generalizable parts (link
+formatting; the unmistakable toggle) promoted above. Local: the landed-URL row gets its own copy
+control; the screenshot gains Download Image and a full-screen overlay; shell and tabs compose as
+one unified frame rather than two cards; the loading viewport says what is happening (the URL
+being captured, elapsed seconds, one honest status line — no fabricated server stages); a new
+Overview tab leads the right side with facts already in hand (final status, content type, server,
+redirect and link counts, captured-at, duration, the different-site flag) plus a Registration tab
+that runs the WHOIS lookup in place for the captured host through the shared lookup seam — the
+owner does not want a redirect to the WHOIS page; the information comes to the viewer. Facts that
+would need new backend probes (resolved IP, TLS certificate details, hosting provider) are
+recorded as wanted, not faked.
 
 ### 2026-08-30 — the matters screens, second round
 

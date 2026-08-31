@@ -2,10 +2,12 @@
  * The Cost ledger's model, pinned.
  *
  * Each case below is a place where a quiet mistake would look right on screen and be wrong in a way
- * somebody would act on: a payee whose four honest states collapse into one blank, a void counted
- * into a total, a figure whose scope silently changed under a filter, a soft cost carrying a payee
- * it cannot have, an absorbed cost read as revenue, or a column dropped rather than being honest
- * that its value is not served.
+ * somebody would act on: a payee whose three honest states collapse into one blank, a void counted
+ * into a total, a figure whose scope silently changed under a filter, an absorbed cost read as
+ * revenue, or a column dropped rather than being honest that its value is not served.
+ *
+ * A cost carries no hard/soft class: the distinction does not exist in this product, so the cases
+ * below assert its absence from the columns, the words and the figures rather than its behaviour.
  */
 import { describe, expect, it } from "vitest";
 import { statusEntry } from "@magna-carta/design-system/status-register";
@@ -17,7 +19,6 @@ import {
   expenseCodeFromIdentifier,
   expenseCodeText,
   isUnservedColumn,
-  receiptText,
   unservedCellTitle,
 } from "../src/lib/costs/cost-columns.ts";
 import {
@@ -28,7 +29,12 @@ import {
   selectionSummary,
   submittedCount,
 } from "../src/lib/costs/cost-figures.ts";
-import { COST_LEDGER_GAPS, gapCellTitle, gapReason } from "../src/lib/costs/cost-gaps.ts";
+import {
+  COST_LEDGER_GAPS,
+  REVIEW_GATE_ENABLED,
+  gapCellTitle,
+  gapReason,
+} from "../src/lib/costs/cost-gaps.ts";
 import {
   billingLabel,
   billingSentence,
@@ -50,6 +56,7 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
     incurredDate: "2026-06-30",
     amountMinor: 27_000,
     currency: "USD",
+    // The listing still answers this field and nothing on the surface reads it.
     disbursementClass: "hard",
     billable: true,
     utbmsExpenseCodeId: "utbmsCode_expense_E112",
@@ -78,15 +85,20 @@ describe("the ledger's columns", () => {
       "Entry Number",
       "Date Entered",
       "Entered By",
+      "Description",
       "Payee",
-      "Info",
-      "Class",
       "Expense Code",
-      "Receipt",
+      "Attachments",
       "Amount",
       "Billing",
       "Status",
     ]);
+  });
+
+  it("carries no hard/soft class column: the distinction does not exist on the record", () => {
+    const words = columns.map((column) => column.label.toLowerCase());
+    expect(words).not.toContain("class");
+    expect(columns.map((column) => column.id)).not.toContain("disbursementClass");
   });
 
   it("has no Hours and no Rate: a cost is an exact amount, so the difference is a missing column", () => {
@@ -111,13 +123,13 @@ describe("the ledger's columns", () => {
     }
   });
 
-  it("starts the unserved columns hidden and leaves the served ones showing", () => {
+  it("hides the columns that would be a wall of gap marks, and shows the ones worth seeing", () => {
     expect(columnById(COST_COLUMN_IDENTIFIERS.entryNumber).hidden).toBe(true);
     expect(columnById(COST_COLUMN_IDENTIFIERS.dateEntered).hidden).toBe(true);
     expect(columnById(COST_COLUMN_IDENTIFIERS.enteredBy).hidden).toBe(true);
     expect(columnById(COST_COLUMN_IDENTIFIERS.payee).hidden).toBeUndefined();
-    // Receipt stays visible: on a soft cost the column carries a true answer today.
-    expect(columnById(COST_COLUMN_IDENTIFIERS.receipt).hidden).toBeUndefined();
+    // Attachments is part of what a reader came to check, so it shows and states its gap.
+    expect(columnById(COST_COLUMN_IDENTIFIERS.attachments).hidden).toBeUndefined();
   });
 
   it("reads an expense code off the record's own identifier, with the catalogue only for the label", () => {
@@ -128,18 +140,19 @@ describe("the ledger's columns", () => {
     expect(expenseCodeText(cost({ utbmsExpenseCodeId: null }), noLabels)).toBe("");
   });
 
-  it("does not claim a hard cost has no receipt when the listing never said", () => {
-    expect(receiptText(cost({ disbursementClass: "soft" }))).toBe("—");
-    expect(receiptText(cost({ disbursementClass: "hard" }))).toBe("Not served");
-    expect(gapCellTitle("receipt")).toContain(COST_LEDGER_GAPS.receipt.waitsOn);
+  it("does not claim a cost has no files when the listing never said", () => {
+    expect(isUnservedColumn(COST_COLUMN_IDENTIFIERS.attachments)).toBe(true);
+    expect(gapCellTitle("attachments")).toContain(COST_LEDGER_GAPS.attachments.waitsOn);
+  });
+
+  it("says the amount is what was spent, not what was advanced or charged back", () => {
+    expect(columnById(COST_COLUMN_IDENTIFIERS.amount).filterNote).toBe("In $, as spent.");
   });
 });
 
-describe("the payee, in its four honest states", () => {
-  it("keeps a soft cost's absent payee apart from an unrecorded one", () => {
-    expect(payeeState(cost({ disbursementClass: "soft", vendorId: null })).kind).toBe("soft");
+describe("the payee, in its three honest states", () => {
+  it("says nothing was recorded rather than inventing a reason there is no name", () => {
     expect(payeeState(cost({ vendorId: null, vendorName: null })).kind).toBe("unrecorded");
-    expect(payeeText(cost({ disbursementClass: "soft" }))).toBe("— (soft cost)");
     expect(payeeText(cost({ vendorId: null, vendorName: null }))).toBe("Not recorded");
   });
 
@@ -165,32 +178,27 @@ describe("the figures", () => {
       amountMinor: 2_500,
       status: "draft",
       billable: true,
-      disbursementClass: "soft",
       vendorId: null,
       vendorName: null,
     }),
   ];
 
-  it("never counts a void: a withdrawn cost was never advanced", () => {
+  it("never counts a void: a withdrawn cost was never charged", () => {
     expect(countable(ledger).map((entry) => entry.id)).toEqual(["a", "b", "c", "e"]);
     expect(countsInTotals(cost({ status: "void" }))).toBe(false);
     const figures = footerFigures(ledger, { filtered: false });
-    const advanced = figures.find((figure) => figure.identifier === "advanced");
-    expect(advanced?.amountMinor).toBe(37_500);
+    const unbilled = figures.find((figure) => figure.identifier === "unbilled");
+    // The void is billable and worth 99,000; none of it reaches the figure.
+    expect(unbilled?.amountMinor).toBe(12_500);
   });
 
-  it("splits the money the way a receivable actually behaves", () => {
+  it("splits the money three ways, by where a cost has got to", () => {
     const figures = footerFigures(ledger, { filtered: false });
-    expect(figures.map((figure) => figure.label)).toEqual([
-      "advanced",
-      "recoverable",
-      "billed",
-      "absorbed",
-    ]);
+    expect(figures.map((figure) => figure.label)).toEqual(["unbilled", "billed", "absorbed"]);
     const by = (identifier: string) =>
       figures.find((figure) => figure.identifier === identifier)?.amountMinor;
-    // Recoverable is what no invoice has taken up yet; billed is what one has.
-    expect(by("recoverable")).toBe(12_500);
+    // Unbilled is what no invoice has taken up yet; billed is what one has.
+    expect(by("unbilled")).toBe(12_500);
     expect(by("billed")).toBe(20_000);
     // Absorbing is a decision, so it is visible rather than folded into the total.
     expect(by("absorbed")).toBe(5_000);
@@ -207,14 +215,14 @@ describe("the figures", () => {
     const summary = matterCostSummary(ledger);
     expect(summary.liveCount).toBe(4);
     expect(summary.voidCount).toBe(1);
-    expect(summary.hardMinor).toBe(35_000);
-    expect(summary.softMinor).toBe(2_500);
+    expect(summary.recordedMinor).toBe(37_500);
     expect(summary.absorbedMinor).toBe(5_000);
-    // Only hard costs have a payee to rank, and the biggest leads.
+    // Only a cost that names somebody has a payee to rank, and the biggest leads.
     expect(summary.largestPayees[0]).toEqual({
       name: "Eighth Judicial District Court Clerk",
       amountMinor: 35_000,
     });
+    expect(summary.largestPayees).toHaveLength(1);
   });
 
   it("counts a selection honestly and says when it left a void out", () => {
@@ -225,7 +233,7 @@ describe("the figures", () => {
     expect(mixed.statusLine).toBe("1 approved · 1 void");
     const clean = selectionSummary([ledger[0]!, ledger[1]!], word);
     expect(clean.excludesVoids).toBe(false);
-    expect(clean.recoverableMinor).toBe(30_000);
+    expect(clean.billableMinor).toBe(30_000);
   });
 
   it("counts what is waiting for review, which is what the Review control says", () => {
@@ -251,26 +259,23 @@ describe("reading and refusing a draft", () => {
   });
 
   it("names what is missing before the control is pressed, never after", () => {
-    const base = {
-      amountText: "270.00",
-      description: "Complaint filing fee",
-      disbursementClass: "hard" as const,
-      vendorId: "directory_clerk" as string | null,
-    };
+    const base = { amountText: "270.00", description: "Complaint filing fee" };
     expect(costDraftRefusal(base)).toBeNull();
     expect(costDraftRefusal({ ...base, amountText: "" })).toBe("Enter the amount as spent");
-    expect(costDraftRefusal({ ...base, description: "  " })).toContain("Info");
-    // A hard cost IS cash paid to somebody, so it names who.
-    expect(costDraftRefusal({ ...base, vendorId: null })).toContain("payee");
-    // A soft cost has none by design, so it is never refused for lacking one.
-    expect(costDraftRefusal({ ...base, disbursementClass: "soft", vendorId: null })).toBeNull();
+    expect(costDraftRefusal({ ...base, description: "  " })).toContain("Description");
+  });
+
+  // The payee is optional: a cost consumed rather than paid out has nobody to name.
+  it("never refuses a draft for having no payee", () => {
+    expect(costDraftRefusal({ amountText: "12.00", description: "Postage" })).toBeNull();
   });
 });
 
 describe("the words", () => {
-  it("keeps the recovery decision visible rather than folding it into a total", () => {
-    expect(billingLabel(true)).toBe("Recoverable");
+  it("keeps the billing decision visible rather than folding it into a total", () => {
+    expect(billingLabel(true)).toBe("Billable");
     expect(billingLabel(false)).toBe("Absorbed");
+    expect(billingSentence(true)).toBe("Billable");
     expect(billingSentence(false)).toBe("Absorbed by the firm");
   });
 
@@ -296,7 +301,6 @@ function menuRecord(overrides: Partial<CostMenuRecord> = {}): CostMenuRecord {
     entryNumber: null,
     description: "Complaint filing fee",
     amount: "$270.00",
-    disbursementClass: "hard",
     ...overrides,
   };
 }
@@ -313,26 +317,31 @@ describe("the row menu", () => {
   it("adds the verbs a cost has and a time entry does not", () => {
     const target = menuRecord();
     const menu = costRecordMenu([target], target, { reviewGateEnabled: true });
-    expect(menuItem(menu, "receipt")).not.toBeNull();
+    expect(menuItem(menu, "attach")).not.toBeNull();
     expect(menuItem(menu, "print")).not.toBeNull();
   });
 
-  it("refuses the receipt on a soft cost for its own reason, not for a missing dependency", () => {
-    const soft = menuRecord({ disbursementClass: "soft" });
-    const menu = costRecordMenu([soft], soft, { reviewGateEnabled: true });
-    const receipt = menuItem(menu, "receipt");
-    expect(receipt?.disabledReason).toContain("no vendor invoice");
-    expect(receipt?.kind === "action" ? receipt.soonDependency : undefined).toBeUndefined();
-  });
-
-  it("shows the receipt verb on a hard cost as designed but not served", () => {
+  it("shows the attach verb on every cost as designed but not served", () => {
     const target = menuRecord();
     const menu = costRecordMenu([target], target, { reviewGateEnabled: true });
-    const receipt = menuItem(menu, "receipt");
-    expect(receipt?.kind === "action" ? receipt.soonDependency : undefined).toBe(
-      gapReason("receiptPicker"),
+    const attach = menuItem(menu, "attach");
+    expect(attach?.kind === "action" ? attach.soonDependency : undefined).toBe(
+      gapReason("attachmentPicker"),
     );
-    expect(receipt === null ? true : isEnabled(receipt)).toBe(false);
+    expect(attach === null ? true : isEnabled(attach)).toBe(false);
+  });
+
+  // The gate reads off until the firm setting is served, so nothing solicits a submission.
+  it("leaves the review vocabulary out entirely with the gate off", () => {
+    const target = menuRecord();
+    const menu = costRecordMenu([target], target, { reviewGateEnabled: REVIEW_GATE_ENABLED });
+    expect(REVIEW_GATE_ENABLED).toBe(false);
+    for (const identifier of ["submit", "approve", "kickBack"]) {
+      expect(menuItem(menu, identifier)).toBeNull();
+    }
+    // What is not review vocabulary stays: the record is still openable and still withdrawable.
+    expect(menuItem(menu, "open")).not.toBeNull();
+    expect(menuItem(menu, "void")).not.toBeNull();
   });
 
   it("offers Delete Draft only on a draft, and never instead of Void", () => {

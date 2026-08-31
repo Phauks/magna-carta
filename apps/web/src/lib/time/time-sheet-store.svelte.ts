@@ -12,6 +12,19 @@
  * what it is waiting for. It is a real row throughout: it holds what is typed into it, the timer
  * can run on it, and it writes itself the moment it has enough to be accepted.
  *
+ * THE SHEET IS THE FIRM'S, NOT ONE MATTER'S. It is opened from the top bar over whatever a person
+ * was doing, so the matter is a per-row fact rather than a property of the surface, and a row may
+ * hold none at all: capture must never wait on a person deciding where the time belongs. A matter
+ * IS still needed before the row can reach the record, because the capture route takes one, so a
+ * matterless row lives on the sheet under a provisional code with its mark saying exactly that.
+ * Opening the sheet from a matter changes only two things: the rows it shows, and what a new row's
+ * matter starts as. It is one surface with two doors, never two surfaces.
+ *
+ * THE MATTER OF AN ENTRY THAT ALREADY EXISTS IS NOT SETTABLE HERE. Nothing in the contract moves an
+ * entry from one matter to another, so the picker is offered on a row that has not been written and
+ * the cell states the dependency on one that has. Offering the change and dropping it would be the
+ * worse failure: the reader would believe the entry had moved.
+ *
  * THE TIMER IS THE FIRM'S, NOT THE PAGE'S. One timer per timekeeper, held on the server, so
  * starting one on a second row stops the first and a reload does not lose it. Where it lands
  * differs by the row it was started from: a row that is already an entry takes the elapsed time on
@@ -35,6 +48,7 @@ import {
   isWorkable,
   minutesFromSeconds,
   newSheetRow,
+  provisionalTimeCode,
   sheetRowFromEntry,
   type SheetRow,
 } from "./time-sheet-model.ts";
@@ -56,8 +70,13 @@ const SAVE_SETTLE_MILLISECONDS = 600;
 
 /** What the sheet needs to know about where it is mounted. */
 export interface SheetContext {
-  readonly matterId: string;
-  readonly matterTitle: string;
+  /**
+   * The matter the sheet was opened from, or null when it was opened firm-wide from the top bar.
+   *
+   * It narrows nothing on its own: it is what a new row's matter starts as, and what the surface
+   * above filters the rows by. A firm-wide sheet passes null and every row carries its own matter.
+   */
+  readonly matterFilter: () => string | null;
   /** The entries the listing answered with. The sheet re-seeds from these whenever they change. */
   readonly entries: () => readonly TimeEntrySummary[];
   readonly members: () => readonly FirmMemberSummary[];
@@ -91,6 +110,16 @@ export class TimeSheetStore {
   readonly history: SheetHistory<RowSnapshot>;
 
   #newRowCount = 0;
+  /** How many provisional codes this sheet has minted, so each row gets its own. */
+  #provisionalCount = 0;
+  /**
+   * The matter the RUNNING timer is bound to on the server, as it was bound at start.
+   *
+   * It is not the same fact as the row's matter: a row's matter can be set after the run began, and
+   * the server's timer stays bound to whatever it was started with. Only a run whose binding still
+   * matches the row it is on can be committed into an entry, so the two are held apart.
+   */
+  #timerMatterId: string | null = null;
   readonly #saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /**
    * Entries struck since this sheet opened.
@@ -157,18 +186,47 @@ export class TimeSheetStore {
    */
   addRow(workDate: string): SheetRow {
     this.#newRowCount += 1;
+    this.#provisionalCount += 1;
     const sessionUserId = this.#context.sessionUserId();
     const members = this.#context.members();
     const me = members.find((member) => member.userId === sessionUserId);
     const row = newSheetRow({
       key: `unwritten-${String(this.#newRowCount)}`,
       workDate,
+      // A sheet opened from a matter starts its rows there; one opened from the top bar starts them
+      // nowhere, which is the whole point of a capture surface that never asks first.
+      matterId: this.#context.matterFilter(),
+      provisionalCode: provisionalTimeCode(this.#provisionalCount),
       timekeeperUserId: sessionUserId ?? "",
       timekeeperName: me?.displayName ?? "",
       currency: this.rows[0]?.currency ?? "USD",
     });
     this.rows = [...this.rows, row];
     return row;
+  }
+
+  /**
+   * File a row on a matter, or take it off one.
+   *
+   * Only a row that is not yet an entry can be filed here. There is no route that moves an entry
+   * from one matter to another, so a written row is refused rather than being changed on screen and
+   * left where it was on the record; the refusal is said out loud at the moment it is attempted.
+   *
+   * A row filed on a matter writes itself the instant it has the rest of what capture needs, which
+   * is why this ends in a save rather than only in a changed cell.
+   */
+  setMatter(key: string, matterId: string | null): void {
+    const row = this.rowByKey(key);
+    if (row === undefined || row.matterId === matterId) return;
+    if (row.entryIdentifier !== null) {
+      this.#context.announce(
+        "This entry is on the firm's record, and nothing moves an entry from one matter to another yet. It stays where it is.",
+      );
+      return;
+    }
+    this.history.push("the matter on this entry");
+    this.#patchRow(key, { matterId });
+    this.#save(key);
   }
 
   /** Set the work date, and answer whether the scope has to widen to keep the row in view. */
@@ -199,9 +257,18 @@ export class TimeSheetStore {
 
   // ---- saving -------------------------------------------------------------------------------
 
-  /** Whether the server would accept this row as it stands. */
+  /**
+   * Whether the server would accept this row as it stands.
+   *
+   * The matter is part of the answer, not an afterthought: capture takes a matter, so a matterless
+   * row is not a failed write, it is a row that has not been sent. The mark on it says which.
+   */
   #acceptable(row: SheetRow): boolean {
-    return row.description.trim() !== "" && minutesFromSeconds(row.workedSeconds) > 0;
+    return (
+      row.matterId !== null &&
+      row.description.trim() !== "" &&
+      minutesFromSeconds(row.workedSeconds) > 0
+    );
   }
 
   /**
@@ -231,12 +298,17 @@ export class TimeSheetStore {
   async #writeRow(key: string): Promise<void> {
     const row = this.rowByKey(key);
     if (row === undefined || !this.#acceptable(row)) return;
+    // The row's own matter, never the surface's: on a firm-wide sheet the two are different
+    // questions and only the row knows the answer. Acceptability has already established it is
+    // there; reading it into a constant is what lets the type system agree.
+    const matterId = row.matterId;
+    if (matterId === null) return;
     const outcome =
       row.entryIdentifier === null
         ? await createTimeEntry(
             fetch,
             {
-              matterId: this.#context.matterId,
+              matterId,
               timekeeperUserId: row.timekeeperUserId,
               workDate: row.workDate,
               rawDurationMinutes: minutesFromSeconds(row.workedSeconds),
@@ -344,7 +416,11 @@ export class TimeSheetStore {
     if (outcome.kind !== "ok") return;
     const state = outcome.value;
     if (state.status !== "running" || state.startedAt === null) return;
-    if (state.matterId !== this.#context.matterId) return;
+    // A sheet opened from a matter adopts only that matter's run; a firm-wide sheet adopts
+    // whatever is going, because every matter is in view.
+    const filter = this.#context.matterFilter();
+    if (filter !== null && state.matterId !== filter) return;
+    this.#timerMatterId = state.matterId;
     this.#segmentStartedAt = Date.parse(state.startedAt);
     this.#bankedSeconds = 0;
   }
@@ -360,9 +436,12 @@ export class TimeSheetStore {
     if (row === undefined) return;
     const displaced = this.timerRowKey !== null && this.timerRowKey !== key;
     if (displaced) await this.#settleRunIntoItsRow();
+    // The run is bound to the ROW's matter, which may be nothing at all: the firm's timer takes a
+    // null matter, so time can be captured before anybody has decided where it belongs. What such a
+    // run cannot do is become an entry on its own, which is settled where it is stopped.
     const outcome = await startTimer(
       fetch,
-      { matterId: this.#context.matterId, narrative: row.description.trim() },
+      { matterId: row.matterId, narrative: row.description.trim() },
       writeKey(),
     );
     if (outcome.kind !== "ok") {
@@ -370,6 +449,7 @@ export class TimeSheetStore {
       return;
     }
     this.timerFailure = null;
+    this.#timerMatterId = row.matterId;
     this.timerRowKey = key;
     this.#bankedSeconds = 0;
     this.#segmentStartedAt = Date.parse(outcome.value.startedAt);
@@ -415,7 +495,15 @@ export class TimeSheetStore {
     const key = this.timerRowKey;
     if (key === null) return;
     await this.#settleRunIntoItsRow();
-    this.#context.announce("The timer stopped and its time is on the entry.");
+    // What is said depends on where the time actually went, which is knowable only afterwards: a
+    // row still short of a matter has the seconds and no entry, and saying otherwise would tell the
+    // reader their work reached the record when it did not.
+    const settled = this.rowByKey(key);
+    this.#context.announce(
+      settled !== undefined && settled.entryIdentifier === null
+        ? "The timer stopped and its time is on the row. It reaches the record once the row has a matter."
+        : "The timer stopped and its time is on the entry.",
+    );
   }
 
   async #settleRunIntoItsRow(): Promise<void> {
@@ -423,17 +511,30 @@ export class TimeSheetStore {
     if (key === null) return;
     const elapsed = this.elapsedSeconds();
     const row = this.rowByKey(key);
+    const runMatterId = this.#timerMatterId;
     this.#segmentStartedAt = null;
     this.#bankedSeconds = 0;
     this.timerRowKey = null;
+    this.#timerMatterId = null;
     this.rows = this.rows.map((other) => ({ ...other, timerRunning: false }));
     if (row === undefined) return;
-    if (row.entryIdentifier === null) {
+    /*
+     * A run can only BECOME an entry where the server's own binding still says which matter it
+     * belongs to and the row agrees. A run started before the matter was picked is bound to
+     * nothing, and one started before the matter was changed is bound to the old one; in both
+     * cases the run is let go and its seconds land on the row, which then writes itself through
+     * capture as soon as it holds a matter. That is the same result from the reader's side and the
+     * only one that cannot file time on a matter nobody chose.
+     */
+    const commitable =
+      row.entryIdentifier === null && runMatterId !== null && runMatterId === row.matterId;
+    if (commitable) {
       const outcome = await stopTimerAndCommit(fetch, writeKey());
       if (outcome.kind !== "ok") {
         this.timerFailure =
           "The timer stopped but its time was not recorded. The elapsed time is still on the row.";
         this.#patchRow(key, { workedSeconds: row.workedSeconds + elapsed });
+        this.#save(key);
         return;
       }
       this.#patchRow(key, {
@@ -445,7 +546,7 @@ export class TimeSheetStore {
       return;
     }
     await discardTimer(fetch);
-    this.history.push("the timer's time on this entry");
+    if (row.entryIdentifier !== null) this.history.push("the timer's time on this entry");
     this.#patchRow(key, { workedSeconds: row.workedSeconds + elapsed });
     this.#save(key);
   }
