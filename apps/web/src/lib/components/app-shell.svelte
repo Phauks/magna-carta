@@ -507,10 +507,15 @@
            overflow-x container and scrolls within itself (e.g. the design-system table's
            mc-table-scroll wrapper) — the page body stays put. scrollbar-gutter: stable always
            reserves the vertical scrollbar's track, so a short (no-scroll) page and a long
-           (scrolling) page frame their content at the exact same width — no reflow on navigation. -->
+           (scrolling) page frame their content at the exact same width — no reflow on navigation.
+           `relative` makes the canvas the containing block for absolutely positioned descendants:
+           without it a screen-reader-only element (Tailwind's sr-only is position: absolute) deep
+           in a tall page resolves against the document instead, lands at its table's document-y
+           coordinate past the shell's height, and stretches the WINDOW scrollable — a second
+           scrollbar outside the canvas with bare page background beneath the shell. -->
       <main
         bind:this={canvas}
-        class="mc-scrollbar grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
+        class="mc-scrollbar relative grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
       >
         {@render children()}
       </main>
