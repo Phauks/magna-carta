@@ -5,10 +5,12 @@ under **Tools → Firm Usage**. It is visible to Owner and Admin seats, runs out
 saves nothing — every number is computed at the moment you open the page, so what you see is
 current. **Refresh** recomputes on the spot, and **Download Report** saves everything on the page
 as a file — an Excel workbook with each section on its own worksheet, an Excel workbook with
-everything on one sheet, a CSV for any spreadsheet, or plain text to paste into an email. Every
-count in the workbooks is a real, summable number, each file opens by saying when it was
-generated, and the file's name carries the report's name with the date and time to the second, so
-two snapshots never blur together.
+everything on one sheet, a Word document or a PDF ready to print or attach, a CSV for any
+spreadsheet, or plain text to paste into an email. Every count in the workbooks is a real, summable
+number, each file opens by saying when it was generated, and the file's name carries the report's
+name with the date and time to the second, so two snapshots never blur together. Word and PDF are
+prepared on the platform; if the document engine is briefly busy the page says so — try again in a
+moment.
 
 ## Storage
 

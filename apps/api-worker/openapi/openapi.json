@@ -650,6 +650,96 @@
           "aiUsage"
         ]
       },
+      "ExportRenderRequest": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "docx",
+              "pdf"
+            ]
+          },
+          "document": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "stampLines": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "maxItems": 4
+              },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "headers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "minItems": 1,
+                      "maxItems": 24
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "maxItems": 24
+                      },
+                      "maxItems": 2000
+                    },
+                    "endAlignedColumns": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 23
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "headers",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 48
+              }
+            },
+            "required": [
+              "title",
+              "stampLines",
+              "sections"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "format",
+          "document"
+        ]
+      },
       "ToolsConnectionResponse": {
         "type": "object",
         "properties": {
@@ -28253,6 +28343,98 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/exports": {
+      "post": {
+        "description": "Read-shaped POST: renders the tabular export document in the request into a file and returns its bytes — a Word document composed by the platform, or that document carried across the office suite's conversion edge as a PDF. Pure computation over the caller's own payload; nothing is stored.",
+        "operationId": "reports.exportRender",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.exportRender",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:export",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRenderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The rendered file's bytes, content-typed for the requested format",
+            "content": {
+              "application/octet-stream": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks reports:export",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The document is past the render bounds, or the conversion has no path",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.",
             "content": {
               "application/problem+json": {
                 "schema": {

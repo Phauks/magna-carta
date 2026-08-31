@@ -4,10 +4,10 @@
  * a new format is a new renderer over this same shape, never a per-page rewrite of the figures.
  *
  * Three formats render client-side (plain text, CSV, and an Excel workbook — see render-text.ts /
- * render-csv.ts / render-xlsx.ts). Document formats (.docx/.pdf) stay named seams: they belong to
- * document assembly server-side — the office suite is the platform's one renderer of a
- * word-processing package, and its conversion edge is the one way a PDF gets made, so neither
- * format may grow a second client-side generator here.
+ * render-csv.ts / render-xlsx.ts). The document formats (.docx/.pdf) render server-side through
+ * render-remote.ts — the office suite is the platform's one renderer of a word-processing package,
+ * and its conversion edge is the one way a PDF gets made, so neither format may grow a client-side
+ * generator here.
  */
 
 /**
@@ -21,6 +21,12 @@ export interface TabularExportSection {
   readonly title: string;
   readonly headers: readonly string[];
   readonly rows: readonly (readonly TabularExportCell[])[];
+  /**
+   * Column indexes whose cells read as figures and sit against the right edge, the way the screen's
+   * own tables draw them. The client renderers do not consume it (text and CSV are column-plain,
+   * and spreadsheet software aligns real numbers itself); the server-rendered document formats do.
+   */
+  readonly endAlignedColumns?: readonly number[];
 }
 
 export interface TabularExportDocument {
