@@ -2115,7 +2115,7 @@ export const locationsAssignMemberMutation = (options?: Partial<Options<Location
 export const numberingGetQueryKey = (options?: Options<NumberingGetData>) => createQueryKey('numberingGet', options);
 
 /**
- * Returns the firm's active matter-numbering scheme (the ordered segment template), or null segments when none is configured yet.
+ * Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry. Returns null segments when none is configured and no default applies; usingDefault marks the built-in consultation sequence that renders until the firm sets its own.
  */
 export const numberingGetOptions = (options?: Options<NumberingGetData>) => queryOptions<NumberingGetResponse, NumberingGetError, NumberingGetResponse, ReturnType<typeof numberingGetQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -2131,7 +2131,7 @@ export const numberingGetOptions = (options?: Options<NumberingGetData>) => quer
 });
 
 /**
- * Replaces the firm's active matter-numbering scheme. The prior scheme is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.
+ * Replaces the firm's active numbering scheme for one purpose (matter numbers, or the consultation sequence). The prior scheme of that purpose is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.
  */
 export const numberingSetMutation = (options?: Partial<Options<NumberingSetData>>): MutationOptions<NumberingSetResponse, NumberingSetError, Options<NumberingSetData>> => {
     const mutationOptions: MutationOptions<NumberingSetResponse, NumberingSetError, Options<NumberingSetData>> = {

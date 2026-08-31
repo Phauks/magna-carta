@@ -78,6 +78,7 @@ import conflictsWaiverRecordSql from "@magna-carta/database/drizzle/per-firm/202
 import directoryContactPointsSql from "@magna-carta/database/drizzle/per-firm/20260830T120000_directory-contact-points.sql";
 import seedReportExportPermissionSql from "@magna-carta/database/drizzle/per-firm/20260831T210000_seed-report-export-permission.sql";
 import timeEntryRecordSurfacesSql from "@magna-carta/database/drizzle/per-firm/20260831T220000_time-entry-record-surfaces.sql";
+import consultationNumberSql from "@magna-carta/database/drizzle/per-firm/20260831T223721_consultation-number.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -167,6 +168,7 @@ export function perFirmMigrations(): Migration[] {
     "20260830T120000_directory-contact-points": directoryContactPointsSql,
     "20260831T210000_seed-report-export-permission": seedReportExportPermissionSql,
     "20260831T220000_time-entry-record-surfaces": timeEntryRecordSurfacesSql,
+    "20260831T223721_consultation-number": consultationNumberSql,
   });
 }
 

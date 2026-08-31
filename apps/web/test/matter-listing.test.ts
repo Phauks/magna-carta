@@ -21,6 +21,7 @@ function matter(id: string, overrides: Partial<MatterSummary> = {}): MatterSumma
     responsibleMemberId: "user_osei",
     clientDisplayName: "Eleanor Pemberton",
     matterNumber: "2026-0147",
+    consultationNumber: null,
     createdAt: "2026-08-14T09:00:00.000Z",
     ...overrides,
   };

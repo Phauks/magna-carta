@@ -865,6 +865,7 @@ export type AbortUploadResponse = {
 export type CreateMatterResponse = {
     matterId: string;
     matterNumber: string | null;
+    consultationNumber: string | null;
 };
 
 export type CreateMatterRequest = {
@@ -892,6 +893,7 @@ export type MatterSummary = {
     responsibleMemberId: string;
     clientDisplayName: string | null;
     matterNumber: string | null;
+    consultationNumber: string | null;
     createdAt: string;
 };
 
@@ -904,6 +906,7 @@ export type ConsultationItem = {
     id: string;
     title: string;
     matterNumber: string | null;
+    consultationNumber: string | null;
     createdAt: string;
     isStale: boolean;
 };
@@ -919,6 +922,7 @@ export type MatterDetail = {
     clientDisplayName: string | null;
     clientCode: string | null;
     matterNumber: string | null;
+    consultationNumber: string | null;
     eBilling: boolean;
     openedAt: string | null;
     closedAt: string | null;
@@ -1311,6 +1315,8 @@ export type MemberLocationsRequest = {
 
 export type NumberingSchemeResponse = {
     segments: Array<NumberSegment> | null;
+    purpose: 'matter' | 'consultation';
+    usingDefault: boolean;
 };
 
 export type NumberSegment = {
@@ -1346,6 +1352,7 @@ export type NumberSegment = {
 
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
+    purpose?: 'matter' | 'consultation';
 };
 
 export type NumberingPreviewResponse = {
@@ -1499,8 +1506,9 @@ export type FileHistoryResponse = {
 export type FileHistoryItem = {
     at: string;
     event: string;
-    fileId: string;
-    fileName: string;
+    subjectKind: 'file' | 'folder';
+    subjectId: string;
+    subjectName: string;
     versionNumber: number | null;
     actorUserId: string | null;
     actorName: string | null;
@@ -11719,7 +11727,9 @@ export type LocationsAssignMemberResponse = LocationsAssignMemberResponses[keyof
 export type NumberingGetData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        purpose?: 'matter' | 'consultation';
+    };
     url: '/api/v1/numbering-scheme';
 };
 

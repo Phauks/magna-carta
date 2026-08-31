@@ -62,7 +62,16 @@
   <Masthead.Heading>
     <Masthead.Eyebrow>
       <span class="flex items-center gap-8">
-        {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`}
+        <!--
+          The number the file is called by, in the one place the eye goes for it. A consultation
+          wears its own tentative number and is LABELLED as one, so nobody reads it as a matter
+          number; once the matter opens, the permanent number takes the line.
+        -->
+        {matter.matterNumber !== null
+          ? `Matter ${matter.matterNumber}`
+          : matter.consultationNumber !== null
+            ? `Consultation ${matter.consultationNumber}`
+            : "Consultation"}
         <!-- The status seal rides the ledger line, beside the matter number — the top-left corner
              is where the matter's standing is read, not the action rail. -->
         <Badge

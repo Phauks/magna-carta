@@ -1010,12 +1010,12 @@ export const locationsAssignMember = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * Returns the firm's active matter-numbering scheme (the ordered segment template), or null segments when none is configured yet.
+ * Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry. Returns null segments when none is configured and no default applies; usingDefault marks the built-in consultation sequence that renders until the firm sets its own.
  */
 export const numberingGet = <ThrowOnError extends boolean = false>(options?: Options<NumberingGetData, ThrowOnError>): RequestResult<NumberingGetResponses, NumberingGetErrors, ThrowOnError> => (options?.client ?? client).get<NumberingGetResponses, NumberingGetErrors, ThrowOnError>({ url: '/api/v1/numbering-scheme', ...options });
 
 /**
- * Replaces the firm's active matter-numbering scheme. The prior scheme is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.
+ * Replaces the firm's active numbering scheme for one purpose (matter numbers, or the consultation sequence). The prior scheme of that purpose is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.
  */
 export const numberingSet = <ThrowOnError extends boolean = false>(options: Options<NumberingSetData, ThrowOnError>): RequestResult<NumberingSetResponses, NumberingSetErrors, ThrowOnError> => (options.client ?? client).put<NumberingSetResponses, NumberingSetErrors, ThrowOnError>({
     url: '/api/v1/numbering-scheme',

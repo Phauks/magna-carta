@@ -82,13 +82,12 @@
   );
   const permissions = $derived(session?.permissions ?? null);
   const mayRead = $derived(permissions === null || permissions.includes(READ_CONFLICTS_PERMISSION));
-  const matterLabel = $derived(
-    matter === null
-      ? null
-      : matter.matterNumber === null
-        ? matter.title
-        : `${matter.matterNumber} · ${matter.title}`,
-  );
+  const matterLabel = $derived.by(() => {
+    if (matter === null) return null;
+    // A consultation's tentative number counts here too: a check run at intake is filed under it.
+    const number = matter.matterNumber ?? matter.consultationNumber;
+    return number === null ? matter.title : `${number} · ${matter.title}`;
+  });
 </script>
 
 <svelte:head>

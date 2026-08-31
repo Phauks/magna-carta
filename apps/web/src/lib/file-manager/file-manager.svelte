@@ -423,6 +423,10 @@
     );
     newFolderPending = false;
     if (result.kind === "ok") {
+      // Naming it is part of making it: the folder arrives under a stand-in name nobody chose, so
+      // the cursor lands in its name where a person is already about to type. Left to be found
+      // afterwards, a new folder just sits there called "New Folder".
+      renameAfterReload = result.value.folderId;
       reload();
       return;
     }
@@ -433,6 +437,21 @@
 
   let renameDraft = $state("");
   let renameConflict = $state<string | null>(null);
+  /** A folder just made, waiting for the re-read that will let its name be typed. */
+  let renameAfterReload = $state<string | null>(null);
+
+  /*
+   * The new folder's name field opens once the folder is actually in the list — a rename cannot be
+   * started against a row that has not been read back yet.
+   */
+  $effect(() => {
+    const waiting = renameAfterReload;
+    if (waiting === null) return;
+    const row = rows.find((candidate) => candidate.key === folderKey(waiting));
+    if (row === undefined) return;
+    renameAfterReload = null;
+    beginRename(row);
+  });
 
   function beginRename(row: FileManagerRow): void {
     manager.renamingKey = row.key;
@@ -1332,7 +1351,7 @@
   const historyGrid = DataTable.createDataTableGrid<FileHistoryEntry>({
     columns: () => historyColumns(),
     rows: () => (manager.view === "history" ? [...historyEntries] : []),
-    rowKey: (row) => `${row.at}:${row.fileId}:${row.event}`,
+    rowKey: (row) => `${row.at}:${row.subjectId}:${row.event}`,
     itemNoun: { singular: "entry", plural: "entries" },
   });
 

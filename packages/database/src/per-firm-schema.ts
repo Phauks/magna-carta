@@ -550,13 +550,28 @@ export const documentType = sqliteTable(
 // The matter-number template: an ordered array of segments stored as validated JSON. One active
 // scheme per firm is enforced in the write path; superseded schemes are retained so a historical
 // number still explains how it was rendered.
-export const numberingScheme = sqliteTable("numbering_scheme", {
-  id: text("id").primaryKey().$type<NumberingSchemeId>(), // numberingScheme_ handle
-  segments: text("segments").notNull(), // JSON; shape validated by numberingSchemeSchema
-  active: integer("active").notNull().default(1),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+export const numberingScheme = sqliteTable(
+  "numbering_scheme",
+  {
+    id: text("id").primaryKey().$type<NumberingSchemeId>(), // numberingScheme_ handle
+    segments: text("segments").notNull(), // JSON; shape validated by numberingSchemeSchema
+    // Which sequence this template renders. A firm numbers two different things and must be able to
+    // shape them independently: the permanent matter number, and the tentative number a consultation
+    // carries before anyone knows whether it will become a matter. One active scheme per purpose; a
+    // firm that has configured no consultation scheme falls back to the built-in default, so a
+    // consultation is never unnumbered while somebody gets round to the settings screen.
+    purpose: text("purpose", { enum: ["matter", "consultation"] })
+      .notNull()
+      .default("matter"),
+    active: integer("active").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  // No CHECK on purpose: adding one to a table that already exists costs SQLite a full table
+  // rebuild, which is destructive DDL for a two-value column the write path is the only producer of.
+  // The enum on the column carries the constraint where it is actually enforced.
+  () => [],
+);
 
 // The matter-number counter, one row per {firm, scope_key}. The primary key is the natural scope key,
 // NOT an identifier handle — like the migration tracker, this is a counter keyed by what it counts
@@ -603,6 +618,15 @@ export const matter = sqliteTable(
     naturalLanguageIndexExcluded: integer("natural_language_index_excluded").notNull().default(0),
     matterNumber: text("matter_number"), // null until open draws it; frozen thereafter
     numberedAt: text("numbered_at"),
+    // The tentative number a consultation carries from the moment it is created, drawn from the
+    // firm's consultation sequence. A prospective matter is a real thing a firm has to be able to
+    // name — on an intake sheet, a conflicts check, a bill for the consultation itself — and
+    // "Consultation" is not a name. It is drawn once and frozen: opening the matter draws the
+    // permanent matter_number alongside it rather than replacing it, so a document filed under the
+    // tentative number still resolves. Null only on matters created straight to open (which never
+    // were a consultation) and on prospectives created before the sequence existed. The draw instant
+    // is created_at by construction — the number is allocated in the insert's own batch.
+    consultationNumber: text("consultation_number"),
     // Names a platform-owned matter that exists to satisfy a structural requirement rather than to
     // hold a client engagement — today only the custody holding matter, which is where a scan of an
     // original held for someone with no matter is filed. Null on every real matter. Marked rather
@@ -619,6 +643,12 @@ export const matter = sqliteTable(
     uniqueIndex("matter_matter_number_unique_index")
       .on(table.matterNumber)
       .where(sql`${table.matterNumber} IS NOT NULL`),
+    // Same shape as the matter-number index and for the same reason: the tentative number is a name
+    // people quote, so two consultations must never wear one. Partial, so the matters that carry no
+    // consultation number are unconstrained.
+    uniqueIndex("matter_consultation_number_unique_index")
+      .on(table.consultationNumber)
+      .where(sql`${table.consultationNumber} IS NOT NULL`),
     // At most one matter per firm per system key — the find-or-insert guard that collapses two
     // concurrent first-use creations onto one row.
     uniqueIndex("matter_system_key_unique_index")

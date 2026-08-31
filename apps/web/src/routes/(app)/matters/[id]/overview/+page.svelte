@@ -22,11 +22,17 @@
     value: string;
   }
 
-  /* Null facts are omitted rather than rendered as gaps; the matter number is the one null
-   * with a meaning of its own (a consultation is unnumbered by design), so it states that. */
+  /* Null facts are omitted rather than rendered as gaps; the matter number is the one null with a
+   * meaning of its own. A consultation has a number — its own, tentative one — so the fact names
+   * which sequence the number came from rather than presenting it as a matter number. */
   const keyFacts: KeyFact[] = $derived.by(() => {
     const facts: KeyFact[] = [
-      { label: "Matter number", value: matter.matterNumber ?? "Unnumbered — consultation" },
+      matter.matterNumber !== null
+        ? { label: "Matter number", value: matter.matterNumber }
+        : {
+            label: "Consultation number",
+            value: matter.consultationNumber ?? "Unnumbered — consultation",
+          },
       // The word comes from the product's one status register, so this page, the header and the
       // docket cannot end up calling the same matter three things.
       { label: "Status", value: matterStatusLabel(matter.status) },

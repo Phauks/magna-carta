@@ -3582,11 +3582,18 @@
               "string",
               "null"
             ]
+          },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "matterId",
-          "matterNumber"
+          "matterNumber",
+          "consultationNumber"
         ]
       },
       "CreateMatterRequest": {
@@ -3711,6 +3718,12 @@
               "null"
             ]
           },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           }
@@ -3724,6 +3737,7 @@
           "responsibleMemberId",
           "clientDisplayName",
           "matterNumber",
+          "consultationNumber",
           "createdAt"
         ]
       },
@@ -3763,6 +3777,12 @@
               "null"
             ]
           },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -3774,6 +3794,7 @@
           "id",
           "title",
           "matterNumber",
+          "consultationNumber",
           "createdAt",
           "isStale"
         ]
@@ -3834,6 +3855,12 @@
               "null"
             ]
           },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "eBilling": {
             "type": "boolean"
           },
@@ -3882,6 +3909,7 @@
           "clientDisplayName",
           "clientCode",
           "matterNumber",
+          "consultationNumber",
           "eBilling",
           "openedAt",
           "closedAt",
@@ -5310,10 +5338,22 @@
             "items": {
               "$ref": "#/components/schemas/NumberSegment"
             }
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "consultation"
+            ]
+          },
+          "usingDefault": {
+            "type": "boolean"
           }
         },
         "required": [
-          "segments"
+          "segments",
+          "purpose",
+          "usingDefault"
         ]
       },
       "NumberSegment": {
@@ -5506,6 +5546,14 @@
             "items": {
               "$ref": "#/components/schemas/NumberSegment"
             }
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "consultation"
+            ],
+            "default": "matter"
           }
         },
         "required": [
@@ -6135,10 +6183,17 @@
           "event": {
             "type": "string"
           },
-          "fileId": {
+          "subjectKind": {
+            "type": "string",
+            "enum": [
+              "file",
+              "folder"
+            ]
+          },
+          "subjectId": {
             "type": "string"
           },
-          "fileName": {
+          "subjectName": {
             "type": "string"
           },
           "versionNumber": {
@@ -6176,8 +6231,9 @@
         "required": [
           "at",
           "event",
-          "fileId",
-          "fileName",
+          "subjectKind",
+          "subjectId",
+          "subjectName",
           "versionNumber",
           "actorUserId",
           "actorName",
@@ -40822,7 +40878,7 @@
     },
     "/api/v1/numbering-scheme": {
       "get": {
-        "description": "Returns the firm's active matter-numbering scheme (the ordered segment template), or null segments when none is configured yet.",
+        "description": "Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry. Returns null segments when none is configured and no default applies; usingDefault marks the built-in consultation sequence that renders until the firm sets its own.",
         "operationId": "numbering.get",
         "tags": [
           "numbering"
@@ -40840,6 +40896,21 @@
           "numbering"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "matter",
+                "consultation"
+              ],
+              "default": "matter"
+            },
+            "required": false,
+            "name": "purpose",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The active scheme's segments, or null",
@@ -40894,7 +40965,7 @@
         }
       },
       "put": {
-        "description": "Replaces the firm's active matter-numbering scheme. The prior scheme is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.",
+        "description": "Replaces the firm's active numbering scheme for one purpose (matter numbers, or the consultation sequence). The prior scheme of that purpose is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.",
         "operationId": "numbering.set",
         "tags": [
           "numbering"
