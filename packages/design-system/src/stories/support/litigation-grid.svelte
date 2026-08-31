@@ -115,6 +115,7 @@
 </script>
 
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import Badge from "../../lib/components/badge/index.ts";
   import * as DataTable from "../../lib/components/data-table/index.ts";
   import { createDataTableGrid } from "../../lib/components/data-table/index.ts";
@@ -122,28 +123,34 @@
 
   type Props = {
     rows?: TimeEntry[];
+    /** The column model; override to exercise a variant (a trailing-pinned column, say). */
+    columns?: GridColumn<TimeEntry>[];
     loading?: boolean;
     density?: "comfortable" | "compact";
     zebra?: boolean;
     /** Pinned row ids, in the member's own arranged order (never the table's sort). */
     pinnedRowKeys?: readonly string[];
     rowMark?: (row: TimeEntry) => GridRowMark | undefined;
+    /** The record's second line, passed through to the grid. */
+    rowDetail?: Snippet<[TimeEntry]>;
     onActivate?: (row: TimeEntry) => void;
     onSelectionChange?: (keys: readonly string[], rows: readonly TimeEntry[]) => void;
   };
   let {
     rows = TIME_ENTRIES,
+    columns = TIME_COLUMNS,
     loading = false,
     density = "comfortable",
     zebra = false,
     pinnedRowKeys = [],
     rowMark,
+    rowDetail,
     onActivate,
     onSelectionChange,
   }: Props = $props();
 
   const grid = createDataTableGrid<TimeEntry>({
-    columns: () => TIME_COLUMNS,
+    columns: () => columns,
     rows: () => rows,
     rowKey: (row) => row.id,
     pinnedRowKeys: () => pinnedRowKeys,
@@ -164,7 +171,7 @@
   <div class="flex justify-end">
     <DataTable.GridColumnsMenu {grid} />
   </div>
-  <DataTable.Grid {grid} caption="Time entries" {loading} {density} class="max-h-96">
+  <DataTable.Grid {grid} caption="Time entries" {loading} {density} {rowDetail} class="max-h-96">
     {#snippet cell({ row, column, text })}
       {#if column.id === "status"}
         <Badge variant={STATUS_BADGE[row.status]}>{row.status}</Badge>

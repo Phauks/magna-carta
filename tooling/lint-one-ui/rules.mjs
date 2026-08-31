@@ -42,8 +42,12 @@
 
 // --- rule: the record window's header set ----------------------------------------------------
 
-/** The four header controls, in the one order a reader learns. */
-export const HEADER_ACTIONS = ["edit", "print", "expand", "close"];
+/**
+ * The header controls, in the one order a reader learns. The menu is the one caller-supplied
+ * control — a record kind's rare acts and settings — and renders only when a caller provides it,
+ * but its place in the source is fixed here like the rest.
+ */
+export const HEADER_ACTIONS = ["menu", "edit", "print", "expand", "close"];
 
 /** The marker each header control carries, which is also the harness's hook for finding it. */
 export const HEADER_ACTION_ATTRIBUTE = "data-record-window-action";
@@ -52,10 +56,11 @@ export const HEADER_ACTION_ATTRIBUTE = "data-record-window-action";
 const HEADER_ACTIONS_CLASS = 'class="mc-record-window-header-actions"';
 
 /**
- * Tags that are a control. `<button>` covers the shell's own; the dialog's Close part is a
- * component, so it is named too — a fifth control added as either shape must be found.
+ * Tags that are a control. `<button>` covers the shell's own; the dialog's Close part and the
+ * menu's trigger are components that render one, so they are named too — an extra control added
+ * as any of these shapes must be found.
  */
-const CONTROL_TAG_PATTERN = /<(button|Dialog\.Close|DialogClose)\b/g;
+const CONTROL_TAG_PATTERN = /<(button|Dialog\.Close|DialogClose|DropdownMenu\.Trigger)\b/g;
 
 const ACTION_MARKER_PATTERN = new RegExp(`${HEADER_ACTION_ATTRIBUTE}="([a-z-]*)"`, "g");
 

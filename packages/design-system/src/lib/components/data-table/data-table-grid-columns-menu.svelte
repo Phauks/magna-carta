@@ -64,10 +64,13 @@
         <button
           type="button"
           class="mc-table-grid-pin"
-          aria-pressed={grid.isPinned(column.id)}
-          title={grid.isPinned(column.id)
-            ? `Unpin: ${column.label} scrolls with the rest again`
-            : `Pin ${column.label} so it keeps its place when the list scrolls sideways`}
+          aria-pressed={column.pinnedEnd === true || grid.isPinned(column.id)}
+          disabled={column.pinnedEnd === true}
+          title={column.pinnedEnd === true
+            ? `${column.label} always keeps its place at the trailing edge`
+            : grid.isPinned(column.id)
+              ? `Unpin: ${column.label} scrolls with the rest again`
+              : `Pin ${column.label} so it keeps its place when the list scrolls sideways`}
           onclick={(event) => {
             // Inside the label: the pin must not toggle the visibility checkbox.
             event.preventDefault();
@@ -77,7 +80,7 @@
           <Pin
             class="mc-table-grid-pin-icon"
             aria-hidden="true"
-            fill={grid.isPinned(column.id) ? "currentColor" : "none"}
+            fill={column.pinnedEnd === true || grid.isPinned(column.id) ? "currentColor" : "none"}
           />
         </button>
       </label>
