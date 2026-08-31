@@ -399,11 +399,247 @@
               "folders",
               "locations"
             ]
+          },
+          "mattersByType": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterTypeName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "prospective": {
+                  "type": "number"
+                },
+                "open": {
+                  "type": "number"
+                },
+                "closed": {
+                  "type": "number"
+                },
+                "total": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "matterTypeName",
+                "prospective",
+                "open",
+                "closed",
+                "total"
+              ]
+            }
+          },
+          "files": {
+            "type": "object",
+            "properties": {
+              "currentFiles": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "number"
+                  },
+                  "bytes": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "count",
+                  "bytes"
+                ]
+              },
+              "priorVersions": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "number"
+                  },
+                  "bytes": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "count",
+                  "bytes"
+                ]
+              },
+              "allVersions": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "number"
+                  },
+                  "bytes": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "count",
+                  "bytes"
+                ]
+              },
+              "deletedFiles": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "number"
+                  },
+                  "bytes": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "count",
+                  "bytes"
+                ]
+              }
+            },
+            "required": [
+              "currentFiles",
+              "priorVersions",
+              "allVersions",
+              "deletedFiles"
+            ]
+          },
+          "byLocation": {
+            "type": "object",
+            "properties": {
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "closed"
+                      ]
+                    },
+                    "matters": {
+                      "type": "number"
+                    },
+                    "members": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "status",
+                    "matters",
+                    "members"
+                  ]
+                }
+              },
+              "mattersWithoutLocation": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "rows",
+              "mattersWithoutLocation"
+            ]
+          },
+          "directory": {
+            "type": "object",
+            "properties": {
+              "people": {
+                "type": "number"
+              },
+              "organizations": {
+                "type": "number"
+              },
+              "activeMembers": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "people",
+              "organizations",
+              "activeMembers"
+            ]
+          },
+          "aiUsage": {
+            "type": "object",
+            "properties": {
+              "magnusTokens": {
+                "type": "object",
+                "properties": {
+                  "inputTokens": {
+                    "type": "number"
+                  },
+                  "outputTokens": {
+                    "type": "number"
+                  },
+                  "requests": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "inputTokens",
+                  "outputTokens",
+                  "requests"
+                ]
+              },
+              "searchQueries": {
+                "type": "object",
+                "properties": {
+                  "semantic": {
+                    "type": "number"
+                  },
+                  "fullText": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "semantic",
+                  "fullText"
+                ]
+              },
+              "detection": {
+                "type": "object",
+                "properties": {
+                  "requests": {
+                    "type": "number"
+                  },
+                  "words": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "requests",
+                  "words"
+                ]
+              },
+              "notMetered": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "magnusTokens",
+              "searchQueries",
+              "detection",
+              "notMetered"
+            ]
           }
         },
         "required": [
           "storage",
-          "counts"
+          "counts",
+          "mattersByType",
+          "files",
+          "byLocation",
+          "directory",
+          "aiUsage"
         ]
       },
       "ToolsConnectionResponse": {
@@ -27935,7 +28171,7 @@
     },
     "/api/v1/firm-usage": {
       "get": {
-        "description": "The firm's own usage: storage consumed (by class) and entity counts (matters by status, files, versions, folders, locations).",
+        "description": "The firm's own usage, computed when requested: storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.",
         "operationId": "firmUsage.get",
         "tags": [
           "firmUsage"

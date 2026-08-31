@@ -33,11 +33,11 @@ describe("toolDestinations", () => {
   });
 
   it("leaves a soon tool not launchable", () => {
-    // Firm Usage ships at `soon` — no page yet, so it must render as an inert "— soon" row.
-    const firmUsage = entries.find((entry) => entry.id === "firm-usage");
-    expect(firmUsage).toBeDefined();
-    expect(toolPresentation({ ...CATALOG[0]!, id: "firm-usage" }).stage).toBe("soon");
-    expect(firmUsage?.launchable).toBe(false);
+    // The file converter ships at `soon` — no page yet, so it must render as an inert "— soon" row.
+    const fileConverter = entries.find((entry) => entry.id === "file-converter");
+    expect(fileConverter).toBeDefined();
+    expect(toolPresentation({ ...CATALOG[0]!, id: "file-converter" }).stage).toBe("soon");
+    expect(fileConverter?.launchable).toBe(false);
   });
 
   it("makes an alpha-or-better tool launchable", () => {

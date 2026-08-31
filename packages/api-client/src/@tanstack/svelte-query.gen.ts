@@ -96,7 +96,7 @@ export const metaVersionsOptions = (options?: Options<MetaVersionsData>) => quer
 export const firmUsageGetQueryKey = (options?: Options<FirmUsageGetData>) => createQueryKey('firmUsageGet', options);
 
 /**
- * The firm's own usage: storage consumed (by class) and entity counts (matters by status, files, versions, folders, locations).
+ * The firm's own usage, computed when requested: storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.
  */
 export const firmUsageGetOptions = (options?: Options<FirmUsageGetData>) => queryOptions<FirmUsageGetResponse, FirmUsageGetError, FirmUsageGetResponse, ReturnType<typeof firmUsageGetQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

@@ -222,6 +222,31 @@ export interface InsertMemberLocationRow {
   readonly createdAt: string;
 }
 
+export interface LocationUsageRow {
+  readonly id: LocationId;
+  readonly name: string;
+  readonly status: "active" | "closed";
+  readonly members: number; // staffed through member_location; a member at two offices counts at both
+}
+
+// One row per location (active and closed alike) with its staffing count, for the firm-usage
+// snapshot. Matter counts per location belong to the matter domain and are joined by the caller.
+export async function readLocationUsageRows(
+  database: SqlDatabase,
+): Promise<readonly LocationUsageRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${LOCATION_TABLE}.id AS id, ${LOCATION_TABLE}.name AS name, ${LOCATION_TABLE}.status AS status, (SELECT COUNT(*) FROM ${MEMBER_LOCATION_TABLE} WHERE ${MEMBER_LOCATION_TABLE}.location_id = ${LOCATION_TABLE}.id) AS members FROM ${LOCATION_TABLE} ORDER BY ${LOCATION_TABLE}.name, ${LOCATION_TABLE}.id`,
+    )
+    .all<{ id: LocationId; name: string; status: "active" | "closed"; members: number }>();
+  return results.map((row) => ({
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    members: row.members,
+  }));
+}
+
 // Per-firm count of all locations (active and closed alike).
 export async function readLocationCount(database: SqlDatabase): Promise<number> {
   const { results } = await database
