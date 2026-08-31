@@ -1,8 +1,11 @@
 # Splitting the SPA onto its own Worker — design
 
 **Date:** 2026-08-21
-**Status:** Design proposed. No product code in this cycle. Two owner flags in section 9 decide
-whether the split happens at all and what the app Worker is reachable at afterwards.
+**Status:** **Built, 2026-08-31.** The owner answered both flags (W1 yes; W2 the existing apex,
+converted from a custom domain to route patterns) and performed the cutover; the recorded decision
+— including the one deliberate departure from section 6, keeping the app Worker's `assets` block
+as the local-dev vehicle and rollback fallback — is the `the-interface-ships-on-its-own-worker`
+ADR. The text below is the design as proposed, kept as the point-in-time record.
 
 **Owner-flag series: `W`.** Its own letter series so an answer here can never be mistaken for an
 answer to a billing (`B`), trust (`T`), payments (`K`), notifications (`N`), intake (`J`), discovery

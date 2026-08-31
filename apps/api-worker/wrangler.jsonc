@@ -48,6 +48,18 @@
   // keep being served by the asset server — free, and off this Worker's CPU and invocation count.
   // apps/api-worker/test/worker-first-routing-scan.test.ts reads this array against the app's live Hono
   // dispatch table and fails on the day a family is added without a line here.
+  //
+  // SINCE THE 2026-08-31 CUTOVER this block is the LOCAL-DEV VEHICLE AND THE ROLLBACK FALLBACK, not
+  // how the deployed site serves its interface. The app's address is split by route pattern on the
+  // zone: magna-carta-web (the assets-only sibling, same ../web/build output) serves every path, and
+  // this Worker is routed only the four families above — so the zone's route list and
+  // run_worker_first must name the SAME families, and a new family means a new zone route (an
+  // operator step, docs/conventions/operations.md) in the same breath as the line here. The block
+  // stays because `wrangler dev` and the Playwright e2e suite serve the whole app from it on :8787,
+  // and because repointing the zone's /* route back to this Worker is the one-gesture rollback —
+  // both of those need a replacement before anyone removes it. What actually decouples interface
+  // deploys from API deploys is the Build Watch Paths on the magna-carta project (no apps/web/*),
+  // which is dashboard state: read it from the API, never from here.
   "assets": {
     "directory": "../web/build",
     "binding": "ASSETS",

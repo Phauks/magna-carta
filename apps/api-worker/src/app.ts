@@ -249,10 +249,11 @@ export type Bindings = {
   // status page's own data flows through KV, never through this worker. Optional: absent in every
   // test environment; while unset, its version row reads "unbound".
   STATUS_SERVICE?: Fetcher;
-  // The assets-only SPA worker (magna-carta-web), for the aggregate version read alone. It holds no
-  // script, so the probe is answered by its asset server: the SPA build emits the version shape as
-  // a static /__version file, and a deployment older than that file answers index.html, which the
-  // probe reads as "unreported". Optional: absent in every test environment.
+  // The assets-only SPA worker (magna-carta-web) — since the 2026-08-31 cutover the Worker that
+  // serves the interface at the app's address — bound here for the aggregate version read alone.
+  // It holds no script, so the probe is answered by its asset server: the SPA build emits the
+  // version shape as a static /__version file, and a deployment older than that file answers
+  // index.html, which the probe reads as "unreported". Optional: absent in every test environment.
   WEB_SERVICE?: Fetcher;
   // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
   // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
