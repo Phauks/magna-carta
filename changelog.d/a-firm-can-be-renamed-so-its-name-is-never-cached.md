@@ -13,9 +13,9 @@ the file-integrity receipt, a document a firm relies on. `firm-absence-gate.test
 between two reads through one cached minute and asserts the second reports the new name; it was
 confirmed to fail against the cached-name version first.
 
-Also fixes two stale expectations in `me.test.ts` — `downloads:shelf` and `reports:export` were
-added to the role seeds without updating the list, leaving that suite red on `main` where the
-blocked CI gate could not report it.
+Also fixes five stale expectations in `me.test.ts` — `downloads:shelf`, `reports:export` and the
+three `notes:*` keys reached the role seeds without updating the list, leaving that suite red on
+`main` where the blocked CI gate could not report it.
 
 ## Public
 
