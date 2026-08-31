@@ -33,8 +33,16 @@ export function gridSetValue<TRow>(column: GridColumn<TRow>, row: TRow): string 
   return value == null ? "" : String(value);
 }
 
-/** Distinct set-filter values with their counts over the UNFILTERED rows — a stable universe, so
- * options never vanish as the selection narrows (the settled facet inversion fix). */
+/**
+ * Distinct set-filter values with their counts over the UNFILTERED rows — a stable universe, so
+ * options never vanish as the selection narrows (the settled facet inversion fix).
+ *
+ * A column that declares `filterValues` gets those FIRST, in the order it declared them, each with
+ * its true count and zero where no loaded row carries it: a vocabulary the firm declares is offered
+ * whole, so the control cannot imply the firm has no such thing merely because none is on screen.
+ * Whatever else the rows carry follows, alphabetically, which is the whole answer for a column with
+ * no declared vocabulary.
+ */
 export function gridSetFilterCounts<TRow>(
   column: GridColumn<TRow>,
   rows: readonly TRow[],
@@ -44,7 +52,14 @@ export function gridSetFilterCounts<TRow>(
     const value = gridSetValue(column, row);
     counts.set(value, (counts.get(value) ?? 0) + 1);
   }
-  return new Map([...counts.entries()].toSorted(([a], [b]) => a.localeCompare(b)));
+  const declared = column.filterValues ?? [];
+  const observed = [...counts.entries()]
+    .filter(([value]) => !declared.includes(value))
+    .toSorted(([a], [b]) => a.localeCompare(b));
+  return new Map([
+    ...declared.map((value): [string, number] => [value, counts.get(value) ?? 0]),
+    ...observed,
+  ]);
 }
 
 /** Whether one row passes one column's filter. */

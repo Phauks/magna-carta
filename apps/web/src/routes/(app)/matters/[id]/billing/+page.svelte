@@ -1,11 +1,11 @@
 <script lang="ts">
   /*
-   * The matter's Billing section: its bills, and the agreement they are composed under.
+   * The matter's Billing section: the fees recorded on it, and the bills its client has been given.
    *
-   * TWO SURFACES, ONE SECTION, IN CAUSE-AND-EFFECT ORDER. FEES is the agreement — what this matter
-   * charges — and the charge ledger it has produced. BILLS is the register of the documents the
-   * client has actually been given. They are the same subject at two altitudes, so they are two
-   * tabs of one section rather than two places to go looking.
+   * TWO SURFACES, ONE SECTION. FEES is a work-in-progress ledger — flat charges for professional
+   * services, recorded by hand, waiting to be billed. BILLS is the register of the documents the
+   * client has actually been given, and the window each of them opens in. A fee reaches a bill the
+   * same way a cost does: a draft invoice claims it.
    *
    * THE PAGE IS THE READ AND THE STATE SET; the surfaces below it are the screens. A SAMPLE matter
    * (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no firm behind it
@@ -24,7 +24,7 @@
   import BillingProblemReportDialog from "$lib/billing/billing-problem-report-dialog.svelte";
   import FeeLedger from "$lib/billing/fee-ledger.svelte";
   import { MatterBilling } from "$lib/billing/matter-billing.svelte.ts";
-  import { feeCharges } from "$lib/billing/fee-charges.ts";
+  import type { FeeRecord } from "$lib/billing/fee-record.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -73,19 +73,15 @@
   /* The currency the matter's own bills are written in; the firm's default until one is read. */
   const currency = $derived(rows?.[0]?.summary.currency ?? "USD");
 
-  const charges = $derived(
-    feeCharges(rows ?? [], matter.id, billing.arrangement?.history ?? []),
-  );
-
-  const unbilledFeeMinor = $derived(billing.unbilled?.timeAmountMinor ?? 0);
-
-  function showBill(invoiceId: string): void {
-    openTab = "bills";
-    selectedBillIdentifier = invoiceId;
-  }
-
-  /* Which bill the register should show when the fee ledger sends a reader to it. */
-  let selectedBillIdentifier = $state<string | null>(null);
+  /*
+   * The matter's fees.
+   *
+   * A fee is a first-class work-in-progress record — its own dated draft with a timekeeper, a
+   * description, an amount and a billing disposition — and no route serves one yet. The ledger is
+   * therefore handed an empty set and says on the screen what it is waiting for, rather than being
+   * handed the matter's invoice LINES, which is what a bill does to a fee and not what a fee is.
+   */
+  const fees: readonly FeeRecord[] = [];
 </script>
 
 <svelte:head>

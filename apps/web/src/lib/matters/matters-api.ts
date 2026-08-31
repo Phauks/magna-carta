@@ -207,6 +207,32 @@ export function createMatter(
   });
 }
 
+/** What creating one of the firm's matter types takes. The code feeds numbering schemes. */
+export interface CreateMatterTypeRequest {
+  name: string;
+  code?: string | null;
+}
+
+/**
+ * Create one of the firm's matter types.
+ *
+ * This is how a practice area the firm does not hold yet becomes the firm's own: the row is created
+ * against the firm, and from then on it is renamed, coded and deactivated in the firm's settings
+ * like any other. The idempotency key is required by the contract, so a double-press cannot leave
+ * the firm holding the same area twice.
+ */
+export function createMatterType(
+  fetchImpl: typeof fetch,
+  request: CreateMatterTypeRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, "/api/v1/matter-types", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
 /** The firm's matter types. Un-paged on the contract: a firm's vocabulary is a short list. */
 export function listMatterTypes(
   fetchImpl: typeof fetch,
@@ -228,3 +254,10 @@ export function readSession(fetchImpl: typeof fetch): Promise<ApiOutcome<Session
 
 /** The permission the create endpoint names. A member without it is refused server-side. */
 export const CREATE_MATTER_PERMISSION = "matters:create";
+
+/**
+ * The permission that governs the firm's matter types. A member without it can choose any practice
+ * area the firm already holds and cannot add one, which is exactly what the server enforces — so
+ * the control says so up front rather than letting somebody pick and be refused.
+ */
+export const MANAGE_MATTER_TYPES_PERMISSION = "matters:manageTypes";
