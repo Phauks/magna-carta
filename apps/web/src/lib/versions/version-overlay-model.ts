@@ -208,11 +208,47 @@ export function formatVersionTimestamp(iso: string | null): string | null {
 export const API_WORKER_UNIT_NAME = "magna-carta";
 
 /**
- * The build line's name. The old panel headed this row "magna-carta", which was the Worker that
- * SERVED the bundle, not the thing the row reports on — the bundle the browser is running right
- * now, which can outlive the deployment that served it by however long the tab stays open.
+ * The build line's name. It heads the bundle the browser is running, never the Worker that served
+ * it — the two are different things, and the tab can outlive the deployment by however long it
+ * stays open.
  */
 export const PAGE_BUILD_ROW_NAME = "This page";
+
+/** The wire id of the row for the Worker that serves the interface. */
+export const WEB_WORKER_ROW_ID = "web";
+
+/** The `magna-carta-web` row out of an aggregate's services, or null when the read has none. */
+export function findWebWorkerRow(services: readonly ServiceVersionRow[]): ServiceVersionRow | null {
+  return services.find((row) => row.id === WEB_WORKER_ROW_ID) ?? null;
+}
+
+/** Where the aggregate read has got to, which decides what the panel can lean on. */
+export type VersionReadPhase = "pending" | "answered" | "failed";
+
+/**
+ * Whether the panel still owes a line for this bundle's own build.
+ *
+ * Owner ruling, 2026-08-31 (docs/conventions/design-corrections.md): the standing "This page" row
+ * duplicated magna-carta-web. That Worker serves the interface, so whenever it reports, its commit
+ * and timestamps ARE this page's, said once under the name someone can act on. The divergence the
+ * row used to cover, a tab left open across a deploy, is already carried and carried better by the
+ * update signal on the chip and the reload control beside it.
+ *
+ * So the line survives only where nothing else states this build: a signed-out panel (no aggregate
+ * to read), a read that failed, and a web row that came back silent. Dropping it unconditionally
+ * would leave those panels reporting no version at all, which is the opposite of the point. While
+ * a first read is still in flight it stays away: the skeletons hold that space, and a row that
+ * appears for a moment and then vanishes reads as a glitch rather than as an answer.
+ */
+export function showsPageBuildRow(panel: {
+  readsAggregate: boolean;
+  read: VersionReadPhase;
+  webRow: ServiceVersionRow | null;
+}): boolean {
+  if (!panel.readsAggregate) return true;
+  if (panel.read === "pending") return false;
+  return panel.webRow === null || panel.webRow.state !== "reported";
+}
 
 /**
  * The topology in one line, where a reader comparing the rows will look for it. The app's address
@@ -235,9 +271,28 @@ export function partitionDeploymentRows(services: readonly ServiceVersionRow[]):
   rest: ServiceVersionRow[];
 } {
   return {
-    front: services.filter((row) => row.id === "web"),
-    rest: services.filter((row) => row.id !== "web"),
+    front: services.filter((row) => row.id === WEB_WORKER_ROW_ID),
+    rest: services.filter((row) => row.id !== WEB_WORKER_ROW_ID),
   };
+}
+
+/**
+ * The heading over the rest of the fleet — the Workers beneath the pair that serves the app's
+ * address. It heads a collapsible section, so it is also the toggle's visible label.
+ */
+export const FLEET_SECTION_LABEL = "Workers";
+
+/**
+ * What a collapsed fleet must still say out loud. Every sibling Worker is listed, the silent ones
+ * included, because a list that quietly omits them reads as "everything is healthy" — and folding
+ * the section away would do exactly that omission by another route. So a collapsed heading carries
+ * the count of rows that came back without a version, which is the one fact all three non-answers
+ * share; a fleet that is entirely reporting carries nothing, and the collapse is free.
+ */
+export function summarizeSilentWorkers(rows: readonly ServiceVersionRow[]): string | null {
+  const silent = rows.filter((row) => row.state !== "reported").length;
+  if (silent === 0) return null;
+  return `${String(silent)} without a version`;
 }
 
 /**
@@ -246,7 +301,7 @@ export function partitionDeploymentRows(services: readonly ServiceVersionRow[]):
  */
 export const UPDATE_AVAILABLE_EXPLANATION = "A newer deployment is live. Reload to pick it up.";
 
-/** The Reload control's one label. */
+/** The Reload control's one label. It heads an icon control, so it is the accessible name too. */
 export const RELOAD_ACTION_LABEL = "Reload";
 
 /** The line under the Deployment heading when the read reports no sibling worker at all. */

@@ -96,16 +96,12 @@ const CAPABILITIES: readonly Capability[] = [
   {
     id: "deleted-files",
     label: "See and restore deleted files",
-    reach: "waiting",
-    waitingOn:
-      "the deleted-files listing. A delete here is a soft delete and destroys nothing, but " +
-      "nothing yet reads back what was deleted.",
+    reach: "served",
   },
   {
     id: "history",
     label: "The matter's file changelog",
-    reach: "waiting",
-    waitingOn: "the file-history feed. Every act is audited; none of it is readable from here yet.",
+    reach: "served",
   },
   {
     id: "search",
@@ -116,8 +112,15 @@ const CAPABILITIES: readonly Capability[] = [
   {
     id: "archive-browse",
     label: "Browse inside a zip",
+    reach: "served",
+  },
+  {
+    id: "archive-extract",
+    label: "Extract an archive's members into the matter",
     reach: "waiting",
-    waitingOn: "the archive-extraction engine.",
+    waitingOn:
+      "the archive-extraction engine. Reading the directory is not extraction; pulling members " +
+      "out commits and scans each one like any upload.",
   },
   {
     id: "convert",
@@ -136,6 +139,14 @@ const CAPABILITIES: readonly Capability[] = [
     label: "Compare two versions",
     reach: "waiting",
     waitingOn: "the version comparison view.",
+  },
+  {
+    id: "restore-version",
+    label: "Restore an older version as a new version",
+    reach: "waiting",
+    waitingOn:
+      "the version-restore route. Nothing is overwritten when it lands: the old version is " +
+      "copied forward and every version in between stays.",
   },
   {
     id: "pin-persistence",
