@@ -206,77 +206,83 @@
 
 <svelte:head><title>Safe Website Viewer · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Safe Website Viewer</Masthead.Title>
-    <Masthead.Meta>
-      <span>The page renders in an isolated remote browser</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<!-- The viewer holds the vertical space it would occupy when full: the page is a full-height
+     column and the framed unit takes the remaining height, so the screen does not reflow as a
+     capture arrives and leaves no dead band beneath the frame. On narrow screens the halves stack
+     and keep their fixed comfortable heights instead — a phone cannot give both full height. -->
+<div class="flex h-full flex-col">
+  <Masthead.Root class="mb-24">
+    <Masthead.Heading>
+      <Masthead.Title>Safe Website Viewer</Masthead.Title>
+      <Masthead.Meta>
+        <span>The page renders in an isolated remote browser</span>
+      </Masthead.Meta>
+    </Masthead.Heading>
+  </Masthead.Root>
 
-<!-- Polite live region: announces an arrived snapshot to a screen reader without re-reading the
-     whole result. Alert-rendered states announce themselves through their own role. -->
-<div aria-live="polite" class="sr-only">{announcement}</div>
+  <!-- Polite live region: announces an arrived snapshot to a screen reader without re-reading the
+       whole result. Alert-rendered states announce themselves through their own role. -->
+  <div aria-live="polite" class="sr-only">{announcement}</div>
 
-{#snippet captureFailure()}
-  {#if failure !== null}
-    {#if failure.kind === "problem"}
-      {@const guidance = problemGuidance(failure.problem)}
-      <Alert.Root variant={guidance.tone}>
-        <Alert.Title>{guidance.title}</Alert.Title>
-        <Alert.Description>
-          {guidance.message}
-          {#if guidance.tone === "danger" && failure.problem.errorId}
-            <span class="mt-8 block">
-              Error ID: <span class="font-mono">{failure.problem.errorId}</span>
-            </span>
-          {/if}
-        </Alert.Description>
-      </Alert.Root>
-    {:else}
-      <Alert.Root variant="danger">
-        <Alert.Title>The capture service did not respond</Alert.Title>
-        <Alert.Description>
-          Nothing answered the request. Check your connection, then try again.
-        </Alert.Description>
-      </Alert.Root>
+  {#snippet captureFailure()}
+    {#if failure !== null}
+      {#if failure.kind === "problem"}
+        {@const guidance = problemGuidance(failure.problem)}
+        <Alert.Root variant={guidance.tone}>
+          <Alert.Title>{guidance.title}</Alert.Title>
+          <Alert.Description>
+            {guidance.message}
+            {#if guidance.tone === "danger" && failure.problem.errorId}
+              <span class="mt-8 block">
+                Error ID: <span class="font-mono">{failure.problem.errorId}</span>
+              </span>
+            {/if}
+          </Alert.Description>
+        </Alert.Root>
+      {:else}
+        <Alert.Root variant="danger">
+          <Alert.Title>The capture service did not respond</Alert.Title>
+          <Alert.Description>
+            Nothing answered the request. Check your connection, then try again.
+          </Alert.Description>
+        </Alert.Root>
+      {/if}
     {/if}
-  {/if}
-{/snippet}
+  {/snippet}
 
-<div aria-busy={capturing}>
-  <WebsiteShell
-    bind:address={query}
-    {capturing}
-    capturingUrl={capturingTarget}
-    {canSubmit}
-    invalidHint={invalidInput
-      ? "This is not a web address this tool can open. Enter one like https://example.com. Private, local, and internal addresses are not accepted."
-      : null}
-    canGoBack={canGoBack(history)}
-    canGoForward={canGoForward(history)}
-    canRefresh={currentEntry(history) !== null}
-    {probe}
-    screenshot={displayView === null ? null : screenshotSource(displayView.screenshotBase64)}
-    {downloadFilename}
-    hasCapture={displayView !== null}
-    onsubmit={runCapture}
-    onback={goBack}
-    onforward={goForward}
-    onrefresh={refresh}
-    problem={failure === null ? undefined : captureFailure}
-  >
-    {#snippet inspector()}
-      <SnapshotTabs
-        view={displayView}
-        {capturing}
-        capturedAt={currentCapture?.capturedAt ?? null}
-        elapsedMs={currentCapture?.elapsedMs ?? null}
-        {registration}
-        onopenaddress={openAddress}
-        onactivateregistration={activateRegistration}
-      />
-    {/snippet}
-  </WebsiteShell>
+  <div aria-busy={capturing} class="flex flex-col lg:min-h-0 lg:flex-1">
+    <WebsiteShell
+      bind:address={query}
+      {capturing}
+      capturingUrl={capturingTarget}
+      {canSubmit}
+      invalidHint={invalidInput
+        ? "This is not a web address this tool can open. Enter one like https://example.com. Private, local, and internal addresses are not accepted."
+        : null}
+      canGoBack={canGoBack(history)}
+      canGoForward={canGoForward(history)}
+      canRefresh={currentEntry(history) !== null}
+      {probe}
+      screenshot={displayView === null ? null : screenshotSource(displayView.screenshotBase64)}
+      {downloadFilename}
+      hasCapture={displayView !== null}
+      onsubmit={runCapture}
+      onback={goBack}
+      onforward={goForward}
+      onrefresh={refresh}
+      problem={failure === null ? undefined : captureFailure}
+    >
+      {#snippet inspector()}
+        <SnapshotTabs
+          view={displayView}
+          {capturing}
+          capturedAt={currentCapture?.capturedAt ?? null}
+          elapsedMs={currentCapture?.elapsedMs ?? null}
+          {registration}
+          onopenaddress={openAddress}
+          onactivateregistration={activateRegistration}
+        />
+      {/snippet}
+    </WebsiteShell>
+  </div>
 </div>
