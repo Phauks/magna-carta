@@ -11,6 +11,7 @@
    * the figure between them, and the name lives on the hover and on the accessible name, where a
    * keyboard or a screen reader still reaches it.
    */
+  import type { Snippet } from "svelte";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
   import Undo2 from "@lucide/svelte/icons/undo-2";
@@ -25,6 +26,9 @@
     manager,
     grid,
     tally = undefined,
+    start = undefined,
+    extras = undefined,
+    standardControls = true,
     onUndo,
     onRedo,
   }: {
@@ -32,6 +36,15 @@
     grid: DataTableGridState<TRow>;
     /** The surface's own unfiltered tally ("2 folders, 5 files"), replacing the bare item count. */
     tally?: string;
+    /** A view's own place marker ahead of the tally — the archive crumb lives here. */
+    start?: Snippet;
+    /** A view's own trailing controls, ahead of undo/redo — a view-specific act's home. */
+    extras?: Snippet;
+    /**
+     * Whether undo/redo, scale, and Select All render. A view where none of them can act — inside
+     * an archive nothing moves and no selection has an act — yields their room to its own controls.
+     */
+    standardControls?: boolean;
     onUndo: () => void;
     onRedo: () => void;
   } = $props();
@@ -59,63 +72,69 @@
 
 {#snippet controls()}
   <span class="flex items-center gap-4">
-    <Button
-      variant="ghost"
-      size="icon"
-      disabled={undoable === null}
-      title={undoTitle(undoable)}
-      aria-label={undoTitle(undoable)}
-      onclick={onUndo}
-    >
-      <Undo2 class="size-16" aria-hidden="true" />
-    </Button>
-    <Button
-      variant="ghost"
-      size="icon"
-      disabled={redoable === null}
-      title={redoTitle(redoable)}
-      aria-label={redoTitle(redoable)}
-      onclick={onRedo}
-    >
-      <Redo2 class="size-16" aria-hidden="true" />
-    </Button>
-    <span
-      class="flex items-center gap-4"
-      title="Scale the file area: previews, row height and text"
-    >
+    {#if extras}
+      {@render extras()}
+    {/if}
+    {#if standardControls}
       <Button
         variant="ghost"
         size="icon"
-        disabled={scaleIndex === 0}
-        aria-label="Scale the file area down"
-        onclick={() => step(-1)}
+        disabled={undoable === null}
+        title={undoTitle(undoable)}
+        aria-label={undoTitle(undoable)}
+        onclick={onUndo}
       >
-        <ZoomOut class="size-16" aria-hidden="true" />
+        <Undo2 class="size-16" aria-hidden="true" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled={redoable === null}
+        title={redoTitle(redoable)}
+        aria-label={redoTitle(redoable)}
+        onclick={onRedo}
+      >
+        <Redo2 class="size-16" aria-hidden="true" />
       </Button>
       <span
-        class="w-48 text-center text-xs tabular-nums text-text-muted"
-        role="status"
-        aria-live="polite"
+        class="flex items-center gap-4"
+        title="Scale the file area: previews, row height and text"
       >
-        {manager.scalePercent}%
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={scaleIndex === 0}
+          aria-label="Scale the file area down"
+          onclick={() => step(-1)}
+        >
+          <ZoomOut class="size-16" aria-hidden="true" />
+        </Button>
+        <span
+          class="w-48 text-center text-xs tabular-nums text-text-muted"
+          role="status"
+          aria-live="polite"
+        >
+          {manager.scalePercent}%
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={scaleIndex === SCALE_STEPS.length - 1}
+          aria-label="Scale the file area up"
+          onclick={() => step(1)}
+        >
+          <ZoomIn class="size-16" aria-hidden="true" />
+        </Button>
       </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        disabled={scaleIndex === SCALE_STEPS.length - 1}
-        aria-label="Scale the file area up"
-        onclick={() => step(1)}
-      >
-        <ZoomIn class="size-16" aria-hidden="true" />
-      </Button>
-    </span>
+    {/if}
   </span>
 {/snippet}
 
 <DataTable.GridFooter
   {grid}
+  {start}
   end={controls}
   tallyText={tally}
-  selectAllToggle
+  selectAllToggle={standardControls}
   class="border-t border-border-default"
 />

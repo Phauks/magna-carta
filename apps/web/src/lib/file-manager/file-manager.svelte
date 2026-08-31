@@ -33,6 +33,7 @@
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import { statusEntry } from "@magna-carta/design-system/status-register";
   import type {
     FolderColorName,
     FolderIconName,
@@ -40,6 +41,9 @@
     FolderTreeNode,
     FolderTreeView,
   } from "@magna-carta/design-system/folder-tree";
+  import Download from "@lucide/svelte/icons/download";
+  import Eye from "@lucide/svelte/icons/eye";
+  import EyeOff from "@lucide/svelte/icons/eye-off";
   import FileArchive from "@lucide/svelte/icons/file-archive";
   import FileSearch from "@lucide/svelte/icons/file-search";
   import History from "@lucide/svelte/icons/history";
@@ -134,7 +138,6 @@
   import RestoreFileDialog from "./restore-file-dialog.svelte";
   import UploadDestinationDialog from "./upload-destination-dialog.svelte";
   import SafetyMark from "./safety-mark.svelte";
-  import FileAnalysisBar from "./file-analysis-bar.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
 
   let { matterId, matterTitle }: { matterId: string; matterTitle: string } = $props();
@@ -840,16 +843,6 @@
   const analysisReport = $derived(
     issueReportText(files ?? [], shownIssues, (file) => index.pathText(file.folderId)),
   );
-
-  async function copyIssueReport(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(analysisReport);
-    } catch {
-      // A browser that refuses clipboard access is not a failure worth a banner: the same text is
-      // one press away through Download, which needs no permission.
-      actionFailure = "The report could not be copied. Download produces the same text.";
-    }
-  }
 
   function downloadIssueReport(): void {
     const blob = new Blob([analysisReport], { type: "text/plain" });
@@ -1594,108 +1587,49 @@
             />
 
             {#if archiveBrowse !== null}
-              <!-- Inside a zip, the archive stands in for the list: the crumb walks the zip itself,
-                   then each directory down to the level shown. Extraction is a separate decision,
-                   and its control renders here saying what it waits on. -->
-              <div
-                class="flex flex-wrap items-center gap-4 border-b border-border-default px-12 py-8"
-              >
-                <FileArchive class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-pressed={archivePath === ""}
-                  onclick={() => (archivePath = "")}
-                >
-                  {displayName(archiveBrowse.fileName, manager.hideExtensions)}
-                </Button>
-                {#if archiveBrowse.deleted}
-                  <Badge variant="neutral">Deleted</Badge>
-                {/if}
-                {#each archivePathSegments(archivePath) as segment (segment.path)}
-                  <span class="text-text-subtle" aria-hidden="true">/</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-pressed={segment.path === archivePath}
-                    onclick={() => (archivePath = segment.path)}
-                  >
-                    {segment.name}
-                  </Button>
-                {/each}
-                <div class="ms-auto flex items-center gap-4">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled
-                    title={waitingReason("archive-extract")}
-                  >
-                    Extract Into This Matter
-                    <Badge variant="neutral">Soon</Badge>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Close the archive"
-                    aria-label="Close the archive"
-                    onclick={leaveArchive}
-                  >
-                    <X class="size-16" aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-
-              {#if archiveBrowse.unscanned}
-                <div class="border-b border-border-default px-12 py-8 text-xs text-text-muted">
-                  This archive has not come back clean from the safety check yet. Its directory
-                  reads all the same; treat what it names accordingly.
-                </div>
-              {/if}
-
-              {#if archiveFailure !== null}
-                <div class="border-b border-border-default p-12">
-                  <Alert.Root variant="warning">
-                    <Alert.Title>The Archive Could Not Be Read</Alert.Title>
-                    <Alert.Description>{archiveFailure}</Alert.Description>
-                  </Alert.Root>
-                </div>
-              {/if}
-
+              <!-- Inside a zip, the archive stands in for the LIST and only the list: the toolbar
+                   above holds still, and everything archive-specific — the crumb, the badges, the
+                   extract seam, the way out — rides the FOOTER rather than pushing the table down.
+                   A read that failed takes the table's own region, for the same reason. -->
               <div class="flex min-h-0 flex-1 flex-col">
-                <DataTable.Grid
-                  grid={archiveGrid}
-                  cell={archiveCell}
-                  caption="Inside this archive"
-                  empty={emptyArchive}
-                  loading={archiveLoading}
-                  density={manager.scalePercent < 100 ? "compact" : "comfortable"}
-                  class="h-full rounded-none border-0"
-                />
-                {#if archiveTruncated}
-                  <div class="border-t border-border-default px-12 py-4 text-xs text-text-muted">
-                    This archive holds more members than one read returns, so the listing stops
-                    here.
+                {#if archiveFailure !== null}
+                  <div class="p-12">
+                    <Alert.Root variant="warning">
+                      <Alert.Title>The Archive Could Not Be Read</Alert.Title>
+                      <Alert.Description>{archiveFailure}</Alert.Description>
+                    </Alert.Root>
                   </div>
+                {:else}
+                  <DataTable.Grid
+                    grid={archiveGrid}
+                    cell={archiveCell}
+                    caption="Inside this archive"
+                    empty={emptyArchive}
+                    loading={archiveLoading}
+                    density={manager.scalePercent < 100 ? "compact" : "comfortable"}
+                    class="h-full rounded-none border-0"
+                  />
+                  {#if archiveTruncated}
+                    <div class="border-t border-border-default px-12 py-4 text-xs text-text-muted">
+                      This archive holds more members than one read returns, so the listing stops
+                      here.
+                    </div>
+                  {/if}
                 {/if}
               </div>
 
+              <!-- No undo/redo, scale, or Select All in here: nothing moves inside an archive and
+                   no selection has an act yet, so the crumb and the extract seam get the room. -->
               <FileManagerFooter
                 {manager}
                 grid={archiveGrid}
+                start={archiveCrumb}
+                extras={archiveActions}
+                standardControls={false}
                 onUndo={() => void undoMove()}
                 onRedo={() => void redoMove()}
               />
             {:else}
-
-            {#if manager.view === "analysis"}
-              <FileAnalysisBar
-                shownCount={shownIssues.length}
-                bind:showingIgnored
-                ignoredCount={ignoredIssueList.length}
-                onCopyReport={() => void copyIssueReport()}
-                onDownloadReport={downloadIssueReport}
-              />
-            {/if}
 
             {#if manager.view === "results"}
               <!-- The results view's own header: the field where the view is named, the match count
@@ -1873,6 +1807,7 @@
                 {manager}
                 {grid}
                 tally={footerTally}
+                extras={manager.view === "analysis" ? analysisExtras : undefined}
                 onUndo={() => void undoMove()}
                 onRedo={() => void redoMove()}
               />
@@ -2033,6 +1968,116 @@
     This archive's directory names no members at this level. The file itself is unchanged — browsing
     reads, it never extracts.
   </EmptyState>
+{/snippet}
+
+<!-- The archive's place marker, leading the footer: the zip itself, then each directory down to
+     the level shown. It lives in the FOOTER so entering a zip never moves the header. -->
+{#snippet archiveCrumb()}
+  {#if archiveBrowse !== null}
+    <!-- The crumb is the footer's one YIELDING element, and it yields in a hierarchy: past two
+         levels the middle collapses to an ellipsis, then the zip's name and the middle segment give
+         way to ellipses — the level being SHOWN never disappears. Every title carries the full
+         name, and the clip backstop means the crumb can never paint over the tally or controls. -->
+    {@const segments = archivePathSegments(archivePath)}
+    {@const shownSegments = segments.length > 2 ? segments.slice(-2) : segments}
+    {@const currentSegment = shownSegments.at(-1)}
+    <span class="flex min-w-0 items-center gap-4 overflow-hidden">
+      <FileArchive class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
+      <Button
+        variant="ghost"
+        size="sm"
+        class="min-w-0"
+        aria-pressed={archivePath === ""}
+        title={displayName(archiveBrowse.fileName, manager.hideExtensions)}
+        onclick={() => (archivePath = "")}
+      >
+        <span class="min-w-0 truncate" style="max-inline-size: var(--mc-size-popover)">
+          {displayName(archiveBrowse.fileName, manager.hideExtensions)}
+        </span>
+      </Button>
+      {#if segments.length > shownSegments.length}
+        <span class="shrink-0 text-text-subtle" aria-hidden="true">/ …</span>
+      {/if}
+      {#each shownSegments as segment (segment.path)}
+        <span class="shrink-0 text-text-subtle" aria-hidden="true">/</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          class={segment === currentSegment ? "shrink-0" : "min-w-0"}
+          aria-pressed={segment.path === archivePath}
+          title={segment.name}
+          onclick={() => (archivePath = segment.path)}
+        >
+          <span class="min-w-0 truncate" style="max-inline-size: var(--mc-size-popover)">
+            {segment.name}
+          </span>
+        </Button>
+      {/each}
+      {#if archiveBrowse.deleted}
+        <Badge
+          variant="neutral"
+          title="This zip sits in Deleted Files. Browsing reads it; nothing is restored."
+        >
+          Deleted
+        </Badge>
+      {/if}
+      {#if archiveBrowse.unscanned}
+        {@const notScanned = statusEntry("not-scanned")}
+        <Badge
+          variant={notScanned.tone}
+          title="This archive has not come back clean from the safety check yet. Its directory reads all the same; treat what it names accordingly."
+        >
+          {notScanned.label}
+        </Badge>
+      {/if}
+    </span>
+  {/if}
+{/snippet}
+
+{#snippet archiveActions()}
+  <Button variant="secondary" size="sm" disabled title={waitingReason("archive-extract")}>
+    Extract Into This Matter
+    <Badge variant="neutral">Soon</Badge>
+  </Button>
+  <Button
+    variant="ghost"
+    size="icon"
+    title="Close the archive"
+    aria-label="Close the archive"
+    onclick={leaveArchive}
+  >
+    <X class="size-16" aria-hidden="true" />
+  </Button>
+{/snippet}
+
+<!-- File Analysis's own acts ride the footer beside undo/redo: the view needs no header strip of
+     its own — the Safety column filters, and the footer already counts. -->
+{#snippet analysisExtras()}
+  {#if ignoredIssueList.length > 0 || showingIgnored}
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-pressed={showingIgnored}
+      onclick={() => (showingIgnored = !showingIgnored)}
+    >
+      {#if showingIgnored}
+        <Eye class="size-16" aria-hidden="true" />
+        Show Open Issues
+      {:else}
+        <EyeOff class="size-16" aria-hidden="true" />
+        Show {countPhrase(ignoredIssueList.length, "Ignored Issue")}
+      {/if}
+    </Button>
+  {/if}
+  <Button
+    variant="ghost"
+    size="icon"
+    title="Download every issue shown"
+    aria-label="Download every issue shown"
+    onclick={downloadIssueReport}
+  >
+    <Download class="size-16" aria-hidden="true" />
+  </Button>
 {/snippet}
 
 {#snippet emptyDeleted()}
