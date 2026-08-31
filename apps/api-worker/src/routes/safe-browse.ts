@@ -52,7 +52,18 @@ export function createBrowserRenderer(browser: BrowserRunBinding): BrowserRender
         // would ride the timeout every time; the settle delay after network-idle gives
         // lazy-rendered content a beat to paint; fullPage captures the whole scrollable page.
         gotoOptions: { waitUntil: "networkidle2", timeout: 45_000 },
-        waitForTimeout: 2_500,
+        // Sweep the page once before the shot: below-the-fold images lazy-load on scroll, so a
+        // full-page screenshot without a sweep captures gray placeholders under the first
+        // viewport. The injected script steps to the bottom (bounded, so an infinite-scroll feed
+        // cannot hold the capture hostage) and returns to the top; the waitForTimeout after it
+        // covers the sweep plus the image loads it triggers.
+        addScriptTag: [
+          {
+            content:
+              "(() => { let step = 0; const timer = setInterval(() => { step += 1; window.scrollBy(0, window.innerHeight); const bottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight; if (bottom || step >= 30) { clearInterval(timer); window.scrollTo(0, 0); } }, 120); })();",
+          },
+        ],
+        waitForTimeout: 6_000,
         screenshotOptions: { fullPage: true },
       });
       const snapshotBody = (await snapshotResponse.json()) as {
