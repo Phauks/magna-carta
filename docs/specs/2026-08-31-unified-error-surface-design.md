@@ -1,7 +1,8 @@
 # Unified error surface — analysis and design
 
 **Date:** 2026-08-31
-**Status:** Analysis complete; design proposed, not built. No code moved by this document.
+**Status:** Analysis complete; design accepted with four decisions recorded in section 6 and three
+presentation questions still open in section 9. Not built.
 **Scope:** How a failure reaches a person in `apps/web` — the client-side problem model, the one
 screen and one inline band that render a failure, the diagnostics a report needs, the reporter that
 sends it, and the crash boundary that catches what never reached a surface at all.
@@ -243,9 +244,30 @@ naming the platform rather than the panel, and links to the status page. This is
 directly answers the current API trouble: it turns six confusing local failures into one accurate
 statement.
 
-## 6. Order of work
+## 6. Decisions taken
 
-Each step is independently shippable and each leaves the app better than it found it.
+Settled by the owner on 2026-08-31 against the review sheet.
+
+- **The whole change lands as one merge.** Not a foundation branch with the adoption behind it: the
+  branch stays open until all seven steps below are done and every surface renders through the new
+  components. The consequence is accepted and managed rather than argued with — the branch is long-
+  lived, so it syncs `main` on a cadence, and it is committed step by step so each commit is sound on
+  its own even though none of them ships alone.
+- **The presenter's default sentence is a floor, not a ceiling.** It always produces a usable
+  sentence; a surface overrides it wherever its failure is genuinely its own — auth, trust, custody,
+  conflicts. Nothing renders blank, and the channels that fail distinctly keep saying so. This is the
+  reading of "error copy is per-channel and specific" that the corrections support.
+- **The platform notice ships now, on client-side evidence.** It triggers on what the app already
+  knows — several reads failing at once, or a 404 from our own API — rather than waiting on a health
+  signal the app does not consult. It covers the deploy-skew case that already cost one round of
+  confusion, and it is the piece that most directly answers the current API trouble.
+- **The crash boundary does not auto-file.** A crash mints a client-side Error ID and offers "Report a
+  problem"; nothing is sent unless a person presses it. This holds the Off/strict default the
+  diagnostics setting already defines, and keeps reporting user-initiated as the standard specifies.
+
+## 7. Order of work
+
+One merge, but seven commits — each sound on its own, in this order.
 
 1. **Widen the model; fold the four parsers into one.** No visible change; unblocks everything else.
    The `joining-api.ts` comment already authorizes it.
@@ -255,28 +277,37 @@ Each step is independently shippable and each leaves the app better than it foun
    costs and billing pair. Point costs and billing at them; delete the two copies.
 4. **Promote the reporter and the dialog** to `lib/diagnostics/`; delete the area copies; add the
    help-menu entry; build the breadcrumb buffer.
-5. **Write the presenter** and adopt it as the default across the 37 files, keeping every per-channel
-   override that exists today. This is the long tail and is safe to do surface by surface.
-6. **Add the crash boundary.**
-7. **Add the platform-health line.**
+5. **Write the presenter** and adopt it across the 37 files, keeping every per-channel override that
+   exists today and adding one wherever the default would be wrong. The long tail.
+6. **Add the crash boundary**, minting a client-side Error ID and offering the report rather than
+   filing it.
+7. **Add the platform notice**, triggered on client-side evidence.
 
-Steps 1–3 are the ones that would have changed what a member saw during the current API trouble.
+The dev-only gallery at `/developer-console/failure-states` is built alongside step 3 and grows with
+each subsequent step, so every state stays reviewable without needing real data to reach it. This is
+the review surface the standing direction calls for — the sheet published for this design round is a
+decision aid, not a screen to port from.
 
-## 7. Fitness function
+## 8. Fitness function
 
 The existing `errorId-coverage` fitness function guards the server. The client needs its counterpart,
 or this decays again: a source scan that fails when a `kind === "problem"` branch reduces the problem
 to a string without passing it to one of the three failure components. That is the rule that stops
 the 38th surface from being written the way the first 37 were.
 
-## 8. Open questions for the owner
+## 9. Still open
 
-1. **Is the diagnostics block always visible, or disclosed?** Costs and billing show it unconditionally
-   and that is the better instinct — the person who can act on it is the one looking at the screen.
-   Confirm it stays that way on every surface, including the bare crash screen.
-2. **Does the inline band show the Error ID, or only the screen?** Showing it everywhere is honest and
-   noisy; showing it on copy only is quiet and loses it in a screenshot.
-3. **Should the presenter's defaults be allowed to stand alone**, or must every surface supply its own
-   sentence? The corrections forbid one generic message across channels that fail differently. The
-   proposal reads that as "a default is fine; a default that survives review on a channel that fails
-   distinctly is not" — worth confirming.
+Three questions the review sheet renders both ways, to be answered by looking rather than by
+argument. They change presentation only, so steps 1 and 2 do not wait on them.
+
+1. **Is the diagnostics block always visible, or behind "Show technical details"?** Costs and billing
+   show it unconditionally today and that is the better instinct — the person who can act on it is the
+   one looking at the screen. The counter-case is the bare crash screen, where an unexplained wall of
+   monospace is the first thing a person meets.
+2. **Does the inline band show the Error ID, or carry it only in Copy details?** Shown is honest and
+   repeats an eight-character code on every failed action; copy-only is quiet and loses the ID from a
+   screenshot, which is how most reports actually arrive.
+3. **Does the reassurance line stay?** "The record itself is unaffected — nothing was changed by this
+   failure" is the most valuable sentence on the costs and billing screens and the one most at odds
+   with the no-info-lines ruling. It is a fact about this result rather than prose about the screen,
+   which is the exemption the ruling names, but the call is the owner's.

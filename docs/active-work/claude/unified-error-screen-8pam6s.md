@@ -1,7 +1,7 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/unified-error-screen-8pam6s
 area: Unified error surface — one failure screen and one problem model across apps/web
-status: designing
+status: building
 touches: docs/specs/, apps/web/src/lib/api/, apps/web/src/lib/costs/, apps/web/src/lib/billing/, packages/design-system/
 ---
 
