@@ -740,6 +740,243 @@
           "document"
         ]
       },
+      "DownloadSnapshotCreatedResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "expiresAt"
+        ]
+      },
+      "DownloadSnapshotRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "format": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          },
+          "document": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "generatedAt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "headers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "minItems": 1,
+                      "maxItems": 24
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 1000
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "text": {
+                                  "type": "string",
+                                  "maxLength": 1000
+                                },
+                                "number": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "number"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "maxItems": 24
+                      },
+                      "maxItems": 2000
+                    },
+                    "endAlignedColumns": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 23
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "headers",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 48
+              }
+            },
+            "required": [
+              "title",
+              "generatedAt",
+              "sections"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "title",
+          "format",
+          "document"
+        ]
+      },
+      "DownloadShelfResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DownloadItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "DownloadItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "artifact",
+              "snapshot"
+            ]
+          },
+          "producer": {
+            "type": "string",
+            "enum": [
+              "export",
+              "bundle",
+              "conversion"
+            ]
+          },
+          "byteSize": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "downloadedFormats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "building",
+              "ready",
+              "failed",
+              "expired"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "producer",
+          "byteSize",
+          "downloadedFormats",
+          "createdAt",
+          "expiresAt",
+          "state"
+        ]
+      },
+      "DownloadFetchResponse": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "artifact",
+              "snapshot"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "document": {}
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "DownloadFetchRequest": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          }
+        },
+        "required": [
+          "format"
+        ]
+      },
       "ToolsConnectionResponse": {
         "type": "object",
         "properties": {
@@ -28682,6 +28919,335 @@
           },
           "503": {
             "description": "The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/downloads/snapshots": {
+      "post": {
+        "description": "Put an export the caller has just taken onto their own shelf. The tabular DOCUMENT is stored rather than a rendered file, so one shelf item serves every format and the figures stay frozen at the instant of the export. The render route stays a stateless printer; this is the deliberate act of keeping a copy.",
+        "operationId": "downloads.recordSnapshot",
+        "tags": [
+          "downloads"
+        ],
+        "x-mc-operationId": "downloads.recordSnapshot",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "downloads:shelf",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "downloads"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadSnapshotRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The shelf item that was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadSnapshotCreatedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks downloads:shelf",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The document is past the register's bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/downloads": {
+      "get": {
+        "description": "The session member's own download shelf: what the platform produced for them, newest first, with what has already been taken and when each item expires. Scoped to the member, never the firm.",
+        "operationId": "downloads.shelf",
+        "tags": [
+          "downloads"
+        ],
+        "x-mc-operationId": "downloads.shelf",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "downloads:shelf",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "downloads"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's shelf",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadShelfResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks downloads:shelf",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/downloads/{downloadItemId}/fetches": {
+      "post": {
+        "description": "Take a shelf item again, in the stated format, and record that it was taken. An artifact answers with a freshly minted short-lived URL the browser downloads directly; a snapshot answers with the stored export document for the client to render. An item whose bytes have already been swept answers 410.",
+        "operationId": "downloads.fetch",
+        "tags": [
+          "downloads"
+        ],
+        "x-mc-operationId": "downloads.fetch",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "downloads:shelf",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "downloads"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "downloadItemId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadFetchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The URL to download, or the document to render",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadFetchResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks downloads:shelf",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such item on this member's shelf",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The item's retention window has closed and its bytes are gone",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/downloads/{downloadItemId}": {
+      "delete": {
+        "description": "Clear one item off the session member's own shelf, and delete the stored document behind a snapshot. An artifact's bytes belong to its own producer and its own lifecycle rule, so they are left alone.",
+        "operationId": "downloads.remove",
+        "tags": [
+          "downloads"
+        ],
+        "x-mc-operationId": "downloads.remove",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "downloads:shelf",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "downloads"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "downloadItemId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks downloads:shelf",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such item on this member's shelf",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {

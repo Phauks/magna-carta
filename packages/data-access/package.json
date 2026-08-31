@@ -14,6 +14,7 @@
     "./email-capture-route-statements": "./src/email-capture-route-statements.ts",
     "./auth-audit-statements": "./src/auth-audit-statements.ts",
     "./audit-statements": "./src/audit-statements.ts",
+    "./download-register-statements": "./src/download-register-statements.ts",
     "./setting-statements": "./src/setting-statements.ts",
     "./scoped-setting-statements": "./src/scoped-setting-statements.ts",
     "./token-usage-statements": "./src/token-usage-statements.ts",
