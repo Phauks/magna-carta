@@ -42,6 +42,10 @@ export interface WorksheetPlan {
 
 function cellPlan(cell: TabularExportCell): WorksheetCellPlan {
   if (typeof cell === "string") return { value: cell };
+  // A workbook that carries NaN or Infinity in a number cell is one Excel refuses and offers to
+  // repair, so a figure that is not a finite number falls back to its text face — the file stays
+  // openable and the cell still says something true.
+  if (!Number.isFinite(cell.number)) return { value: cell.text };
   return { value: cell.number, type: Number, format: COUNT_NUMBER_FORMAT };
 }
 

@@ -170,6 +170,29 @@ describe("workbookPlan", () => {
   });
 });
 
+describe("workbookPlan hardening", () => {
+  it("never writes a non-finite figure as a number cell", () => {
+    const worksheets = workbookPlan({
+      title: "Hardening",
+      slug: "hardening",
+      generatedAt: new Date(2026, 0, 1),
+      sections: [
+        {
+          title: "S",
+          headers: ["A", "B"],
+          rows: [
+            [
+              { text: "-", number: Number.NaN },
+              { text: "?", number: Number.POSITIVE_INFINITY },
+            ],
+          ],
+        },
+      ],
+    });
+    expect(worksheets[0]?.data[1]).toEqual([{ value: "-" }, { value: "?" }]);
+  });
+});
+
 describe("worksheetName", () => {
   it("strips the characters Excel refuses and bounds the length", () => {
     expect(worksheetName("A/B: C?*[]")).toBe("A B C");
