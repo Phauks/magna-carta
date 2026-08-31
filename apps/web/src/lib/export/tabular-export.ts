@@ -25,8 +25,6 @@ export interface TabularExportSection {
 
 export interface TabularExportDocument {
   readonly title: string;
-  /** The filename stem, kebab-case ("firm-usage"). */
-  readonly slug: string;
   readonly generatedAt: Date;
   readonly sections: readonly TabularExportSection[];
 }
@@ -37,16 +35,20 @@ export function exportCellText(cell: TabularExportCell): string {
 }
 
 /**
- * The saved file's name, stamped to the second in the local clock so any two downloads sort and
- * read apart — exported figures recompute on every read, so two files from one day are two
- * snapshots.
+ * The saved file's name: the report's own title, then the local date and a readable time to the
+ * second — exported figures recompute on every read, so two files from one day are two snapshots
+ * and must sort and read apart. Characters no filesystem accepts are dropped, never failed on.
  */
 export function exportFilename(exportDocument: TabularExportDocument, extension: string): string {
+  const safeTitle = exportDocument.title
+    .replaceAll(/[\\/:*?"<>|]/g, " ")
+    .replaceAll(/\s+/g, " ")
+    .trim();
   const stamp = exportDocument.generatedAt;
   const pad = (value: number): string => String(value).padStart(2, "0");
   const date = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}`;
-  const time = `${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}`;
-  return `${exportDocument.slug}-${date}-${time}.${extension}`;
+  const time = `${pad(stamp.getHours())}-${pad(stamp.getMinutes())}-${pad(stamp.getSeconds())}`;
+  return `${safeTitle} ${date} ${time}.${extension}`;
 }
 
 /** Hand the rendered bytes to the browser as a saved file. */

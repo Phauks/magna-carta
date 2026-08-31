@@ -4,9 +4,11 @@ Firm Usage shows what your firm holds on the platform and what it uses, as plain
 under **Tools → Firm Usage**. It is visible to Owner and Admin seats, runs outside any matter, and
 saves nothing — every number is computed at the moment you open the page, so what you see is
 current. **Refresh** recomputes on the spot, and **Download Report** saves everything on the page
-as a file — an Excel workbook with each section on its own worksheet and every count a real,
-summable number; a CSV for any spreadsheet; or plain text to paste into an email. The file's name
-carries the date and time it was generated, so two snapshots never blur together.
+as a file — an Excel workbook with each section on its own worksheet, an Excel workbook with
+everything on one sheet, a CSV for any spreadsheet, or plain text to paste into an email. Every
+count in the workbooks is a real, summable number, each file opens by saying when it was
+generated, and the file's name carries the report's name with the date and time to the second, so
+two snapshots never blur together.
 
 ## Storage
 
