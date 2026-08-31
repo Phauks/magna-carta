@@ -46,9 +46,37 @@ function isProxyStatement(statement: SqlStatement): statement is SqlStatement & 
   );
 }
 
+// A Durable Object RPC can fail for reasons that are the platform's, not the statement's: the
+// object was reset (every deploy resets every live object — and main deploys on every merge), the
+// isolate was evicted, or the connection dropped. The runtime marks exactly those failures
+// `retryable: true`; an object refusing load carries `overloaded: true` as well, and re-sending
+// into an overload only deepens it. Anything else (a SQL error, a thrown migration) is
+// deterministic and must surface immediately.
+function isTransientRpcFailure(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const flags = error as { readonly retryable?: unknown; readonly overloaded?: unknown };
+  return flags.retryable === true && flags.overloaded !== true;
+}
+
+// Waits before each re-send: the first is immediate (the object re-instantiates on the very next
+// call after a reset), the second gives a wobbling isolate a beat. Two retries, then the failure is
+// real and surfaces with its Error ID — a read that cannot land in three attempts is an outage, not
+// a blip, and hiding it behind more attempts would only stretch the request past its own timeout.
+const TRANSIENT_READ_RETRY_DELAYS_MILLISECONDS: readonly number[] = [0, 150];
+
 // Builds a worker-side BatchDatabase that marshals every operation to the firm's FirmDatabase
 // Durable Object over RPC. Individual run()/all() calls are one-RPC reads or writes; a batch()
 // is one commitBatch RPC, giving the transactional guarantee with no buffering in the worker.
+//
+// READS RETRY THROUGH A TRANSIENT FAILURE; WRITES NEVER DO. A SELECT re-sent after a reset answers
+// the same question and is safe to repeat, and without the retry every deploy hands whoever is
+// mid-request an Error ID for a failure the next attempt would clear. A write re-sent blind could
+// commit twice — a retryable failure does not promise the first send never executed — so a write
+// failure propagates and the idempotency machinery above (every mutation rides an Idempotency-Key)
+// is what makes the CALLER's retry safe.
+//
+// The retry takes a stub FACTORY, not a stub: an RPC stub whose connection broke stays broken — every
+// later call on it fails with the same error — so each attempt must address the namespace afresh.
 //
 // On a typed conflict outcome the proxy reconstructs the exact SQLite error message the
 // data-access conflict detectors (isIdempotencyKeyConflict, isMatterNumberConflict, …) already
@@ -56,7 +84,26 @@ function isProxyStatement(statement: SqlStatement): statement is SqlStatement & 
 // to change, and detection works for every unique constraint, not just one. The adapter is transparent.
 // Module-internal: callers resolve a firm database through firmDatabaseFor (below), the one annotated
 // boundary — the proxy is never wrapped around a stub from outside this module.
-function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyBatchDatabase {
+function firmDatabaseProxy(freshStub: () => DurableObjectStub<FirmDatabase>): ProxyBatchDatabase {
+  let stub = freshStub();
+
+  async function readWithTransientRetry<T>(
+    read: (target: DurableObjectStub<FirmDatabase>) => Promise<T>,
+  ): Promise<T> {
+    let attempt = 0;
+    for (;;) {
+      try {
+        return await read(stub);
+      } catch (error) {
+        const delay = TRANSIENT_READ_RETRY_DELAYS_MILLISECONDS[attempt];
+        if (delay === undefined || !isTransientRpcFailure(error)) throw error;
+        attempt += 1;
+        if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+        stub = freshStub();
+      }
+    }
+  }
+
   function makeStatement(sql: string, bindings: readonly unknown[]): ProxySqlStatement {
     return {
       sql,
@@ -64,11 +111,13 @@ function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyBatchDat
       bind: (...values: unknown[]) => makeStatement(sql, values),
       run: async () => ({ meta: { changes: (await stub.runWrite(sql, [...bindings])).changes } }),
       all: async <T>() =>
-        await (stub.runRead(sql, [...bindings]) as unknown as Promise<{ results: T[] }>),
+        await readWithTransientRetry(
+          (target) => target.runRead(sql, [...bindings]) as unknown as Promise<{ results: T[] }>,
+        ),
       first: async <T>() => {
-        const { results } = await (stub.runRead(sql, [...bindings]) as unknown as Promise<{
-          results: T[];
-        }>);
+        const { results } = await readWithTransientRetry(
+          (target) => target.runRead(sql, [...bindings]) as unknown as Promise<{ results: T[] }>,
+        );
         return results[0] ?? null;
       },
     };
@@ -133,6 +182,7 @@ export function firmDatabaseFor(
     jurisdiction !== undefined && namespace.jurisdiction !== undefined
       ? namespace.jurisdiction(jurisdiction)
       : namespace;
-  const stub = resolver.get(resolver.idFromName(firmId)) as DurableObjectStub<FirmDatabase>;
-  return firmDatabaseProxy(stub);
+  return firmDatabaseProxy(
+    () => resolver.get(resolver.idFromName(firmId)) as DurableObjectStub<FirmDatabase>,
+  );
 }
