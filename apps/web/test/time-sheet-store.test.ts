@@ -10,6 +10,10 @@
  * The other half is the undo stack telling the truth. A step is only offered where the store can
  * genuinely put the thing back, and these pin both directions of that: a strike offers no step,
  * and a snapshot older than a strike does not resurrect the struck entry.
+ *
+ * The third half, added when the sheet became firm-wide, is the MATTER. A row may be captured
+ * without one and is then not sent at all, because capture takes a matter; setting one is what puts
+ * the row on the wire, and it is the ROW's matter that goes, never the surface's.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirmMemberSummary } from "../src/lib/members/members-api.ts";
@@ -58,13 +62,22 @@ interface Harness {
   announcements: string[];
 }
 
-function sheetOver(entries: readonly TimeEntrySummary[]): Harness {
+/**
+ * A sheet over these entries.
+ *
+ * `matterFilter` is the door it was opened by: a matter identifier for the sheet the matter's Time
+ * tab opens, and null for the firm-wide sheet in the top bar. The default is the matter door,
+ * because that is what most of these were written against; the firm-wide cases pass null.
+ */
+function sheetOver(
+  entries: readonly TimeEntrySummary[],
+  matterFilter: string | null = "matter-1",
+): Harness {
   const recorder = recordRequests({ timeEntryId: "entry-written" });
   vi.stubGlobal("fetch", recorder.fetch);
   const announcements: string[] = [];
   const store = new TimeSheetStore({
-    matterId: "matter-1",
-    matterTitle: "Whitfield v. Marlow",
+    matterFilter: () => matterFilter,
     entries: () => entries,
     members: () => MEMBERS,
     sessionUserId: () => "member-1",
@@ -129,6 +142,61 @@ describe("saving a row the reader is typing into", () => {
 
     expect(recorder.writes).toEqual([]);
     expect(store.rowByKey(row.key)?.saveState).toBe("unsaved");
+  });
+});
+
+describe("a row captured before anybody knew where it belonged", () => {
+  it("is not sent at all, because capture takes a matter", async () => {
+    const { store, recorder } = sheetOver([], null);
+    const row = store.addRow("2026-08-30");
+
+    store.setDescription(row.key, "Reviewed the incoming discovery");
+    store.setWorkedSeconds(row.key, 1440);
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    expect(recorder.writes).toEqual([]);
+    expect(store.rowByKey(row.key)?.saveState).toBe("unsaved");
+  });
+
+  it("holds a provisional code, so the row has a name while it waits", () => {
+    const { store } = sheetOver([], null);
+    expect(store.addRow("2026-08-30").provisionalCode).toBe("TMP-0001");
+    expect(store.addRow("2026-08-30").provisionalCode).toBe("TMP-0002");
+  });
+
+  it("writes itself the moment a matter is set, carrying THAT matter", async () => {
+    const { store, recorder } = sheetOver([], null);
+    const row = store.addRow("2026-08-30");
+    store.setDescription(row.key, "Reviewed the incoming discovery");
+    store.setWorkedSeconds(row.key, 1440);
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    store.setMatter(row.key, "matter-2");
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    const sent = recorder.onlyCall();
+    expect(sent.method).toBe("POST");
+    expect(sent.path).toBe("/api/v1/time-entries");
+    expect(sent.body).toMatchObject({ matterId: "matter-2" });
+    expect(sent.headers[IDEMPOTENCY_HEADER]).toBeDefined();
+  });
+
+  it("starts on the matter the sheet was opened from, when it was opened from one", () => {
+    const { store } = sheetOver([]);
+    expect(store.addRow("2026-08-30").matterId).toBe("matter-1");
+  });
+});
+
+describe("the matter of an entry the firm already holds", () => {
+  it("is refused, because nothing moves an entry between matters", async () => {
+    const { store, recorder, announcements } = sheetOver([entry()]);
+
+    store.setMatter("entry-1", "matter-2");
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    expect(store.rowByKey("entry-1")?.matterId).toBe("matter-1");
+    expect(recorder.writes).toEqual([]);
+    expect(announcements.join(" ")).toContain("nothing moves an entry from one matter to another");
   });
 });
 
