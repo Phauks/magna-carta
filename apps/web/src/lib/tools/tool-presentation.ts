@@ -5,9 +5,11 @@
  * resolves to, and the human label for each subject group. A covering test asserts this layer
  * stays complete against the catalog, so a tool added to the catalog cannot render blank.
  *
- * A tool stays `soon` until its own page exists; two have one today (the network speed test and
- * the WHOIS lookup, both `alpha`). As each remaining tool's page is built, its entry advances
- * (alpha/beta/ready) and the listing entry becomes launchable — nothing here is faked meanwhile.
+ * A tool stays `soon` until its own page exists. Three have one today, all `alpha`: the network
+ * speed test, the WHOIS lookup, and the file workbench — which is the host the ten file utilities
+ * are run from rather than a tool beside them, so their own entries stay `soon` until each names
+ * the workbench capability it opens. As a tool's page is built its entry advances
+ * (alpha/beta/ready) and the listing entry becomes launchable; nothing here is faked meanwhile.
  */
 import type { Component } from "svelte";
 import House from "@lucide/svelte/icons/house";
@@ -28,9 +30,11 @@ import ScanText from "@lucide/svelte/icons/scan-text";
 import Wrench from "@lucide/svelte/icons/wrench";
 import ShieldCheck from "@lucide/svelte/icons/shield-check";
 import MailSearch from "@lucide/svelte/icons/mail-search";
+import Microscope from "@lucide/svelte/icons/microscope";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { toolsByGroup, type GroupedTools } from "@magna-carta/tools/select";
 import type { SubjectGroup, ToolManifest } from "@magna-carta/tools/types";
+import { grantedPermissions } from "./tool-permissions.ts";
 // Type-only: elided at build, so the plugin-less test config never resolves the $lib alias.
 import type { MaturityStage } from "$lib/maturity/maturity.ts";
 
@@ -69,6 +73,10 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
   "safe-website-viewer": {
     description: "Open an untrusted website at arm's length.",
     stage: "soon",
+  },
+  "file-workbench": {
+    description: "Bring a file that belongs to no matter, and read it every way at once.",
+    stage: "alpha",
   },
   "file-converter": { description: "Convert a file from one format to another.", stage: "soon" },
   "metadata-scrubber": {
@@ -142,6 +150,7 @@ export const TOOL_ICONS: Record<string, Component> = {
   wrench: Wrench,
   "shield-check": ShieldCheck,
   "mail-search": MailSearch,
+  microscope: Microscope,
 };
 
 // Both lookups are keyed by a plain string (Record<string, T>), so an indexed read types as
@@ -168,13 +177,10 @@ export function toolIcon(tool: ToolManifest): Component {
   return icon;
 }
 
-// Mock permission seam: the managing partner sees everything, so grant every permission the
-// catalog declares. The member's real grants replace this set when auth lands; the
-// toolsByGroup call site below does not change.
-const mockPermissions = new Set(CATALOG.map((tool) => tool.permission));
-
 // The page's data: permitted tools grouped by subject in the catalog's fixed order, empty
-// groups omitted — the same gate the contextual tool surfaces use.
+// groups omitted — the same gate the contextual tool surfaces use. The grant itself is the
+// area-wide seam in tool-permissions.ts, shared with the workbench so the two cannot disagree
+// about what a member holds.
 export function visibleToolGroups(): GroupedTools[] {
-  return toolsByGroup(CATALOG, mockPermissions);
+  return toolsByGroup(CATALOG, grantedPermissions());
 }

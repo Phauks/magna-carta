@@ -16,6 +16,7 @@ const LABELS: Readonly<Record<string, LabelEntry>> = {
   xls: { human: "Excel workbook (legacy OLE)", extensions: ["xls"] },
   ppt: { human: "PowerPoint deck (legacy OLE)", extensions: ["ppt"] },
   rtf: { human: "Rich Text Format document", extensions: ["rtf"] },
+  email: { human: "Email message", extensions: ["eml"] },
   jpeg: { human: "JPEG image", extensions: ["jpg", "jpeg"] },
   png: { human: "PNG image", extensions: ["png"] },
   gif: { human: "GIF image", extensions: ["gif"] },

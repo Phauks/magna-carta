@@ -15,8 +15,11 @@
     "@cloudflare/speedtest": "catalog:",
     "@internationalized/date": "catalog:",
     "@lucide/svelte": "catalog:",
+    "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/conversion": "workspace:*",
     "@magna-carta/design-system": "workspace:*",
     "@magna-carta/design-tokens": "workspace:*",
+    "@magna-carta/file-type": "workspace:*",
     "@magna-carta/merge-field-catalog-contract": "workspace:*",
     "@magna-carta/tools": "workspace:*",
     "better-auth": "catalog:"

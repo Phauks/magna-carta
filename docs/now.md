@@ -31,8 +31,8 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 267 | 43% |
-| Part-built | partial, in-build | 111 | 18% |
-| Ahead | designed, planned, researching, not-started | 208 | 33% |
+| Part-built | partial, in-build | 112 | 18% |
+| Ahead | designed, planned, researching, not-started | 207 | 33% |
 | Parked | deferred, cut | 40 | 6% |
 | **All units of work** | | **626** | **100%** |
 
@@ -40,13 +40,13 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 267 | 43% |
-| `partial` | 110 | 17% |
+| `shipped` | 267 | 42% |
+| `partial` | 111 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 43 | 7% |
 | `planned` | 17 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 143 | 23% |
+| `not-started` | 142 | 23% |
 | `deferred` | 38 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **626** | **100%** |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 267 of 626 (43%). Shipped plus partial is 377 (60%).**
+**Shipped alone is 267 of 626 (43%). Shipped plus partial is 378 (60%).**
 
-The 110 units between those two numbers are work that is engineered and paid for and is not
+The 111 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**378 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**379 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 23 | 6% |
+| A person can open it today (`screen`) | 24 | 6% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 183 | 48% |
 | No user surface by nature (`internal`) | 172 | 46% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **378** | **100%** |
+| **Everything with something built** | **379** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -106,7 +106,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 63 | 9 | 0 | 2 | 1 | 0 | 18 | 3 | 1 | 97 | 65% |
+| Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 17 | 15 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 54 | 31% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 6 | 0% |
@@ -125,7 +125,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **267** | **110** | **1** | **43** | **17** | **5** | **143** | **38** | **2** | **626** | **43%** |
+| **All areas** | **267** | **111** | **1** | **43** | **17** | **5** | **142** | **38** | **2** | **626** | **43%** |
 
 ## Where we have been
 
@@ -761,7 +761,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 65% shipped. 63 done, 9 part-built, 21 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 65% shipped. 63 done, 10 part-built, 20 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -769,7 +769,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.file-manager.document-types` · `shipped` · **Document types** — Per-firm document-type taxonomy attached to files.
     - `documents.file-manager.ui-primitives` · `shipped` · **File UI primitives** — FileIcon, Breadcrumb, ContextMenu, Tree, Dropzone design-system components for file surfaces. _Note: Container VRT baselines and NVDA pass still outstanding per the fragment._
     - `documents.file-manager.matter-files-ui` · `partial` · **Matter Files surface** — The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it. _Note: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions. The stream that built it (claude/document-surface) has retired; folders, rename and download are the remaining additions._
-    - `documents.file-manager.file-inspector` · `not-started` · **File Inspector workbench** — Tools-host of the file surface for inspecting an ephemeral (non-matter) file through the same capability pane. _Note: Was in-build on the strength of that branch, which carries a single documentation commit and no code. The branch it would build on (file-surface-web) is recorded abandoned and superseded._
+    - `documents.file-manager.file-inspector` · `partial` · **File Workbench** — Tools-host for an ephemeral (non-matter) file — one drop, and every file capability addresses it. _Note: Two capabilities answer for real in the browser (file type from the leading bytes, SHA-256/SHA-1); the eight whose engines run in a container render their control disabled and name what they wait on. The firm-scoped scratch object is what unblocks them, and what makes the retention promise real. Not the same body as the matter file manager yet — converging the two is separate work._
     - `documents.file-manager.content-hash` · `shipped` · **Content hashing at write** — SHA-256 recorded for every stored object at ingest — fixity, duplicate detection, scan-verdict caching, no-op version skip.
     - `documents.file-manager.bulk-download` · `shipped` · **Bulk download (zip)** — Streaming store-mode ZIP64 archive of selected files/folders/matter, version-pinned, RBAC-gated, audit-logged, memory-flat.
       - `documents.file-manager.bulk-download.async` · `shipped` · **Async bulk bundle** — Large bundles run as a tracked background job (Durable Object) building an R2 artifact fetched by signed URL.

@@ -603,6 +603,7 @@ accepted and silently ignored — cannot bear even the recall-optimization weigh
 it. Both ports resolve to typed unavailable outcomes reached through the production resolvers.
 Owner direction (ADR-0255) removed the general-availability gate: enablement waits on the firm's
 versioned disclosure, not on Cloudflare leaving beta. |
+| File workbench | [-] | [-] | [-] | [~] Opus 5 | [~] Opus 5 | [-] | [x] Opus 5 | The Tools host every file capability is run from: `/tools/file-workbench`, a file dropped once and read by all ten. Two capabilities are real in the browser today — the file's true type, read from its leading bytes against what its name claims, and its SHA-256 and SHA-1. The eight whose engines run in a container render their own control disabled with the dependency named. The capability set is a registry, so adding one is a module and an array entry; the Overview is contributed by the modules rather than written by hand. Conversion acts on the whole selection, and offers only the formats every selected file can reach. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 

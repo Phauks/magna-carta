@@ -526,6 +526,13 @@
       "when": 1788091200000,
       "tag": "20260830T000000_conflicts-waiver-record",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "6",
+      "when": 1788177600000,
+      "tag": "20260831T120000_seed-file-workbench-permission",
+      "breakpoints": true
     }
   ]
 }
