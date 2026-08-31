@@ -30,6 +30,34 @@ export interface SessionContext {
   readonly support?: SupportPrincipal;
 }
 
+// Waits before re-asking Better Auth for the session after it THREW (never after it answered).
+// Two retries, then the failure is real and surfaces with its Error ID. Observed in production
+// (2026-08-31): a screen's burst of parallel reads occasionally has ONE request fail with Better
+// Auth's "Failed to get session" APIError while its siblings resolve the same cookie in the same
+// second — a transient fault in the lookup, not a verdict about the session — and without the
+// retry that one request answers 500 and fails the whole screen behind it.
+const SESSION_READ_RETRY_DELAYS_MILLISECONDS: readonly number[] = [50, 150];
+
+// The session read, re-sent through transient faults. Only a THROW is retried: a null answer is
+// Better Auth's verdict that there is no valid session, and re-asking would not change it. The read
+// is a GET with no side effects, so repeating it is safe.
+async function getSessionWithRetry(
+  auth: ReturnType<typeof createAuth>,
+  headers: Headers,
+): Promise<Awaited<ReturnType<ReturnType<typeof createAuth>["api"]["getSession"]>>> {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await auth.api.getSession({ headers });
+    } catch (error) {
+      const delay = SESSION_READ_RETRY_DELAYS_MILLISECONDS[attempt];
+      if (delay === undefined) throw error;
+      attempt += 1;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 // The first link of the chokepoint chain (chokepoint order step 1):
 // session cookie → Better Auth control-plane lookup → { userId, firmId }. The firm comes from the
 // session, never the URL. This slice it is a plain function handlers call — the full
@@ -39,7 +67,7 @@ export async function resolveSession(
   auth: ReturnType<typeof createAuth>,
   c: Context,
 ): Promise<SessionContext | null> {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  const session = await getSessionWithRetry(auth, c.req.raw.headers);
   if (session === null) return null;
   // The handles are asserted, not cast: a session row carrying a malformed id is corruption and
   // must fail loud, never flow onward as a branded identifier. An ABSENT firm is not corruption —
