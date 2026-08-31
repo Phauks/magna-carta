@@ -1,6 +1,6 @@
 ---
 slug: an-internal-note-and-a-client-visible-comment-are-two-entities
-status: Proposed
+status: Accepted
 area: Notes and activity
 date: 2026-08-15
 summary: "An internal matter note and a client-visible portal comment are two tables with two identities, not one table with a visibility flag, and there is no path by which one becomes the other. A boolean would make publishing attorney work product to the opposing party's most interested reader a one-character diff, and an irreversible one — flipping it back does not unsend what the portal already rendered. Beyond that the two differ in kind: a note's author is a firm member while a comment's may be an external principal that the portal places in the control-plane database as a distinct principal type never mixed with staff access control; a portal grant's scope vocabulary is matter, folder and file, so a comment is reachable through a grant and a note is reachable through nothing, and that structural unreachability is the actual protection rather than a WHERE clause; and the two carry different retention and different discoverability postures. Sharing a note with a client is therefore a new comment authored by the member at the instant they authored it, never a state change on the note — a publication decision made in June must not alter a record made in January. Decided now because the portal is unbuilt and nothing depends on the answer yet, which is the cheapest this decision will ever be."

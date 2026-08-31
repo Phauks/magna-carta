@@ -40,6 +40,7 @@
   import VersionChip from "$lib/versions/version-chip.svelte";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import MaturityDot from "$lib/maturity/maturity-dot.svelte";
+  import DownloadTray from "$lib/export/download-tray.svelte";
   import ProfileMenu from "$lib/components/profile-menu.svelte";
   import { DragReorderController } from "$lib/components/drag-reorder.svelte.ts";
   import {
@@ -487,6 +488,14 @@
                to the Time surface ($lib/time/time-keeper-chip.svelte); the shell seats it and
                does nothing else with it. -->
           <TimeKeeperChip />
+          <!-- The download tray, seated beside the Time Keeper on the owner's direction: what the
+               platform has made for this member, reachable from the top of the app rather than only
+               from the sidebar row. Clicking it gives the overview and offers the full register at
+               the bottom. Deliberately NOT a transfer manager — bytes move over a presigned URL the
+               browser's own download manager drives, so there is no progress here to show. Its
+               anatomy and every read it makes belong to the export surface
+               ($lib/export/download-tray.svelte); the shell seats it and does nothing else with it. -->
+          <DownloadTray />
           {#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.developerToolkitInHeader}
             <!-- The developer console (modular tooling; motion tuning first). The dynamic import
                  inside a DEV-gated branch keeps every byte of it out of production bundles.

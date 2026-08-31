@@ -99,6 +99,8 @@ import type {
   MatterAssignmentId,
   MatterCourtCaseId,
   MatterDeadlineId,
+  MatterNoteId,
+  MatterNoteRevisionId,
   MatterEstateId,
   MatterEventId,
   MatterEventParticipantId,
@@ -6131,6 +6133,114 @@ export const matterDeadline = sqliteTable(
       "matter_deadline_priority_check",
       sql`${table.priority} IS NULL OR ${table.priority} > 0`,
     ),
+  ],
+);
+
+// A note on a matter: what the firm wrote down about a case that no other record holds. Two tables,
+// because a note is an IDENTITY that persists and a BODY that gets corrected, and those have
+// different lifetimes — the identity carries the matter, who first wrote it, when, and whether it
+// still stands; each revision carries one body, its own author, and its own instant.
+//
+// The attachment is a real foreign key to `matter` and not a `subject_kind`/`subject_id` pair. The
+// cost of the polymorphic shape is already measured in this schema: `audit_log.subject_id` is
+// untyped, holds whatever the writer thought the subject was, and the timeline's read of it needs a
+// prefix scan to confine itself to rows whose subject really is a matter. A note is a first-class
+// record read on a hot surface, so it gets a real key, a real index, and a real cascade story.
+export const matterNote = sqliteTable(
+  "matter_note",
+  {
+    id: text("id").primaryKey().$type<MatterNoteId>(), // matterNote_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // Who wrote it FIRST, and it never nulls, never repoints, and is not anonymized when they leave.
+    // An unattributed contemporaneous record is worth a fraction of an attributed one — the whole
+    // value of "I spoke to her on Tuesday" is that a specific person wrote it on a specific day. That
+    // a former member wrote it is a JOIN on member.status at read time, never a column here: a fact
+    // that is a join cannot drift from the row it joins.
+    authorUserId: text("author_user_id").notNull().$type<UserId>(),
+    // The chain's live head, as the ordinal of the revision that currently renders. A POINTER on the
+    // identity row rather than a flag on each revision, because the revision table is append-only by
+    // trigger and moving a flag there would be an UPDATE it refuses. Moving the head is an UPDATE
+    // here, which carries no trigger, and the unique index on (note_id, ordinal) below is what makes
+    // "exactly one head" a schema fact rather than a convention.
+    headOrdinal: integer("head_ordinal").notNull().default(1),
+    // A retracted note stops rendering its body everywhere and leaves the federated timeline
+    // entirely; the row, its revisions, its author and its instants all remain. This is the answer to
+    // "this should never have been written", and it is deliberately visible — the firm can see that a
+    // note was withdrawn and by whom, which is what makes it a correction mechanism rather than a
+    // quiet erasure. There is no third state and no delete.
+    state: text("state", { enum: ["active", "retracted"] })
+      .notNull()
+      .default("active"),
+    retractedAt: text("retracted_at"), // UTC instant
+    retractedBy: text("retracted_by").$type<UserId>(),
+    // Required on retraction. "Why did this stop rendering" is the question somebody asks later, and
+    // the only bad answer is silence — the same reasoning that makes a vacated deadline's reason
+    // required.
+    retractionReason: text("retraction_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The matter's own note list and the federated timeline's read of it.
+    index("matter_note_matter_created_at_id_index").on(table.matterId, table.createdAt, table.id),
+    // The firm-wide timeline window, which bounds by date across every matter.
+    index("matter_note_created_at_id_index").on(table.createdAt, table.id),
+    index("matter_note_author_index").on(table.authorUserId),
+    check("matter_note_state_check", sql`${table.state} IN ('active', 'retracted')`),
+    check("matter_note_head_ordinal_check", sql`${table.headOrdinal} > 0`),
+    // A retracted note names who withdrew it, when, and why; an active one claims none of the three.
+    // Both directions, so neither a retraction missing its record nor a live note carrying one is
+    // expressible.
+    check(
+      "matter_note_retraction_shape_check",
+      sql`(${table.state} = 'retracted' AND ${table.retractedAt} IS NOT NULL AND ${table.retractedBy} IS NOT NULL AND ${table.retractionReason} IS NOT NULL AND length(${table.retractionReason}) > 0)
+        OR (${table.state} = 'active' AND ${table.retractedAt} IS NULL AND ${table.retractedBy} IS NULL AND ${table.retractionReason} IS NULL)`,
+    ),
+  ],
+);
+
+// One body of one note, with its own author and its own instant. APPEND-ONLY, enforced by three
+// triggers in the migration rather than by application code: an edit appends a revision and moves the
+// note's head, and every prior body stays readable from the note's own surface.
+//
+// The reasoning is that a note is neither the ledger nor the calendar. The ledger is append-only
+// because a third party relies on it; no rule of conduct demands that of a note. The calendar edits
+// in place because it records a PLAN, and a firm made to file a compensating row to fix a typo stops
+// recording. But a note is a contemporaneous record whose evidentiary weight comes from having been
+// written then, by that person, saying that — and editing it in place destroys the one property that
+// makes it worth keeping.
+export const matterNoteRevision = sqliteTable(
+  "matter_note_revision",
+  {
+    id: text("id").primaryKey().$type<MatterNoteRevisionId>(), // matterNoteRevision_ handle
+    noteId: text("note_id")
+      .notNull()
+      .$type<MatterNoteId>()
+      .references(() => matterNote.id),
+    // The words. The most privileged free-text column this schema has after a time entry's narrative:
+    // it is registered report-manual in the PII registry, it is never projected onto the federated
+    // timeline, and no merge field may resolve to it (a fitness function in packages/notes holds
+    // that last one, because a catalog entry that did would put work product into a letter under the
+    // firm's letterhead and the PDF metadata scrub is structurally blind to page content).
+    body: text("body").notNull(),
+    // Whoever wrote THIS body, which is not always whoever started the note: a colleague correcting a
+    // partner's note is a real and ordinary thing, and the correction is theirs.
+    authorUserId: text("author_user_id").notNull().$type<UserId>(),
+    // Its place in the chain, from 1. The unique index below makes two revisions racing for the same
+    // ordinal a collision that aborts the whole batch — which is the right outcome and the reason the
+    // head pointer needs no separate guard: two members revising at once, one loses, and neither
+    // silently overwrites the other's words.
+    ordinal: integer("ordinal").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("matter_note_revision_note_ordinal_unique_index").on(table.noteId, table.ordinal),
+    index("matter_note_revision_author_index").on(table.authorUserId),
+    check("matter_note_revision_body_check", sql`length(${table.body}) > 0`),
+    check("matter_note_revision_ordinal_check", sql`${table.ordinal} > 0`),
   ],
 );
 

@@ -84,7 +84,7 @@ export const matterSections: readonly MatterSection[] = [
     slug: "notes",
     label: "Notes",
     core: false,
-    stage: "soon",
+    stage: "alpha",
     description: "Matter notes and memoranda — dated, attributed, and searchable.",
   },
   {

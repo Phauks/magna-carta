@@ -21,6 +21,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  apiWebSyncState,
   copyLineForPart,
   describeObservationAge,
   describeRetainedRows,
@@ -33,6 +34,8 @@ import {
   serviceStateLabel,
   showsPageBuildRow,
   summarizeSilentWorkers,
+  syncStateBadgeVariant,
+  syncStateLabel,
   versionChipLabel,
   API_WORKER_UNIT_NAME,
   FLEET_SECTION_LABEL,
@@ -41,7 +44,6 @@ import {
   RELOAD_ACTION_LABEL,
   SIGNED_OUT_ESTATE_NOTICE,
   UPDATE_AVAILABLE_EXPLANATION,
-  WEB_TOPOLOGY_NOTICE,
   WEB_WORKER_ROW_ID,
   type ServiceVersionRow,
   type ServiceVersionState,
@@ -110,24 +112,65 @@ describe("what counts as a real commit", () => {
   });
 });
 
-describe("the retired page-versus-API warning stays retired", () => {
-  it("the panel raises no alarm about the page and the API differing", () => {
-    // The interface and the API deploy as separate Workers (magna-carta-web serves the app's
-    // address by route pattern), so their commits differ whenever one shipped more recently — a
-    // normal state. A standing warning about a normal state teaches people to ignore warnings;
-    // the reload signal is the version poll, which compares this tab against the deployment that
-    // actually serves it. This asserts the old warning does not quietly return.
+describe("the API-versus-web sync badge", () => {
+  it("the panel raises no fixed alarm sentence about the pair differing", () => {
+    // A fixed "Different Builds" sentence read every difference as one alarm, which is wrong: the
+    // two Workers deploy separately, so differing is a normal state most of the time. The colour
+    // (syncStateBadgeVariant) carries that judgement now, not a standing sentence.
     const chip = stripComments(source("lib/versions/version-chip.svelte"));
     expect(chip).not.toContain("Different Builds");
     expect(chip).not.toContain("buildsDiffer");
   });
 
-  it("the topology line explains the difference instead", () => {
-    expect(WEB_TOPOLOGY_NOTICE).toContain("magna-carta-web");
-    expect(WEB_TOPOLOGY_NOTICE).toContain(API_WORKER_UNIT_NAME);
-    expect(WEB_TOPOLOGY_NOTICE).toMatch(/deploy separately/i);
-    // Owner ruling, docs/conventions/design-corrections.md: no em dashes in user-facing copy.
-    expect(WEB_TOPOLOGY_NOTICE).not.toContain("—");
+  it("reads in-sync only when the commits actually match", () => {
+    const api = { commit: "a1b2c3d", commitTime: "2026-08-29T10:00:00Z" };
+    expect(apiWebSyncState(api, serviceRow(WEB_WORKER_ROW_ID, "reported", "a1b2c3d"))).toBe(
+      "in-sync",
+    );
+  });
+
+  it("calls it web-behind only when the web commit time is provably earlier", () => {
+    const api = { commit: "a1b2c3d", commitTime: "2026-08-29T12:00:00Z" };
+    const webRow = serviceRow(WEB_WORKER_ROW_ID, "reported", "9f9f9f9");
+    expect(apiWebSyncState(api, { ...webRow, commitTime: "2026-08-29T10:00:00Z" })).toBe(
+      "web-behind",
+    );
+  });
+
+  it("falls back to the calmer mismatch bucket when direction cannot be proven", () => {
+    const api = { commit: "a1b2c3d", commitTime: "2026-08-29T10:00:00Z" };
+    // No timestamp on either side to compare.
+    expect(apiWebSyncState(api, serviceRow(WEB_WORKER_ROW_ID, "reported", "9f9f9f9"))).toBe(
+      "mismatch",
+    );
+    // The web build is the newer one, not the one behind.
+    const webRow = serviceRow(WEB_WORKER_ROW_ID, "reported", "9f9f9f9");
+    expect(apiWebSyncState(api, { ...webRow, commitTime: "2026-08-29T14:00:00Z" })).toBe(
+      "mismatch",
+    );
+  });
+
+  it("shows no badge at all when either side has nothing real to compare", () => {
+    const devApi = { commit: "dev", commitTime: null };
+    const realApi = { commit: "a1b2c3d", commitTime: null };
+    expect(apiWebSyncState(devApi, serviceRow(WEB_WORKER_ROW_ID))).toBeNull();
+    expect(apiWebSyncState(realApi, null)).toBeNull();
+    expect(apiWebSyncState(realApi, serviceRow(WEB_WORKER_ROW_ID, "unreachable"))).toBeNull();
+  });
+
+  it("keeps the colour calm except for the one actionable state", () => {
+    expect(syncStateBadgeVariant("in-sync")).toBe("success");
+    expect(syncStateBadgeVariant("web-behind")).toBe("warning");
+    expect(syncStateBadgeVariant("mismatch")).toBe("neutral");
+  });
+
+  it("labels every state in words, none of them an alarm", () => {
+    expect(syncStateLabel("in-sync")).toBe("In sync");
+    expect(syncStateLabel("web-behind")).toBe("Web behind");
+    expect(syncStateLabel("mismatch")).toBe("Different builds");
+    for (const state of ["in-sync", "web-behind", "mismatch"] as const) {
+      expect(syncStateLabel(state)).not.toMatch(/fail|error|alarm/i);
+    }
   });
 });
 
@@ -403,14 +446,20 @@ describe("the chip's row identities and refresh", () => {
     expect(chip).toMatch(/rowKey: "page",\s*name: PAGE_BUILD_ROW_NAME/);
     expect(chip).toMatch(/rowKey: "api",\s*name: API_WORKER_UNIT_NAME/);
     expect(chip).toContain("partitionDeploymentRows(value.services)");
-    expect(chip).toContain("{WEB_TOPOLOGY_NOTICE}");
-    // Order: magna-carta, then magna-carta-web (the front partition), then the topology line that
-    // explains the pair, then the separator, then the rest of the fleet.
+    expect(chip).toContain("syncStateLabel(syncState)");
+    // Order: magna-carta, then magna-carta-web (the front partition), then the sync badge that
+    // reads the pair, then the separator, then the rest of the fleet.
     expect(chip.indexOf('rowKey: "api"')).toBeLessThan(chip.indexOf("deploymentRows.front"));
     expect(chip.indexOf("deploymentRows.front")).toBeLessThan(
-      chip.indexOf("{WEB_TOPOLOGY_NOTICE}"),
+      chip.indexOf("syncStateLabel(syncState)"),
     );
-    expect(chip.indexOf("{WEB_TOPOLOGY_NOTICE}")).toBeLessThan(chip.indexOf("deploymentRows.rest"));
+    expect(chip.indexOf("syncStateLabel(syncState)")).toBeLessThan(
+      chip.indexOf("deploymentRows.rest"),
+    );
+  });
+
+  it("shows the sync badge only when there is a real commit on both sides to compare", () => {
+    expect(chip).toMatch(/\{#if syncState !== null\}[\s\S]*syncStateLabel\(syncState\)/);
   });
 
   it("splits the deployment rows so the interface Worker leads and nothing is dropped", () => {
@@ -567,6 +616,15 @@ describe("the panel header", () => {
     );
   });
 
+  it("mounts the services line unconditionally, so the panel never resizes as it fills in", () => {
+    // Owner ruling 2026-08-31: swapping between "no line", "Checking services", and "Services
+    // checked N ago" resized the popover under the reader as the clock crossed the fresh window.
+    // The <p> is always mounted for a session that can read the aggregate, and an empty read gets
+    // a non-breaking space rather than being left unmounted, so its height never changes.
+    expect(header).toMatch(/\{#if readsAggregate\}\s*<p class="text-xs text-text-muted">/);
+    expect(header).toMatch(/\{:else\}\s*&nbsp;\s*\{\/if\}\s*<\/p>/);
+  });
+
   it("seats the reload control beside refresh, as a symbol, only when an update is live", () => {
     const reload = /<Button[^>]*aria-label=\{RELOAD_ACTION_LABEL\}[\s\S]*?<\/Button>/.exec(header);
     expect(reload).not.toBeNull();
@@ -601,8 +659,8 @@ describe("the fleet fold", () => {
 
   it("folds only the Workers beneath the pair that serves the app's address", () => {
     expect(chip).toMatch(/\{#if !fleetSectionPreference\.collapsed\}[\s\S]*deploymentRows\.rest/);
-    // The leading pair and the topology line never fold: they are what the panel is opened for.
-    expect(chip.indexOf("{WEB_TOPOLOGY_NOTICE}")).toBeLessThan(
+    // The leading pair and its sync badge never fold: they are what the panel is opened for.
+    expect(chip.indexOf("syncStateLabel(syncState)")).toBeLessThan(
       chip.indexOf("fleetSectionPreference.collapsed"),
     );
   });

@@ -194,6 +194,16 @@ is usually the fastest way to understand the rule.
   caret, per browser, defaulting to open. A shut heading still states any fault among the rows it
   hides, because the reason a list is exhaustive is that omissions read as health. _(Build Versions
   panel, 2026-08-31)_
+- **A comparison between two things allowed to differ is a status colour, not a sentence about
+  them.** Explaining in prose that two related builds deploy separately and may disagree is the "no
+  info lines" rule applied to a comparison: state the judgment (matched, one behind, differ) as a
+  coloured read instead, reserving the alarmed colour for the one state that actually calls for
+  action. _(Build Versions panel, second round, 2026-08-31)_
+- **A line whose content can go empty stays mounted, empty, rather than being unmounted.**
+  Conditionally rendering a status line (present only while there is something to say) resizes the
+  surface around it every time the condition flips; mount it unconditionally and give it inert
+  filler when it has nothing to report, so height never depends on wording. _(Build Versions panel,
+  second round, 2026-08-31)_
 
 ### List screens
 
@@ -306,6 +316,20 @@ Five corrections against the version overlay, all from the owner, all promoted a
   version, so the fold never turns the fleet list into a claim of health.
 - **Copy feedback stopped being a check glyph** and became the control darkening for a second. The
   glyph widened the button on every press, which read as the identifier itself changing.
+
+### 2026-08-31 — the Build Versions panel, second round
+
+Two more corrections against the same panel, both promoted above:
+
+- The fixed sentence explaining that `magna-carta-web` and `magna-carta` deploy separately and may
+  report different builds was deleted. In its place, the leading pair carries a colour-coded sync
+  badge — green **In sync**, amber **Web behind** (the one state that is actually actionable), or
+  neutral **Different builds** for any other difference — shown only once both sides have reported a
+  real commit to compare.
+- The **"Services checked … ago"** / **"Checking services"** line is now mounted unconditionally
+  whenever the panel can read the aggregate, with a non-breaking space when it has nothing to say.
+  It used to appear and disappear as the read moved through in-flight, freshly-answered, and aged,
+  resizing the popover under the reader each time.
 
 ### 2026-08-31 — WHOIS Lookup tool page, deployed-site review
 
