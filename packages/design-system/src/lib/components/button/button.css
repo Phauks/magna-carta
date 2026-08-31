@@ -81,33 +81,41 @@
   }
 
   /*
-   * Ghost — a quiet action that still reads as a control. It carried no edge at rest, which left
-   * the affordance invisible until the pointer found it; a control the eye cannot find is not
-   * quiet, it is hidden.
-   *
-   * The edge is an INSET RING, not a border: the base recipe has no border, and sizes map to
-   * min-block-size plus padding, so a real border would make every ghost button two pixels taller
-   * than the buttons beside it. A ring costs no layout.
-   *
-   * --mc-border-default, not --mc-border-strong: every other resting-state bordered control
-   * (input, select, card, dialog, tabs, data-table) draws its rest-state edge in
-   * --mc-border-default; --mc-border-strong is reserved for emphasis states (a checked checkbox,
-   * a checked switch, a selected date range). Ghost's ring is a resting-state edge, not an
-   * emphasis state, so the quieter weight is the one that matches its neighbors.
+   * Ghost — a quiet action with NO edge at rest, the owner's settled toolbar language: the glyph
+   * is the control, the hover wash is the affordance, and a resting ring is exactly the "rounded
+   * square around every item" the owner struck from the file manager's toolbar. A surface where a
+   * lone ghost control genuinely disappears adds its own border per use (the matter header's
+   * overflow trigger is the precedent), rather than boxing every toolbar.
    */
   .mc-button-ghost {
     background-color: transparent;
-    color: var(--mc-text-default);
-    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
-      var(--mc-border-width-default) var(--mc-border-default);
+    color: var(--mc-text-muted);
   }
   .mc-button-ghost:hover {
     background-color: var(--mc-action-secondary);
+    color: var(--mc-text-default);
   }
-  /* The disabled recipe (.mc-button:disabled, above) sets an opaque fill; the ring beneath would
-     otherwise show as a seam around a control that no longer takes input. */
+  /* Disabled mutes the INK only. The base recipe's opaque disabled fill is for filled variants:
+     on a quiet control it reads as a grey plate shadowing the glyph, which is louder at rest than
+     the enabled control beside it — the opposite of what disabled means. */
   .mc-button-ghost:disabled {
+    background-color: transparent;
+    color: var(--mc-action-disabled-foreground);
     box-shadow: none;
+  }
+  /*
+   * An active ghost TOGGLE reads through its glyph and a hairline, never a filled panel behind it:
+   * the filled version looks like a dropped shadow at toolbar sizes. The hairline rides box-shadow
+   * (not outline, which the focus ring owns; not border, which would cost layout).
+   */
+  .mc-button-ghost[aria-pressed="true"] {
+    color: var(--mc-accent-strong);
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-accent-strong);
+  }
+  .mc-button-ghost[aria-pressed="true"]:hover {
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-accent-strong);
   }
 
   /* Sizes — heights map to the control scale THROUGH the density aliases (the user density axis
