@@ -149,8 +149,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
   can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
   <div class="band">
-    <div class="k g"><span>Reachable</span><b>24</b><em>A person can open it in the application today.</em></div>
-    <div class="k y"><span>Waiting on a screen</span><b>182</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
+    <div class="k g"><span>Reachable</span><b>26</b><em>A person can open it in the application today.</em></div>
+    <div class="k y"><span>Waiting on a screen</span><b>180</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
     <div class="k b"><span>Under the floor</span><b>172</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Every one of them is classified. The middle figure is the interface debt stated directly rather than guessed at from
@@ -2961,8 +2961,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="chip done">Shipped</span>
 <span class="nm">Diagnostics group (firm usage)</span>
 <code>integrations.tools-area.diagnostics-group</code>
-<p>Read-only firm usage and connectivity snapshot in the Tools area.</p>
-<p class="note">Backend only — no screen yet. Entity counts verified correct against a seeded firm; storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.</p>
+<p>Read-only firm usage snapshot in the Tools area, computed on request — storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.</p>
+<p class="note">Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings are a reserved column and per-firm compute a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral).</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Network speed test</span>

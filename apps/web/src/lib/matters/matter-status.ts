@@ -1,41 +1,55 @@
 /*
- * The matter lifecycle status register — ONE map from status to how it reads, so no surface picks
- * its own words or its own tone. The header seal, the list's status column, and anything later that
- * shows a matter's standing all read this.
+ * A matter's lifecycle status, as the product speaks it.
  *
- * Closed is archived-but-additive — a matter can still accrue record after it closes — so it reads
- * quiet neutral, never destructive red. Prospective is a consultation the firm has not taken yet,
- * which is information rather than progress, so it takes the info register. Open is the working
- * state and the only one that reads as green.
+ * THE WORDS ARE NOT THIS FILE'S. They come from the design system's status register, which is the
+ * one place any status word in the product is given its label, its tone and its meaning. What lives
+ * here is the one fact the register cannot know: how the matters contract SPELLS each state on the
+ * wire. Those two are not the same, and pretending they were is what would put a storage spelling
+ * in front of a reader.
  *
- * The tones are the subtle badge register: a status column on a work surface must not turn a table
- * of matters into a traffic light.
+ * THE ONE PLACE THEY DIFFER, STATED PLAINLY. The firm's word for a matter it is working is ACTIVE.
+ * The contract stores that state as `open` — the code the listing filters on, the code the create
+ * request carries, the code the database column holds. So `open` is what crosses the wire and
+ * "Active" is what prints, and this map is the only place the two meet. Prospective and Closed
+ * spell the same both ways.
+ *
+ * CLOSED IS A REAL LIFECYCLE STATE AND NOT A CREATABLE ONE. The contract stores it, a matter
+ * reaches it by being closed, and the docket must be able to filter for it whether or not the firm
+ * has one today. The create operation, though, accepts only prospective and open — so the intake
+ * offers Closed as a state that exists and cannot yet be started in, rather than hiding a word the
+ * firm uses.
  */
+import { statusEntry, type StatusKey } from "@magna-carta/design-system/status-register";
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
 
+/** The status codes the matters contract stores and filters on. */
 export type MatterStatus = "prospective" | "open" | "closed";
+
+/** Which word in the product's register each stored code speaks. */
+const MATTER_STATUS_WORDS: Readonly<Record<MatterStatus, StatusKey>> = {
+  prospective: "prospective",
+  open: "active",
+  closed: "closed",
+};
 
 export interface MatterStatusPresentation {
   /** The label as it prints, title case. */
   label: string;
   /** The subtle badge register this status wears. */
   variant: BadgeVariant;
+  /** What the status means, for the hover. Never printed beneath the chip. */
+  meaning: string;
 }
-
-export const MATTER_STATUS_PRESENTATION: Record<MatterStatus, MatterStatusPresentation> = {
-  prospective: { label: "Prospective", variant: "info" },
-  open: { label: "Open", variant: "success" },
-  closed: { label: "Closed", variant: "neutral" },
-};
 
 /** How one status reads. */
 export function matterStatusPresentation(status: MatterStatus): MatterStatusPresentation {
-  return MATTER_STATUS_PRESENTATION[status];
+  const entry = statusEntry(MATTER_STATUS_WORDS[status]);
+  return { label: entry.label, variant: entry.tone, meaning: entry.meaning };
 }
 
 /** The label alone — what a sort key, a filter value, or a cell's plain text needs. */
 export function matterStatusLabel(status: MatterStatus): string {
-  return MATTER_STATUS_PRESENTATION[status].label;
+  return statusEntry(MATTER_STATUS_WORDS[status]).label;
 }
 
 /**
@@ -43,3 +57,25 @@ export function matterStatusLabel(status: MatterStatus): string {
  * a status, so two surfaces cannot disagree about which comes first.
  */
 export const MATTER_STATUSES: readonly MatterStatus[] = ["prospective", "open", "closed"];
+
+/** Every lifecycle label, in lifecycle order — what a filter offers whether or not one is loaded. */
+export const MATTER_STATUS_LABELS: readonly string[] = MATTER_STATUSES.map(matterStatusLabel);
+
+/**
+ * The statuses a matter can be CREATED in, as the contract stands.
+ *
+ * Closed is deliberately absent rather than removed from the vocabulary: the intake renders it,
+ * disabled, saying what it waits on. A firm does open a file that is already finished — recording
+ * a concluded matter the firm handled before it kept its record here is the ordinary case — so the
+ * gap is the contract's, not the design's.
+ */
+export const CREATABLE_MATTER_STATUSES: readonly MatterStatus[] = ["prospective", "open"];
+
+/** Whether a matter can be created in this status today. */
+export function isCreatableMatterStatus(status: MatterStatus): boolean {
+  return CREATABLE_MATTER_STATUSES.includes(status);
+}
+
+/** What creating a matter already closed waits on, as a noun phrase the Soon affordance completes. */
+export const CLOSED_AT_CREATION_DEPENDENCY =
+  "the create operation accepting a closed status, which today takes only Prospective or Active";

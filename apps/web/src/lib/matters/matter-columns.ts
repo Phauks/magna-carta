@@ -16,16 +16,33 @@
  *     was deactivated and is no longer listed is an honest gap, and printing `matterType_01J…` at a
  *     person is not an answer. The same rule carries the responsible attorney: a member the roster
  *     does not name is a blank cell, not a `user_…`.
+ *
+ * A THIRD DECISION, ABOUT FILTERING: A COLUMN OVER A DECLARED VOCABULARY OFFERS THE WHOLE
+ * VOCABULARY. A set filter otherwise offers what the loaded rows happen to carry, so a firm with
+ * nothing closed today gets no Closed choice, a practice area nobody has used yet is unfilterable,
+ * and an attorney carrying no matters cannot be asked for. Each of those tells the reader the firm
+ * cannot hold such a thing, which is false. So the four columns whose values come from something
+ * the firm DECLARES — its lifecycle statuses, its matter types, its offices, its roster — hand the
+ * grid that vocabulary, and every value in it is offered with its true count, zero included. Client
+ * is the one set column with no declared vocabulary, because nothing publishes a client directory:
+ * its options are honestly the clients the docket names.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import type { MatterSummary } from "./matters-api.ts";
-import { matterStatusLabel } from "./matter-status.ts";
+import { matterStatusLabel, MATTER_STATUS_LABELS } from "./matter-status.ts";
 
 /** What a matter's type, Location and responsible-member identifiers resolve to, by identifier. */
 export interface MatterVocabulary {
   matterTypeNames: ReadonlyMap<string, string>;
   locationNames: ReadonlyMap<string, string>;
   memberNames: ReadonlyMap<string, string>;
+}
+
+/** One vocabulary's names, in reading order and each named once — what a set filter offers whole. */
+export function vocabularyValues(names: ReadonlyMap<string, string>): readonly string[] {
+  return [...new Set(names.values())]
+    .filter((name) => name !== "")
+    .toSorted((left, right) => left.localeCompare(right));
 }
 
 /** An empty vocabulary — what the screen has before the lists land. */
@@ -102,15 +119,21 @@ export function matterColumns(vocabulary: MatterVocabulary): GridColumn<MatterSu
       id: "status",
       label: "Status",
       filter: "set",
-      // The label, not the enum: the set filter offers what the column shows, and a person filters
-      // on "Open", never on `open`.
+      // The label, not the stored code: the set filter offers what the column shows, and a person
+      // filters on "Active", never on `open`.
       value: (matter) => matterStatusLabel(matter.status),
+      // EVERY status the firm can hold, in lifecycle order, whether or not one is on screen. A
+      // filter that drops Closed on a day nothing is closed is a filter that lies about the firm.
+      filterValues: MATTER_STATUS_LABELS,
     },
     {
       id: "practiceArea",
       label: "Practice Area",
       filter: "set",
       value: (matter) => resolvedName(vocabulary.matterTypeNames, matter.matterTypeId),
+      // The firm's whole matter-type vocabulary, so an area it has set up and not yet used is
+      // still something a reader can ask for.
+      filterValues: vocabularyValues(vocabulary.matterTypeNames),
     },
     {
       id: "responsibleAttorney",
@@ -127,6 +150,9 @@ export function matterColumns(vocabulary: MatterVocabulary): GridColumn<MatterSu
       // member on their own matters and leaving everyone else's blank — which is the state that
       // kept this column off the docket until the roster read existed.
       value: (matter) => resolvedName(vocabulary.memberNames, matter.responsibleMemberId),
+      // The whole roster, including members carrying nothing right now: "who has no matters" is a
+      // question a firm asks, and it cannot be asked of a control that only lists people who do.
+      filterValues: vocabularyValues(vocabulary.memberNames),
     },
     {
       id: "location",
@@ -136,6 +162,7 @@ export function matterColumns(vocabulary: MatterVocabulary): GridColumn<MatterSu
       // every row. The columns menu shows it the moment a firm has more than one.
       hidden: true,
       value: (matter) => resolvedName(vocabulary.locationNames, matter.locationId),
+      filterValues: vocabularyValues(vocabulary.locationNames),
     },
     {
       id: "createdAt",

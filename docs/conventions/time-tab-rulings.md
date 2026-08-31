@@ -6,8 +6,9 @@
 > architecture across all four. **Round seven took that record window out of this artifact's
 > scope**: by the owner's ruling it is the product's one component, shared with the Time Sheet, so
 > R7's M-rulings bind wherever a record is opened — not only on these four tabs. Round five merged the four surfaces into one review artifact, The Matter
-> Ledger (`scratchpad/unified/matter-ledger.html`), and the owner's rulings now land here for
-> every one of them. Earlier rounds' rulings were issued on the Time surface; where a ruling
+> Ledger ([`docs/mockups/matter-ledger.html`](../mockups/matter-ledger.html)), and the owner's
+> rulings now land here for every one of them. Earlier rounds' rulings were issued on the Time
+> surface; where a ruling
 > generalizes (the one table machinery, the status register, the details-panel pattern, the
 > dialog family, the footer grammar) it binds the other three tabs exactly as it binds Time.
 > The file keeps its name and home so its history stays put.

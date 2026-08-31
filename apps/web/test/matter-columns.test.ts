@@ -18,9 +18,12 @@ import {
 } from "../src/lib/matters/matter-columns.ts";
 import { listMatters, type MatterSummary } from "../src/lib/matters/matters-api.ts";
 import {
+  isCreatableMatterStatus,
   matterStatusLabel,
   matterStatusPresentation,
+  CREATABLE_MATTER_STATUSES,
   MATTER_STATUSES,
+  MATTER_STATUS_LABELS,
 } from "../src/lib/matters/matter-status.ts";
 
 function matter(overrides: Partial<MatterSummary> = {}): MatterSummary {
@@ -63,6 +66,33 @@ describe("the matter-status register", () => {
 
   it("keeps closed quiet: an archived matter is not a failure", () => {
     expect(matterStatusPresentation("closed").variant).toBe("neutral");
+  });
+
+  it("speaks the firm's word, not the contract's storage spelling", () => {
+    // The wire calls a working matter `open`; the firm calls it Active, and the register is where
+    // the two meet. A screen printing `open` at a person would be printing a column value.
+    expect(matterStatusLabel("open")).toBe("Active");
+    expect(matterStatusLabel("prospective")).toBe("Prospective");
+    expect(matterStatusLabel("closed")).toBe("Closed");
+  });
+
+  it("carries every status the firm can hold, in lifecycle order", () => {
+    expect(MATTER_STATUS_LABELS).toEqual(["Prospective", "Active", "Closed"]);
+    expect(MATTER_STATUSES).toEqual(["prospective", "open", "closed"]);
+  });
+
+  it("says which statuses a matter can be CREATED in, and Closed is not one of them", () => {
+    // Not a design choice: the create operation accepts prospective and open only. The intake
+    // still renders Closed, disabled, so the state's existence is never hidden.
+    expect([...CREATABLE_MATTER_STATUSES]).toEqual(["prospective", "open"]);
+    expect(isCreatableMatterStatus("closed")).toBe(false);
+    expect(isCreatableMatterStatus("open")).toBe(true);
+  });
+
+  it("gives every status a meaning for the hover, never a sentence under the chip", () => {
+    for (const status of MATTER_STATUSES) {
+      expect(matterStatusPresentation(status).meaning.length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -167,6 +197,75 @@ describe("the status column", () => {
 
   it("takes the set filter: a docket is narrowed by picking a status, not by typing one", () => {
     expect(columnById("status").filter).toBe("set");
+  });
+
+  it("OFFERS EVERY STATUS, whether or not one is loaded", () => {
+    // The owner's ruling, and the reason it is a ruling: a filter that drops Closed because nothing
+    // is closed today tells the reader the firm cannot hold a closed matter. The column declares
+    // what the firm CAN hold; only the counts beside each choice come from what is loaded. (The
+    // grid's half of this — declared values first, each with its true count, zero included — is
+    // pinned in packages/design-system/test/grid-filters.test.ts.)
+    expect(columnById("status").filterValues).toEqual(["Prospective", "Active", "Closed"]);
+  });
+});
+
+describe("the filters over the firm's declared vocabularies", () => {
+  it("offers a practice area the firm has set up and never used", () => {
+    const vocabulary = matterVocabulary(
+      [
+        { id: "matterType_litigation", name: "Litigation" },
+        { id: "matterType_probate", name: "Probate and Trust Administration" },
+      ],
+      [{ id: "location_reno", name: "Reno" }],
+      [{ userId: "user_chase", displayName: "Marguerite Chase" }],
+    );
+    expect(columnById("practiceArea", vocabulary).filterValues).toEqual([
+      "Litigation",
+      "Probate and Trust Administration",
+    ]);
+  });
+
+  it("offers an attorney carrying no matters, because that is a question a firm asks", () => {
+    const vocabulary = matterVocabulary(
+      [],
+      [],
+      [
+        { userId: "user_chase", displayName: "Marguerite Chase" },
+        { userId: "user_okonkwo", displayName: "Ada Okonkwo" },
+      ],
+    );
+    expect(columnById("responsibleAttorney", vocabulary).filterValues).toEqual([
+      "Ada Okonkwo",
+      "Marguerite Chase",
+    ]);
+  });
+
+  it("offers every office the firm runs, even one with no matters filed to it yet", () => {
+    const vocabulary = matterVocabulary(
+      [],
+      [
+        { id: "location_reno", name: "Reno" },
+        { id: "location_elko", name: "Elko" },
+      ],
+      [],
+    );
+    expect(columnById("location", vocabulary).filterValues).toEqual(["Elko", "Reno"]);
+  });
+
+  it("names a vocabulary value once, however many identifiers resolve to it", () => {
+    const vocabulary = matterVocabulary(
+      [
+        { id: "matterType_one", name: "Litigation" },
+        { id: "matterType_two", name: "Litigation" },
+      ],
+      [],
+      [],
+    );
+    expect(columnById("practiceArea", vocabulary).filterValues).toEqual(["Litigation"]);
+  });
+
+  it("leaves CLIENT to the rows, because nothing publishes a client directory", () => {
+    expect(columnById("client").filterValues).toBeUndefined();
   });
 });
 

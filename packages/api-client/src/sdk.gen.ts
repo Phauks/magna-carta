@@ -34,7 +34,7 @@ export const meGet = <ThrowOnError extends boolean = false>(options?: Options<Me
 export const metaVersions = <ThrowOnError extends boolean = false>(options?: Options<MetaVersionsData, ThrowOnError>): RequestResult<MetaVersionsResponses, MetaVersionsErrors, ThrowOnError> => (options?.client ?? client).get<MetaVersionsResponses, MetaVersionsErrors, ThrowOnError>({ url: '/api/v1/meta/versions', ...options });
 
 /**
- * The firm's own usage: storage consumed (by class) and entity counts (matters by status, files, versions, folders, locations).
+ * The firm's own usage, computed when requested: storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.
  */
 export const firmUsageGet = <ThrowOnError extends boolean = false>(options?: Options<FirmUsageGetData, ThrowOnError>): RequestResult<FirmUsageGetResponses, FirmUsageGetErrors, ThrowOnError> => (options?.client ?? client).get<FirmUsageGetResponses, FirmUsageGetErrors, ThrowOnError>({ url: '/api/v1/firm-usage', ...options });
 

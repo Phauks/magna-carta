@@ -3,8 +3,8 @@
    * Review: the submitted costs, one at a time.
    *
    * Reviewing a queue is a different act from reading a ledger. The reviewer wants the facts that
-   * decide the question — what it was, who was paid, how much, whether a receipt backs it — and
-   * three answers: approve it, send it back with an instruction, or leave it and look at the next.
+   * decide the question — what it was, who was paid, how much, what backs it — and three answers:
+   * approve it, send it back with an instruction, or leave it and look at the next.
    * Nothing else belongs in the way.
    *
    * THE QUEUE IS TAKEN ONCE AND WALKED. It is a snapshot of what was submitted when Review opened,
@@ -20,12 +20,7 @@
   import { expenseCodeText, type ExpenseCodeLabels } from "./cost-columns.ts";
   import { gapCellTitle } from "./cost-gaps.ts";
   import { approveCost, writeKey, type CostLedgerEntry } from "./cost-operations.ts";
-  import {
-    CLASS_LABELS,
-    CLASS_MEANINGS,
-    billingLabel,
-    payeeText,
-  } from "./cost-vocabulary.ts";
+  import { billingLabel, payeeText } from "./cost-vocabulary.ts";
 
   let {
     open = $bindable(false),
@@ -120,11 +115,6 @@
         {@render fact("Date Incurred", formatDate(current.incurredDate))}
         {@render fact("Payee", payeeText(current))}
         {@render fact("Amount", money(current.amountMinor))}
-        {@render fact(
-          "Class",
-          CLASS_LABELS[current.disbursementClass],
-          CLASS_MEANINGS[current.disbursementClass],
-        )}
         {@render fact("Billing", billingLabel(current.billable))}
         {@render fact(
           "Expense Code",
@@ -132,11 +122,7 @@
             ? "—"
             : expenseCodeText(current, expenseCodeLabels),
         )}
-        {@render fact(
-          "Receipt",
-          current.disbursementClass === "soft" ? "—" : "Not served",
-          current.disbursementClass === "soft" ? CLASS_MEANINGS.soft : gapCellTitle("receipt"),
-        )}
+        {@render fact("Attachments", "Not served", gapCellTitle("attachments"))}
         {@render fact("Entered By", "Not served", gapCellTitle("enteredBy"))}
       </dl>
       <p class="text-sm">{current.description}</p>

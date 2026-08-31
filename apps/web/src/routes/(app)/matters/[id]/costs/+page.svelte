@@ -1,7 +1,6 @@
 <script lang="ts">
   /*
-   * The matter's costs — every disbursement advanced or charged back for it, read from the firm's
-   * own record.
+   * The matter's costs — every cost paid or consumed for it, read from the firm's own record.
    *
    * The whole record, not one slice: the listing is asked without a status, so approved, billed and
    * voided costs appear beside the drafts. A matter that has been billing for a year showed almost
@@ -10,7 +9,7 @@
    * This page is the read and the state set; the ledger itself is the surface below it. A SAMPLE
    * matter (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no firm
    * behind it and therefore no costs to read; it says so rather than showing an empty table,
-   * because "no costs advanced" and "not a real matter" are different facts.
+   * because "no costs recorded" and "not a real matter" are different facts.
    *
    * A FAILED READ KEEPS ITS EVIDENCE. The failing request, the answer, the moment and the
    * correlation handle are held here rather than collapsed into one sentence, because they are what

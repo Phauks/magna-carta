@@ -81,9 +81,9 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 24 | 6% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 182 | 48% |
-| No user surface by nature (`internal`) | 172 | 46% |
+| A person can open it today (`screen`) | 26 | 7% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 48% |
+| No user surface by nature (`internal`) | 172 | 45% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **378** | **100%** |
 
@@ -1007,7 +1007,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.tools-area.catalog` · `shipped` · **Tools catalog package** — Single source-of-truth catalog; adding a tool is one manifest entry; reflects connection health without holding credentials.
     - `integrations.tools-area.listing-page` · `shipped` · **Tools listing page** — /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges. _Note: toolsByGroup renders only the tools whose permission the member holds, and until 2026-08-19 five manifests were granted to no role - so the property, business-entities, people-licenses and mailing-shipping groups rendered for nobody on any seat. Seeded in packages/database/drizzle/per-firm/20260819T220000_seed-document-editing-and-tools-permissions.sql; all nineteen manifests are now reachable by some seat._
     - `integrations.tools-area.contextual-entry` · `partial` · **Contextual entry points** — Tools reachable in context — command palette, file-context tags on file-shaped tools; Location/Directory entity entry points.
-    - `integrations.tools-area.diagnostics-group` · `shipped` · **Diagnostics group (firm usage)** — Read-only firm usage and connectivity snapshot in the Tools area. _Note: Backend only — no screen yet. Entity counts verified correct against a seeded firm; storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md._
+    - `integrations.tools-area.diagnostics-group` · `shipped` · **Diagnostics group (firm usage)** — Read-only firm usage snapshot in the Tools area, computed on request — storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters. _Note: Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings are a reserved column and per-firm compute a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral)._
     - `integrations.tools-area.network-speed-test` · `shipped` · **Network speed test** — First tool with its own page: Cloudflare measurement engine, per-direction charts, AIM score, authenticated round-trip probe.
   - `integrations.tools` · `partial` · **First-party tool set** — The credential-less first-party tools surfaced through the Tools area _Note: Backends shipped across the set; tool UIs ride the design-system shell wave. Measured 2026-08-15 — 19 catalog manifests, 11 backends returning verified-correct answers, 2 with a page a person can open (WHOIS, speed test); the rest read "soon". docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.government-links` · `shipped` · **Government & licensing links** — Curated deep-links to government portals, business registries, and attorney-license lookups (renamed from parcels). _Note: Coverage is uneven by domain and that is what a firm feels — business and attorney-licence are all 51 jurisdictions, property is 835 assessor sites across only 22 (Nevada and the Mountain West; no TX/FL/NY/IL/PA/OH/GA/NC/MI/NJ), plus 17 recorder sites and no GIS. Links verified live 2026-08-15, docs/research/2026-08-15-tools-reality-check.md._

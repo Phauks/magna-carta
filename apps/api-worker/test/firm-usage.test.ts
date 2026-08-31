@@ -64,6 +64,53 @@ describe("GET /api/v1/firm-usage", () => {
       )
       .bind(t)
       .run();
+    // One matter typed and located, so the by-type and by-location rollups have a non-null row each.
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter_type (id, name, code, active, created_at, updated_at) VALUES ('matterType_u','Estate Planning',NULL,1,?1,?1)",
+      )
+      .bind(t)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES ('matter_u2','M2',NULL,'open','matterType_u','loc_u',?1,NULL,NULL,NULL,NULL,NULL,NULL,?2,?2)",
+      )
+      .bind(userId, t)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO member_location (id, member_user_id, location_id, is_primary, created_at) VALUES ('memberLocation_u',?1,'loc_u',1,?2)",
+      )
+      .bind(userId, t)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO directory_person (id, display_name, created_at, updated_at) VALUES ('directoryPerson_u','Pat Example',?1,?1)",
+      )
+      .bind(t)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO directory_organization (id, display_name, created_at, updated_at) VALUES ('directoryOrganization_u','Example Court',?1,?1)",
+      )
+      .bind(t)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO token_usage_meter (day, slot, model_id, input_tokens, output_tokens, request_count) VALUES ('2026-01-01','reasoning','test/model',100,50,2)",
+      )
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO ai_search_usage_meter (day, semantic_query_count, full_text_query_count, fed_bytes, estimated_ingestion_tokens, estimated_ingestion_bytes_per_token) VALUES ('2026-01-01',3,4,0,0,0)",
+      )
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO ai_detection_usage (id, requested_by, word_count, mode, cost_minor, adapter_id, vendor_version, result_band, matter_id, created_at) VALUES ('aiDetectionUsage_u',?1,250,'realtime',3,'test',NULL,NULL,NULL,?2)",
+      )
+      .bind(userId, t)
+      .run();
 
     const cookie = await signInForSessionCookie("usage-ok@example.com");
     const response = await SELF.fetch("https://example.com/api/v1/firm-usage", {
@@ -80,11 +127,33 @@ describe("GET /api/v1/firm-usage", () => {
         },
       },
       counts: {
-        matters: { total: 1, prospective: 0, open: 1, closed: 0 },
+        matters: { total: 2, prospective: 0, open: 2, closed: 0 },
         files: 0,
         fileVersions: 0,
         folders: 0,
         locations: 1,
+      },
+      mattersByType: [
+        // Equal totals tie-break on name, and the no-type bucket sorts as the empty string.
+        { matterTypeName: null, prospective: 0, open: 1, closed: 0, total: 1 },
+        { matterTypeName: "Estate Planning", prospective: 0, open: 1, closed: 0, total: 1 },
+      ],
+      files: {
+        currentFiles: { count: 0, bytes: 0 },
+        priorVersions: { count: 0, bytes: 0 },
+        allVersions: { count: 0, bytes: 0 },
+        deletedFiles: { count: 0, bytes: 0 },
+      },
+      byLocation: {
+        rows: [{ name: "HQ", status: "active", matters: 1, members: 1 }],
+        mattersWithoutLocation: 1,
+      },
+      directory: { people: 1, organizations: 1, activeMembers: 1 },
+      aiUsage: {
+        magnusTokens: { inputTokens: 100, outputTokens: 50, requests: 2 },
+        searchQueries: { semantic: 3, fullText: 4 },
+        detection: { requests: 1, words: 250 },
+        notMetered: ["managed index storage"],
       },
     });
   });

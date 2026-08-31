@@ -150,6 +150,7 @@
     chargeStanding: "A Charge, Read Off Its Invoice",
     safety: "File Safety",
     custody: "What The Firm Holds",
+    matterLifecycle: "A Matter's Lifecycle",
     conflictHit: "How A Conflict Hit Stands",
   };
 

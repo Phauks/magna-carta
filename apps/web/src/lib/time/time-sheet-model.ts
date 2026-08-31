@@ -12,6 +12,12 @@
  * reader cannot miss them. An incomplete row from an earlier day also refuses to fall out of view
  * when the scope moves off its date, because a row nobody can see is a row nobody will finish.
  *
+ * A ROW WITHOUT A MATTER IS A LEGAL ROW. A person captures time before they know where it belongs,
+ * so the sheet is firm-wide and the matter is a column like any other: a row may sit there holding a
+ * description and a duration with the matter still blank. What such a row cannot do is reach the
+ * firm's record, because capture takes a matter, so it holds a PROVISIONAL code minted here on the
+ * sheet and says so. Setting the matter is what lets it be written.
+ *
  * TWO PEOPLE, ALWAYS. The timekeeper is whose work an entry records; the enterer is who typed it.
  * Both are facts of every entry rather than of the delegated ones only, and an entry a person
  * records for themselves simply carries the same name twice. Delegation is the case where the two
@@ -28,6 +34,48 @@ import { gapReason } from "./time-gaps.ts";
 export type SheetSaveState = "unsaved" | "saving" | "saved" | "failed";
 
 /**
+ * A matter as the sheet needs it: enough to name one and enough to find one by typing.
+ *
+ * The number is nullable because an unnumbered consultation is a matter a person may well be
+ * recording time against, and numbering it later does not make the time before that unreal.
+ */
+export interface SheetMatter {
+  readonly id: string;
+  readonly matterNumber: string | null;
+  readonly title: string;
+}
+
+/** How a matter reads in a cell and in the picker: the number and the name, together. */
+export function matterDisplay(matter: SheetMatter): string {
+  return matter.matterNumber === null ? matter.title : `${matter.matterNumber} · ${matter.title}`;
+}
+
+/** What the Matter column says for a row with none. It is a value, so the set filter can hold it. */
+export const NO_MATTER_TEXT = "No matter";
+
+/** Whether what somebody typed reaches this matter, by number or by name. Either finds it. */
+export function matterMatches(matter: SheetMatter, query: string): boolean {
+  const wanted = query.trim().toLowerCase();
+  if (wanted === "") return true;
+  return (
+    (matter.matterNumber ?? "").toLowerCase().includes(wanted) ||
+    matter.title.toLowerCase().includes(wanted)
+  );
+}
+
+/**
+ * The provisional code a matterless row is held under.
+ *
+ * It is minted on the sheet, at the instant the row exists, so a row a person is typing into has a
+ * name to be referred to by before it has anywhere to live. It is deliberately NOT an entry number:
+ * the firm's numbers are the server's to mint and it does not mint one yet, so this code says out
+ * loud that it is provisional rather than dressing itself as a record the firm holds.
+ */
+export function provisionalTimeCode(sequence: number): string {
+  return `TMP-${String(sequence).padStart(4, "0")}`;
+}
+
+/**
  * One row of the sheet.
  *
  * `entryIdentifier` is null for the moment between the row being created and the server answering
@@ -39,6 +87,15 @@ export interface SheetRow {
   /** Stable for the row's whole life on this screen, whatever the server later calls it. */
   readonly key: string;
   entryIdentifier: string | null;
+  /** Where the time belongs, or null for a row captured before that was known. */
+  matterId: string | null;
+  /**
+   * The code a row is held under while it is not on the firm's record, or null once it is.
+   *
+   * It survives the write rather than being cleared, so the Time Code cell can still say which
+   * provisional code this entry was held under while it was only on the sheet.
+   */
+  provisionalCode: string | null;
   workDate: string;
   description: string;
   /** Seconds as worked. The sheet types in seconds so a running timer has somewhere to land. */
@@ -68,6 +125,8 @@ export function sheetRowFromEntry(entry: TimeEntrySummary): SheetRow {
   return {
     key: entry.id,
     entryIdentifier: entry.id,
+    matterId: entry.matterId,
+    provisionalCode: null,
     workDate: entry.workDate,
     description: entry.narrative,
     workedSeconds: entry.rawDurationMinutes * 60,
@@ -88,6 +147,9 @@ export function sheetRowFromEntry(entry: TimeEntrySummary): SheetRow {
 export function newSheetRow(input: {
   readonly key: string;
   readonly workDate: string;
+  /** The matter the row starts on: the one the sheet was opened from, or null when it was not. */
+  readonly matterId: string | null;
+  readonly provisionalCode: string;
   readonly timekeeperUserId: string;
   readonly timekeeperName: string;
   readonly currency: string;
@@ -95,6 +157,8 @@ export function newSheetRow(input: {
   return {
     key: input.key,
     entryIdentifier: null,
+    matterId: input.matterId,
+    provisionalCode: input.provisionalCode,
     workDate: input.workDate,
     description: "",
     workedSeconds: 0,
@@ -114,11 +178,13 @@ export function newSheetRow(input: {
 /**
  * What a row still needs before anything downstream can bill it, in the reader's own words.
  *
- * The matter is not on this list: the sheet lives inside a matter, so every row it creates already
- * has one. A firm-wide sheet would add it here and nothing else about this would change.
+ * The matter leads the list because it is the one of the three that decides where the row can go at
+ * all: a row short of a description or a duration is an entry nobody has finished, and a row short
+ * of a matter is time nobody has filed.
  */
 export function missingFacts(row: SheetRow): readonly string[] {
   const missing: string[] = [];
+  if (row.matterId === null) missing.push("a matter");
   if (row.description.trim() === "") missing.push("a description");
   if (row.workedSeconds <= 0) missing.push("a duration");
   return missing;
@@ -183,13 +249,21 @@ export function parseDurationSeconds(text: string): number | null {
   return Number.isFinite(decimal) ? Math.round(decimal * 3600) : null;
 }
 
-/** Whether the search a person typed reaches this row. */
-export function searchMatches(row: SheetRow, query: string): boolean {
+/**
+ * Whether the search a person typed reaches this row.
+ *
+ * `matterText` is how the row's matter reads, handed in rather than held on the row, because the
+ * firm's matters are read separately from its time and the name a row shows must always be the
+ * current one. A row on a firm-wide sheet is found by its matter as readily as by its words.
+ */
+export function searchMatches(row: SheetRow, query: string, matterText = ""): boolean {
   const wanted = query.trim().toLowerCase();
   if (wanted === "") return true;
   return (
     row.description.toLowerCase().includes(wanted) ||
-    row.timekeeperName.toLowerCase().includes(wanted)
+    row.timekeeperName.toLowerCase().includes(wanted) ||
+    matterText.toLowerCase().includes(wanted) ||
+    (row.provisionalCode ?? "").toLowerCase().includes(wanted)
   );
 }
 
@@ -233,10 +307,18 @@ export function saveStateTitle(row: SheetRow): string {
     return row.saveFailure ?? "The last change was not saved. The record is unchanged.";
   }
   if (row.saveState === "unsaved") {
-    // The dependency is named rather than left to be guessed: a row sits here because the capture
-    // route will not take an entry that is short of a description or a duration, and a mark that
-    // says only "not written" reads as a save that failed.
-    return `Not written to the firm's record yet. Waiting on ${gapReason("incompleteCapture")}.`;
+    // Both halves are said, because they are two different facts and only one of them is the
+    // reader's to fix. What the ROW still needs comes first, under the provisional code it is held
+    // by meanwhile; then the product's own limit, so a mark that says only "not written" cannot
+    // read as a save that failed.
+    const missing = missingFacts(row);
+    const held =
+      row.provisionalCode === null ? "" : ` It is held here as ${row.provisionalCode} meanwhile.`;
+    const needs =
+      missing.length === 0
+        ? "Not written to the firm's record yet."
+        : `Not written to the firm's record yet: it needs ${missing.join(", ")}. It writes itself as soon as it has them.${held}`;
+    return `${needs} Writing a row before that waits on ${gapReason("incompleteCapture")}.`;
   }
   const missing = missingFacts(row);
   if (missing.length > 0) {

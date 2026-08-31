@@ -23,6 +23,19 @@
    * file declares the columns and renders the cells; it decides none of that behaviour, because a
    * behaviour gap between this table and any other table in the product would be a defect.
    *
+   * IT IS THE FIRM'S SHEET, AND IT OPENS FROM THE TOP BAR. Capture must never cost a person the
+   * place they were working, so the sheet lives in the chrome and opens over whatever is on screen.
+   * That makes the matter a per-row fact: two rows beside each other belong to two different
+   * matters, so the Matter column carries a picker over the firm's own matters and a row may
+   * legitimately carry none at all. Opening the sheet from a matter's Time tab changes two things
+   * and nothing else — which rows are shown, and what a new row's matter starts as. One sheet, two
+   * doors, never two components.
+   *
+   * A MATTERLESS ROW IS REAL AND SAYS WHAT IT IS. It holds typing, the timer runs on it, and it
+   * carries a provisional code minted on the sheet. What it cannot do is reach the firm's record,
+   * because capture takes a matter; so its mark says it is not written and names the matter as one
+   * of the things it still needs. Nothing is invented server-side to paper over that.
+   *
    * WHAT IS DESIGNED AND NOT YET SERVED STAYS ON SCREEN. The time code, the entered date and who
    * entered it, the rate, the attachments and the internal memo are all part of a row; the listing
    * and the write routes carry none of them. Each is rendered where it belongs, refused, saying
@@ -65,6 +78,8 @@
   import X from "@lucide/svelte/icons/x";
   import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import { autoSizeTextarea } from "./auto-size-textarea.ts";
+  import { FirmMatters } from "./firm-matters.svelte.ts";
+  import MatterPicker from "./matter-picker.svelte";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
   import { personInitials } from "./time-columns.ts";
@@ -78,9 +93,11 @@
   } from "./time-sheet-columns.ts";
   import { historyAnnouncement } from "./time-sheet-history.svelte.ts";
   import {
+    NO_MATTER_TEXT,
     clockText,
     isIncomplete,
     isWorkable,
+    matterDisplay,
     minutesFromSeconds,
     parseDurationSeconds,
     saveStateTitle,
@@ -102,20 +119,42 @@
   let {
     open = $bindable(false),
     entries,
-    matterId,
-    matterTitle,
+    matterFilter = null,
+    matterTitle = null,
     members,
     sessionUserId,
+    loading = false,
+    readFailure = null,
+    onRetryRead,
     onChanged,
   }: {
     open?: boolean;
-    /** The matter's entries as the listing answered them. The sheet seeds its rows from these. */
+    /** The entries as the listing answered them. The sheet seeds its rows from these. */
     entries: readonly TimeEntrySummary[];
-    matterId: string;
-    matterTitle: string;
+    /**
+     * The matter the sheet was opened from, or null for the firm-wide sheet in the top bar.
+     *
+     * It is what a new row's matter starts as, and what the caller's own read was narrowed by. It
+     * never removes the Matter column: the column is what makes this one surface rather than two.
+     */
+    matterFilter?: string | null;
+    /** That matter's title, where the sheet was opened from one. */
+    matterTitle?: string | null;
     members: readonly FirmMemberSummary[];
     sessionUserId: string | null;
-    /** Something was written; the matter's time wants re-reading. */
+    /**
+     * Whether the caller's read is still in flight.
+     *
+     * It is a separate fact from having no rows, and the two must not render alike: a sheet that
+     * showed its empty state while the read was going would tell a person their day was blank a
+     * moment before it filled in.
+     */
+    loading?: boolean;
+    /** Why the caller's read failed, when it did. Null while it is fine or still going. */
+    readFailure?: string | null;
+    /** Read again. Absent where the caller has nothing to retry. */
+    onRetryRead?: () => void;
+    /** Something was written; the time wants re-reading. */
     onChanged: () => void;
   } = $props();
 
@@ -130,14 +169,44 @@
 
   let announcement = $state<string | null>(null);
 
+  /*
+   * The firm's matters, read when the sheet first opens and not before: nothing is spent on them
+   * while the sheet is shut, and both doors into the sheet then hold the same list without either
+   * caller having to fetch it.
+   */
+  const firmMatters = new FirmMatters();
+  $effect(() => {
+    if (!open) return;
+    void firmMatters.load(fetch);
+  });
+
+  const matters = $derived(firmMatters.matters ?? []);
+
+  /**
+   * How a row's matter reads, in the four states it can honestly be in: on none, on one that has
+   * been read, on one while the reading is still going, and on one that was not in what was read.
+   * The identifier is never printed: it is not a name, and a reader cannot do anything with it.
+   */
+  function matterText(row: SheetRow): string {
+    if (row.matterId === null) return NO_MATTER_TEXT;
+    const matter = firmMatters.byIdentifier(row.matterId);
+    if (matter !== undefined) return matterDisplay(matter);
+    // The matter this sheet was opened from is already named by whoever opened it, so a row on it
+    // reads properly from the first frame and goes on doing so even if the firm's matters cannot
+    // be read at all.
+    if (row.matterId === matterFilter && matterTitle !== null) return matterTitle;
+    return firmMatters.matters === null ? "Reading the firm's matters" : "Not in the matters read";
+  }
+
   const store = new TimeSheetStore({
-    matterId,
-    matterTitle,
+    matterFilter: () => matterFilter,
     entries: () => entries,
     members: () => members,
     sessionUserId: () => sessionUserId,
     today: () => today,
-    onChanged,
+    // Called through rather than captured, so a caller that hands over a different callback is the
+    // one the store actually reaches. A captured prop is the one it was built with, for ever.
+    onChanged: () => onChanged(),
     announce: (message) => (announcement = message),
   });
 
@@ -186,6 +255,9 @@
     [TIME_SHEET_COLUMN_IDENTIFIERS.saveState]: 56,
     [TIME_SHEET_COLUMN_IDENTIFIERS.workDate]: 148,
     [TIME_SHEET_COLUMN_IDENTIFIERS.timeCode]: 130,
+    // The widest column on the sheet, because it holds a number and a name together and a matter
+    // truncated to its number is a matter the reader has to go and look up.
+    [TIME_SHEET_COLUMN_IDENTIFIERS.matter]: 320,
     [TIME_SHEET_COLUMN_IDENTIFIERS.dateEntered]: 134,
     [TIME_SHEET_COLUMN_IDENTIFIERS.description]: 300,
     [TIME_SHEET_COLUMN_IDENTIFIERS.worked]: 104,
@@ -223,10 +295,12 @@
       (row) => scopeHolds(scope, row.workDate) || (isIncomplete(row) && row.workDate < scope.from),
     ),
   );
-  const rowsSearched = $derived(rowsInScope.filter((row) => searchMatches(row, searchText)));
+  const rowsSearched = $derived(
+    rowsInScope.filter((row) => searchMatches(row, searchText, matterText(row))),
+  );
 
   const grid = DataTable.createDataTableGrid<SheetRow>({
-    columns: () => timeSheetColumns(currency, liveSeconds),
+    columns: () => timeSheetColumns(currency, liveSeconds, matterText),
     rows: () => rowsSearched,
     rowKey: (row) => row.key,
     initialSort: { columnId: TIME_SHEET_COLUMN_IDENTIFIERS.workDate, direction: "descending" },
@@ -266,6 +340,19 @@
     // row is type the description, and making them find the cell first is the whole cost of the row.
     focusDescriptionOf = row.key;
   }
+
+  /*
+   * WHICH MATTER THE RECORD WINDOW OPENS ON. An existing entry's own, because on a firm-wide sheet
+   * the row beside it may be on a different one; a brand-new entry starts on the matter the sheet
+   * was opened from, which is nothing at all when it was opened from the top bar, and the window
+   * then asks for one itself.
+   */
+  const recordWindowMatterId = $derived(recordWindowEntry?.matterId ?? matterFilter);
+  const recordWindowMatterTitle = $derived.by(() => {
+    const matter = firmMatters.byIdentifier(recordWindowMatterId);
+    if (matter !== undefined) return matterDisplay(matter);
+    return matterTitle;
+  });
 
   function openRecord(row: SheetRow): void {
     recordWindowEntry = entries.find((entry) => entry.id === row.entryIdentifier) ?? null;
@@ -441,6 +528,53 @@
   </div>
 {/snippet}
 
+{#snippet matterCell(row: SheetRow)}
+  {@const refusal = editRefusal(row)}
+  {#if row.entryIdentifier === null}
+    <!-- A row that is not on the record yet: the matter is still the reader's to choose, and
+         choosing it is what lets the row be written at all. -->
+    <MatterPicker
+      matters={matters}
+      value={row.matterId}
+      capped={firmMatters.capped}
+      disabled={refusal !== undefined}
+      title={refusal ??
+        "Where this time belongs. Type the number or the name; either finds it. A row with no matter stays on the sheet until one is set."}
+      onpick={(matterId) => store.setMatter(row.key, matterId)}
+    />
+  {:else}
+    <!-- An entry the firm holds. Nothing in the contract moves one between matters, so the cell
+         names the matter it is on and says what moving it waits on rather than offering a control
+         that would change the screen and not the record. -->
+    <span
+      class="block truncate"
+      title="{matterText(row)}. Moving an entry to another matter waits on {gapReason('matter')}."
+    >
+      {matterText(row)}
+    </span>
+  {/if}
+{/snippet}
+
+{#snippet timeCodeCell(row: SheetRow)}
+  {#if row.entryIdentifier === null && row.provisionalCode !== null}
+    <span
+      class="whitespace-nowrap tabular-nums text-text-muted"
+      title="A provisional code, minted on this sheet when the row was created. The firm's own entry number is drawn when the row reaches the record, and {gapReason(
+        'entryNumber',
+      )} is what that waits on."
+    >
+      {row.provisionalCode}
+    </span>
+  {:else}
+    <span
+      class="text-text-subtle"
+      title="{gapCellTitle('entryNumber')}{row.provisionalCode === null
+        ? ''
+        : ` It was held on this sheet as ${row.provisionalCode}.`}">&mdash;</span
+    >
+  {/if}
+{/snippet}
+
 {#snippet durationCell(row: SheetRow)}
   {@const refusal = editRefusal(row)}
   {@const running = store.timerRowKey === row.key && store.timerRunning}
@@ -538,6 +672,10 @@
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<SheetRow>)}
   {#if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.saveState}
     {@render saveMark(row)}
+  {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.timeCode}
+    {@render timeCodeCell(row)}
+  {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.matter}
+    {@render matterCell(row)}
   {:else if isUnservedSheetColumn(column.id)}
     {@render unservedCell(column.id)}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.workDate}
@@ -648,7 +786,10 @@
     <div class="flex flex-wrap items-center gap-8 border-b border-border-default px-24 py-16">
       <div class="flex min-w-0 flex-col gap-4">
         <Dialog.Title>Time Sheet</Dialog.Title>
-        <Dialog.Description>{matterTitle}</Dialog.Description>
+        <!-- What the sheet is showing, which is the firm's time unless a matter narrowed it. -->
+        <Dialog.Description>
+          {matterTitle ?? "Every matter"}
+        </Dialog.Description>
       </div>
 
       <Popover.Root>
@@ -849,6 +990,29 @@
           <Alert.Description>{store.timerFailure}</Alert.Description>
         </Alert.Root>
       {/if}
+      {#if readFailure !== null}
+        <!-- The read failed; the record itself is untouched by that, and the sheet says so rather
+             than showing an empty table that reads as a day with no work in it. -->
+        <Alert.Root variant="danger">
+          <Alert.Title>Time Could Not Be Read</Alert.Title>
+          <Alert.Description>
+            {readFailure} The record itself is unaffected: nothing was changed by this failure.
+          </Alert.Description>
+        </Alert.Root>
+        {#if onRetryRead !== undefined}
+          <Button class="self-start" variant="secondary" onclick={onRetryRead}>Retry</Button>
+        {/if}
+      {/if}
+      {#if firmMatters.failure !== null}
+        <!-- The sheet still opens and still holds what is typed into it; what it cannot do is file
+             a row, and that is what this says rather than leaving an empty picker to be puzzled at. -->
+        <Alert.Root variant="danger">
+          <Alert.Title>The Firm's Matters</Alert.Title>
+          <Alert.Description>
+            {firmMatters.failure} Rows already on the record are unaffected.
+          </Alert.Description>
+        </Alert.Root>
+      {/if}
       {#if announcement !== null}
         <Alert.Root variant="info">
           <Alert.Description>{announcement}</Alert.Description>
@@ -861,8 +1025,11 @@
         <DataTable.Grid
           {grid}
           {cell}
+          {loading}
           class="h-full"
-          caption="Time recorded on this matter"
+          caption={matterTitle === null
+            ? "Time recorded across the firm's matters"
+            : "Time recorded on this matter"}
           empty={emptySheet}
         />
       </div>
@@ -883,8 +1050,10 @@
   bind:open={recordWindowOpen}
   bind:editing={recordWindowEditing}
   entry={recordWindowEntry}
-  {matterId}
-  {matterTitle}
+  matterId={recordWindowMatterId}
+  matterTitle={recordWindowMatterTitle}
+  {matters}
+  mattersCapped={firmMatters.capped}
   {members}
   {sessionUserId}
   canWorkDraft={(entry) =>

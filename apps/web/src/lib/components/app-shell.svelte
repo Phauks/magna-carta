@@ -17,9 +17,10 @@
    * cluster at the rail's foot (tooltips carry their labels), set apart from Settings — which
    * stays a normal labelled destination row, because it is a place you navigate to.
    *
-   * Top-bar seams stay seams: +New and the billable timer render nothing until their slices
-   * ship — the Actions region reserves their geometry; the shell never fakes function. The
-   * notification bell IS a real (if empty) surface — its honesty is the empty state, not a badge.
+   * Top-bar seams stay seams: +New renders nothing until its slice ships — the Actions region
+   * reserves its geometry; the shell never fakes function. The notification bell IS a real (if
+   * empty) surface — its honesty is the empty state, not a badge. The Time Keeper is live: it
+   * reads the firm's timer, and opens the firm-wide Time Sheet over whatever is on screen.
    */
   import { page } from "$app/state";
   import { installCanvasScrollRestoration } from "$lib/navigation/canvas-scroll-restoration.ts";
@@ -34,8 +35,8 @@
   import Lock from "@lucide/svelte/icons/lock";
   import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
   import Star from "@lucide/svelte/icons/star";
-  import Timer from "@lucide/svelte/icons/timer";
   import CommandPalette from "$lib/components/command-palette.svelte";
+  import TimeKeeperChip from "$lib/time/time-keeper-chip.svelte";
   import VersionChip from "$lib/versions/version-chip.svelte";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import MaturityDot from "$lib/maturity/maturity-dot.svelte";
@@ -479,29 +480,13 @@
             </Popover.Content>
           </Popover.Root>
           <!-- The Time Keeper — a WIDGET, not an icon button (owner-corrected): the running-
-               timer chip from the approved mockups (design-lab/home.html: a hairline chip with
-               a status dot, tabular elapsed readout, and the active matter). Its SHAPE ships
-               now so the chrome's layout is settled; this is the resting anatomy — glyph plus
-               a muted 0:00 placeholder, Soon treatment (aria-disabled with no action, NOT the
-               disabled attribute, which would swallow the hover that carries the tooltip's
-               truth).
-
-               THE LIGHT-UP CONTRACT (arrives with the Time surface's UI; the time-tracking
-               backend already exists): a live elapsed readout while a timer runs, and click
-               opens the timer panel — a popover with the active matter, description, and
-               start/stop/switch controls. -->
-          <Tooltip.Root>
-            <Tooltip.Trigger
-              class="mc-top-bar-icon-button cursor-not-allowed gap-8 border text-xs tabular-nums"
-              style="border-color: var(--mc-chrome-border)"
-              aria-label="Time Keeper — soon"
-              aria-disabled="true"
-            >
-              <Timer class="size-16" aria-hidden="true" />
-              <span>0:00</span>
-            </Tooltip.Trigger>
-            <Tooltip.Content>Time Keeper — soon</Tooltip.Content>
-          </Tooltip.Root>
+               timer chip from the approved mockups, a hairline chip with a tabular elapsed
+               readout. It is live: the chip reads the firm's timer, and pressing it opens the
+               Time Sheet over whatever is on screen, firm-wide, because capture must never cost
+               a person the place they were working. Its anatomy and every read it makes belong
+               to the Time surface ($lib/time/time-keeper-chip.svelte); the shell seats it and
+               does nothing else with it. -->
+          <TimeKeeperChip />
           {#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.developerToolkitInHeader}
             <!-- The developer console (modular tooling; motion tuning first). The dynamic import
                  inside a DEV-gated branch keeps every byte of it out of production bundles.
