@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
 import { documentKeyFromHost } from "./document-routing.ts";
 
@@ -29,6 +30,12 @@ export { ContainerProxy } from "@cloudflare/containers";
 
 export default {
   async fetch(request: Request, env: Bindings): Promise<Response> {
+    // The build-identity read the app worker's aggregate version endpoint probes over EDIT_SERVICE.
+    // This worker is also publicly routable (the browser loads the editor from it), so the answer —
+    // a build commit and two timestamps — is readable without a session; that identity is already
+    // public on the sign-in screen's version chip, so the route discloses nothing a visitor cannot
+    // see there. Checked before host routing: the probe carries no per-document host.
+    if (isVersionRequest(request)) return versionResponse();
     const key = documentKeyFromHost(request.headers.get("host") ?? "");
     if (key === null) return new Response("Not Found", { status: 404 });
     // Forwards the request verbatim, including the WebSocket upgrade, to the per-document container.

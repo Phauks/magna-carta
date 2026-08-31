@@ -40,7 +40,8 @@ export const SIGNED_OUT_ESTATE_NOTICE =
 
 export interface ServiceVersionRow {
   id: string;
-  label: string;
+  /** The Cloudflare Worker the row reports on — the name someone would open in the dashboard. */
+  service: string;
   state: ServiceVersionState;
   commit: string | null;
   commitTime: string | null;
@@ -147,10 +148,10 @@ function ageInWords(ageMilliseconds: number): string {
 
 /**
  * How old the service observation is, in words — or null while it is fresh enough that an age
- * line would be noise. The API caches the aggregate briefly, so an open panel can be reading an
- * observation up to a minute old; past ten seconds the panel says so instead of implying "now".
- * A manual re-ask that lands inside that cache window gets the same observation back, and this
- * line is what keeps that honest: the age goes on climbing rather than resetting to "now".
+ * line would be noise. The API caches the aggregate briefly, so a panel opened inside that window
+ * can be reading an observation up to a minute old; past ten seconds the panel says so instead of
+ * implying "now". A manual Refresh asks for a fresh probe (fresh=true skips the cache), so its
+ * answer starts this clock over — the line exists for the cached automatic reads.
  */
 export function describeObservationAge(
   observedAtIso: string,
@@ -209,40 +210,13 @@ export function formatVersionTimestamp(iso: string | null): string | null {
 }
 
 /*
- * THE DEPLOYED UNIT EACH ROW REPORTS ON.
- *
- * A row labelled by what a service DOES ("Malware Scan") does not tell a reader which project to
- * open when it says "Not reporting". The identity does, so the identity leads and the description
- * follows it.
- *
- * Every name below is read off something that deploys it, never guessed:
- * - the eight service bindings in apps/api-worker/wrangler.jsonc (`services[].service`), which is
- *   the script name Cloudflare resolves the binding to;
- * - `magna-carta-search`, which docs/conventions/operations.md names as the project that will hold
- *   the search index Worker. It is not a connected project and `SEARCH_SERVICE` is not in the
- *   bindings array, so that row reads "Not deployed" and the name is what will exist, stated as
- *   the target rather than as a running thing.
- *
- * An id with no entry here keeps its description as the row heading rather than borrowing a name
- * from a neighbour: a service added to the API's roster and not to this map is unnamed, not
- * misnamed.
+ * NAMING RULE: every deployment row is headed by the Cloudflare Worker it reports on — the name
+ * someone would open in the dashboard — and by nothing else. The names arrive from the API's own
+ * roster (each row's `service` field), which reads them off the wrangler configs that deploy them,
+ * so this file no longer keeps a map of its own and no row carries an invented product name. The
+ * one row that is not a Worker is the build line: the bundle this browser is running, named for
+ * what it is rather than for the Worker that happened to serve it.
  */
-const DEPLOYED_UNIT_NAMES: Readonly<Record<string, string>> = {
-  scan: "magna-carta-scan",
-  bundle: "magna-carta-bundle",
-  convert: "magna-carta-convert",
-  fileRepair: "magna-carta-file-repair",
-  recovery: "magna-carta-recovery",
-  ocr: "magna-carta-ocr",
-  sign: "magna-carta-sign",
-  discovery: "magna-carta-discovery",
-  search: "magna-carta-search",
-};
-
-/** The Cloudflare Worker a service row reports on, or null when this build has no name for it. */
-export function deployedUnitName(serviceId: string): string | null {
-  return DEPLOYED_UNIT_NAMES[serviceId] ?? null;
-}
 
 /**
  * The Worker that serves both the API and this page. `apps/api-worker/wrangler.jsonc` declares
@@ -251,40 +225,44 @@ export function deployedUnitName(serviceId: string): string | null {
  */
 export const API_WORKER_UNIT_NAME = "magna-carta";
 
-/** What the web row reports on: the bundle the browser is running right now. */
-export const WEB_APP_ROW_DESCRIPTION = "Web app bundle this page loaded";
-
-/** What the API row reports on: the Worker that answered the read a moment ago. */
-export const API_ROW_DESCRIPTION = "API Worker answering now";
+/**
+ * The build line's name. The old panel headed this row "magna-carta", which was the Worker that
+ * SERVED the bundle, not the thing the row reports on — the bundle the browser is running right
+ * now, which can outlive the deployment that served it by however long the tab stays open.
+ */
+export const PAGE_BUILD_ROW_NAME = "This page";
 
 /**
- * The architectural fact the two rows above are otherwise silent about, and the one that cost the
- * owner a confused deploy watch: the SPA has its own Workers Builds project (`magna-carta-web`, an
- * assets-only second door to the same files), and that project going green changes nothing about
- * what this site serves. The bytes a visitor gets come from the API Worker's own assets, so they
- * change on the API Worker's deploy and on nothing else.
+ * The architectural fact the deployment list is otherwise silent about, and the one that cost the
+ * owner a confused deploy watch: `magna-carta-web` (the assets-only SPA Worker) is a second door
+ * to the same files, and that project going green changes nothing about what this site serves.
+ * The bytes a visitor gets come from the API Worker's own assets, so they change on the API
+ * Worker's deploy and on nothing else.
  */
 export const WEB_APP_SHIPS_INSIDE_API_NOTICE =
-  "The web app is bundled into the API Worker: a new bundle reaches this site when " +
-  "magna-carta deploys, not when magna-carta-web builds.";
+  "This page ships inside magna-carta: a new bundle reaches this site when magna-carta deploys, " +
+  "not when magna-carta-web builds.";
 
 /**
- * What a difference between the two commits actually means. It is not two deployables that have
- * drifted apart, because there is only one: the bundle and the Worker ship together. So a
- * difference says the page in this tab and the Worker answering it were served by two different
- * deployments, and a reload is what settles that: it takes whatever the deployment answering now
- * actually serves. The advice is deliberately direction-free, because two commit stamps cannot be
- * put in order.
+ * What a difference between the page's commit and the API's commit actually means. It is not two
+ * deployables that have drifted apart, because there is only one: the bundle and the Worker ship
+ * together. So a difference says the page in this tab and the Worker answering it were served by
+ * two different deployments, and a reload is what settles that: it takes whatever the deployment
+ * answering now actually serves. The advice is deliberately direction-free, because two commit
+ * stamps cannot be put in order.
  */
 export const BUILD_SKEW_EXPLANATION =
   "This page and the API answering it come from different deployments of magna-carta. Reload to " +
   "line the page up with the deployment answering now.";
 
-/** The line under the Services heading when the deployment is wired to no service at all. */
-export const NO_SERVICES_NOTICE = "This deployment is not wired to any backend service.";
+/**
+ * The line the update poller earns: unlike the skew notice, this one has a direction — the app's
+ * own version poll saw a bundle newer than the one this tab loaded, so a reload moves forward.
+ */
+export const UPDATE_AVAILABLE_EXPLANATION = "A newer deployment is live. Reload to pick it up.";
 
-/** Joins a row's detail segments, dropping the ones that were not known. */
-export function joinDetailSegments(segments: readonly (string | null)[]): string | null {
-  const present = segments.filter((segment): segment is string => segment !== null);
-  return present.length === 0 ? null : present.join(" · ");
-}
+/** The Reload control's one label, shared by the skew and update callouts. */
+export const RELOAD_ACTION_LABEL = "Reload";
+
+/** The line under the Deployment heading when the read reports no sibling worker at all. */
+export const NO_SERVICES_NOTICE = "This deployment reports no sibling worker.";
