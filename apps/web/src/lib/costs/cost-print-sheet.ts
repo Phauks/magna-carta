@@ -9,9 +9,9 @@
  * The internal memo is not on this sheet and is not even named on it. That is not a filter applied
  * here — the record this surface holds carries no memo at all yet.
  *
- * A FACT NOBODY SERVES IS STILL A FACT THE SHEET NAMES. The entered date, the recorder and the
- * invoice a billed cost rides all belong on a printed cost, so the sheet states the gap rather than
- * silently printing a shorter record than the one that exists.
+ * A FACT NOBODY SERVES IS STILL A FACT THE SHEET NAMES. The entered date, the recorder, the files
+ * attached and the invoice a billed cost rides all belong on a printed cost, so the sheet states
+ * the gap rather than silently printing a shorter record than the one that exists.
  */
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import { statusEntry } from "@magna-carta/design-system/status-register";
@@ -19,7 +19,6 @@ import { costStatusKey, type CostSummary } from "$lib/matters/cost-api.ts";
 import { expenseCodeText, type ExpenseCodeLabels } from "./cost-columns.ts";
 import { COST_LEDGER_GAPS } from "./cost-gaps.ts";
 import {
-  CLASS_LABELS,
   billingSentence,
   costAmount,
   payeeText,
@@ -49,7 +48,6 @@ const NOT_SERVED = (gap: keyof typeof COST_LEDGER_GAPS): string =>
 /** What one cost's sheet says. */
 export function costEntrySheet(cost: CostSummary, context: CostSheetContext): PrintSheetDocument {
   const expenseCode = expenseCodeText(cost, context.expenseCodeLabels);
-  const receipt = cost.disbursementClass === "soft" ? "— (soft cost)" : NOT_SERVED("receipt");
   return {
     heading: "Cost Entry",
     // The entry number is the sheet's reference and its only home on the page. Until the record
@@ -76,10 +74,9 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
         kind: "fields",
         fields: [
           { label: "Amount", value: context.money(costAmount(cost)) },
-          { label: "Class", value: CLASS_LABELS[cost.disbursementClass] },
           { label: "Billing", value: billingSentence(cost.billable) },
           { label: "Expense Code", value: expenseCode === "" ? "—" : expenseCode },
-          { label: "Receipt", value: receipt },
+          { label: "Attachments", value: NOT_SERVED("attachments") },
           {
             label: "Source",
             value: context.source === undefined ? "—" : sourceLabel(context.source),
@@ -90,7 +87,7 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
           },
         ],
       },
-      { id: "info", kind: "text", title: "Info", text: cost.description },
+      { id: "description", kind: "text", title: "Description", text: cost.description },
       { id: "history", kind: "history", title: "History", events: [] },
     ],
     footer: `Magna Carta · printed ${context.printedAt}`,

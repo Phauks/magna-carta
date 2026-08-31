@@ -12,7 +12,10 @@
    *
    * THE PANEL REACHES THE RECORD; THE RECORD WINDOW HOLDS IT. Open raises the product's one record
    * window, where the fields, the tabs and the print control live. What stays here are the verbs
-   * that act on a cost without opening it: sending a draft to review, and the receipt.
+   * that act on a cost without opening it.
+   *
+   * THE REVIEW VOCABULARY IS ABSENT, NOT DISABLED, WHERE THE FIRM DOES NOT RUN REVIEW. Nothing here
+   * solicits a submission when the gate is off, and the chain is not drawn at all.
    */
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -29,12 +32,10 @@
   import Receipt from "@lucide/svelte/icons/receipt";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
   import { expenseCodeText, type ExpenseCodeLabels } from "./cost-columns.ts";
-  import { COST_LEDGER_GAPS, gapCellTitle, gapReason } from "./cost-gaps.ts";
+  import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { matterCostSummary, selectionSummary } from "./cost-figures.ts";
   import type { CostLedgerEntry } from "./cost-operations.ts";
   import {
-    CLASS_LABELS,
-    CLASS_MEANINGS,
     GONE_PAYEE_NOTE,
     billingSentence,
     payeeState,
@@ -138,31 +139,29 @@
           <Maximize2 class="size-16" aria-hidden="true" />
           Open
         </Button>
-        <Button
-          variant="secondary"
-          disabled={sole.status !== "draft"}
-          title={sole.status === "draft"
-            ? "Send this draft to review. It locks until it is approved or kicked back."
-            : statusEntry(costStatusKey(sole.status)).meaning}
-          onclick={() => onSubmit([sole])}
-        >
-          <Send class="size-16" aria-hidden="true" />
-          Submit for Review
-        </Button>
+        {#if REVIEW_GATE_ENABLED}
+          <Button
+            variant="secondary"
+            disabled={sole.status !== "draft"}
+            title={sole.status === "draft"
+              ? "Send this draft to review. It locks until it is approved or kicked back."
+              : statusEntry(costStatusKey(sole.status)).meaning}
+            onclick={() => onSubmit([sole])}
+          >
+            <Send class="size-16" aria-hidden="true" />
+            Submit for Review
+          </Button>
+        {/if}
       </div>
 
-      {#if sole.disbursementClass === "soft"}
-        <p class="text-xs text-text-muted">{CLASS_MEANINGS.soft}</p>
-      {:else}
-        <SoonAffordance reason={gapReason("receiptPicker")} reasonPlacement="line">
-          {#snippet control(soon)}
-            <Button variant="secondary" {...soon}>
-              <Paperclip class="size-16" aria-hidden="true" />
-              Attach Receipt
-            </Button>
-          {/snippet}
-        </SoonAffordance>
-      {/if}
+      <SoonAffordance reason={gapReason("attachmentPicker")} reasonPlacement="line">
+        {#snippet control(soon)}
+          <Button variant="secondary" {...soon}>
+            <Paperclip class="size-16" aria-hidden="true" />
+            Attach File
+          </Button>
+        {/snippet}
+      </SoonAffordance>
 
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
         <h3 class="text-xs text-text-subtle uppercase">Standing</h3>
@@ -172,19 +171,21 @@
           </Badge>
         </div>
         {#if chainStage !== null}
-          <RecordChain current={chainStage} reviewGate />
+          <RecordChain current={chainStage} reviewGate={REVIEW_GATE_ENABLED} />
         {:else}
           <p class="text-xs text-text-muted">
             Frozen. A void cost stays on the record as what was withdrawn and counts toward nothing:
-            a withdrawn cost was never advanced.
+            a withdrawn cost was never charged.
           </p>
         {/if}
+        <!-- A billed cost is linkable to its bill, and the link is the invoice reference the
+             listing does not yet carry. -->
         {#if sole.status === "billed"}
-          <SoonAffordance reason={gapReason("billing")} reasonPlacement="line">
+          <SoonAffordance reason={gapReason("invoice")} reasonPlacement="line">
             {#snippet control(soon)}
               <Button variant="secondary" size="sm" {...soon}>
                 <Receipt class="size-16" aria-hidden="true" />
-                Open in Billing
+                Open the Invoice
               </Button>
             {/snippet}
           </SoonAffordance>
@@ -194,22 +195,9 @@
       <dl class="flex flex-col gap-4 border-t border-border-default pt-12 text-sm">
         {@render fact("Date Incurred", formatDate(sole.incurredDate))}
         {@render fact("Date Entered", "Not served", gapCellTitle("dateEntered"))}
-        {@render fact(
-          "Payee",
-          payeeText(sole),
-          payee?.kind === "gone"
-            ? GONE_PAYEE_NOTE
-            : payee?.kind === "soft"
-              ? CLASS_MEANINGS.soft
-              : undefined,
-        )}
+        {@render fact("Payee", payeeText(sole), payee?.kind === "gone" ? GONE_PAYEE_NOTE : undefined)}
         {@render fact("Entered By", "Not served", gapCellTitle("enteredBy"))}
         {@render fact("Amount", money(sole.amountMinor))}
-        {@render fact(
-          "Class",
-          CLASS_LABELS[sole.disbursementClass],
-          CLASS_MEANINGS[sole.disbursementClass],
-        )}
         {@render fact("Billing", billingSentence(sole.billable))}
         {@render fact(
           "Expense Code",
@@ -217,11 +205,7 @@
             ? "—"
             : expenseCodeText(sole, expenseCodeLabels),
         )}
-        {@render fact(
-          "Receipt",
-          sole.disbursementClass === "soft" ? "—" : "Not served",
-          sole.disbursementClass === "soft" ? CLASS_MEANINGS.soft : gapCellTitle("receipt"),
-        )}
+        {@render fact("Attachments", "Not served", gapCellTitle("attachments"))}
         {@render fact("Source", sourceLabel(sole.source))}
       </dl>
 
@@ -252,34 +236,36 @@
       </Button>
     </header>
     <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
-      <div class="flex flex-wrap items-center gap-8">
-        <Button
-          variant="secondary"
-          disabled={submittable.length === 0}
-          title={submittable.length === 0
-            ? "No selected cost is a draft this account can submit."
-            : `Send the ${submittable.length} selected ${submittable.length === 1 ? "draft" : "drafts"} to review together.`}
-          onclick={() => onSubmit(submittable)}
-        >
-          <Send class="size-16" aria-hidden="true" />
-          Submit {submittable.length === 0 ? "" : `${submittable.length} `}{submittable.length === 1
-            ? "Draft"
-            : "Drafts"}
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={approvable.length === 0}
-          title={approvable.length === 0
-            ? "No selected cost is waiting for review."
-            : `Approve the ${approvable.length} selected submitted ${approvable.length === 1 ? "cost" : "costs"}.`}
-          onclick={() => onApprove(approvable)}
-        >
-          <Stamp class="size-16" aria-hidden="true" />
-          Approve {approvable.length === 0 ? "" : `${approvable.length} `}{approvable.length === 1
-            ? "Cost"
-            : "Costs"}
-        </Button>
-      </div>
+      {#if REVIEW_GATE_ENABLED}
+        <div class="flex flex-wrap items-center gap-8">
+          <Button
+            variant="secondary"
+            disabled={submittable.length === 0}
+            title={submittable.length === 0
+              ? "No selected cost is a draft this account can submit."
+              : `Send the ${submittable.length} selected ${submittable.length === 1 ? "draft" : "drafts"} to review together.`}
+            onclick={() => onSubmit(submittable)}
+          >
+            <Send class="size-16" aria-hidden="true" />
+            Submit {submittable.length === 0
+              ? ""
+              : `${submittable.length} `}{submittable.length === 1 ? "Draft" : "Drafts"}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={approvable.length === 0}
+            title={approvable.length === 0
+              ? "No selected cost is waiting for review."
+              : `Approve the ${approvable.length} selected submitted ${approvable.length === 1 ? "cost" : "costs"}.`}
+            onclick={() => onApprove(approvable)}
+          >
+            <Stamp class="size-16" aria-hidden="true" />
+            Approve {approvable.length === 0 ? "" : `${approvable.length} `}{approvable.length === 1
+              ? "Cost"
+              : "Costs"}
+          </Button>
+        </div>
+      {/if}
       <dl class="flex flex-col gap-4 text-sm">
         {@render fact(
           "Amount",
@@ -287,7 +273,7 @@
             ? `${money(selection.amountMinor)} (voids excluded)`
             : money(selection.amountMinor),
         )}
-        {@render fact("Recoverable", money(selection.recoverableMinor))}
+        {@render fact("Billable", money(selection.billableMinor))}
       </dl>
     </div>
   {:else}
@@ -303,16 +289,7 @@
             ? String(summary.liveCount)
             : `${String(summary.liveCount)} (${String(summary.voidCount)} void)`,
         )}
-        {@render fact(
-          "Hard (paid out)",
-          money(summary.hardMinor),
-          CLASS_MEANINGS.hard,
-        )}
-        {@render fact(
-          "Soft (charged back)",
-          money(summary.softMinor),
-          CLASS_MEANINGS.soft,
-        )}
+        {@render fact("Recorded", money(summary.recordedMinor))}
         {@render fact("Absorbed", money(summary.absorbedMinor))}
       </dl>
       {#if summary.largestPayees.length > 0}

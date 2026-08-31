@@ -17,8 +17,32 @@
  * Every call goes through the one transport seam, so a dead network is an outcome rather than a
  * thrown error, and the surface can say something true about it.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
+
+/**
+ * Every entry the firm holds, newest first, in every status.
+ *
+ * The Time Sheet opens from the top bar over whatever a person was doing, so what it reads is the
+ * firm's time and not one matter's: `matterId` is optional on the listing, and omitting it is what
+ * makes the surface firm-wide rather than a per-matter surface with a wider title. A sheet opened
+ * FROM a matter passes the matter and gets the same shape back, so one surface serves both doors.
+ *
+ * The status is deliberately not passed, on the same rule the per-matter read follows: a record is
+ * all of it, and narrowing to one status is a different question asked by a different caller.
+ */
+export function listTimeEntries(
+  fetchImpl: typeof fetch,
+  query: { readonly matterId?: string | null; readonly cursor?: string } = {},
+): Promise<ApiOutcome<Page<TimeEntrySummary>>> {
+  const parameters = new URLSearchParams();
+  if (query.matterId !== undefined && query.matterId !== null) {
+    parameters.set("matterId", query.matterId);
+  }
+  if (query.cursor !== undefined) parameters.set("cursor", query.cursor);
+  const suffix = parameters.toString();
+  return requestJson(fetchImpl, `/api/v1/time-entries${suffix === "" ? "" : `?${suffix}`}`);
+}
 
 /** What the create route answers: the identity of the entry it wrote. */
 export interface TimeEntryAcknowledgement {
@@ -218,10 +242,17 @@ export function readTimer(fetchImpl: typeof fetch): Promise<ApiOutcome<TimerStat
   return requestJson(fetchImpl, "/api/v1/timer/read");
 }
 
-/** Start the timer, bound to a matter and carrying the words the work is being recorded under. */
+/**
+ * Start the timer, carrying the words the work is being recorded under and the matter it is for.
+ *
+ * The matter is NULLABLE on the contract, and that is load-bearing rather than an oversight: a
+ * person starts a timer before they have decided where the time belongs, and the timer takes it. An
+ * unbound run cannot become an entry of its own — the stop-and-commit refuses it — so whoever
+ * started one has to say where the time went before it reaches the record.
+ */
 export function startTimer(
   fetchImpl: typeof fetch,
-  input: { readonly matterId: string; readonly narrative: string },
+  input: { readonly matterId: string | null; readonly narrative: string },
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ liveRunId: string; startedAt: string }>> {
   return requestJson(fetchImpl, "/api/v1/timer/start", {

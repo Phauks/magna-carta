@@ -2,11 +2,11 @@
  * The fee agreement, in words — what a matter's billing arrangement is called, and what its terms
  * actually say.
  *
- * THE AGREEMENT IS THE CAUSE AND THE CHARGES ARE THE EFFECT. A fee derives from the arrangement in
- * force on the day the work was done, and fee value materializes only as invoice lines. So this
- * module states what the arrangement IS and never computes a fee from it: there is no fee
- * work-in-progress store behind the platform, and a surface that invented one would be showing a
- * figure nothing agrees with.
+ * THE ARRANGEMENT IS HOW THE MATTER IS BILLED, NOT WHERE ITS FEES COME FROM. A fee is a flat charge
+ * somebody records by hand — its own dated draft on the Fees ledger — so nothing here computes one.
+ * What the arrangement decides is how the matter's work reaches a bill at all: hourly time at its
+ * rates, a flat fee, a share of a recovery, an evergreen retainer. This module states what the
+ * arrangement IS and stops there.
  *
  * AN AMENDMENT IS A NEW VERSION, NEVER AN EDIT. Every bill records the version it was composed
  * under, so the version it was composed under has to still exist. The history is append-only and

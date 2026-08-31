@@ -34,14 +34,22 @@ import {
 } from "./matter-assignments-api.ts";
 import type { CreateMatterRequest } from "./matters-api.ts";
 
-/** Which of the two starting states a matter is opened into. Closed is somewhere a matter arrives. */
+/**
+ * Which starting state a matter is created in.
+ *
+ * Two, not three, and the missing one is the contract's rather than the design's: the create
+ * operation accepts only prospective and open. Closed is a real lifecycle state a firm does start
+ * a file in — recording a matter it handled before it kept its record here — so the intake renders
+ * it, disabled, naming what it waits on (matter-status.ts holds that sentence). It cannot reach
+ * this type until the operation accepts it.
+ */
 export type StartingStatus = "open" | "prospective";
 
 /** The seats a member can hold on a matter. One person holds at most one of them. */
 export type TeamSeat = "responsible" | "assignedAttorney" | "supportStaff";
 
 /** The tabbed data sections on the intake's entry side, in the order the work is actually done. */
-export type IntakeSectionIdentifier = "matter" | "client" | "people";
+export type IntakeSectionIdentifier = "matter" | "people";
 
 export interface IntakeSection {
   readonly id: IntakeSectionIdentifier;
@@ -50,17 +58,21 @@ export interface IntakeSection {
 }
 
 /**
- * The sections, fixed here so the intake cannot quietly grow a fourth.
+ * The tabbed sections, fixed here so the intake cannot quietly grow a third.
  *
- * These are the three things a firm RECORDS when it takes on work: what the work is, who it is for,
- * and who inside the firm carries it. Clearance — the conflict check and the money that changes
- * hands before the file is worked — is deliberately NOT one of them: it is not data being entered,
- * it is the gate the entry has to pass, so it stays visible beside the tabs rather than hiding
- * behind one of them. A gate a person has to go and look for is a gate that gets skipped.
+ * WHAT IS BEHIND A TAB AND WHAT IS NOT. The two tabs hold what the firm records about ITS OWN side
+ * of the work: what the matter is, and who inside the firm carries it. Those two genuinely take
+ * turns — a person changing the responsible attorney is not reading the description — so they
+ * segment.
+ *
+ * The CLIENT does not, and neither does CLEARANCE. Who the work is for is the fact every other
+ * answer on this screen is about, and the conflict check is the gate all of it has to pass; both
+ * therefore live on the right-hand side, in view whichever tab is open. A client behind a tab is a
+ * client somebody types the matter's caption without, and a gate behind a tab is a gate somebody
+ * has to remember to go and look at.
  */
 export const INTAKE_SECTIONS: readonly IntakeSection[] = [
-  { id: "matter", label: "The Matter" },
-  { id: "client", label: "Client" },
+  { id: "matter", label: "Matter" },
   { id: "people", label: "People" },
 ];
 
@@ -172,7 +184,13 @@ export function intakeBlockedOn(draft: IntakeDraft): string | null {
   return null;
 }
 
-/** Which section a reader should be sent to for what is missing, or null when nothing is. */
+/**
+ * Which section a reader should be sent to for what is missing, or null when nothing is.
+ *
+ * It only ever names a TAB. What the right-hand side holds is already in view, so nothing there
+ * needs to be navigated to — and sending somebody to a place they are already looking would read
+ * as the screen not knowing what it is showing.
+ */
 export function intakeBlockedSection(draft: IntakeDraft): IntakeSectionIdentifier | null {
   if (draft.title.trim() === "") return "matter";
   if (draft.team.responsibleMemberId === null) return "people";

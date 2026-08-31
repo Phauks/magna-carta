@@ -171,6 +171,42 @@ surface, which is most of the product.
   when more matches exist than were returned. A screen that has both shows them as two different
   objects. Never fake a listing out of a search. _(directory, 2026-08-30)_
 
+### List screens
+
+Issued against the matters list and re-issued against the directory. They bind every List/Index
+surface, which is most of the product.
+
+- **A heading carries no explanatory sub-text.** No sub-heading under a page title, no sentence
+  under a section heading restating what the section obviously is. "The firm's active docket" under
+  _Matters_, and "Clients, parties, counsel and courts, in one book" under _Directory_, were both
+  removed for the same reason: they spend vertical space on a working screen and tell a working user
+  nothing they did not know before they clicked. This is not the same as an honest line that carries
+  a CONSEQUENCE — "revealing a value is recorded in the firm's audit log" stays, because it says
+  something a reader must know before they press. The test is whether removing the line loses a
+  fact. _(matters list, 2026-08-30)_
+- **Actions collapse into one compact action row.** Everything above the data that is not the data
+  is a single row: the primary action, then narrowing and searching as icon controls that open what
+  they need when they are needed. A labelled dropdown and a labelled search box, each with a
+  sentence under it, cost three rows of a screen whose subject is a list. Where a screen would carry
+  a button per variant of one action ("New person", "New organization"), it carries ONE primary
+  action with a menu instead. _(matters list, 2026-08-30)_
+- **The table holds the vertical space it would occupy when full.** The list region takes the
+  remaining height and keeps it, so the screen does not reflow as rows arrive, as a filter narrows
+  them, or as an empty state replaces them. In practice: the page is a full-height column and the
+  table is `min-h-0 flex-1` inside it. _(matters list, 2026-08-30)_
+- **One place to narrow.** Where several mechanisms narrow the same list — a server-side scope, a
+  server-side search, the table's own column filters — they sit behind one control, because from
+  where a reader sits they answer one question. Answering it in three places is how somebody ends up
+  staring at an empty table with a filter set on a control they are not looking at. _(matters list,
+  2026-08-30)_
+- **A listing states how many there are; a capped answer states that it is capped.** These are the
+  two shapes a list of records comes in and they must not be presented alike. A LISTING is sorted,
+  walkable to the end, and carries the size of the whole record — not of the page in hand. A RANKED
+  ANSWER is in the server's relevance order, is never re-sorted on the client (that would put the
+  best of an arbitrary slice at the top and read as the best of the firm's record), and says so
+  when more matches exist than were returned. A screen that has both shows them as two different
+  objects. Never fake a listing out of a search. _(directory, 2026-08-30)_
+
 ### Spacing and rhythm
 
 - **Meta text sits at a fixed offset under the element it annotates**, expressed as one rule, not

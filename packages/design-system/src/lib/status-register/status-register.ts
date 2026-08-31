@@ -66,6 +66,12 @@ export type StatusKey =
   | "destroyed"
   | "lost"
   | "superseded"
+  // A matter's own lifecycle. Active is the word the firm uses for a matter it is working; the
+  // matters contract stores that state under the code `open`, which is a storage spelling and not a
+  // word anybody reads.
+  | "prospective"
+  | "active"
+  | "closed"
   // How a conflict hit stands. Only the unanswered one asks for anything.
   | "unanswered"
   | "cleared"
@@ -224,6 +230,29 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     presentation: "chip",
   },
 
+  // A matter's own lifecycle. Closed is archived-but-additive here — a closed matter can still
+  // accrue record — so it reads quiet neutral and never destructive red, which would say the file
+  // was destroyed rather than finished. Prospective is work the firm has not taken on yet, which is
+  // information rather than progress.
+  prospective: {
+    label: "Prospective",
+    tone: "info",
+    meaning: "A consultation the firm has not taken on. It carries no matter number.",
+    presentation: "chip",
+  },
+  active: {
+    label: "Active",
+    tone: "success",
+    meaning: "Open work. The firm's next matter number was drawn when it opened, and is fixed.",
+    presentation: "chip",
+  },
+  closed: {
+    label: "Closed",
+    tone: "neutral",
+    meaning: "The work has ended. The record stays, and can still take entries against it.",
+    presentation: "chip",
+  },
+
   // How a conflict hit was answered. Only the UNANSWERED state is loud: grading a lawyer's
   // judgement is the one thing this register may not do, so every answer reads level with the
   // others and none of them is coloured as the better outcome.
@@ -276,6 +305,8 @@ export const STATUS_VOCABULARIES = {
   safety: ["error", "warning", "info", "not-scanned", "clean"],
   /** What the firm physically holds, and what has become of it. */
   custody: ["held", "out", "released", "destroyed", "lost", "superseded"],
+  /** A matter's own lifecycle, in the order a matter passes through it. */
+  matterLifecycle: ["prospective", "active", "closed"],
   /**
    * How a conflict hit stands. Unanswered leads because it is the only one that asks for
    * something; the four answers follow in no order of preference, because there is none.

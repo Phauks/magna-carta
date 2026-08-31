@@ -4,11 +4,15 @@
  * The grid is the product's one table, so nothing about sorting, filtering, hiding, reordering,
  * pinning, resizing or totalling is decided here. This file says only WHAT the columns are.
  *
- * THIS MATTER AND THE WHOLE BILL ARE TWO DIFFERENT COLUMNS. An invoice belongs to one client and may
- * bill several of that client's matters, so a register standing inside one matter leads with THIS
- * MATTER'S share and keeps the whole bill's total available beside it, hidden until asked for.
- * Collapsing them into one "Amount" would state a figure that is true of the document and false of
- * the matter the reader is standing in.
+ * CREATED ANCHORS, AND IT LEADS. The register is a list of documents raised over time, and the date
+ * one was raised is the fact that never goes missing: a draft has no number, a voided draft never
+ * drew one, and anchoring on a column that is empty for two of the three states leaves the reader's
+ * eye with nothing to hold. The number follows immediately, where it is read.
+ *
+ * THE FIGURE IS THIS MATTER'S SHARE, AND IT IS THE ONLY ONE. An invoice belongs to one client and
+ * may bill several of that client's matters, but a register standing inside one matter states what
+ * this matter was charged. The whole document's total is a fact about the document; showing it in a
+ * matter's own register invites a reader to add up a column that is not theirs.
  *
  * A DRAFT'S FIGURES ARE COMPUTED AND SAY SO. A draft has no stored total — balances are created at
  * finalization — so its share is the sum of the lines it is carrying and moves as work is claimed.
@@ -28,6 +32,7 @@ import {
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const BILL_COLUMN_IDENTIFIERS = {
+  createdAt: "createdAt",
   invoiceNumber: "invoiceNumber",
   standing: "standing",
   issueDate: "issueDate",
@@ -35,10 +40,8 @@ export const BILL_COLUMN_IDENTIFIERS = {
   matterShare: "matterShare",
   matterUnpaid: "matterUnpaid",
   delivered: "delivered",
-  client: "client",
-  billTotal: "billTotal",
   credited: "credited",
-  createdAt: "createdAt",
+  client: "client",
 } as const;
 
 /** The register opens on what was raised most recently, which is where the work is. */
@@ -78,10 +81,17 @@ export function billColumns(context: BillRegisterContext): readonly GridColumn<I
 
   return [
     {
+      id: BILL_COLUMN_IDENTIFIERS.createdAt,
+      label: "Created",
+      type: "date",
+      anchored: true,
+      value: (row) => row.summary.createdAt,
+    },
+    {
       id: BILL_COLUMN_IDENTIFIERS.invoiceNumber,
       label: "Invoice",
       type: "text",
-      anchored: true,
+      filter: "set",
       fitExtra: 22,
       value: (row) => invoiceReference(row),
     },
@@ -137,24 +147,6 @@ export function billColumns(context: BillRegisterContext): readonly GridColumn<I
       value: (row) => deliveryStateWord(row),
     },
     {
-      id: BILL_COLUMN_IDENTIFIERS.client,
-      label: "Client",
-      type: "text",
-      filter: "set",
-      hidden: true,
-      value: () => clientName,
-    },
-    {
-      id: BILL_COLUMN_IDENTIFIERS.billTotal,
-      label: "Total (all matters)",
-      type: "money",
-      currency,
-      hidden: true,
-      total: "sum",
-      filterNote: "In the matter's currency.",
-      value: (row) => (row.summary.status === "void" ? null : row.summary.totalMinor / 100),
-    },
-    {
       id: BILL_COLUMN_IDENTIFIERS.credited,
       label: "Credited",
       type: "money",
@@ -168,11 +160,12 @@ export function billColumns(context: BillRegisterContext): readonly GridColumn<I
       },
     },
     {
-      id: BILL_COLUMN_IDENTIFIERS.createdAt,
-      label: "Created",
-      type: "date",
+      id: BILL_COLUMN_IDENTIFIERS.client,
+      label: "Client",
+      type: "text",
+      filter: "set",
       hidden: true,
-      value: (row) => row.summary.createdAt,
+      value: () => clientName,
     },
   ];
 }
