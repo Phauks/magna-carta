@@ -33,6 +33,8 @@
    * show one client as two.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Masthead from "@magna-carta/design-system/masthead";
@@ -214,7 +216,7 @@
 
   let hits = $state<readonly DirectorySearchHit[] | null>(null);
   let capped = $state(false);
-  let searchFailure = $state<string | null>(null);
+  let searchFailure = $state<StatedFailure | null>(null);
   let searchToken = $state(0);
 
   $effect(() => {
@@ -239,10 +241,7 @@
       }
       hits = [];
       capped = false;
-      searchFailure =
-        outcome.kind === "transport"
-          ? "Nothing answered. The directory could not be searched."
-          : (outcome.problem.detail ?? "The directory could not be searched.");
+      searchFailure = stated(outcome.failure, "The directory could not be searched.");
     })();
     return () => {
       cancelled = true;
@@ -405,16 +404,13 @@
     <!-- The firm's own ranked answer. Not a table the reader can re-sort, because the rows are the
          best of a capped set and re-ordering them would read as the best of the firm's record. -->
     {#if searchFailure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>The Directory Could Not Be Searched</Alert.Title>
-        <Alert.Description>
-          {searchFailure}
-          <Button variant="secondary" class="mt-8" onclick={() => (searchToken += 1)}>
-            <RotateCcw class="size-16" aria-hidden="true" />
-            Try again
-          </Button>
-        </Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={searchFailure.failure}
+        title="The Directory Could Not Be Searched"
+        fallback={searchFailure.fallback}
+        whenSilent={searchFailure.whenSilent}
+        onRetry={() => searchToken += 1}
+      />
     {:else if hits === null}
       <div
         class="flex min-h-0 flex-1 flex-col gap-8"

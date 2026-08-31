@@ -31,3 +31,25 @@ export const STANDARD_REMEDY_STEPS: readonly string[] = [
   "Check your connection, and whether the rest of the screen still loads.",
   "If it keeps failing, report it with the Error ID above.",
 ];
+
+/**
+ * A failure plus the surface's own words for it.
+ *
+ * ONE VARIABLE OFTEN HOLDS TWO DIFFERENT FAILURES. A pane where both "record a name" and "change a
+ * name" report into the same slot had a different sentence for each, and those sentences said
+ * genuinely different things — "the name was not recorded" is a fact about what happened, where "the
+ * name could not be changed" describes an attempt. Flattening them to one per-surface fallback would
+ * lose that, so the words travel with the failure rather than with the surface.
+ */
+export interface StatedFailure {
+  readonly failure: Failure;
+  /** What to say where the server sent no words of its own. */
+  readonly fallback: string;
+  /** What to say when NOTHING answered, where that is a stronger statement than the refusal. */
+  readonly whenSilent?: string;
+}
+
+/** Pair a failure with the words this particular action wants said about it. */
+export function stated(failure: Failure, fallback: string, whenSilent?: string): StatedFailure {
+  return { failure, fallback, whenSilent };
+}

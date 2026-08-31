@@ -26,6 +26,7 @@
     message,
     note,
     errorId = null,
+    children,
     actions,
     ref = $bindable(null),
     class: className,
@@ -39,6 +40,12 @@
     note?: string;
     /** The correlation handle, where the server issued one. Rendered as a copyable chip. */
     errorId?: string | null;
+    /**
+     * One more thing this surface has to say — a link to the setting that would fix it, most often.
+     * Rendered after the message, inside the description, so it reads as part of the same sentence
+     * rather than as a second alert.
+     */
+    children?: Snippet;
     /** The remedy, where there is one. A band with nothing to press renders no action row. */
     actions?: Snippet;
   } = $props();
@@ -57,6 +64,9 @@
 <Alert.Root {variant} bind:ref class={mergeClasses(className)} {...restProps}>
   <Alert.Title>{title}</Alert.Title>
   <Alert.Description>{message}</Alert.Description>
+  {#if children !== undefined}
+    <Alert.Description>{@render children()}</Alert.Description>
+  {/if}
   {#if note !== undefined}
     <Alert.Description>{note}</Alert.Description>
   {/if}

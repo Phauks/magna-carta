@@ -17,6 +17,8 @@
    * the firm's append-only log.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import Button from "@magna-carta/design-system/button";
   import Separator from "@magna-carta/design-system/separator";
@@ -39,7 +41,7 @@
 
   let posture = $state<MatterConflictsPosture | null>(null);
   let matter = $state<MatterRecord | null>(null);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let loading = $state(true);
   let session = $state<SessionBootstrap | null>(null);
 
@@ -53,12 +55,11 @@
       return;
     }
     posture = null;
-    failure =
-      outcome.kind === "transport"
-        ? "The matter's conflicts standing could not be reached."
-        : `${outcome.problem.detail ?? "The matter's conflicts standing could not be read."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The matter's conflicts standing could not be read.",
+      "The matter's conflicts standing could not be reached.",
+    );
   }
 
   $effect(() => {
@@ -121,16 +122,13 @@
 {/if}
 
 {#if failure !== null}
-  <Alert.Root variant="danger">
-    <Alert.Title>The Standing Could Not Be Read</Alert.Title>
-    <Alert.Description>
-      {failure}
-      <Button variant="secondary" class="mt-8" onclick={() => void read()}>
-        <RotateCcw class="size-16" aria-hidden="true" />
-        Try again
-      </Button>
-    </Alert.Description>
-  </Alert.Root>
+  <FailureNotice
+    failure={failure.failure}
+    title="The Standing Could Not Be Read"
+    fallback={failure.fallback}
+    whenSilent={failure.whenSilent}
+    onRetry={() => void read()}
+  />
 {:else}
   <div class="flex max-w-3xl flex-col gap-24">
     <PosturePanel

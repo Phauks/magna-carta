@@ -20,6 +20,8 @@
    * the firm's system caught something when somebody clicked.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
@@ -93,7 +95,7 @@
   let closureCap = $state("");
   let candidateCap = $state("");
   let running = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const soonContent = soonControlProperties(CONTENT_DEPENDENCY, contentDescription);
   const soonFirmFloor = soonControlProperties(gapReason("firmPolicy"), floorDescription);
@@ -184,21 +186,22 @@
       onRan(outcome.value.id);
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "The check could not be sent. Nothing was recorded."
-        : `${outcome.problem.detail ?? "The check was refused."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The check was refused.",
+      "The check could not be sent. Nothing was recorded.",
+    );
   }
 </script>
 
 <div class="flex max-w-3xl flex-col gap-24">
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Check Did Not Run</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="The Check Did Not Run"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {/if}
 
   <section class="flex flex-col gap-16">

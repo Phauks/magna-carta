@@ -43,6 +43,8 @@
    * handed the same one.
    */
   import { untrack } from "svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
@@ -130,7 +132,7 @@
   let team = $state<MatterTeam>(EMPTY_MATTER_TEAM);
   let section = $state<IntakeSectionIdentifier>("matter");
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   /** Who did not make it onto a matter that DID open. Names, never a count. */
   let staffingFailure = $state<string | null>(null);
   let numberingHint = $state(false);
@@ -304,10 +306,11 @@
       return;
     }
     submitting = false;
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The matter was not opened, so nothing was half-created."
-        : (outcome.problem.detail ?? "The matter could not be opened.");
+    failure = stated(
+      outcome.failure,
+      "The matter could not be opened.",
+      "The matter was not opened, so nothing was half-created.",
+    );
     // A refused OPEN is almost always the number draw: the firm has no active numbering scheme, or
     // its active one wants a segment this matter cannot supply. Both are settings, and both are
     // fixed in one place, so the refusal says where rather than leaving a person to guess.
@@ -596,17 +599,18 @@
           </Alert.Root>
         {/if}
         {#if failure !== null}
-          <Alert.Root variant="danger">
-            <Alert.Title>The Matter Was Not Opened</Alert.Title>
-            <Alert.Description>
-              {failure}
-              {#if numberingHint}
-                <a class="ms-4 underline underline-offset-2" href="/settings/matter-numbering">
-                  Matter numbering
-                </a>
-              {/if}
-            </Alert.Description>
-          </Alert.Root>
+          <FailureNotice
+            failure={failure.failure}
+            title="The Matter Was Not Opened"
+            fallback={failure.fallback}
+            whenSilent={failure.whenSilent}
+          >
+            {#if numberingHint}
+              <a class="ms-4 underline underline-offset-2" href="/settings/matter-numbering">
+                Matter numbering
+              </a>
+            {/if}
+          </FailureNotice>
         {/if}
       </div>
     {/if}
