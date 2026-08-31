@@ -10,8 +10,12 @@
   import Download from "@lucide/svelte/icons/download";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import FileIcon from "@magna-carta/design-system/file-icon";
+  import { toast } from "@magna-carta/design-system/toast";
   import { renderCsvExport } from "./render-csv.ts";
+  import { RemoteRenderError, renderRemoteExport } from "./render-remote.ts";
   import { renderTextExport } from "./render-text.ts";
+  import { renderXlsxExport } from "./render-xlsx.ts";
   import { exportFilename, saveExport, type TabularExportDocument } from "./tabular-export.ts";
 
   let {
@@ -27,32 +31,72 @@
     readonly label: string;
     readonly extension: string;
     readonly contentType: string;
-    readonly render: (renderedDocument: TabularExportDocument) => string;
+    /**
+     * Sync string for the text formats; a Blob promise for the Excel renderer (lazy library) and
+     * for the document formats, which render server-side through render-remote.ts.
+     */
+    readonly render: (renderedDocument: TabularExportDocument) => string | Promise<Blob>;
   }
 
   const FORMATS: readonly ExportFormat[] = [
+    {
+      label: "Excel, Sheet per Table (.xlsx)",
+      extension: "xlsx",
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      render: (renderedDocument) => renderXlsxExport(renderedDocument, "worksheet-per-section"),
+    },
+    {
+      label: "Excel, Single Sheet (.xlsx)",
+      extension: "xlsx",
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      render: (renderedDocument) => renderXlsxExport(renderedDocument, "single-worksheet"),
+    },
+    {
+      label: "Word (.docx)",
+      extension: "docx",
+      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      render: (renderedDocument) => renderRemoteExport(renderedDocument, "docx"),
+    },
+    {
+      label: "PDF (.pdf)",
+      extension: "pdf",
+      contentType: "application/pdf",
+      render: (renderedDocument) => renderRemoteExport(renderedDocument, "pdf"),
+    },
+    {
+      label: "CSV (.csv)",
+      extension: "csv",
+      contentType: "text/csv;charset=utf-8",
+      render: renderCsvExport,
+    },
     {
       label: "Plain Text (.txt)",
       extension: "txt",
       contentType: "text/plain;charset=utf-8",
       render: renderTextExport,
     },
-    {
-      label: "Spreadsheet (.csv)",
-      extension: "csv",
-      contentType: "text/csv;charset=utf-8",
-      render: renderCsvExport,
-    },
   ];
 
-  function download(format: ExportFormat): void {
+  async function download(format: ExportFormat): Promise<void> {
     const renderedDocument = exportDocument();
     if (renderedDocument === null) return;
-    saveExport(
-      format.render(renderedDocument),
-      exportFilename(renderedDocument, format.extension),
-      format.contentType,
-    );
+    try {
+      saveExport(
+        await format.render(renderedDocument),
+        exportFilename(renderedDocument, format.extension),
+        format.contentType,
+      );
+    } catch (failure) {
+      // The document formats render server-side, so a render can fail after the click; the server's
+      // own sentence is the actionable one, with its Error ID when the failure minted one.
+      const message =
+        failure instanceof RemoteRenderError
+          ? failure.errorId === undefined
+            ? failure.message
+            : `${failure.message} (Error ID ${failure.errorId})`
+          : "The export could not be produced. Try again shortly.";
+      toast.error(message);
+    }
   }
 </script>
 
@@ -67,8 +111,11 @@
     <ChevronDown class="size-16" aria-hidden="true" />
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">
-    {#each FORMATS as format (format.extension)}
-      <DropdownMenu.Item onSelect={() => download(format)}>
+    {#each FORMATS as format (format.label)}
+      <DropdownMenu.Item onSelect={() => void download(format)}>
+        <!-- The same per-type symbol the file manager draws for this format, resolved from the
+             format's own MIME type so the two surfaces can never disagree. -->
+        <FileIcon contentType={format.contentType} class="size-16 shrink-0" />
         {format.label}
       </DropdownMenu.Item>
     {/each}

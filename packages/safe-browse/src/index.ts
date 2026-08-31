@@ -6,4 +6,4 @@ export type {
   SafeBrowseDeps,
 } from "./types.ts";
 
-export { captureSafeView } from "./capture.ts";
+export { captureSafeView, type CaptureStage } from "./capture.ts";

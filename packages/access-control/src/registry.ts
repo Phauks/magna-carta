@@ -274,6 +274,7 @@ export const PERMISSIONS = [
   "reports:productivity", // hours recorded by timekeeper across the firm
   "reports:operational", // operational volumes — matters, invoices, movements, reconciliations
   "reports:produce", // turn a report into a filed artifact and read the productions
+  "reports:export", // render a tabular export the member already holds into a document file (Word/PDF)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

@@ -201,8 +201,13 @@ export async function initiateUpload(
 
   let fileId: FileId;
   let versionNumber: number;
+  // The folder the version lands in, recorded on the audit row (ids only, redact-by-default) so the
+  // history can place the upload without a read the trail cannot afford later. Known cheaply here:
+  // the caller named it for a new file, and the loaded row carries it for a new version.
+  let auditFolderId: FolderId | null;
   if (input.fileId !== undefined) {
     const existing = await requireLiveFile(database, input.fileId);
+    auditFolderId = existing.folderId;
     // A new version rides the existing file's matter; a payload claiming a different matter is a
     // mismatch (the folder is validated against that same matter above).
     if (existing.matterId !== input.matterId) {
@@ -219,6 +224,7 @@ export async function initiateUpload(
   } else {
     fileId = newIdentifier("file", options.randomSource);
     versionNumber = 1;
+    auditFolderId = input.folderId ?? null;
     statements.push(
       insertFileStatement(database, {
         id: fileId,
@@ -253,7 +259,9 @@ export async function initiateUpload(
       createdAt: options.clock.now(),
       expiresAt: input.expiresAt ?? null,
     }),
-    fileAuditStatement(database, options, "file.upload_initiated", versionId),
+    fileAuditStatement(database, options, "file.upload_initiated", versionId, {
+      folderId: auditFolderId,
+    }),
   );
   return {
     fileId,
@@ -954,6 +962,9 @@ export async function renameFile(
     effect: {
       statements: [
         renameFileStatement(database, fileId, name, options.clock.now()),
+        // Deliberately bare: a file name is free text a person routinely writes another person's
+        // name into, and audit metadata carries ids and non-privileged facts only (audit.ts) — so a
+        // rename's from/to names are never recorded, and the history renders honest blanks for them.
         fileAuditStatement(database, options, "file.renamed", fileId),
       ],
       outboxMessages: [],
@@ -985,7 +996,12 @@ export async function moveFile(
     effect: {
       statements: [
         moveFileStatement(database, fileId, folderId, options.clock.now()),
-        fileAuditStatement(database, options, "file.moved", fileId),
+        // Where it was and where it went — folder ids only (null = the matter root), never names;
+        // the history read resolves them to CURRENT path text. Uses the row already loaded above.
+        fileAuditStatement(database, options, "file.moved", fileId, {
+          fromFolderId: file.folderId,
+          toFolderId: folderId,
+        }),
       ],
       outboxMessages: [],
     },
@@ -1003,7 +1019,11 @@ export async function assignDocumentType(
     effect: {
       statements: [
         assignDocumentTypeStatement(database, fileId, documentTypeId, options.clock.now()),
-        fileAuditStatement(database, options, "file.document_type_assigned", fileId),
+        // The assigned type's id (an explicit null records the type being CLEARED); the history read
+        // resolves the id to the type's current name. Never the name itself — redact-by-default.
+        fileAuditStatement(database, options, "file.document_type_assigned", fileId, {
+          documentTypeId,
+        }),
       ],
       outboxMessages: [],
     },
@@ -1028,29 +1048,91 @@ export async function softDeleteFile(
       statements: [
         softDeleteFileStatement(database, fileId, options.clock.now()),
         clearCurrentObjectStatement(database, fileId, options.clock.now()),
-        fileAuditStatement(database, options, "file.deleted", fileId),
+        // The folder the file was deleted out of (null = the matter root) — the id only, from the
+        // row already loaded; the history read resolves it to current path text.
+        fileAuditStatement(database, options, "file.deleted", fileId, {
+          fromFolderId: file.folderId,
+        }),
       ],
       outboxMessages: [],
     },
   };
 }
 
+export interface RestoreFileDestination {
+  // Present = restore INTO this folder (null = the matter root), validated against the file's
+  // matter. Absent = keep the folder the file was deleted from — unless that folder no longer
+  // exists, in which case the restore falls back to the matter root rather than stranding the file
+  // under a pointer nothing can browse to.
+  readonly folderId?: FolderId | null;
+}
+
 // Undeletes a soft-deleted file: clears deleted_at so it returns to the default listing. The `current`
 // working copy re-materializes lazily from current_version_id on the next edit launch (GetFile falls
-// back to the committed version when `current` is absent), so nothing is copied here.
+// back to the committed version when `current` is absent), so nothing is copied here. Returns the
+// folder the file lands in so the caller can report where the restore put it.
 export async function restoreFile(
   database: SqlDatabase,
   fileId: FileId,
   options: FileServiceOptions,
-): Promise<{ effect: EffectWrite }> {
-  // The one write that must resolve a soft-deleted row — undeleting a live file is a harmless no-op,
-  // undeleting a deleted one is the whole point.
-  await requireFileIncludingDeleted(database, fileId);
+  destination: RestoreFileDestination = {},
+): Promise<{ effect: EffectWrite; folderId: FolderId | null }> {
+  // The one write that must resolve a soft-deleted row — an undelete has to find the row precisely
+  // because it is soft-deleted.
+  const file = await requireFileIncludingDeleted(database, fileId);
+  // Restoring a live file refuses rather than no-opping: a second restore would write another audit
+  // row claiming a recovery that never happened, and the caller deserves to learn its picture of the
+  // file is stale.
+  if (file.deletedAt === null) {
+    throw new FileManagerValidationError("file-not-deleted", `file is not deleted: ${fileId}`);
+  }
+  let targetFolderId: FolderId | null;
+  if (destination.folderId !== undefined) {
+    if (destination.folderId !== null) {
+      // The chosen destination must exist and live in the file's matter — the same guard every move
+      // enforces, so a restore can never park a file under another matter's folder.
+      const folderMatterId = await loadFolderMatter(database, destination.folderId);
+      if (folderMatterId === undefined) {
+        throw new FileManagerValidationError(
+          "unknown-folder",
+          `no such folder: ${destination.folderId}`,
+        );
+      }
+      if (folderMatterId !== file.matterId) {
+        throw new FileManagerValidationError(
+          "file-cross-matter",
+          "a file's restore destination must belong to the same matter",
+        );
+      }
+    }
+    targetFolderId = destination.folderId;
+  } else if (file.folderId !== null) {
+    // No destination chosen: keep the stored folder when it still exists, otherwise fall back to the
+    // matter root — a restored file must land somewhere the folder tree can reach.
+    targetFolderId =
+      (await loadFolderMatter(database, file.folderId)) === undefined ? null : file.folderId;
+  } else {
+    targetFolderId = null;
+  }
   return {
+    folderId: targetFolderId,
     effect: {
       statements: [
         restoreFileStatement(database, fileId, options.clock.now()),
-        fileAuditStatement(database, options, "file.restored", fileId),
+        ...(targetFolderId === file.folderId
+          ? []
+          : [moveFileStatement(database, fileId, targetFolderId, options.clock.now())]),
+        // The metadata names where the file landed only when the restore moved it — the common
+        // straight-home restore stays a bare event (ids only, redact-by-default). The key matches
+        // the move event's `toFolderId`; the history read still resolves the `restoredToFolderId`
+        // key earlier restores recorded.
+        fileAuditStatement(
+          database,
+          options,
+          "file.restored",
+          fileId,
+          targetFolderId === file.folderId ? undefined : { toFolderId: targetFolderId },
+        ),
       ],
       outboxMessages: [],
     },

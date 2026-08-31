@@ -317,6 +317,31 @@ owner does not want a redirect to the WHOIS page; the information comes to the v
 would need new backend probes (resolved IP, TLS certificate details, hosting provider) are
 recorded as wanted, not faked.
 
+A fifth round the same day, from the owner's first real captures (YouTube shot mid-load, first
+viewport only; the Registration lookup failed instantly). Mostly engineering, recorded here
+because the corrections were issued in review: the renderer now waits for the page to finish
+(networkidle plus a settle beat) and captures the FULL page; a WHOIS query for a hostname walks up
+to the registrable domain that actually answers (www.youtube.com is a registry 404, youtube.com is
+the record the member meant); the capture streams real stage lines (probing, then the settled
+redirect chain while the render continues) so the loading viewport narrates facts rather than a
+generic spinner-plus-elapsed. Screen-local: the tab strip matches the address bar's height so the
+unified frame's top band is one continuous bar; the Different Site indicator lives ONLY on the
+right side (the landed URL, its badge, and its copy control move into the Overview tab — the left
+chrome stays clean); the Soon marker leaves the chrome entirely, surviving only on the Live
+control's hover and accessible description; and the WHOIS page renders its result frame at rest
+per the furniture rule.
+
+A sixth round the same day. The "That address cannot be viewed" failures for youtube.com, google
+and 8.8.8.8 were one defect wearing three names: the interface and the API deploy as separate
+Workers since this morning, so the fresh page called the streaming route on an older API, the 404
+fell through problem guidance's default input case, and the member's address was blamed for deploy
+skew. Now: a 404 from our own API reads as "the service is mid-update", never an input fault; the
+staged capture falls back to the non-streaming route when the streaming one is not deployed (the
+member loses the narration, not the capture); and a bare single label ("google") is refused at the
+field with the inline hint rather than spent on a round trip. Screen-local: the export menu's
+format rows carry the same file symbols the file manager uses for those types, and Static/Live
+join into one segmented control whose halves touch.
+
 ### 2026-08-30 — the matters screens, second round
 
 Four of the five corrections in this round had been issued before and not carried out, which is the

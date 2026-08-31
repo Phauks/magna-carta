@@ -40,8 +40,8 @@ through this package's `scripts/commit-identity.mjs`, the one shared resolution.
   identity the web app already shows signed-out visitors on the sign-in screen's chip — so the
   disclosure is nothing new; a Worker whose identity would say more than that still needs a guard
   before mounting it publicly. The assets-only `magna-carta-web` cannot mount a route at all: its
-  answer is the static `/__version` file the SPA build emits (also served, harmlessly, on the app
-  origin by the app Worker's asset layer).
+  answer is the static `/__version` file the SPA build emits — the same file that answers on the
+  app's own address, since that Worker serves the interface there.
 - **A Worker only reports a version if it was built with the version route in it.** A sibling
   deployed from a commit that predates `src/version-route.ts` answers 404 on `/__version`, which
   the aggregate reads as `unreported` and the overlay renders as "Not reporting" — an honest

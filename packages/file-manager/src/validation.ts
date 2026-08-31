@@ -17,6 +17,10 @@ export type FileManagerValidationCode =
   // response: a deleted file is invisible to every consumer read, so a mutation must not be the one
   // path that confirms it still exists.
   | "file-deleted"
+  // A restore aimed at a file that is not soft-deleted. Distinct from the not-found family because
+  // the file is visible to the caller — the honest answer is a conflict ("there is nothing to
+  // restore"), not an absence.
+  | "file-not-deleted"
   | "unknown-version"
   | "version-not-pending"
   // Offline checkout / check-in

@@ -377,6 +377,38 @@ row named by its deployed Worker, and the app Worker gained three version-read-o
 The overlay's Refresh control now forces a fresh probe (`?fresh=true`), so "press Refresh and watch
 the row light up" is a real acceptance check after each project rebuilds.
 
+## The interface ships on its own Worker — the cutover happened (2026-08-31); one dashboard step delivers the payoff
+
+The owner converted the app's hostname from a custom domain on `magna-carta` to **route patterns on
+the zone**: `magna-carta-web` serves every path, `magna-carta` only its four families (`/api/*`,
+`/wopi/*`, `/search-objects/*`, `/__dev/*`). Decision and shape: the
+`the-interface-ships-on-its-own-worker` ADR; mechanism notes live in `operations.md` and both
+Workers' `wrangler.jsonc`. What happened, and what remains:
+
+1. **Done, account side:** routes created; custom domain removed; the apex DNS record restored as a
+   proxied placeholder. The one incident in the window: the placeholder record was briefly missing,
+   so the apex returned ENODATA and the site was unreachable until it was added — resolvers then
+   healed within the zone's 1800-second negative-cache TTL. If this conversion is ever repeated on
+   another hostname, add the record in the same minute the custom domain is removed.
+2. **Done, repository side:** the version overlay states the new topology and its page-versus-API
+   "Different Builds" warning is retired (a normal state under separate deploys); comments, runbook
+   and the split design's status record the cutover. The app Worker's `assets` block deliberately
+   SURVIVES as the local-dev vehicle and the rollback fallback — see the ADR before touching it.
+3. **Still open — the one dashboard step that delivers the actual payoff:** remove `apps/web/*`
+   from the `magna-carta` project's Build Watch Paths (per-`script_tag` Builds settings). Until
+   then a UI merge still rebuilds the API alongside `magna-carta-web`; after it, a UI merge
+   deploys in the couple of minutes `magna-carta-web` takes, touching nothing else. (The two
+   earlier watch-path items — `crates/*` + the lockfiles on `magna-carta`, `packages/api-client/*`
+   on `magna-carta-web` — are recorded in the _Version visibility_ entry above and matter more now:
+   the web project's includes are the interface's whole deploy trigger.)
+4. **Verification:** the site serving normally after the next `magna-carta` deploy is itself the
+   proof that the `/*` route names `magna-carta-web` (the two Workers serve identical files, so
+   only a deploy that changes one of them distinguishes the router's answer). The version overlay
+   shows each Worker's commit; the update notice appearing in an open tab a minute after a UI
+   merge is the end-to-end check of the new path.
+5. **Rollback:** repoint the zone's `/*` route to `magna-carta` (which still carries the SPA as
+   assets). No redeploy needed in either direction.
+
 ## The `magna-carta` project — the repoint this file asked for was the wrong fix; the deploy filter is the real one
 
 `apps/worker` is now `apps/api-worker` on `main`, and the package inside it is now

@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="TRow">
   /*
    * The counts strip: how much is here, how much is selected, what a filter is hiding — and, at the
    * far end, the two controls that belong beside the counts rather than beside Back and Forward.
@@ -11,6 +11,7 @@
    * the figure between them, and the name lives on the hover and on the accessible name, where a
    * keyboard or a screen reader still reaches it.
    */
+  import type { Snippet } from "svelte";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
   import Undo2 from "@lucide/svelte/icons/undo-2";
@@ -18,18 +19,23 @@
   import ZoomIn from "@lucide/svelte/icons/zoom-in";
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
   import type { DataTableGridState } from "@magna-carta/design-system/data-table";
-  import type { FileManagerRow } from "./file-rows.ts";
   import { SCALE_STEPS, type FileManagerState } from "./file-manager-state.svelte.ts";
   import { redoTitle, undoTitle } from "./move-history.ts";
 
   let {
     manager,
     grid,
+    tally = undefined,
+    extras = undefined,
     onUndo,
     onRedo,
   }: {
     manager: FileManagerState;
-    grid: DataTableGridState<FileManagerRow>;
+    grid: DataTableGridState<TRow>;
+    /** The surface's own unfiltered tally ("2 folders, 5 files"), replacing the bare item count. */
+    tally?: string;
+    /** A view's own trailing controls, ahead of undo/redo — a view-specific act's home. */
+    extras?: Snippet;
     onUndo: () => void;
     onRedo: () => void;
   } = $props();
@@ -57,6 +63,9 @@
 
 {#snippet controls()}
   <span class="flex items-center gap-4">
+    {#if extras}
+      {@render extras()}
+    {/if}
     <Button
       variant="ghost"
       size="icon"
@@ -110,4 +119,10 @@
   </span>
 {/snippet}
 
-<DataTable.GridFooter {grid} end={controls} />
+<DataTable.GridFooter
+  {grid}
+  end={controls}
+  tallyText={tally}
+  selectAllToggle
+  class="border-t border-border-default"
+/>

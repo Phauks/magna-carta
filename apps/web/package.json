@@ -22,7 +22,8 @@
     "@magna-carta/file-type": "workspace:*",
     "@magna-carta/merge-field-catalog-contract": "workspace:*",
     "@magna-carta/tools": "workspace:*",
-    "better-auth": "catalog:"
+    "better-auth": "catalog:",
+    "write-excel-file": "4.1.1"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",

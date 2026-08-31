@@ -1,100 +1,136 @@
 <script lang="ts">
   /*
-   * Where an upload lands. The real file picker still comes FIRST — that ruling stands — and this
-   * asks the one question the picker cannot: which folder.
+   * The Upload dialog. The real file picker still comes FIRST — that ruling stands — and this
+   * shows the batch landing while asking the one question the picker cannot: which folder.
    *
-   * Three answers, in the order a reader wants them: the folder they are looking at (the default,
-   * because it is right nearly always), the matter root, or any other folder through the shared
-   * picker. Saving a new version asks nothing at all: its destination is the file it was asked on.
+   * THE BYTES DO NOT WAIT ON THE ANSWER. Each file starts uploading the moment the dialog opens,
+   * into the folder the reader is standing in, and every file shows its own progress line. Picking
+   * a different destination while they run re-files them there as each one lands — so a slow
+   * upload and a careful destination choice happen at the same time instead of in sequence.
    *
-   * The names being uploaded are listed, because an upload of five files into the wrong folder is
-   * five things to move back and the moment to notice is before it happens, not after.
+   * Closing the dialog abandons nothing: whatever has landed stays where it landed, and the
+   * dialog says so rather than implying a cancel un-uploads bytes that are already committed.
    */
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
-  import Progress from "@magna-carta/design-system/progress";
+  import CircleCheck from "@lucide/svelte/icons/circle-check";
+  import CircleAlert from "@lucide/svelte/icons/circle-alert";
+  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import type { MatterFileIndex } from "./file-rows.ts";
   import FolderPicker from "./folder-picker.svelte";
-  import { UPLOAD_STAGE_NARRATION, type UploadStage } from "./file-upload.ts";
+  import { UPLOAD_STAGE_NARRATION, type UploadProgressItem } from "./file-upload.ts";
   import { countPhrase } from "./file-manager-vocabulary.ts";
 
   let {
     open = $bindable(false),
     index,
-    /** The folder the reader is standing in, or null when the view has no current folder. */
-    currentFolderId,
-    files,
-    running,
-    stage,
-    completed,
-    failures,
+    /** The folder the reader was standing in when the batch was picked — where the bytes land first. */
+    baseFolderId,
+    matterTitle,
+    items,
+    /** Whether a destination has been confirmed already (the choice is then locked in). */
+    confirmed,
     onConfirm,
-    onCancel,
+    onClose,
   }: {
     open?: boolean;
     index: MatterFileIndex;
-    currentFolderId: string | null;
-    files: readonly File[];
-    running: boolean;
-    stage: UploadStage | null;
-    /** How many of the batch have finished, for the progress the reader watches. */
-    completed: number;
-    /** What went wrong, per file, stated rather than swallowed. */
-    failures: readonly { name: string; reason: string }[];
+    baseFolderId: string | null;
+    matterTitle: string;
+    items: readonly UploadProgressItem[];
+    confirmed: boolean;
     onConfirm: (destinationFolderId: string | null) => void;
-    onCancel: () => void;
+    onClose: () => void;
   } = $props();
 
   type Destination = "here" | "root" | "other";
   let choice = $state<Destination>("here");
   let pickedFolderId = $state<string | null>(null);
 
-  const hereName = $derived(
-    currentFolderId === null ? "Home (the top level)" : index.pathText(currentFolderId),
-  );
+  const hereName = $derived(baseFolderId === null ? null : index.pathText(baseFolderId));
   const destinationFolderId = $derived(
-    choice === "here" ? currentFolderId : choice === "root" ? null : pickedFolderId,
+    choice === "here" ? baseFolderId : choice === "root" ? null : pickedFolderId,
   );
-  const percent = $derived(files.length === 0 ? 0 : Math.round((completed / files.length) * 100));
+
+  const failures = $derived(items.filter((item) => item.stage === "failed"));
+  const settledCount = $derived(
+    items.filter((item) => item.stage === "settled" || item.stage === "failed").length,
+  );
+  const allSettled = $derived(items.length > 0 && settledCount === items.length);
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root
+  bind:open={
+    () => open,
+    (next) => {
+      open = next;
+      if (!next) onClose();
+    }
+  }
+>
   <Dialog.Content>
-    <Dialog.Title>Where Should This Go?</Dialog.Title>
+    <Dialog.Title>Upload</Dialog.Title>
     <Dialog.Description>
-      {countPhrase(files.length, "file")} ready to upload: {files.map((file) => file.name).join(", ")}
+      {countPhrase(items.length, "file")} — each is uploading now, and lands in the folder chosen
+      below.
     </Dialog.Description>
 
     <div class="flex flex-col gap-16">
-      <RadioGroup.Root bind:value={() => choice, (next) => (choice = next as Destination)}>
+      <ul class="flex max-h-96 flex-col gap-4 overflow-y-auto" aria-label="Upload progress">
+        {#each items as item (item.name)}
+          <li class="flex items-center gap-8 text-sm">
+            {#if item.stage === "settled"}
+              <CircleCheck
+                class="size-16 shrink-0 text-status-success-subtle-foreground"
+                aria-hidden="true"
+              />
+            {:else if item.stage === "failed"}
+              <CircleAlert
+                class="size-16 shrink-0 text-status-danger-subtle-foreground"
+                aria-hidden="true"
+              />
+            {:else}
+              <LoaderCircle class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
+            {/if}
+            <span class="min-w-0 truncate">{item.name}</span>
+            <span class="ms-auto text-xs whitespace-nowrap text-text-subtle">
+              {item.stage === "failed"
+                ? "Did not land"
+                : item.stage === "settled"
+                  ? "Saved"
+                  : UPLOAD_STAGE_NARRATION[item.stage]}
+            </span>
+          </li>
+        {/each}
+      </ul>
+
+      <RadioGroup.Root
+        bind:value={() => choice, (next) => (choice = next as Destination)}
+        disabled={confirmed}
+      >
         <div class="flex items-center gap-8">
           <RadioGroup.Item value="here" id="upload-destination-here" />
-          <Label for="upload-destination-here">The folder you are looking at: {hereName}</Label>
+          <Label for="upload-destination-here">
+            {hereName === null ? `Home: ${matterTitle}` : `Current Folder: ${hereName}`}
+          </Label>
         </div>
-        <div class="flex items-center gap-8">
-          <RadioGroup.Item value="root" id="upload-destination-root" />
-          <Label for="upload-destination-root">Home, the top level of this matter</Label>
-        </div>
+        {#if hereName !== null}
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value="root" id="upload-destination-root" />
+            <Label for="upload-destination-root">Home: {matterTitle}</Label>
+          </div>
+        {/if}
         <div class="flex items-center gap-8">
           <RadioGroup.Item value="other" id="upload-destination-other" />
-          <Label for="upload-destination-other">Another folder</Label>
+          <Label for="upload-destination-other">Select Folder</Label>
         </div>
       </RadioGroup.Root>
 
       {#if choice === "other"}
         <FolderPicker {index} bind:chosenFolderId={pickedFolderId} label="Upload destination" />
-      {/if}
-
-      {#if running}
-        <div class="flex flex-col gap-8">
-          <Progress value={percent} aria-label="Upload progress" />
-          <p class="text-sm text-text-muted" role="status" aria-live="polite">
-            {stage === null ? "" : UPLOAD_STAGE_NARRATION[stage]}: {completed} of {files.length}
-          </p>
-        </div>
       {/if}
 
       {#if failures.length > 0}
@@ -109,10 +145,19 @@
       {/if}
     </div>
 
-    <div class="flex justify-end gap-8">
-      <Button variant="secondary" disabled={running} onclick={onCancel}>Cancel</Button>
-      <Button disabled={running || files.length === 0} onclick={() => onConfirm(destinationFolderId)}>
-        Upload
+    <div class="flex items-center justify-end gap-8">
+      {#if !confirmed}
+        <span class="me-auto text-xs text-text-subtle">
+          Closing keeps what has already landed in
+          {hereName === null ? "Home" : hereName}.
+        </span>
+      {/if}
+      <Button variant="secondary" onclick={onClose}>Close</Button>
+      <Button
+        disabled={confirmed || items.length === 0}
+        onclick={() => onConfirm(destinationFolderId)}
+      >
+        {confirmed ? (allSettled ? "Saved" : "Saving") : "Save"}
       </Button>
     </div>
   </Dialog.Content>

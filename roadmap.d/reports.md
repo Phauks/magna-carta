@@ -77,10 +77,11 @@
 - id: reports.exports
   name: Exports
   scope: PDF, Excel/CSV, and print export of reports.
-  status: planned
+  status: partial
+  surface: screen
   slices: 3-6-financial-reporting
   adrs: ADR-0162
-  evidence: The trust-compliance pack is served as JSON; PDF rides the existing assembly-to-conversion edge, whose engines are not deployed, and CSV and Excel are planned in sub-slice 3·6·5.
+  evidence: The tabular export framework is live on Firm Usage in every format — text, CSV, and Excel render in the browser ($lib/export), Word and PDF render server-side (POST /api/v1/reports/exports composes through document assembly, PDF across the live office-suite conversion edge). The trust-compliance pack is still served as JSON; adopting the menu on the financial reports is the remainder.
 
 - id: reports.custom-builder
   name: Custom report builder

@@ -71,10 +71,15 @@ import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMatterRecordsRoutes } from "./routes/matter-records.ts";
 import { registerMemberProfilesRoutes } from "./routes/member-profiles.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
+import { registerReportExportRoutes } from "./routes/report-exports.ts";
 import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
 import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentials.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
-import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
+import {
+  registerSafeBrowseRoute,
+  registerSafeBrowseStreamRoute,
+  type SafeBrowseRouteDeps,
+} from "./routes/safe-browse.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
@@ -249,10 +254,11 @@ export type Bindings = {
   // status page's own data flows through KV, never through this worker. Optional: absent in every
   // test environment; while unset, its version row reads "unbound".
   STATUS_SERVICE?: Fetcher;
-  // The assets-only SPA worker (magna-carta-web), for the aggregate version read alone. It holds no
-  // script, so the probe is answered by its asset server: the SPA build emits the version shape as
-  // a static /__version file, and a deployment older than that file answers index.html, which the
-  // probe reads as "unreported". Optional: absent in every test environment.
+  // The assets-only SPA worker (magna-carta-web) — since the 2026-08-31 cutover the Worker that
+  // serves the interface at the app's address — bound here for the aggregate version read alone.
+  // It holds no script, so the probe is answered by its asset server: the SPA build emits the
+  // version shape as a static /__version file, and a deployment older than that file answers
+  // index.html, which the probe reads as "unreported". Optional: absent in every test environment.
   WEB_SERVICE?: Fetcher;
   // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
   // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
@@ -613,6 +619,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerMeRoute(app, chokepoint);
   registerMetaVersionsRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
+  registerReportExportRoutes(app, chokepoint);
   registerToolsConnectionRoute(app, chokepoint);
   registerToolsTurnCredentialsRoute(app, chokepoint);
 
@@ -663,6 +670,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // without touching the BROWSER binding. Production: createBrowserRenderer(c.env.BROWSER) +
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
+  registerSafeBrowseStreamRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerDecryptionRoutes(app, chokepoint);
   // Password recovery: mints a job and fans it out through the recovery coordinator Durable
   // Object. Registered beside decryption — the button-initiated surface for the SAME extracted

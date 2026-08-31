@@ -67,7 +67,7 @@ describe("GET /api/v1/me", () => {
       // support:request / support:cosign / support:manage (0029_support-access-permissions,
       // Owner/Admin gets all three; other roles get support:request only) +
       // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role) +
-      // tools:fileWorkbench (20260831T120000_seed-file-workbench-permission, seeded onto every
+      // tools:fileWorkbench (20260831T220000_seed-file-workbench-permission, seeded onto every
       // default role: it opens the bench, and each capability inside it still carries its own key) +
       // tools:decryption (in the 20260704T041516 baseline) +
       // tools:fileRepair (20260704T041517_seed-tools-file-repair) — both seeded onto every default role +

@@ -13,6 +13,7 @@ import {
   screenshotSource,
   sortedHeaders,
   viewSafely,
+  viewSafelyStaged,
   type SafeWebsiteView,
 } from "../src/lib/tools/safe-browse/safe-browse.ts";
 
@@ -68,6 +69,11 @@ describe("normalizeTarget", () => {
   it("refuses input that cannot be a URL at all", () => {
     expect(normalizeTarget("not a url")).toBeNull();
     expect(normalizeTarget("")).toBeNull();
+  });
+
+  it("refuses a bare single label — it parses as a URL but names no public host", () => {
+    expect(normalizeTarget("google")).toBeNull();
+    expect(normalizeTarget("localhost")).toBeNull();
   });
 
   it("refuses input longer than the route accepts", () => {
@@ -184,6 +190,13 @@ describe("problemGuidance", () => {
     expect(problemGuidance({ status: 400 }).tone).toBe("warning");
   });
 
+  it("never blames the input for a 404 — that is deploy skew, not an address fault", () => {
+    const guidance = problemGuidance({ status: 404 });
+    expect(guidance.tone).toBe("warning");
+    expect(guidance.message).not.toContain("address");
+    expect(guidance.message).toContain("Refresh");
+  });
+
   it("cannot echo the target back — guidance is a constant of the status alone", () => {
     // The function takes no URL, so a distinctive user input can never reach a message. This
     // guards that the SSRF-generic 400 stays generic rather than being "improved" to reflect input.
@@ -191,5 +204,82 @@ describe("problemGuidance", () => {
     for (const status of [400, 401, 403, 429, 500, 502]) {
       expect(problemGuidance({ status }).message).not.toContain(sentinel);
     }
+  });
+});
+
+describe("viewSafelyStaged", () => {
+  function respondWithStream(lines: unknown[], status = 200): typeof fetch {
+    const body = lines.map((line) => `${JSON.stringify(line)}\n`).join("");
+    return (async () => new Response(body, { status })) as unknown as typeof fetch;
+  }
+
+  it("reports each stage and resolves with the terminal view", async () => {
+    const stages: string[] = [];
+    const outcome = await viewSafelyStaged(
+      "https://short.example/a",
+      (progress) => stages.push(progress.stage),
+      respondWithStream([
+        { stage: "probing" },
+        { stage: "probed", redirectCount: 1, finalUrl: "https://landing.example/page" },
+        { stage: "complete", view: capturedView },
+      ]),
+    );
+    expect(stages).toEqual(["probing", "probed"]);
+    expect(outcome).toEqual({ kind: "view", view: capturedView });
+  });
+
+  it("resolves a failed terminal line as a problem", async () => {
+    const outcome = await viewSafelyStaged(
+      "https://example.com/",
+      () => {},
+      respondWithStream([{ stage: "probing" }, { stage: "failed", problem: { status: 502 } }]),
+    );
+    expect(outcome).toEqual({ kind: "problem", problem: { status: 502 } });
+  });
+
+  it("reads a pre-stream refusal as an ordinary problem document", async () => {
+    const refusing = (async () =>
+      new Response(JSON.stringify({ errorId: "error_x" }), {
+        status: 403,
+      })) as unknown as typeof fetch;
+    const outcome = await viewSafelyStaged("https://example.com/", () => {}, refusing);
+    expect(outcome).toEqual({ kind: "problem", problem: { status: 403, errorId: "error_x" } });
+  });
+
+  it("falls back to the non-streaming capture when the stream route is not deployed", async () => {
+    // The page and the API deploy as separate Workers, so a fresh page can meet an older API
+    // whose build predates the streaming route. The member loses the narration, not the capture.
+    const skewedApi = (async (input: RequestInfo | URL) =>
+      String(input).includes("/stream")
+        ? new Response("not found", { status: 404 })
+        : new Response(JSON.stringify(capturedView), { status: 200 })) as unknown as typeof fetch;
+    const outcome = await viewSafelyStaged("https://short.example/a", () => {}, skewedApi);
+    expect(outcome).toEqual({ kind: "view", view: capturedView });
+  });
+
+  it("reports transport when the stream ends without a terminal line", async () => {
+    const outcome = await viewSafelyStaged(
+      "https://example.com/",
+      () => {},
+      respondWithStream([{ stage: "probing" }]),
+    );
+    expect(outcome).toEqual({ kind: "transport" });
+  });
+
+  it("reports transport when a line is not valid JSON", async () => {
+    const garbled = (async () =>
+      new Response("not json\n", { status: 200 })) as unknown as typeof fetch;
+    expect(await viewSafelyStaged("https://example.com/", () => {}, garbled)).toEqual({
+      kind: "transport",
+    });
+  });
+
+  it("reports transport when nothing answers at all", async () => {
+    const throwing = (async () => {
+      throw new TypeError("network down");
+    }) as unknown as typeof fetch;
+    expect(await viewSafelyStaged("https://example.com/", () => {}, throwing)).toEqual({
+      kind: "transport",
+    });
   });
 });

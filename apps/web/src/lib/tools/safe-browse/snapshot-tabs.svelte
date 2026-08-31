@@ -19,11 +19,16 @@
   /*
    * The inspector half of the safe-browse viewer: everything a capture reports about the suspect
    * page other than its picture, rendered inside the shell's shared frame (the shell draws the one
-   * border; the tab strip wears the same sunken chrome register as the address bar, so the two
-   * halves read as one browser window with an attached panel). The structure renders from page
-   * load: with no capture the panels sit empty, while a capture is running they hold placeholder
-   * rows, and a completed capture fills them. Each panel is a fixed-height scroll region so
-   * switching tabs never reflows the column.
+   * border; the tab strip wears the same sunken chrome register AND the same row height as the
+   * address bar — both size from the shell's shared formula — so the frame's top band reads as one
+   * continuous bar). The structure renders from page load: with no capture the panels sit empty,
+   * while a capture is running they hold placeholder rows, and a completed capture fills them.
+   * On wide screens each panel stretches to the frame's remaining height (on stacked narrow
+   * screens it keeps a fixed square instead), and each is its own scroll region either way, so
+   * switching tabs never reflows the column. A
+   * capture that landed on a different site than it was asked for reports that here, on the
+   * Overview tab's Different Site row — the warning mark, the landed address, and its copy
+   * control — which is that fact's one home; the shell's chrome carries none of it.
    *
    * The Overview tab derives its rows from data already in hand (capture-facts.ts) — nothing is
    * fetched for it. The Registration tab is the one lazy fetch: activating it asks the page (via
@@ -38,9 +43,13 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
+  import Button from "@magna-carta/design-system/button";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import Check from "@lucide/svelte/icons/check";
+  import Copy from "@lucide/svelte/icons/copy";
   import { QUIET_LINK } from "$lib/auth/quiet-link.ts";
+  import { CHROME_ROW_MIN_BLOCK_SIZE } from "./website-shell.svelte";
   import { landedOnDifferentHost, sortedHeaders, type SafeWebsiteView } from "./safe-browse.ts";
   import {
     finalHost,
@@ -82,6 +91,20 @@
 
   let activeTab = $state("overview");
 
+  let copiedLanded = $state(false);
+  let landedCopyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function copyLandedUrl(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      copiedLanded = true;
+      if (landedCopyTimer !== null) clearTimeout(landedCopyTimer);
+      landedCopyTimer = setTimeout(() => (copiedLanded = false), 1500);
+    } catch {
+      // The clipboard is unavailable here; nothing was copied, so nothing gets confirmed.
+    }
+  }
+
   const headers = $derived(view === null ? [] : sortedHeaders(view.responseHeaders));
   const status = $derived(view === null ? null : finalStatus(view));
   const contentType = $derived(view === null ? null : headerValue(view.responseHeaders, "content-type"));
@@ -107,9 +130,12 @@
   );
 </script>
 
-<Tabs.Root bind:value={activeTab} class="gap-0">
-  <div class="mc-scrollbar overflow-x-auto bg-surface-sunken">
-    <Tabs.List class="w-max min-w-full">
+<Tabs.Root bind:value={activeTab} class="gap-0 lg:min-h-0 lg:flex-1">
+  <!-- The strip stretches to the shell's shared chrome-row height so its bottom hairline meets
+       the address bar's as one line; the stretched triggers keep the active indicator on that
+       shared edge. -->
+  <div class="mc-scrollbar flex overflow-x-auto bg-surface-sunken">
+    <Tabs.List class="w-max min-w-full items-stretch" style={CHROME_ROW_MIN_BLOCK_SIZE}>
       <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
       <Tabs.Trigger value="redirects">Redirects</Tabs.Trigger>
       <Tabs.Trigger value="page-text">Page Text</Tabs.Trigger>
@@ -119,8 +145,8 @@
     </Tabs.List>
   </div>
 
-  <Tabs.Content value="overview">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="overview" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -139,13 +165,29 @@
           {#if view.title}
             {@render factRow("Page Title", view.title, false)}
           {/if}
-          {#if landedOnDifferentHost(view) && landedHost !== null}
-            <div class="flex items-baseline justify-between gap-8 py-8 first:pt-0 last:pb-0">
-              {@render fieldLabel("Different Site")}
-              <dd class="min-w-0">
-                <Badge variant="warning" class="max-w-full">
-                  <span class="truncate font-mono">{landedHost}</span>
-                </Badge>
+          {#if landedOnDifferentHost(view)}
+            {@const landedAddress = view.finalUrl}
+            <!-- The one home of the different-site fact: the warning mark, the landed address in
+                 full, and its own copy control. Text, never an anchor. -->
+            <div class="flex flex-col gap-4 py-8 first:pt-0 last:pb-0">
+              <dt><Badge variant="warning">Different Site</Badge></dt>
+              <dd class="flex min-w-0 items-center gap-8">
+                <span class="min-w-0 flex-1 font-mono text-sm break-all text-text-default">
+                  {landedAddress}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="shrink-0"
+                  aria-label={copiedLanded ? "Copied" : "Copy Landed Address"}
+                  onclick={() => copyLandedUrl(landedAddress)}
+                >
+                  {#if copiedLanded}
+                    <Check class="size-16" aria-hidden="true" />
+                  {:else}
+                    <Copy class="size-16" aria-hidden="true" />
+                  {/if}
+                </Button>
               </dd>
             </div>
           {/if}
@@ -160,8 +202,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="redirects">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="redirects" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -198,8 +240,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="page-text">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="page-text" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -213,8 +255,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="links">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="links" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -241,8 +283,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="headers">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="headers" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
@@ -262,8 +304,8 @@
     </div>
   </Tabs.Content>
 
-  <Tabs.Content value="registration">
-    <div class="mc-scrollbar aspect-square overflow-y-auto p-12">
+  <Tabs.Content value="registration" class="lg:min-h-0 lg:flex-1">
+    <div class="mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full">
       {#if capturing}
         {@render loadingRows()}
       {:else if view !== null}
