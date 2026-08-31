@@ -34,6 +34,20 @@ export function exportCellText(cell: TabularExportCell): string {
   return typeof cell === "string" ? cell : cell.text;
 }
 
+/*
+ * The generation stamp every renderer opens with, as two lines: the date, then the time on its own
+ * line carrying the time zone's name. The instant is the reader's own clock (the document is built
+ * in the browser from `new Date()`), and naming the zone in the file is what makes that
+ * self-evident to whoever the file is forwarded to.
+ */
+export function exportGeneratedDateLine(exportDocument: TabularExportDocument): string {
+  return `Generated ${exportDocument.generatedAt.toLocaleDateString()}`;
+}
+
+export function exportGeneratedTimeLine(exportDocument: TabularExportDocument): string {
+  return exportDocument.generatedAt.toLocaleTimeString(undefined, { timeZoneName: "short" });
+}
+
 /**
  * The saved file's name: the report's own title, then the local date and a readable time to the
  * second — exported figures recompute on every read, so two files from one day are two snapshots

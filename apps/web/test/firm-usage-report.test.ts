@@ -146,6 +146,9 @@ describe("workbookPlan", () => {
     const coverSheet = worksheets[0];
     expect(coverSheet?.data[0]?.[0]).toEqual({ value: "Firm Usage", fontWeight: "bold" });
     expect(String(coverSheet?.data[1]?.[0]?.value)).toMatch(/^Generated /);
+    // The time stands on its own line, in the reader's clock with the zone named beside it.
+    expect(String(coverSheet?.data[2]?.[0]?.value)).toMatch(/\d:\d\d:\d\d.*[A-Za-z]/);
+    expect(String(coverSheet?.data[2]?.[0]?.value)).not.toMatch(/^Generated /);
     for (const worksheet of worksheets.slice(1)) {
       expect(worksheet.stickyRowsCount).toBe(1);
       expect(worksheet.data[0]?.every((cell) => cell.fontWeight === "bold")).toBe(true);
@@ -158,6 +161,7 @@ describe("workbookPlan", () => {
     const sheet = single[0];
     expect(sheet?.sheet).toBe("Firm Usage");
     expect(String(sheet?.data[1]?.[0]?.value)).toMatch(/^Generated /);
+    expect(String(sheet?.data[2]?.[0]?.value)).toMatch(/\d:\d\d:\d\d.*[A-Za-z]/);
     const firstCells = (sheet?.data ?? []).map((row) => row[0]?.value);
     for (const sectionTitle of ["Storage", "Matters by Type", "AI Usage", "Compute and Activity"]) {
       expect(firstCells).toContain(sectionTitle);

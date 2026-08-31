@@ -8,10 +8,12 @@
  * the export seam holds the evaluation), whose version is pinned exactly and whose import happens
  * lazily here, so no page pays the library's weight until someone actually exports a spreadsheet.
  */
-import type {
-  TabularExportCell,
-  TabularExportDocument,
-  TabularExportSection,
+import {
+  exportGeneratedDateLine,
+  exportGeneratedTimeLine,
+  type TabularExportCell,
+  type TabularExportDocument,
+  type TabularExportSection,
 } from "./tabular-export.ts";
 
 export type XlsxLayout = "worksheet-per-section" | "single-worksheet";
@@ -73,15 +75,12 @@ function columnWidths(rows: readonly (readonly WorksheetCellPlan[])[]): { width:
   });
 }
 
-function generatedLine(exportDocument: TabularExportDocument): string {
-  return `Generated ${exportDocument.generatedAt.toLocaleString()}`;
-}
-
 /** The multi-worksheet layout's first sheet: what this file is, and when its figures were true. */
 function coverPlan(exportDocument: TabularExportDocument): WorksheetPlan {
   const data: WorksheetCellPlan[][] = [
     [{ value: exportDocument.title, fontWeight: "bold" }],
-    [{ value: generatedLine(exportDocument) }],
+    [{ value: exportGeneratedDateLine(exportDocument) }],
+    [{ value: exportGeneratedTimeLine(exportDocument) }],
   ];
   return {
     sheet: worksheetName(exportDocument.title),
@@ -105,7 +104,8 @@ function sectionPlan(section: TabularExportSection): WorksheetPlan {
 function singleWorksheetPlan(exportDocument: TabularExportDocument): WorksheetPlan {
   const data: WorksheetCellPlan[][] = [
     [{ value: exportDocument.title, fontWeight: "bold" }],
-    [{ value: generatedLine(exportDocument) }],
+    [{ value: exportGeneratedDateLine(exportDocument) }],
+    [{ value: exportGeneratedTimeLine(exportDocument) }],
   ];
   for (const section of exportDocument.sections) {
     data.push(
