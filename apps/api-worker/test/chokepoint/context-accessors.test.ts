@@ -59,7 +59,7 @@ const FIRM = "firm_test0000000000000" as FirmId;
 const USER = "user_test0000000000000" as UserId;
 const FIRM_CONTEXT = {
   firmDatabase: {} as FirmContext["firmDatabase"],
-  firmName: "Test Firm",
+  readFirmName: () => Promise.resolve("Test Firm"),
   bucketName: "test-firm-bucket",
 } satisfies FirmContext;
 
