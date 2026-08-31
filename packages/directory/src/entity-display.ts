@@ -41,7 +41,11 @@ export interface EntityDisplayName {
 // The stored display name wins where the firm set one; otherwise a person is assembled from the
 // parts the record holds, because a person created through the API always has parts and may never
 // get a display_name written. Mirrors partyDisplayName in party.ts — same rule, same order.
-function displayNameFromRow(row: {
+//
+// Exported because the directory's index (entity-listing.ts) projects the same node columns and has
+// to reach the same answer: a record that sorts under one name and prints another is a row a reader
+// cannot find twice.
+export function displayNameFromRow(row: {
   display_name: string | null;
   legal_name?: string | null;
   name_prefix?: string | null;

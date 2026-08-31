@@ -153,7 +153,7 @@
 
 <div class="flex flex-col gap-12">
   <div class="mc-table-toolbar">
-    <DataTable.Search {table} placeholder="Search matters…" class="max-w-xs" />
+    <DataTable.Search {table} label="Search table" fieldClass="max-w-xs" />
     <DataTable.ViewMenu {table} bind:appearance />
   </div>
 

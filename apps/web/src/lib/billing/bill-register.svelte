@@ -1,0 +1,631 @@
+<script lang="ts">
+  /*
+   * The bill register: every bill this matter's client has been given, and this matter's share of
+   * each.
+   *
+   * THE LIST IS THE SCREEN. What a person came for is the list; the panel beside it is the smaller
+   * details and opens from its own control alone, so clicking a row selects it and does nothing
+   * else. Every dialog on this surface is a decision about money and opens over the list rather than
+   * navigating away from it.
+   *
+   * ONE TABLE. Sorting, the in-header filters, show/hide, drag-reorder, pinning, resize, selection,
+   * the totals row, the filtered-empty state and the counts strip are the product's one grid; this
+   * file declares columns and renders cells and decides none of that behaviour.
+   *
+   * THE REGISTER IS CLIENT-WIDE AND THE FIGURES ARE MATTER-WIDE, DELIBERATELY. An invoice belongs to
+   * one client and may bill several of that client's matters, and there is no per-matter listing to
+   * ask for — so the rows are the client's bills and the leading money column is THIS MATTER'S share
+   * of each. Presenting a client-wide list as though it were the matter's own would misstate every
+   * total on the screen.
+   */
+  import * as Alert from "@magna-carta/design-system/alert";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as Resizable from "@magna-carta/design-system/resizable";
+  import Badge from "@magna-carta/design-system/badge";
+  import Button from "@magna-carta/design-system/button";
+  import EmptyState from "@magna-carta/design-system/empty-state";
+  import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
+  import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
+  import FileMinus from "@lucide/svelte/icons/file-minus";
+  import FunnelX from "@lucide/svelte/icons/funnel-x";
+  import Layers from "@lucide/svelte/icons/layers";
+  import PanelRight from "@lucide/svelte/icons/panel-right";
+  import Plus from "@lucide/svelte/icons/plus";
+  import { RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
+  import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
+  import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
+  import type { CostSummary } from "$lib/matters/cost-api.ts";
+  import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
+  import {
+    addInvoiceClaims,
+    applyClientCredit,
+    billingFailureText,
+    listInvoiceDeliveries,
+    type ClientCredit,
+    type InvoiceDelivery,
+    type InvoiceLine,
+    type MatterUnbilled,
+  } from "./billing-api.ts";
+  import { billActions, billRecordMenu, type BillActionContext } from "./bill-actions.ts";
+  import {
+    BILL_COLUMN_IDENTIFIERS,
+    BILL_REGISTER_INITIAL_SORT,
+    NOT_APPLICABLE,
+    absentShareTitle,
+    billColumns,
+    draftShareTitle,
+  } from "./bill-columns.ts";
+  import { billFigures } from "./bill-figures.ts";
+  import BillDetailsPanel from "./bill-details-panel.svelte";
+  import ApplyTrustFundsDialog from "./apply-trust-funds-dialog.svelte";
+  import CreditNoteDialog from "./credit-note-dialog.svelte";
+  import DraftBillDialog from "./draft-bill-dialog.svelte";
+  import FinalizeBillDialog from "./finalize-bill-dialog.svelte";
+  import InvoiceLineDialog from "./invoice-line-dialog.svelte";
+  import RecordDeliveryDialog from "./record-delivery-dialog.svelte";
+  import VoidDraftDialog from "./void-draft-dialog.svelte";
+  import WriteOffDialog from "./write-off-dialog.svelte";
+  import {
+    civilToday,
+    creditedMinor,
+    deliveryReading,
+    invoiceReference,
+    invoiceStanding,
+    matterShareMinor,
+    matterUnpaidMinor,
+    overdueDays,
+    type InvoiceRow,
+  } from "./invoice-standing.ts";
+
+  let {
+    rows,
+    loading = false,
+    matterId,
+    matterNumber,
+    clientEntityId,
+    clientName,
+    currency,
+    unbilled,
+    unbilledTime,
+    unbilledCosts,
+    clientCredits,
+    permissions,
+    selectBill = null,
+    onSelectionHandled,
+    onChanged,
+  }: {
+    /** Every bill of this matter's client, with whatever of each one's detail has been read. */
+    rows: readonly InvoiceRow[];
+    loading?: boolean;
+    matterId: string;
+    matterNumber: string | null;
+    clientEntityId: string | null;
+    clientName: string;
+    currency: string;
+    unbilled: MatterUnbilled | null;
+    unbilledTime: readonly TimeEntrySummary[];
+    unbilledCosts: readonly CostSummary[];
+    clientCredits: readonly ClientCredit[];
+    permissions: readonly string[] | null;
+    /** A bill another surface asked the register to show, or null. */
+    selectBill?: string | null;
+    /** The register has selected the bill it was sent; the sender can let go of the request. */
+    onSelectionHandled: () => void;
+    /** Something was written; the matter's billing wants re-reading. */
+    onChanged: () => void;
+  } = $props();
+
+  const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
+  const today = civilToday();
+
+  /* The panel's open state is the reader's, and it survives leaving the tab and coming back. */
+  const panelPreference = createPersistedPreference(
+    stringUnionPreference("magna-carta-billing-details-panel", ["open", "closed"] as const, "open"),
+  );
+  const panelOpen = $derived(panelPreference.current === "open");
+
+  let selectedRows = $state<readonly InvoiceRow[]>([]);
+  const soleRow = $derived(selectedRows.length === 1 ? (selectedRows[0] ?? null) : null);
+
+  let actionFailure = $state<string | null>(null);
+  let actionNotice = $state<string | null>(null);
+  let claiming = $state<string | null>(null);
+
+  let draftOpen = $state(false);
+  let finalizeOpen = $state(false);
+  let voidOpen = $state(false);
+  let deliveryOpen = $state(false);
+  let trustOpen = $state(false);
+  let creditNoteOpen = $state(false);
+  let writeOffOpen = $state(false);
+  let lineOpen = $state(false);
+  let editingLine = $state<InvoiceLine | null>(null);
+
+  /* The selected bill's delivery attempts, read when the selection lands on a finalized bill. */
+  let deliveries = $state<readonly InvoiceDelivery[] | null>(null);
+  let deliveriesFor = $state<string | null>(null);
+
+  $effect(() => {
+    const bill = soleRow;
+    if (bill === null || bill.summary.status !== "final") {
+      deliveries = null;
+      deliveriesFor = null;
+      return;
+    }
+    if (deliveriesFor === bill.summary.id) return;
+    deliveriesFor = bill.summary.id;
+    deliveries = null;
+    void (async () => {
+      const outcome = await listInvoiceDeliveries(fetch, bill.summary.id);
+      if (deliveriesFor !== bill.summary.id) return;
+      deliveries = outcome.kind === "ok" ? outcome.value.data : [];
+    })();
+  });
+
+  const grid = DataTable.createDataTableGrid<InvoiceRow>({
+    columns: () => billColumns({ matterId, clientName, currency }),
+    rows: () => rows,
+    rowKey: (row) => row.summary.id,
+    initialSort: BILL_REGISTER_INITIAL_SORT,
+    itemNoun: { singular: "bill", plural: "bills" },
+    // A voided draft stays on the register with its chip and counts toward nothing: it never
+    // charged anybody anything.
+    totalIncludes: (row) => row.summary.status !== "void",
+    onSelectionChange: (_keys, selected) => {
+      selectedRows = selected;
+    },
+  });
+
+  /*
+   * A bill another surface asked for. The request is cleared once it has landed, so a reader who
+   * then selects something else is not dragged back to it on the next render.
+   */
+  $effect(() => {
+    const wanted = selectBill;
+    if (wanted === null) return;
+    if (!rows.some((row) => row.summary.id === wanted)) return;
+    panelPreference.set("open");
+    grid.rowClick(wanted, { repeated: true });
+    onSelectionHandled();
+  });
+
+  const figures = $derived(
+    billFigures(grid.isFiltered ? grid.rowsInView : rows, {
+      unbilled,
+      filtered: grid.isFiltered,
+      money,
+    }),
+  );
+
+  /** The open credit this client is carrying, which a bill can be set against. */
+  const openCredit = $derived(clientCredits.find((credit) => credit.remainingMinor > 0) ?? null);
+
+  const actionContext = $derived<BillActionContext>({
+    matterId,
+    permissions,
+    openClientCreditMinor: openCredit?.remainingMinor ?? null,
+    money,
+  });
+
+  const aDraftIsOpen = $derived(rows.some((row) => row.summary.status === "draft"));
+
+  /*
+   * What the row menu speaks for. Right-clicking inside the selection speaks for it; right-clicking
+   * outside re-targets that one row first, so the scope always comes from the selection.
+   */
+  let contextTarget = $state<InvoiceRow | null>(null);
+  const menuTarget = $derived(soleRow ?? contextTarget);
+  const menu = $derived(menuTarget === null ? [] : billRecordMenu(menuTarget, actionContext));
+
+  function retargetSelection(event: MouseEvent): void {
+    const element = event.target instanceof Element ? event.target.closest("[data-grid-row]") : null;
+    const key = element?.getAttribute("data-grid-row") ?? null;
+    if (key === null) return;
+    contextTarget = rows.find((row) => row.summary.id === key) ?? null;
+    if (!grid.isSelected(key)) grid.rowClick(key, { repeated: true });
+  }
+
+  function runAction(action: RecordMenuAction): void {
+    const target = menuTarget;
+    if (target === null) return;
+    actionFailure = null;
+    actionNotice = null;
+    switch (action.identifier) {
+      case "open":
+        panelPreference.set("open");
+        grid.rowClick(target.summary.id, { repeated: true });
+        return;
+      case "copyNumber":
+        if (target.summary.invoiceNumber !== null) {
+          void navigator.clipboard.writeText(target.summary.invoiceNumber);
+          actionNotice = `Copied ${target.summary.invoiceNumber}.`;
+        }
+        return;
+      case "finalize":
+        finalizeOpen = true;
+        return;
+      case "voidDraft":
+        voidOpen = true;
+        return;
+      case "recordDelivery":
+        deliveryOpen = true;
+        return;
+      case "applyTrust":
+        trustOpen = true;
+        return;
+      case "applyClientCredit":
+        void setCreditAgainst(target);
+        return;
+      case "writeOff":
+        writeOffOpen = true;
+        return;
+      case "creditNote":
+        creditNoteOpen = true;
+        return;
+      default:
+        return;
+    }
+  }
+
+  /*
+   * Setting an open client credit against a bill. No money moves in either direction: the debt and
+   * the credit cancel, bounded by whichever of them is smaller.
+   */
+  async function setCreditAgainst(target: InvoiceRow): Promise<void> {
+    const credit = openCredit;
+    if (credit === null) return;
+    const owed = matterUnpaidMinor(target, matterId) ?? 0;
+    const amountMinor = Math.min(credit.remainingMinor, owed);
+    if (amountMinor <= 0) return;
+    const outcome = await applyClientCredit(
+      fetch,
+      credit.id,
+      { invoiceId: target.summary.id, matterId, amountMinor, effectiveDate: today },
+      crypto.randomUUID(),
+    );
+    if (outcome.kind === "ok") {
+      actionNotice = `Set ${money(amountMinor)} of the client's credit against ${invoiceReference(target)}.`;
+      onChanged();
+      return;
+    }
+    actionFailure = billingFailureText(outcome, "Nothing was set against this bill.");
+  }
+
+  /** Claim one piece of unbilled work onto the selected draft. */
+  async function claim(request: {
+    sourceKind: "time_entry" | "cost_entry";
+    sourceId: string;
+  }): Promise<void> {
+    const draft = soleRow;
+    if (draft === null || claiming !== null) return;
+    claiming = request.sourceId;
+    actionFailure = null;
+    const outcome = await addInvoiceClaims(fetch, draft.summary.id, [request], crypto.randomUUID());
+    claiming = null;
+    if (outcome.kind === "ok") {
+      actionNotice = "Claimed onto the draft.";
+      onChanged();
+      return;
+    }
+    actionFailure = billingFailureText(
+      outcome,
+      "Nothing was claimed. Work another draft already holds is refused by name.",
+    );
+  }
+
+  /** Claim everything of one kind. The whole set goes in one write, so it lands or it does not. */
+  async function claimAll(sourceKind: "time_entry" | "cost_entry"): Promise<void> {
+    const draft = soleRow;
+    if (draft === null || claiming !== null) return;
+    const sources =
+      sourceKind === "time_entry"
+        ? unbilledTime.map((entry) => entry.id)
+        : unbilledCosts.map((cost) => cost.id);
+    if (sources.length === 0) return;
+    claiming = "all";
+    actionFailure = null;
+    const outcome = await addInvoiceClaims(
+      fetch,
+      draft.summary.id,
+      sources.map((sourceId) => ({ sourceKind, sourceId })),
+      crypto.randomUUID(),
+    );
+    claiming = null;
+    if (outcome.kind === "ok") {
+      actionNotice = `Claimed all unbilled ${sourceKind === "time_entry" ? "time" : "costs"} onto the draft.`;
+      onChanged();
+      return;
+    }
+    actionFailure = billingFailureText(
+      outcome,
+      "Nothing was claimed. A claim held by another draft is refused, and the whole batch stands or falls together.",
+    );
+  }
+
+  function openLineEditor(line: InvoiceLine): void {
+    editingLine = line;
+    lineOpen = true;
+  }
+</script>
+
+{#snippet cell({ row, column, text }: DataTable.GridCellContext<InvoiceRow>)}
+  {#if column.id === BILL_COLUMN_IDENTIFIERS.invoiceNumber}
+    <span class="inline-flex items-center gap-4 whitespace-nowrap">
+      <span class="font-mono">{invoiceReference(row)}</span>
+      {#if (row.detail?.matterBalances.length ?? 0) > 1}
+        <Layers
+          class="size-12 text-text-subtle"
+          aria-label="Bills more than one matter of this client"
+        />
+      {/if}
+    </span>
+  {:else if column.id === BILL_COLUMN_IDENTIFIERS.standing}
+    {@const standing = invoiceStanding(row)}
+    <span class="inline-flex items-center gap-4 whitespace-nowrap">
+      <Badge {...statusBadgeAttributes(standing)}>{statusEntry(standing).label}</Badge>
+      {#if creditedMinor(row) > 0}
+        <FileMinus
+          class="size-12 text-text-link"
+          aria-label="Corrected by a credit note recorded beside it"
+        />
+      {/if}
+    </span>
+  {:else if column.id === BILL_COLUMN_IDENTIFIERS.dueDate}
+    {@const late = overdueDays(row, today)}
+    {#if late > 0 && row.summary.dueDate !== null}
+      <span
+        class="font-semibold whitespace-nowrap text-status-danger-subtle-foreground tabular-nums"
+        title="Unpaid {late} days past due. Overdue is worked out from the date; it is never a stored flag."
+      >
+        {formatDate(row.summary.dueDate)} · {late}d
+      </span>
+    {:else}
+      <span class="whitespace-nowrap tabular-nums">{text}</span>
+    {/if}
+  {:else if column.id === BILL_COLUMN_IDENTIFIERS.matterShare}
+    {@const share = matterShareMinor(row, matterId)}
+    {#if share === null}
+      <span
+        class="text-text-subtle"
+        title={row.summary.status === "draft"
+          ? "This draft's lines have not been read yet."
+          : absentShareTitle(row)}>{NOT_APPLICABLE}</span
+      >
+    {:else if row.summary.status === "draft"}
+      <span class="whitespace-nowrap tabular-nums" title={draftShareTitle()}>{money(share)}</span>
+    {:else}
+      <span class="whitespace-nowrap tabular-nums">{money(share)}</span>
+    {/if}
+  {:else if column.id === BILL_COLUMN_IDENTIFIERS.matterUnpaid}
+    {@const owed = matterUnpaidMinor(row, matterId)}
+    {#if owed === null}
+      <span class="text-text-subtle" title={absentShareTitle(row)}>{NOT_APPLICABLE}</span>
+    {:else}
+      <span class="whitespace-nowrap tabular-nums">{money(owed)}</span>
+    {/if}
+  {:else if column.id === BILL_COLUMN_IDENTIFIERS.delivered}
+    {@const reading = deliveryReading(row, (isoDate) => formatDate(isoDate))}
+    <span
+      class="whitespace-nowrap {reading.key === 'delivered' ? '' : 'text-text-muted'}"
+      title={reading.title}>{reading.text}</span
+    >
+  {:else}
+    {text}
+  {/if}
+{/snippet}
+
+{#snippet emptyRegister()}
+  <EmptyState title="No Bills Yet">
+    Every bill this client has been given appears here, with this matter&rsquo;s own share of each.
+    Draft one when there is work to bill.
+    {#snippet actions()}
+      <Button disabled={clientEntityId === null} onclick={() => (draftOpen = true)}>
+        <Plus class="size-16" aria-hidden="true" />
+        Draft Bill
+      </Button>
+    {/snippet}
+  </EmptyState>
+{/snippet}
+
+{#snippet footerEnd()}
+  {#if grid.isFiltered}
+    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
+  {/if}
+  {#each figures as figure, index (figure.identifier)}
+    {#if index > 0}<span aria-hidden="true">·</span>{/if}
+    <span class="inline-flex items-baseline gap-4" title={figure.caption}>
+      <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
+      <span class="text-text-subtle">{figure.label}</span>
+    </span>
+  {/each}
+{/snippet}
+
+<section class="flex min-h-0 flex-1 flex-col gap-12">
+  <div class="flex flex-wrap items-center justify-end gap-8">
+    {#if grid.isFiltered}
+      <Button
+        variant="secondary"
+        size="sm"
+        title="Clear all filters and show all {grid.totalRowCount} bills"
+        onclick={() => grid.clearAllFilters()}
+      >
+        <FunnelX class="size-16" aria-hidden="true" />
+        Clear Filters
+      </Button>
+    {/if}
+    <Button
+      size="sm"
+      disabled={clientEntityId === null}
+      title={clientEntityId === null
+        ? "This matter's party record names no client, so there is nobody to bill."
+        : "Open a draft bill for this matter's client. Nothing is asserted to anybody until it is finalized."}
+      onclick={() => (draftOpen = true)}
+    >
+      <Plus class="size-16" aria-hidden="true" />
+      Draft Bill
+    </Button>
+    <DataTable.GridColumnsMenu {grid} />
+    <Button
+      variant="secondary"
+      size="icon"
+      aria-pressed={panelOpen}
+      title="Show or hide the details panel"
+      aria-label="Show or hide the details panel"
+      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
+    >
+      <PanelRight class="size-16" aria-hidden="true" />
+    </Button>
+  </div>
+
+  {#if actionFailure !== null}
+    <Alert.Root variant="danger">
+      <Alert.Title>Nothing Changed</Alert.Title>
+      <Alert.Description>{actionFailure}</Alert.Description>
+    </Alert.Root>
+  {:else if actionNotice !== null}
+    <Alert.Root variant="info">
+      <Alert.Title>Recorded</Alert.Title>
+      <Alert.Description>{actionNotice}</Alert.Description>
+    </Alert.Root>
+  {/if}
+
+  <div class="min-h-0 flex-1">
+    <Resizable.PaneGroup direction="horizontal" autoSaveId="matter-billing-panes">
+      <Resizable.Pane defaultSize={panelOpen ? 66 : 100} minSize={40}>
+        <RecordMenu {menu} onAction={runAction} onChoice={() => undefined}>
+          <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+               product uses everywhere is still the thing that opens. -->
+          <div role="presentation" oncontextmenu={retargetSelection}>
+            <DataTable.Grid
+              {grid}
+              {cell}
+              class="max-h-svh"
+              caption="Bills this matter's client has been given"
+              empty={emptyRegister}
+              {loading}
+            />
+          </div>
+        </RecordMenu>
+      </Resizable.Pane>
+      {#if panelOpen}
+        <Resizable.Handle withHandle />
+        <Resizable.Pane defaultSize={34} minSize={22} maxSize={50}>
+          <BillDetailsPanel
+            row={soleRow}
+            selectedCount={selectedRows.length}
+            {matterId}
+            {clientName}
+            {currency}
+            {figures}
+            {actionContext}
+            {deliveries}
+            {clientCredits}
+            {unbilledTime}
+            {unbilledCosts}
+            {claiming}
+            onAction={(identifier) => {
+              const target = soleRow;
+              if (target === null) return;
+              const action = billActions(target, actionContext).find(
+                (candidate) => candidate.identifier === identifier,
+              );
+              if (action !== undefined) runAction(action);
+            }}
+            onEditLine={openLineEditor}
+            onClaim={(request) => void claim(request)}
+            onClaimAll={(kind) => void claimAll(kind)}
+            onLetGo={() => grid.clearSelection()}
+          />
+        </Resizable.Pane>
+      {/if}
+    </Resizable.PaneGroup>
+  </div>
+
+  <DataTable.GridFooter {grid} end={footerEnd} />
+</section>
+
+{#if clientEntityId !== null}
+  <DraftBillDialog
+    bind:open={draftOpen}
+    {clientEntityId}
+    {clientName}
+    {matterNumber}
+    {aDraftIsOpen}
+    onOpened={() => {
+      actionNotice = "Draft opened. Claim work onto it from the details panel.";
+      onChanged();
+    }}
+  />
+{/if}
+
+<FinalizeBillDialog
+  bind:open={finalizeOpen}
+  row={soleRow}
+  {money}
+  onFinalized={(invoiceNumber) => {
+    actionNotice = `Finalized as ${invoiceNumber}: the receivable posted and the work locked.`;
+    onChanged();
+  }}
+/>
+
+<VoidDraftDialog
+  bind:open={voidOpen}
+  row={soleRow}
+  onVoided={() => {
+    actionNotice = "Draft voided. Its work returned to unbilled.";
+    onChanged();
+  }}
+/>
+
+<RecordDeliveryDialog
+  bind:open={deliveryOpen}
+  row={soleRow}
+  onRecorded={() => {
+    actionNotice = "Delivery recorded.";
+    deliveriesFor = null;
+    onChanged();
+  }}
+/>
+
+<ApplyTrustFundsDialog
+  bind:open={trustOpen}
+  row={soleRow}
+  {matterId}
+  {money}
+  formatDate={(isoDate) => formatDate(isoDate)}
+/>
+
+<CreditNoteDialog
+  bind:open={creditNoteOpen}
+  row={soleRow}
+  {matterId}
+  {money}
+  onIssued={(clientCreditMinor) => {
+    actionNotice =
+      clientCreditMinor > 0
+        ? `Credit note issued. ${money(clientCreditMinor)} opened as a client credit the firm owes back.`
+        : "Credit note issued.";
+    onChanged();
+  }}
+/>
+
+<WriteOffDialog
+  bind:open={writeOffOpen}
+  row={soleRow}
+  {matterId}
+  {money}
+  onWrittenOff={(amountMinor) => {
+    actionNotice = `Wrote off ${money(amountMinor)}.`;
+    onChanged();
+  }}
+/>
+
+<InvoiceLineDialog
+  bind:open={lineOpen}
+  invoiceId={soleRow?.summary.id ?? null}
+  line={editingLine}
+  onSaved={() => {
+    actionNotice = "Line updated. The entry it was composed from is unchanged.";
+    onChanged();
+  }}
+/>

@@ -58,7 +58,7 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     table: "directory_person",
     subjectKey: "self",
     action: "anonymize",
-    note: "name parts, display name, and the stated pronoun set are all scrubbed at the node",
+    note: "name parts, display name, the stated pronoun set, and the life dates (date of birth and date of death) are all scrubbed at the node",
   },
   { table: "directory_organization", subjectKey: "self", action: "anonymize" },
   // Matter-corpus references — retained under GDPR Art. 17(3); PII is scrubbed at the entity.

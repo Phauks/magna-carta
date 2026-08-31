@@ -71,6 +71,16 @@
 
 /* Semantic colors + elevation — hand-authored; `inline` keeps the var() reference in utilities. */
 @theme inline {
+  /*
+   * A named layout width that has to reach an element as a UTILITY rather than as a recipe
+   * declaration. A Tailwind utility always outranks the components layer, so a width set in a
+   * recipe silently loses to whatever width utility the element already carries — which is exactly
+   * what happened to the record window, whose panel wore the Dialog's default cap while its recipe
+   * named a token nothing ever used. Exposing the token here lets the element carry `max-w-*` and
+   * still be fed by the token. Registered in the design system's mergeClasses (the `container`
+   * theme key), or two `max-w-*` classes would both survive the merge.
+   */
+  --container-record-window: var(--mc-size-record-window);
   /* Elevation: dark themes may later override --mc-elevation-* per mode; the wiring already permits it. */
   --shadow-elevation-0: var(--mc-elevation-0);
   --shadow-elevation-1: var(--mc-elevation-1);

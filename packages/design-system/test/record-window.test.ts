@@ -61,6 +61,28 @@ describe("the recipe's place in the cascade", () => {
   });
 });
 
+describe("the sizing rules, at the source", () => {
+  /*
+   * The rendered geometry is proved in the browser by the stories (a short record that does not
+   * scroll, a long one that caps while its header and action bar hold still). These two assertions
+   * pin the DECLARATIONS those behaviours rest on, because both have been argued more than once and
+   * either is a one-line edit away from silently reverting.
+   */
+  const recipe = readFileSync(
+    join(PACKAGE_ROOT, "src/lib/components/record-window/record-window.css"),
+    "utf8",
+  );
+
+  it("sizes the panel to its content, which is what lets a record that fits not scroll", () => {
+    expect(recipe).toContain("block-size: fit-content");
+  });
+
+  it("stops the record at its measure and leaves the context pane uncapped", () => {
+    expect(recipe).toContain("max-inline-size: var(--mc-size-record-pane)");
+    expect(recipe).not.toContain("max-inline-size: var(--mc-size-record-context)");
+  });
+});
+
 describe("the shell's public surface", () => {
   const shell = readFileSync(
     join(PACKAGE_ROOT, "src/lib/components/record-window/record-window.svelte"),
@@ -73,22 +95,44 @@ describe("the shell's public surface", () => {
     for (const property of [
       "open",
       "expanded",
+      "editing",
       "heading",
       "subtitle",
       "record",
       "tabs",
       "defaultTab",
       "actions",
-      "onEdit",
+      "onSave",
+      "onCancel",
       "onPrint",
       "editDisabledReason",
+      "saveDisabledReason",
+      "unsavedChanges",
     ]) {
       expect(shell).toContain(property);
     }
   });
 
-  it("keeps open and expanded bindable, so a surface can drive both", () => {
+  it("keeps open, expanded and editing bindable, so a surface can drive all three", () => {
     expect(shell).toContain("open = $bindable(false)");
     expect(shell).toContain("expanded = $bindable()");
+    expect(shell).toContain("editing = $bindable(false)");
+  });
+
+  it("offers no callback a record kind could open a second editing surface from", () => {
+    // Editing is a MODE of this window, not an errand it sends the caller on. The moment the shell
+    // hands out an "the reader pressed Edit" callback, one record kind answers it by opening its
+    // own dialog and the one-window rule is over — so the callback does not exist, and the header's
+    // control raises the window's own flag instead.
+    expect(shell).not.toContain("onEdit");
+  });
+
+  it("hands the mode to the panes that must not fork, and to no others", () => {
+    // The record pane renders the values AND the fields, so it is told which; the action bar swaps
+    // the caller's verbs, so it is told too. The tabs are context and stay read-only either way,
+    // which is enforced by simply never telling them.
+    expect(shell).toContain("record: Snippet<[{ editing: boolean }]>");
+    expect(shell).toContain("actions: Snippet<[{ editing: boolean }]>");
+    expect(shell).toContain("tabs: readonly RecordWindowTab[]");
   });
 });

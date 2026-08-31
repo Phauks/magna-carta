@@ -246,4 +246,31 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "One current row per custom field configured for that target, so the firm's own field catalog " +
     "is the bound — readCurrentValues in packages/custom-fields/src/reads.ts filters to the " +
     "current row. The field's HISTORY is the unbounded one, and that read pages.",
+
+  // --- The ways one person or organization asked to be reached ---------------------------------
+  //
+  // The same claim three times, and it is checkable in the same place each time: the only writes to
+  // directory_email, directory_phone and directory_address are the add/update/remove operations in
+  // packages/directory/src/contact-email.ts, contact-phone.ts and contact-address.ts, each reached
+  // only from the entity's own route behind directory:edit. Nothing else in the repository inserts a
+  // row into any of the three — no import, no queue consumer, no ingest pipeline — which is what
+  // separates a contact record from a record that grows with the firm's activity. A person has the
+  // numbers and addresses somebody typed for them, one at a time, and a soft-deleted row is excluded
+  // from the read, so the count is the ways that person can currently be reached.
+  //
+  // Read whole on purpose: this IS the contact list on a record, and a page boundary through it
+  // would show a member some of the ways to reach a client and let them believe it was all of them.
+  "directory.listEmails":
+    "The email addresses on one directory entity. Written only by addEmail/updateEmail/removeEmail " +
+    "in packages/directory/src/contact-email.ts, reached from the entity's own route behind " +
+    "directory:edit and from inbound email capture, which writes one row per newly seen " +
+    "correspondent address on that entity.",
+  "directory.listPhones":
+    "The telephone and fax numbers on one directory entity. Written only by " +
+    "addPhone/updatePhone/removePhone in packages/directory/src/contact-phone.ts, reached from the " +
+    "entity's own route behind directory:edit and from nowhere else at all.",
+  "directory.listAddresses":
+    "The postal addresses on one directory entity. Written only by " +
+    "addAddress/updateAddress/removeAddress in packages/directory/src/contact-address.ts, reached " +
+    "from the entity's own route behind directory:edit and from nowhere else at all.",
 };

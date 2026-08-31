@@ -6,6 +6,47 @@ Each section is a numbered runbook. Where a step _activates_ committed code (a b
 
 White-paper areas: _Observability and diagnostics_ · _Communications layer_ (email transport) · _Delivery model_. Decisions: ADR-0074 (telemetry baseline, email provider) · ADR-0073 (firm provisioning) · ADR-0056 (telemetry analytics tier) · ADR-0075 (deploy model).
 
+## How this file treats live Cloudflare state — read the API, never this page
+
+**This file records no current value of anything Cloudflare owns.** Not which Workers are connected,
+not any Worker's production branch, root directory, build command, Build Watch Paths or build-caching
+setting, not which hostnames or routes a Worker answers on, not when anything last deployed or whether
+a build passed. Every one of those has a canonical home in the Cloudflare account, is one API call
+away, and **changes without touching this repository** — an owner clicking through the dashboard leaves
+no commit behind.
+
+The reason is evidence, not taste. This file wrote those values down and **disagreed with the live
+configuration four separate times** (the connected-Worker count and roster; the edit Worker's root
+directory, deploy command and branch; two Build Watch Paths that matched nothing). Each disagreement
+was corrected, and each correction decayed the moment the dashboard moved again. A written-down value
+is not a fact here — it is a snapshot with no expiry date printed on it, and it reads exactly as
+confidently when stale as when fresh.
+
+So the rule, and it is a hard one: **if the Cloudflare API can answer a question, this file gives you
+the call, not the answer.** What stays is what no API returns — the decisions and why they were made,
+the procedures an operator follows, the failure modes that have cost real deploys, and the invariants
+you must not violate.
+
+**If you are about to paste current values back in because it would be convenient: that is the
+mistake this section exists to stop.** Put them in the terminal instead.
+
+Every command below assumes `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are exported, and is
+runnable as written. A Worker's `script_tag` (which the Builds endpoints key on, and which is **not**
+the Worker's name) comes from the scripts listing:
+
+```bash
+# Every Worker on the account, with the script_tag each Builds call needs
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts?per_page=100" \
+  | jq -r '.result[] | "\(.id)\t\(.tag)"'
+```
+
+Some reads need token scopes beyond Workers — zone-level `GET /zones/{zone_id}/workers/routes` and
+`GET /zones/{zone_id}/dns_records` return **403 `Authentication error`** on a Workers-only token. A 403
+there means _your token cannot see it_, never _there is none_; account-level
+`GET /accounts/{account_id}/workers/domains/records` answers the custom-domain question without zone
+scope, and is the read to reach for first.
+
 ---
 
 ## 1. Workers Logs + Logpush → R2 (the durable telemetry archive)
@@ -252,7 +293,7 @@ The Worker `wrangler.jsonc` binds both; Wrangler errors on deploy if they do not
 
 The scan engine lives in its own Worker (`apps/scan-worker`, service `magna-carta-scan`). It owns the `ScanContainer` — a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). The app Worker (`apps/api-worker`) reaches it exclusively over a `SCAN_SERVICE` service binding; `resolveScanPort` selects the remote engine when that binding is present, otherwise the engine-less `unscanned` adapter (an honest `unscanned`/no-engine verdict, never a false `clean`). The app Worker carries **no** container config of its own. The rule that put the engine in its own Worker — the five-property extraction rubric and the compute-vs-coordination seam — is §18; this section is the deploy runbook for the first subsystem that cleared it.
 
-The scan worker is **built, connected to Workers Builds, and deployed** as of 2026-06-28 — the `SCAN_SERVICE` binding in the app Worker is wired and live, so production runs the real engine (local/test envs still use the engine-less adapter — no container pool). The first-activation steps below are retained as the record of what activation entailed; the **acceptance checks** are **deferred** until a prod firm/member is provisioned (none yet — the auth UI is slice 0·7b), since they need an authenticated principal to call `POST /api/v1/scan/diagnose`. The container required a `bookworm`→`trixie` base for onnxruntime's glibc-2.38 symbols (Magika `/identify`).
+The scan worker was the first subsystem to be built, connected to Workers Builds and deployed (2026-06-28). Whether its `SCAN_SERVICE` binding is wired on the deployed app Worker today is live state — read the app Worker's bindings (see §14) rather than this paragraph. When it is present production runs the real engine; local/test envs use the engine-less adapter regardless (no container pool). The first-activation steps below are retained as the record of what activation entailed; the **acceptance checks** are **deferred** until a prod firm/member is provisioned (none yet — the auth UI is slice 0·7b), since they need an authenticated principal to call `POST /api/v1/scan/diagnose`. The container required a `bookworm`→`trixie` base for onnxruntime's glibc-2.38 symbols (Magika `/identify`).
 
 ### First-activation steps
 
@@ -304,7 +345,16 @@ The scan worker is **built, connected to Workers Builds, and deployed** as of 20
 
 ## 12. Cloudflare Workers Builds — CI/CD pipeline + fast-build settings
 
-The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. **Twelve** Workers are connected to the GitHub repository — `magna-carta`, `magna-carta-scan`, `magna-carta-bundle`, `magna-carta-convert`, `magna-carta-recovery`, `magna-carta-file-repair`, `magna-carta-discovery`, `magna-carta-ocr`, `magna-carta-sign`, `magna-carta-status`, `magna-carta-edit`, `magna-carta-web` — and each builds + deploys on a push to its **production branch**. That count and roster are what the account's own build configuration returned on **2026-08-24**, read over the Cloudflare API; this file had claimed seven and had `magna-carta-convert` deployed by hand, and both claims were wrong. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each connected Worker builds and deploys on a push to its **production branch**. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+
+**How many Workers are connected, and which ones, is live account state — read it, do not trust a roster.** This file used to carry the count and the names, and was wrong about both (it claimed seven, and claimed `magna-carta-convert` was deployed by hand). To list the connected projects, walk the scripts listing from _How this file treats live Cloudflare state_ above and ask the Builds endpoint about each `script_tag`; a Worker that is **not** connected returns `404` there, which is how you tell "deployed by hand" from "built by Workers Builds":
+
+```bash
+# Connected? production branch? root directory? build + deploy command? watch paths? caching?
+# All six come back from one call, per Worker.
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/workers/$SCRIPT_TAG" | jq .
+```
 
 ### Branch control — `main` is production for the app Worker and the SPA
 
@@ -316,11 +366,23 @@ What follows from it, and it is the whole reason this section is read:
 - **There is no "what is live" question separate from the trunk** for those two Workers. `git log release..main` is not the undeployed queue any more; `release` survives as history and is not a deploy target.
 - _Builds for non-production branches_ (`previews_enabled`) stays **off**, so a feature branch still builds nothing. Only the trunk deploys.
 
-**The fleet may be mixed, and that is the trap.** The move named the two Workers above. Every other connected project was on `release` at the last verified read (2026-08-24, over the API), and **whether any of them has since been moved to `main` is unverified** — a read of `GET /accounts/{account_id}/builds/workers/{script_tag}` on each project settles it in one pass, and nothing else does. Until that read happens, assume a sibling container Worker (scan, bundle, convert, recovery, file-repair, discovery, ocr, sign, edit, status) still builds only from `release`, which means a merge to `main` can ship an app Worker that expects a sibling change the sibling has not deployed. Reconcile the branch of every project before relying on a cross-Worker change landing together.
+**The fleet may be mixed, and that is the trap — so check before you rely on it.** The ruling above named two Workers. Whether any given sibling shares their production branch is live state that has moved more than once without a commit, and **a mixed fleet is silent**: a merge to `main` can ship an app Worker expecting a sibling change the sibling never built, and nothing goes red. Before relying on a cross-Worker change landing together, read the branch of every project in one pass:
+
+```bash
+# Production branch of every connected Worker, newline-separated. Anything that is not
+# your expected branch is a Worker your merge will NOT reach.
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts?per_page=100" \
+  | jq -r '.result[].tag' | while read -r tag; do
+      curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+        "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/workers/$tag" \
+        | jq -r 'if .success then "\(.result.script_tag) \(.result.git_repository.branch)" else "not connected" end'
+    done
+```
 
 **Deploy order is now a merge-time hazard, not a deploy-time one.** Cloudflare rejects a deploy whose service binding names a Worker that does not exist, so a merge that adds a `*_SERVICE` binding to `apps/api-worker/wrangler.jsonc` fails the app Worker's build the moment it lands — see §14 and §16 for the ordering rule. Under the old model that failure waited for a deliberate push; now it happens on the merge, so the target Worker (or a 503 placeholder under its final name) must exist **before** the binding merges.
 
-To change a project's production branch, **per Worker** — dashboard **Settings → Build → Branch control**, or `PATCH /accounts/{account_id}/builds/workers/{script_tag}` with `{"git_repository":{"branch":"main"}}`. `GET` on the same path reads the whole build configuration (branch, commands, caching, watch paths) and is the fastest way to check the live settings against what this file claims — which this file has been wrong about four separate times, so read the configuration rather than trusting the page.
+To change a project's production branch, **per Worker** — dashboard **Settings → Build → Branch control**, or `PATCH /accounts/{account_id}/builds/workers/{script_tag}` with `{"git_repository":{"branch":"main"}}`. `GET` on the same path reads the whole build configuration back.
 
 ### Per-Worker build configuration (dashboard: **Workers & Pages → _the Worker_ → Settings → Builds**)
 
@@ -332,18 +394,21 @@ something: a Worker rooted at `/` sees every path as its own and cannot be scope
 without listing the entire repository. It also keeps its deploy command a plain `npx wrangler deploy`
 rather than a `--filter` incantation that has to name the package a second time.
 
-**And the commands are the same three fields for every one of them:**
+**The intended shape — the standard every sibling is set to, and the only per-Worker exception:**
 
-| Field             | Value                                                                           |
-| ----------------- | ------------------------------------------------------------------------------- |
-| Root directory    | `apps/<the-worker>`                                                             |
-| Build command     | `pnpm install --frozen-lockfile && pnpm run build`                              |
-| Deploy command    | `npx wrangler deploy`                                                           |
-| Production branch | `main` on `magna-carta` and `magna-carta-web`; unverified elsewhere (see above) |
-| Build caching     | On — verified on every connected project, 2026-08-24                            |
+| Field             | Intended                                                               |
+| ----------------- | ---------------------------------------------------------------------- |
+| Root directory    | `apps/<the-worker>` — `/` on `magna-carta` alone, for the reason above |
+| Build command     | `pnpm install --frozen-lockfile && pnpm run build`                     |
+| Deploy command    | `npx wrangler deploy`                                                  |
+| Build caching     | On, everywhere — the primary fast-build lever                          |
+| Build Watch Paths | **The one field that legitimately differs per Worker** (see below)     |
 
-**Watch Paths are the only per-Worker field**, and they have to be, or every push rebuilds every
-Worker. Each entry below records its own; nothing else in the list should differ.
+That table is the **design**, not a reading of the account. What each Worker is actually set to is
+live state; the `GET /accounts/{account_id}/builds/workers/{script_tag}` call above returns all six
+fields at once, and a difference from this shape is either a drift to fix or a decision nobody wrote
+down. **Watch Paths have to differ per Worker**, or every push rebuilds every Worker; nothing else in
+the list should.
 
 That uniformity holds because every sibling's `package.json` already carries the same pair —
 `build: node ../../packages/build-identity/scripts/generate-build-identity.mjs && wrangler deploy
@@ -359,18 +424,63 @@ workspace-root task
 `Task "<name>" not found`). A dashboard field is invisible to review and drifts from the repository —
 this file has recorded three such drifts already — so the repository is where the difference belongs.
 
-Recorded per Worker below, with the Watch Paths that are genuinely its own:
+What is genuinely per-Worker and **cannot** be read off the API — why a Worker's build is shaped the way it is, and the failure it is shaped to avoid:
 
-- `magna-carta` — build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`; deploy `pnpm --filter @magna-carta/api-worker exec wrangler deploy`. **The WASM artefacts the build consumes — `@magna-carta/pdf` and `@magna-carta/decryption`, both imported by the WORKER (pdf directly, by its PDF form fill and search text extraction, and transitively through `packages/document-assembly`; decryption by its decryption and recovery routes) — each build inside a pinned Rust Docker image** (`crates/pdf-core/wasm.Dockerfile` and `crates/decryption-core/wasm.Dockerfile`, both run by the `rust-wasm-build` task in `vite.config.ts`), exactly as the `scan`/`bundle`/`convert` container images build their Rust — so the runner needs only Docker (which it provides), never Rust/wasm-pack on the bare machine, and the build command stays the standard one. **This paragraph read "`@magna-carta/pdf` (imported by the SPA)" until 2026-08-21, and it was wrong: `apps/web/package.json` depends on none of the WASM packages.** The claim mattered, because it is the reason the question "can the interface build without the Rust toolchain?" carried an answer of no for two months without anyone reading the dependency graph. It can. See [`docs/specs/2026-08-21-spa-worker-split-design.md`](../specs/2026-08-21-spa-worker-split-design.md). **Any new crate the app worker or SPA imports as WASM must be added to `rust-wasm-build` and given its own `wasm.Dockerfile`, or the bundle fails with `ENOENT … <crate>_bg.wasm`.** **History:** from the PDF engine merge (2026-06-23) until 2026-06-28 the wasm built with bare `wasm-pack` on the runner, which has no Rust toolchain, so every `magna-carta` build failed with `Failed to find executable wasm-pack` (no deploy succeeded in that window); moving the wasm build into Docker fixed it. The same class recurred 2026-07-04: the decryption merge added a worker import of `@magna-carta/decryption`'s wasm but `rust-wasm-build` still built only pdf-core, so the bundle failed with `ENOENT … decryption_core_bg.wasm` — fixed by adding the decryption-core Docker wasm build alongside pdf-core's. It went undetected until the trunk was pushed because the pre-push gate does not run a worker bundle.
-- `magna-carta-scan` — root directory `apps/scan-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the scan Worker builds and pushes the `containers/scan` image referenced by its Container binding.
-- `magna-carta-bundle` — root directory `apps/bundle-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the bundle Worker builds and pushes the `containers/bundle` image referenced by its Container binding. The image is a separate slice's deliverable (`containers/bundle/Dockerfile`); until it exists the bundle Worker cannot deploy, so the `BUNDLE_SERVICE` binding in the app Worker stays unbound and the encrypted/heavy bundle lanes return `503` (the plain ZIP fast lane is unaffected).
-- `magna-carta-recovery` — root directory `apps/recovery-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. Deploying builds and pushes the `containers/recovery` image (the pure-Rust password-recovery engine) referenced by its Container binding, and applies its `RecoveryEngineContainer` DO migration. **Its build context is the repo ROOT** — the Dockerfile COPYs both `crates/decryption-core` (a path dependency) and `containers/recovery/...`, so `wrangler.jsonc` sets `image_build_context: "../../"`; the root `.dockerignore` allowlists only `crates` + `containers`. Without the explicit context, wrangler builds against a narrower default and the `COPY containers/recovery/wordlists` step fails on the runner with `"containers/recovery/wordlists": not found` (a local `docker build … .` masks it by using the root). The app Worker's `RECOVERY_SERVICE` binding **requires this Worker to exist first**: wrangler rejects a deploy whose service binding targets a missing Worker (`Service binding … references Worker … which was not found [code: 10143]`), so this Worker must be connected + deployed before the app Worker can deploy — the code's graceful fallback is runtime-only, not a deploy-time exemption. **Build Watch Paths (inclusion):** `apps/recovery-worker/*`, `containers/recovery/*`, `crates/recovery-core/*`, `crates/decryption-core/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`. No warm-poke cron, so the `standard-1` container scales to zero at idle.
-- `magna-carta-file-repair` — root directory `apps/file-repair-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. Deploying builds and pushes the `containers/file-repair` image (the Rust file-repair/salvage engine) and applies its `FileRepairEngineContainer` DO migration. **Same crates-sharing pattern as `magna-carta-recovery`** — `image_build_context: "../../"` plus the Dockerfile's `COPY crates crates`: the binary compiles `engine-host` + `recovery-core`, which inherit `edition` from the `crates/` workspace root, so the whole workspace must be in the build context (only those two crates actually compile). The app Worker's `FILE_REPAIR_SERVICE` binding requires this Worker to exist (same `code: 10143` rule as recovery above). **Build Watch Paths (inclusion):** `apps/file-repair-worker/*`, `containers/file-repair/*`, `crates/engine-host/*`, `crates/recovery-core/*`, `crates/Cargo.toml`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`. No warm-poke cron, so the `standard-1` container scales to zero at idle.
+- `magna-carta` — **the one Worker whose build command is not the shared `pnpm run build`**, because it is the one rooted at `/`: it drives the workspace build task, and its deploy filters to the api-worker package. **The WASM artefacts the build consumes — `@magna-carta/pdf` and `@magna-carta/decryption`, both imported by the WORKER (pdf directly, by its PDF form fill and search text extraction, and transitively through `packages/document-assembly`; decryption by its decryption and recovery routes) — each build inside a pinned Rust Docker image** (`crates/pdf-core/wasm.Dockerfile` and `crates/decryption-core/wasm.Dockerfile`, both run by the `rust-wasm-build` task in `vite.config.ts`), exactly as the `scan`/`bundle`/`convert` container images build their Rust — so the runner needs only Docker (which it provides), never Rust/wasm-pack on the bare machine, and the build command stays the standard one. **This paragraph read "`@magna-carta/pdf` (imported by the SPA)" until 2026-08-21, and it was wrong: `apps/web/package.json` depends on none of the WASM packages.** The claim mattered, because it is the reason the question "can the interface build without the Rust toolchain?" carried an answer of no for two months without anyone reading the dependency graph. It can. See [`docs/specs/2026-08-21-spa-worker-split-design.md`](../specs/2026-08-21-spa-worker-split-design.md). **Any new crate the app worker or SPA imports as WASM must be added to `rust-wasm-build` and given its own `wasm.Dockerfile`, or the bundle fails with `ENOENT … <crate>_bg.wasm`.** **History:** from the PDF engine merge (2026-06-23) until 2026-06-28 the wasm built with bare `wasm-pack` on the runner, which has no Rust toolchain, so every `magna-carta` build failed with `Failed to find executable wasm-pack` (no deploy succeeded in that window); moving the wasm build into Docker fixed it. The same class recurred 2026-07-04: the decryption merge added a worker import of `@magna-carta/decryption`'s wasm but `rust-wasm-build` still built only pdf-core, so the bundle failed with `ENOENT … decryption_core_bg.wasm` — fixed by adding the decryption-core Docker wasm build alongside pdf-core's. It went undetected until the trunk was pushed because the pre-push gate does not run a worker bundle.
+- `magna-carta-scan` — Deploying the scan Worker builds and pushes the `containers/scan` image referenced by its Container binding.
+- `magna-carta-bundle` — Deploying the bundle Worker builds and pushes the `containers/bundle` image referenced by its Container binding. The image is a separate slice's deliverable (`containers/bundle/Dockerfile`); until it exists the bundle Worker cannot deploy, so the `BUNDLE_SERVICE` binding in the app Worker stays unbound and the encrypted/heavy bundle lanes return `503` (the plain ZIP fast lane is unaffected).
+- `magna-carta-recovery` — Deploying builds and pushes the `containers/recovery` image (the pure-Rust password-recovery engine) referenced by its Container binding, and applies its `RecoveryEngineContainer` DO migration. **Its build context is the repo ROOT** — the Dockerfile COPYs both `crates/decryption-core` (a path dependency) and `containers/recovery/...`, so `wrangler.jsonc` sets `image_build_context: "../../"`; the root `.dockerignore` allowlists only `crates` + `containers`. Without the explicit context, wrangler builds against a narrower default and the `COPY containers/recovery/wordlists` step fails on the runner with `"containers/recovery/wordlists": not found` (a local `docker build … .` masks it by using the root). The app Worker's `RECOVERY_SERVICE` binding **requires this Worker to exist first**: wrangler rejects a deploy whose service binding targets a missing Worker (`Service binding … references Worker … which was not found [code: 10143]`), so this Worker must be connected + deployed before the app Worker can deploy — the code's graceful fallback is runtime-only, not a deploy-time exemption. No warm-poke cron, so the `standard-1` container scales to zero at idle.
+- `magna-carta-file-repair` — Deploying builds and pushes the `containers/file-repair` image (the Rust file-repair/salvage engine) and applies its `FileRepairEngineContainer` DO migration. **Same crates-sharing pattern as `magna-carta-recovery`** — `image_build_context: "../../"` plus the Dockerfile's `COPY crates crates`: the binary compiles `engine-host` + `recovery-core`, which inherit `edition` from the `crates/` workspace root, so the whole workspace must be in the build context (only those two crates actually compile). The app Worker's `FILE_REPAIR_SERVICE` binding requires this Worker to exist (same `code: 10143` rule as recovery above). No warm-poke cron, so the `standard-1` container scales to zero at idle.
 
-- `magna-carta-sign` — root directory `apps/sign-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. The uniform three fields, like every sibling — **the one thing it needs extra lives in its own `build` script.** `apps/sign-worker/src/index.ts` imports the pdf-core WASM binary directly, `packages/pdf/src/pkg/` is a git-ignored artefact, and the only task that produces it is `rust-wasm-build`. Its own `pnpm run build` is a bare `wrangler deploy --dry-run` and never reaches that task, so a build scoped to the package fails with `ENOENT … pdf_core_bg.wasm` out of wrangler's module collector — **the third occurrence of this class**, after the bare-`wasm-pack` window (2026-06-23 to 2026-06-28) and the decryption import (2026-07-04) recorded above. So `apps/sign-worker`'s own `build` script inserts `vp run -w rust-wasm-build` between the shared build-identity stamp and the `wrangler deploy --dry-run --outdir dist`: the `-w` reaches the repository-root task from the package directory, and the dashboard command stays the plain `pnpm run build` every sibling uses. Running `build-all` instead would also work — its `dependsOn` carries the same step — but it costs the SPA and app-worker bundles to produce one `.wasm`. The price paid here instead is that a local `pnpm run build` in this package now needs Docker, which is the correct place for the cost: it falls on whoever builds this Worker rather than on every Worker's build. **The rule the earlier two occurrences left half-stated:** a crate being in `rust-wasm-build` is not enough; the Worker that imports its output needs a build command that actually REACHES that task. **Build Watch Paths (inclusion):** `apps/sign-worker/*`, `packages/signing/*`, `packages/pdf/*`, `crates/pdf-core/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
-- `magna-carta-status` — root directory `apps/status-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. The public status page Worker. **Build Watch Paths (inclusion):** `apps/status-worker/*`, `packages/status/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
-- `magna-carta-web` — root directory `apps/web-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. The SvelteKit single-page application, on its own deployable. **Connected, and its production branch is `main`** (the owner moved it there on 2026-08-29 alongside the app Worker, so a UI change is deployed by the merge that lands it — the whole point of the move). It is an **assets-only** Worker: no `main` entrypoint, no bindings, no secrets, so a page request is answered by Cloudflare's asset server and invokes nothing. Its own `build` script builds `@magna-carta/web` first (the sibling package whose output `wrangler.jsonc` points at), then runs the usual `wrangler deploy --dry-run --outdir dist` — the dashboard command stays the plain `pnpm run build` every sibling uses. **It needs no Docker and no WASM step**: `apps/web` depends on `@magna-carta/design-system`, `@magna-carta/design-tokens`, `@magna-carta/tools` and `@magna-carta/merge-field-catalog-contract`, and none of those reaches a crate — which is the whole reason this Worker is separable from `magna-carta` and why the sign Worker's WASM lesson above does not apply here. **This is additive while it stands alone**: `apps/api-worker` still binds the same build output under its own `assets` block, so the application keeps serving from one origin exactly as it does today, and this Worker is a second door to the same files. Cutting over means giving the two Workers route patterns on one hostname — the SPA everywhere, the app Worker on its own paths — which needs a zone hostname the account does not have yet; a workers.dev URL cannot carry a route pattern. Do not remove the app Worker's `assets` block before those routes exist, or the application becomes unreachable. **Build Watch Paths (inclusion):** `apps/web-worker/*`, `apps/web/*`, `packages/design-system/*`, `packages/design-tokens/*`, `packages/tools/*`, `packages/merge-field-catalog-contract/*`, `packages/access-control/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
-- `magna-carta-edit` — root directory `apps/edit-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. The Collabora editing Worker. **The Worker keeps the name `magna-carta-edit`; only its directory moved** (from `apps/magna-carta-edit`, 2026-08-21) to match its own package name, `@magna-carta/edit-worker`, and its siblings' `<thing>-worker` shape. **Root directory, branch and builds were all verified healthy on 2026-08-24** over the API: root `apps/edit-worker`, production branch `release`, and its last two builds green (both 2026-08-21). Three claims this entry carried before that read are therefore retired, not merely dated — a root directory of `/`, a `--filter` deploy command, and a production branch of `slice-2-2-editing` with eight consecutive failed builds since 2026-06-28. All three were true when written and none survived the read. **This is the fourth time this file has disagreed with the live build configuration**, which is why the branch-control section above says to read `GET /accounts/{account_id}/builds/workers/{script_tag}` rather than trust the page. **Build Watch Paths (inclusion):** `apps/edit-worker/*` (the entry read `apps/edit-worker` with no trailing `/*` — matching no file _under_ the directory — until the owner corrected it on 2026-08-27), `containers/collabora/*`, `pnpm-lock.yaml`.
+- `magna-carta-sign` — The uniform three fields, like every sibling — **the one thing it needs extra lives in its own `build` script.** `apps/sign-worker/src/index.ts` imports the pdf-core WASM binary directly, `packages/pdf/src/pkg/` is a git-ignored artefact, and the only task that produces it is `rust-wasm-build`. Its own `pnpm run build` is a bare `wrangler deploy --dry-run` and never reaches that task, so a build scoped to the package fails with `ENOENT … pdf_core_bg.wasm` out of wrangler's module collector — **the third occurrence of this class**, after the bare-`wasm-pack` window (2026-06-23 to 2026-06-28) and the decryption import (2026-07-04) recorded above. So `apps/sign-worker`'s own `build` script inserts `vp run -w rust-wasm-build` between the shared build-identity stamp and the `wrangler deploy --dry-run --outdir dist`: the `-w` reaches the repository-root task from the package directory, and the dashboard command stays the plain `pnpm run build` every sibling uses. Running `build-all` instead would also work — its `dependsOn` carries the same step — but it costs the SPA and app-worker bundles to produce one `.wasm`. The price paid here instead is that a local `pnpm run build` in this package now needs Docker, which is the correct place for the cost: it falls on whoever builds this Worker rather than on every Worker's build. **The rule the earlier two occurrences left half-stated:** a crate being in `rust-wasm-build` is not enough; the Worker that imports its output needs a build command that actually REACHES that task.
+- `magna-carta-status` — The public status page Worker.
+- `magna-carta-web` — The SvelteKit single-page application, on its own deployable. It is an **assets-only** Worker: no `main` entrypoint, no bindings, no secrets, so a page request is answered by Cloudflare's asset server and invokes nothing. That emptiness is a security property, not an accident — the bytes it serves are public, and a deployable whose entire surface is "hand back a file" must have nothing bound to reach. **Keep it that way.** Its own `build` script builds `@magna-carta/web` first (the sibling package whose output `wrangler.jsonc` points at), then runs the usual `wrangler deploy --dry-run --outdir dist` — the dashboard command stays the plain `pnpm run build` every sibling uses. **It needs no Docker and no WASM step**: `apps/web` reaches no crate, which is the whole reason this Worker is separable from `magna-carta` and why the sign Worker's WASM lesson above does not apply here.
+  **The invariant, and it is the one thing to get right here:** `apps/api-worker` also binds the same `apps/web/build` output under its own `assets` block, so two Workers can serve the same files. **Which of them actually answers the address a user browses is live routing state** — read `GET /accounts/{account_id}/workers/domains/records` (below) and settle it before assuming. Do **not** remove the app Worker's `assets` block until that read shows the SPA reaching users by some other path, because if the app Worker is the one answering the hostname, removing its assets makes the application unreachable in the minutes it takes a merge to deploy.
+- `magna-carta-edit` — The Collabora editing Worker. **The Worker keeps the name `magna-carta-edit`; only its directory moved** (from `apps/magna-carta-edit`, 2026-08-21) to match its own package name, `@magna-carta/edit-worker`, and its siblings' `<thing>-worker` shape. **This Worker is why the top of this file says what it says.** Its entry once recorded a root directory, a deploy command and a production branch that were all true when written, and all three were false by the time anyone read them back — the fourth time this file disagreed with the live build configuration. Nothing about its build configuration is recorded here any more; ask the API.
+
+### Which address does a Worker answer on — the read, and why it is not in `wrangler.jsonc`
+
+**A Worker's `wrangler.jsonc` is not the answer to this question, and reading it as one has produced
+a wrong answer before.** A custom domain attached in the dashboard is account state: it does not
+appear in the repository, `wrangler deploy` does not remove it, and a Worker can therefore carry
+`workers_dev: true` with no `routes` block and _still_ answer a real hostname. "No `routes` in the
+config" means only that the config declares no route patterns.
+
+Three separate things decide reachability, and they are read in three different places:
+
+```bash
+# 1. Custom domains — which hostname maps to which Worker. Account-level, so no zone scope needed.
+#    This is the authoritative answer to "what does a user browsing our address actually hit?"
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains/records?per_page=100" \
+  | jq -r '.result[] | "\(.hostname)\t-> \(.service)\tenabled=\(.enabled)"'
+
+# 2. Is the workers.dev URL live for this Worker? (<script>.<subdomain>.workers.dev)
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain"
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$SCRIPT_NAME/subdomain"
+
+# 3. Route patterns — zone-scoped, and a Workers-only token gets 403 here (see the note at the top).
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/workers/routes"
+
+# Which zones the account even holds:
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/zones?per_page=50" | jq -r '.result[] | "\(.name)\t\(.status)\t\(.id)"'
+```
+
+**A custom domain and a route pattern are not the same mechanism.** A custom domain binds one
+hostname to one Worker and takes the whole hostname; splitting one hostname between two Workers (the
+SPA everywhere, the app Worker on its own path families) needs **route patterns** on a zone, which a
+`workers.dev` URL cannot carry. So "can we split the SPA onto its own address?" is really two live
+questions — does the account hold an active zone for it, and is the hostname already consumed by a
+custom domain on another Worker — and reads 1 and 3 above answer both. Do not answer it from memory;
+this file answered it wrongly from memory, in a `wrangler.jsonc` comment that is still there.
+
+**A `curl` against the public hostname is a weak check.** Bot management can answer `403` with
+`cf-mitigated: challenge` before the Worker is ever invoked, which looks like an outage and is not
+one. The domains/records read above is the reliable answer; a browser is the reliable smoke test.
 
 ### The version surface reads what was deployed, so Watch Paths decide what it can say
 
@@ -382,18 +492,25 @@ earlier commit 404s the probe, which the aggregate records as `unreported` and t
 serving its real work perfectly.
 
 **So `packages/build-identity/*` belongs in the Build Watch Paths of every Worker whose version the
-aggregate reads** — scan, bundle, convert, recovery, file-repair, discovery, ocr, sign — and none of
-them carries it today. Without it, a change to the version route or to the identity stamp matches no
+aggregate reads.** Without it, a change to the version route or to the identity stamp matches no
 sibling's watch paths and rebuilds nothing, so the sibling keeps answering from whatever build it
-last had a reason to make. That is the state the fleet was in when the route shipped on 2026-08-29:
-the siblings' last builds were from 2026-08-21, they predate the route, and every one of them reads
-as "Not reporting" until something rebuilds them. The branch question above compounds it — a sibling
-still building from `release` cannot pick the route up at all, because the route is only on `main`.
+last had a reason to make — and reads as "Not reporting" until something unrelated happens to rebuild
+it. The branch question above compounds it: a sibling building from a branch the route never reached
+cannot pick it up at all. **Whether every sibling carries that path today is live state** — the
+per-`script_tag` Builds call returns `production_settings.path_includes`, and that is the only place
+the answer exists:
 
-**Keyword Search is a different and truthful answer.** `SEARCH_SERVICE` is not in
-`apps/api-worker/wrangler.jsonc`'s `services` array and `magna-carta-search` is not a connected
-Workers Builds project, so that row reads **"Not deployed"** and will keep reading that until the
-Worker exists and the binding is added. Nothing to fix there; the surface is doing its job.
+```bash
+# Which Workers watch packages/build-identity/*, and which do not
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/workers/$SCRIPT_TAG" \
+  | jq -r '.result.production_settings.path_includes'
+```
+
+**A row reading "Not deployed" is a different and truthful answer**, and is not a fault: it means the
+Worker has no `*_SERVICE` binding in `apps/api-worker/wrangler.jsonc` and no connected Workers Builds
+project, so there is nothing to probe. Distinguish it from "Not reporting", which means the Worker
+exists and answers, just from a build predating the route. The surface is doing its job in both cases.
 
 ### Cron Triggers — two rules that have each cost a deploy
 
@@ -424,18 +541,21 @@ been carrying the older set. Read what the Worker was actually built from —
 `git show origin/main:apps/api-worker/wrangler.jsonc` for a project on `main`, and the equivalent on
 whatever branch a sibling project still builds from — first, not last.
 
-**The two Watch Path drifts this section recorded are fixed** — the owner corrected both on **2026-08-27**, API-confirmed the same day. They are kept here as the record of a failure mode that recurs: a watch path that matches nothing suppresses rebuilds **silently**, so the symptom is a Worker that quietly stops tracking its own sources rather than a red build.
+**A watch path that matches nothing suppresses rebuilds _silently_** — the symptom is a Worker that quietly stops tracking its own sources, never a red build. Two real instances, kept as the shape to look for rather than as a statement about today's configuration (both were corrected in 2026-08; verify against the API, not against this paragraph):
 
-- `magna-carta-file-repair` included `containers/file-repair-worker/*`, but the container lives at `containers/file-repair/`. No path matched it, so a change to the file-repair container image never triggered a rebuild. Now `containers/file-repair/*`.
-- `magna-carta-recovery` omitted `crates/decryption-core/*`, though its Dockerfile COPYs that crate as a path dependency. A change to `decryption-core` alone never rebuilt the recovery container. Now included.
+- `magna-carta-file-repair` included `containers/file-repair-worker/*`, but the container lives at `containers/file-repair/`. No path matched, so a change to the file-repair container image never triggered a rebuild.
+- `magna-carta-recovery` omitted `crates/decryption-core/*`, though its Dockerfile COPYs that crate as a path dependency. A change to `decryption-core` alone never rebuilt the recovery container.
+- `magna-carta-edit` read `apps/edit-worker` with no trailing `/*`, matching no file _under_ the directory.
+
+**The check that catches all three:** for each include pattern, confirm a path that actually exists in the repository matches it. A directory name with no `/*`, or a directory that has since been renamed, matches nothing and fails open.
 
 Two settings to **enable/set** (the fast-build levers — see [`build-performance.md`](build-performance.md)):
 
 - **Build Caching — turn ON for every connected Worker.** Caches dependencies and build outputs across builds (a project-wide cache), so a build does not re-download the pnpm store or rebuild unchanged outputs every run. This is the primary fast-build lever and the analog of a CI dependency cache.
 - **Build Watch Paths — set per Worker** so an unrelated change does not rebuild every Worker. Patterns are repo-root-relative; a single `*` matches zero or more characters across directories; excludes are filtered first, then a build runs only if a changed path still matches an include. (Workers Builds always builds regardless of paths when a push has 0 changes, 3000+ changes, or 20+ commits.)
-  - `magna-carta` (depends on most of the repo — scope by exclusion): **Include** `*` · **Exclude** `docs/*`, `containers/*`, `spikes/*`, `*.md`. So a docs- or scan-only change no longer rebuilds and redeploys the app Worker.
-  - `magna-carta-scan` (depends only on its own package + the scan image — scope by inclusion): **Include** `apps/scan-worker/*`, `containers/scan/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none). So a change to `apps/web` or any `packages/*` no longer triggers a scan rebuild — the largest waste today.
-  - `magna-carta-bundle` (depends only on its own package + the bundle image — scope by inclusion): **Include** `apps/bundle-worker/*`, `containers/bundle/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none).
+  - **Scope by _exclusion_ only for a Worker rooted at `/`** — it sees the whole repository as its own, so an include list would have to name all of it. Exclude what genuinely cannot affect it (documentation, container images it owns none of, scratch directories, `*.md`).
+  - **Scope by _inclusion_ for every Worker rooted at its own `apps/<worker>`** — name its package, the container image it owns, each crate its Dockerfile COPYs, the lockfile and workspace manifest, and `packages/build-identity/*`. Anything omitted is a source the Worker silently stops tracking.
+  - Read the live include/exclude lists with the per-`script_tag` Builds call above; do not assume them from this page.
 
 ### Quality gates — GitHub Actions is the gate of record; the `pre-push` hook is the fast local subset
 
@@ -559,7 +679,13 @@ The applied ledger against `LEGACY_BASELINES` and the shipped journal answers it
 
 The `magna-carta` app worker declares sibling service bindings for every dedicated engine worker (`SCAN_SERVICE`, `BUNDLE_SERVICE`, `CONVERT`, `FILE_REPAIR_SERVICE`, `RECOVERY_SERVICE`, `OCR_SERVICE`, `SIGN_SERVICE`, `DISCOVERY_SERVICE`). Cloudflare rejects a deploy whose service binding points at a worker that does not exist, so **every** name must resolve before the app worker deploys — see §16 for the ordering rule the seal worker introduces. **Since `main` became the app Worker's production branch (2026-08-29), that constraint binds at merge time**: a pull request that adds a binding for a Worker nobody has stood up fails the app Worker's build the moment it lands, in production, rather than at a deliberate push.
 
-**The two standing placeholders are gone — both are the real worker now.** `magna-carta-bundle` and `magna-carta-convert` were 503 placeholders from 2026-06-27, so the editing slice could deploy before the bulk-download and conversion subsystems existed. Verified over the API on **2026-08-24**: both are connected Workers Builds projects that built green from the 2026-08-21 push, and the deployed `magna-carta-convert` script carries `RASTER_ENGINE -> RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer` at migration tag `v2`. No placeholder remains on the account.
+**`magna-carta-bundle` and `magna-carta-convert` were 503 placeholders from 2026-06-27**, so the editing slice could deploy before the bulk-download and conversion subsystems existed. Both were later replaced by the real Worker. **Whether any placeholder stands on the account right now is live state** — a placeholder is recognisable by what it lacks, so read the deployed script's bindings and migration tag rather than trusting a roster:
+
+```bash
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$SCRIPT_NAME/settings" \
+  | jq -r '[.result.bindings[].type] | group_by(.) | map({(.[0]): length}) | add'
+```
 
 **The mechanism is kept because the next new engine Worker needs it.** To ship an app-worker change that names a Worker not yet built, stand up a 503 placeholder under the final name, then connect a Workers Build project for the real one (dashboard, exactly as §12) — each engine carries a container image that must build on Cloudflare's runners. Deploying the real worker overwrites the placeholder and adds its container Durable Object migration cleanly (a placeholder has no Durable Object classes). No app-worker config change is needed; the binding already points at the right name.
 
@@ -696,7 +822,12 @@ The **in-repo shape** of a container Worker and its Container class — `default
 - **Its own Workers Builds project, scoped by inclusion** (§12) — path filters narrow enough that an interface change does not rebuild a container image.
 - **Its own cost line.** A warm instance is a standing monthly charge, recorded in [`../operating-costs.md`](../operating-costs.md), not discovered on an invoice.
 
-### The fleet as it stands — what cleared the rubric
+### What has cleared the rubric — the reasoning, not a roster
+
+The table below records **why** each Worker was extracted, which is a decision and belongs here. It is
+not a statement about what exists on the account today; for that, list the scripts (top of this file).
+A Worker named here that the account does not carry is a design intent that has not shipped, not a
+discrepancy.
 
 | Worker                    | Container(s) it owns                                  | Why it cleared                                                                                                                                                                                                                                        |
 | ------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

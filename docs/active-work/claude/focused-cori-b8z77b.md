@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta (remote session)
 area: file-manager round-nine review corrections (mockup + app parity) + login/registration readiness
 status: building
-touches: docs/conventions/file-manager-rulings.md, tooling/file-manager-rulings/, tooling/lint-one-ui/, packages/design-system/src/lib/components/record-window/, packages/design-system/src/lib/components/event-rail/, packages/design-system/src/lib/components/print-sheet/, packages/design-system/package.json, apps/web/src/lib/file-manager/, apps/web/src/lib/auth/, apps/web/src/lib/matters/, apps/web/src/lib/members/, apps/web/src/lib/settings/, apps/web/src/lib/components/, apps/web/src/lib/versions/, packages/build-identity/, docs/conventions/operations.md, apps/web/src/routes/(app)/matters/, apps/api-worker/src, apps/api-worker/openapi/openapi.json, packages/api-client/, packages/access-control/src/registry.ts, packages/data-access/src/member-statements.ts, packages/database/drizzle/per-firm/, tooling/lint-list-pagination/, docs/deploy-queue.md, changelog.d/, docs/user/features/
+touches: docs/conventions/file-manager-rulings.md, tooling/file-manager-rulings/, tooling/lint-one-ui/, packages/design-system/src/lib/components/record-window/, packages/design-system/src/lib/components/event-rail/, packages/design-system/src/lib/components/print-sheet/, packages/design-system/package.json, apps/web/src/lib/file-manager/, apps/web/src/lib/auth/, apps/web/src/lib/matters/, apps/web/src/lib/members/, apps/web/src/lib/settings/, apps/web/src/lib/components/, apps/web/src/lib/versions/, packages/build-identity/, docs/conventions/operations.md, apps/web/src/routes/(app)/matters/, apps/api-worker/src, apps/api-worker/openapi/openapi.json, packages/api-client/, packages/access-control/src/registry.ts, packages/data-access/src/member-statements.ts, packages/database/drizzle/per-firm/, tooling/lint-list-pagination/, docs/deploy-queue.md, changelog.d/, docs/user/features/, apps/web/src/lib/directory/, apps/web/src/routes/(app)/contacts/, packages/directory/src/entity-listing.ts, docs/conventions/design-corrections.md
 ---
 
 Applying the owner's ninth round of file-manager corrections: The Docket mockup revised and
@@ -82,3 +82,23 @@ the skew call compares commits by prefix. The remedy for the stale siblings is d
 written down in `docs/deploy-queue.md` (_Version visibility_) and `docs/conventions/operations.md`.
 Owned files: `apps/web/src/lib/versions/**`, `apps/web/test/version-overlay.test.ts`,
 `packages/build-identity/scripts/generate-build-identity.mjs`, `packages/build-identity/CLAUDE.md`.
+
+**Added 2026-08-30 — the directory has a listing.** The Directory screen had none: it was built to
+be searched and not browsed, so nothing appeared until three characters were typed and a firm that
+had entered records opened it to an instruction. The distinction the old design was protecting is
+real — a ranked, capped answer must never be dressed as an index — but the answer to it is to build
+the index. `GET /api/v1/directory/entities` is that read: both node tables unioned into one
+name-ordered sequence, cursor-paged, carrying the whole record's `total`, with deleted and
+merged-away records excluded and `kind` narrowing rather than splitting. The screen shows the index
+at rest and the ranked answer only when a query is asked, as two visibly different objects. The
+masthead sub-heading came off, the two "New" buttons collapsed into one primary action with a menu,
+and the table now holds its height — the matters-list rulings, promoted into
+`docs/conventions/design-corrections.md` under _List screens_. Owned files:
+`packages/directory/src/entity-listing.ts` (+ its `package.json`/`index.ts` export and the one-line
+`export` on `entity-display.ts`), `packages/directory/test/entity-listing.test.ts`, the listing
+route and schemas in `apps/api-worker/src/routes/directory.ts` with the OpenAPI snapshot and
+generated client, `apps/api-worker/test/directory-routes.test.ts` (the index block),
+`apps/web/src/lib/directory/{directory-api.ts,directory-listing.ts}`,
+`apps/web/src/routes/(app)/contacts/+page.svelte`, `apps/web/test/directory-listing.test.ts`, and
+`docs/conventions/design-corrections.md`. Concurrent streams should stay out of
+`apps/web/src/lib/directory/` and `packages/directory/src/entity-listing.ts` until this lands.

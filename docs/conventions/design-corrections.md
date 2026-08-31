@@ -63,6 +63,47 @@ is usually the fastest way to understand the rule.
   differently is wrong: only authenticator codes rotate, so only their message says so. _(auth flow,
   2026-08-07)_
 
+### Lists and tables
+
+- **A list screen shows its whole record by default, and the table is the only thing that narrows
+  it.** A second control offering the same slices the Status column already offers — a scope
+  dropdown reading "the working docket / open / closed / consultations" — is removed, not moved.
+  Two mechanisms answering one question is how a reader ends up staring at an almost-empty table
+  with a narrowing set on a control they are not looking at. Where the whole record costs an extra
+  read (a listing whose default omits a status), pay for the read. _(matters docket, 2026-08-30)_
+- **A row's own gesture opens it.** Double-click anywhere on a row activates it, and Enter does the
+  same for the focused row. A link inside a cell is an addition — it buys the browser's own
+  gestures — never the only way in. Nobody should have to hit an underlined cell. _(matters docket,
+  2026-08-30)_
+- **A placeholder row is not a row, and takes none of a row's treatment.** The empty,
+  filtered-empty and loading placeholders sit inside the table so the frame holds its height, but
+  the row hover means "this is a thing you can select and open" and there is nothing there to
+  select. So an empty table does not light up under the pointer — stretching the hover across the
+  whole frame would be worse, because it invites a click that does nothing. Absence is the signal.
+  _(matters docket, 2026-08-30)_
+- **A control that undoes a state exists only while that state is in play.** The clear-filters
+  control appears when something is narrowing the view and is absent otherwise, so its absence is
+  itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
+- **Every scroll region we own wears the app's scrollbar, corner included.** A themed track and
+  thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
+  agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,
+  2026-08-30)_
+
+### Data entry
+
+- **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
+  column: the entry on the left, segmented into tabs where it needs segmenting, and the gate the
+  entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
+  screen and nothing scrolls. A gate behind a tab is a gate somebody has to remember to go and look
+  at. _(new matter, 2026-08-30)_
+- **A data-entry surface carries no helper prose.** Every visible line is a label, a value, or the
+  one honest sentence a Soon capability owes about what it waits on. A block with nothing in it is
+  not drawn at all rather than announcing its own emptiness. _(new matter, 2026-08-30)_
+- **A field that holds a chosen person or thing shows what it holds at rest.** Arriving in the
+  field is what starts a fresh search; leaving it returns the field to naming the selection. A
+  filled seat that renders its ghost text reads as an empty field with nobody in it. _(new matter,
+  2026-08-30)_
+
 ### Controls and patterns
 
 - **A reveal toggle is the Lucide eye / eye-off icon, centered in a square hit target** — never a
@@ -89,6 +130,42 @@ is usually the fastest way to understand the rule.
 - **Orienting text persists through every state.** Running a page's action must not remove the copy
   that explains the page; the result section renders beneath it, and only the results change.
   _(WHOIS Lookup tool page, 2026-08-31)_
+
+### List screens
+
+Issued against the matters list and re-issued against the directory. They bind every List/Index
+surface, which is most of the product.
+
+- **A heading carries no explanatory sub-text.** No sub-heading under a page title, no sentence
+  under a section heading restating what the section obviously is. "The firm's active docket" under
+  _Matters_, and "Clients, parties, counsel and courts, in one book" under _Directory_, were both
+  removed for the same reason: they spend vertical space on a working screen and tell a working user
+  nothing they did not know before they clicked. This is not the same as an honest line that carries
+  a CONSEQUENCE — "revealing a value is recorded in the firm's audit log" stays, because it says
+  something a reader must know before they press. The test is whether removing the line loses a
+  fact. _(matters list, 2026-08-30)_
+- **Actions collapse into one compact action row.** Everything above the data that is not the data
+  is a single row: the primary action, then narrowing and searching as icon controls that open what
+  they need when they are needed. A labelled dropdown and a labelled search box, each with a
+  sentence under it, cost three rows of a screen whose subject is a list. Where a screen would carry
+  a button per variant of one action ("New person", "New organization"), it carries ONE primary
+  action with a menu instead. _(matters list, 2026-08-30)_
+- **The table holds the vertical space it would occupy when full.** The list region takes the
+  remaining height and keeps it, so the screen does not reflow as rows arrive, as a filter narrows
+  them, or as an empty state replaces them. In practice: the page is a full-height column and the
+  table is `min-h-0 flex-1` inside it. _(matters list, 2026-08-30)_
+- **One place to narrow.** Where several mechanisms narrow the same list — a server-side scope, a
+  server-side search, the table's own column filters — they sit behind one control, because from
+  where a reader sits they answer one question. Answering it in three places is how somebody ends up
+  staring at an empty table with a filter set on a control they are not looking at. _(matters list,
+  2026-08-30)_
+- **A listing states how many there are; a capped answer states that it is capped.** These are the
+  two shapes a list of records comes in and they must not be presented alike. A LISTING is sorted,
+  walkable to the end, and carries the size of the whole record — not of the page in hand. A RANKED
+  ANSWER is in the server's relevance order, is never re-sorted on the client (that would put the
+  best of an arbitrary slice at the top and read as the best of the firm's record), and says so
+  when more matches exist than were returned. A screen that has both shows them as two different
+  objects. Never fake a listing out of a search. _(directory, 2026-08-30)_
 
 ### Spacing and rhythm
 
@@ -124,6 +201,39 @@ them:
   masthead, at the content's reading edge.
 - The intro text vanished the moment a search ran (it was gated on the idle state); it stays
   visible, with results rendering beneath it.
+
+### 2026-08-30 — the matters screens, second round
+
+Four of the five corrections in this round had been issued before and not carried out, which is the
+reason this file exists. Recorded here so a third round is not needed. The generalizable parts are
+promoted above; what is local to these surfaces:
+
+- The scope control offering "The working docket / Open matters / Closed matters / Consultations" is
+  gone. The docket reads the whole record and defaults to every matter. The listing endpoint's own
+  default omits unnumbered consultations and its `status` parameter takes one status, so the screen
+  merges two reads rather than keeping a control to reach the second one.
+- The clearance section stopped being a fourth tab of the intake and became its right-hand side.
+- The intake's tabs are "The Matter", "Client", "People" — what is entered. Assigning people means
+  one responsible attorney plus any number of assigned attorneys and support staff.
+- The empty docket's hover defect measured 292px of a 692px table frame — a grey band over the top
+  42% of an otherwise white surface. The fix belongs to the shared table recipe, not to this screen.
+
+### 2026-08-30 — the directory list
+
+The owner opened the directory and reported that it was not listing people they had created. It was
+not: the screen was built to be searched and not browsed, and its resting state was an instruction
+to type three characters. The reasoning behind that had a real point in it — a ranked, capped answer
+is not an index — but it drew the wrong conclusion, because the answer to "an index is a different
+thing" is to build the index, not to withhold it. What is local to this surface:
+
+- The directory lists BOTH kinds in one sequence. Kind is a column and a filter, never two screens.
+- A record folded into another by a merge is not listed, though its names still answer a search and
+  still resolve to the survivor: listing it beside its survivor shows one client as two.
+- The three-character floor stays on the SEARCH, because the corpus matches three-character windows
+  and a shorter query can match nothing at all. It is no longer a floor on seeing the directory.
+
+The generalizable parts — the two shapes a record list comes in, and the compact action row that
+replaced a button per entity kind — are promoted above.
 
 ### 2026-08-07 — auth flow, mockup revisions v4 through v18
 

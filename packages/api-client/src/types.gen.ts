@@ -1644,6 +1644,32 @@ export type DirectoryNameEntry = {
     recordedAt: string;
 };
 
+export type DirectoryEntityListingPage = {
+    data: Array<DirectoryEntityListing>;
+    nextCursor: string | null;
+    /**
+     * How many records the firm holds under these filters — every page of the walk, not the rows on this one.
+     */
+    total: number;
+};
+
+export type DirectoryEntityListing = {
+    entityId: string;
+    entityKind: 'person' | 'organization';
+    /**
+     * What to call the record, or null where the directory holds no name for it at all. A caller shows the gap rather than printing the handle.
+     */
+    displayName: string | null;
+    /**
+     * An organization's legal name where it differs from what the firm calls it; null for a person, and null where the two are the same word.
+     */
+    legalName: string | null;
+    /**
+     * When the firm wrote the record down.
+     */
+    recordedAt: string;
+};
+
 export type DirectoryEntityDisplayNamesResponse = {
     data: Array<DirectoryEntityDisplayName>;
 };
@@ -1870,6 +1896,202 @@ export type MatterPartyEntry = {
 
 export type UnlinkMatterPartyResponse = {
     unlinked: boolean;
+};
+
+export type DirectoryContactPointsResponse = {
+    emails: Array<DirectoryEmailEntry>;
+    phones: Array<DirectoryPhoneEntry>;
+    addresses: Array<DirectoryAddressEntry>;
+};
+
+export type DirectoryEmailEntry = {
+    id: string;
+    address: string;
+    contactUse: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    /**
+     * This channel's default row — where a message goes when no address was named.
+     */
+    isPrimary: boolean;
+    state: DirectoryContactPointState;
+};
+
+export type DirectoryContactPointState = {
+    permitted: boolean;
+    preferred: boolean;
+    note: string | null;
+    verificationStatus: 'unverified' | 'verified' | 'failed';
+    verifiedAt: string | null;
+    verificationDetail: string | null;
+};
+
+export type DirectoryPhoneEntry = {
+    id: string;
+    /**
+     * The number exactly as it was entered. Never rewritten; this is what a screen shows.
+     */
+    number: string;
+    /**
+     * What technology answers the number. A fax line is a fax by its system, not by a word in a label, so a delivery path can ask the question and get an answer.
+     */
+    contactSystem: 'voice' | 'fax' | 'sms' | 'pager';
+    contactUse: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    /**
+     * Null where the number carried no country — a national-form number says nothing about which country it belongs to, and the record says so rather than inventing one.
+     */
+    countryCallingCode: string | null;
+    nationalNumber: string | null;
+    extension: string | null;
+    countryRegionCode: string | null;
+    isPrimary: boolean;
+    state: DirectoryContactPointState;
+};
+
+export type DirectoryAddressEntry = {
+    id: string;
+    recipient: string | null;
+    organizationName: string | null;
+    street: string | null;
+    streetTwo: string | null;
+    dependentLocality: string | null;
+    city: string | null;
+    region: string | null;
+    postal: string | null;
+    sortingCode: string | null;
+    country: string | null;
+    addressUse: 'residential' | 'business' | 'postal' | 'registered' | 'service' | 'former' | 'temporary' | null;
+    /**
+     * Whether the place physically exists. Personal service turns on this: a post office box is postal and cannot be served, a registered office is physical and can.
+     */
+    addressType: 'physical' | 'postal' | 'both';
+    isPrimary: boolean;
+    state: DirectoryContactPointState;
+};
+
+export type DirectoryEmailsResponse = {
+    data: Array<DirectoryEmailEntry>;
+};
+
+export type AddDirectoryEmailRequest = {
+    address: string;
+    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type DirectoryContactPreference = {
+    /**
+     * May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value.
+     */
+    permitted?: boolean;
+    /**
+     * Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three.
+     */
+    preferred?: boolean;
+    /**
+     * Why the contact point may not be used, or how it should be.
+     */
+    note?: string | null;
+};
+
+export type DirectoryContactVerification = {
+    /**
+     * What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds.
+     */
+    status?: 'unverified' | 'verified' | 'failed';
+    /**
+     * What the failure said, in the words it said it.
+     */
+    detail?: string | null;
+};
+
+export type UpdateDirectoryEmailRequest = {
+    address?: string;
+    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type DirectoryPhonesResponse = {
+    data: Array<DirectoryPhoneEntry>;
+};
+
+export type AddDirectoryPhoneRequest = {
+    /**
+     * The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded.
+     */
+    number: string;
+    contactSystem?: 'voice' | 'fax' | 'sms' | 'pager';
+    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    extension?: string | null;
+    countryRegionCode?: string | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type UpdateDirectoryPhoneRequest = {
+    number?: string;
+    contactSystem?: 'voice' | 'fax' | 'sms' | 'pager';
+    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    extension?: string | null;
+    countryRegionCode?: string | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type DirectoryAddressesResponse = {
+    data: Array<DirectoryAddressEntry>;
+};
+
+export type AddDirectoryAddressRequest = {
+    recipient?: string | null;
+    organizationName?: string | null;
+    street?: string | null;
+    streetTwo?: string | null;
+    dependentLocality?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    sortingCode?: string | null;
+    country?: string | null;
+    addressUse?: 'residential' | 'business' | 'postal' | 'registered' | 'service' | 'former' | 'temporary' | null;
+    addressType?: 'physical' | 'postal' | 'both';
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type UpdateDirectoryAddressRequest = {
+    recipient?: string | null;
+    organizationName?: string | null;
+    street?: string | null;
+    streetTwo?: string | null;
+    dependentLocality?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    sortingCode?: string | null;
+    country?: string | null;
+    addressUse?: 'residential' | 'business' | 'postal' | 'registered' | 'service' | 'former' | 'temporary' | null;
+    addressType?: 'physical' | 'postal' | 'both';
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type SetDirectoryPersonLifeDatesRequest = {
+    /**
+     * A plain calendar date. Held in the clear because every question a firm asks of a date of birth is a range — is this client a minor, has a limitation period tolled — and a range query over ciphertext is not a query.
+     */
+    dateOfBirth?: string | null;
+    dateOfDeath?: string | null;
+    /**
+     * Separate from the date, because known dead with the date unknown is a state probate work meets constantly. A recorded date of death implies this flag.
+     */
+    deceased?: boolean;
 };
 
 export type CreatedConflictsCheckResponse = {
@@ -12744,6 +12966,45 @@ export type DirectoryChangeNameResponses = {
 
 export type DirectoryChangeNameResponse = DirectoryChangeNameResponses[keyof DirectoryChangeNameResponses];
 
+export type DirectoryListEntitiesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        /**
+         * Narrows to one side of the directory. Omitted, both are listed together.
+         */
+        kind?: 'person' | 'organization';
+    };
+    url: '/api/v1/directory/entities';
+};
+
+export type DirectoryListEntitiesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListEntitiesError = DirectoryListEntitiesErrors[keyof DirectoryListEntitiesErrors];
+
+export type DirectoryListEntitiesResponses = {
+    /**
+     * A page of the directory in name order, with the size of the whole record
+     */
+    200: DirectoryEntityListingPage;
+};
+
+export type DirectoryListEntitiesResponse = DirectoryListEntitiesResponses[keyof DirectoryListEntitiesResponses];
+
 export type DirectoryEntityNamesData = {
     body?: never;
     path?: never;
@@ -13490,6 +13751,686 @@ export type DirectoryUnlinkMatterPartyResponses = {
 };
 
 export type DirectoryUnlinkMatterPartyResponse = DirectoryUnlinkMatterPartyResponses[keyof DirectoryUnlinkMatterPartyResponses];
+
+export type DirectoryContactPointsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/contact-points';
+};
+
+export type DirectoryContactPointsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryContactPointsError = DirectoryContactPointsErrors[keyof DirectoryContactPointsErrors];
+
+export type DirectoryContactPointsResponses = {
+    /**
+     * Every contact point on this entity, by channel
+     */
+    200: DirectoryContactPointsResponse;
+};
+
+export type DirectoryContactPointsResponse2 = DirectoryContactPointsResponses[keyof DirectoryContactPointsResponses];
+
+export type DirectoryListEmailsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/emails';
+};
+
+export type DirectoryListEmailsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListEmailsError = DirectoryListEmailsErrors[keyof DirectoryListEmailsErrors];
+
+export type DirectoryListEmailsResponses = {
+    /**
+     * The entity's email addresses
+     */
+    200: DirectoryEmailsResponse;
+};
+
+export type DirectoryListEmailsResponse = DirectoryListEmailsResponses[keyof DirectoryListEmailsResponses];
+
+export type DirectoryAddEmailData = {
+    body: AddDirectoryEmailRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/emails';
+};
+
+export type DirectoryAddEmailErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryAddEmailError = DirectoryAddEmailErrors[keyof DirectoryAddEmailErrors];
+
+export type DirectoryAddEmailResponses = {
+    /**
+     * The email address was recorded
+     */
+    201: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryAddEmailResponse = DirectoryAddEmailResponses[keyof DirectoryAddEmailResponses];
+
+export type DirectoryRemoveEmailData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/emails/{id}';
+};
+
+export type DirectoryRemoveEmailErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryRemoveEmailError = DirectoryRemoveEmailErrors[keyof DirectoryRemoveEmailErrors];
+
+export type DirectoryRemoveEmailResponses = {
+    /**
+     * The email address was removed
+     */
+    200: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryRemoveEmailResponse = DirectoryRemoveEmailResponses[keyof DirectoryRemoveEmailResponses];
+
+export type DirectoryUpdateEmailData = {
+    body: UpdateDirectoryEmailRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/emails/{id}';
+};
+
+export type DirectoryUpdateEmailErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryUpdateEmailError = DirectoryUpdateEmailErrors[keyof DirectoryUpdateEmailErrors];
+
+export type DirectoryUpdateEmailResponses = {
+    /**
+     * The email address was updated
+     */
+    200: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryUpdateEmailResponse = DirectoryUpdateEmailResponses[keyof DirectoryUpdateEmailResponses];
+
+export type DirectoryListPhonesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/phones';
+};
+
+export type DirectoryListPhonesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListPhonesError = DirectoryListPhonesErrors[keyof DirectoryListPhonesErrors];
+
+export type DirectoryListPhonesResponses = {
+    /**
+     * The entity's telephone and fax numbers
+     */
+    200: DirectoryPhonesResponse;
+};
+
+export type DirectoryListPhonesResponse = DirectoryListPhonesResponses[keyof DirectoryListPhonesResponses];
+
+export type DirectoryAddPhoneData = {
+    body: AddDirectoryPhoneRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/phones';
+};
+
+export type DirectoryAddPhoneErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryAddPhoneError = DirectoryAddPhoneErrors[keyof DirectoryAddPhoneErrors];
+
+export type DirectoryAddPhoneResponses = {
+    /**
+     * The telephone or fax number was recorded
+     */
+    201: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryAddPhoneResponse = DirectoryAddPhoneResponses[keyof DirectoryAddPhoneResponses];
+
+export type DirectoryRemovePhoneData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/phones/{id}';
+};
+
+export type DirectoryRemovePhoneErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryRemovePhoneError = DirectoryRemovePhoneErrors[keyof DirectoryRemovePhoneErrors];
+
+export type DirectoryRemovePhoneResponses = {
+    /**
+     * The telephone or fax number was removed
+     */
+    200: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryRemovePhoneResponse = DirectoryRemovePhoneResponses[keyof DirectoryRemovePhoneResponses];
+
+export type DirectoryUpdatePhoneData = {
+    body: UpdateDirectoryPhoneRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/phones/{id}';
+};
+
+export type DirectoryUpdatePhoneErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryUpdatePhoneError = DirectoryUpdatePhoneErrors[keyof DirectoryUpdatePhoneErrors];
+
+export type DirectoryUpdatePhoneResponses = {
+    /**
+     * The telephone or fax number was updated
+     */
+    200: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryUpdatePhoneResponse = DirectoryUpdatePhoneResponses[keyof DirectoryUpdatePhoneResponses];
+
+export type DirectoryListAddressesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/addresses';
+};
+
+export type DirectoryListAddressesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListAddressesError = DirectoryListAddressesErrors[keyof DirectoryListAddressesErrors];
+
+export type DirectoryListAddressesResponses = {
+    /**
+     * The entity's postal addresses
+     */
+    200: DirectoryAddressesResponse;
+};
+
+export type DirectoryListAddressesResponse = DirectoryListAddressesResponses[keyof DirectoryListAddressesResponses];
+
+export type DirectoryAddAddressData = {
+    body: AddDirectoryAddressRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/addresses';
+};
+
+export type DirectoryAddAddressErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryAddAddressError = DirectoryAddAddressErrors[keyof DirectoryAddAddressErrors];
+
+export type DirectoryAddAddressResponses = {
+    /**
+     * The postal address was recorded
+     */
+    201: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryAddAddressResponse = DirectoryAddAddressResponses[keyof DirectoryAddAddressResponses];
+
+export type DirectoryRemoveAddressData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/addresses/{id}';
+};
+
+export type DirectoryRemoveAddressErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryRemoveAddressError = DirectoryRemoveAddressErrors[keyof DirectoryRemoveAddressErrors];
+
+export type DirectoryRemoveAddressResponses = {
+    /**
+     * The postal address was removed
+     */
+    200: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryRemoveAddressResponse = DirectoryRemoveAddressResponses[keyof DirectoryRemoveAddressResponses];
+
+export type DirectoryUpdateAddressData = {
+    body: UpdateDirectoryAddressRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/addresses/{id}';
+};
+
+export type DirectoryUpdateAddressErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryUpdateAddressError = DirectoryUpdateAddressErrors[keyof DirectoryUpdateAddressErrors];
+
+export type DirectoryUpdateAddressResponses = {
+    /**
+     * The postal address was updated
+     */
+    200: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryUpdateAddressResponse = DirectoryUpdateAddressResponses[keyof DirectoryUpdateAddressResponses];
+
+export type DirectorySetPersonLifeDatesData = {
+    body: SetDirectoryPersonLifeDatesRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/persons/{id}/life-dates';
+};
+
+export type DirectorySetPersonLifeDatesErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectorySetPersonLifeDatesError = DirectorySetPersonLifeDatesErrors[keyof DirectorySetPersonLifeDatesErrors];
+
+export type DirectorySetPersonLifeDatesResponses = {
+    /**
+     * The dates were recorded
+     */
+    200: DirectoryAckResponse;
+};
+
+export type DirectorySetPersonLifeDatesResponse = DirectorySetPersonLifeDatesResponses[keyof DirectorySetPersonLifeDatesResponses];
 
 export type ConflictsRunCheckData = {
     body: CreateConflictsCheckRequest;

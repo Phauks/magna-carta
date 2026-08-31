@@ -31,6 +31,12 @@
 - `src/merge.ts` — `mergeEntities` (non-destructive, atomic batch, full repoint set, `entity_merge` event + `audit_log` row)
 - `src/party.ts` — `linkMatterParty` / `readMatterParties` / `createPartyRole` / `listPartyRoles`
 - `src/contact-email.ts` — `addEmail` / `updateEmail` / `removeEmail` / `readEmails` (temporal `directory_email` rows, at-most-one-primary enforced in the write path) + `findEntitiesByEmailAddress` (the address → entity reverse lookup: normalized match key, soft-delete-aware, resolves a merged-away owner to its surviving master)
+- `src/contact-phone.ts` — `addPhone` / `updatePhone` / `removePhone` / `readPhones`. The technology and the context are two columns (`contact_system` / `contact_use`), so a work fax is expressible and a delivery path can ask whether a number takes a fax. `number` is the number AS ENTERED and is never rewritten
+- `src/contact-address.ts` — `addAddress` / `updateAddress` / `removeAddress` / `readAddresses`, over the international address field set. No field is required beyond one of them being present
+- `src/contact-points.ts` — `readContactPoints`, the one read a record screen makes: all three channels, one round trip. Unlike the write paths it admits a MERGED entity, because a folded-away record still has to open
+- `src/contact-preference.ts` — the permission/preference/verification block the three tables share, and `resolveContactFields`, which folds a caller's input over the row's current values
+- `src/phone-number.ts` — `structurePhoneNumber`: the E.164 assignment rule, not a metadata library
+- `src/postal-address.ts` — the address field set, and `normalizedAddressKey` (a DUPLICATE key, deliberately not a canonical postal form)
 - `src/client-migration.ts` — idempotent 1·1 `client_display_name`/`client_code` → Directory entity + `matter_party` migration
 - `src/audit.ts` — `directoryAuditStatement` (shared write-options type, audit-row builder used by all write paths)
 - `src/run-directory-effect.ts` — `runDirectoryEffect` top-level executor (threads the idempotency context + crypto context + actor for routes)
@@ -42,6 +48,37 @@
 - **All writes compose the atomic batch.** Every mutation goes through `composeEffectBatch` (never raw D1 outside a statement builder). Mirror the pattern in `packages/matters/src/matter-service.ts`.
 - **Names are append-and-flip, never edited in place.** A name change inserts the new `directory_name` row (with phonetic codes) and flips `is_current = 0` + sets `valid_to` on the prior row in the same batch. The FTS5 external-content index (triggers) and phonetic-code rows travel with each name row. Editing the name text directly breaks the conflicts corpus and history.
 - **Phonetic codes on every name write.** Every insert of a `directory_name` row must be accompanied by `directory_name_phonetic_code` rows for both Double Metaphone schemes (`double_metaphone_primary` and `double_metaphone_secondary`) in the same batch statement set. The fitness probe `findNamesMissingPhonetics` enforces this.
+- **A contact point's PERMISSION and its PREFERENCE are two facts, and `is_primary` is a third.**
+  `contact_permitted` (default 1) is whether the firm may use the contact point at all — the standing
+  instruction a person gave. `contact_preferred` is the route they asked to be reached by, and **at
+  most one exists per entity across `directory_email`, `directory_phone` and `directory_address`
+  together**, because "write to me" is a single answer about every channel; a write that sets it
+  composes `demoteEntityPreferredContactStatements`, which is three UPDATEs in the one batch.
+  `is_primary` is neither: it is the CHANNEL's default row, and the email reverse lookup already
+  depends on it. None of the three is a Rule 4.2 no-contact flag — that is matter-scoped and derived,
+  and putting it on an entity states the rule wrongly.
+- **A failed verification is recorded and surfaced and gates nothing.** Owner ruling: a failed address
+  verification does not block a send, it notifies. `verification_status` / `verified_at` /
+  `verified_by` / `verification_detail` exist so returned mail, a bounced message and a disconnected
+  line have somewhere to live; no code path may read them as a refusal. `verified_at` and `verified_by`
+  move ONLY when the status moves — an unrelated edit must never read back later as a confirmation the
+  firm never made.
+- **A date of birth is an attribute, not an identifier, and it is stored in the clear.** It was filed
+  in `directory_identifier`, which matches only by exact blind index; a date of birth is too
+  low-entropy to index safely, so the code refused, and a firm could store one and ask it nothing.
+  `date_of_birth` / `date_of_death` / `deceased` are plain nullable columns on `directory_person`,
+  written only through `setPersonLifeDates`, registered in `packages/data-access/src/pii-registry.ts`,
+  and covered by the standing redaction default. `deceased` is separate from the date because "known
+  dead, date unknown" is real, and the date-implies-the-flag rule lives in the write path because a
+  cross-column CHECK cannot be added to a populated table under expand-contract. The `dob` identifier
+  type is never dropped — existing sealed values stay readable — and is closed to new writes.
+- **The address field set is the international one.** Which fields a country uses, what they are
+  called and what order they read in are properties of the COUNTRY. The columns are named for their
+  position (`recipient`, `organization_name`, `street`, `street_two`, `dependent_locality`, `city`,
+  `region`, `postal`, `sorting_code`, `country`); nothing assumes a state and a five-digit postal code,
+  and no field is required. `normalized_key` is a duplicate-detection key and NOT a canonical postal
+  form: it folds case, accents and punctuation and stops there. Canonicalization is a provider's job,
+  and a key whose meaning changes later silently invalidates every comparison made under the old one.
 - **Sensitive identifiers only via `protectedField`.** SSN, EIN, DOB, account numbers, driver's licence numbers, and SSN-last-four are stored encrypted. Write them only through `composeProtectedWrite`; read them only through `readProtected` (permission check → audit row → AAD decrypt, inseparable) or `blindIndexValue` (no permission, no audit — matching reveals nothing). Blind-index policy: SSN digit-strip standalone-indexed (L=16); EIN digit-strip standalone-indexed (L=16); account number strip-spaces-dashes-uppercase standalone-indexed (L=24); driver's licence state-prefixed standalone-indexed (L=16); DOB and SSN-last-four protected but **never** standalone-indexed — decrypt-and-compare on a candidate set. The policy lives in `@magna-carta/data-access`.
 - **Uniform `directory_identifier` model.** ALL sensitive identifiers live in `directory_identifier` rows — there are no plaintext `dob` or `ein` columns on the node tables. The design's §5 uniform model was adopted; the plan's §2 table columns were dropped.
 - **Soft-delete only.** No `DELETE` ever targets directory tables; set `deleted_at` instead. Merged subordinates carry `status = 'merged_into'` + `merged_into_id`; they remain in the corpus so merged-away aliases still surface in search and conflicts. The single exception is a colliding `directory_entity_category` link during a merge: the composite primary key leaves no room for a second row under the master, and the row's entire content (the entity/category pair) is written into the `entity_merge` event, so nothing is lost that the event does not carry.
@@ -79,6 +116,7 @@
 - D1 has no interactive transactions — everything an operation needs must be read before composing the batch; never plan logic "between" statements. Use `assertEntityExists` (from `entity-kind.ts`) before any write that references an entity handle.
 - `directory_name` must NOT be WITHOUT ROWID — the implicit SQLite rowid backs the FTS5 external-content table (`content_rowid='rowid'`). Removing or altering the rowid breaks the trigram index.
 - The FTS5 trigram table is kept in sync by triggers on `directory_name` (insert/update/soft-delete). The migration `0008_directory` creates these triggers via raw SQL — drizzle-kit cannot model FTS5 or triggers, so they live in the hand-written `.sql` file and are verified by the migration test.
-- `NameRole`, `EdgeType`, and `IdentifierType` are application-level open catalogs (the schema enforces only `length > 0`). Add new catalog values to the `as const` union in `src/types.ts` before using them in write paths.
+- `NameRole`, `EdgeType`, `IdentifierType`, `ContactSystem`, `ContactUse`, `AddressUse`, `AddressType` and `ContactVerificationStatus` are application-level open catalogs (the schema enforces only `length > 0`, or nothing at all). Add new catalog values to the `as const` union in `src/types.ts` before using them in write paths. The CHECK is open at rest **on purpose**: a committed migration is immutable, so a closed `IN (...)` would turn every catalog addition into a migration against every firm and would make a firm mid-upgrade reject a value the code already emits. The route's `z.enum` and the domain modules' `assertClassification` are where the catalog is actually enforced.
+- **The phone splitter holds no per-country knowledge, and that is the point.** `structurePhoneNumber` applies the E.164 assignment rule (zones 1 and 7 are one digit, a fixed set is two, everything else is three) and nothing else. A number in national form yields a null calling code rather than a guessed one, and a national trunk prefix inside an international number is NOT stripped — knowing that a leading zero is a trunk code is per-country knowledge, and editing a client's digits on a guess is worse than keeping them. Reaching for a metadata library means hundreds of kilobytes that go stale monthly; if per-region validation is ever wanted it goes behind this same shape.
 - FTS5 trigrams treat SQL keywords (`and`, `not`, `or`) as query operators, not literals — `searchNames` wraps each trigram as a phrase literal (`"<term>"`) to prevent keyword collisions. Do not change this without adding regression coverage for the collision cases.
 - `findDuplicateCandidates` orders candidates by signal count descending, then entity id ascending (the final sort in `src/search.ts` — cited by function, not line, so the note does not rot as the file moves) — stable across database row orders, never insertion-order. `channels` (which of the phonetic/trigram/identifier channels fired) and `identifierTypes` (which identifier types matched) travel with each candidate, not only `signalCount`.

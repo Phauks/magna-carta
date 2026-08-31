@@ -91,7 +91,7 @@ export const matterSections: readonly MatterSection[] = [
     slug: "custodian",
     label: "Custodian",
     core: false,
-    stage: "soon",
+    stage: "alpha",
     description:
       "Physical items in the firm's custody for this matter — original wills, deeds, media — " +
       "tracked to a location, safe, and box.",
