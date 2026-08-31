@@ -135,7 +135,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   <p>It is the single most misleading number here, and it is the third largest.
   <strong>113 units of work are partial</strong> — delivered in part, and not finished.
   Counting those as progress is honest; counting them as done is not. A further
-  106 roll-up parents are also partial and are deliberately not counted: a parent is
+  105 roll-up parents are also partial and are deliberately not counted: a parent is
   partial by definition once its children disagree, so it reports its subtree rather than any work of
   its own.</p>
   <p style="color:var(--soft)">Shipped plus partial is 380 of 627
@@ -180,7 +180,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   <p class="lede">All 760, in ledger order, indented by depth. Filter by status or search the
   names, ids and scope text.</p>
   <div class="controls">
-    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>278</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>219</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>1</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>49</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>17</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>150</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>2</b></button>
+    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>279</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>218</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>1</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>49</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>17</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>150</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>2</b></button>
     <button class="f" id="clear" aria-pressed="true">All</button>
     <input id="q" type="search" placeholder="Search names, ids, scope" aria-label="Search the register">
     <span id="hits">760 shown</span>
@@ -1009,12 +1009,12 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <code>matters.home-location</code>
 <p>A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise.</p>
 <p class="note">Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice.</p>
-</li><li class="n d1" data-s="partial">
-<span class="chip part">Partial</span>
+</li><li class="n d1" data-s="shipped">
+<span class="chip done">Shipped</span>
 <span class="nm">Matter lifecycle</span>
 <code>matters.lifecycle</code>
 <p>Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support.</p>
-<p class="note">Backend shipped; lifecycle UI not built.</p>
+<p class="note">The UI has landed. Pressing the status seal opens the status window, which states what the step does to the record and, for a close, what the firm's own money rules check first; a refused close renders each rule's own sentence, which names the movements that clear it. One step per standing, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Consultations (prospective matters)</span>

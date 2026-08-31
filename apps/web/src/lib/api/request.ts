@@ -13,6 +13,20 @@
  * last two into one `catch` loses the only distinction that changes what a person should do about it.
  */
 
+/**
+ * One named reason inside a problem document. A refusal that has several of them (a matter close
+ * refused by two money rules) sends one entry per reason, each with its own machine-readable code,
+ * so a surface can render them as separate lines rather than as one paragraph the server joined.
+ */
+export interface ApiProblemReason {
+  /** The rule that refused, machine-readable. */
+  code?: string;
+  /** The reason in the server's own words. */
+  detail?: string;
+  /** Which part of the request the reason is about; "$" is the request as a whole. */
+  path?: string;
+}
+
 /** A failed call surfaced to the user. `errorId` is the correlation handle every problem carries. */
 export interface ApiProblem {
   status: number;
@@ -20,7 +34,28 @@ export interface ApiProblem {
   type?: string;
   /** The human-readable detail, when it sent one. Server-authored — never a raw exception. */
   detail?: string;
+  /** The individual reasons behind the refusal, when it named them. */
+  errors?: readonly ApiProblemReason[];
   errorId?: string;
+}
+
+// The `errors` array off a problem document, entry by entry. Defensive in the same way readProblem
+// is: an entry that is not an object, or a body whose `errors` is not an array, yields nothing
+// rather than an entry of undefined fields.
+function readProblemReasons(value: unknown): readonly ApiProblemReason[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const reasons = value.flatMap((entry): ApiProblemReason[] => {
+    if (entry === null || typeof entry !== "object") return [];
+    const reason = entry as Record<string, unknown>;
+    return [
+      {
+        code: typeof reason.code === "string" ? reason.code : undefined,
+        detail: typeof reason.detail === "string" ? reason.detail : undefined,
+        path: typeof reason.path === "string" ? reason.path : undefined,
+      },
+    ];
+  });
+  return reasons.length === 0 ? undefined : reasons;
 }
 
 /**
@@ -47,6 +82,7 @@ async function readProblem(response: Response): Promise<ApiProblem> {
       status: response.status,
       type: typeof body.type === "string" ? body.type : undefined,
       detail: typeof body.detail === "string" ? body.detail : undefined,
+      errors: readProblemReasons(body.errors),
       errorId: typeof body.errorId === "string" ? body.errorId : undefined,
     };
   } catch {

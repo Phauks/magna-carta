@@ -5,42 +5,30 @@
    * matter is prospective and unnumbered by design; the status seal sits beside it; the citation
    * meta below names client, type, responsible attorney, and location, omitting what is null.
    *
-   * Status never gates or varies the screen flow — it changes only what this header showcases:
-   * the seal, the number-or-Consultation line, and which lifecycle action label is offered.
+   * Status never gates or varies the screen flow — it changes only what this header showcases: the
+   * seal and the number-or-Consultation line.
    *
-   * Actions collapse into one toggleable overflow (⋯) menu — the menu opens for real, and its
-   * items (Edit and the status's lifecycle action) are honest seams: designed-but-unwired ships
-   * visible and disabled, marked "Soon", never omitted and never fake-live. They go live with the
-   * wired matters surface.
+   * THE SEAL IS ALSO THE CONTROL. Pressing it opens the status window, which is where a matter is
+   * opened, closed or reopened (matter-status-dialog.svelte). There is deliberately no second way
+   * in: the lifecycle action used to sit in an overflow menu beside the title, which meant the
+   * standing was read in one corner and changed in another, and the header carries no overflow menu
+   * now that the step it held has a better home. An action that belongs to a fact belongs on it.
+   *
+   * THE WAY BACK RIDES THE SAME LINE. The return to the docket is the first thing on the ledger
+   * line, ahead of the number: it wears the eyebrow register the number already wears, so the line
+   * reads as one ledger rather than as a band of navigation stacked above a heading, and the way
+   * out sits where the eye starts. It names the destination rather than saying "Back", so a reader
+   * learns where it goes and not merely which direction.
    */
-  import Badge from "@magna-carta/design-system/badge";
-  import { buttonClasses } from "@magna-carta/design-system/button";
-  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import Archive from "@lucide/svelte/icons/archive";
-  import Ellipsis from "@lucide/svelte/icons/ellipsis";
-  import FolderOpen from "@lucide/svelte/icons/folder-open";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import BackLink from "$lib/navigation/back-link.svelte";
+  import MatterStatusDialog from "$lib/matters/matter-status-dialog.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
-  import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
+
+  /** The docket. Every matter came from it, and it is where the way out leads. */
+  const MATTERS_HREF = "/matters";
 
   let { matter }: { matter: MatterRecord } = $props();
-
-  // One lifecycle action per status: the single next step the matter's life offers. Closing
-  // archives (Archive, not a destructive glyph — the record stays additive after close).
-  const LIFECYCLE_ACTION: Record<
-    MatterRecord["status"],
-    { label: string; icon: typeof Archive }
-  > = {
-    prospective: { label: "Open matter", icon: FolderOpen },
-    open: { label: "Close matter", icon: Archive },
-    closed: { label: "Reopen", icon: RotateCcw },
-  };
-
-  // The status seal comes from the one matter-status register, so the header and the docket's
-  // status column can never disagree about what "Closed" looks like.
-  const seal = $derived(matterStatusPresentation(matter.status));
-  const lifecycle = $derived(LIFECYCLE_ACTION[matter.status]);
 
   // The citation line's entries in reading order, nulls dropped — a consultation simply has a
   // shorter citation, never an empty slot.
@@ -62,16 +50,17 @@
   <Masthead.Heading>
     <Masthead.Eyebrow>
       <span class="flex items-center gap-8">
+        <!-- One link back to the docket is not a breadcrumb trail, so the landmark is named for
+             what it is; announcing it as a breadcrumb would send a reader looking for a path that
+             is not there. -->
+        <nav aria-label="Back to Matters" class="flex">
+          <BackLink href={MATTERS_HREF} label="Matters" />
+        </nav>
+        <Masthead.MetaSeparator />
         {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`}
         <!-- The status seal rides the ledger line, beside the matter number — the top-left corner
-             is where the matter's standing is read, not the action rail. -->
-        <Badge
-          variant={seal.variant}
-          class="uppercase"
-          style="letter-spacing: var(--mc-tracking-caps)"
-        >
-          {seal.label}
-        </Badge>
+             is where the matter's standing is read, and now also where it is changed. -->
+        <MatterStatusDialog {matter} />
       </span>
     </Masthead.Eyebrow>
     <Masthead.Title>{matter.title}</Masthead.Title>
@@ -84,25 +73,4 @@
       {/each}
     </Masthead.Meta>
   </Masthead.Heading>
-  <Masthead.Actions>
-    {@const LifecycleIcon = lifecycle.icon}
-    <DropdownMenu.Root>
-      <!-- The overflow (⋯) carries a token border so it reads as a control at rest, not just on
-           hover — the quiet ghost was too easy to miss. The lifecycle action lives inside it,
-           disabled and marked Soon until the wired matters surface makes it live. -->
-      <DropdownMenu.Trigger
-        class="{buttonClasses({ variant: 'ghost', size: 'icon' })} border border-border-default"
-        aria-label="Matter actions"
-      >
-        <Ellipsis class="size-16" aria-hidden="true" />
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-        <DropdownMenu.Item disabled>
-          <LifecycleIcon class="size-16" aria-hidden="true" />
-          {lifecycle.label}
-          <Badge variant="neutral" class="ms-auto">Soon</Badge>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
-  </Masthead.Actions>
 </Masthead.Root>

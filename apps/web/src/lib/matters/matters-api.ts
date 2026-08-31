@@ -261,3 +261,91 @@ export const CREATE_MATTER_PERMISSION = "matters:create";
  * the control says so up front rather than letting somebody pick and be refused.
  */
 export const MANAGE_MATTER_TYPES_PERMISSION = "matters:manageTypes";
+
+// ---- the lifecycle steps ---------------------------------------------------------------------
+//
+// Three operations, one per status a matter can be in, and each is a POST with no body: the step a
+// matter takes next is decided by the status it is already in, never by a value the client sends.
+// That is why there is no "set the status to X" call here and never will be — a status is where a
+// matter arrives by being opened, closed or reopened, and a surface that could write one directly
+// could write one the lifecycle does not allow.
+//
+// Every one of them requires an idempotency key. A double-press must not draw a second matter
+// number or stamp a second close date, and the server refuses the call outright without the header.
+
+/** What opening answers: the matter, and the number the firm's counter drew for it. */
+export interface OpenMatterResult {
+  matterId: string;
+  matterNumber: string;
+}
+
+/**
+ * One thing worth knowing about a matter that was just closed — physical originals the firm still
+ * holds against it, say. A notice is INFORMATION and never a refusal: a close that produced notices
+ * still closed, and the matter in the response is closed.
+ */
+export interface MatterCloseNotice {
+  code: string;
+  message: string;
+}
+
+/** What closing answers: the matter, and any advisory notices the close raised. */
+export interface CloseMatterResult {
+  matterId: string;
+  notices: MatterCloseNotice[];
+}
+
+/**
+ * Open a prospective matter. The number is the SERVER's to mint: the firm's next matter number is
+ * drawn from its own counter atomically at this moment, and nothing here may supply or suggest one.
+ */
+export function openMatter(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<OpenMatterResult>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/open`, {
+    method: "POST",
+    idempotencyKey,
+  });
+}
+
+/**
+ * Close a matter: archived-but-additive, so it leaves the firm's active lists and still accepts
+ * entries against it.
+ *
+ * The server runs the close preconditions first, and a refusal comes back as a 409 problem document
+ * whose `errors` name each rule that refused and what clears it. That refusal is the useful half of
+ * this call, so a caller renders those reasons rather than a generic failure.
+ */
+export function closeMatter(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<CloseMatterResult>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/close`, {
+    method: "POST",
+    idempotencyKey,
+  });
+}
+
+/**
+ * Reopen a closed matter. The status it returns to is the server's to decide — open if the matter
+ * carries a number, prospective if it does not — which is why the acknowledgement carries only the
+ * identifier and the screen re-reads the matter rather than assuming.
+ */
+export function reopenMatter(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ matterId: string }>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/reopen`, {
+    method: "POST",
+    idempotencyKey,
+  });
+}
+
+/** The permissions the three lifecycle endpoints name. A member without one is refused server-side. */
+export const OPEN_MATTER_PERMISSION = "matters:open";
+export const CLOSE_MATTER_PERMISSION = "matters:close";
+export const REOPEN_MATTER_PERMISSION = "matters:reopen";

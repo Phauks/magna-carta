@@ -2,8 +2,9 @@
 
 _The matters screen is early. The list, the search, the column controls and opening a new matter all
 work today. The responsible attorney now shows on the list, but still cannot be set to a colleague
-when you open a matter — it is whoever opens it. Editing a matter, closing it, and reopening it are
-done from the matter's own page as those controls arrive._
+when you open a matter: it is whoever opens it. Opening a consultation, closing a matter and
+reopening one all work, from the matter's own page. Editing a matter's details arrives as that
+control does._
 
 ## What it does
 
@@ -54,7 +55,8 @@ consultation recorded in March and opened in June was created in March. The date
 matter's own page.
 
 Press a matter's title to open it. Hold Ctrl (or Cmd on a Mac) while pressing to open it in a second
-tab, so you can work in two matters at once.
+tab, so you can work in two matters at once. Every matter page carries a link back to **Matters** at
+its top left, above the matter's name.
 
 If the firm has more matters than fit in one read, **Load more matters** brings in the next set.
 Until every matter is loaded, sorting and the column filters cover the ones already on screen, and
@@ -89,6 +91,52 @@ form says so and the matter opens perfectly well without them.
 colleague waits on the firm member directory; until that exists there is no list of colleagues to
 pick from, so the field shows who the matter will open under rather than offering a choice that
 would not be real.
+
+## Changing a matter's status
+
+A matter's status is the badge at the top left of its own page, beside the matter number: **Active**,
+**Prospective** or **Closed**. Press the badge to change it.
+
+The window that opens says what the change will do before you make it, and offers the one step the
+matter's current standing allows. A consultation opens, an active matter closes, a closed matter
+reopens. There is no list of statuses to pick from, because a matter reaches a status by being
+opened, closed or reopened, not by being set to one.
+
+**Opening a consultation** draws your firm's next matter number, which then stays with the matter for
+good, and moves it into the working docket.
+
+**Closing a matter** archives it. It leaves the firm's active lists, and the record stays and still
+takes entries: closing a matter does not seal it. Today becomes the matter's close date, and a later
+close never moves that date. The matter number is untouched.
+
+**Reopening a matter** returns it to the standing it held before it closed, which is Active if it
+carries a number and Prospective if it does not, and clears the recorded close date.
+
+### If a matter will not close
+
+Two rules stop a close, and both are about money that is not the firm's.
+
+**Money still in the client's trust ledger.** A client ledger has to reach zero before its matter
+closes, and a hold on disputed funds stops a close even where the ledger is otherwise empty. The
+window names the amount, the trust account it sits on, and the ways out: disburse the remaining funds
+to the client, or transfer earned fees to the operating account.
+
+**A client credit the firm has conceded.** This is money a correction left over, which the firm has
+already agreed it owes back. The window names the amount and the date the credit note opened it, and
+the ways out: refund it from the operating account, return it to the client's trust ledger, or set it
+against another of this client's bills.
+
+An unpaid bill does **not** stop a close. An uncollectable receivable is an ordinary business
+outcome, and writing it off is its lawful exit.
+
+**Notices are not refusals.** A close can report things worth knowing without stopping: if the firm
+still holds physical property in the safe-custody register against the matter, the window says so
+after the matter closes. The property stays exactly where it is, listed in the register, until
+somebody moves, releases or destroys it.
+
+**"This step needs the matters:close permission."** Closing, opening and reopening are each a
+permission your firm grants, and this account does not have that one. Ask whoever administers your
+firm.
 
 ## If a matter will not open
 
