@@ -6,8 +6,11 @@
  *
  * WHAT THE CONTRACT ANSWERS, AND WHAT IT DOES NOT. Stated here so a caller never goes looking:
  *
- *   - There is no listing. `searchDirectory` is the only way to reach an entity, and it needs at
- *     least three characters of a name. The directory is searched, never browsed.
+ *   - THERE ARE TWO WAYS IN AND THEY ANSWER DIFFERENT QUESTIONS. `listDirectoryEntities` is the
+ *     index: every record the firm holds, in name order, cursor-paged, with the size of the whole
+ *     record beside the page. `searchDirectory` answers a name: ranked, tolerant of a typo, and
+ *     CAPPED. Neither substitutes for the other, and a caller must not present one as the other —
+ *     a capped best-of is not an index, and an index is not an answer to "who is this".
  *   - Reading an identifier's VALUE is a decrypt: permission-gated and written to the firm's audit
  *     log before any plaintext exists. That is why nothing here reads one eagerly, and why
  *     `readDirectoryIdentifierRecords` — which says what the firm holds without saying what any of
@@ -71,6 +74,16 @@ export interface DirectoryPersonDetail {
   /** The surviving record this one was folded into, or null while it stands on its own. */
   mergedIntoId: string | null;
   pronouns: PronounSet | null;
+  /**
+   * Plain calendar dates, held in the clear because every question a firm asks of a date of birth is
+   * a range — is this client a minor, has a limitation period tolled, whose birthday falls this
+   * month — and a range query over ciphertext is not a query. They used to be sealed identifiers,
+   * which is why the platform could not usefully record one.
+   */
+  dateOfBirth: string | null;
+  dateOfDeath: string | null;
+  /** Separate from the date: known dead with the date unknown is a state the record can hold. */
+  deceased: boolean;
 }
 
 /** One organization as the directory holds it. */
@@ -86,6 +99,25 @@ export interface DirectoryOrganizationDetail {
 export type DirectoryEntityDetail =
   | { kind: "person"; person: DirectoryPersonDetail }
   | { kind: "organization"; organization: DirectoryOrganizationDetail };
+
+/** One row of the directory's index — display identity, and nothing about what the record holds. */
+export interface DirectoryEntityListing {
+  entityId: string;
+  entityKind: DirectoryEntityKind;
+  /** What to call the record, or null where the directory holds no name for it. Show the gap. */
+  displayName: string | null;
+  /** An organization's legal name where it differs from what the firm calls it; null otherwise. */
+  legalName: string | null;
+  recordedAt: string;
+}
+
+/** A page of the index, carrying the size of the whole record rather than of the page. */
+export interface DirectoryEntityListingPage {
+  data: DirectoryEntityListing[];
+  nextCursor: string | null;
+  /** How many records the firm holds under these filters, across every page of the walk. */
+  total: number;
+}
 
 /** One hit from the firm's own ranked search. */
 export interface DirectorySearchHit {
@@ -228,16 +260,147 @@ export interface DirectoryIdentifierRecord {
   recordedAt: string;
 }
 
+// ---- contact points ----------------------------------------------------------------------------
+//
+// THE THREE CHANNELS ARE THREE READS OF ONE FACT: how to reach this record. Until these existed,
+// `directory_email`, `directory_phone` and `directory_address` were tables nothing could reach and a
+// firm could not record a client's telephone number.
+
+/** What technology answers a telephone number. A fax is a fax by this, never by a word in a label. */
+export type DirectoryContactSystem = "voice" | "fax" | "sms" | "pager";
+
+/** What context a number or address is used in. Orthogonal to the technology behind it. */
+export type DirectoryContactUse = "work" | "home" | "mobile" | "other" | "former" | "temporary";
+
+export type DirectoryAddressUse =
+  | "residential"
+  | "business"
+  | "postal"
+  | "registered"
+  | "service"
+  | "former"
+  | "temporary";
+
+/** Whether the place physically exists. A post office box cannot be personally served. */
+export type DirectoryAddressType = "physical" | "postal" | "both";
+
+/** What the firm found the last time it tried to confirm a contact point. */
+export type DirectoryVerificationStatus = "unverified" | "verified" | "failed";
+
+/**
+ * What the person said about this contact point, and what the firm found.
+ *
+ * `permitted` and `preferred` are two different facts and a screen must not merge them: a person can
+ * be reachable at a number they would rather the firm did not ring, and can ask to be reached by
+ * post while still holding an email address the firm may use. `preferred` is one answer across all
+ * three channels — promoting one demotes whichever held it, in any table.
+ *
+ * A `failed` verification never blocks anything. It is a record and a warning: returned mail, a
+ * bounced message, a disconnected line.
+ */
+export interface DirectoryContactPointState {
+  permitted: boolean;
+  preferred: boolean;
+  note: string | null;
+  verificationStatus: DirectoryVerificationStatus;
+  verifiedAt: string | null;
+  verificationDetail: string | null;
+}
+
+export interface DirectoryEmailEntry {
+  id: string;
+  address: string;
+  contactUse: DirectoryContactUse | null;
+  /** This channel's default row — where a message goes when no address was named. */
+  isPrimary: boolean;
+  state: DirectoryContactPointState;
+}
+
+export interface DirectoryPhoneEntry {
+  id: string;
+  /** Exactly as it was entered. Never rewritten, and what the screen shows. */
+  number: string;
+  contactSystem: DirectoryContactSystem;
+  contactUse: DirectoryContactUse | null;
+  /** Null where the number carried no country. Show the gap rather than inventing one. */
+  countryCallingCode: string | null;
+  nationalNumber: string | null;
+  extension: string | null;
+  countryRegionCode: string | null;
+  isPrimary: boolean;
+  state: DirectoryContactPointState;
+}
+
+export interface DirectoryAddressEntry {
+  id: string;
+  recipient: string | null;
+  organizationName: string | null;
+  street: string | null;
+  streetTwo: string | null;
+  dependentLocality: string | null;
+  city: string | null;
+  region: string | null;
+  postal: string | null;
+  sortingCode: string | null;
+  country: string | null;
+  addressUse: DirectoryAddressUse | null;
+  addressType: DirectoryAddressType;
+  isPrimary: boolean;
+  state: DirectoryContactPointState;
+}
+
+export interface DirectoryContactPoints {
+  emails: DirectoryEmailEntry[];
+  phones: DirectoryPhoneEntry[];
+  addresses: DirectoryAddressEntry[];
+}
+
+/** What a screen may say about a contact point's permission and preference when recording one. */
+export interface DirectoryContactPreference {
+  permitted?: boolean;
+  preferred?: boolean;
+  note?: string | null;
+}
+
+export interface DirectoryContactVerification {
+  status?: DirectoryVerificationStatus;
+  detail?: string | null;
+}
+
 /** How many entities one naming call may ask about. Beyond it the read refuses rather than truncates. */
 export const MAX_ENTITY_NAME_LOOKUP = 100;
 
 // ---- reads -----------------------------------------------------------------------------------
 
 /**
- * The firm's ranked name search — the only way into the directory.
+ * The firm's directory as an INDEX: everyone it holds, in name order, one page at a time.
+ *
+ * People and organizations arrive in one sequence, because the directory is one book and a reader
+ * looking for a name does not know in advance which side of it the firm filed. `kind` narrows that
+ * sequence rather than splitting it into two screens.
+ *
+ * Deleted records are out, and so are records folded into another by a merge: a folded record still
+ * answers a search and still resolves to its survivor, but listing it beside that survivor would
+ * show one client as two.
+ */
+export function listDirectoryEntities(
+  fetchImpl: typeof fetch,
+  options: { kind?: DirectoryEntityKind; cursor?: string } = {},
+): Promise<ApiOutcome<DirectoryEntityListingPage>> {
+  const search = new URLSearchParams();
+  if (options.kind !== undefined) search.set("kind", options.kind);
+  if (options.cursor !== undefined) search.set("cursor", options.cursor);
+  const query = search.toString();
+  return requestJson(fetchImpl, `/api/v1/directory/entities${query === "" ? "" : `?${query}`}`);
+}
+
+/**
+ * The firm's ranked name search — the way to reach a record whose spelling nobody is sure of.
  *
  * Trigram matching over every name row the firm holds, current and former alike, tolerant of a
  * typo. Merged-away records are excluded from the hits and still resolve through their survivor.
+ * The answer is CAPPED and in relevance order, which is why it is never presented as the index:
+ * `listDirectoryEntities` is that.
  */
 export function searchDirectory(
   fetchImpl: typeof fetch,
@@ -593,4 +756,174 @@ export function mergeDirectoryEntities(
     body: request,
     idempotencyKey,
   });
+}
+
+// ---- contact points ----------------------------------------------------------------------------
+
+/**
+ * Every way the firm knows to reach one record, in one read.
+ *
+ * Three channels, one round trip: a record screen asks the question once, so the pane never renders
+ * two thirds of an answer while the third is still in flight. A record folded into another by a
+ * merge still answers, so an old link lands on something.
+ */
+export function readDirectoryContactPoints(
+  fetchImpl: typeof fetch,
+  entityId: string,
+): Promise<ApiOutcome<DirectoryContactPoints>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/contact-points`,
+  );
+}
+
+/** Records an email address. More than one is ordinary, and one of them is the channel's default. */
+export function addDirectoryEmail(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  request: {
+    address: string;
+    contactUse?: DirectoryContactUse | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+  },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/emails`,
+    { method: "POST", body: request, idempotencyKey },
+  );
+}
+
+/**
+ * Records a telephone or fax number.
+ *
+ * The number is sent as it was written and is stored that way: the split into country calling code,
+ * national number and extension sits beside it, and goes null where the number could not be split
+ * rather than being guessed at. What answers the number and what context it is used in are two
+ * fields, so a work fax is expressible.
+ */
+export function addDirectoryPhone(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  request: {
+    number: string;
+    contactSystem?: DirectoryContactSystem;
+    contactUse?: DirectoryContactUse | null;
+    extension?: string | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+  },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/phones`,
+    { method: "POST", body: request, idempotencyKey },
+  );
+}
+
+/**
+ * Records a postal address.
+ *
+ * No field is required and none is assumed: which fields a country's addresses use, what a reader
+ * there calls them and what order they read in are properties of the country, so nothing here is a
+ * state and a five-digit postal code. An address the firm holds only half of is still the address it
+ * holds.
+ */
+export function addDirectoryAddress(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  request: {
+    recipient?: string | null;
+    organizationName?: string | null;
+    street?: string | null;
+    streetTwo?: string | null;
+    dependentLocality?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    sortingCode?: string | null;
+    country?: string | null;
+    addressUse?: DirectoryAddressUse | null;
+    addressType?: DirectoryAddressType;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+  },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/addresses`,
+    { method: "POST", body: request, idempotencyKey },
+  );
+}
+
+/**
+ * Changes what the firm holds about one contact point.
+ *
+ * An omitted field keeps its stored value, which is what makes it safe to send only the preference:
+ * withdrawing a permission does not touch the number, and editing a number does not read back later
+ * as a confirmation the firm never made.
+ */
+export function updateDirectoryContactPoint(
+  fetchImpl: typeof fetch,
+  channel: "emails" | "phones" | "addresses",
+  contactPointId: string,
+  request: {
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+    isPrimary?: boolean;
+    contactUse?: DirectoryContactUse | null;
+  },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/${channel}/${encodeURIComponent(contactPointId)}`,
+    { method: "PUT", body: request, idempotencyKey },
+  );
+}
+
+/**
+ * Removes a contact point from a record.
+ *
+ * The row is retained and marked removed, never deleted, so a document assembled from it stays
+ * reproducible. Where the reason is that the person asked the firm not to use it, withdraw the
+ * permission instead: that keeps the instruction attached to the value, and removal does not.
+ */
+export function removeDirectoryContactPoint(
+  fetchImpl: typeof fetch,
+  channel: "emails" | "phones" | "addresses",
+  contactPointId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/${channel}/${encodeURIComponent(contactPointId)}`,
+    { method: "DELETE", idempotencyKey },
+  );
+}
+
+/**
+ * Records a person's date of birth, date of death, and whether they are known to have died.
+ *
+ * An omitted field keeps its stored value; an explicit null clears it. A recorded date of death
+ * implies the deceased flag.
+ */
+export function setDirectoryPersonLifeDates(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  request: { dateOfBirth?: string | null; dateOfDeath?: string | null; deceased?: boolean },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: boolean }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/persons/${encodeURIComponent(entityId)}/life-dates`,
+    { method: "PUT", body: request, idempotencyKey },
+  );
 }

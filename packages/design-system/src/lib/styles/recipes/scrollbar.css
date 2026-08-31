@@ -30,6 +30,16 @@
     background-color: transparent;
   }
   /*
+   * The corner where a horizontal and a vertical scrollbar meet. It is a separate pseudo-element
+   * from the track, so styling the track alone leaves it painted by the user agent — which is a
+   * pale grey square, visible against every one of our surfaces and glaring in dark mode. Any
+   * region that scrolls in both directions grows one, so a table wide enough to scroll sideways
+   * was the first place it showed.
+   */
+  .mc-scrollbar::-webkit-scrollbar-corner {
+    background-color: transparent;
+  }
+  /*
    * The thumb reads as a floating pill: fully rounded, inset from the 8px track by a 1px
    * transparent border with its paint clipped to the content box, so the visible thumb is 6px.
    */

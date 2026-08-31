@@ -1,6 +1,38 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { loadEffectivePermissions } from "../session-context.ts";
-import { createPerson, readPerson, setPersonPronouns } from "@magna-carta/directory/person";
+import {
+  createPerson,
+  readPerson,
+  setPersonLifeDates,
+  setPersonPronouns,
+  InvalidPersonLifeDatesError,
+} from "@magna-carta/directory/person";
+import {
+  addEmail,
+  removeEmail,
+  updateEmail,
+  DirectoryEmailNotFoundError,
+  InvalidEmailAddressError,
+  InvalidEmailUseError,
+} from "@magna-carta/directory/contact-email";
+import {
+  addPhone,
+  removePhone,
+  updatePhone,
+  DirectoryPhoneNotFoundError,
+  InvalidPhoneClassificationError,
+  InvalidPhoneNumberError,
+} from "@magna-carta/directory/contact-phone";
+import {
+  addAddress,
+  removeAddress,
+  updateAddress,
+  DirectoryAddressNotFoundError,
+  EmptyPostalAddressError,
+  InvalidAddressClassificationError,
+} from "@magna-carta/directory/contact-address";
+import { readContactPoints } from "@magna-carta/directory/contact-points";
+import { InvalidContactVerificationStatusError } from "@magna-carta/directory/contact-preference";
 import { IncompletePronounSetError, PRONOUN_VERB_NUMBERS } from "@magna-carta/directory/pronouns";
 import { createOrganization, readOrganization } from "@magna-carta/directory/organization";
 import { addName, changeName, readNames } from "@magna-carta/directory/name-history";
@@ -22,6 +54,7 @@ import {
   MAX_ENTITY_DISPLAY_NAME_LOOKUP,
   readEntityDisplayNames,
 } from "@magna-carta/directory/entity-display";
+import { readEntityListing } from "@magna-carta/directory/entity-listing";
 import {
   assignCategory,
   createCategory,
@@ -48,6 +81,11 @@ import {
 } from "@magna-carta/directory/party";
 import { ProtectedReadForbiddenError } from "@magna-carta/data-access/protected-fields";
 import {
+  ADDRESS_TYPES,
+  ADDRESS_USES,
+  CONTACT_SYSTEMS,
+  CONTACT_USES,
+  CONTACT_VERIFICATION_STATUSES,
   EDGE_TYPES,
   ENTITY_KINDS,
   IDENTIFIER_TYPES,
@@ -570,6 +608,51 @@ const EntityDisplayNamesResponse = z
   .object({ data: z.array(EntityDisplayName) })
   .openapi("DirectoryEntityDisplayNamesResponse");
 
+// ---- the index: the whole directory, in name order ----
+
+// One row of the firm's directory as an index reads it. The same display-identity discipline the
+// naming read above carries: no identifier, no contact row, nothing a list of names could become.
+const DirectoryEntityListing = z
+  .object({
+    entityId: z.string(),
+    entityKind: z.enum(ENTITY_KINDS),
+    displayName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "What to call the record, or null where the directory holds no name for it at all. A " +
+          "caller shows the gap rather than printing the handle.",
+      }),
+    legalName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "An organization's legal name where it differs from what the firm calls it; null for a " +
+          "person, and null where the two are the same word.",
+      }),
+    recordedAt: z.string().openapi({ description: "When the firm wrote the record down." }),
+  })
+  .openapi("DirectoryEntityListing");
+
+// The page envelope plus the size of the whole record. `total` is what separates a listing from a
+// capped answer: a page of fifty out of two thousand and a page of fifty that IS the directory are
+// indistinguishable without it, and a firm that has entered twenty clients expects to be told it
+// holds twenty.
+const DirectoryEntityListingPage = paginated(DirectoryEntityListing)
+  .extend({
+    total: z
+      .number()
+      .int()
+      .openapi({
+        description:
+          "How many records the firm holds under these filters — every page of the walk, not the " +
+          "rows on this one.",
+      }),
+  })
+  .openapi("DirectoryEntityListingPage");
+
 // ---- an entity's edges, matters, categories, and the identifiers it holds ----
 
 const DirectoryEdgeEntry = z
@@ -721,6 +804,20 @@ function directoryErrorResponse(
   // A write aimed at a merged-away entity is a conflict, not a 404: the entity is still readable and
   // still carries its merge pointer, so the caller is told the write cannot land there and which
   // surviving master to address instead — the detail names it.
+  // A contact point that is gone — removed, or never there — is one answer, not two: the caller
+  // cannot act differently on the difference.
+  if (
+    caught instanceof DirectoryEmailNotFoundError ||
+    caught instanceof DirectoryPhoneNotFoundError ||
+    caught instanceof DirectoryAddressNotFoundError
+  ) {
+    return problemJson(c, {
+      type: "not-found",
+      title: "Not found",
+      status: 404,
+      detail: caught.message,
+    });
+  }
   if (
     caught instanceof MergeAlreadyMergedError ||
     caught instanceof MergeSameEntityError ||
@@ -738,7 +835,15 @@ function directoryErrorResponse(
     caught instanceof MergeUnknownFieldError ||
     caught instanceof InvalidEdgeTypeError ||
     caught instanceof CategoryAppliesToMismatchError ||
-    caught instanceof IdentifierNotIndexableError
+    caught instanceof IdentifierNotIndexableError ||
+    caught instanceof InvalidEmailAddressError ||
+    caught instanceof InvalidEmailUseError ||
+    caught instanceof InvalidPhoneNumberError ||
+    caught instanceof InvalidPhoneClassificationError ||
+    caught instanceof InvalidAddressClassificationError ||
+    caught instanceof EmptyPostalAddressError ||
+    caught instanceof InvalidContactVerificationStatusError ||
+    caught instanceof InvalidPersonLifeDatesError
   ) {
     return problemJson(c, {
       type: "validation",
@@ -973,6 +1078,42 @@ const listNamesRoute = defineOpenAPIRoute(readMeta("listNames", null), {
     401: authErrors[401],
     404: authErrors[404],
     422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+// The index. It names no permission beyond an authenticated session, on the same reasoning the name
+// search carries: it discloses display identity and nothing else, which is what any member already
+// meets on every matter they can open.
+const listEntitiesRoute = defineOpenAPIRoute(readMeta("listEntities", null), {
+  method: "get",
+  path: "/api/v1/directory/entities",
+  description:
+    "Lists the firm's directory — every person and organization it holds, in name order and " +
+    "cursor-paged, with `total` giving the size of the whole record. People and organizations are " +
+    "ONE sequence: the directory is one book, and `kind` narrows it rather than splitting it. " +
+    "Deleted records and records folded into another by a merge are excluded — a folded record " +
+    "still answers a search and still resolves to its survivor, but listing it beside that " +
+    "survivor would show one client as two. This is the read that answers 'show me everyone'; the " +
+    "ranked search answers a name and is capped, and neither can stand in for the other.",
+  request: {
+    query: cursorQuery.extend({
+      kind: z
+        .enum(ENTITY_KINDS)
+        .optional()
+        .openapi({
+          param: { name: "kind", in: "query" },
+          description: "Narrows to one side of the directory. Omitted, both are listed together.",
+        }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "A page of the directory in name order, with the size of the whole record",
+      content: { "application/json": { schema: DirectoryEntityListingPage } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
     429: authErrors[429],
   },
 });
@@ -1395,6 +1536,628 @@ const unlinkMatterPartyRoute = defineOpenAPIRoute(
   },
 );
 
+// ---- contact points ----------------------------------------------------------------------------
+//
+// Three tables, one vocabulary. `directory_email`, `directory_phone` and `directory_address` have
+// been in the schema since the baseline migration with nothing able to write to them, so until these
+// routes existed a firm could not record a client's telephone number.
+
+// Whether the firm MAY use a contact point and whether it SHOULD. Two facts, not one: a person can
+// be reachable at a number they would rather the firm did not ring, and can ask to be reached by
+// post while still holding an email address the firm may use. `isPrimary` is a third and different
+// thing — the channel's default row — and stays on the contact point itself.
+const ContactPreference = z
+  .object({
+    permitted: z
+      .boolean()
+      .optional()
+      .openapi({
+        description:
+          "May the firm use this contact point. Defaults to true. A contact point the person asked " +
+          "the firm not to use is recorded with the permission withdrawn and a note saying so, never " +
+          "deleted: deleting it loses the instruction along with the value.",
+      }),
+    preferred: z
+      .boolean()
+      .optional()
+      .openapi({
+        description:
+          "Is this the one route the person asked to be reached by. At most one per entity across " +
+          "email, phone and address together, because that preference is a single answer about every " +
+          "channel; promoting one demotes whichever was preferred before, in any of the three.",
+      }),
+    note: z.string().max(1000).nullish().openapi({
+      description: "Why the contact point may not be used, or how it should be.",
+    }),
+  })
+  .openapi("DirectoryContactPreference");
+
+const ContactVerification = z
+  .object({
+    status: z
+      .enum(CONTACT_VERIFICATION_STATUSES)
+      .optional()
+      .openapi({
+        description:
+          "What the firm found when it last tried to confirm this contact point. A failed status " +
+          "records returned mail, a bounced message or a disconnected line. It never blocks a send: " +
+          "it is surfaced to whoever is about to send, and the send proceeds.",
+      }),
+    detail: z.string().max(1000).nullish().openapi({
+      description: "What the failure said, in the words it said it.",
+    }),
+  })
+  .openapi("DirectoryContactVerification");
+
+const ContactPointState = z
+  .object({
+    permitted: z.boolean(),
+    preferred: z.boolean(),
+    note: z.string().nullable(),
+    verificationStatus: z.enum(CONTACT_VERIFICATION_STATUSES),
+    verifiedAt: z.string().nullable(),
+    verificationDetail: z.string().nullable(),
+  })
+  .openapi("DirectoryContactPointState");
+
+const DirectoryEmailEntry = z
+  .object({
+    id: z.string(),
+    address: z.string(),
+    contactUse: z.enum(CONTACT_USES).nullable(),
+    isPrimary: z.boolean().openapi({
+      description: "This channel's default row — where a message goes when no address was named.",
+    }),
+    state: ContactPointState,
+  })
+  .openapi("DirectoryEmailEntry");
+
+const DirectoryPhoneEntry = z
+  .object({
+    id: z.string(),
+    number: z.string().openapi({
+      description:
+        "The number exactly as it was entered. Never rewritten; this is what a screen shows.",
+    }),
+    contactSystem: z.enum(CONTACT_SYSTEMS).openapi({
+      description:
+        "What technology answers the number. A fax line is a fax by its system, not by a word in a " +
+        "label, so a delivery path can ask the question and get an answer.",
+    }),
+    contactUse: z.enum(CONTACT_USES).nullable(),
+    countryCallingCode: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "Null where the number carried no country — a national-form number says nothing about " +
+          "which country it belongs to, and the record says so rather than inventing one.",
+      }),
+    nationalNumber: z.string().nullable(),
+    extension: z.string().nullable(),
+    countryRegionCode: z.string().nullable(),
+    isPrimary: z.boolean(),
+    state: ContactPointState,
+  })
+  .openapi("DirectoryPhoneEntry");
+
+const DirectoryAddressEntry = z
+  .object({
+    id: z.string(),
+    recipient: z.string().nullable(),
+    organizationName: z.string().nullable(),
+    street: z.string().nullable(),
+    streetTwo: z.string().nullable(),
+    dependentLocality: z.string().nullable(),
+    city: z.string().nullable(),
+    region: z.string().nullable(),
+    postal: z.string().nullable(),
+    sortingCode: z.string().nullable(),
+    country: z.string().nullable(),
+    addressUse: z.enum(ADDRESS_USES).nullable(),
+    addressType: z.enum(ADDRESS_TYPES).openapi({
+      description:
+        "Whether the place physically exists. Personal service turns on this: a post office box is " +
+        "postal and cannot be served, a registered office is physical and can.",
+    }),
+    isPrimary: z.boolean(),
+    state: ContactPointState,
+  })
+  .openapi("DirectoryAddressEntry");
+
+const DirectoryEmailsResponse = z
+  .object({ data: z.array(DirectoryEmailEntry) })
+  .openapi("DirectoryEmailsResponse");
+const DirectoryPhonesResponse = z
+  .object({ data: z.array(DirectoryPhoneEntry) })
+  .openapi("DirectoryPhonesResponse");
+const DirectoryAddressesResponse = z
+  .object({ data: z.array(DirectoryAddressEntry) })
+  .openapi("DirectoryAddressesResponse");
+
+const DirectoryContactPointsResponse = z
+  .object({
+    emails: z.array(DirectoryEmailEntry),
+    phones: z.array(DirectoryPhoneEntry),
+    addresses: z.array(DirectoryAddressEntry),
+  })
+  .openapi("DirectoryContactPointsResponse");
+
+const AddEmailRequest = z
+  .object({
+    address: z.string().min(3).max(320),
+    contactUse: z.enum(CONTACT_USES).nullish(),
+    isPrimary: z.boolean().optional(),
+    preference: ContactPreference.optional(),
+    verification: ContactVerification.optional(),
+  })
+  .openapi("AddDirectoryEmailRequest");
+
+const UpdateEmailRequest = z
+  .object({
+    address: z.string().min(3).max(320).optional(),
+    contactUse: z.enum(CONTACT_USES).nullish(),
+    isPrimary: z.boolean().optional(),
+    preference: ContactPreference.optional(),
+    verification: ContactVerification.optional(),
+  })
+  .openapi("UpdateDirectoryEmailRequest");
+
+const AddPhoneRequest = z
+  .object({
+    number: z
+      .string()
+      .min(1)
+      .max(64)
+      .openapi({
+        description:
+          "The number as it was written. Stored verbatim and never rewritten; the structured columns " +
+          "beside it go null when it cannot be split, so an unparseable number is still recorded.",
+      }),
+    contactSystem: z.enum(CONTACT_SYSTEMS).optional(),
+    contactUse: z.enum(CONTACT_USES).nullish(),
+    extension: z.string().max(16).nullish(),
+    countryRegionCode: z.string().length(2).nullish(),
+    isPrimary: z.boolean().optional(),
+    preference: ContactPreference.optional(),
+    verification: ContactVerification.optional(),
+  })
+  .openapi("AddDirectoryPhoneRequest");
+
+const UpdatePhoneRequest = z
+  .object({
+    number: z.string().min(1).max(64).optional(),
+    contactSystem: z.enum(CONTACT_SYSTEMS).optional(),
+    contactUse: z.enum(CONTACT_USES).nullish(),
+    extension: z.string().max(16).nullish(),
+    countryRegionCode: z.string().length(2).nullish(),
+    isPrimary: z.boolean().optional(),
+    preference: ContactPreference.optional(),
+    verification: ContactVerification.optional(),
+  })
+  .openapi("UpdateDirectoryPhoneRequest");
+
+// Every field optional and none of them assumed. Which fields a country's addresses use, what a
+// reader there calls them and what order they read in are properties of the country, so nothing here
+// requires a state or a numeric postal code — and an address a firm holds only half of is still the
+// address it holds.
+const addressFields = {
+  recipient: z.string().max(200).nullish(),
+  organizationName: z.string().max(200).nullish(),
+  street: z.string().max(200).nullish(),
+  streetTwo: z.string().max(200).nullish(),
+  dependentLocality: z.string().max(200).nullish(),
+  city: z.string().max(200).nullish(),
+  region: z.string().max(200).nullish(),
+  postal: z.string().max(32).nullish(),
+  sortingCode: z.string().max(32).nullish(),
+  country: z.string().length(2).nullish(),
+  addressUse: z.enum(ADDRESS_USES).nullish(),
+  addressType: z.enum(ADDRESS_TYPES).optional(),
+  isPrimary: z.boolean().optional(),
+  preference: ContactPreference.optional(),
+  verification: ContactVerification.optional(),
+};
+
+const AddAddressRequest = z.object(addressFields).openapi("AddDirectoryAddressRequest");
+const UpdateAddressRequest = z.object(addressFields).openapi("UpdateDirectoryAddressRequest");
+
+const SetPersonLifeDatesRequest = z
+  .object({
+    dateOfBirth: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullish()
+      .openapi({
+        description:
+          "A plain calendar date. Held in the clear because every question a firm asks of a date of " +
+          "birth is a range — is this client a minor, has a limitation period tolled — and a range " +
+          "query over ciphertext is not a query.",
+      }),
+    dateOfDeath: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullish(),
+    deceased: z
+      .boolean()
+      .optional()
+      .openapi({
+        description:
+          "Separate from the date, because known dead with the date unknown is a state probate work " +
+          "meets constantly. A recorded date of death implies this flag.",
+      }),
+  })
+  .openapi("SetDirectoryPersonLifeDatesRequest");
+
+const contactPointIdParam = (prefix: string) =>
+  z.object({
+    id: z
+      .string()
+      .min(1)
+      .regex(new RegExp(`^${prefix}_[A-Za-z0-9_-]+$`))
+      .openapi({ param: { name: "id", in: "path" } }),
+  });
+
+const emailIdParam = contactPointIdParam("directoryEmail");
+const phoneIdParam = contactPointIdParam("directoryPhone");
+const addressIdParam = contactPointIdParam("directoryAddress");
+
+// ---- contact-point routes ----------------------------------------------------------------------
+const contactPointsRoute = defineOpenAPIRoute(readMeta("contactPoints", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/contact-points",
+  description:
+    "Every way the firm knows to reach one entity — email addresses, telephone and fax numbers, and " +
+    "postal addresses — in one read, so a record screen makes one round trip rather than three for " +
+    "one question a person asked once. Each carries whether the firm may use it, whether it is the " +
+    "one route the person asked to be reached by, and what the firm found the last time it tried to " +
+    "confirm it. The answer is bounded by the RECORD, not by a page: these are the ways one person or organization asked to be reached, entered by hand, one at a time, through a permission-gated route. No ingest path and no queue consumer writes these tables. " +
+    "A record folded into another by a merge still answers, so an old link lands on something.",
+  request: { params: entityParam },
+  responses: {
+    200: {
+      description: "Every contact point on this entity, by channel",
+      content: { "application/json": { schema: DirectoryContactPointsResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const listEmailsRoute = defineOpenAPIRoute(readMeta("listEmails", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/emails",
+  description:
+    "The email addresses the firm holds for one entity, the primary one first. The answer is bounded by the RECORD, not by a page: these are the ways one person or organization asked to be reached, entered by hand, one at a time, through a permission-gated route. No ingest path and no queue consumer writes these tables. " +
+    "A caller wanting every channel at once reads contact-points instead of asking three times.",
+  request: { params: entityParam },
+  responses: {
+    200: {
+      description: "The entity's email addresses",
+      content: { "application/json": { schema: DirectoryEmailsResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const addEmailRoute = defineOpenAPIRoute(mutationMeta("addEmail", WRITE_PERMISSION), {
+  method: "post",
+  path: "/api/v1/directory/entities/{id}/emails",
+  description:
+    "Records a email address for an entity. More than one is ordinary; isPrimary names this channel's " +
+    "default row and demotes whichever held it. Setting the preference `preferred` demotes the " +
+    "entity's preferred contact point across email, phone and address alike, because that " +
+    "preference is one answer about every channel at once.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: entityParam,
+    body: { content: { "application/json": { schema: AddEmailRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The email address was recorded",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updateEmailRoute = defineOpenAPIRoute(mutationMeta("updateEmail", WRITE_PERMISSION), {
+  method: "put",
+  path: "/api/v1/directory/emails/{id}",
+  description:
+    "Changes a email address the firm already holds. An omitted field keeps its stored value, so an " +
+    "edit to one field never silently withdraws a permission or reads back as a confirmation the " +
+    "firm never made: the verification instant and the member who recorded it move only when the " +
+    "verification status itself moves.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: emailIdParam,
+    body: { content: { "application/json": { schema: UpdateEmailRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The email address was updated",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const removeEmailRoute = defineOpenAPIRoute(mutationMeta("removeEmail", WRITE_PERMISSION), {
+  method: "delete",
+  path: "/api/v1/directory/emails/{id}",
+  description:
+    "Removes a email address from an entity. The row is retained and marked removed, never deleted, " +
+    "so a document assembled from it and a conflicts report that named it stay reproducible. " +
+    "Removing one that is already removed reports 404. Where the reason is that the person asked " +
+    "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
+    "to the value, and removal does not.",
+  request: { headers: idempotencyKeyHeader, params: emailIdParam },
+  responses: {
+    200: {
+      description: "The email address was removed",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listPhonesRoute = defineOpenAPIRoute(readMeta("listPhones", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/phones",
+  description:
+    "The telephone and fax numbers the firm holds for one entity, the primary one first. The answer is bounded by the RECORD, not by a page: these are the ways one person or organization asked to be reached, entered by hand, one at a time, through a permission-gated route. No ingest path and no queue consumer writes these tables. " +
+    "A caller wanting every channel at once reads contact-points instead of asking three times.",
+  request: { params: entityParam },
+  responses: {
+    200: {
+      description: "The entity's telephone and fax numbers",
+      content: { "application/json": { schema: DirectoryPhonesResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const addPhoneRoute = defineOpenAPIRoute(mutationMeta("addPhone", WRITE_PERMISSION), {
+  method: "post",
+  path: "/api/v1/directory/entities/{id}/phones",
+  description:
+    "Records a telephone or fax number for an entity. More than one is ordinary; isPrimary names this channel's " +
+    "default row and demotes whichever held it. Setting the preference `preferred` demotes the " +
+    "entity's preferred contact point across email, phone and address alike, because that " +
+    "preference is one answer about every channel at once.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: entityParam,
+    body: { content: { "application/json": { schema: AddPhoneRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The telephone or fax number was recorded",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updatePhoneRoute = defineOpenAPIRoute(mutationMeta("updatePhone", WRITE_PERMISSION), {
+  method: "put",
+  path: "/api/v1/directory/phones/{id}",
+  description:
+    "Changes a telephone or fax number the firm already holds. An omitted field keeps its stored value, so an " +
+    "edit to one field never silently withdraws a permission or reads back as a confirmation the " +
+    "firm never made: the verification instant and the member who recorded it move only when the " +
+    "verification status itself moves.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: phoneIdParam,
+    body: { content: { "application/json": { schema: UpdatePhoneRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The telephone or fax number was updated",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const removePhoneRoute = defineOpenAPIRoute(mutationMeta("removePhone", WRITE_PERMISSION), {
+  method: "delete",
+  path: "/api/v1/directory/phones/{id}",
+  description:
+    "Removes a telephone or fax number from an entity. The row is retained and marked removed, never deleted, " +
+    "so a document assembled from it and a conflicts report that named it stay reproducible. " +
+    "Removing one that is already removed reports 404. Where the reason is that the person asked " +
+    "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
+    "to the value, and removal does not.",
+  request: { headers: idempotencyKeyHeader, params: phoneIdParam },
+  responses: {
+    200: {
+      description: "The telephone or fax number was removed",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listAddressesRoute = defineOpenAPIRoute(readMeta("listAddresses", null), {
+  method: "get",
+  path: "/api/v1/directory/entities/{id}/addresses",
+  description:
+    "The postal addresses the firm holds for one entity, the primary one first. The answer is bounded by the RECORD, not by a page: these are the ways one person or organization asked to be reached, entered by hand, one at a time, through a permission-gated route. No ingest path and no queue consumer writes these tables. " +
+    "A caller wanting every channel at once reads contact-points instead of asking three times.",
+  request: { params: entityParam },
+  responses: {
+    200: {
+      description: "The entity's postal addresses",
+      content: { "application/json": { schema: DirectoryAddressesResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const addAddressRoute = defineOpenAPIRoute(mutationMeta("addAddress", WRITE_PERMISSION), {
+  method: "post",
+  path: "/api/v1/directory/entities/{id}/addresses",
+  description:
+    "Records a postal address for an entity. More than one is ordinary; isPrimary names this channel's " +
+    "default row and demotes whichever held it. Setting the preference `preferred` demotes the " +
+    "entity's preferred contact point across email, phone and address alike, because that " +
+    "preference is one answer about every channel at once.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: entityParam,
+    body: { content: { "application/json": { schema: AddAddressRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The postal address was recorded",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updateAddressRoute = defineOpenAPIRoute(mutationMeta("updateAddress", WRITE_PERMISSION), {
+  method: "put",
+  path: "/api/v1/directory/addresses/{id}",
+  description:
+    "Changes a postal address the firm already holds. An omitted field keeps its stored value, so an " +
+    "edit to one field never silently withdraws a permission or reads back as a confirmation the " +
+    "firm never made: the verification instant and the member who recorded it move only when the " +
+    "verification status itself moves.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: addressIdParam,
+    body: { content: { "application/json": { schema: UpdateAddressRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The postal address was updated",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const removeAddressRoute = defineOpenAPIRoute(mutationMeta("removeAddress", WRITE_PERMISSION), {
+  method: "delete",
+  path: "/api/v1/directory/addresses/{id}",
+  description:
+    "Removes a postal address from an entity. The row is retained and marked removed, never deleted, " +
+    "so a document assembled from it and a conflicts report that named it stay reproducible. " +
+    "Removing one that is already removed reports 404. Where the reason is that the person asked " +
+    "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
+    "to the value, and removal does not.",
+  request: { headers: idempotencyKeyHeader, params: addressIdParam },
+  responses: {
+    200: {
+      description: "The postal address was removed",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const setPersonLifeDatesRoute = defineOpenAPIRoute(
+  mutationMeta("setPersonLifeDates", WRITE_PERMISSION),
+  {
+    method: "put",
+    path: "/api/v1/directory/persons/{id}/life-dates",
+    description:
+      "Records a person's date of birth, date of death, and whether they are known to have died. " +
+      "These are attributes of a person rather than identifiers of one: nobody issued them, they " +
+      "identify nobody uniquely, and every question a firm asks of them is a range — is this client " +
+      "a minor, has a limitation period tolled, whose birthday falls this month. An omitted field " +
+      "keeps its stored value; an explicit null clears it. A recorded date of death implies the " +
+      "deceased flag, and known dead with the date unknown is a state the record can hold.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: personParam,
+      body: {
+        content: { "application/json": { schema: SetPersonLifeDatesRequest } },
+        required: true,
+      },
+    },
+    responses: {
+      200: {
+        description: "The dates were recorded",
+        content: { "application/json": { schema: AckResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
 type DirectoryApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoint): void {
@@ -1622,6 +2385,17 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       const { cursor } = c.req.valid("query");
       const page = await readNames(firm.firmDatabase, id as EntityId, { cursor });
       return c.json(page as unknown as z.infer<typeof DirectoryNamePage>, 200);
+    },
+  );
+
+  // GET /api/v1/directory/entities — the index, both kinds in one sequence
+  app.openapi(
+    { ...listEntitiesRoute, middleware: chokepointMiddleware(chokepoint, listEntitiesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { cursor, kind } = c.req.valid("query");
+      const page = await readEntityListing(firm.firmDatabase, { cursor, kind: kind ?? "all" });
+      return c.json(page as unknown as z.infer<typeof DirectoryEntityListingPage>, 200);
     },
   );
 
@@ -2018,6 +2792,347 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
           });
         }
         return c.json({ unlinked } as z.infer<typeof UnlinkMatterPartyResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+  // GET /api/v1/directory/entities/{id}/contact-points
+  app.openapi(
+    { ...contactPointsRoute, middleware: chokepointMiddleware(chokepoint, contactPointsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      try {
+        const points = await readContactPoints(firm.firmDatabase, id);
+        return c.json(points as unknown as z.infer<typeof DirectoryContactPointsResponse>, 200);
+      } catch {
+        // The only thing this read can fail on is an entity the firm does not hold; every other
+        // outcome is an empty channel, which is an answer.
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such directory record in this firm.",
+        });
+      }
+    },
+  );
+
+  // GET /api/v1/directory/entities/{id}/emails
+  app.openapi(
+    { ...listEmailsRoute, middleware: chokepointMiddleware(chokepoint, listEmailsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      try {
+        const { emails } = await readContactPoints(firm.firmDatabase, id);
+        return c.json({ data: emails } as unknown as z.infer<typeof DirectoryEmailsResponse>, 200);
+      } catch {
+        // The only thing this read can fail on is an entity the firm does not hold; every other
+        // outcome is an empty channel, which is an answer.
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such directory record in this firm.",
+        });
+      }
+    },
+  );
+
+  // POST /api/v1/directory/entities/{id}/emails
+  app.openapi(
+    { ...addEmailRoute, middleware: chokepointMiddleware(chokepoint, addEmailRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const emailId = await addEmail(
+          firm.firmDatabase,
+          {
+            entityId: id,
+            address: request.address,
+            contactUse: request.contactUse ?? null,
+            isPrimary: request.isPrimary,
+            preference: request.preference,
+            verification: request.verification,
+          },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id: emailId } as z.infer<typeof CreatedEntityResponse>, 201);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // PUT /api/v1/directory/emails/{id}
+  app.openapi(
+    { ...updateEmailRoute, middleware: chokepointMiddleware(chokepoint, updateEmailRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const emailId = await updateEmail(
+          firm.firmDatabase,
+          {
+            emailId: id,
+            address: request.address,
+            contactUse: request.contactUse,
+            isPrimary: request.isPrimary,
+            preference: request.preference,
+            verification: request.verification,
+          },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id: emailId } as z.infer<typeof CreatedEntityResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // DELETE /api/v1/directory/emails/{id}
+  app.openapi(
+    { ...removeEmailRoute, middleware: chokepointMiddleware(chokepoint, removeEmailRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      try {
+        const emailId = await removeEmail(firm.firmDatabase, id, writeOptions(userId, idempotency));
+        return c.json({ id: emailId } as z.infer<typeof CreatedEntityResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // GET /api/v1/directory/entities/{id}/phones
+  app.openapi(
+    { ...listPhonesRoute, middleware: chokepointMiddleware(chokepoint, listPhonesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      try {
+        const { phones } = await readContactPoints(firm.firmDatabase, id);
+        return c.json({ data: phones } as unknown as z.infer<typeof DirectoryPhonesResponse>, 200);
+      } catch {
+        // The only thing this read can fail on is an entity the firm does not hold; every other
+        // outcome is an empty channel, which is an answer.
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such directory record in this firm.",
+        });
+      }
+    },
+  );
+
+  // POST /api/v1/directory/entities/{id}/phones
+  app.openapi(
+    { ...addPhoneRoute, middleware: chokepointMiddleware(chokepoint, addPhoneRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const phoneId = await addPhone(
+          firm.firmDatabase,
+          {
+            entityId: id,
+            number: request.number,
+            contactSystem: request.contactSystem,
+            contactUse: request.contactUse ?? null,
+            extension: request.extension,
+            countryRegionCode: request.countryRegionCode,
+            isPrimary: request.isPrimary,
+            preference: request.preference,
+            verification: request.verification,
+          },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id: phoneId } as z.infer<typeof CreatedEntityResponse>, 201);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // PUT /api/v1/directory/phones/{id}
+  app.openapi(
+    { ...updatePhoneRoute, middleware: chokepointMiddleware(chokepoint, updatePhoneRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const phoneId = await updatePhone(
+          firm.firmDatabase,
+          {
+            phoneId: id,
+            number: request.number,
+            contactSystem: request.contactSystem,
+            contactUse: request.contactUse,
+            extension: request.extension,
+            countryRegionCode: request.countryRegionCode,
+            isPrimary: request.isPrimary,
+            preference: request.preference,
+            verification: request.verification,
+          },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id: phoneId } as z.infer<typeof CreatedEntityResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // DELETE /api/v1/directory/phones/{id}
+  app.openapi(
+    { ...removePhoneRoute, middleware: chokepointMiddleware(chokepoint, removePhoneRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      try {
+        const phoneId = await removePhone(firm.firmDatabase, id, writeOptions(userId, idempotency));
+        return c.json({ id: phoneId } as z.infer<typeof CreatedEntityResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // GET /api/v1/directory/entities/{id}/addresses
+  app.openapi(
+    { ...listAddressesRoute, middleware: chokepointMiddleware(chokepoint, listAddressesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      try {
+        const { addresses } = await readContactPoints(firm.firmDatabase, id);
+        return c.json(
+          { data: addresses } as unknown as z.infer<typeof DirectoryAddressesResponse>,
+          200,
+        );
+      } catch {
+        // The only thing this read can fail on is an entity the firm does not hold; every other
+        // outcome is an empty channel, which is an answer.
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such directory record in this firm.",
+        });
+      }
+    },
+  );
+
+  // POST /api/v1/directory/entities/{id}/addresses
+  app.openapi(
+    { ...addAddressRoute, middleware: chokepointMiddleware(chokepoint, addAddressRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const addressId = await addAddress(
+          firm.firmDatabase,
+          { ...request, entityId: id },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id: addressId } as z.infer<typeof CreatedEntityResponse>, 201);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // PUT /api/v1/directory/addresses/{id}
+  app.openapi(
+    { ...updateAddressRoute, middleware: chokepointMiddleware(chokepoint, updateAddressRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const addressId = await updateAddress(
+          firm.firmDatabase,
+          { ...request, addressId: id },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id: addressId } as z.infer<typeof CreatedEntityResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // DELETE /api/v1/directory/addresses/{id}
+  app.openapi(
+    { ...removeAddressRoute, middleware: chokepointMiddleware(chokepoint, removeAddressRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      try {
+        const addressId = await removeAddress(
+          firm.firmDatabase,
+          id,
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id: addressId } as z.infer<typeof CreatedEntityResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // PUT /api/v1/directory/persons/{id}/life-dates
+  app.openapi(
+    {
+      ...setPersonLifeDatesRoute,
+      middleware: chokepointMiddleware(chokepoint, setPersonLifeDatesRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        await setPersonLifeDates(
+          firm.firmDatabase,
+          id as DirectoryPersonId,
+          {
+            dateOfBirth: request.dateOfBirth,
+            dateOfDeath: request.dateOfDeath,
+            deceased: request.deceased,
+          },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ ok: true } as z.infer<typeof AckResponse>, 200);
       } catch (caught) {
         return directoryErrorResponse(c, caught);
       }

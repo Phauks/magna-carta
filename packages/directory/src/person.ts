@@ -13,6 +13,7 @@ import {
   insertPhoneticCodeStatements,
   selectPersonStatement,
   updatePersonFieldsStatement,
+  updatePersonLifeDatesStatement,
   updatePersonPronounsStatement,
   type PersonRow,
   type PersonStatus,
@@ -50,6 +51,42 @@ export interface Person {
   // Null when the person has stated none, which is the ordinary case and not a gap to fill in. It
   // is never populated from the name parts, the prefix, or anything else — see pronouns.ts.
   readonly pronouns: PronounSet | null;
+  // ISO 8601 dates, held in the clear so the questions a firm actually asks of them — is this client
+  // a minor, has a limitation period tolled, whose birthday falls this month — are askable at all. A
+  // range query over ciphertext is not a query, which is why filing a date of birth as a sealed
+  // identifier made it unusable. Both are registered for subject erasure.
+  readonly dateOfBirth: string | null;
+  readonly dateOfDeath: string | null;
+  // Separate from the date: "known dead, date unknown" is a state probate work meets constantly.
+  readonly deceased: boolean;
+}
+
+// Thrown when a date is not a plain ISO 8601 calendar date, or when the dates cannot both be true.
+export class InvalidPersonLifeDatesError extends Error {
+  readonly code = "invalid-person-life-dates";
+  constructor(detail: string) {
+    super(`directory: ${detail} (invalid-person-life-dates)`);
+    this.name = "InvalidPersonLifeDatesError";
+  }
+}
+
+// A plain calendar date and nothing else. No time, no zone: a date of birth has no instant, and
+// storing one would make two records of the same birthday compare unequal across a zone boundary.
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function validCalendarDate(value: string | null | undefined, field: string): string | null {
+  if (value === undefined || value === null) return null;
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  if (!CALENDAR_DATE.test(trimmed)) {
+    throw new InvalidPersonLifeDatesError(`${field} must be a calendar date as YYYY-MM-DD`);
+  }
+  // Reject a well-shaped date that names no day — 2026-02-30 matches the pattern and is not a date.
+  const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || !parsed.toISOString().startsWith(trimmed)) {
+    throw new InvalidPersonLifeDatesError(`${field} names no day in the calendar`);
+  }
+  return trimmed;
 }
 
 // Render the display name from the structured parts in reading order, collapsing the blanks so a
@@ -138,6 +175,9 @@ export async function readPerson(
       display_name: string | null;
       status: PersonStatus;
       merged_into_id: string | null;
+      date_of_birth: string | null;
+      date_of_death: string | null;
+      deceased: number;
     } & PronounColumns
   >();
   const row = results[0];
@@ -153,7 +193,78 @@ export async function readPerson(
     status: row.status,
     mergedIntoId: row.merged_into_id,
     pronouns: pronounSetFromColumns(row),
+    dateOfBirth: row.date_of_birth,
+    dateOfDeath: row.date_of_death,
+    deceased: row.deceased === 1,
   };
+}
+
+/** What a caller may record about a person's life dates. Each field may be sent as null to clear it. */
+export interface PersonLifeDatesInput {
+  readonly dateOfBirth?: string | null;
+  readonly dateOfDeath?: string | null;
+  /** Omitted, the flag follows the date: a recorded date of death means deceased. */
+  readonly deceased?: boolean;
+}
+
+/**
+ * Record a person's date of birth, date of death, and whether they are known to have died.
+ *
+ * A SEPARATE WRITE from updatePerson, for the reason the pronoun write is separate: each of these
+ * has a legitimate CLEARED state, so "omit the field to keep it" cannot also mean "send null to
+ * clear it". Here an omitted field keeps its stored value and an explicit null clears it.
+ *
+ * A recorded date of death implies the deceased flag and the write path holds that implication —
+ * a cross-column CHECK cannot be added to a populated table under expand-contract. Clearing the
+ * flag while a date of death stands is refused rather than silently corrected, because the caller
+ * has asked for two things that cannot both be true and guessing which one they meant is worse.
+ */
+export async function setPersonLifeDates(
+  database: BatchDatabase,
+  personId: DirectoryPersonId,
+  input: PersonLifeDatesInput,
+  options: DirectoryWriteOptions,
+): Promise<void> {
+  if (entityKindFromId(personId) !== "person") throw new UnknownEntityError(personId);
+  await assertEntityExists(database, personId);
+  const current = await readPerson(database, personId);
+
+  const dateOfBirth =
+    input.dateOfBirth === undefined
+      ? current.dateOfBirth
+      : validCalendarDate(input.dateOfBirth, "date of birth");
+  const dateOfDeath =
+    input.dateOfDeath === undefined
+      ? current.dateOfDeath
+      : validCalendarDate(input.dateOfDeath, "date of death");
+
+  if (dateOfBirth !== null && dateOfDeath !== null && dateOfDeath < dateOfBirth) {
+    throw new InvalidPersonLifeDatesError("a date of death cannot precede a date of birth");
+  }
+  const deceased = input.deceased ?? (dateOfDeath !== null ? true : current.deceased);
+  if (dateOfDeath !== null && !deceased) {
+    throw new InvalidPersonLifeDatesError(
+      "a person with a recorded date of death cannot be marked not deceased",
+    );
+  }
+
+  const now = options.clock.now();
+  await runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      updatePersonLifeDatesStatement(
+        database,
+        personId,
+        { dateOfBirth, dateOfDeath, deceased: deceased ? 1 : 0 },
+        now,
+      ),
+      directoryAuditStatement(database, options, "directory.person.updated", personId),
+    ],
+    outboxMessages: [],
+    responseCode: 200,
+    responseBody: { ok: true },
+    value: undefined,
+    fromBody: () => undefined,
+  }));
 }
 
 // The non-name standard fields a caller may patch: lifecycle status and the merge pointer. Name

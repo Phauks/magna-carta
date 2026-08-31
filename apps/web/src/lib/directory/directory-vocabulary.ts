@@ -12,10 +12,15 @@
  * domain wrote it.
  */
 import type {
+  DirectoryAddressType,
+  DirectoryAddressUse,
+  DirectoryContactSystem,
+  DirectoryContactUse,
   DirectoryEdgeType,
   DirectoryEntityKind,
   DirectoryIdentifierType,
   DirectoryNameRole,
+  DirectoryVerificationStatus,
   PronounVerbNumber,
 } from "./directory-api.ts";
 
@@ -156,4 +161,148 @@ export const PRONOUN_VERB_NUMBERS: readonly { value: PronounVerbNumber; label: s
 
 export function pronounVerbNumberLabel(verbNumber: PronounVerbNumber): string {
   return PRONOUN_VERB_NUMBERS.find((entry) => entry.value === verbNumber)?.label ?? verbNumber;
+}
+
+// ---- contact points ---------------------------------------------------------------------------
+
+/**
+ * WHAT THE PERSON ENTERING A NUMBER PICKS, AND WHAT IS STORED BEHIND IT.
+ *
+ * Storage keeps the technology and the context apart because programs need it to: a delivery path
+ * asking "may this be faxed" must not answer from a column where `fax` and `office/fax` mean the
+ * same thing to a person and nothing to a program. Nobody entering a telephone number should have to
+ * see two dropdowns to say "mobile", so one picker writes both columns.
+ */
+export interface PhoneKindEntry {
+  /** The value of the picker itself; not stored. */
+  value: string;
+  label: string;
+  system: DirectoryContactSystem;
+  use: DirectoryContactUse | null;
+}
+
+export const PHONE_KINDS: readonly PhoneKindEntry[] = [
+  { value: "mobile", label: "Mobile", system: "voice", use: "mobile" },
+  { value: "work", label: "Office", system: "voice", use: "work" },
+  { value: "home", label: "Home", system: "voice", use: "home" },
+  { value: "work_fax", label: "Fax (office)", system: "fax", use: "work" },
+  { value: "home_fax", label: "Fax (home)", system: "fax", use: "home" },
+  { value: "text_message", label: "Text message", system: "sms", use: "mobile" },
+  { value: "other", label: "Other", system: "voice", use: "other" },
+];
+
+/** What to call a stored (system, use) pair. Falls back to naming both when no picker entry fits. */
+export function phoneKindLabel(
+  system: DirectoryContactSystem,
+  use: DirectoryContactUse | null,
+): string {
+  const matched = PHONE_KINDS.find((entry) => entry.system === system && entry.use === use);
+  if (matched !== undefined) return matched.label;
+  const systemLabel = CONTACT_SYSTEM_LABELS[system] ?? system;
+  return use === null ? systemLabel : `${systemLabel} (${contactUseLabel(use)})`;
+}
+
+const CONTACT_SYSTEM_LABELS: Record<DirectoryContactSystem, string> = {
+  voice: "Voice",
+  fax: "Fax",
+  sms: "Text message",
+  pager: "Pager",
+};
+
+const CONTACT_USE_LABELS: Record<DirectoryContactUse, string> = {
+  work: "Work",
+  home: "Home",
+  mobile: "Mobile",
+  other: "Other",
+  former: "Former",
+  temporary: "Temporary",
+};
+
+export function contactUseLabel(use: DirectoryContactUse): string {
+  return CONTACT_USE_LABELS[use] ?? use;
+}
+
+/** The contexts an email address is offered in. A mobile email address is not a thing anybody says. */
+export const EMAIL_USES: readonly { value: DirectoryContactUse; label: string }[] = [
+  { value: "work", label: "Work" },
+  { value: "home", label: "Personal" },
+  { value: "other", label: "Other" },
+  { value: "former", label: "Former" },
+  { value: "temporary", label: "Temporary" },
+];
+
+export const ADDRESS_USES: readonly { value: DirectoryAddressUse; label: string }[] = [
+  { value: "residential", label: "Residential" },
+  { value: "business", label: "Business" },
+  { value: "postal", label: "Postal" },
+  { value: "registered", label: "Registered office" },
+  { value: "service", label: "For service" },
+  { value: "former", label: "Former" },
+  { value: "temporary", label: "Temporary" },
+];
+
+export function addressUseLabel(use: DirectoryAddressUse): string {
+  return ADDRESS_USES.find((entry) => entry.value === use)?.label ?? use;
+}
+
+/**
+ * Whether the place physically exists. Offered because personal service turns on it: a post office
+ * box cannot be served, and a firm that files an affidavit saying otherwise has a problem.
+ */
+export const ADDRESS_TYPES: readonly { value: DirectoryAddressType; label: string }[] = [
+  { value: "physical", label: "A place that exists" },
+  { value: "postal", label: "A delivery point only" },
+  { value: "both", label: "Both" },
+];
+
+export function addressTypeLabel(addressType: DirectoryAddressType): string {
+  return ADDRESS_TYPES.find((entry) => entry.value === addressType)?.label ?? addressType;
+}
+
+export const VERIFICATION_STATUSES: readonly {
+  value: DirectoryVerificationStatus;
+  label: string;
+}[] = [
+  { value: "unverified", label: "Not confirmed" },
+  { value: "verified", label: "Confirmed" },
+  { value: "failed", label: "Did not reach" },
+];
+
+export function verificationStatusLabel(status: DirectoryVerificationStatus): string {
+  return VERIFICATION_STATUSES.find((entry) => entry.value === status)?.label ?? status;
+}
+
+/**
+ * The address as one block of lines, in reading order.
+ *
+ * Deliberately not per-country ordering: the field SET, the labels and the order all vary by
+ * country, and getting that right needs a reference dataset the design system's planned
+ * address-field component will own. Until it exists this renders the lines the firm entered, in the
+ * order they were entered, which is honest and never wrong about a country it has never heard of.
+ */
+export function addressLines(address: {
+  recipient: string | null;
+  organizationName: string | null;
+  street: string | null;
+  streetTwo: string | null;
+  dependentLocality: string | null;
+  city: string | null;
+  region: string | null;
+  postal: string | null;
+  sortingCode: string | null;
+  country: string | null;
+}): readonly string[] {
+  const localityLine = [address.city, address.region, address.postal]
+    .filter((part): part is string => part !== null && part.trim() !== "")
+    .join(" ");
+  return [
+    address.recipient,
+    address.organizationName,
+    address.street,
+    address.streetTwo,
+    address.dependentLocality,
+    localityLine === "" ? null : localityLine,
+    address.sortingCode,
+    address.country,
+  ].filter((line): line is string => line !== null && line.trim() !== "");
 }

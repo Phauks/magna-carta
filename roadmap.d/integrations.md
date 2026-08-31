@@ -255,10 +255,10 @@
   name: Safe website viewer
   scope: Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links).
   status: partial
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0119, ADR-0120
-  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts built; no dedicated tool page yet.
-  notes: The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md.
+  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts, with its own page in the app's tools section over apps/web/src/lib/tools/safe-browse/ (stage alpha).
+  notes: The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md; until it is enabled the page answers every capture with the honest renderer-unavailable state, which is why status stays partial with a screen shipped.
 
 - id: integrations.tools.metadata
   name: Metadata inspector & scrubber

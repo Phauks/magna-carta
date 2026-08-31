@@ -5,10 +5,10 @@
  * resolves to, and the human label for each subject group. A covering test asserts this layer
  * stays complete against the catalog, so a tool added to the catalog cannot render blank.
  *
- * A tool stays `soon` until its own page exists; three have one today (the network speed test,
- * the WHOIS lookup, and the firm usage report, all `alpha`). As each remaining tool's page is
- * built, its entry advances (alpha/beta/ready) and the listing entry becomes launchable — nothing
- * here is faked meanwhile.
+ * A tool stays `soon` until its own page exists; four have one today (the network speed test,
+ * the WHOIS lookup, the safe website viewer, and the firm usage report, all `alpha`). As each
+ * remaining tool's page is built, its entry advances (alpha/beta/ready) and the listing entry
+ * becomes launchable — nothing here is faked meanwhile.
  */
 import type { Component } from "svelte";
 import House from "@lucide/svelte/icons/house";
@@ -69,7 +69,7 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
   "whois-lookup": { description: "Look up who registered a domain, and when.", stage: "alpha" },
   "safe-website-viewer": {
     description: "Open an untrusted website at arm's length.",
-    stage: "soon",
+    stage: "alpha",
   },
   "file-converter": { description: "Convert a file from one format to another.", stage: "soon" },
   "metadata-scrubber": {

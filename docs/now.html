@@ -149,8 +149,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
   can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
   <div class="band">
-    <div class="k g"><span>Reachable</span><b>25</b><em>A person can open it in the application today.</em></div>
-    <div class="k y"><span>Waiting on a screen</span><b>181</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
+    <div class="k g"><span>Reachable</span><b>26</b><em>A person can open it in the application today.</em></div>
+    <div class="k y"><span>Waiting on a screen</span><b>180</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
     <div class="k b"><span>Under the floor</span><b>172</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Every one of them is classified. The middle figure is the interface debt stated directly rather than guessed at from
@@ -2997,7 +2997,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Safe website viewer</span>
 <code>integrations.tools.safe-browse</code>
 <p>Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links).</p>
-<p class="note">The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md.</p>
+<p class="note">The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md; until it is enabled the page answers every capture with the honest renderer-unavailable state, which is why status stays partial with a screen shipped.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Metadata inspector &amp; scrubber</span>

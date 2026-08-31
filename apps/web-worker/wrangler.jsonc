@@ -13,8 +13,27 @@
   // This is ADDITIVE today: apps/api-worker still binds the same build output under its own `assets`
   // block, so the application keeps serving exactly as it does now from a single origin. Cutting
   // over means giving the two Workers route patterns on one hostname (the SPA everywhere, the API
-  // Worker on its own paths), which needs a zone hostname the account does not have yet. Until then
-  // this Worker is a second door to the same files, not a replacement for the first.
+  // Worker on its own paths).
+  //
+  // WHAT BLOCKS THAT, and it is not the absence of a hostname. This comment used to say the cutover
+  // needed a zone hostname the account did not have, and that was wrong — inferred from configs
+  // rather than read from the account. A CUSTOM DOMAIN IS ACCOUNT STATE: it is attached in the
+  // dashboard, appears in no `wrangler.jsonc`, and `wrangler deploy` does not remove it, so a Worker
+  // carrying `workers_dev: true` with no `routes` block can be answering a real apex hostname all
+  // the same. Reading a config's silence as "no routes, therefore workers.dev only" is exactly the
+  // mistake, and it is the one that produced the false claim. Do not repeat it from here: read
+  // `GET /accounts/{account_id}/workers/domains/records` for which hostname maps to which Worker.
+  //
+  // The real blocker is a mechanism, and it does not expire: A CUSTOM DOMAIN CONSUMES THE WHOLE
+  // HOSTNAME — one hostname binds to one Worker — so an apex held as a custom domain must first be
+  // converted to route patterns on the zone before two Workers can split it by path and before this
+  // Worker can serve anyone. That conversion is an operator step, not a config change here.
+  //
+  // Until it happens this Worker is a second door to the same files, not a replacement for the
+  // first, and THE APP WORKER'S `assets` BLOCK STAYS. Do not remove it until a live routing read
+  // shows the interface reaching users by some other path: if the app Worker is the one answering
+  // the hostname, dropping its assets makes the application unreachable in the minutes a merge
+  // takes to deploy.
   // Runbook: docs/conventions/operations.md.
   "name": "magna-carta-web",
   "compatibility_date": "2026-06-05",
@@ -26,7 +45,9 @@
     "directory": "../web/build",
     "not_found_handling": "single-page-application",
   },
-  // workers.dev serving stays on: it is the only reachable URL until magnacarta.esq attaches.
+  // workers.dev serving stays on: it is this Worker's OWN reachable URL, and it is the only address
+  // this Worker holds for as long as the application's hostname is bound elsewhere. Which addresses
+  // exist is live account state, never a fact this file records — see the note above for the read.
   // Per-version preview URLs stay off, matching apps/api-worker.
   "workers_dev": true,
   "preview_urls": false,

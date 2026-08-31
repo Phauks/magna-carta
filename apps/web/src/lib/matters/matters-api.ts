@@ -71,8 +71,8 @@ export interface MatterListQuery {
 /**
  * A page of the firm's matters. The scope maps to the endpoint's `status`, and "caseload" passes
  * none: the listing's own default is the working docket, which excludes unnumbered consultations.
- * That exclusion is why the scope control exists at all — a prospective matter is otherwise
- * unreachable from this screen.
+ * A caller that wants a named slice of the record asks for it here; a caller that wants the whole
+ * record calls `listEveryMatter` below, which is what the docket screen reads.
  */
 export function listMatters(
   fetchImpl: typeof fetch,
@@ -85,6 +85,88 @@ export function listMatters(
   if (query.cursor !== undefined) parameters.set("cursor", query.cursor);
   const suffix = parameters.toString();
   return requestJson(fetchImpl, `/api/v1/matters${suffix === "" ? "" : `?${suffix}`}`);
+}
+
+/**
+ * Every matter the firm has, as one paged listing.
+ *
+ * WHY THIS IS TWO READS. The listing endpoint's default omits unnumbered consultations — it serves
+ * the working docket — and its `status` parameter takes one status, never "all". So the whole
+ * record is the default listing (the numbered matters) plus the prospective one, and there is no
+ * single request that answers it. Merging here rather than asking for an endpoint change keeps the
+ * screen honest today; a listing that could serve the whole record in one read would replace this
+ * with `listMatters` and nothing above it would change.
+ *
+ * WHY MERGING IS SAFE ACROSS PAGE BOUNDARIES. Each stream is ordered by the server; the two are not
+ * ordered against each other, so a later page can carry a matter newer than one already on screen.
+ * That is fine because the table sorts the rows it holds — order arrives from the column the reader
+ * chose, never from the arrival order. It would NOT be safe for a surface that rendered rows in
+ * fetch order, which is why the reason is written down rather than left to be rediscovered.
+ *
+ * EITHER STREAM FAILING FAILS THE READ. Returning half the docket while reporting success would
+ * quietly drop a whole kind of matter, and the reader has no way to notice.
+ */
+export async function listEveryMatter(
+  fetchImpl: typeof fetch,
+  query: { search?: string; cursor?: string } = {},
+): Promise<ApiOutcome<Page<MatterSummary>>> {
+  const resume = docketCursorFromToken(query.cursor);
+  const [numbered, prospective] = await Promise.all([
+    docketStreamPage(fetchImpl, "caseload", query.search, resume.numbered),
+    docketStreamPage(fetchImpl, "prospective", query.search, resume.prospective),
+  ]);
+  if (numbered.kind !== "ok") return numbered;
+  if (prospective.kind !== "ok") return prospective;
+  const next: DocketCursor = {
+    numbered: numbered.value?.nextCursor ?? null,
+    prospective: prospective.value?.nextCursor ?? null,
+  };
+  return {
+    kind: "ok",
+    value: {
+      data: [...(numbered.value?.data ?? []), ...(prospective.value?.data ?? [])],
+      nextCursor: docketCursorToken(next),
+    },
+  };
+}
+
+/**
+ * Where each of the two streams has got to. A null means that stream is exhausted and must not be
+ * read again — re-reading it from the top is how a "load more" starts serving page one for ever.
+ */
+interface DocketCursor {
+  readonly numbered: string | null;
+  readonly prospective: string | null;
+}
+
+/** The two server cursors carried as one token. Each half stays opaque: carried, never parsed. */
+function docketCursorToken(cursor: DocketCursor): string | null {
+  if (cursor.numbered === null && cursor.prospective === null) return null;
+  return JSON.stringify(cursor);
+}
+
+/** Absent means "the first read", where both streams start from their own beginning. */
+function docketCursorFromToken(token: string | undefined): {
+  numbered: string | null | undefined;
+  prospective: string | null | undefined;
+} {
+  if (token === undefined) return { numbered: undefined, prospective: undefined };
+  const parsed = JSON.parse(token) as DocketCursor;
+  return { numbered: parsed.numbered, prospective: parsed.prospective };
+}
+
+/**
+ * One stream's next page, or a settled empty answer where the stream is already exhausted (a null
+ * cursor). `undefined` is the stream's first read; `null` is its end.
+ */
+async function docketStreamPage(
+  fetchImpl: typeof fetch,
+  scope: MatterScope,
+  search: string | undefined,
+  cursor: string | null | undefined,
+): Promise<ApiOutcome<Page<MatterSummary> | null>> {
+  if (cursor === null) return { kind: "ok", value: null };
+  return listMatters(fetchImpl, { scope, search, cursor });
 }
 
 /** What opening a matter needs. Everything but the title, the status and the responsible member is

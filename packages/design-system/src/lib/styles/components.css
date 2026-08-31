@@ -15,6 +15,8 @@
 /* PasswordInput composes Input, so its recipe follows the field recipe it layers on. */
 @import "../components/password-input/password-input.css";
 @import "../components/verification-code-input/verification-code-input.css";
+/* ScreenSearch carries the field treatment on its own wrapper, so it follows the field recipe. */
+@import "../components/screen-search/screen-search.css";
 @import "../components/textarea/textarea.css";
 @import "../components/file-input/file-input.css";
 @import "../components/dropzone/dropzone.css";

@@ -1,32 +1,30 @@
 <script lang="ts">
   /*
-   * The matter's costs — every disbursement advanced for it, read from the firm's own record.
+   * The matter's costs — every disbursement advanced or charged back for it, read from the firm's
+   * own record.
    *
-   * The whole record, not one slice: the listing is asked without a status, so approved, invoiced
-   * and voided costs appear beside the drafts. A matter that has been billing for a year showed
-   * almost nothing when this read only its drafts.
+   * The whole record, not one slice: the listing is asked without a status, so approved, billed and
+   * voided costs appear beside the drafts. A matter that has been billing for a year showed almost
+   * nothing when this read only its drafts.
    *
-   * A SAMPLE matter (the in-repo fixtures the chrome's lifecycle states are reviewed against) has
-   * no firm behind it and therefore no costs to read; it says so rather than showing an empty
-   * table, because "no costs" and "not a real matter" are different facts.
+   * This page is the read and the state set; the ledger itself is the surface below it. A SAMPLE
+   * matter (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no firm
+   * behind it and therefore no costs to read; it says so rather than showing an empty table,
+   * because "no costs advanced" and "not a real matter" are different facts.
+   *
+   * A FAILED READ KEEPS ITS EVIDENCE. The failing request, the answer, the moment and the
+   * correlation handle are held here rather than collapsed into one sentence, because they are what
+   * a person needs to report the failure and what support needs to find it.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as DataTable from "@magna-carta/design-system/data-table";
-  import Badge from "@magna-carta/design-system/badge";
+  import CostErrorState from "$lib/costs/cost-error-state.svelte";
+  import CostLedger from "$lib/costs/cost-ledger.svelte";
+  import CostProblemReportDialog from "$lib/costs/cost-problem-report-dialog.svelte";
+  import { listMatterCostLedger, type CostLedgerEntry } from "$lib/costs/cost-operations.ts";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
-  import Skeleton from "@magna-carta/design-system/skeleton";
-  import Plus from "@lucide/svelte/icons/plus";
-  import { statusBadgeAttributes } from "@magna-carta/design-system/status-register";
-  import {
-    costStatusKey,
-    costTotals,
-    disbursementLabel,
-    listMatterCosts,
-    statusLabel,
-    type CostSummary,
-  } from "$lib/matters/cost-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import { readSession } from "$lib/matters/matters-api.ts";
+  import type { ApiOutcome, Page } from "$lib/api/request.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -34,30 +32,57 @@
   const matter = $derived(data.matter);
   const isSample = $derived(matter.source === "sample");
 
-  const list = new PagedList<CostSummary>("The costs on this matter could not be read.");
+  const list = new PagedList<CostLedgerEntry>("The costs on this matter could not be read.");
   const costs = $derived(list.items);
   const loadFailure = $derived(list.failure);
 
+  let permissions = $state<readonly string[] | null>(null);
+  // Bumped after a write, so the ledger re-reads what the server now holds rather than guessing.
+  let reloadToken = $state(0);
+
+  /* What the last failed read answered, kept so the error surface can hand it to a report. */
+  let failureStatus = $state<number | null>(null);
+  let failureErrorId = $state<string | null>(null);
+  let failedAt = $state(new Date());
+  let reportOpen = $state(false);
+
+  const request = $derived(`GET /api/v1/costs?matterId=${matter.id}`);
+
+  $effect(() => {
+    void (async () => {
+      const outcome = await readSession(fetch);
+      if (outcome.kind === "ok") permissions = outcome.value.permissions;
+    })();
+  });
+
+  /* One read, wrapped so the problem behind a failure survives the paging state's summary of it. */
+  async function read(cursor?: string): Promise<ApiOutcome<Page<CostLedgerEntry>>> {
+    const outcome = await listMatterCostLedger(fetch, matter.id, cursor);
+    if (outcome.kind === "ok") {
+      failureStatus = null;
+      failureErrorId = null;
+      return outcome;
+    }
+    failedAt = new Date();
+    failureStatus = outcome.kind === "problem" ? outcome.problem.status : null;
+    failureErrorId = outcome.kind === "problem" ? (outcome.problem.errorId ?? null) : null;
+    return outcome;
+  }
+
   $effect(() => {
     const matterId = matter.id;
-    if (list.showing(matterId)) return;
-    list.reset(matterId);
+    const token = reloadToken;
+    if (list.showing(`${matterId}:${String(token)}`)) return;
+    list.reset(`${matterId}:${String(token)}`);
     if (isSample) {
       list.settleEmpty();
       return;
     }
-    void list.load((cursor) => listMatterCosts(fetch, matterId, cursor));
+    void list.load(read);
   });
 
   function loadMore(): void {
-    void list.loadMore((cursor) => listMatterCosts(fetch, matter.id, cursor));
-  }
-
-  const totals = $derived(costTotals(costs ?? []));
-
-  function vendorOf(cost: CostSummary): string | null {
-    if (cost.vendorName !== null && cost.vendorName !== undefined) return cost.vendorName;
-    return null;
+    void list.loadMore(read);
   }
 </script>
 
@@ -65,108 +90,47 @@
   <title>Costs · {matter.title} · Magna Carta</title>
 </svelte:head>
 
-<section class="flex flex-col gap-16">
-  <div class="flex flex-col gap-8 border-b border-border-strong pb-8">
-    <div class="flex items-center justify-between gap-16">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-        Costs
-      </h2>
-      <div class="flex items-center gap-8">
-        <Badge variant="neutral">Soon</Badge>
-        <Button variant="secondary" disabled>
-          <Plus aria-hidden="true" />
-          Record a cost
-        </Button>
-      </div>
-    </div>
-    <p class="text-xs text-text-muted">
-      Recording a cost from this screen waits on the vendor picker, so a payee is chosen from the
-      firm's directory rather than typed twice. Costs already advanced for this matter are read here
-      now, in every status.
-    </p>
-  </div>
-
-  {#if loadFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Costs Could Not Be Read</Alert.Title>
-      <Alert.Description>{loadFailure}</Alert.Description>
+{#if loadFailure !== null}
+  <CostErrorState
+    detail={loadFailure}
+    {request}
+    status={failureStatus}
+    errorId={failureErrorId}
+    {failedAt}
+    onRetry={() => (reloadToken += 1)}
+    onReport={() => (reportOpen = true)}
+  />
+  <CostProblemReportDialog bind:open={reportOpen} errorId={failureErrorId} route={request} />
+{:else if isSample}
+  <section class="flex flex-col gap-16">
+    <Alert.Root variant="info">
+      <Alert.Title>This is a sample matter.</Alert.Title>
+      <Alert.Description>
+        It exists so the matter screens stay reviewable at a stable address; there is no firm record
+        behind it, so it holds no costs and nothing can be recorded against it. Open one of the
+        firm's own matters to use this surface.
+      </Alert.Description>
     </Alert.Root>
-  {:else if costs === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Loading the matter's costs">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
+  </section>
+{:else}
+  <CostLedger
+    costs={costs ?? []}
+    loading={costs === null}
+    matterId={matter.id}
+    matterTitle={matter.title}
+    matterNumber={matter.matterNumber}
+    {permissions}
+    onChanged={() => (reloadToken += 1)}
+  />
+  {#if list.nextCursor !== null}
+    <div class="mt-12 flex flex-col items-start gap-8">
+      <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
+        {list.loadingMore ? "Loading" : "Load more costs"}
+      </Button>
+      <p class="text-xs text-text-muted">
+        Showing the {(costs ?? []).length} most recently incurred. The figures below cover only what is
+        loaded, so they are not the matter's whole cost record until every page is read.
+      </p>
     </div>
-  {:else if isSample}
-    <EmptyState title="No Costs On A Sample Matter">
-      This is one of the sample matters the interface is reviewed against. It has no firm behind it,
-      so there are no costs to read.
-    </EmptyState>
-  {:else if costs.length === 0}
-    <EmptyState title="No Costs Yet">
-      Filing fees, service, court reporters, experts. Every cost advanced for this matter is
-      recorded here with the vendor it went to and whether the client may be asked for it.
-    </EmptyState>
-  {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">Costs advanced for this matter</DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Date</DataTable.Head>
-          <DataTable.Head>Description</DataTable.Head>
-          <DataTable.Head>Vendor</DataTable.Head>
-          <DataTable.Head>Class</DataTable.Head>
-          <DataTable.Head>Status</DataTable.Head>
-          <DataTable.Head data-align="end">Amount</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each costs as cost (cost.id)}
-          <DataTable.Row>
-            <DataTable.Cell>{DataTable.formatDate(cost.incurredDate)}</DataTable.Cell>
-            <DataTable.Cell>{cost.description}</DataTable.Cell>
-            <DataTable.Cell>
-              {#if vendorOf(cost) === null}
-                <span class="text-text-muted">
-                  {cost.vendorId === null ? "Not recorded" : "No longer in the directory"}
-                </span>
-              {:else}
-                {vendorOf(cost)}
-              {/if}
-            </DataTable.Cell>
-            <DataTable.Cell>{disbursementLabel(cost.disbursementClass)}</DataTable.Cell>
-            <DataTable.Cell>
-              {@const status = statusBadgeAttributes(costStatusKey(cost.status))}
-              <Badge variant={status.variant} title={status.title}>{statusLabel(cost.status)}</Badge>
-            </DataTable.Cell>
-            <DataTable.Cell data-align="end">
-              {DataTable.formatMoney(cost.amountMinor / 100)}
-              {#if !cost.billable}
-                <span class="text-text-muted"> (absorbed)</span>
-              {/if}
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
-
-    {#if list.nextCursor !== null}
-      <div class="flex flex-col items-start gap-8">
-        <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
-          {list.loadingMore ? "Loading" : "Load more costs"}
-        </Button>
-        <p class="text-xs text-text-muted">
-          Showing the {costs.length} most recently incurred. The totals below cover only what is on
-          screen, so they are not the matter's whole cost record until every page is loaded.
-        </p>
-      </div>
-    {/if}
-
-    <p class="text-xs text-text-muted">
-      Advanced for this matter: {DataTable.formatMoney(totals.advancedMinor / 100)}, of which
-      {DataTable.formatMoney(totals.recoverableMinor / 100)} is recoverable from the client. The
-      difference is what the firm has decided to absorb. Voided costs are excluded, because a
-      withdrawn cost was never advanced.
-    </p>
   {/if}
-</section>
+{/if}
