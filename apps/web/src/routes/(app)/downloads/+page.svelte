@@ -29,6 +29,7 @@
     type ShelfItem,
     type StoredExportDocument,
   } from "$lib/export/download-shelf.ts";
+  import { markShelfChanged } from "$lib/export/download-shelf-signal.svelte.ts";
   import { renderCsvExport } from "$lib/export/render-csv.ts";
   import { renderRemoteExport } from "$lib/export/render-remote.ts";
   import { renderTextExport } from "$lib/export/render-text.ts";
@@ -134,6 +135,8 @@
     const outcome = await removeShelfItem(fetch, item.id);
     if (outcome.kind === "ok") {
       items = (items ?? []).filter((row) => row.id !== item.id);
+      // Keep the top-bar tray in step with the page; both read the same shelf.
+      markShelfChanged();
       return;
     }
     toast.error("That item could not be removed.");

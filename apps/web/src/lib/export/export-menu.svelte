@@ -13,6 +13,7 @@
   import FileIcon from "@magna-carta/design-system/file-icon";
   import { toast } from "@magna-carta/design-system/toast";
   import { keepExportOnShelf } from "./download-shelf.ts";
+  import { markShelfChanged } from "./download-shelf-signal.svelte.ts";
   import { renderCsvExport } from "./render-csv.ts";
   import { RemoteRenderError, renderRemoteExport } from "./render-remote.ts";
   import { renderTextExport } from "./render-text.ts";
@@ -91,7 +92,11 @@
       // is already saved by this point, so a shelf that cannot take it costs nothing the member
       // asked for — the failure is deliberately silent rather than a toast over a download that
       // worked.
-      void keepExportOnShelf(fetch, renderedDocument, format.extension);
+      void keepExportOnShelf(fetch, renderedDocument, format.extension).then(() => {
+        // Tell the top-bar tray, so a download appears there at once rather than at the next page
+        // load — which is the moment a member looks up to confirm it was kept.
+        markShelfChanged();
+      });
     } catch (failure) {
       // The document formats render server-side, so a render can fail after the click; the server's
       // own sentence is the actionable one, with its Error ID when the failure minted one.
