@@ -56,7 +56,7 @@
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { updated } from "$app/state";
-  import { requestJson, type ApiProblem } from "$lib/api/request.ts";
+  import { requestJson, type Problem } from "$lib/api/request.ts";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import {
     copyLineForPart,
@@ -88,7 +88,7 @@
 
   let open = $state(false);
   let value = $state<MetaVersionsValue | null>(null);
-  let failure = $state<{ kind: "problem"; problem: ApiProblem } | { kind: "transport" } | null>(
+  let failure = $state<{ kind: "problem"; problem: Problem } | { kind: "transport" } | null>(
     null,
   );
   let loading = $state(false);

@@ -8,7 +8,7 @@ screen and one inline band that render a failure, the diagnostics a report needs
 sends it, and the crash boundary that catches what never reached a surface at all.
 **Excludes:** the server side of the error standard, which is built and is not reopened here
 (`@magna-carta/telemetry`, the RFC 9457 problem document, the `POST /v1/incidents` route). Also
-excludes whatever is currently making the API answer badly — this is about how the app *tells* a
+excludes whatever is currently making the API answer badly — this is about how the app _tells_ a
 person, not about the fault itself.
 
 **Binding inputs:** [`../conventions/error-logging.md`](../conventions/error-logging.md) (the
@@ -76,8 +76,8 @@ heading for a unified screen. Dropping it is why every surface has had to invent
 
 `readProblem` is implemented independently in `lib/api/request.ts`, `lib/auth/joining-api.ts`,
 `lib/tools/whois/whois-lookup.ts`, and `lib/tools/safe-browse/safe-browse.ts`. `joining-api.ts` says
-so in its own header comment, and states the exit condition: *"When a fourth surface wants it, the
-helper moves to one shared home and all four follow."* The fourth surface arrived. The comment's own
+so in its own header comment, and states the exit condition: _"When a fourth surface wants it, the
+helper moves to one shared home and all four follow."_ The fourth surface arrived. The comment's own
 condition is met and is the cleanest possible authority for doing this now.
 
 The divergence is already load-bearing rather than stylistic: `joining-api.ts` reads
@@ -103,7 +103,7 @@ this.failure = result.kind === "transport"
   : (result.problem.detail ?? this.#whenUnreadable);
 ```
 
-Every consumer of it is therefore *incapable* of showing an Error ID, a status, or a remedy, no
+Every consumer of it is therefore _incapable_ of showing an Error ID, a status, or a remedy, no
 matter what its own template does. One field on one class is the single highest-leverage fix in this
 document.
 
@@ -216,7 +216,7 @@ Three exports, one model, shared internals:
 
 Extract from the costs and billing pair rather than designing anew. The reassurance sentence stays a
 prop, because it is the one genuinely per-area line and it is the most valuable sentence on the
-screen: *the record is unharmed*. A person whose trust ledger will not load does not know whether the
+screen: _the record is unharmed_. A person whose trust ledger will not load does not know whether the
 money is gone.
 
 The dev-only gallery goes at `/developer-console/failure-states`, beside `table-states` and

@@ -1,30 +1,46 @@
 <script lang="ts">
   /*
-   * Reporting a failed billing read, through the firm's own pipeline and nobody else's.
+   * Reporting a problem, through the firm's own pipeline and nobody else's.
    *
    * WHAT TRAVELS IS NAMED BEFORE IT IS SENT. The report carries the reporter's words, the error
-   * handle the failed read was given, the route, and the build. No invoice, no client name, no
-   * amount, no matter content. Saying so on the dialog is not reassurance copy: it is the reason a
-   * person is willing to send the report at all.
+   * handle the failure was given, the route, the build and the breadcrumb trail — shapes, never
+   * values. No document, no file name, no client name, no matter content. Saying so on the dialog is
+   * not reassurance copy: it is the reason a person is willing to send the report at all.
+   *
+   * ONE DIALOG. This existed twice — once in costs, once in billing — and the copies had already
+   * drifted: one offered the screenshot affordance and one did not, and one sent the build from the
+   * dialog while the other sent it from its own module. Reaching it also required having first found
+   * a broken panel in one of those two areas, which during a real incident is the difference between
+   * one usable signal per affected member and none.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
+  import Checkbox from "@magna-carta/design-system/checkbox";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import { buildIdentityLine } from "$lib/build-identity.ts";
-  import { reportBillingProblem } from "./billing-api.ts";
+  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { isReportableErrorId, reportProblem } from "./report.ts";
+  import { breadcrumbs } from "./breadcrumbs.ts";
 
   let {
     open = $bindable(false),
     errorId = null,
     route,
+    screenshotReason,
   }: {
     open?: boolean;
+    /** The correlation handle the failure was given, where the server issued one. */
     errorId?: string | null;
     /** Where the failure happened, as the app addresses it. */
     route: string;
+    /**
+     * Why screenshot capture is not available yet, in one honest line. Omitted where the caller has
+     * no such reason to state, in which case the affordance is not shown at all rather than shown
+     * with nothing behind it.
+     */
+    screenshotReason?: string;
   } = $props();
 
   const fieldPrefix = $props.id();
@@ -45,9 +61,8 @@
    * Only a handle the contract recognises is sent. An identifier in some other shape would be
    * refused by the route and lose the whole report with it, so it travels in the words instead.
    */
-  const reportableErrorIds = $derived(
-    errorId !== null && errorId.startsWith("error_") ? [errorId] : [],
-  );
+  const reportableErrorIds = $derived(isReportableErrorId(errorId) ? [errorId as string] : []);
+  const crumbCount = $derived(breadcrumbs().length);
 
   const refusal = $derived(
     description.trim() === "" ? "Say what happened: the report is read by a person" : null,
@@ -61,11 +76,10 @@
       errorId === null || reportableErrorIds.length > 0
         ? description.trim()
         : `${description.trim()}\n\nError ID as shown: ${errorId}`;
-    const outcome = await reportBillingProblem(fetch, {
+    const outcome = await reportProblem(fetch, {
       description: words,
       errorIds: reportableErrorIds,
       route,
-      appVersion: buildIdentityLine(),
     });
     sending = false;
     if (outcome.kind === "ok") {
@@ -114,8 +128,26 @@
         <p class="text-xs text-text-muted">
           Sent with the report: {errorId === null
             ? "the failing request"
-            : `the Error ID (${errorId}), the failing request`}, the time, and your app version. No
-          invoice, client name, amount or matter content leaves the firm.
+            : `the Error ID (${errorId}), the failing request`}, the time, your app version{crumbCount >
+          0
+            ? `, and the last ${crumbCount} things you did in the app`
+            : ""}.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-8">
+        {#if screenshotReason !== undefined}
+          <SoonAffordance reason={screenshotReason} reasonPlacement="line">
+            {#snippet control(soon)}
+              <span class="flex items-center gap-8">
+                <Checkbox id="{fieldPrefix}-shot" {...soon} />
+                <Label for="{fieldPrefix}-shot">Include a screenshot of this screen</Label>
+              </span>
+            {/snippet}
+          </SoonAffordance>
+        {/if}
+        <p class="text-xs text-text-muted">
+          No document, file name, client name or matter content leaves the firm.
         </p>
       </div>
     {/if}

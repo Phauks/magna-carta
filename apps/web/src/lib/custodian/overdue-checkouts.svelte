@@ -14,13 +14,13 @@
    * this product does not make from a listing. The packet's own history names them, which is what
    * opening the row is for.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { listOverdueCustodyCheckouts, type OverdueCustodyCheckout } from "./custody-api.ts";
   import { borrowerKindLabel } from "./custody-vocabulary.ts";
 
@@ -29,9 +29,13 @@
   const list = new PagedList<OverdueCustodyCheckout>("The overdue check-outs could not be read.");
   const overdue = $derived(list.items);
 
+  // Bumped by Retry, so a failed read is re-run rather than left for the member to reload the page.
+  let attempt = $state(0);
+
   $effect(() => {
-    if (list.showing("overdue")) return;
-    list.reset("overdue");
+    const subject = `overdue:${attempt}`;
+    if (list.showing(subject)) return;
+    list.reset(subject);
     void list.load((cursor) => listOverdueCustodyCheckouts(fetch, cursor));
   });
 
@@ -50,10 +54,12 @@
 
 <div class="flex flex-col gap-16">
   {#if list.failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Overdue Check-Outs Could Not Be Read</Alert.Title>
-      <Alert.Description>{list.failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={list.failure}
+      subject="The overdue check-outs"
+      fallback={list.failureMessage ?? undefined}
+      onRetry={() => (attempt += 1)}
+    />
   {:else if overdue === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the overdue check-outs">
       <Skeleton class="h-32 w-full" />

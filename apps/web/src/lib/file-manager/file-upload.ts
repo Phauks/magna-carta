@@ -22,7 +22,7 @@ import {
   putUploadBytes,
   readUploadStatus,
   type ApiOutcome,
-  type ApiProblem,
+  type Problem,
 } from "$lib/documents/document-api.ts";
 import { requestJson } from "$lib/api/request.ts";
 
@@ -35,7 +35,7 @@ export type UploadOutcome =
   | { kind: "flagged"; fileId: string; reason: string | null }
   /** Everything the caller controls succeeded; the verdict had not landed before the wait ran out. */
   | { kind: "settling"; fileId: string }
-  | { kind: "problem"; problem: ApiProblem; stage: UploadStage }
+  | { kind: "problem"; problem: Problem; stage: UploadStage }
   | { kind: "transport"; stage: UploadStage };
 
 /** The reservation, as the host answers it. Only the single-shot PUT leg is run here. */

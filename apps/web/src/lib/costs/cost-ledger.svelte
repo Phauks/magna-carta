@@ -40,7 +40,7 @@
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
-  import type { ApiOutcome, ApiProblem } from "$lib/api/request.ts";
+  import type { ApiOutcome, Problem } from "$lib/api/request.ts";
   import CostDetailsPanel from "./cost-details-panel.svelte";
   import CostKickBackDialog from "./cost-kick-back-dialog.svelte";
   import CostRecordWindow from "./cost-record-window.svelte";
@@ -225,7 +225,7 @@
 
   /** What a refused write says, in the reader's words rather than the transport's. */
   function refusalSentence(
-    outcome: { kind: "problem"; problem: ApiProblem } | { kind: "transport" },
+    outcome: { kind: "problem"; problem: Problem } | { kind: "transport" },
     what: string,
   ): string {
     if (outcome.kind === "transport") return `Nothing answered. ${what} is unchanged.`;

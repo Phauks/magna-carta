@@ -2,14 +2,11 @@
  * The joining surface's transport seam — every call the registration and invitation screens make,
  * in one place and out of the components, so the branching is unit-testable without a DOM.
  *
- * These are same-origin `fetch` calls against the relative `/api/v1` paths. `apps/web` does not
- * depend on @magna-carta/api-client, so the shapes below are hand-written mirrors of the contract in
- * apps/api-worker/openapi/openapi.json — the same arrangement the Documents surface uses
- * (apps/web/src/lib/documents/document-api.ts) and the WHOIS tool before it. The duplication of the
- * small request helper across those three is deliberate for now: this surface is reached with no
- * session at all, and pointing the signed-out screens at a module that belongs to a signed-in
- * surface would be a worse dependency than a dozen repeated lines. When a fourth surface wants it,
- * the helper moves to one shared home and all four follow.
+ * These are same-origin `fetch` calls against the relative `/api/v1` paths, made through the app's
+ * one transport seam ($lib/api/request.ts). This surface kept a private copy of that helper while
+ * only three surfaces wanted it; the copy is gone now that there is a shared home, and with it the
+ * reason it had grown apart — it read `attemptsRemaining` and `retryAfterSeconds` because the shared
+ * parser used to drop them, and the shared parser reads every field the contract sends.
  *
  * Every call RESOLVES rather than throws. The three outcomes are different things to a person
  * standing at the front door — the server answered, the server refused, nothing answered at all —
@@ -17,27 +14,16 @@
  * should do next.
  */
 
-/** A refusal the server described. `errorId` is the correlation handle every problem carries. */
-export interface JoiningProblem {
-  status: number;
-  /** The problem document's machine-readable type, when it sent one. */
-  type?: string;
-  /** The human-readable detail, when it sent one. Server-authored — never a raw exception. */
-  detail?: string;
-  errorId?: string;
-  /**
-   * How many attempts the caller has left. Published on a refused redemption and on a 429. Absent
-   * when the server said nothing, which callers must render as nothing rather than as a full budget.
-   */
-  attemptsRemaining?: number;
-  /** How long until the caller may try again, when the refusal came with a lockout. */
-  retryAfterSeconds?: number;
-}
+import { requestJson, type ApiOutcome, type Problem } from "$lib/api/request.ts";
 
-export type JoiningOutcome<T> =
-  | { kind: "ok"; value: T }
-  | { kind: "problem"; problem: JoiningProblem }
-  | { kind: "transport" };
+/**
+ * A refusal the server described. The shared problem record — named here for the screens that read
+ * it, because on this surface a refusal is a security decision and the local name is what the tests
+ * and the message mapping talk about.
+ */
+export type JoiningProblem = Problem;
+
+export type JoiningOutcome<T> = ApiOutcome<T>;
 
 /**
  * What is being registered. `account` registers a PERSON and is what this surface sends: confirming
@@ -75,54 +61,6 @@ export interface RedeemedInvitation {
   next: "checkEmail";
 }
 
-function wholeNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
-}
-
-// Read the server's own words, the correlation handle and the attempt budget off a problem
-// document. Defensive: a body that is not JSON still yields a usable problem carrying the status.
-async function readProblem(response: Response): Promise<JoiningProblem> {
-  try {
-    const body = (await response.json()) as Record<string, unknown>;
-    return {
-      status: response.status,
-      type: typeof body.type === "string" ? body.type : undefined,
-      detail: typeof body.detail === "string" ? body.detail : undefined,
-      errorId: typeof body.errorId === "string" ? body.errorId : undefined,
-      attemptsRemaining: wholeNumber(body.attemptsRemaining),
-      retryAfterSeconds: wholeNumber(body.retryAfterSeconds),
-    };
-  } catch {
-    return { status: response.status };
-  }
-}
-
-/** The one place a joining call is made. Never throws; a dead transport is its own outcome. */
-async function postJson<T>(
-  fetchImplementation: typeof fetch,
-  path: string,
-  body: unknown,
-): Promise<JoiningOutcome<T>> {
-  let response: Response;
-  try {
-    response = await fetchImplementation(path, {
-      method: "POST",
-      headers: { accept: "application/json", "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    return { kind: "transport" };
-  }
-
-  if (!response.ok) return { kind: "problem", problem: await readProblem(response) };
-
-  try {
-    return { kind: "ok", value: (await response.json()) as T };
-  } catch {
-    return { kind: "transport" };
-  }
-}
-
 export interface StartRegistrationInput {
   /** Omitted by the account door, which is what this surface sends. */
   readonly role?: RegistrationRole;
@@ -143,15 +81,19 @@ export function startRegistration(
   fetchImplementation: typeof fetch,
   input: StartRegistrationInput,
 ): Promise<JoiningOutcome<StartedRegistration>> {
-  return postJson(fetchImplementation, "/api/v1/registrations", input);
+  return requestJson(fetchImplementation, "/api/v1/registrations", {
+    method: "POST",
+    body: input,
+  });
 }
 
 export function confirmRegistration(
   fetchImplementation: typeof fetch,
   token: string,
 ): Promise<JoiningOutcome<ConfirmedRegistration>> {
-  return postJson(fetchImplementation, "/api/v1/registrations/confirmations", {
-    token: token.trim(),
+  return requestJson(fetchImplementation, "/api/v1/registrations/confirmations", {
+    method: "POST",
+    body: { token: token.trim() },
   });
 }
 
@@ -170,7 +112,10 @@ export function redeemInvitation(
   fetchImplementation: typeof fetch,
   input: RedeemInvitationInput,
 ): Promise<JoiningOutcome<RedeemedInvitation>> {
-  return postJson(fetchImplementation, "/api/v1/invitations/redemptions", input);
+  return requestJson(fetchImplementation, "/api/v1/invitations/redemptions", {
+    method: "POST",
+    body: input,
+  });
 }
 
 /*
@@ -198,21 +143,10 @@ export interface Bootstrap {
  * yet. The signed-in screens poll this rather than a status endpoint of their own, so a person who
  * closes the tab while their firm builds reopens onto the same waiting screen.
  */
-export async function readBootstrap(
+export function readBootstrap(
   fetchImplementation: typeof fetch,
 ): Promise<JoiningOutcome<Bootstrap>> {
-  let response: Response;
-  try {
-    response = await fetchImplementation("/api/v1/me", { headers: { accept: "application/json" } });
-  } catch {
-    return { kind: "transport" };
-  }
-  if (!response.ok) return { kind: "problem", problem: await readProblem(response) };
-  try {
-    return { kind: "ok", value: (await response.json()) as Bootstrap };
-  } catch {
-    return { kind: "transport" };
-  }
+  return requestJson(fetchImplementation, "/api/v1/me");
 }
 
 export interface FoundFirmStarted {
@@ -225,7 +159,10 @@ export function foundFirm(
   fetchImplementation: typeof fetch,
   firmName: string,
 ): Promise<JoiningOutcome<FoundFirmStarted>> {
-  return postJson(fetchImplementation, "/api/v1/me/firm", { firmName: firmName.trim() });
+  return requestJson(fetchImplementation, "/api/v1/me/firm", {
+    method: "POST",
+    body: { firmName: firmName.trim() },
+  });
 }
 
 export interface RedeemedIntoAccount {
@@ -242,5 +179,8 @@ export function redeemInvitationIntoAccount(
   fetchImplementation: typeof fetch,
   input: RedeemInvitationInput,
 ): Promise<JoiningOutcome<RedeemedIntoAccount>> {
-  return postJson(fetchImplementation, "/api/v1/me/invitation-redemptions", input);
+  return requestJson(fetchImplementation, "/api/v1/me/invitation-redemptions", {
+    method: "POST",
+    body: input,
+  });
 }
