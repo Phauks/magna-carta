@@ -1,4 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { readCustodyItemCountsByLocation } from "@magna-carta/custodian/usage";
 import { readAiDetectionUsage } from "@magna-carta/data-access/ai-detection-usage-statements";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { readActiveMemberCount } from "@magna-carta/data-access/member-statements";
@@ -75,9 +76,14 @@ const FirmUsageResponse = z
           status: z.enum(["active", "closed"]),
           matters: z.number(),
           members: z.number(),
+          // Custody-register items held on a shelf whose container-tree root binds to this office.
+          custodyItems: z.number(),
         }),
       ),
       mattersWithoutLocation: z.number(),
+      // Items held under an external custody root (a bank vault, an offsite vendor) — real
+      // holdings at none of the firm's offices, reported rather than folded into an office row.
+      custodyItemsOffsite: z.number(),
     }),
     directory: z.object({
       people: z.number(),
@@ -163,6 +169,7 @@ async function readFirmUsage(database: SqlDatabase) {
     tokenUsage,
     searchUsage,
     detectionUsage,
+    custodyItemCounts,
   ] = await Promise.all([
     readStorageUsage(database),
     readFileCount(database),
@@ -179,9 +186,13 @@ async function readFirmUsage(database: SqlDatabase) {
     readTokenUsage(database),
     readUsageMeterTotals(database),
     readAiDetectionUsage(database),
+    readCustodyItemCountsByLocation(database),
   ]);
 
   const mattersAtLocation = new Map(mattersByLocation.map((row) => [row.locationId, row.matters]));
+  const custodyItemsAtLocation = new Map(
+    custodyItemCounts.map((row) => [row.locationId, row.items]),
+  );
   const magnusTokens = tokenUsage.reduce(
     (sum, row) => ({
       inputTokens: sum.inputTokens + row.inputTokens,
@@ -208,8 +219,10 @@ async function readFirmUsage(database: SqlDatabase) {
         status: row.status,
         matters: mattersAtLocation.get(row.id) ?? 0,
         members: row.members,
+        custodyItems: custodyItemsAtLocation.get(row.id) ?? 0,
       })),
       mattersWithoutLocation: mattersAtLocation.get(null) ?? 0,
+      custodyItemsOffsite: custodyItemsAtLocation.get(null) ?? 0,
     },
     directory: { ...directoryCounts, activeMembers },
     aiUsage: {

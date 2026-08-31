@@ -53,6 +53,7 @@ import {
   closeCustodyLocationStatement,
   insertCustodyLocationStatement,
   selectAllCustodyLocationsStatement,
+  selectCustodyItemCountsByFirmLocationStatement,
   selectCustodyLocationStatement,
   updateCustodyLocationStatement,
 } from "../src/location-statements.ts";
@@ -165,11 +166,17 @@ const SQL_VOCABULARY = new Set([
   "then",
   "else",
   "end",
+  "group",
+  "min",
   // Read aliases.
   "subtree",
   "child",
   "depth",
   "occupancy",
+  "office_tree",
+  "office_node",
+  "item",
+  "items",
   "highest",
   "owners",
   "hold",
@@ -252,6 +259,21 @@ describe("schema name sync (custodian SQL pinned to @magna-carta/database)", () 
       sql,
       new Set([CUSTODY_LOCATION_TABLE, ...columnsOf(custodyLocation)]),
       "location",
+    );
+  });
+
+  it("every column the firm-usage rollup SQL names exists in the schema", () => {
+    expectOnlyKnownIdentifiers(
+      sqlOf(selectCustodyItemCountsByFirmLocationStatement(stub)),
+      new Set([
+        CUSTODY_LOCATION_TABLE,
+        CUSTODY_PACKET_TABLE,
+        CUSTODY_ITEM_TABLE,
+        ...columnsOf(custodyLocation),
+        ...columnsOf(custodyPacket),
+        ...columnsOf(custodyItem),
+      ]),
+      "firm-usage rollup",
     );
   });
 
