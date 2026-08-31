@@ -28,7 +28,7 @@
     /** The payee already recorded, as its name reads. Null while none has been chosen. */
     selectedName?: string | null;
     disabled?: boolean;
-    /** A payee was picked. Null clears it, which a soft cost does on its own. */
+    /** A payee was picked. Null clears it, which is a valid answer: the payee is optional. */
     onPick: (hit: DirectorySearchHit | null) => void;
   } = $props();
 
@@ -102,7 +102,7 @@
     id={inputId}
     fieldName="Payee"
     autocomplete="off"
-    title="Who the money went to, from the firm's Directory. A hard cost names its payee; a soft cost has none."
+    title="Who was paid, if anybody, from the firm's Directory. It is shared across matters, never matter-scoped."
     oninput={(event) => (query = event.currentTarget.value)}
   />
   <Combobox.Content>

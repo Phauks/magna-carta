@@ -1,10 +1,10 @@
 /*
  * What a person can actually do to a cost, and what the server will actually accept.
  *
- * The design gives this ledger a fuller verb set than the calls below: attach a receipt from the
- * matter's files, delete a draft that never entered review, write an internal memo, open the
- * invoice a billed cost rides. Attaching has a route and no picker to feed it a file identifier;
- * the rest have no route at all. None of them is called from here — they are rendered where the
+ * The design gives this ledger a fuller verb set than the calls below: attach a file from the
+ * matter's own documents, return a submitted cost to draft, delete a draft that never entered
+ * review, write an internal memo, open the invoice a billed cost rides. Attaching has a route and
+ * no picker to feed it a file identifier; the rest have no route at all. None of them is called from here — they are rendered where the
  * design puts them, disabled, saying what they wait on, so the difference between "designed" and
  * "working" is a difference a reader of this file can see.
  *
@@ -12,7 +12,7 @@
  * thrown error, and the surface can say something true about it.
  */
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
-import type { CostSummary, DisbursementClass } from "$lib/matters/cost-api.ts";
+import type { CostSummary } from "$lib/matters/cost-api.ts";
 import type { CostCaptureSource } from "./cost-vocabulary.ts";
 
 /**
@@ -55,15 +55,22 @@ export interface DraftCost {
   readonly incurredDate: string;
   readonly amountMinor: number;
   readonly currency: string;
-  readonly disbursementClass: DisbursementClass;
   readonly billable: boolean;
   readonly utbmsExpenseCodeId: string | null;
   readonly description: string;
 }
 
+/*
+ * The capture contract still requires a hard/soft disbursement class, and this product records no
+ * such distinction: whether anybody outside was paid is the payee field, and whether the client is
+ * asked is the billing field. Every capture therefore sends the one value, nothing reads it back,
+ * and it comes out of the request the moment it comes out of the contract.
+ */
+const CONTRACT_REQUIRED_DISBURSEMENT_CLASS = "hard";
+
 /**
  * Record a draft cost. The contract requires an idempotency key on the write, because a retried
- * save must not put a second disbursement on the matter's ledger.
+ * save must not put a second cost on the matter's ledger.
  */
 export function createCost(
   fetchImpl: typeof fetch,
@@ -72,7 +79,7 @@ export function createCost(
 ): Promise<ApiOutcome<CostAcknowledgement>> {
   return requestJson(fetchImpl, "/api/v1/costs", {
     method: "POST",
-    body: draft,
+    body: { ...draft, disbursementClass: CONTRACT_REQUIRED_DISBURSEMENT_CLASS },
     idempotencyKey,
   });
 }
@@ -82,7 +89,6 @@ export interface CostChanges {
   readonly vendorId?: string | null;
   readonly incurredDate?: string;
   readonly amountMinor?: number;
-  readonly disbursementClass?: DisbursementClass;
   readonly billable?: boolean;
   readonly utbmsExpenseCodeId?: string | null;
   readonly description?: string;
@@ -206,22 +212,16 @@ export function parseAmountMinor(text: string): number | null {
  * Why a draft cannot be saved as it stands, in the words the reader needs, or null when it can.
  *
  * The rule is the design's: an advance control validates before it enables, so nothing is pressed
- * only to come back with a failure the client could have named. A hard cost names its payee because
- * that is what a hard cost IS — cash paid to somebody — and a soft cost is refused one for the same
- * reason.
+ * only to come back with a failure the client could have named. The payee is not among these,
+ * because it is optional: plenty of real costs were consumed rather than paid to anybody.
  */
 export function costDraftRefusal(input: {
   readonly amountText: string;
   readonly description: string;
-  readonly disbursementClass: DisbursementClass;
-  readonly vendorId: string | null;
 }): string | null {
   if (parseAmountMinor(input.amountText) === null) return "Enter the amount as spent";
   if (input.description.trim() === "") {
-    return "Enter the Info line: every cost states what it was for";
-  }
-  if (input.disbursementClass === "hard" && input.vendorId === null) {
-    return "Choose the payee: a hard cost names who was paid";
+    return "Enter the Description: every cost states what it was for";
   }
   return null;
 }

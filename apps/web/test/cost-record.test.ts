@@ -23,6 +23,7 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
     incurredDate: "2026-08-05",
     amountMinor: 184_250,
     currency: "USD",
+    // The listing still answers this field and nothing on the sheet reads it.
     disbursementClass: "hard",
     billable: true,
     utbmsExpenseCodeId: "utbmsCode_expense_E115",
@@ -73,18 +74,21 @@ describe("one cost's printed sheet", () => {
     expect(fieldValue(sheet, "Status")).toBe("Approved");
     expect(fieldValue(sheet, "Payee")).toBe("Battle Born Court Reporters");
     expect(fieldValue(sheet, "Amount")).toBe("$1842.50");
-    expect(fieldValue(sheet, "Class")).toBe("Hard");
-    expect(fieldValue(sheet, "Billing")).toBe("Recoverable from the client");
+    expect(fieldValue(sheet, "Billing")).toBe("Billable");
     expect(fieldValue(sheet, "Expense Code")).toBe("E115 Deposition Transcripts");
     expect(fieldValue(sheet, "Source")).toBe("Recorded by hand");
   });
 
-  it("keeps a soft cost's absent receipt apart from a hard cost's unserved one", () => {
-    expect(
-      fieldValue(costEntrySheet(cost({ disbursementClass: "soft" }), context), "Receipt"),
-    ).toBe("— (soft cost)");
-    expect(fieldValue(costEntrySheet(cost(), context), "Receipt")).toContain(
-      COST_LEDGER_GAPS.receipt.waitsOn,
+  it("names no hard/soft class: the distinction does not exist on the record", () => {
+    const labels = costEntrySheet(cost(), context).sections.flatMap((section) =>
+      section.kind === "fields" ? section.fields.map((field) => field.label) : [],
+    );
+    expect(labels).not.toContain("Class");
+  });
+
+  it("does not claim a cost has no files when the listing never said", () => {
+    expect(fieldValue(costEntrySheet(cost(), context), "Attachments")).toContain(
+      COST_LEDGER_GAPS.attachments.waitsOn,
     );
   });
 
@@ -101,13 +105,14 @@ describe("one cost's printed sheet", () => {
     );
   });
 
-  it("carries the Info line the client reads, whole", () => {
+  it("carries the Description the client reads, whole", () => {
     const sheet = costEntrySheet(cost(), context);
-    const info = sheet.sections.find((section) => section.id === "info");
-    expect(info?.kind).toBe("text");
-    expect(info?.kind === "text" ? info.text : "").toBe(
+    const description = sheet.sections.find((section) => section.id === "description");
+    expect(description?.kind).toBe("text");
+    expect(description?.kind === "text" ? description.text : "").toBe(
       "Deposition transcript: Hale project engineer, volumes 1 and 2, expedited",
     );
+    expect(description?.kind === "text" ? description.title : "").toBe("Description");
   });
 
   it("puts no internal text on the paper at all", () => {
