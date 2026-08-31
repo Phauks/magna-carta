@@ -1,28 +1,23 @@
 <script lang="ts">
   /*
-   * Safe Website Viewer — open an untrusted website at arm's length. The member pastes a suspect
-   * link; the worker opens it in Cloudflare's isolated remote browser and returns a static
-   * snapshot. The suspect page never loads in the member's browser, and everything shown here
-   * stays inert: the screenshot is a plain image, the extracted text renders as escaped
-   * preformatted text, and the page's outbound links render as text only, never as anchors. The
-   * fetch and the branching that decides which state to show live in safe-browse.ts so they stay
-   * testable off the DOM.
+   * Safe Website Viewer — open an untrusted website at arm's length. The member enters a suspect
+   * link in the browser shell's own address bar; the worker opens it in Cloudflare's isolated
+   * remote browser and returns a static snapshot. The suspect page never loads in the member's
+   * browser, and everything shown here stays inert: the screenshot is a plain image, the extracted
+   * text renders as escaped preformatted text, and the page's outbound addresses are buttons that
+   * re-capture through the same flow, never anchors.
    *
-   * The query form is the run control and sits at the content's reading edge below the masthead;
-   * the screen carries no explanatory prose (owner-directed) — controls, labels, and results only.
-   * The result is two columns: the website shell on the left, which renders its frame the moment a
-   * capture starts and populates the screenshot only when the capture has completed (nothing
-   * partial ever appears — the safety point of the shell), and the information tabs on the right.
-   * A capture that came back without a screenshot says so inside the same frame, a link that
-   * landed on a different site than it started on is called out in the shell's top bar, and a
-   * failure surfaces its correlated Error ID. Runs outside any matter and stores nothing.
+   * The two-column region — the shell on the left, the information tabs on the right — renders
+   * from page load, empty and calm, so a capture fills a shape the reader already has. The shell
+   * populates only completed captures (nothing partial), and a failed capture's alert renders
+   * inside the shell's viewport so the frame holds. Back, forward, and refresh walk a client-side
+   * capture history (capture-history.ts): every successful capture pushes an entry, stepping
+   * re-shows the stored view instantly with no re-fetch, and refresh re-captures the current
+   * entry's address in place. The fetch-and-classify branching lives in safe-browse.ts; both
+   * modules stay testable off the DOM. Runs outside any matter and stores nothing.
    */
-  import Button from "@magna-carta/design-system/button";
-  import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import WebsiteShell from "$lib/tools/safe-browse/website-shell.svelte";
   import SnapshotTabs from "$lib/tools/safe-browse/snapshot-tabs.svelte";
   import {
@@ -32,37 +27,99 @@
     screenshotSource,
     viewSafely,
     type SafeBrowseOutcome,
+    type SafeWebsiteView,
   } from "$lib/tools/safe-browse/safe-browse.ts";
+  import {
+    back,
+    canGoBack,
+    canGoForward,
+    currentEntry,
+    emptyHistory,
+    forward,
+    pushCapture,
+    replaceCurrent,
+    type CaptureHistory,
+  } from "$lib/tools/safe-browse/capture-history.ts";
+
+  type CaptureFailure = Exclude<SafeBrowseOutcome, { kind: "view" }>;
 
   let query = $state("");
-  let phase = $state<"idle" | "loading" | "done">("idle");
-  let outcome = $state<SafeBrowseOutcome | null>(null);
+  let capturing = $state(false);
+  let history = $state<CaptureHistory<SafeWebsiteView>>(emptyHistory());
+  // The latest capture's failure, if it failed. Cleared by navigating the history (the stored
+  // views are still good) and by the next capture starting.
+  let failure = $state<CaptureFailure | null>(null);
   // A short summary announced to assistive technology when the snapshot arrives. Problem and
   // transport states render as an Alert, which announces itself via its role, so they are left out
   // of this region to avoid a double reading.
   let announcement = $state("");
 
-  const loading = $derived(phase === "loading");
-  // The control validates before it enables: an input that cannot be a web address disables the
-  // button and the inline hint below the form says what is wrong, so a predictable input fault is
-  // prevented at the field rather than delivered as an error after a press.
+  // The entry control validates before it enables: an input that cannot be a web address disables
+  // the Load Website button and the inline hint under the shell's top bar says what is wrong, so a
+  // predictable input fault is prevented at the field rather than delivered as an error.
   const normalized = $derived(normalizeTarget(query));
   const invalidInput = $derived(query.trim() !== "" && normalized === null);
-  const canSubmit = $derived(!loading && normalized !== null);
+  const canSubmit = $derived(!capturing && normalized !== null);
 
-  async function runCapture(event: SubmitEvent) {
-    event.preventDefault();
-    if (!canSubmit || normalized === null) return;
-    const target = normalized;
-    phase = "loading";
-    outcome = null;
+  // What the shell and tabs show: the current history entry's view, unless the latest capture
+  // failed — then the viewport carries the alert and the tabs sit empty, so two captures are
+  // never mixed on one screen.
+  const displayView = $derived(failure === null ? (currentEntry(history)?.view ?? null) : null);
+  const landedUrl = $derived(
+    !capturing && displayView !== null && landedOnDifferentHost(displayView)
+      ? displayView.finalUrl
+      : null,
+  );
+
+  async function capture(target: string, mode: "push" | "replace") {
+    capturing = true;
+    failure = null;
     announcement = "";
     const result = await viewSafely(target);
-    outcome = result;
-    phase = "done";
+    capturing = false;
     if (result.kind === "view") {
+      const entry = { enteredUrl: target, view: result.view };
+      history = mode === "replace" ? replaceCurrent(history, entry) : pushCapture(history, entry);
       announcement = `Snapshot captured for ${result.view.finalUrl}.`;
+    } else {
+      failure = result;
     }
+  }
+
+  function runCapture() {
+    if (!canSubmit || normalized === null) return;
+    void capture(normalized, "push");
+  }
+
+  // An outbound address (or redirect hop) opened from the tabs: the address bar takes it and a
+  // fresh capture of it goes onto the history, exactly as if the member had entered it.
+  function openAddress(url: string) {
+    if (capturing) return;
+    query = url;
+    const target = normalizeTarget(url);
+    if (target === null) return;
+    void capture(target, "push");
+  }
+
+  function goBack() {
+    if (capturing || !canGoBack(history)) return;
+    history = back(history);
+    failure = null;
+    query = currentEntry(history)?.enteredUrl ?? query;
+  }
+
+  function goForward() {
+    if (capturing || !canGoForward(history)) return;
+    history = forward(history);
+    failure = null;
+    query = currentEntry(history)?.enteredUrl ?? query;
+  }
+
+  function refresh() {
+    const current = currentEntry(history);
+    if (capturing || current === null) return;
+    query = current.enteredUrl;
+    void capture(current.enteredUrl, "replace");
   }
 </script>
 
@@ -72,88 +129,31 @@
   <Masthead.Heading>
     <Masthead.Title>Safe Website Viewer</Masthead.Title>
     <Masthead.Meta>
-      <span>The page renders in an isolated remote browser, never in yours</span>
+      <span>The page renders in an isolated remote browser</span>
     </Masthead.Meta>
   </Masthead.Heading>
 </Masthead.Root>
-
-<form onsubmit={runCapture} class="mb-16 flex items-center gap-8">
-  <Label for="safe-website-viewer-url" class="sr-only">Web address to view</Label>
-  <Input
-    id="safe-website-viewer-url"
-    name="url"
-    class="w-sm"
-    bind:value={query}
-    placeholder="https://example.com"
-    autocomplete="off"
-    autocapitalize="none"
-    spellcheck={false}
-    disabled={loading}
-  />
-  <Button type="submit" variant="primary" disabled={!canSubmit}>
-    {loading ? "Capturing…" : "View Safely"}
-  </Button>
-</form>
-
-{#if invalidInput}
-  <p class="mb-16 text-xs text-text-muted">
-    This is not a web address this tool can open. Enter one like https://example.com. Private,
-    local, and internal addresses are not accepted.
-  </p>
-{/if}
 
 <!-- Polite live region: announces an arrived snapshot to a screen reader without re-reading the
      whole result. Alert-rendered states announce themselves through their own role. -->
 <div aria-live="polite" class="sr-only">{announcement}</div>
 
-{#if phase !== "idle"}
-  <section aria-busy={loading}>
-    <h2
-      class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
-    >
-      Result
-    </h2>
-
-    {#if loading || (outcome !== null && outcome.kind === "view")}
-      {@const view = outcome !== null && outcome.kind === "view" ? outcome.view : null}
-      <div class="flex flex-col gap-16 lg:flex-row">
-        <div class="min-w-0 lg:w-3/5">
-          <WebsiteShell
-            capturing={loading}
-            finalUrl={view === null ? null : view.finalUrl}
-            differentHost={view === null ? false : landedOnDifferentHost(view)}
-            screenshot={view === null ? null : screenshotSource(view.screenshotBase64)}
-          />
-        </div>
-        <div class="min-w-0 lg:w-2/5">
-          {#if view !== null}
-            <SnapshotTabs {view} />
-          {:else}
-            <div class="flex flex-col gap-16">
-              <Skeleton class="h-32 w-full" />
-              <Skeleton class="h-16 w-full" />
-              <Skeleton class="h-16 w-3/4" />
-              <Skeleton class="h-16 w-full" />
-              <Skeleton class="h-16 w-1/2" />
-            </div>
-          {/if}
-        </div>
-      </div>
-    {:else if outcome !== null && outcome.kind === "problem"}
-      {@const guidance = problemGuidance(outcome.problem)}
+{#snippet captureFailure()}
+  {#if failure !== null}
+    {#if failure.kind === "problem"}
+      {@const guidance = problemGuidance(failure.problem)}
       <Alert.Root variant={guidance.tone}>
         <Alert.Title>{guidance.title}</Alert.Title>
         <Alert.Description>
           {guidance.message}
-          {#if guidance.tone === "danger" && outcome.problem.errorId}
+          {#if guidance.tone === "danger" && failure.problem.errorId}
             <span class="mt-8 block">
-              Error ID: <span class="font-mono">{outcome.problem.errorId}</span>
+              Error ID: <span class="font-mono">{failure.problem.errorId}</span>
             </span>
           {/if}
         </Alert.Description>
       </Alert.Root>
-    {:else if outcome !== null && outcome.kind === "transport"}
+    {:else}
       <Alert.Root variant="danger">
         <Alert.Title>The capture service did not respond</Alert.Title>
         <Alert.Description>
@@ -161,5 +161,32 @@
         </Alert.Description>
       </Alert.Root>
     {/if}
-  </section>
-{/if}
+  {/if}
+{/snippet}
+
+<div class="flex flex-col gap-16 lg:flex-row" aria-busy={capturing}>
+  <div class="min-w-0 lg:w-3/5">
+    <WebsiteShell
+      bind:address={query}
+      {capturing}
+      {canSubmit}
+      invalidHint={invalidInput
+        ? "This is not a web address this tool can open. Enter one like https://example.com. Private, local, and internal addresses are not accepted."
+        : null}
+      canGoBack={canGoBack(history)}
+      canGoForward={canGoForward(history)}
+      canRefresh={currentEntry(history) !== null}
+      {landedUrl}
+      screenshot={displayView === null ? null : screenshotSource(displayView.screenshotBase64)}
+      hasCapture={displayView !== null}
+      onsubmit={runCapture}
+      onback={goBack}
+      onforward={goForward}
+      onrefresh={refresh}
+      problem={failure === null ? undefined : captureFailure}
+    />
+  </div>
+  <div class="min-w-0 lg:w-2/5">
+    <SnapshotTabs view={displayView} {capturing} onopenaddress={openAddress} />
+  </div>
+</div>
