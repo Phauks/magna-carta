@@ -47,7 +47,7 @@ ADR-0059, ADR-0068, ADR-0051.)
   contract field, and the registry
 - `src/sources/build.ts` — the one place a source's SELECT is assembled (`boundedSelect` for
   matter anchors, `boundedFirmScopedSelect` for the allowlisted firm anchors)
-- `src/sources/all.ts` — the fourteen declared sources, the audit-log lifecycle allowlist, and
+- `src/sources/all.ts` — the fifteen declared sources, the audit-log lifecycle allowlist, and
   `FIRM_ANCHORED_SOURCE_KEYS` (the reviewed firm-anchor allowlist)
 - `src/merge.ts` — the k-way merge, the shared cursor, and the canonical-instant assertion
 - `src/timeline.ts` — one page across the registry: pre-reads, statements, merge, and the counts a
@@ -193,8 +193,8 @@ It is **never** a change to the owning subsystem's write path, and never a new t
   when it changes. `TimelineReadResult` reports `statementCount` and `rowsRead` so a measurement can
   assert the bound rather than infer it.
 - **A page over-reads to under-return.** Every source reads `pageSize + 1` so the MERGED result can
-  tell "there is more" from "that is all"; the extras are discarded. At thirteen sources and a
-  fifty-row page that is up to 663 rows read to return 50.
+  tell "there is more" from "that is all"; the extras are discarded. At fifteen sources and a
+  fifty-row page that is up to 765 rows read to return 50.
 - **The zone read returns its own clamp, and callers consume it rather than re-derive it.**
   `readOpenDeadlineTimeZones` over-reads by one and answers `{ timeZones, clamped }`. The signal is
   on the read because the consequence of missing it is not an under-filled page: a zone the read

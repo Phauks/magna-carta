@@ -164,6 +164,9 @@
       "path": "packages/money/tsconfig.test.json"
     },
     {
+      "path": "packages/notes/tsconfig.test.json"
+    },
+    {
       "path": "packages/notifications/tsconfig.test.json"
     },
     {

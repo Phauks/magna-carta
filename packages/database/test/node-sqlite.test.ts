@@ -195,6 +195,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // or documents:forceReleaseLock (displacing a colleague's hold), so both are absent here.
         "documents:checkout",
         "documents:edit",
+        // The download shelf is where a generated file waits to be collected, and it reaches every
+        // default role: a member who could ask for the file is the member who collects it.
+        "downloads:shelf",
         "emails:file",
         "emails:manageLinks",
         "emails:read",
@@ -214,6 +217,17 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "matterAssets:manage",
         "matterAssets:read",
         "matters:create",
+        // A paralegal writes the note about the call they took, so this role carries all three note
+        // keys. notes:retract is the one worth stating: it is a separate key so a firm CAN narrow
+        // it, and it is seeded here rather than reserved to attorneys because the case it exists
+        // for is somebody typing another client's privileged material into the wrong note, and
+        // whoever typed it is who notices. Holding withdrawal behind a colleague's availability
+        // would leave that content rendering until they got to it. Retraction destroys nothing.
+        // Billing and Read-only carry none of the three: a note is the firm's candid assessment of
+        // a case, which is the deliberate contrast with calendar:read reaching every seat.
+        "notes:read",
+        "notes:retract",
+        "notes:write",
         "notifications:read",
         "support:request",
         "tools:aiTextDetection",
@@ -260,6 +274,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:run",
         "costs:approve",
         "custody:read",
+        // The download shelf reaches every default role: whoever could ask for a generated file is
+        // whoever collects it.
+        "downloads:shelf",
         "emails:read",
         "firm:readMembers",
         "firm:reportIncident",
@@ -299,6 +316,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:read",
         "conflicts:run",
         "custody:read",
+        "downloads:shelf",
         "emails:read",
         "firm:readMembers",
         "firm:reportIncident",

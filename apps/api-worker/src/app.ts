@@ -41,6 +41,7 @@ import { registerNotificationPreferencesRoutes } from "./routes/notification-pre
 import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
+import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
 import { registerMatterAssetRoutes } from "./routes/matter-assets.ts";
@@ -772,6 +773,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // The case calendar: litigation events and deadlines recorded here, plus the matter timeline that
   // federates them with what every other subsystem already recorded — read in place, never copied.
   registerCalendarRoutes(app, chokepoint);
+
+  // The matter note: what the firm wrote down about a case that no other record holds. Corrected by
+  // appending a revision, withdrawn by retraction, and never deleted — there is no delete route here
+  // because there is no delete path anywhere in the subsystem.
+  registerNotesRoutes(app, chokepoint);
   // Custodian — the register of physical client originals the firm holds in safekeeping: the
   // container tree, packets and their items, Directory ownership, the append-only movement ledger,
   // holds, and scanned copies bound over ordinary File Manager files.
