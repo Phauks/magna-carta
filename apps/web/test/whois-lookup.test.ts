@@ -128,6 +128,15 @@ describe("problemGuidance", () => {
     expect(guidance.message).not.toContain("support");
   });
 
+  // The registry rate-limiting or being away is transient — retry guidance, not an Error ID. The
+  // worker maps RdapUpstreamFailure to this 502; before it existed the fault parsed as an empty
+  // record and read as "no registration record found".
+  it("treats a 502 registry outage as a retryable warning, not a fault worth quoting", () => {
+    const guidance = problemGuidance({ status: 502, errorId: "error_example" });
+    expect(guidance.tone).toBe("warning");
+    expect(guidance.message).not.toContain("support");
+  });
+
   it("explains a 401 politely as a missing session", () => {
     expect(problemGuidance({ status: 401 }).tone).toBe("info");
   });

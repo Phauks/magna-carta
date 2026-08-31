@@ -6676,6 +6676,10 @@ export type WhoisGetErrors = {
      * The target's registry publishes no lookup service this platform can reach (no RDAP entry, no known port-43 host)
      */
     501: Problem;
+    /**
+     * The registry's lookup service answered with a fault (rate limit or outage) rather than a record or a not-found
+     */
+    502: Problem;
 };
 
 export type WhoisGetError = WhoisGetErrors[keyof WhoisGetErrors];
