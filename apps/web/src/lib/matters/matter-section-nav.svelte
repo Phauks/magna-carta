@@ -11,15 +11,15 @@
    * Overflow is measurement-driven, not breakpoint-driven: an invisible mirror of the full strip
    * reports each tab's width (bind:clientWidth), and as the container narrows, trailing sections
    * fold into the More menu. The registry orders non-core sections last, so they fold first and
-   * trailing core sections follow only when the strip is genuinely too narrow. The mirror
-   * measures every tab at the active weight (the widest state) so activating a section never
-   * changes what fits, and the row carries no gap so the per-tab widths sum exactly to the row.
+   * trailing core sections follow only when the strip is genuinely too narrow. The arithmetic and
+   * the two rules it has to keep live in section-overflow.svelte.ts.
    */
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import { SectionOverflow } from "$lib/matters/section-overflow.svelte.ts";
   import { matterSections, type MatterSection } from "$lib/matters/sections.ts";
 
   let { matterId }: { matterId: string } = $props();
@@ -39,38 +39,10 @@
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  let containerWidth = $state(0);
-  let moreTriggerWidth = $state(0);
-  let tabWidths = $state<number[]>(matterSections.map(() => 0));
+  const overflow = new SectionOverflow(() => matterSections.length);
 
-  const visibleCount = $derived.by(() => {
-    const total = matterSections.length;
-    // Until the mirror reports (the first client frame), show everything; the strip settles as
-    // soon as the measurements land.
-    if (containerWidth === 0 || moreTriggerWidth === 0 || tabWidths.some((width) => width === 0)) {
-      return total;
-    }
-    const fullWidth = tabWidths.reduce((sum, width) => sum + width, 0);
-    if (fullWidth <= containerWidth) {
-      return total;
-    }
-    // Reserve room for the More trigger, then fit tabs greedily from the front of the registry.
-    const available = containerWidth - moreTriggerWidth;
-    let used = 0;
-    let count = 0;
-    for (const width of tabWidths) {
-      if (used + width > available) {
-        break;
-      }
-      used += width;
-      count += 1;
-    }
-    // Overview always holds the line; below one tab the strip is simply too narrow to help.
-    return Math.max(count, 1);
-  });
-
-  const visibleSections = $derived(matterSections.slice(0, visibleCount));
-  const overflowSections = $derived(matterSections.slice(visibleCount));
+  const visibleSections = $derived(matterSections.slice(0, overflow.visibleCount));
+  const overflowSections = $derived(matterSections.slice(overflow.visibleCount));
   const activeInOverflow = $derived(
     overflowSections.some((section) => isCurrentSection(section, page.url.pathname)),
   );
@@ -84,7 +56,7 @@
 </script>
 
 <nav aria-label="Matter sections" class="relative border-b border-border-default">
-  <div class="flex items-center" bind:clientWidth={containerWidth}>
+  <div class="flex items-center" bind:clientWidth={overflow.containerWidth}>
     {#each visibleSections as section (section.slug)}
       {@const current = isCurrentSection(section, page.url.pathname)}
       <a
@@ -152,12 +124,12 @@
     aria-hidden="true"
   >
     {#each matterSections as section, index (section.slug)}
-      <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={tabWidths[index]}>
+      <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={overflow.itemWidths[index]}>
         {section.label}
         <MaturityBadge stage={section.stage} />
       </span>
     {/each}
-    <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={moreTriggerWidth}>
+    <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={overflow.moreTriggerWidth}>
       More
       <ChevronDown class="size-16" aria-hidden="true" />
     </span>
