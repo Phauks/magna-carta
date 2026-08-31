@@ -1,6 +1,6 @@
 ---
 slug: activity-is-the-calendar-timeline-extended-not-a-second-stream
-status: Proposed
+status: Accepted — built
 area: Notes and activity
 date: 2026-08-15
 summary: "A record's activity stream is the calendar's existing federated timeline read with one more declared source on it, not a new subsystem and not a projection table. packages/calendar already reads one page across fourteen sources under one comparable sort key, one shared cursor and one required visible-matter predicate, and its registry states that a source is a read-side declaration and never a write-side obligation on the subsystem that owns the rows — so a note joins it for one registry row, one statement builder, one projection and one label decision, with no change to any write path anywhere. The package's own invariant decides it: nothing is projected, copied or backfilled, which is what makes the class of bug where the timeline disagrees with the register unwritable, because the timeline IS the register. Three consequences are accepted rather than discovered: a note source declares no label and projects NULL, on the precedent that a filed email's subject line and a time entry's narrative are both refused; the source reads live heads only and excludes retracted notes, on the soft-delete precedent; and a note on a Directory entity cannot join at all until a third visibilityAnchor with its own predicate is designed, because the firm anchor is a reviewed one-entry allowlist and reaching for it would be a silent loosening of the exemption the package guards most carefully."

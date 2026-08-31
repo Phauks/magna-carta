@@ -27,7 +27,7 @@ export interface TimelineReadOptions {
   readonly scope: TimelineScope;
   readonly visibility: VisibleMatterPredicate;
   // Narrows the REGISTRY before any statement is built: a request filtered to one source issues one
-  // statement, not fourteen.
+  // statement, not fifteen.
   readonly sourceKeys?: readonly string[];
   // Which side of the calendar to read — matter-anchored sources, firm-anchored sources, or both
   // (the default). Narrows the registry exactly as sourceKeys does, before any statement is built.

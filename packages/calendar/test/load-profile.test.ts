@@ -149,7 +149,7 @@ describe("the five load-profile assertions", () => {
   it("1 — the firm calendar page issues exactly the selected sources' statements, within the rows-read bound, and page 20 costs what page 1 costs", async () => {
     const counted = countingDatabase(database);
     const pageOne = await readTimelinePage(pageOptions(counted.database));
-    // Exactly the statements the selected registry builds — fourteen sources, one statement each,
+    // Exactly the statements the selected registry builds — fifteen sources, one statement each,
     // except the review-due source's declared two. No hidden read rides along.
     const registry = timelineSourceRegistry();
     const expectedStatements = registry.all().length + 1;

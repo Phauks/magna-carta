@@ -533,6 +533,13 @@
       "when": 1788134400000,
       "tag": "20260830T120000_directory-contact-points",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "6",
+      "when": 1788177600000,
+      "tag": "20260831T000000_matter-notes",
+      "breakpoints": true
     }
   ]
 }

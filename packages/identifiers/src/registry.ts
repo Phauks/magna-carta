@@ -257,6 +257,13 @@ export const ENTITY_PREFIXES = {
   matterEventType: "matterEventType",
   matterEventParticipant: "matterEventParticipant",
   matterDeadline: "matterDeadline",
+  // The matter note. A `matterNote` is the IDENTITY of one note — the matter it hangs off, who first
+  // wrote it, when, and whether it still stands; a `matterNoteRevision` is one body, with its own
+  // author and its own instant. They are two handles because they are two things: a note is corrected
+  // by appending a revision and moving the head, so the words a person reads have their own identity,
+  // their own authorship, and their own place in the chain. Nothing here is ever deleted.
+  matterNote: "matterNote",
+  matterNoteRevision: "matterNoteRevision",
   // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
   // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
   // its own table rather than a null where a case should be; a `firmEventParticipant` is one person

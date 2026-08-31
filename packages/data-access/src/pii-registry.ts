@@ -437,6 +437,40 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member appeared, and when, is that matter's record of the appearance",
   },
+  // The matter note. Three entries across two tables, and the split between them is the whole point.
+  //
+  // The BODY is report-manual, which is the action this registry defines as "free-text / document
+  // content — surfaced in the residue report, not auto-erased", and a note is precisely what that
+  // action was written for. A note body may name anybody — the client, the opposing party, a witness,
+  // a doctor, a person mentioned once in passing — and no automated pass can safely rewrite prose
+  // without either destroying the record's meaning or missing the reference it was asked to remove.
+  // So the platform neither silently erases a note nor silently refuses to: it reports it, and a
+  // person decides. This is also the one route by which bytes ever leave these tables, because the
+  // product has no delete path at all.
+  //
+  // The two AUTHOR columns are pseudonymize-keep on the user axis: append-only rows whose subject
+  // reference is replaced and never deleted. Erasing a member anonymizes the member row into a
+  // tombstone and the note's author column then points at that tombstone, which is the correct
+  // outcome — a note's attribution is not decoration, it is most of what makes a contemporaneous
+  // record worth having, and the federated timeline reads that column as the entry's actor.
+  {
+    table: "matter_note_revision",
+    subjectKey: "body",
+    action: "report-manual",
+    note: "the words themselves: attorney work product that may name anybody, with no structured subject column and no safe automated rewrite",
+  },
+  {
+    table: "matter_note",
+    subjectKey: "author_user_id",
+    action: "pseudonymize-keep",
+    note: "who first wrote the note; the reference is replaced at the member tombstone, never dropped",
+  },
+  {
+    table: "matter_note_revision",
+    subjectKey: "author_user_id",
+    action: "pseudonymize-keep",
+    note: "who wrote this particular body, which is not always who started the note",
+  },
   // The firm's own calendar scope. A firm event's participant table takes the same three keys as a
   // matter event's, for the same three shapes — but the retention basis differs: attendance at the
   // all-hands or a training session is the firm's operational record, not a matter's litigation
