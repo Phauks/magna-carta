@@ -262,10 +262,13 @@ export default defineConfig({
       worktrees: {
         command: "node tooling/worktrees/index.mjs",
       },
-      // Which remote claude/* branches have delivered their work and can go. Complements `worktrees`,
-      // which only asks about branches that declared themselves with a note or a workspace — a branch
-      // whose note was retired is invisible there, and those are the ones that pile up. Prints only;
-      // retiring is still `retire-note`. Add --all to list the landed ones.
+      // Which remote branches have delivered their work and can go. Complements `worktrees`, which
+      // only asks about branches that declared themselves with a note or a workspace — a branch whose
+      // note was retired is invisible there, and those are the ones that pile up. Sorts every remote
+      // ref into landed, holding nothing of its own, and holding work, so the one list that needs
+      // reading is short. Refuses to answer in a shallow clone, where the test silently reports
+      // almost everything unlanded. Prints only; retiring is still `retire-note`. Add --all to list
+      // the landed ones.
       "stale-branches": {
         command: "node tooling/stale-branches/index.mjs",
       },
