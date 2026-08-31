@@ -9,6 +9,8 @@
  */
 import {
   exportCellText,
+  exportGeneratedDateLine,
+  exportGeneratedTimeLine,
   type TabularExportCell,
   type TabularExportDocument,
 } from "./tabular-export.ts";
@@ -25,7 +27,8 @@ function csvRow(row: readonly TabularExportCell[]): string {
 export function renderCsvExport(exportDocument: TabularExportDocument): string {
   const lines: string[] = [
     csvRow([exportDocument.title]),
-    csvRow([`Generated ${exportDocument.generatedAt.toLocaleString()}`]),
+    csvRow([exportGeneratedDateLine(exportDocument)]),
+    csvRow([exportGeneratedTimeLine(exportDocument)]),
     "",
   ];
   for (const section of exportDocument.sections) {
