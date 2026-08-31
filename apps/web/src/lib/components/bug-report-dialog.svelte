@@ -20,6 +20,8 @@
    * The profile menu owns the trigger state (`bind:open`); this component renders no trigger.
    */
   import { page } from "$app/state";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
@@ -45,7 +47,7 @@
   let copied = $state<"copied" | "failed" | null>(null);
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
   let sending = $state(false);
-  let sendFailure = $state<string | null>(null);
+  let sendFailure = $state<StatedFailure | null>(null);
   let filedIdentifier = $state<string | null>(null);
 
   // OPTIONAL in-office recipients (any colleague — the whole roster, not a permission slice)
@@ -100,10 +102,10 @@
       filedIdentifier = outcome.value.id;
       return;
     }
-    sendFailure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The report was not sent — copy it instead and send it on."
-        : (outcome.problem.detail ?? "The report was not sent — copy it instead and send it on.");
+    sendFailure = stated(
+      outcome.failure,
+      "The report was not sent — copy it instead and send it on.",
+    );
   }
 
   function focusDescription(event: Event): void {
@@ -183,10 +185,11 @@
     </div>
 
     {#if sendFailure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Not Sent</Alert.Title>
-        <Alert.Description>{sendFailure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={sendFailure.failure}
+        title="Not Sent"
+        fallback={sendFailure.fallback}
+      />
     {/if}
     {#if filedIdentifier !== null}
       <Alert.Root variant="success">

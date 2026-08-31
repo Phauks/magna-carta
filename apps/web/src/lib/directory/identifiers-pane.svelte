@@ -24,6 +24,7 @@
    * failure this count exists to prevent.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { guidanceFor } from "$lib/diagnostics/guidance.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -175,10 +176,10 @@
       ...reveals,
       [type]: {
         phase: "refused",
-        message:
-          outcome.kind === "transport"
-            ? "Nothing answered."
-            : (outcome.problem.detail ?? "The value could not be read."),
+        // One row's reveal, refused. It renders as a line in the cell rather than as a failure
+        // surface, so it takes the presenter's sentence and not the whole record: there is nowhere
+        // in a table cell to put a handle and a remedy, and a band per row would bury the table.
+        message: guidanceFor(outcome.failure, "The value").message,
       },
     };
   }

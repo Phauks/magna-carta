@@ -19,6 +19,8 @@
    * total on the screen.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import Badge from "@magna-carta/design-system/badge";
@@ -38,7 +40,7 @@
   import {
     addInvoiceClaims,
     applyClientCredit,
-    billingFailureText,
+    billingFailure,
     listInvoiceDeliveries,
     type ClientCredit,
     type InvoiceDelivery,
@@ -123,7 +125,7 @@
   let selectedRows = $state<readonly InvoiceRow[]>([]);
   const soleRow = $derived(selectedRows.length === 1 ? (selectedRows[0] ?? null) : null);
 
-  let actionFailure = $state<string | null>(null);
+  let actionFailure = $state<StatedFailure | null>(null);
   let actionNotice = $state<string | null>(null);
   let claiming = $state<string | null>(null);
 
@@ -298,7 +300,7 @@
       onChanged();
       return;
     }
-    actionFailure = billingFailureText(outcome, "Nothing was set against this bill.");
+    actionFailure = billingFailure(outcome, "Nothing was set against this bill.");
   }
 
   /** Claim one piece of unbilled work onto the selected draft. */
@@ -317,7 +319,7 @@
       onChanged();
       return;
     }
-    actionFailure = billingFailureText(
+    actionFailure = billingFailure(
       outcome,
       "Nothing was claimed. Work another draft already holds is refused by name.",
     );
@@ -346,7 +348,7 @@
       onChanged();
       return;
     }
-    actionFailure = billingFailureText(
+    actionFailure = billingFailure(
       outcome,
       "Nothing was claimed. A claim held by another draft is refused, and the whole batch stands or falls together.",
     );
@@ -480,10 +482,11 @@
   </div>
 
   {#if actionFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Nothing Changed</Alert.Title>
-      <Alert.Description>{actionFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={actionFailure.failure}
+      title="Nothing Changed"
+      fallback={actionFailure.fallback}
+    />
   {:else if actionNotice !== null}
     <Alert.Root variant="info">
       <Alert.Title>Recorded</Alert.Title>

@@ -23,6 +23,8 @@
    * and nothing else: the link from a cost to its bill belongs on the cost.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import Badge from "@magna-carta/design-system/badge";
@@ -40,7 +42,7 @@
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
-  import type { ApiOutcome, Problem } from "$lib/api/request.ts";
+  import type { ApiOutcome, Failure } from "$lib/api/request.ts";
   import CostDetailsPanel from "./cost-details-panel.svelte";
   import CostKickBackDialog from "./cost-kick-back-dialog.svelte";
   import CostRecordWindow from "./cost-record-window.svelte";
@@ -125,7 +127,7 @@
   let kickBackOpen = $state(false);
   let voidTarget = $state<CostLedgerEntry | null>(null);
   let voidOpen = $state(false);
-  let actionFailure = $state<string | null>(null);
+  let actionFailure = $state<StatedFailure | null>(null);
   let actionNotice = $state<string | null>(null);
 
   const grid = DataTable.createDataTableGrid<CostLedgerEntry>({
@@ -225,19 +227,10 @@
 
   /** What a refused write says, in the reader's words rather than the transport's. */
   function refusalSentence(
-    outcome: { kind: "problem"; problem: Problem } | { kind: "transport" },
+    outcome: { kind: "problem"; failure: Failure } | { kind: "transport"; failure: Failure },
     what: string,
-  ): string {
-    if (outcome.kind === "transport") return `Nothing answered. ${what} is unchanged.`;
-    // A review verb against a firm that does not run review is refused as a conflict; saying so is
-    // more use to the reader than repeating the number.
-    const gateNote =
-      outcome.problem.status === 409
-        ? " The firm's review setting is not served to this screen, so the server is the authority on whether review runs here."
-        : "";
-    return `${outcome.problem.detail ?? `${what} was refused.`}${gateNote}${
-      outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-    }`;
+  ): StatedFailure {
+    return stated(outcome.failure, `${what} was refused.`, `${what} is unchanged.`);
   }
 
   async function runChainVerb(
@@ -475,10 +468,14 @@
   </div>
 
   {#if actionFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Nothing Changed</Alert.Title>
-      <Alert.Description>{actionFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice failure={actionFailure.failure} title="Nothing Changed" fallback={actionFailure.fallback}>
+      {#if actionFailure.failure.problem?.status === 409}
+        <!-- A review verb against a firm that does not run review is refused as a conflict; saying
+             so is more use to the reader than repeating the number. -->
+        The firm&rsquo;s review setting is not served to this screen, so the server is the authority
+        on whether review runs here.
+      {/if}
+    </FailureNotice>
   {:else if actionNotice !== null}
     <Alert.Root variant="success">
       <Alert.Title>Recorded</Alert.Title>

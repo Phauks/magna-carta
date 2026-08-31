@@ -19,6 +19,8 @@
    * been asked about.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
@@ -57,7 +59,7 @@
   import TimeRecordWindow from "./time-record-window.svelte";
   import TimeSheet from "./time-sheet.svelte";
   import { timeEntrySheet } from "./time-print-sheet.ts";
-  import type { ApiOutcome, Problem } from "$lib/api/request.ts";
+  import type { ApiOutcome, Failure } from "$lib/api/request.ts";
   import {
     approveTimeEntry,
     submitTimeEntry,
@@ -109,7 +111,14 @@
   let actionNotice = $state<string | null>(null);
   let printEntry = $state<TimeEntrySummary | null>(null);
   let printOpen = $state(false);
-  let actionFailure = $state<string | null>(null);
+  let actionFailure = $state<StatedFailure | null>(null);
+  /*
+   * A refusal this SCREEN makes, with no call behind it. Kept apart from actionFailure because it
+   * has no problem document, no Error ID and nothing to report: it is a statement about what the
+   * product does not do yet, and dressing it as a server failure would send somebody to support
+   * over a capability nobody has built.
+   */
+  let actionRefusal = $state<string | null>(null);
   /*
    * The Time Sheet is the capture surface and it opens OVER this one: a person recording the day's
    * work must not lose the list they were reading to do it, and coming back must not cost a
@@ -240,13 +249,10 @@
 
   /** What a refused write says, in the reader's words rather than the transport's. */
   function refusalSentence(
-    outcome: { kind: "problem"; problem: Problem } | { kind: "transport" },
+    outcome: { kind: "problem"; failure: Failure } | { kind: "transport"; failure: Failure },
     what: string,
-  ): string {
-    if (outcome.kind === "transport") return `Nothing answered. ${what} is unchanged.`;
-    return `${outcome.problem.detail ?? `${what} was refused.`}${
-      outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-    }`;
+  ): StatedFailure {
+    return stated(outcome.failure, `${what} was refused.`, `${what} is unchanged.`);
   }
 
   /**
@@ -263,6 +269,7 @@
     done: string,
   ): Promise<void> {
     actionFailure = null;
+    actionRefusal = null;
     actionNotice = null;
     const outcomes = await Promise.all(targets.map((entry) => verb(entry.id)));
     const refused = outcomes.find((outcome) => outcome.kind !== "ok");
@@ -276,6 +283,7 @@
     const first = targets[0];
     if (first === undefined) return;
     actionFailure = null;
+    actionRefusal = null;
     actionNotice = null;
     switch (action.identifier) {
       case "open":
@@ -304,7 +312,7 @@
         // The settled design makes the reason optional and records it only when given; the route
         // requires one. Rather than inventing a sentence nobody wrote, the act says what stands in
         // its way. It is unreachable while the review vocabulary is absent.
-        actionFailure =
+        actionRefusal =
           "Kick Back is not wired here yet: the route requires a written reason, and the design " +
           "settled that the reason is optional. The entry is unchanged.";
         return;
@@ -455,9 +463,16 @@
   </div>
 
   {#if actionFailure !== null}
+    <FailureNotice
+      failure={actionFailure.failure}
+      title="Nothing Changed"
+      fallback={actionFailure.fallback}
+      whenSilent={actionFailure.whenSilent}
+    />
+  {:else if actionRefusal !== null}
     <Alert.Root variant="danger">
       <Alert.Title>Nothing Changed</Alert.Title>
-      <Alert.Description>{actionFailure}</Alert.Description>
+      <Alert.Description>{actionRefusal}</Alert.Description>
     </Alert.Root>
   {:else if actionNotice !== null}
     <Alert.Root variant="info">
