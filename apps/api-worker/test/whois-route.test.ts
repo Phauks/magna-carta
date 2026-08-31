@@ -130,6 +130,38 @@ describe("GET /api/v1/whois", () => {
     expect(problem.detail).toContain(".ch");
   });
 
+  // A registry that rate-limits or is away must read as a retryable outage, never as an empty
+  // registration record ("no registration record found") that a retry then contradicts.
+  it("answers 502 when the RDAP server faults instead of parsing the fault as absence", async () => {
+    const faultingHttp: HttpClient = {
+      async request(req) {
+        if (req.url === "https://data.iana.org/rdap/dns.json") {
+          return {
+            status: 200,
+            json: async () => ({ services: [[["com"], ["https://rdap.example/com/"]]] }),
+          };
+        }
+        return { status: 429, json: async () => ({}) };
+      },
+    };
+    const faultingApp = createApp({ whoisDeps: { http: faultingHttp, socket: fakeSocket() } });
+    const { userId } = await seedCredentialedUser("whois-fault@example.com", {
+      userName: "WHOIS Fault",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "WHOIS Fault", poolFirmId);
+    const cookie = await signInForSessionCookie("whois-fault@example.com");
+    const response = await faultingApp.request(
+      "https://example.com/api/v1/whois?query=example.com",
+      { headers: { cookie } },
+      env,
+    );
+    expect(response.status).toBe(502);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const problem = (await response.json()) as { type: string };
+    expect(problem.type).toContain("service-unavailable");
+  });
+
   it("emits the route into the OpenAPI document with operationId and x-mc metadata", async () => {
     const response = await app.request("https://example.com/api/openapi.json", {}, env);
     const document = (await response.json()) as {

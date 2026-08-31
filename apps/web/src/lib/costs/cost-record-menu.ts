@@ -4,8 +4,8 @@
  * ONE MENU, EXTENDED — NOT A SECOND ONE. The verbs every ledger shares (open, duplicate, copy a
  * value, the review chain, withdraw) come from the shared ledger catalogue, so the Costs tab cannot
  * drift from the Time tab about what a right-click offers or how a counted verb is worded. What is
- * added here is only what a cost has and a time entry does not: its receipt, its printable sheet,
- * and the delete a never-reviewed draft is entitled to.
+ * added here is only what a cost has and a time entry does not: its attachments, its printable
+ * sheet, and the delete a never-reviewed draft is entitled to.
  *
  * A COST THAT ENTERED REVIEW IS VOIDED, NEVER DELETED. A draft that never entered the chain has no
  * record to preserve, so deleting it outright is honest; anything that has been in review keeps its
@@ -16,7 +16,6 @@ import Paperclip from "@lucide/svelte/icons/paperclip";
 import Printer from "@lucide/svelte/icons/printer";
 import Trash2 from "@lucide/svelte/icons/trash-2";
 
-import type { DisbursementClass } from "$lib/matters/cost-api.ts";
 // The specific modules rather than the catalogue's barrel: the barrel also exports the menu
 // COMPONENT, and a pure model that reaches through it drags a whole component tree behind it.
 import { ledgerRecordMenu, type LedgerRecord } from "$lib/records/ledger-record-menu.ts";
@@ -29,21 +28,17 @@ import {
   type RecordMenuModel,
 } from "$lib/records/record-menu-model.ts";
 import { gapReason } from "./cost-gaps.ts";
-import { SOFT_COST_RECEIPT_NOTE } from "./cost-columns.ts";
 
 /** What this surface calls one of its records. */
 export const COST_NOUN: NounPair = { singular: "Cost", plural: "Costs" };
 
-/** One cost row the menu speaks for. */
-export interface CostMenuRecord extends LedgerRecord {
-  /** A soft cost has no vendor invoice to keep, so its receipt verb is refused rather than waiting. */
-  readonly disbursementClass: DisbursementClass;
-}
+/** One cost row the menu speaks for. A cost row carries no fact the shared catalogue lacks. */
+export type CostMenuRecord = LedgerRecord;
 
 export interface CostMenuContext {
   /**
-   * Whether the firm has review turned on. The setting is not served, so the surface states what it
-   * is assuming; the routes behind the chain verbs are the authority and refuse when it is off.
+   * Whether the firm has review turned on. Off is the default, and off means the review vocabulary
+   * does not appear at all: nothing on the row solicits a submission.
    */
   readonly reviewGateEnabled: boolean;
 }
@@ -64,25 +59,23 @@ export function costRecordMenu(
     ...shared
       .filter((group) => group.identifier !== "destructive")
       .map((group) => ({ identifier: group.identifier, items: [...group.items] })),
-    { identifier: "costRecord", items: [receiptVerb(), printVerb()] },
+    { identifier: "costRecord", items: [attachVerb(), printVerb()] },
     { identifier: "destructive", items: [...withdrawal, deleteDraftVerb()] },
   ]);
 
   /*
-   * The receipt. The vendor invoice is the evidence a hard cost was actually advanced, so the verb
-   * is on the row rather than buried; what it waits on is a picker that reaches the matter's files.
+   * The attachments. A receipt is the usual one, but a cost carries as many files as the spend
+   * produced, so the verb is on the row rather than buried; what it waits on is a picker that
+   * reaches the matter's own documents.
    */
-  function receiptVerb(): RecordMenuAction {
-    const soft = target.disbursementClass === "soft";
+  function attachVerb(): RecordMenuAction {
     return {
       kind: "action",
-      identifier: "receipt",
-      label: "Attach Receipt",
+      identifier: "attach",
+      label: "Attach File",
       icon: Paperclip,
-      ...(soft
-        ? { disabledReason: SOFT_COST_RECEIPT_NOTE }
-        : { soonDependency: gapReason("receiptPicker") }),
-      ...oneRecordGesture(count, "A receipt is attached to one cost at a time."),
+      soonDependency: gapReason("attachmentPicker"),
+      ...oneRecordGesture(count, "A file is attached to one cost at a time."),
     };
   }
 

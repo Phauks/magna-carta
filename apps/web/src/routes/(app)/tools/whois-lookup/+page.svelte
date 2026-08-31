@@ -5,9 +5,9 @@
    * API (a raw fetch — apps/web does not depend on @magna-carta/api-client), and the branching that
    * decides which state to show lives in whois-lookup.ts so it stays testable off the DOM.
    *
-   * The query form is the run control and sits at the content's reading edge below the masthead,
-   * above the intro text, which stays visible through every state — so a result rendering below
-   * never reflows the control or the copy above it. The states are all designed honestly: an RDAP
+   * The query form is the run control and sits at the content's reading edge below the masthead;
+   * it carries no info prose around it (docs/conventions/design-corrections.md, "No info lines"),
+   * and a result rendering below never reflows it. The states are all designed honestly: an RDAP
    * registry that answers with no
    * details is a real "nothing found", not a broken card; a legacy port-43 registry returns raw text
    * shown verbatim and labelled unparsed; and a failure surfaces its correlated Error ID. Runs
@@ -23,14 +23,19 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import {
     formatTimestamp,
-    lookupWhois,
+    lookupWhoisWithRetries,
     problemGuidance,
+    type AttemptProgress,
     type WhoisOutcome,
   } from "$lib/tools/whois/whois-lookup.ts";
 
   let query = $state("");
   let phase = $state<"idle" | "loading" | "done">("idle");
   let outcome = $state<WhoisOutcome | null>(null);
+  // The attempt now running. A first attempt is the ordinary loading state; a second or third is
+  // the registry having faulted once already, and the retry line below makes that visible instead
+  // of a silent stall.
+  let attempt = $state<AttemptProgress | null>(null);
   // A short summary announced to assistive technology when a Card result arrives. Error, empty, and
   // no-session states render as an Alert, which announces itself via its role, so they are left out
   // of this region to avoid a double reading.
@@ -38,6 +43,7 @@
 
   const loading = $derived(phase === "loading");
   const canSubmit = $derived(!loading && query.trim() !== "");
+  const retrying = $derived(attempt !== null && attempt.attempt > 1);
 
   async function runLookup(event: SubmitEvent) {
     event.preventDefault();
@@ -45,8 +51,14 @@
     const target = query.trim();
     phase = "loading";
     outcome = null;
+    attempt = null;
     announcement = "";
-    const result = await lookupWhois(target);
+    const result = await lookupWhoisWithRetries(target, (progress) => {
+      attempt = progress;
+      if (progress.attempt > 1) {
+        announcement = `The registry did not answer. Trying again, attempt ${progress.attempt} of ${progress.maxAttempts}.`;
+      }
+    });
     outcome = result;
     phase = "done";
     if (result.kind === "rdap") {
@@ -90,12 +102,6 @@
      re-reading the whole card. Alert-rendered states announce themselves through their own role. -->
 <div aria-live="polite" class="sr-only">{announcement}</div>
 
-<p class="mb-24 max-w-xl text-sm text-text-muted">
-  Enter a domain name or an IP address to see who registered it and when. Most registries answer
-  with structured fields. A few country-code registries answer only over legacy WHOIS, which comes
-  back as raw text.
-</p>
-
 {#if phase !== "idle"}
   <section aria-busy={loading}>
     <h2
@@ -108,7 +114,16 @@
     {#if loading}
       <Card.Root>
         <Card.Header>
-          <Skeleton class="h-20 w-96" />
+          {#if retrying && attempt !== null}
+            <div class="flex flex-wrap items-center gap-8">
+              <Badge variant="warning">Retrying</Badge>
+              <span class="text-sm text-text-muted">
+                The registry did not answer. Trying again, attempt {attempt.attempt} of {attempt.maxAttempts}…
+              </span>
+            </div>
+          {:else}
+            <Skeleton class="h-20 w-96" />
+          {/if}
         </Card.Header>
         <Card.Content class="flex flex-col gap-12">
           <Skeleton class="h-16 w-full" />
@@ -242,8 +257,3 @@
     <dd class="text-sm text-text-default">{value}</dd>
   </div>
 {/snippet}
-
-<footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
-  The query is checked against public registries only; private, local, and internal addresses are
-  refused. This tool runs outside any matter, and nothing is saved: no history, no local storage.
-</footer>

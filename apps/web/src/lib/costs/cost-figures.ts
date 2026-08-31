@@ -1,18 +1,18 @@
 /*
- * The figures the Cost ledger states about itself: the four on the footer bar, and the ones the
+ * The figures the Cost ledger states about itself: the three on the footer bar, and the ones the
  * details panel says when nothing in particular is selected.
  *
- * THE FOOTER SPEAKS RECEIVABLE, NOT REVENUE. What no column carries is the shape of the money:
- * ADVANCED is the firm's cash out of pocket, RECOVERABLE is what the client may still be asked for,
- * BILLED is what a finalized invoice has taken up, and ABSORBED is the firm's own decision made
- * visible. A ledger that showed only a total would hide the decision.
+ * THE FOOTER SPLITS THE MONEY THE WAY THE DECISIONS DO. What no column carries is where a cost has
+ * got to: UNBILLED is what a bill may still take up, BILLED is what a finalized invoice already
+ * took, and ABSORBED is the firm's own decision made visible. A ledger that showed only a total
+ * would hide the decision.
  *
  * SCOPE IS PART OF THE FIGURE. Unfiltered, a figure speaks for the whole matter; under a filter it
  * speaks for what is in view and says so, in the bar's own prefix and again on the hover. A number
  * whose scope a reader has to work out is a number they will get wrong.
  *
  * A VOID NEVER COUNTS. It stays on the ledger with its chip and contributes to nothing: a withdrawn
- * cost was never advanced. That rule is applied once, here, rather than at each figure.
+ * cost was never charged. That rule is applied once, here, rather than at each figure.
  *
  * MONEY LEAVES HERE AS A NUMBER. Rendering an amount needs the matter's currency and the reader's
  * locale, and it belongs where the rendering happens.
@@ -40,7 +40,7 @@ function sumAmountMinor(costs: readonly CostSummary[]): number {
 }
 
 /**
- * The four money figures the footer carries. No navigation rides any of them — the footer states
+ * The three money figures the footer carries. No navigation rides any of them — the footer states
  * figures, and the link from a cost to its bill belongs on the cost.
  */
 export function footerFigures(
@@ -49,24 +49,18 @@ export function footerFigures(
 ): readonly LedgerFigure[] {
   const live = countable(costs);
   const inView = options.filtered ? ", in view" : "";
-  const recoverable = live.filter((cost) => cost.billable);
+  const billable = live.filter((cost) => cost.billable);
   return [
     {
-      identifier: "advanced",
-      label: "advanced",
-      amountMinor: sumAmountMinor(live),
-      caption: `Every live cost on the matter${inView}: money the firm is out of pocket for, or has charged back.`,
-    },
-    {
-      identifier: "recoverable",
-      label: "recoverable",
-      amountMinor: sumAmountMinor(recoverable.filter((cost) => cost.status !== "billed")),
-      caption: `Recoverable costs no invoice has billed yet${inView}: what the client may be asked for.`,
+      identifier: "unbilled",
+      label: "unbilled",
+      amountMinor: sumAmountMinor(billable.filter((cost) => cost.status !== "billed")),
+      caption: `Billable costs not yet on a finalized invoice${inView}. A draft bill claims them in the Billing section.`,
     },
     {
       identifier: "billed",
       label: "billed",
-      amountMinor: sumAmountMinor(recoverable.filter((cost) => cost.status === "billed")),
+      amountMinor: sumAmountMinor(billable.filter((cost) => cost.status === "billed")),
       caption: `Costs a finalized invoice has taken up${inView}.`,
     },
     {
@@ -78,7 +72,7 @@ export function footerFigures(
   ];
 }
 
-/** One payee's share of what the matter has advanced. */
+/** One payee's share of what the matter has spent. */
 export interface PayeeShare {
   readonly name: string;
   readonly amountMinor: number;
@@ -88,12 +82,10 @@ export interface PayeeShare {
 export interface MatterCostSummary {
   readonly liveCount: number;
   readonly voidCount: number;
-  /** Cash paid out to third parties. */
-  readonly hardMinor: number;
-  /** The firm's own resources charged back. */
-  readonly softMinor: number;
+  /** Every live cost on the matter, whoever ends up paying for it. */
+  readonly recordedMinor: number;
   readonly absorbedMinor: number;
-  /** The biggest payees by what the firm has advanced to them, largest first. */
+  /** The biggest payees by what the firm has paid them, largest first. */
   readonly largestPayees: readonly PayeeShare[];
 }
 
@@ -103,16 +95,16 @@ const LARGEST_PAYEE_COUNT = 4;
 export function matterCostSummary(costs: readonly CostSummary[]): MatterCostSummary {
   const live = countable(costs);
   const shares = new Map<string, number>();
+  // Only a cost that names somebody has a payee to rank; the rest are not a share of anyone.
   for (const cost of live) {
-    if (cost.disbursementClass !== "hard") continue;
+    if (cost.vendorId === null) continue;
     const name = payeeText(cost);
     shares.set(name, (shares.get(name) ?? 0) + cost.amountMinor);
   }
   return {
     liveCount: live.length,
     voidCount: costs.length - live.length,
-    hardMinor: sumAmountMinor(live.filter((cost) => cost.disbursementClass === "hard")),
-    softMinor: sumAmountMinor(live.filter((cost) => cost.disbursementClass === "soft")),
+    recordedMinor: sumAmountMinor(live),
     absorbedMinor: sumAmountMinor(live.filter((cost) => !cost.billable)),
     largestPayees: [...shares.entries()]
       .map(([name, amountMinor]) => ({ name, amountMinor }))
@@ -127,7 +119,7 @@ export interface SelectionSummary {
   /** "3 draft · 1 billed", in the register's own words and the chain's own order. */
   readonly statusLine: string;
   readonly amountMinor: number;
-  readonly recoverableMinor: number;
+  readonly billableMinor: number;
   /** True where the selection holds a void, so the amount says what it left out. */
   readonly excludesVoids: boolean;
 }
@@ -145,7 +137,7 @@ export function selectionSummary(
       .map((status) => `${String(counts.get(status))} ${statusWord(status).toLowerCase()}`)
       .join(" · "),
     amountMinor: sumAmountMinor(live),
-    recoverableMinor: sumAmountMinor(live.filter((cost) => cost.billable)),
+    billableMinor: sumAmountMinor(live.filter((cost) => cost.billable)),
     excludesVoids: live.length !== costs.length,
   };
 }

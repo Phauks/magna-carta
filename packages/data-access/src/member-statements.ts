@@ -126,6 +126,15 @@ export function selectFirmMembersStatement(database: SqlDatabase): SqlStatement 
   );
 }
 
+// The firm-usage read: how many members can sign in today. Deactivated members keep their row for
+// the record; they are not seats, so they do not count here.
+export async function readActiveMemberCount(database: SqlDatabase): Promise<number> {
+  const { results } = await database
+    .prepare(`SELECT COUNT(*) AS c FROM ${MEMBER_TABLE} WHERE status = 'active'`)
+    .all<{ c: number }>();
+  return results[0]?.c ?? 0;
+}
+
 // The member row's status by user id — the read /v1/me uses to split a DEACTIVATED member (404,
 // absent semantics) from a never-mirrored one (no row → 200 with empty permissions; the
 // sweep-lag window is transient and self-heals). Rows: { status }, zero rows means never mirrored.

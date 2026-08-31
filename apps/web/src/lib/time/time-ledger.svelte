@@ -509,13 +509,19 @@
   <DataTable.GridFooter {grid} end={footerEnd} />
 </section>
 
+<!--
+  The same Time Sheet the top bar opens, pre-filtered to this matter. It is one component with two
+  doors: opened here it shows this matter's rows and starts a new row on it, and it still carries
+  the Matter column, because a row on the sheet can be filed anywhere until it is written.
+-->
 <TimeSheet
   bind:open={sheetOpen}
   {entries}
-  {matterId}
+  matterFilter={matterId}
   {matterTitle}
   {members}
   {sessionUserId}
+  {loading}
   {onChanged}
 />
 

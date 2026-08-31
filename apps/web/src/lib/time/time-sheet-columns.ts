@@ -9,9 +9,14 @@
  * WHAT DIFFERS FROM THE MATTER LEDGER'S COLUMNS, AND WHY. The ledger reads a matter's whole time
  * record; the sheet is where the day's work gets written down. So the sheet leads with the row's
  * state and its date, gives the description the room to wrap that the ledger truncates, and puts
- * the two durations side by side because reconciling them is the work. The matter is not a column:
- * the sheet is mounted inside a matter, so every row already has one, and a column whose every cell
- * says the same word is a column that costs width and tells nobody anything.
+ * the two durations side by side because reconciling them is the work.
+ *
+ * THE MATTER IS A COLUMN, BECAUSE THE SHEET IS THE FIRM'S. It opens from the top bar over whatever
+ * a person was doing, so two rows beside each other belong to two different matters and the row is
+ * the only thing that knows which. A row with none is a row somebody captured before they knew, and
+ * "No matter" is a value that column carries rather than a blank: the reader filters by it, sorts by
+ * it and finds it, which is how those rows get finished. Opening the sheet from a matter changes
+ * which rows are shown and what a new row starts on; it does not take the column away.
  *
  * A COLUMN THE SERVER CANNOT FILL STILL EXISTS. Its label is real, it is in the columns menu, and
  * its cells say what they wait on rather than showing a value nobody recorded.
@@ -27,6 +32,7 @@ export const TIME_SHEET_COLUMN_IDENTIFIERS = {
   saveState: "saveState",
   timeCode: "timeCode",
   workDate: "workDate",
+  matter: "matter",
   dateEntered: "dateEntered",
   description: "description",
   worked: "worked",
@@ -42,7 +48,6 @@ export const TIME_SHEET_COLUMN_IDENTIFIERS = {
 
 /** Which sheet columns carry a value the server does not answer, and which gap each one names. */
 export const UNSERVED_TIME_SHEET_COLUMNS: Readonly<Record<string, TimeLedgerGapName>> = {
-  [TIME_SHEET_COLUMN_IDENTIFIERS.timeCode]: "entryNumber",
   [TIME_SHEET_COLUMN_IDENTIFIERS.dateEntered]: "dateEntered",
   [TIME_SHEET_COLUMN_IDENTIFIERS.rate]: "rate",
   [TIME_SHEET_COLUMN_IDENTIFIERS.files]: "attachments",
@@ -72,6 +77,7 @@ function hoursTotalText(sumInHours: number): string {
 export function timeSheetColumns(
   currency: string,
   liveSeconds: (row: SheetRow) => number,
+  matterText: (row: SheetRow) => string,
 ): readonly GridColumn<SheetRow>[] {
   return [
     {
@@ -89,14 +95,26 @@ export function timeSheetColumns(
       type: "date",
       value: (row) => row.workDate,
     },
+    /*
+     * The code a row is known by. A row that is not on the firm's record carries the provisional
+     * code minted for it here, which is a real value and is shown; a row that IS on the record
+     * carries the firm's own entry number, which nothing serves yet, so its cell says so. Two
+     * different facts, one column, and neither of them invented.
+     */
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.timeCode,
       label: "Time Code",
       type: "text",
-      hidden: true,
       filter: "none",
-      value: () => null,
-      text: () => "",
+      value: (row) => row.provisionalCode,
+      text: (row) => row.provisionalCode ?? "",
+    },
+    {
+      id: TIME_SHEET_COLUMN_IDENTIFIERS.matter,
+      label: "Matter",
+      type: "text",
+      filter: "set",
+      value: (row) => matterText(row),
     },
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.dateEntered,

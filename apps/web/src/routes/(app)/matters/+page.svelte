@@ -18,11 +18,18 @@
    * clear-filters control exists only while something is narrowing the view — its absence is the
    * signal that nothing is.
    *
-   * TWO HONEST LIMITS. The listing is cursor-paged, so the column filters run over what has been
-   * loaded rather than over the firm. And the responsible attorney, practice area and Location
-   * arrive as identifiers and are named from the firm's own lists, read once per screen and joined
-   * here, never one request per row: a row whose identifier nothing names renders empty rather than
-   * showing the handle.
+   * EVERY FILTER OFFERS THE WHOLE VOCABULARY, NOT WHAT HAPPENS TO BE LOADED. Status, practice area,
+   * Location and the responsible attorney each filter over something the FIRM declares, so each
+   * hands the table that declaration and every value in it is offered whether or not a row on
+   * screen carries it. A firm with nothing closed today can still hold closed matters, and a
+   * control that dropped "Closed" for the day would be telling the reader otherwise. Client is the
+   * one set filter with no declared vocabulary, because nothing publishes a client directory.
+   *
+   * TWO HONEST LIMITS. The listing is cursor-paged, so a filter MATCHES over what has been loaded
+   * rather than over the firm — the choices are complete, the rows behind them are the page in
+   * hand. And the responsible attorney, practice area and Location arrive as identifiers and are
+   * named from the firm's own lists, read once per screen and joined here, never one request per
+   * row: a row whose identifier nothing names renders empty rather than showing the handle.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -191,6 +198,20 @@
     lastCreated = created;
     reread();
   }
+
+  /**
+   * A practice area the intake added to the firm, held here too.
+   *
+   * The screen read the firm's matter types once, and the intake can add one — so without this the
+   * new area would name the new matter's Practice Area cell nothing until the next page load, and
+   * the column's filter would not offer it. Held rather than re-read: the answer is already in
+   * hand, and a second list read to learn what this screen just did would be a request for a fact
+   * it already has.
+   */
+  function onMatterTypeAdopted(created: MatterTypeSummary): void {
+    if (matterTypes.some((type) => type.id === created.id)) return;
+    matterTypes = [...matterTypes, created];
+  }
 </script>
 
 <svelte:head>
@@ -358,5 +379,6 @@
     {locations}
     matters={matters ?? []}
     {onCreated}
+    {onMatterTypeAdopted}
   />
 {/if}

@@ -28,7 +28,6 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FileMinus from "@lucide/svelte/icons/file-minus";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import Layers from "@lucide/svelte/icons/layers";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import Plus from "@lucide/svelte/icons/plus";
   import { RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
@@ -57,6 +56,7 @@
   } from "./bill-columns.ts";
   import { billFigures } from "./bill-figures.ts";
   import BillDetailsPanel from "./bill-details-panel.svelte";
+  import InvoiceWindow from "./invoice-window.svelte";
   import ApplyTrustFundsDialog from "./apply-trust-funds-dialog.svelte";
   import CreditNoteDialog from "./credit-note-dialog.svelte";
   import DraftBillDialog from "./draft-bill-dialog.svelte";
@@ -81,6 +81,7 @@
     rows,
     loading = false,
     matterId,
+    matterTitle,
     matterNumber,
     clientEntityId,
     clientName,
@@ -90,14 +91,13 @@
     unbilledCosts,
     clientCredits,
     permissions,
-    selectBill = null,
-    onSelectionHandled,
     onChanged,
   }: {
     /** Every bill of this matter's client, with whatever of each one's detail has been read. */
     rows: readonly InvoiceRow[];
     loading?: boolean;
     matterId: string;
+    matterTitle: string;
     matterNumber: string | null;
     clientEntityId: string | null;
     clientName: string;
@@ -107,10 +107,6 @@
     unbilledCosts: readonly CostSummary[];
     clientCredits: readonly ClientCredit[];
     permissions: readonly string[] | null;
-    /** A bill another surface asked the register to show, or null. */
-    selectBill?: string | null;
-    /** The register has selected the bill it was sent; the sender can let go of the request. */
-    onSelectionHandled: () => void;
     /** Something was written; the matter's billing wants re-reading. */
     onChanged: () => void;
   } = $props();
@@ -141,12 +137,16 @@
   let lineOpen = $state(false);
   let editingLine = $state<InvoiceLine | null>(null);
 
+  /* The bill the invoice window is showing. Opening is an explicit gesture; selecting is not. */
+  let windowOpen = $state(false);
+  let windowRow = $state<InvoiceRow | null>(null);
+
   /* The selected bill's delivery attempts, read when the selection lands on a finalized bill. */
   let deliveries = $state<readonly InvoiceDelivery[] | null>(null);
   let deliveriesFor = $state<string | null>(null);
 
   $effect(() => {
-    const bill = soleRow;
+    const bill = windowOpen ? openRow : soleRow;
     if (bill === null || bill.summary.status !== "final") {
       deliveries = null;
       deliveriesFor = null;
@@ -174,20 +174,22 @@
     onSelectionChange: (_keys, selected) => {
       selectedRows = selected;
     },
+    onActivate: (row) => {
+      openInvoice(row);
+    },
   });
 
-  /*
-   * A bill another surface asked for. The request is cleared once it has landed, so a reader who
-   * then selects something else is not dragged back to it on the next render.
-   */
-  $effect(() => {
-    const wanted = selectBill;
-    if (wanted === null) return;
-    if (!rows.some((row) => row.summary.id === wanted)) return;
-    panelPreference.set("open");
-    grid.rowClick(wanted, { repeated: true });
-    onSelectionHandled();
+  /* The window follows the bill it was opened on, so a re-read after a write reaches it. */
+  const openRow = $derived.by((): InvoiceRow | null => {
+    const showing = windowRow;
+    if (showing === null) return null;
+    return rows.find((row) => row.summary.id === showing.summary.id) ?? showing;
   });
+
+  function openInvoice(row: InvoiceRow): void {
+    windowRow = row;
+    windowOpen = true;
+  }
 
   const figures = $derived(
     billFigures(grid.isFiltered ? grid.rowsInView : rows, {
@@ -225,15 +227,23 @@
     if (!grid.isSelected(key)) grid.rowClick(key, { repeated: true });
   }
 
+  /*
+   * An act runs against whatever the reader is looking at: the bill in the window when one is open,
+   * and the selected or right-clicked row otherwise. One resolution, so the window's action bar and
+   * the row menu can never act on two different bills.
+   */
+  function actionTarget(): InvoiceRow | null {
+    return windowOpen ? openRow : menuTarget;
+  }
+
   function runAction(action: RecordMenuAction): void {
-    const target = menuTarget;
+    const target = actionTarget();
     if (target === null) return;
     actionFailure = null;
     actionNotice = null;
     switch (action.identifier) {
       case "open":
-        panelPreference.set("open");
-        grid.rowClick(target.summary.id, { repeated: true });
+        openInvoice(target);
         return;
       case "copyNumber":
         if (target.summary.invoiceNumber !== null) {
@@ -296,7 +306,7 @@
     sourceKind: "time_entry" | "cost_entry";
     sourceId: string;
   }): Promise<void> {
-    const draft = soleRow;
+    const draft = actionTarget();
     if (draft === null || claiming !== null) return;
     claiming = request.sourceId;
     actionFailure = null;
@@ -315,7 +325,7 @@
 
   /** Claim everything of one kind. The whole set goes in one write, so it lands or it does not. */
   async function claimAll(sourceKind: "time_entry" | "cost_entry"): Promise<void> {
-    const draft = soleRow;
+    const draft = actionTarget();
     if (draft === null || claiming !== null) return;
     const sources =
       sourceKind === "time_entry"
@@ -350,15 +360,7 @@
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<InvoiceRow>)}
   {#if column.id === BILL_COLUMN_IDENTIFIERS.invoiceNumber}
-    <span class="inline-flex items-center gap-4 whitespace-nowrap">
-      <span class="font-mono">{invoiceReference(row)}</span>
-      {#if (row.detail?.matterBalances.length ?? 0) > 1}
-        <Layers
-          class="size-12 text-text-subtle"
-          aria-label="Bills more than one matter of this client"
-        />
-      {/if}
-    </span>
+    <span class="font-mono whitespace-nowrap">{invoiceReference(row)}</span>
   {:else if column.id === BILL_COLUMN_IDENTIFIERS.standing}
     {@const standing = invoiceStanding(row)}
     <span class="inline-flex items-center gap-4 whitespace-nowrap">
@@ -511,29 +513,14 @@
         <Resizable.Handle withHandle />
         <Resizable.Pane defaultSize={34} minSize={22} maxSize={50}>
           <BillDetailsPanel
-            row={soleRow}
+            row={openRow ?? soleRow}
             selectedCount={selectedRows.length}
             {matterId}
             {clientName}
-            {currency}
+            {today}
             {figures}
-            {actionContext}
-            {deliveries}
-            {clientCredits}
-            {unbilledTime}
-            {unbilledCosts}
-            {claiming}
-            onAction={(identifier) => {
-              const target = soleRow;
-              if (target === null) return;
-              const action = billActions(target, actionContext).find(
-                (candidate) => candidate.identifier === identifier,
-              );
-              if (action !== undefined) runAction(action);
-            }}
-            onEditLine={openLineEditor}
-            onClaim={(request) => void claim(request)}
-            onClaimAll={(kind) => void claimAll(kind)}
+            {money}
+            onOpenInvoice={openInvoice}
             onLetGo={() => grid.clearSelection()}
           />
         </Resizable.Pane>
@@ -560,7 +547,7 @@
 
 <FinalizeBillDialog
   bind:open={finalizeOpen}
-  row={soleRow}
+  row={openRow ?? soleRow}
   {money}
   onFinalized={(invoiceNumber) => {
     actionNotice = `Finalized as ${invoiceNumber}: the receivable posted and the work locked.`;
@@ -570,7 +557,7 @@
 
 <VoidDraftDialog
   bind:open={voidOpen}
-  row={soleRow}
+  row={openRow ?? soleRow}
   onVoided={() => {
     actionNotice = "Draft voided. Its work returned to unbilled.";
     onChanged();
@@ -579,7 +566,7 @@
 
 <RecordDeliveryDialog
   bind:open={deliveryOpen}
-  row={soleRow}
+  row={openRow ?? soleRow}
   onRecorded={() => {
     actionNotice = "Delivery recorded.";
     deliveriesFor = null;
@@ -589,7 +576,7 @@
 
 <ApplyTrustFundsDialog
   bind:open={trustOpen}
-  row={soleRow}
+  row={openRow ?? soleRow}
   {matterId}
   {money}
   formatDate={(isoDate) => formatDate(isoDate)}
@@ -597,7 +584,7 @@
 
 <CreditNoteDialog
   bind:open={creditNoteOpen}
-  row={soleRow}
+  row={openRow ?? soleRow}
   {matterId}
   {money}
   onIssued={(clientCreditMinor) => {
@@ -611,7 +598,7 @@
 
 <WriteOffDialog
   bind:open={writeOffOpen}
-  row={soleRow}
+  row={openRow ?? soleRow}
   {matterId}
   {money}
   onWrittenOff={(amountMinor) => {
@@ -620,9 +607,37 @@
   }}
 />
 
+<InvoiceWindow
+  bind:open={windowOpen}
+  row={openRow}
+  {matterId}
+  {matterTitle}
+  {matterNumber}
+  {clientName}
+  {currency}
+  {today}
+  {actionContext}
+  {deliveries}
+  {clientCredits}
+  {unbilledTime}
+  {unbilledCosts}
+  {claiming}
+  onAction={(identifier) => {
+    const target = actionTarget();
+    if (target === null) return;
+    const action = billActions(target, actionContext).find(
+      (candidate) => candidate.identifier === identifier,
+    );
+    if (action !== undefined) runAction(action);
+  }}
+  onEditLine={openLineEditor}
+  onClaim={(request) => void claim(request)}
+  onClaimAll={(kind) => void claimAll(kind)}
+/>
+
 <InvoiceLineDialog
   bind:open={lineOpen}
-  invoiceId={soleRow?.summary.id ?? null}
+  invoiceId={(openRow ?? soleRow)?.summary.id ?? null}
   line={editingLine}
   onSaved={() => {
     actionNotice = "Line updated. The entry it was composed from is unchanged.";

@@ -96,6 +96,18 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
         "That domain's registry does not publish a lookup service this tool can reach. Check the registry's own WHOIS page directly.",
     };
   }
+  // 502 is the registry itself rate-limiting or being away — transient and retryable, so it is
+  // separated from the server-fault band before the band is checked: an upstream hiccup is not a
+  // fault worth quoting to support, and before this branch existed it read as "no registration
+  // record found", which the very next retry contradicted.
+  if (problem.status === 502) {
+    return {
+      tone: "warning",
+      title: "The registry did not answer",
+      message:
+        "The registry's lookup service is rate-limiting or unavailable. It was tried several times automatically; wait a moment, then look up again.",
+    };
+  }
   if (problem.status >= 500) {
     return {
       tone: "danger",
@@ -149,6 +161,52 @@ export function formatTimestamp(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** The attempt now running, reported to the page so the retrying is visible, never silent. */
+export interface AttemptProgress {
+  attempt: number; // 1-based
+  maxAttempts: number;
+}
+
+export const LOOKUP_MAX_ATTEMPTS = 3;
+const RETRY_DELAYS_MS = [1500, 3000]; // before attempt 2, before attempt 3
+
+/**
+ * Only faults that a fresh attempt can plausibly clear are retried: the registry itself
+ * rate-limiting or away (the 502 the worker maps RdapUpstreamFailure to), and nothing answering
+ * at all. Our own platform's 429 is deliberately NOT here — retrying into a member-facing rate
+ * limit digs the hole deeper — and every other problem is an answer, not a fault.
+ */
+function isTransientFault(outcome: WhoisOutcome): boolean {
+  if (outcome.kind === "transport") return true;
+  return outcome.kind === "problem" && outcome.problem.status === 502;
+}
+
+/**
+ * Run a lookup with bounded automatic retries on transient upstream faults, reporting each
+ * attempt through `onAttempt` so the page can show the process instead of a silent stall
+ * (docs/conventions/design-corrections.md, "Retry a transient upstream fault yourself, visibly").
+ * Returns the first non-transient outcome, or the last transient one once attempts are exhausted.
+ * `delayImpl` is injectable so tests run without real waits.
+ */
+export async function lookupWhoisWithRetries(
+  query: string,
+  onAttempt: (progress: AttemptProgress) => void,
+  fetchImpl: typeof fetch = fetch,
+  delayImpl: (ms: number) => Promise<void> = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<WhoisOutcome> {
+  let outcome: WhoisOutcome = { kind: "transport" };
+  for (let attempt = 1; attempt <= LOOKUP_MAX_ATTEMPTS; attempt += 1) {
+    onAttempt({ attempt, maxAttempts: LOOKUP_MAX_ATTEMPTS });
+    outcome = await lookupWhois(query, fetchImpl);
+    if (!isTransientFault(outcome)) return outcome;
+    if (attempt < LOOKUP_MAX_ATTEMPTS) {
+      await delayImpl(RETRY_DELAYS_MS[attempt - 1] ?? 3000);
+    }
+  }
+  return outcome;
 }
 
 // Read the correlation handle off a problem document. Defensive: a body that is not JSON, or is

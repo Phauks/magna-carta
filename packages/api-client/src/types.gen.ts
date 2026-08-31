@@ -102,6 +102,61 @@ export type FirmUsageResponse = {
         folders: number;
         locations: number;
     };
+    mattersByType: Array<{
+        matterTypeName: string | null;
+        prospective: number;
+        open: number;
+        closed: number;
+        total: number;
+    }>;
+    files: {
+        currentFiles: {
+            count: number;
+            bytes: number;
+        };
+        priorVersions: {
+            count: number;
+            bytes: number;
+        };
+        allVersions: {
+            count: number;
+            bytes: number;
+        };
+        deletedFiles: {
+            count: number;
+            bytes: number;
+        };
+    };
+    byLocation: {
+        rows: Array<{
+            name: string;
+            status: 'active' | 'closed';
+            matters: number;
+            members: number;
+        }>;
+        mattersWithoutLocation: number;
+    };
+    directory: {
+        people: number;
+        organizations: number;
+        activeMembers: number;
+    };
+    aiUsage: {
+        magnusTokens: {
+            inputTokens: number;
+            outputTokens: number;
+            requests: number;
+        };
+        searchQueries: {
+            semantic: number;
+            fullText: number;
+        };
+        detection: {
+            requests: number;
+            words: number;
+        };
+        notMetered: Array<string>;
+    };
 };
 
 export type ToolsConnectionResponse = {
@@ -6678,6 +6733,10 @@ export type WhoisGetErrors = {
      * The target's registry publishes no lookup service this platform can reach (no RDAP entry, no known port-43 host)
      */
     501: Problem;
+    /**
+     * The registry's lookup service answered with a fault (rate limit or outage) rather than a record or a not-found
+     */
+    502: Problem;
 };
 
 export type WhoisGetError = WhoisGetErrors[keyof WhoisGetErrors];

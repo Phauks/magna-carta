@@ -123,13 +123,61 @@ is usually the fastest way to understand the rule.
 - **A capability the backend does not serve yet still renders**, disabled, with the "Soon" badge and
   one honest line naming what it waits on. This is the standing rule from
   [`ui-design.md`](ui-design.md); it is repeated here because it is the one most often skipped.
+- **A result region is furniture, not a reward.** The structure that will hold results (a frame, a
+  panel set, tabs) renders at rest, empty and calm, so arriving data fills a shape the reader
+  already has and population is never a surprise. The list-screen "table holds the vertical space"
+  ruling is the same judgment. _(safe website viewer, 2026-08-31)_
+- **Retry a transient upstream fault yourself, visibly.** Where a backing service faults
+  transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
+  number of times before reporting failure, and shows each attempt as it happens; the member is
+  never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
 - **A page's primary query control sits at the reading edge, not in the masthead's far-right
   actions slot.** Left-aligned below the masthead, where the eye starts; the far right is for
   secondary actions. Results render below it, so nothing about the control reflows when they
   arrive. _(WHOIS Lookup tool page, 2026-08-31)_
-- **Orienting text persists through every state.** Running a page's action must not remove the copy
-  that explains the page; the result section renders beneath it, and only the results change.
-  _(WHOIS Lookup tool page, 2026-08-31)_
+- **No info lines.** A screen carries no explanatory prose about itself: no intro paragraph saying
+  what the tool does, no footer stating what is or is not saved, no reassurance line. Controls,
+  labels, and results carry the meaning; explanation lives in the user guides (`docs/user/`). The
+  owner has issued this deletion repeatedly; it is recorded so it stops being issued. It supersedes
+  the same-day "orienting text persists" ruling, which presumed the text should exist — copy that
+  does legitimately exist (an honest empty-state or error line stating a fact about this result)
+  still must not vanish or move between states. _(safe website viewer, 2026-08-31)_
+
+### List screens
+
+Issued against the matters list and re-issued against the directory. They bind every List/Index
+surface, which is most of the product.
+
+- **A heading carries no explanatory sub-text.** No sub-heading under a page title, no sentence
+  under a section heading restating what the section obviously is. "The firm's active docket" under
+  _Matters_, and "Clients, parties, counsel and courts, in one book" under _Directory_, were both
+  removed for the same reason: they spend vertical space on a working screen and tell a working user
+  nothing they did not know before they clicked. This is not the same as an honest line that carries
+  a CONSEQUENCE — "revealing a value is recorded in the firm's audit log" stays, because it says
+  something a reader must know before they press. The test is whether removing the line loses a
+  fact. _(matters list, 2026-08-30)_
+- **Actions collapse into one compact action row.** Everything above the data that is not the data
+  is a single row: the primary action, then narrowing and searching as icon controls that open what
+  they need when they are needed. A labelled dropdown and a labelled search box, each with a
+  sentence under it, cost three rows of a screen whose subject is a list. Where a screen would carry
+  a button per variant of one action ("New person", "New organization"), it carries ONE primary
+  action with a menu instead. _(matters list, 2026-08-30)_
+- **The table holds the vertical space it would occupy when full.** The list region takes the
+  remaining height and keeps it, so the screen does not reflow as rows arrive, as a filter narrows
+  them, or as an empty state replaces them. In practice: the page is a full-height column and the
+  table is `min-h-0 flex-1` inside it. _(matters list, 2026-08-30)_
+- **One place to narrow.** Where several mechanisms narrow the same list — a server-side scope, a
+  server-side search, the table's own column filters — they sit behind one control, because from
+  where a reader sits they answer one question. Answering it in three places is how somebody ends up
+  staring at an empty table with a filter set on a control they are not looking at. _(matters list,
+  2026-08-30)_
+- **A listing states how many there are; a capped answer states that it is capped.** These are the
+  two shapes a list of records comes in and they must not be presented alike. A LISTING is sorted,
+  walkable to the end, and carries the size of the whole record — not of the page in hand. A RANKED
+  ANSWER is in the server's relevance order, is never re-sorted on the client (that would put the
+  best of an arbitrary slice at the top and read as the best of the firm's record), and says so
+  when more matches exist than were returned. A screen that has both shows them as two different
+  objects. Never fake a listing out of a search. _(directory, 2026-08-30)_
 
 ### List screens
 
@@ -202,7 +250,13 @@ them:
 - The intro text vanished the moment a search ran (it was gated on the idle state); it stays
   visible, with results rendering beneath it.
 
-Two follow-ups from the same round, both from the owner:
+Follow-ups from the same round, all from the owner:
+
+- **Info lines are deleted, everywhere, and stop being written.** Issued against the Safe Website
+  Viewer's intro paragraph ("Paste a link you do not trust…"), with the note that this deletion has
+  been issued repeatedly before. Promoted above as _No info lines_; it supersedes this round's
+  "orienting text persists" ruling, which is why that bullet no longer appears in the standing
+  list. Both web-domains pages lose their intro paragraphs and footers.
 
 - **Alert-title casing: the owner has no preference**, so no ruling binds. The working choice on
   the web-domains pages is sentence case — an alert is a message, not a header, so "Headers are
@@ -212,6 +266,14 @@ Two follow-ups from the same round, both from the owner:
 - **The network speed test is not retrofitted.** Its run controls stay in the masthead where they
   are; the reading-edge rule above binds new and reworked surfaces, not a shipped page nobody is
   changing.
+
+A third round the same day, issued against both pages on the deployed site. The generalizable
+parts (the always-rendered result structure; visible bounded retries) are promoted above. Local to
+the Safe Website Viewer: the URL entry moves into the shell's own address bar (one entry, "Load
+Website"), with the landed URL as a secondary row when it differs; back/forward/refresh navigate a
+client-side capture history; outbound links load in the viewer as new captures (buttons, never
+anchors); the URL is click-to-copy; a Static/Live view toggle renders with Live seamed behind the
+Soon affordance until interactive remote browsing exists; tab panels are boxed structures.
 
 ### 2026-08-30 — the matters screens, second round
 
