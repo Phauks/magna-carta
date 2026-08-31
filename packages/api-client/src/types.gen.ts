@@ -161,6 +161,20 @@ export type FirmUsageResponse = {
     };
 };
 
+export type ExportRenderRequest = {
+    format: 'docx' | 'pdf';
+    document: {
+        title: string;
+        stampLines: Array<string>;
+        sections: Array<{
+            title: string;
+            headers: Array<string>;
+            rows: Array<Array<string>>;
+            endAlignedColumns?: Array<number>;
+        }>;
+    };
+};
+
 export type ToolsConnectionResponse = {
     ip: string;
     asn: number;
@@ -6688,6 +6702,45 @@ export type FirmUsageGetResponses = {
 };
 
 export type FirmUsageGetResponse = FirmUsageGetResponses[keyof FirmUsageGetResponses];
+
+export type ReportsExportRenderData = {
+    body: ExportRenderRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/reports/exports';
+};
+
+export type ReportsExportRenderErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks reports:export
+     */
+    403: Problem;
+    /**
+     * The document is past the render bounds, or the conversion has no path
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.
+     */
+    503: Problem;
+};
+
+export type ReportsExportRenderError = ReportsExportRenderErrors[keyof ReportsExportRenderErrors];
+
+export type ReportsExportRenderResponses = {
+    /**
+     * The rendered file's bytes, content-typed for the requested format
+     */
+    200: unknown;
+};
 
 export type ToolsConnectionGetData = {
     body?: never;

@@ -71,6 +71,7 @@ import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMatterRecordsRoutes } from "./routes/matter-records.ts";
 import { registerMemberProfilesRoutes } from "./routes/member-profiles.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
+import { registerReportExportRoutes } from "./routes/report-exports.ts";
 import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
 import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentials.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
@@ -618,6 +619,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerMeRoute(app, chokepoint);
   registerMetaVersionsRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
+  registerReportExportRoutes(app, chokepoint);
   registerToolsConnectionRoute(app, chokepoint);
   registerToolsTurnCredentialsRoute(app, chokepoint);
 
