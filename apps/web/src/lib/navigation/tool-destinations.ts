@@ -50,6 +50,14 @@ export interface ToolDestination {
 const TOOL_SEARCH_SYNONYMS: Record<string, readonly string[]> = {
   "network-speed-test": ["bandwidth", "throughput", "ping", "latency", "internet", "connection"],
   "whois-lookup": ["registrant", "registration", "dns", "nameserver", "domain owner"],
+  "safe-website-viewer": [
+    "phishing",
+    "suspicious link",
+    "screenshot",
+    "redirect",
+    "url preview",
+    "sandbox",
+  ],
 };
 
 /**
