@@ -187,6 +187,78 @@ async function readProblem(response: Response): Promise<SafeBrowseProblem> {
   }
 }
 
+const SAFE_BROWSE_STREAM_ENDPOINT = "/api/v1/safe-browse/stream";
+
+/**
+ * Progress the streaming capture reports while it runs. The worker's probe and renderer run in
+ * parallel, so this is not a pipeline: "probing" arrives when both are dispatched, and "probed"
+ * arrives when the redirect probe settles — usually well before the renderer, which is the point:
+ * the page can say where the link really leads while the screenshot is still being rendered.
+ * Mirrors CaptureStage in packages/safe-browse (the same mirroring note as SafeWebsiteView above).
+ */
+export type CaptureProgress =
+  | { stage: "probing" }
+  | { stage: "probed"; redirectCount: number; finalUrl: string };
+
+/**
+ * Capture with live progress: POSTs the streaming endpoint and reads its newline-delimited JSON
+ * lines, invoking `onProgress` for each stage line and resolving on the terminal line
+ * ({stage:"complete",view} or {stage:"failed",problem}). Pre-stream refusals (the SSRF 400, 401,
+ * 403, 429) arrive as ordinary problem documents before anything streams. Never throws: a thrown
+ * fetch, an unreadable stream, or a stream that ends without a terminal line reports `transport`.
+ */
+export async function viewSafelyStaged(
+  url: string,
+  onProgress: (progress: CaptureProgress) => void,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SafeBrowseOutcome> {
+  let response: Response;
+  try {
+    response = await fetchImpl(SAFE_BROWSE_STREAM_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/x-ndjson" },
+      body: JSON.stringify({ url }),
+    });
+  } catch {
+    return { kind: "transport" };
+  }
+
+  if (!response.ok) {
+    return { kind: "problem", problem: await readProblem(response) };
+  }
+  if (response.body === null) return { kind: "transport" };
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (value !== undefined) buffered += decoder.decode(value, { stream: true });
+      // Process every complete line; a terminal line resolves the capture.
+      for (;;) {
+        const newline = buffered.indexOf("\n");
+        if (newline === -1) break;
+        const line = buffered.slice(0, newline).trim();
+        buffered = buffered.slice(newline + 1);
+        if (line === "") continue;
+        const parsed = JSON.parse(line) as
+          | CaptureProgress
+          | { stage: "complete"; view: SafeWebsiteView }
+          | { stage: "failed"; problem: SafeBrowseProblem };
+        if (parsed.stage === "complete") return { kind: "view", view: parsed.view };
+        if (parsed.stage === "failed") return { kind: "problem", problem: parsed.problem };
+        onProgress(parsed);
+      }
+      if (done) break;
+    }
+  } catch {
+    return { kind: "transport" };
+  }
+  // The stream ended without a terminal line — the capture died mid-flight.
+  return { kind: "transport" };
+}
+
 /**
  * Capture a static snapshot of `url` in the isolated remote browser. Takes the already-normalized
  * target (normalizeTarget's output). `fetchImpl` is injectable so the branching is testable

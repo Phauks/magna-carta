@@ -13,6 +13,7 @@ import {
   screenshotSource,
   sortedHeaders,
   viewSafely,
+  viewSafelyStaged,
   type SafeWebsiteView,
 } from "../src/lib/tools/safe-browse/safe-browse.ts";
 
@@ -191,5 +192,71 @@ describe("problemGuidance", () => {
     for (const status of [400, 401, 403, 429, 500, 502]) {
       expect(problemGuidance({ status }).message).not.toContain(sentinel);
     }
+  });
+});
+
+describe("viewSafelyStaged", () => {
+  function respondWithStream(lines: unknown[], status = 200): typeof fetch {
+    const body = lines.map((line) => `${JSON.stringify(line)}\n`).join("");
+    return (async () => new Response(body, { status })) as unknown as typeof fetch;
+  }
+
+  it("reports each stage and resolves with the terminal view", async () => {
+    const stages: string[] = [];
+    const outcome = await viewSafelyStaged(
+      "https://short.example/a",
+      (progress) => stages.push(progress.stage),
+      respondWithStream([
+        { stage: "probing" },
+        { stage: "probed", redirectCount: 1, finalUrl: "https://landing.example/page" },
+        { stage: "complete", view: capturedView },
+      ]),
+    );
+    expect(stages).toEqual(["probing", "probed"]);
+    expect(outcome).toEqual({ kind: "view", view: capturedView });
+  });
+
+  it("resolves a failed terminal line as a problem", async () => {
+    const outcome = await viewSafelyStaged(
+      "https://example.com/",
+      () => {},
+      respondWithStream([{ stage: "probing" }, { stage: "failed", problem: { status: 502 } }]),
+    );
+    expect(outcome).toEqual({ kind: "problem", problem: { status: 502 } });
+  });
+
+  it("reads a pre-stream refusal as an ordinary problem document", async () => {
+    const refusing = (async () =>
+      new Response(JSON.stringify({ errorId: "error_x" }), {
+        status: 403,
+      })) as unknown as typeof fetch;
+    const outcome = await viewSafelyStaged("https://example.com/", () => {}, refusing);
+    expect(outcome).toEqual({ kind: "problem", problem: { status: 403, errorId: "error_x" } });
+  });
+
+  it("reports transport when the stream ends without a terminal line", async () => {
+    const outcome = await viewSafelyStaged(
+      "https://example.com/",
+      () => {},
+      respondWithStream([{ stage: "probing" }]),
+    );
+    expect(outcome).toEqual({ kind: "transport" });
+  });
+
+  it("reports transport when a line is not valid JSON", async () => {
+    const garbled = (async () =>
+      new Response("not json\n", { status: 200 })) as unknown as typeof fetch;
+    expect(await viewSafelyStaged("https://example.com/", () => {}, garbled)).toEqual({
+      kind: "transport",
+    });
+  });
+
+  it("reports transport when nothing answers at all", async () => {
+    const throwing = (async () => {
+      throw new TypeError("network down");
+    }) as unknown as typeof fetch;
+    expect(await viewSafelyStaged("https://example.com/", () => {}, throwing)).toEqual({
+      kind: "transport",
+    });
   });
 });

@@ -1,7 +1,11 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { captureSafeView } from "@magna-carta/safe-browse";
+import { captureSafeView, type CaptureStage } from "@magna-carta/safe-browse";
 import type { BrowserRenderer, RedirectProbe } from "@magna-carta/safe-browse/types";
 import { SsrfRejection, assertPublicTarget } from "@magna-carta/integrations/safe-target";
+import { newErrorId } from "@magna-carta/telemetry/ids";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
+import { runInBackground } from "../background.ts";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -41,6 +45,15 @@ export function createBrowserRenderer(browser: BrowserRunBinding): BrowserRender
       const snapshotResponse = await browser.quickAction("snapshot", {
         url,
         formats: ["screenshot", "markdown"],
+        // The capture is only useful once the page has actually finished: without these options
+        // the browser shot a client-rendered page mid-load (skeleton placeholders where the
+        // content goes) and only the first viewport of it. networkidle2 rather than networkidle0
+        // because sites with persistent connections (analytics, sockets) never reach zero and
+        // would ride the timeout every time; the settle delay after network-idle gives
+        // lazy-rendered content a beat to paint; fullPage captures the whole scrollable page.
+        gotoOptions: { waitUntil: "networkidle2", timeout: 45_000 },
+        waitForTimeout: 2_500,
+        screenshotOptions: { fullPage: true },
       });
       const snapshotBody = (await snapshotResponse.json()) as {
         success: boolean;
@@ -207,6 +220,183 @@ export const safeBrowseRoute = defineOpenAPIRoute(safeBrowseMeta, {
     },
   },
 });
+
+// The streaming twin of safeBrowse.post: same input, same permission, but the 200 is a
+// newline-delimited JSON stream of capture stages so the page can narrate real progress — the
+// probe and the renderer run in parallel, and the redirect chain usually settles well before the
+// screenshot. Line protocol (one JSON object per line):
+//   {"stage":"probing"}
+//   {"stage":"probed","redirectCount":<n>,"finalUrl":"<url>"}
+//   {"stage":"complete","view":<SafeWebsiteView>}          (terminal)
+//   {"stage":"failed","problem":{"status":<n>,"errorId"?}} (terminal)
+// Refusals that precede the stream (the SSRF guard, auth, permission, rate limit) answer as
+// ordinary problem documents; once the 200 has begun, a failure arrives as the "failed" line.
+export const safeBrowseStreamMeta: RouteMeta = {
+  operationId: "safeBrowse.stream",
+  surface: "app",
+  authenticated: true,
+  permission: "tools:safeBrowse",
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const safeBrowseStreamRoute = defineOpenAPIRoute(safeBrowseStreamMeta, {
+  method: "post",
+  path: "/api/v1/safe-browse/stream",
+  description:
+    "The streaming variant of the safe-browse capture: renders a potentially malicious URL in an " +
+    "isolated remote browser, emitting newline-delimited JSON stage lines while it works " +
+    '({"stage":"probing"}, {"stage":"probed",...}) and ending with a terminal line — ' +
+    '{"stage":"complete","view":...} carrying the same SafeWebsiteView the non-streaming route ' +
+    'returns, or {"stage":"failed","problem":{...}} when the capture fails after the stream began.',
+  request: {
+    body: {
+      content: { "application/json": { schema: SafeBrowseRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description:
+        "Newline-delimited JSON capture stages, ending with a complete or failed terminal line",
+      content: { "application/x-ndjson": { schema: z.string() } },
+    },
+    400: {
+      description: "The target URL resolves to a non-public address (SSRF guard rejected it)",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks tools:safeBrowse",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export function registerSafeBrowseStreamRoute(
+  app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
+  chokepoint: Chokepoint,
+  deps: SafeBrowseRouteDeps,
+): void {
+  app.openapi(
+    {
+      ...safeBrowseStreamRoute,
+      middleware: chokepointMiddleware(chokepoint, safeBrowseStreamRoute),
+    },
+    async (c) => {
+      const { url } = c.req.valid("json");
+
+      // The guard runs BEFORE the stream starts so a rejected target answers a clean 400 problem
+      // document, never a 200 that fails one line in. captureSafeView re-runs it internally
+      // (defense in depth, and it re-guards every redirect hop).
+      try {
+        await assertPublicTarget(url, deps.resolve);
+      } catch (error) {
+        if (error instanceof SsrfRejection) {
+          // Never echo the raw URL or resolved host — same redaction as the non-streaming route.
+          return problemJson(c, {
+            type: "validation",
+            status: 400,
+            title: "The target URL is not a valid public address",
+            detail: "The supplied URL did not resolve to a publicly routable address.",
+          });
+        }
+        throw error;
+      }
+
+      const renderer = deps.renderer ?? createBrowserRenderer(c.env.BROWSER as BrowserRunBinding);
+      const probe = deps.probe ?? createFetchRedirectProbe(deps.resolve);
+
+      const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+      const writeLine = (line: unknown): Promise<void> =>
+        writer.write(encoder.encode(`${JSON.stringify(line)}\n`)).catch(() => {
+          // The client went away mid-stream; the capture finishes on waitUntil regardless.
+        });
+
+      const run = async (): Promise<void> => {
+        try {
+          const view = await captureSafeView(
+            url,
+            { renderer, probe, resolve: deps.resolve },
+            (stage: CaptureStage) => void writeLine(stage),
+          );
+          await writeLine({
+            stage: "complete",
+            view: {
+              requestedUrl: view.requestedUrl,
+              finalUrl: view.finalUrl,
+              redirectChain: [...view.redirectChain].map((hop) =>
+                Object.assign(
+                  { url: hop.url, status: hop.status },
+                  hop.location !== undefined && { location: hop.location },
+                ),
+              ),
+              responseHeaders: { ...view.responseHeaders },
+              screenshotBase64: view.screenshotBase64,
+              ...(view.title !== undefined && { title: view.title }),
+              ...(view.markdown !== undefined && { markdown: view.markdown }),
+              links: [...view.links],
+            },
+          });
+        } catch (error) {
+          // The same mapping as the non-streaming route, delivered as the terminal line because
+          // the 200 has already begun. A mid-chain SSRF rejection (a redirect to a private host)
+          // is an input-class refusal; the renderer's capacity/limit shapes are the transient 502;
+          // anything else is a server fault carrying a freshly minted Error ID that is ALSO logged
+          // (sanitized — the raw error may carry the suspect URL, which never reaches a log).
+          if (error instanceof SsrfRejection) {
+            await writeLine({ stage: "failed", problem: { status: 400 } });
+          } else {
+            const errorText = error instanceof Error ? error.message : String(error);
+            if (
+              errorText.includes("429") ||
+              errorText.includes("503") ||
+              errorText.includes("capacity") ||
+              errorText.includes("unavailable") ||
+              errorText.includes("limit")
+            ) {
+              await writeLine({ stage: "failed", problem: { status: 502 } });
+            } else {
+              const errorId = newErrorId();
+              logOperationFailed(
+                createWorkersLogger(c.env.TELEMETRY),
+                "route:safeBrowse.stream",
+                new Error(`capture failed after the stream began; errorId=${errorId}`),
+              );
+              await writeLine({ stage: "failed", problem: { status: 500, errorId } });
+            }
+          }
+        } finally {
+          await writer.close().catch(() => {});
+        }
+      };
+
+      // The capture outlives the handler return (the response IS the stream); background-tracked
+      // so the test harness's teardown barrier sees it.
+      runInBackground(c, run());
+
+      // A plain Response (the downloads route's streaming idiom): the typed c.json helpers cannot
+      // carry a ReadableStream body against the declared string schema, and zod-openapi's handler
+      // type has no streaming shape — the cast is the same accepted escape billing's paged reads
+      // use for bodies the type machinery cannot express.
+      return new Response(readable, {
+        status: 200,
+        headers: { "content-type": "application/x-ndjson" },
+      }) as never;
+    },
+  );
+}
 
 export function registerSafeBrowseRoute(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
