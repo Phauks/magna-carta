@@ -70,3 +70,63 @@ export const renderableTabularDocumentSchema = z
 
 export type RenderableTabularSection = z.infer<typeof renderableSection>;
 export type RenderableTabularDocument = z.infer<typeof renderableTabularDocumentSchema>;
+
+/*
+ * The STORED shape — what the download register keeps when a member puts an export on their shelf.
+ *
+ * It is the renderable document with one difference: a cell may carry its number as well as its
+ * printed text. That difference is the whole reason this schema exists rather than reusing the one
+ * above. The printed face is all a Word or PDF render needs, so the wire shape the printer takes is
+ * deliberately text-only — but a spreadsheet re-rendered from text-only cells would come back with
+ * every count as a string, and a column a reader cannot sum is a worse copy than the one they
+ * originally took. The register stores what the screen built, and each renderer takes the face it
+ * needs from it.
+ *
+ * The server does not interpret these cells: it validates the bounds, stores the document, and hands
+ * it back. The mapping down to printed text stays in the client, in the one place that already does
+ * it for a fresh export.
+ */
+const storedCell = z.union([cell, z.object({ text: cell, number: z.number().finite() }).strict()]);
+
+const storedSection = z
+  .object({
+    title: z.string().min(1).max(RENDERABLE_LIMITS.sectionTitleLength),
+    headers: z.array(cell).min(1).max(RENDERABLE_LIMITS.columns),
+    rows: z
+      .array(z.array(storedCell).max(RENDERABLE_LIMITS.columns))
+      .max(RENDERABLE_LIMITS.rowsPerSection),
+    endAlignedColumns: z
+      .array(
+        z
+          .number()
+          .int()
+          .min(0)
+          .max(RENDERABLE_LIMITS.columns - 1),
+      )
+      .optional(),
+  })
+  .strict();
+
+export const storedTabularDocumentSchema = z
+  .object({
+    title: z.string().min(1).max(RENDERABLE_LIMITS.titleLength),
+    // The instant the export was taken, as an ISO-8601 string. Stored rather than the rendered stamp
+    // lines because a re-render composes them in the reader's own clock, which is the same clock
+    // that produced them the first time.
+    generatedAt: z.string().min(1).max(64),
+    sections: z.array(storedSection).min(1).max(RENDERABLE_LIMITS.sections),
+  })
+  .strict()
+  .refine(
+    (candidate) =>
+      candidate.sections.reduce(
+        (sum, section) =>
+          sum +
+          section.headers.length +
+          section.rows.reduce((rowSum, row) => rowSum + row.length, 0),
+        0,
+      ) <= RENDERABLE_LIMITS.totalCells,
+    { message: `the document carries more than ${RENDERABLE_LIMITS.totalCells} cells` },
+  );
+
+export type StoredTabularDocument = z.infer<typeof storedTabularDocumentSchema>;

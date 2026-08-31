@@ -175,6 +175,55 @@ export type ExportRenderRequest = {
     };
 };
 
+export type DownloadSnapshotCreatedResponse = {
+    id: string;
+    expiresAt: string;
+};
+
+export type DownloadSnapshotRequest = {
+    title: string;
+    format: string;
+    document: {
+        title: string;
+        generatedAt: string;
+        sections: Array<{
+            title: string;
+            headers: Array<string>;
+            rows: Array<Array<string | {
+                text: string;
+                number: number;
+            }>>;
+            endAlignedColumns?: Array<number>;
+        }>;
+    };
+};
+
+export type DownloadShelfResponse = {
+    items: Array<DownloadItem>;
+};
+
+export type DownloadItem = {
+    id: string;
+    title: string;
+    kind: 'artifact' | 'snapshot';
+    producer: 'export' | 'bundle' | 'conversion';
+    byteSize: number | null;
+    downloadedFormats: Array<string>;
+    createdAt: string;
+    expiresAt: string;
+    state: 'building' | 'ready' | 'failed' | 'expired';
+};
+
+export type DownloadFetchResponse = {
+    kind: 'artifact' | 'snapshot';
+    url?: string;
+    document?: unknown;
+};
+
+export type DownloadFetchRequest = {
+    format: string;
+};
+
 export type ToolsConnectionResponse = {
     ip: string;
     asn: number;
@@ -6683,6 +6732,158 @@ export type ReportsExportRenderResponses = {
      */
     200: unknown;
 };
+
+export type DownloadsRecordSnapshotData = {
+    body: DownloadSnapshotRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/snapshots';
+};
+
+export type DownloadsRecordSnapshotErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * The document is past the register's bounds
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsRecordSnapshotError = DownloadsRecordSnapshotErrors[keyof DownloadsRecordSnapshotErrors];
+
+export type DownloadsRecordSnapshotResponses = {
+    /**
+     * The shelf item that was created
+     */
+    201: DownloadSnapshotCreatedResponse;
+};
+
+export type DownloadsRecordSnapshotResponse = DownloadsRecordSnapshotResponses[keyof DownloadsRecordSnapshotResponses];
+
+export type DownloadsShelfData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads';
+};
+
+export type DownloadsShelfErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsShelfError = DownloadsShelfErrors[keyof DownloadsShelfErrors];
+
+export type DownloadsShelfResponses = {
+    /**
+     * The member's shelf
+     */
+    200: DownloadShelfResponse;
+};
+
+export type DownloadsShelfResponse = DownloadsShelfResponses[keyof DownloadsShelfResponses];
+
+export type DownloadsFetchData = {
+    body: DownloadFetchRequest;
+    path: {
+        downloadItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/{downloadItemId}/fetches';
+};
+
+export type DownloadsFetchErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * No such item on this member's shelf
+     */
+    404: Problem;
+    /**
+     * The item's retention window has closed and its bytes are gone
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsFetchError = DownloadsFetchErrors[keyof DownloadsFetchErrors];
+
+export type DownloadsFetchResponses = {
+    /**
+     * The URL to download, or the document to render
+     */
+    200: DownloadFetchResponse;
+};
+
+export type DownloadsFetchResponse = DownloadsFetchResponses[keyof DownloadsFetchResponses];
+
+export type DownloadsRemoveData = {
+    body?: never;
+    path: {
+        downloadItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/{downloadItemId}';
+};
+
+export type DownloadsRemoveErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * No such item on this member's shelf
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsRemoveError = DownloadsRemoveErrors[keyof DownloadsRemoveErrors];
+
+export type DownloadsRemoveResponses = {
+    /**
+     * Removed
+     */
+    204: void;
+};
+
+export type DownloadsRemoveResponse = DownloadsRemoveResponses[keyof DownloadsRemoveResponses];
 
 export type ToolsConnectionGetData = {
     body?: never;

@@ -77,6 +77,8 @@ import seedReadMembersPermissionSql from "@magna-carta/database/drizzle/per-firm
 import conflictsWaiverRecordSql from "@magna-carta/database/drizzle/per-firm/20260830T000000_conflicts-waiver-record.sql";
 import directoryContactPointsSql from "@magna-carta/database/drizzle/per-firm/20260830T120000_directory-contact-points.sql";
 import seedReportExportPermissionSql from "@magna-carta/database/drizzle/per-firm/20260831T210000_seed-report-export-permission.sql";
+import downloadRegisterSql from "@magna-carta/database/drizzle/per-firm/20260831T230000_download-register.sql";
+import seedDownloadRegisterPermissionSql from "@magna-carta/database/drizzle/per-firm/20260831T230001_seed-download-register-permission.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -165,6 +167,8 @@ export function perFirmMigrations(): Migration[] {
     "20260830T000000_conflicts-waiver-record": conflictsWaiverRecordSql,
     "20260830T120000_directory-contact-points": directoryContactPointsSql,
     "20260831T210000_seed-report-export-permission": seedReportExportPermissionSql,
+    "20260831T230000_download-register": downloadRegisterSql,
+    "20260831T230001_seed-download-register-permission": seedDownloadRegisterPermissionSql,
   });
 }
 

@@ -355,6 +355,12 @@ export const notificationsTranslateFailed = defineMetric("notifications.translat
 // No dimension at all: the members it concerns are exactly what must not reach the dataset, and the
 // per-member detail is kept in the firm's own swept-unread tally where that member can read it.
 export const notificationsSweptUnread = defineMetric("notifications.swept_unread", [] as const);
+// How many shelf items the daily download-register pass took once their retention window closed. No
+// dimension at all, for the reason the swept-unread counter carries none: whose export aged out is
+// exactly what must not reach the dataset, and the rate is the whole alertable signal — a sudden
+// zero means the pass stopped running, and a sudden surge means a producer is writing an expiry it
+// should not.
+export const downloadsShelfSwept = defineMetric("downloads.shelf_swept", [] as const);
 // Findings the per-kind cap removed from one firm's comparison pass before they were considered.
 // A comparison is unbounded by nature — "every open deadline past its due instant" is a number the
 // firm's own working habits choose — so the read is capped, and a firm reporting this every night is
@@ -514,6 +520,7 @@ const CATALOG: readonly MetricDefinition[] = [
   notificationsDigestRecipientsClamped,
   notificationsDigestRefusedEscalation,
   emailDeliveryFailed,
+  downloadsShelfSwept,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

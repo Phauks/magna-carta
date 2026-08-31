@@ -540,6 +540,20 @@
       "when": 1788253200000,
       "tag": "20260831T210000_seed-report-export-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "6",
+      "when": 1788260400000,
+      "tag": "20260831T230000_download-register",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "6",
+      "when": 1788260401000,
+      "tag": "20260831T230001_seed-download-register-permission",
+      "breakpoints": true
     }
   ]
 }
