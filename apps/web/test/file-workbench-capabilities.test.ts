@@ -21,6 +21,7 @@ import {
   summaryRowsFor,
 } from "../src/lib/tools/file-workbench/capabilities.ts";
 import { overviewCapability } from "../src/lib/tools/file-workbench/overview.ts";
+import { grantedPermissions } from "../src/lib/tools/tool-permissions.ts";
 import { APPLIES, type CapabilityModule } from "../src/lib/tools/file-workbench/capability.ts";
 import { identifyFromPrefix } from "../src/lib/tools/file-workbench/identify.ts";
 import {
@@ -74,13 +75,36 @@ describe("the registry itself", () => {
     }
   });
 
-  it("makes a capability with no panel of its own name what it waits on", () => {
-    for (const capability of CAPABILITIES.filter((entry) => entry.panel === undefined)) {
-      expect(capability.awaiting, `${capability.id} renders the pending treatment`).toBeTruthy();
+  it("is fully granted by the Tools area's permission seam", () => {
+    // The seam names the two non-catalog permissions by hand rather than importing this registry,
+    // which is what keeps the workbench's panels out of the plain listing's chunk. This is the
+    // check that keeps the hand-written half honest.
+    const granted = grantedPermissions();
+    for (const capability of [overviewCapability, ...CAPABILITIES]) {
+      expect(
+        granted.has(capability.permission),
+        `${capability.id} is gated but never granted`,
+      ).toBe(true);
+    }
+  });
+
+  it("makes a capability that is not served yet name what it waits on", () => {
+    for (const capability of CAPABILITIES.filter((entry) => entry.awaiting !== null)) {
       expect(
         capability.pendingAction.length,
         `${capability.id} needs its control's words`,
       ).toBeGreaterThan(0);
+      // A capability still waiting on something has not graduated, and its badge has to say so.
+      expect(capability.stage, `${capability.id} waits on ${capability.awaiting}`).toBe("soon");
+    }
+  });
+
+  it("keeps the registry free of components, so these checks can run at all", () => {
+    // A panel is a design-system component and therefore reaches bits-ui, which golden rule 2
+    // confines to the design system. A module carrying one would make this whole file unloadable —
+    // which is how the panel map came to live on its own.
+    for (const capability of [overviewCapability, ...CAPABILITIES]) {
+      expect(Object.keys(capability)).not.toContain("panel");
     }
   });
 

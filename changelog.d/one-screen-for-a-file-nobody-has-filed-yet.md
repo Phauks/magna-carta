@@ -11,4 +11,6 @@ A flagged file still gets everything. The scan verdict is reported on the file's
 
 Conversion acts on the whole selection, and offers only the formats every selected file can reach — a production of sixty scans is one gesture, and a target half the selection cannot become is not offered at all rather than failing partway.
 
-The capability set is a registry of self-contained modules: adding one is a module and a line in an array, and the Overview is contributed by the modules rather than written by hand, so the synthesis cannot fall behind the set.
+The file list is the product's one grid, so it sorts by name, type, size and arrival, filters per column, hides and reorders columns, and carries the count and the selection in its own footer — the same behaviours the matter's ledgers have. The list itself takes a drop, with nothing drawn for it until a drag is over it; each row has its own menu; and one control shows or hides the file beside its readings, whichever capability is open.
+
+The capability set is a registry of self-contained modules: adding one is a module and a line in an array, and the Overview is contributed by the modules rather than written by hand, so the synthesis cannot fall behind the set. The modules carry no components — a panel reaches bits-ui through the design system, and golden rule 2 keeps that inside the design system strictly enough that a registry carrying one could not be loaded by a test at all.

@@ -1,115 +1,187 @@
 <script lang="ts">
   /*
-   * The files on the workbench. Navigation, not content: it is here to be scanned and got out of
-   * the way, and the file it points at fills the rest of the screen.
+   * The files on the workbench, as the product's one table.
    *
-   * Rows select without checkbox squares, ranges extend with shift and single files toggle with
-   * ctrl or cmd, and the count and the clear action live in the footer. That is the matter file
-   * manager's settled behaviour; this rail is the same behaviour over a different source, so a
-   * person who has used one has used both.
+   * It sorts by name, type, size, when it arrived and what the scanner made of it; it filters, it
+   * hides and reorders columns, it selects by click, shift-range and ctrl-toggle, and its footer
+   * carries the count and the selection. None of that is decided here — it is DataTable.Grid, the
+   * same table the matter's costs and bills are read in, so a person who has sorted one has sorted
+   * this.
    *
-   * The dropzone sits under the rows rather than replacing them, which is why there is no separate
-   * empty screen: with nothing on the workbench this rail is the same rail with no rows in it.
+   * DRAGGING FILES ONTO IT. The whole region is the drop target; there is no dashed box. A box
+   * would either cover the rows or sit under them taking space, and the thing a person actually
+   * drags onto is the list. The behaviour is DropTarget, which draws nothing — the region lights up
+   * through its own border while a drag is over it.
+   *
+   * Each row carries its own menu, always drawn rather than appearing on hover: a row that changes
+   * shape under the pointer is a row you cannot aim at.
    */
-  import Dropzone from "@magna-carta/design-system/dropzone";
-  import FileIcon from "@magna-carta/design-system/file-icon";
-  import Button from "@magna-carta/design-system/button";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Badge from "@magna-carta/design-system/badge";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import EmptyState from "@magna-carta/design-system/empty-state";
+  import FileIcon from "@magna-carta/design-system/file-icon";
+  import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Upload from "@lucide/svelte/icons/upload";
   import { scanStatus } from "./capabilities/malware-scan.ts";
-  import { describeType } from "./file-facts.ts";
-  import { formatSize, scanVerdictOf, type WorkbenchFile } from "./workbench-file.ts";
-  import type { SelectionGesture, SelectionState } from "./selection.ts";
+  import { RAIL_COLUMNS, railColumns } from "./rail-columns.ts";
+  import { DropTarget } from "./drop-target.svelte.ts";
+  import { rowMenuItems, type RowMenuItem } from "./row-menu.ts";
+  import { scanVerdictOf, type WorkbenchFile } from "./workbench-file.ts";
 
   let {
     files,
-    arriving,
-    selection,
-    onSelect,
-    onSelectAll,
-    onClear,
+    selectedKeys = $bindable(),
+    activeId = $bindable(),
     onFiles,
+    onDiscard,
+    onRowAction,
   }: {
     files: readonly WorkbenchFile[];
-    /** How many dropped files are still being read. Shown rather than hidden. */
-    arriving: number;
-    selection: SelectionState;
-    onSelect: (gesture: SelectionGesture) => void;
-    onSelectAll: () => void;
-    onClear: () => void;
+    /** The keys a bulk capability would act on. */
+    selectedKeys: readonly string[];
+    /** The file the panels describe. */
+    activeId: string | null;
     onFiles: (dropped: File[]) => void;
+    onDiscard: (ids: readonly string[]) => void;
+    onRowAction: (item: RowMenuItem, file: WorkbenchFile) => void;
   } = $props();
 
-  const allSelected = $derived(files.length > 0 && selection.selected.size === files.length);
+  // Called through, not captured: `onFiles` is a prop and may be replaced.
+  const dropTarget = new DropTarget((dropped) => onFiles(dropped));
+  let picker = $state<HTMLInputElement | null>(null);
 
-  function gestureFrom(event: MouseEvent | KeyboardEvent, id: string): SelectionGesture {
-    return { id, range: event.shiftKey, toggle: event.ctrlKey || event.metaKey };
+  const grid = DataTable.createDataTableGrid<WorkbenchFile>({
+    columns: railColumns,
+    rows: () => files,
+    rowKey: (file) => file.id,
+    // Newest last is how a person reads a bench they are adding to: the file they just dropped is
+    // where they left it, not at the top pushing everything down.
+    initialSort: { columnId: RAIL_COLUMNS.added, direction: "ascending" },
+    itemNoun: { singular: "file", plural: "files" },
+    onSelectionChange: (keys) => {
+      selectedKeys = keys;
+    },
+  });
+
+  // The grid owns selection; the surface reads which row is in focus off it. Focus rather than
+  // "the first selected" because focus is where the reader's attention is, and it survives a range.
+  $effect(() => {
+    activeId = grid.selection.focus ?? grid.selectedKeys[0] ?? null;
+  });
+
+  // A file arriving on an empty bench selects itself. Somebody who drops a file has already said
+  // which file they mean, and making them click it again to see what it is buys nothing.
+  $effect(() => {
+    const first = grid.rowsInView[0];
+    if (first !== undefined && grid.selectedKeys.length === 0) grid.rowClick(first.id);
+  });
+
+  function pick(event: Event & { currentTarget: HTMLInputElement }): void {
+    if (event.currentTarget.files) onFiles([...event.currentTarget.files]);
+    // Cleared so picking the same file twice in a row still fires a change.
+    event.currentTarget.value = "";
+  }
+
+  function runRowAction(item: RowMenuItem, file: WorkbenchFile): void {
+    if (item.identifier === "discard") onDiscard([file.id]);
+    else onRowAction(item, file);
   }
 </script>
 
-<div class="flex min-h-0 flex-col border-e border-border-default">
-  <div class="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-8">
-    {#if files.length > 0}
-      <ul class="m-0 flex list-none flex-col p-0" role="listbox" aria-label="Files on the workbench">
-        {#each files as file (file.id)}
-          {@const verdict = scanVerdictOf(file)}
-          {@const active = selection.activeId === file.id}
-          <li role="none">
-            <button
-              type="button"
-              role="option"
-              aria-selected={selection.selected.has(file.id)}
-              class="flex w-full items-center gap-8 rounded-md border-s-2 border-transparent p-8 text-start hover:bg-surface-raised"
-              class:bg-surface-selected={selection.selected.has(file.id)}
-              class:border-s-accent-strong={active}
-              onclick={(event) => onSelect(gestureFrom(event, file.id))}
-            >
-              <FileIcon fileName={file.name} contentType={file.declaredMediaType} size="sm" />
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-medium">{file.name}</span>
-                <span class="block truncate text-xs text-text-subtle tabular-nums">
-                  {formatSize(file.sizeBytes)} · {describeType(file)}
-                </span>
-              </span>
-              <!-- The verdict rides the row only once the scanner has said something. A chip
-                   reading "Not scanned" on every row, before any scan is wired, is noise on every
-                   row — and it is the state a person can already read off the Overview. -->
-              {#if verdict !== "unscanned"}
-                {@const status = scanStatus(verdict)}
-                <Badge variant={status.tone} title={status.meaning}>{status.label}</Badge>
-              {/if}
-            </button>
-          </li>
+{#snippet cell({ row, column, text }: DataTable.GridCellContext<WorkbenchFile>)}
+  {#if column.id === RAIL_COLUMNS.name}
+    <span class="flex min-w-0 items-center gap-8">
+      <FileIcon fileName={row.name} contentType={row.declaredMediaType} size="sm" />
+      <span class="block truncate" title={row.name}>{row.name}</span>
+    </span>
+  {:else if column.id === RAIL_COLUMNS.safety}
+    {@const status = scanStatus(scanVerdictOf(row))}
+    <Badge variant={status.tone} title={status.meaning}>{status.label}</Badge>
+  {:else if column.id === RAIL_COLUMNS.actions}
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        class={buttonClasses({ variant: "ghost", size: "icon" })}
+        title="What you can do with {row.name}"
+        aria-label="What you can do with {row.name}"
+      >
+        <EllipsisVertical class="size-16" aria-hidden="true" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end">
+        {#each rowMenuItems(row) as item (item.identifier)}
+          {@const Icon = item.icon}
+          <DropdownMenu.Item
+            disabled={item.disabledReason !== undefined}
+            title={item.disabledReason}
+            onSelect={() => runRowAction(item, row)}
+          >
+            <Icon class="size-16" aria-hidden="true" />
+            {item.label}
+          </DropdownMenu.Item>
         {/each}
-      </ul>
-    {/if}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  {:else}
+    <span class="block truncate" title={text}>{text}</span>
+  {/if}
+{/snippet}
 
-    {#each { length: arriving } as _, index (index)}
-      <Skeleton class="h-40 w-full" />
-    {/each}
+{#snippet emptyBench()}
+  <!-- Short on purpose: this sits in a narrow pane, and a paragraph here would be clipped by the
+       column it lives in rather than read. What the workbench does and does not keep is said in the
+       masthead, where there is room for it. -->
+  <EmptyState title="Nothing on the Workbench">Drop a file here, or add one.</EmptyState>
+{/snippet}
 
-    <Dropzone
-      label="Add files to the workbench"
-      prompt={files.length > 0 ? "Drop more files here" : "Drop files here, or use the button"}
-      multiple
-      {onFiles}
-    />
-  </div>
-
-  <div
-    class="flex items-center gap-8 border-t border-border-default px-12 py-8 text-xs text-text-muted"
-  >
-    {#if files.length === 0}
-      <span>No files yet</span>
-    {:else}
+<div class="flex h-full min-h-0 flex-col border-e border-border-default">
+  <div class="flex items-center gap-8 border-b border-border-default px-12 py-8">
+    <Button variant="secondary" size="sm" onclick={() => picker?.click()}>
+      <Upload class="size-16" aria-hidden="true" />
+      Add Files
+    </Button>
+    <DataTable.GridColumnsMenu {grid} />
+    {#if selectedKeys.length > 0}
       <Button
         variant="ghost"
         size="sm"
-        onclick={allSelected ? onClear : onSelectAll}
-        class="tabular-nums"
+        class="ms-auto"
+        onclick={() => onDiscard(selectedKeys)}
       >
-        {selection.selected.size} of {files.length} selected
+        <Trash2 class="size-16" aria-hidden="true" />
+        Discard
       </Button>
     {/if}
+    <!-- The real control, off-screen but focusable through the button above it: a file picker is
+         the one thing a page cannot open without a native input. -->
+    <input
+      bind:this={picker}
+      type="file"
+      multiple
+      class="sr-only"
+      aria-label="Add files to the workbench"
+      onchange={pick}
+    />
   </div>
+
+  <!-- The drop region is the list itself. The border is the only thing that changes under a drag,
+       so no row moves and nothing is covered. -->
+  <div
+    class="flex min-h-0 flex-1 flex-col border-2 border-transparent"
+    class:border-accent-default={dropTarget.over}
+    class:bg-accent-subtle={dropTarget.over}
+    {...dropTarget.handlers}
+  >
+    <DataTable.Grid
+      {grid}
+      {cell}
+      density="compact"
+      caption="Files on the workbench"
+      empty={emptyBench}
+      class="min-h-0 flex-1"
+    />
+  </div>
+
+  <DataTable.GridFooter {grid} />
 </div>

@@ -10,10 +10,10 @@
    *
    * The original is never replaced. A conversion produces a new file beside it.
    */
+  import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
-  import Badge from "@magna-carta/design-system/badge";
   import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
-  import FactRows, { type Fact } from "../parts/fact-rows.svelte";
+  import FactTable, { type Fact } from "../parts/fact-table.svelte";
   import Absence from "../parts/absence.svelte";
   import SectionHeading from "../parts/section-heading.svelte";
   import { sharedConversionTargets, conversionTargetsFor } from "../conversion-targets.ts";
@@ -43,20 +43,25 @@
 </script>
 
 <div class="flex flex-col gap-24">
-  <FactRows {facts} />
+  <FactTable title="This Conversion" {facts} />
 
   {#if files.length > 1}
-    <div class="flex flex-col gap-8">
-      <SectionHeading>The Selection</SectionHeading>
-      <ul class="m-0 flex list-none flex-col gap-4 p-0">
+    <DataTable.Root class="w-full">
+      <DataTable.Header>
+        <DataTable.Row>
+          <DataTable.Head>File</DataTable.Head>
+          <DataTable.Head>Reads as</DataTable.Head>
+        </DataTable.Row>
+      </DataTable.Header>
+      <DataTable.Body>
         {#each files as file (file.id)}
-          <li class="flex items-baseline justify-between gap-16 text-sm">
-            <span class="min-w-0 truncate">{file.name}</span>
-            <span class="text-xs text-text-subtle">{describeType(file)}</span>
-          </li>
+          <DataTable.Row>
+            <DataTable.Cell class="max-w-0 truncate" title={file.name}>{file.name}</DataTable.Cell>
+            <DataTable.Cell class="text-text-muted">{describeType(file)}</DataTable.Cell>
+          </DataTable.Row>
         {/each}
-      </ul>
-    </div>
+      </DataTable.Body>
+    </DataTable.Root>
   {/if}
 
   <div class="flex flex-col gap-8">

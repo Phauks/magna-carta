@@ -6,7 +6,6 @@
  */
 import FileCheck from "@lucide/svelte/icons/file-check";
 import { assertPermission } from "@magna-carta/access-control/registry";
-import FileTypePanel from "../panels/file-type-panel.svelte";
 import { APPLIES, type CapabilityModule } from "../capability.ts";
 import { fileTypeOf } from "../file-facts.ts";
 import { FILE_TYPE_CAPABILITY } from "../workbench-file.ts";
@@ -36,5 +35,4 @@ export const fileTypeCapability: CapabilityModule = {
     return { label: "What it is", value: report.detectedLabel };
   },
   pendingAction: "Identify This File",
-  panel: FileTypePanel,
 };

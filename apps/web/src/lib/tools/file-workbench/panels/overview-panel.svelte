@@ -8,7 +8,7 @@
    * and one whose reading does not apply to this file contributes nothing rather than a blank row.
    */
   import Button from "@magna-carta/design-system/button";
-  import FactRows, { type Fact } from "../parts/fact-rows.svelte";
+  import FactTable, { type Fact } from "../parts/fact-table.svelte";
   import SectionHeading from "../parts/section-heading.svelte";
   import { CAPABILITIES, summaryRowsFor } from "../capabilities.ts";
   import { formatExactBytes, formatSize } from "../workbench-file.ts";
@@ -16,10 +16,16 @@
 
   let { file, onOpenCapability }: CapabilityPanelProps = $props();
 
-  const identity = $derived.by((): Fact[] => [
-    { label: "Name", value: file.name },
-    { label: "Size", value: formatSize(file.sizeBytes), note: formatExactBytes(file.sizeBytes) },
-  ]);
+  const identity = $derived.by((): Fact[] => {
+    const readable = formatSize(file.sizeBytes);
+    const exact = formatExactBytes(file.sizeBytes);
+    return [
+      { label: "Name", value: file.name },
+      // The exact count only rides along when it says something the readable figure does not. On a
+      // small file the two are the same string, and printing it twice reads as a rendering fault.
+      { label: "Size", value: readable, note: readable === exact ? undefined : exact },
+    ];
+  });
 
   const findings = $derived(
     summaryRowsFor(file).map(
@@ -37,7 +43,10 @@
 </script>
 
 <div class="flex flex-col gap-24">
-  <FactRows facts={[...identity, ...findings]} />
+  <FactTable title="The File" facts={identity} />
+  {#if findings.length > 0}
+    <FactTable title="What Has Been Read" facts={findings} />
+  {/if}
 
   {#if offers.length > 0}
     <div class="flex flex-col gap-8">

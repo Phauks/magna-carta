@@ -5,7 +5,6 @@
  */
 import Fingerprint from "@lucide/svelte/icons/fingerprint";
 import { assertPermission } from "@magna-carta/access-control/registry";
-import HashPanel from "../panels/hash-panel.svelte";
 import { APPLIES, type CapabilityModule } from "../capability.ts";
 import type { BrowserDigests } from "../digest.ts";
 import { outcomeFor } from "../workbench-file.ts";
@@ -34,5 +33,4 @@ export const hashCapability: CapabilityModule = {
     return { label: "SHA-256", value: abbreviate(outcome.value["SHA-256"]) };
   },
   pendingAction: "Compute the Digests",
-  panel: HashPanel,
 };

@@ -8,7 +8,7 @@
    */
   import Badge from "@magna-carta/design-system/badge";
   import type { ExtensionMatch } from "@magna-carta/file-type";
-  import FactRows, { type Fact } from "../parts/fact-rows.svelte";
+  import FactTable, { type Fact } from "../parts/fact-table.svelte";
   import Absence from "../parts/absence.svelte";
   import { fileTypeOf } from "../file-facts.ts";
   import type { CapabilityPanelProps } from "../capability.ts";
@@ -53,7 +53,7 @@
       <Badge variant={match.variant}>{match.label}</Badge>
       <span class="text-sm text-text-muted">{identified.report.note}</span>
     </div>
-    <FactRows {facts} />
+    <FactTable title="What the Bytes Say" {facts} />
   </div>
 {:else}
   <Absence kind="not-run" reason="This file has not been identified." />

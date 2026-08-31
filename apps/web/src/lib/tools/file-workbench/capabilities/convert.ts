@@ -7,7 +7,6 @@
  */
 import FileCog from "@lucide/svelte/icons/file-cog";
 import { assertPermission } from "@magna-carta/access-control/registry";
-import ConvertPanel from "../panels/convert-panel.svelte";
 import { APPLIES, notApplicable, type CapabilityModule } from "../capability.ts";
 import { conversionTargetsFor } from "../conversion-targets.ts";
 import { describeType, detectedLabelOf } from "../file-facts.ts";
@@ -37,5 +36,4 @@ export const convertCapability: CapabilityModule = {
     };
   },
   pendingAction: "Convert the Selection",
-  panel: ConvertPanel,
 };

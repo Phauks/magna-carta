@@ -11,8 +11,13 @@
    * actually switches is which reading of this one file is on show. The file list and the file
    * itself do not change when a tab does, so the tabs do not sit above them.
    *
-   * There is no separate empty screen. With nothing dropped this is the same three panes with
-   * nothing in them, each saying what it is missing.
+   * THE PREVIEW IS THE READER'S TO KEEP OR CLOSE, on every tab. It is not tied to which capability
+   * is open: somebody reading a metadata table often wants the page beside it, and somebody working
+   * a long conversion list wants the width. So it is one control that holds across tabs, and a file
+   * with nothing to draw closes it on its own without touching what the reader chose.
+   *
+   * There is no separate empty screen. With nothing dropped this is the same panes with nothing in
+   * them, each saying what it is missing.
    */
   import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Tabs from "@magna-carta/design-system/tabs";
@@ -23,28 +28,25 @@
   import Absence from "./parts/absence.svelte";
   import { overviewCapability } from "./overview.ts";
   import { permittedCapabilities } from "./capabilities.ts";
-  import {
-    applySelection,
-    EMPTY_SELECTION,
-    reconcile,
-    selectAll,
-    type SelectionGesture,
-    type SelectionState,
-  } from "./selection.ts";
+  import { clipboardTextFor, type RowMenuItem } from "./row-menu.ts";
   import type { CapabilityModule } from "./capability.ts";
   import type { EphemeralFileSource } from "./ephemeral-source.svelte.ts";
+  import type { WorkbenchFile } from "./workbench-file.ts";
   import type { Permission } from "@magna-carta/access-control/registry";
 
   let {
     source,
     permissions,
     capabilityId = $bindable(),
+    previewOpen = false,
   }: {
     source: EphemeralFileSource;
     /** What the member holds. A capability they lack is hidden in place; nothing reorders. */
     permissions: ReadonlySet<Permission>;
     /** The capability on show, mirrored into the address so a reading can be linked to. */
     capabilityId: string;
+    /** Whether the reader wants the file drawn beside its readings. Holds across tabs. */
+    previewOpen?: boolean;
   } = $props();
 
   // Overview leads because it is the synthesis of the rest, not one more thing you can do.
@@ -53,26 +55,15 @@
     ...permittedCapabilities(permissions),
   ]);
 
-  let selection = $state<SelectionState>(EMPTY_SELECTION);
+  // Selection lives in the grid — it is the product's one table and owns its own rows. The body
+  // only needs to know which keys are selected and which row is in focus.
+  let selectedKeys = $state<readonly string[]>([]);
+  let activeId = $state<string | null>(null);
 
-  // Files arrive and are discarded while the selection stands, so it is reconciled against the list
-  // rather than trusted: a bulk action must never name a file that is no longer on the workbench.
-  $effect(() => {
-    const ids = source.files.map((file) => file.id);
-    const next = reconcile(selection, ids);
-    if (
-      next.activeId !== selection.activeId ||
-      next.selected.size !== selection.selected.size ||
-      [...next.selected].some((id) => !selection.selected.has(id))
-    ) {
-      selection = next;
-    }
-  });
-
-  const activeFile = $derived(
-    source.files.find((file) => file.id === selection.activeId) ?? null,
+  const activeFile = $derived(source.files.find((file) => file.id === activeId) ?? null);
+  const selectedFiles = $derived(
+    source.files.filter((file) => selectedKeys.includes(file.id)),
   );
-  const selectedFiles = $derived(source.files.filter((file) => selection.selected.has(file.id)));
   const activeCapability = $derived(
     tabs.find((capability) => capability.id === capabilityId) ?? overviewCapability,
   );
@@ -85,43 +76,44 @@
         ? [activeFile]
         : [],
   );
-
-  function select(gesture: SelectionGesture): void {
-    selection = applySelection(
-      selection,
-      gesture,
-      source.files.map((file) => file.id),
-    );
-  }
+  // The reader's choice, and what this particular file can honour. A file with nothing to draw
+  // shows no pane and leaves the choice standing for the next file that has something.
+  const previewShown = $derived(
+    previewOpen && activeFile !== null && activeFile.preview.kind !== "none",
+  );
 
   function openCapability(capability: CapabilityModule): void {
     capabilityId = capability.id;
   }
+
+  async function runRowAction(item: RowMenuItem, file: WorkbenchFile): Promise<void> {
+    const text = clipboardTextFor(item, file);
+    if (text !== null) await navigator.clipboard.writeText(text);
+  }
 </script>
 
 <Resizable.PaneGroup direction="horizontal" autoSaveId="file-workbench-panes" class="min-h-0 flex-1">
-  <Resizable.Pane defaultSize={20} minSize={14} maxSize={26}>
+  <Resizable.Pane defaultSize={30} minSize={18} maxSize={48}>
     <FileRail
       files={source.files}
-      arriving={source.arriving}
-      {selection}
-      onSelect={select}
-      onSelectAll={() => (selection = selectAll(source.files.map((file) => file.id)))}
-      onClear={() => (selection = EMPTY_SELECTION)}
+      bind:selectedKeys
+      bind:activeId
       onFiles={(dropped) => void source.add(dropped)}
+      onDiscard={(ids) => source.discard(ids)}
+      onRowAction={(item, file) => void runRowAction(item, file)}
     />
   </Resizable.Pane>
 
-  {#if activeFile !== null && activeFile.preview.kind !== "none"}
+  {#if previewShown}
     <Resizable.Handle withHandle />
-    <Resizable.Pane defaultSize={36} minSize={22}>
-      <FilePreview preview={activeFile.preview} name={activeFile.name} />
+    <Resizable.Pane defaultSize={30} minSize={18}>
+      <FilePreview preview={activeFile!.preview} name={activeFile!.name} />
     </Resizable.Pane>
   {/if}
 
   <Resizable.Handle withHandle />
 
-  <Resizable.Pane defaultSize={44} minSize={28}>
+  <Resizable.Pane defaultSize={40} minSize={26}>
     <Tabs.Root bind:value={capabilityId} class="h-full min-h-0 gap-12 p-20 pt-16">
       {#if activeFile !== null}
         <FileHeader file={activeFile} />
@@ -143,7 +135,9 @@
         {#if activeFile === null}
           <Absence
             kind="not-run"
-            reason="Readings appear here once a file is on the workbench."
+            reason={source.files.length === 0
+              ? "Readings appear here once a file is on the workbench."
+              : "Choose a file from the list to see what has been read about it."}
           />
         {:else}
           <!-- The stage mark is not repeated here: a capability that is not served yet renders

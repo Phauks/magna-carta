@@ -39,7 +39,7 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 **Check that a file is what it claims to be**
 
 1. Open **Tools**, then **File Workbench**.
-2. Drop the file on the list at the left.
+2. Drop the file anywhere on the list at the left, or use **Add Files** above it.
 3. Open the **Type** tab. It says what the bytes read as, what the name claims, and whether the two agree.
 
 **Confirm a file matches a hash you were given**
@@ -51,13 +51,21 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 **Convert several files at once**
 
 1. Drop all of them on the workbench.
-2. Select them: click the first, then shift-click the last for a run of files, or hold Ctrl (Cmd on a Mac) and click to pick out individual ones. The count at the bottom of the list says how many are selected, and clicking it selects or clears them all.
+2. Select them: click the first, then shift-click the last for a run of files, or hold Ctrl (Cmd on a Mac) and click to pick out individual ones. The bar under the list says how many files there are and how many are selected.
 3. Open the **Convert** tab. It offers only the formats **every** selected file can become, so a conversion cannot fail halfway through. If a format you expected is missing, one of the files in the selection cannot reach it; narrow the selection and it comes back.
+
+**Sort and narrow the list**
+
+The list is a table. Click a column heading to sort by it; click again to reverse. **Columns** above the list adds **Added** and **Safety**, which start hidden because the pane is narrow, and it can hide any column you do not want. Each heading also carries a filter, so you can show only the PDFs, or only files above a size.
+
+**Get rid of a file**
+
+Each row has a **⋮** menu with **Discard** in it, along with **Copy Name** and **Copy SHA-256**. To clear several at once, select them and use **Discard** above the list. Everything goes when you close the page in any case.
 
 ## Things worth knowing
 
 - **The fingerprints are calculated on your own computer.** They are the right figure for checking a file against one somebody sent you. A fingerprint that goes into a court record is calculated by Magna Carta's servers over the file they received, which is a different guarantee, and the tab says which one you are looking at.
-- **Some files have no preview.** An archive, a program, and an encrypted document have nothing to show, and the workbench says so rather than holding an empty frame open.
+- **Some files have no preview.** An archive, a program, and an encrypted document have nothing to show, and the workbench says so rather than holding an empty frame open. **Hide Preview** at the top right closes the picture on every tab and gives the readings the width; **Show Preview** brings it back.
 - **The name is not the answer.** Everything here reads the file itself. Where the file and its name disagree, the workbench reports the file.
 - **Recovering a lost password is not done here.** Unlocking a document you have the password for takes a moment. Searching for a password nobody has can run for days, so it does not run on a bench that clears itself; it goes to a screen of its own that can be left running.
 

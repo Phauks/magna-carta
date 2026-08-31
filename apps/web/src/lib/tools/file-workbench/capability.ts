@@ -87,7 +87,11 @@ export interface CapabilityModule {
   readonly scope: CapabilityScope;
   /** One line, plain language, for the tab's tooltip and the pending panel. */
   readonly description: string;
-  /** What this capability needs before it can do its work for real. Null once it is `ready`. */
+  /**
+   * What this capability needs before it can do its work for real, as a noun phrase. Null means it
+   * IS served: it has a panel in capability-panels.ts and renders real findings. A capability with
+   * an `awaiting` gets the standard pending treatment instead.
+   */
   readonly awaiting: string | null;
   /** Whether there is anything to do on this file, and the reason when there is not. */
   applies(file: WorkbenchFile): Applicability;
@@ -99,10 +103,18 @@ export interface CapabilityModule {
    * says on it.
    */
   readonly pendingAction: string;
-  /**
-   * This capability's own panel. A capability without one gets the standard pending treatment —
-   * its control, disabled, with the Soon mark and `awaiting` beneath it. Giving a capability a real
-   * surface is adding this one field.
-   */
-  readonly panel?: Component<CapabilityPanelProps>;
 }
+
+/*
+ * WHY THE PANEL IS NOT ON THE MODULE. A capability's panel is a Svelte component built on the
+ * design system, and the design system is built on bits-ui — which golden rule 2 confines to
+ * `packages/design-system/src`, strictly enough that even a test config naming it fails the gate.
+ * Hanging the component off the module would drag every panel into the registry, and the registry
+ * is exactly what the fitness tests import to check that the capabilities are complete and that a
+ * scan verdict changes nothing.
+ *
+ * So the decision layer (this file, capabilities.ts, and every module in capabilities/) is
+ * DOM-free and testable, and the id-to-component map lives on its own in capability-panels.ts,
+ * imported only by the component that renders it. Which capability has a real surface is still
+ * declared here, in one place a test can read: `awaiting === null`.
+ */

@@ -7,7 +7,6 @@
  */
 import LayoutList from "@lucide/svelte/icons/layout-list";
 import { assertPermission } from "@magna-carta/access-control/registry";
-import OverviewPanel from "./panels/overview-panel.svelte";
 import { APPLIES, type CapabilityModule } from "./capability.ts";
 
 export const OVERVIEW_CAPABILITY = "overview";
@@ -24,5 +23,4 @@ export const overviewCapability: CapabilityModule = {
   awaiting: null,
   applies: () => APPLIES,
   pendingAction: "Read This File",
-  panel: OverviewPanel,
 };

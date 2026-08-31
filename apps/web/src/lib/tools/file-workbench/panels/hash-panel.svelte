@@ -12,7 +12,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Copy from "@lucide/svelte/icons/copy";
-  import FactRows, { type Fact } from "../parts/fact-rows.svelte";
+  import FactTable, { type Fact } from "../parts/fact-table.svelte";
   import Absence from "../parts/absence.svelte";
   import SectionHeading from "../parts/section-heading.svelte";
   import {
@@ -72,7 +72,7 @@
 
 {#if digests}
   <div class="flex flex-col gap-24">
-    <FactRows {facts} />
+    <FactTable title="Fingerprints" {facts} />
 
     <div class="flex flex-col gap-8">
       <SectionHeading>Confirm It Has Not Changed</SectionHeading>
