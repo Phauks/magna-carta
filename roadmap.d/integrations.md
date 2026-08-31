@@ -203,7 +203,7 @@
   surface: screen
   adrs: ADR-0103
   spec: docs/specs/2026-06-17-firm-usage-diagnostics-design.md
-  evidence: apps/api-worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage) composing per-domain reads from matters, file-manager, locations, directory, data-access, and search; the tables-only screen at apps/web/src/routes/(app)/tools/firm-usage/ per docs/decisions/pending/firm-usage-is-quantitative-tables-computed-on-request.md.
+  evidence: apps/api-worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage) composing per-domain reads from matters, file-manager, locations, directory, data-access, and search; the tables-only screen built over apps/web/src/lib/tools/firm-usage/ per docs/decisions/pending/firm-usage-is-quantitative-tables-computed-on-request.md.
   notes: Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings are a reserved column and per-firm compute a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral).
 
 - id: integrations.tools-area.network-speed-test

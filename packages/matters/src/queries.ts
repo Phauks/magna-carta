@@ -290,12 +290,14 @@ export async function readMatterCountsByType(
     byName.set(row.type_name, bucket);
   }
   return [...byName.entries()]
-    .map(([matterTypeName, bucket]) => ({
-      matterTypeName,
-      ...bucket,
-      total: bucket.prospective + bucket.open + bucket.closed,
-    }))
-    .sort((a, b) => b.total - a.total || (a.matterTypeName ?? "").localeCompare(b.matterTypeName ?? ""));
+    .map(([matterTypeName, bucket]) =>
+      Object.assign({ matterTypeName }, bucket, {
+        total: bucket.prospective + bucket.open + bucket.closed,
+      }),
+    )
+    .sort(
+      (a, b) => b.total - a.total || (a.matterTypeName ?? "").localeCompare(b.matterTypeName ?? ""),
+    );
 }
 
 export interface MatterLocationCount {
