@@ -53,11 +53,15 @@ export interface FirmUsageLocationRow {
   status: "active" | "closed";
   matters: number;
   members: number;
+  custodyItems: number;
 }
 
 export interface FirmUsageByLocation {
   rows: FirmUsageLocationRow[];
   mattersWithoutLocation: number;
+  // Custody-register items held under an external root (a bank vault, an offsite vendor) — real
+  // holdings at none of the firm's offices.
+  custodyItemsOffsite: number;
 }
 
 export interface FirmUsageDirectory {

@@ -4,10 +4,9 @@
    * local state on a table this size; the header buttons reuse the design system's mc-table-sort
    * recipe so the affordance reads the same as every other sortable header.
    *
-   * The Custodian Items column is a reserved seam: the custody rollup is not wired to this read
-   * yet, so every cell says "Not yet reported" rather than the column quietly not existing. The
-   * "No Location Assigned" and totals rows sit outside the sort — one is a remainder, the other a
-   * sum, and neither is a location.
+   * The "No Location Assigned", "Held Offsite", and totals rows sit outside the sort — the first
+   * is a remainder, the second collects custody items held under an external root (a bank vault,
+   * an offsite vendor), the third is a sum, and none of them is a location.
    */
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
@@ -35,7 +34,7 @@
     { key: "status", label: "Status", numeric: false },
     { key: "matters", label: "Matters", numeric: true },
     { key: "members", label: "Members", numeric: true },
-    { key: "custodianItems", label: "Custodian Items", numeric: true },
+    { key: "custodyItems", label: "Custodian Items", numeric: true },
   ];
 
   let sortKey = $state<LocationSortKey | null>(null);
@@ -58,6 +57,10 @@
     byLocation.rows.reduce((sum, row) => sum + row.matters, 0) + byLocation.mattersWithoutLocation,
   );
   const totalMembers = $derived(byLocation.rows.reduce((sum, row) => sum + row.members, 0));
+  const totalCustodyItems = $derived(
+    byLocation.rows.reduce((sum, row) => sum + row.custodyItems, 0) +
+      byLocation.custodyItemsOffsite,
+  );
 
   const TOTALS_CELL = "border-t border-border-strong font-semibold";
 </script>
@@ -92,9 +95,7 @@
         <DataTable.Cell>{row.status === "active" ? "Active" : "Closed"}</DataTable.Cell>
         <DataTable.Cell data-align="end">{formatCount(row.matters)}</DataTable.Cell>
         <DataTable.Cell data-align="end">{formatCount(row.members)}</DataTable.Cell>
-        <DataTable.Cell data-align="end">
-          <span class="text-text-muted">Not yet reported</span>
-        </DataTable.Cell>
+        <DataTable.Cell data-align="end">{formatCount(row.custodyItems)}</DataTable.Cell>
       </DataTable.Row>
     {/each}
     {#if byLocation.mattersWithoutLocation > 0}
@@ -108,7 +109,22 @@
           <span class="text-text-muted">{ABSENT_MARKER}</span>
         </DataTable.Cell>
         <DataTable.Cell data-align="end">
-          <span class="text-text-muted">Not yet reported</span>
+          <span class="text-text-muted">{ABSENT_MARKER}</span>
+        </DataTable.Cell>
+      </DataTable.Row>
+    {/if}
+    {#if byLocation.custodyItemsOffsite > 0}
+      <DataTable.Row>
+        <DataTable.Cell><span class="text-text-muted">Held Offsite</span></DataTable.Cell>
+        <DataTable.Cell><span class="text-text-muted">{ABSENT_MARKER}</span></DataTable.Cell>
+        <DataTable.Cell data-align="end">
+          <span class="text-text-muted">{ABSENT_MARKER}</span>
+        </DataTable.Cell>
+        <DataTable.Cell data-align="end">
+          <span class="text-text-muted">{ABSENT_MARKER}</span>
+        </DataTable.Cell>
+        <DataTable.Cell data-align="end">
+          {formatCount(byLocation.custodyItemsOffsite)}
         </DataTable.Cell>
       </DataTable.Row>
     {/if}
@@ -118,7 +134,7 @@
       <DataTable.Cell data-align="end" class={TOTALS_CELL}>{formatCount(totalMatters)}</DataTable.Cell>
       <DataTable.Cell data-align="end" class={TOTALS_CELL}>{formatCount(totalMembers)}</DataTable.Cell>
       <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-        <span class="font-normal text-text-muted">{ABSENT_MARKER}</span>
+        {formatCount(totalCustodyItems)}
       </DataTable.Cell>
     </DataTable.Row>
   </DataTable.Body>

@@ -3,11 +3,20 @@
  * delivery the speed test settled on. First column left-aligned, every other column right-aligned,
  * because the figures sit to the right in every on-screen table this renders.
  */
-import type { TabularExportDocument, TabularExportSection } from "./tabular-export.ts";
+import {
+  exportCellText,
+  type TabularExportCell,
+  type TabularExportDocument,
+  type TabularExportSection,
+} from "./tabular-export.ts";
 
 function renderTable(section: TabularExportSection): string {
+  const cellText = (row: readonly TabularExportCell[], columnIndex: number): string => {
+    const cell = row[columnIndex];
+    return cell === undefined ? "" : exportCellText(cell);
+  };
   const widths = section.headers.map((header, columnIndex) =>
-    Math.max(header.length, ...section.rows.map((row) => (row[columnIndex] ?? "").length)),
+    Math.max(header.length, ...section.rows.map((row) => cellText(row, columnIndex).length)),
   );
   const renderRow = (row: readonly string[]): string =>
     row
@@ -18,7 +27,10 @@ function renderTable(section: TabularExportSection): string {
       )
       .join("  ")
       .trimEnd();
-  return [renderRow(section.headers), ...section.rows.map(renderRow)].join("\n");
+  return [
+    renderRow(section.headers),
+    ...section.rows.map((row) => renderRow(row.map(exportCellText))),
+  ].join("\n");
 }
 
 export function renderTextExport(exportDocument: TabularExportDocument): string {

@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { CustodyLocationId, LocationId } from "@magna-carta/identifiers/types";
+import { CUSTODY_ITEM_TABLE } from "./packet-statements.ts";
 import type { CustodyLocationKind, CustodyLocationStatus } from "./types.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync
@@ -174,4 +175,37 @@ export async function readCustodyLocationOccupancy(
     occupancy: number;
   }>();
   return results[0]?.occupancy ?? 0;
+}
+
+// Items currently on a shelf, rolled up to the firm office the shelf's ROOT binds to — the
+// firm-usage read. Only a root may carry firm_location_id (the schema check refuses a mid-tree
+// claim), so a child inherits its office by walking up; the walk is bounded like the subtree read,
+// and the one-row-per-node subquery keeps a hand-introduced cycle from counting an item twice.
+// `held` is the only status that means "on the shelf now": an item checked out on its own leaves
+// its packet's location intact, so the item's status must be asked too, while a packet that is out,
+// released, destroyed, or lost carries no location and drops out of the join — the shelf really is
+// empty. A NULL firm_location_id row collects everything held under an external root (a bank
+// vault, an offsite vendor), which is deliberately not one of the firm's offices.
+export function selectCustodyItemCountsByFirmLocationStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `WITH RECURSIVE office_tree(id, firm_location_id, depth) AS (
+         SELECT id, firm_location_id, 0 FROM ${CUSTODY_LOCATION_TABLE} WHERE parent_location_id IS NULL
+         UNION ALL
+         SELECT child.id, office_tree.firm_location_id, office_tree.depth + 1
+           FROM ${CUSTODY_LOCATION_TABLE} AS child
+           JOIN office_tree ON child.parent_location_id = office_tree.id
+          WHERE office_tree.depth < ?1
+       )
+       SELECT office_node.firm_location_id AS firm_location_id, COUNT(*) AS items
+         FROM ${CUSTODY_ITEM_TABLE} AS item
+         JOIN ${CUSTODY_PACKET_TABLE} AS packet ON packet.id = item.packet_id
+         JOIN (SELECT id, MIN(firm_location_id) AS firm_location_id FROM office_tree GROUP BY id) AS office_node
+           ON office_node.id = packet.current_location_id
+        WHERE item.status = 'held' AND packet.status = 'held'
+        GROUP BY office_node.firm_location_id`,
+    )
+    .bind(MAX_SUBTREE_WALK_DEPTH);
 }

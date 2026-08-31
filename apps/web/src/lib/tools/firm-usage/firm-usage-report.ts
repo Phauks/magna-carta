@@ -3,7 +3,7 @@
  * renders the same figures the screen showed, through the same formatters. Pure over the response,
  * unit-testable without a DOM.
  */
-import type { TabularExportDocument } from "$lib/export/tabular-export.ts";
+import type { TabularExportCell, TabularExportDocument } from "$lib/export/tabular-export.ts";
 import type { FirmUsageResponse } from "./firm-usage-api.ts";
 import {
   ABSENT_MARKER,
@@ -14,7 +14,12 @@ import {
 } from "./firm-usage-format.ts";
 
 const NOT_YET_MEASURED = "Not yet measured";
-const NOT_YET_REPORTED = "Not yet reported";
+
+// A count carries both faces: the grouped text the text and CSV renderers print, and the raw
+// number the Excel renderer writes as a real cell, so a reader can sum a column.
+function count(value: number): TabularExportCell {
+  return { text: formatCount(value), number: value };
+}
 
 export function firmUsageExportDocument(
   usage: FirmUsageResponse,
@@ -33,6 +38,9 @@ export function firmUsageExportDocument(
     usage.byLocation.rows.reduce((sum, row) => sum + row.matters, 0) +
     usage.byLocation.mattersWithoutLocation;
   const totalMembers = usage.byLocation.rows.reduce((sum, row) => sum + row.members, 0);
+  const totalCustodyItems =
+    usage.byLocation.rows.reduce((sum, row) => sum + row.custodyItems, 0) +
+    usage.byLocation.custodyItemsOffsite;
 
   return {
     title: "Firm Usage",
@@ -45,13 +53,13 @@ export function firmUsageExportDocument(
         rows: [
           [
             "Standard",
-            formatCount(usage.storage.byStorageClass.standard.objects),
+            count(usage.storage.byStorageClass.standard.objects),
             formatByteSize(usage.storage.byStorageClass.standard.bytes),
             formatShare(usage.storage.byStorageClass.standard.bytes, usage.storage.totalBytes),
           ],
           [
             "Infrequent Access",
-            formatCount(usage.storage.byStorageClass.infrequent_access.objects),
+            count(usage.storage.byStorageClass.infrequent_access.objects),
             formatByteSize(usage.storage.byStorageClass.infrequent_access.bytes),
             formatShare(
               usage.storage.byStorageClass.infrequent_access.bytes,
@@ -60,7 +68,7 @@ export function firmUsageExportDocument(
           ],
           [
             "Total",
-            formatCount(usage.storage.totalObjects),
+            count(usage.storage.totalObjects),
             formatByteSize(usage.storage.totalBytes),
             formatShare(usage.storage.totalBytes, usage.storage.totalBytes),
           ],
@@ -72,17 +80,17 @@ export function firmUsageExportDocument(
         rows: [
           ...usage.mattersByType.map((row) => [
             row.matterTypeName ?? "No Type Assigned",
-            formatCount(row.prospective),
-            formatCount(row.open),
-            formatCount(row.closed),
-            formatCount(row.total),
+            count(row.prospective),
+            count(row.open),
+            count(row.closed),
+            count(row.total),
           ]),
           [
             "Total",
-            formatCount(mattersTotals.prospective),
-            formatCount(mattersTotals.open),
-            formatCount(mattersTotals.closed),
-            formatCount(mattersTotals.total),
+            count(mattersTotals.prospective),
+            count(mattersTotals.open),
+            count(mattersTotals.closed),
+            count(mattersTotals.total),
           ],
         ],
       },
@@ -92,22 +100,22 @@ export function firmUsageExportDocument(
         rows: [
           [
             "Current Files",
-            formatCount(usage.files.currentFiles.count),
+            count(usage.files.currentFiles.count),
             formatByteSize(usage.files.currentFiles.bytes),
           ],
           [
             "Prior Versions",
-            formatCount(usage.files.priorVersions.count),
+            count(usage.files.priorVersions.count),
             formatByteSize(usage.files.priorVersions.bytes),
           ],
           [
             "All Versions",
-            formatCount(usage.files.allVersions.count),
+            count(usage.files.allVersions.count),
             formatByteSize(usage.files.allVersions.bytes),
           ],
           [
             "Deleted Files",
-            formatCount(usage.files.deletedFiles.count),
+            count(usage.files.deletedFiles.count),
             formatByteSize(usage.files.deletedFiles.bytes),
           ],
         ],
@@ -119,44 +127,55 @@ export function firmUsageExportDocument(
           ...usage.byLocation.rows.map((row) => [
             row.name,
             row.status === "active" ? "Active" : "Closed",
-            formatCount(row.matters),
-            formatCount(row.members),
-            NOT_YET_REPORTED,
+            count(row.matters),
+            count(row.members),
+            count(row.custodyItems),
           ]),
           ...(usage.byLocation.mattersWithoutLocation > 0
             ? [
                 [
                   "No Location Assigned",
                   ABSENT_MARKER,
-                  formatCount(usage.byLocation.mattersWithoutLocation),
+                  count(usage.byLocation.mattersWithoutLocation),
                   ABSENT_MARKER,
-                  NOT_YET_REPORTED,
+                  ABSENT_MARKER,
                 ],
               ]
             : []),
-          ["Total", "", formatCount(totalMatters), formatCount(totalMembers), ABSENT_MARKER],
+          ...(usage.byLocation.custodyItemsOffsite > 0
+            ? [
+                [
+                  "Held Offsite",
+                  ABSENT_MARKER,
+                  ABSENT_MARKER,
+                  ABSENT_MARKER,
+                  count(usage.byLocation.custodyItemsOffsite),
+                ],
+              ]
+            : []),
+          ["Total", "", count(totalMatters), count(totalMembers), count(totalCustodyItems)],
         ],
       },
       {
         title: "People and Organizations",
         headers: ["Record", "Count"],
         rows: [
-          ["People", formatCount(usage.directory.people)],
-          ["Organizations", formatCount(usage.directory.organizations)],
-          ["Firm Members", formatCount(usage.directory.activeMembers)],
+          ["People", count(usage.directory.people)],
+          ["Organizations", count(usage.directory.organizations)],
+          ["Firm Members", count(usage.directory.activeMembers)],
         ],
       },
       {
         title: "AI Usage",
         headers: ["Meter", "All Time"],
         rows: [
-          ["Magnus Input Tokens", formatCount(usage.aiUsage.magnusTokens.inputTokens)],
-          ["Magnus Output Tokens", formatCount(usage.aiUsage.magnusTokens.outputTokens)],
-          ["Magnus Requests", formatCount(usage.aiUsage.magnusTokens.requests)],
-          ["Semantic Search Queries", formatCount(usage.aiUsage.searchQueries.semantic)],
-          ["Full Text Search Queries", formatCount(usage.aiUsage.searchQueries.fullText)],
-          ["AI Detection Documents", formatCount(usage.aiUsage.detection.requests)],
-          ["AI Detection Words", formatCount(usage.aiUsage.detection.words)],
+          ["Magnus Input Tokens", count(usage.aiUsage.magnusTokens.inputTokens)],
+          ["Magnus Output Tokens", count(usage.aiUsage.magnusTokens.outputTokens)],
+          ["Magnus Requests", count(usage.aiUsage.magnusTokens.requests)],
+          ["Semantic Search Queries", count(usage.aiUsage.searchQueries.semantic)],
+          ["Full Text Search Queries", count(usage.aiUsage.searchQueries.fullText)],
+          ["AI Detection Documents", count(usage.aiUsage.detection.requests)],
+          ["AI Detection Words", count(usage.aiUsage.detection.words)],
           ...usage.aiUsage.notMetered.map((meter) => [notMeteredLabel(meter), NOT_YET_MEASURED]),
         ],
       },

@@ -133,8 +133,10 @@ export type FirmUsageResponse = {
             status: 'active' | 'closed';
             matters: number;
             members: number;
+            custodyItems: number;
         }>;
         mattersWithoutLocation: number;
+        custodyItemsOffsite: number;
     };
     directory: {
         people: number;

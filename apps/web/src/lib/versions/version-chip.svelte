@@ -17,19 +17,17 @@
    * ones included — a worker missing from the list reads as "everything is listed and healthy",
    * which is worse than an honest "Not deployed" row.
    *
-   * ONE WORKER SERVES BOTH THE PAGE AND THE API. `apps/api-worker/wrangler.jsonc` binds
-   * `assets: { directory: "../web/build" }`, so the SPA is bundled INTO the `magna-carta`
-   * deployment rather than shipped beside it. The panel says so under the deployment list, because
-   * the fact is invisible from the outside and its absence is expensive: a green build of the
-   * assets-only `magna-carta-web` project changes nothing about what this site serves, and
-   * watching that project go green while the old page stayed up is exactly the confusion this
-   * line exists to prevent.
+   * TWO WORKERS SERVE THE APP'S ADDRESS, split by route pattern: `magna-carta-web` serves the
+   * interface (this page included) and `magna-carta` answers the API. They deploy separately, so
+   * the page's commit and the API's commit are allowed to differ without a warning — a difference
+   * is the normal state whenever one of them shipped more recently, and the panel says so in one
+   * line under the deployment list instead of raising an alarm about it
+   * (version-overlay-model.ts records why the old "Different Builds" warning was retired).
    *
    * THE CHIP NOTICES AN UPSTREAM DEPLOY. SvelteKit's version poll (svelte.config.js names each
-   * build by its commit) compares the running bundle against what the site is serving now; when a
-   * newer deployment is live the chip carries a warning dot and the panel leads with a Reload
-   * control. The skew check (this page's commit against the API's) stays as the second detector —
-   * it catches the same fact from the other side, on a read the poll cannot make.
+   * build by its commit) compares the running bundle against what the deployment serving it is
+   * publishing now; when a newer bundle is live the chip carries a warning dot and the panel
+   * leads with a Reload control.
    *
    * TWO SCOPES, ONE COMPONENT. Inside a session (`scope="app"`) the panel reports the whole
    * deployment. On the signed-out surfaces (`scope="public"` — sign in, password reset, the
@@ -55,32 +53,30 @@
   import Separator from "@magna-carta/design-system/separator";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Check from "@lucide/svelte/icons/check";
-  import Copy from "@lucide/svelte/icons/copy";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { updated } from "$app/state";
   import { requestJson, type ApiProblem } from "$lib/api/request.ts";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import {
-    buildsDiffer,
     copyLineForPart,
     describeObservationAge,
     describeRetainedRows,
     formatVersionTimestamp,
     isRealCommit,
+    partitionDeploymentRows,
     readsServiceAggregate,
     serviceStateDescription,
     serviceStateLabel,
     versionChipLabel,
     API_WORKER_UNIT_NAME,
-    BUILD_SKEW_EXPLANATION,
     NO_SERVICES_NOTICE,
     PAGE_BUILD_ROW_NAME,
     READ_IN_FLIGHT_NOTICE,
     RELOAD_ACTION_LABEL,
     SIGNED_OUT_ESTATE_NOTICE,
     UPDATE_AVAILABLE_EXPLANATION,
-    WEB_APP_SHIPS_INSIDE_API_NOTICE,
+    WEB_TOPOLOGY_NOTICE,
     type MetaVersionsValue,
     type ServiceVersionState,
     type VersionScope,
@@ -146,7 +142,6 @@
     return () => clearInterval(ticker);
   });
 
-  const mismatch = $derived(value !== null && buildsDiffer(BUILD_IDENTITY.commit, value.api.commit));
   const observationAge = $derived(
     value === null ? null : describeObservationAge(value.observedAt, nowEpochMilliseconds),
   );
@@ -235,11 +230,11 @@
             buildTime: part.buildTime,
           })}
       >
+        <!-- No copy glyph: the button's own shape says it is pressable, and the check appearing
+             is the confirmation. The aria-label keeps stating the action for a screen reader. -->
         {part.commit}
         {#if copiedRow === part.rowKey}
           <Check class="size-16" aria-hidden="true" />
-        {:else}
-          <Copy class="size-16" aria-hidden="true" />
         {/if}
       </Button>
     {:else if stateLabel !== null}
@@ -328,22 +323,18 @@
       </div>
     {/if}
 
-    {#if updateAvailable || mismatch}
-      <!-- One callout, two detectors. The poll has a direction (a newer bundle is live), so its
-           sentence leads whenever it has fired; the skew read is the fallback that catches the
-           same fact from the API side. Both end in the same gesture. -->
+    {#if updateAvailable}
+      <!-- The one reload callout: the version poll saw a newer bundle where this page came from.
+           A page-versus-API commit difference deliberately raises nothing — the two Workers deploy
+           separately, so differing is the normal state (the topology line below says so). -->
       <div class="flex flex-col gap-4">
         <div class="flex items-center justify-between gap-8">
-          <Badge variant="warning">
-            {updateAvailable ? "Update Available" : "Different Builds"}
-          </Badge>
+          <Badge variant="warning">Update Available</Badge>
           <Button variant="secondary" size="sm" onclick={() => location.reload()}>
             {RELOAD_ACTION_LABEL}
           </Button>
         </div>
-        <p class="text-xs text-text-muted">
-          {updateAvailable ? UPDATE_AVAILABLE_EXPLANATION : BUILD_SKEW_EXPLANATION}
-        </p>
+        <p class="text-xs text-text-muted">{UPDATE_AVAILABLE_EXPLANATION}</p>
       </div>
     {/if}
 
@@ -381,8 +372,11 @@
           {#if value.services.length === 0}
             <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
           {:else}
+            {@const deploymentRows = partitionDeploymentRows(value.services)}
+            <!-- The two Workers that serve the app's address lead the list, with the topology
+                 line that explains them; the rest of the fleet sits beneath the separator. -->
             <div class="flex flex-col">
-              {#each value.services as service (service.id)}
+              {#each deploymentRows.front as service (service.id)}
                 {@render partRow({
                   rowKey: service.id,
                   name: service.service,
@@ -394,10 +388,24 @@
                 })}
               {/each}
             </div>
+            <p class="text-xs text-text-muted">{WEB_TOPOLOGY_NOTICE}</p>
+            {#if deploymentRows.rest.length > 0}
+              <Separator />
+              <div class="flex flex-col">
+                {#each deploymentRows.rest as service (service.id)}
+                  {@render partRow({
+                    rowKey: service.id,
+                    name: service.service,
+                    isWorkerName: true,
+                    state: service.state,
+                    commit: service.commit,
+                    commitTime: service.commitTime,
+                    buildTime: service.buildTime,
+                  })}
+                {/each}
+              </div>
+            {/if}
           {/if}
-          <!-- The page and magna-carta ship together, and magna-carta-web is a second door to the
-               same files — said where a reader comparing those rows will look for it. -->
-          <p class="text-xs text-text-muted">{WEB_APP_SHIPS_INSIDE_API_NOTICE}</p>
         {:else}
           <div class="flex flex-col gap-8" aria-busy="true">
             <Skeleton class="h-16 w-full" />
