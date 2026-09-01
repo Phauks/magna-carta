@@ -70,8 +70,11 @@ describe("resolveFirmBucket", () => {
   it("demands the bound bucket's name once real presigning is configured", () => {
     // Without it there is nothing to compare a firm bucket against, so the mismatch above would go
     // undetected — an unset value is a misconfiguration, not a licence to skip the check.
+    // Matched on the operator's remedy rather than the whole sentence: the failure copy was rewritten
+    // to address a reader instead of a log, and pinning prose makes an improvement to the wording
+    // look like a regression.
     expect(() => resolveFirmBucket(envWithRealPresigning({}), BOUND_BUCKET)).toThrow(
-      /R2_BUCKET_NAME is unset/,
+      /R2_BUCKET_NAME/,
     );
   });
 
@@ -85,7 +88,7 @@ describe("resolveFirmBucket", () => {
   });
 
   it("fails loudly for a firm whose provisioning never recorded a bucket", () => {
-    expect(() => resolveFirmBucket(env, null)).toThrow(/no R2 bucket/);
+    expect(() => resolveFirmBucket(env, null)).toThrow(/has not finished being provisioned/);
   });
 });
 

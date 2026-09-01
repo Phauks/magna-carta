@@ -192,10 +192,11 @@ describe("GET /api/v1/me", () => {
         // privilege: it is scoped to the session's own user id and every row is filtered by matter
         // visibility at read time, so the key grants sight of nothing the member could not already
         // reach, and a firm whose staff cannot see their own deadlines is a firm the feature failed.
-        // The three matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
-        // Attorney and Paralegal — and to neither Billing nor Read-only.
+        // The two matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
+        // Attorney and Paralegal — and to neither Billing nor Read-only. There were three until
+        // deleting a note stopped being its own act: notes:retract went with the withdrawal state
+        // the owner replaced (20260901T120000_matter-notes-edit-and-delete.sql).
         "notes:read",
-        "notes:retract",
         "notes:write",
         "notifications:read",
         // Every reports key is Owner/Admin alone — narrower than the trust and billing reads a firm
@@ -214,6 +215,12 @@ describe("GET /api/v1/me", () => {
         "support:cosign",
         "support:manage",
         "support:request",
+        // All three task keys. Owner/Admin holds every one; tasks:assign is separate from
+        // tasks:write so a firm CAN reserve who puts work in other people's names, and Billing holds
+        // read and write but not assign (20260901T150000_tasks.sql).
+        "tasks:assign",
+        "tasks:read",
+        "tasks:write",
         "templates:manage",
         "time:approve",
         "time:manageRates",

@@ -115,7 +115,7 @@ beforeAll(async () => {
 describe("GET /api/v1/notifications/preferences", () => {
   it("returns the recommended defaults for a member who has chosen nothing", async () => {
     const body = await readPreferences(ownerCookie);
-    expect(body.categories).toHaveLength(11);
+    expect(body.categories).toHaveLength(12);
     expect(categoryIn(body, "deadlines")).toMatchObject({ inApp: "on", email: "daily" });
     // The two categories that are about the platform working rather than the firm's work.
     expect(categoryIn(body, "jobs").email).toBe("off");

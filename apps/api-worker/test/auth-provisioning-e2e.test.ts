@@ -354,12 +354,12 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
-        // The three matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
-        // Attorney and Paralegal — and to neither Billing nor Read-only. notes:retract is its own
-        // key so a firm can narrow withdrawal without narrowing authorship
-        // (20260901T010000_matter-notes.sql).
+        // The two matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
+        // Attorney and Paralegal — and to neither Billing nor Read-only. There were three:
+        // notes:retract let a firm narrow withdrawal without narrowing authorship, and it went with
+        // the withdrawal state itself when a note became a record edited in place and deleted
+        // outright (20260901T120000_matter-notes-edit-and-delete.sql).
         "notes:read",
-        "notes:retract",
         "notes:write",
         // Seeded onto every default role, Read-only included — the deliberate contrast with
         // trust:read below (20260807T020000_notifications-delivery). A member's feed is their own,
@@ -382,6 +382,13 @@ describe("end-to-end", () => {
         "support:cosign",
         "support:manage",
         "support:request",
+        // All three task keys reach Owner/Admin. tasks:assign is separate from tasks:write so a firm
+        // can reserve who puts work in other people's names without reserving who records their own;
+        // Billing holds read and write and not assign, and Read-only holds none
+        // (20260901T150000_tasks.sql).
+        "tasks:assign",
+        "tasks:read",
+        "tasks:write",
         "templates:manage",
         "time:approve",
         "time:manageRates",
