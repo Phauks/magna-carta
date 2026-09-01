@@ -236,29 +236,54 @@ const documentFiledSource = directInstantSource({
 // exists to prevent. The entry says a note was written, on this matter, then, by them; the words are
 // one authenticated request away behind the link.
 //
-// Reads `matter_note` and never `matter_note_revision`, which is what keeps an edited note as ONE
-// entry: a note is a chain of revisions, and a source over the revision table would put a fresh entry
-// on the timeline every time somebody fixed a typo, each claiming to be a thing that happened. The
-// sort key is the note's own created instant, so correcting a note does not move it up the history —
-// a contemporaneous record belongs at the moment it was written.
+// SORTED BY WHEN THE THING HAPPENED, falling back to the day the note was written. A note recording
+// Tuesday's call belongs beside Tuesday's hearing rather than beside the Thursday somebody typed it,
+// which is how every other record of something that happened is ordered here — an event by starts_on,
+// a deadline by due_on, a time entry by work_date. The one source that orders by when the ROW was
+// written is the audit log, and that is named as its weakness in the constant below it rather than
+// treated as the house style.
 //
-// Retracted notes are excluded entirely, on the documentFiled soft-delete precedent: a note the firm
-// has withdrawn is not on its timeline. The state filter sits beside the date filter deliberately —
-// filtering on a date column and forgetting the status column beside it is the failure this file
-// calls out in the custody constants.
-const matterNoteSource = directInstantSource({
+// This is a civilDate source for that reason, and the fallback is a date cut from the created
+// instant rather than the instant itself: mixing the two shapes in one column would sort a note
+// typed at nine in the morning before a note that happened the same day, on nothing but the presence
+// of a "T".
+const matterNoteSource: TimelineSource = {
   key: "matterNote",
-  kind: "matterNote",
-  table: "matter_note",
-  sortColumn: "matter_note.created_at",
-  idColumn: "matter_note.id",
-  matterColumn: "matter_note.matter_id",
-  actorExpression: "matter_note.author_user_id",
-  labelExpression: "NULL",
+  kinds: ["matterNote"],
+  visibilityAnchor: "matter",
+  timeColumnShape: "civilDate",
   declaresLabel: false,
-  extraConditions: ["matter_note.state = 'active'"],
-  section: "notes",
-});
+  supportsMemberFilter: false,
+  buildStatements: (request) => {
+    const orderingDate = "COALESCE(matter_note.occurred_on, substr(matter_note.created_at, 1, 10))";
+    const window = civilDateWindowConditions(
+      orderingDate,
+      request.scope.fromDate,
+      request.scope.toDate,
+    );
+    const conditions = [...window.conditions];
+    const bindings = [...window.bindings];
+    if (request.scope.matterId !== undefined) {
+      conditions.push("matter_note.matter_id = ?");
+      bindings.push(request.scope.matterId);
+    }
+    return [
+      boundedSelect(request.database, {
+        request,
+        from: "matter_note",
+        sortColumn: orderingDate,
+        idColumn: "matter_note.id",
+        matterExpression: "matter_note.matter_id",
+        kindExpression: "'matterNote'",
+        actorExpression: "matter_note.author_user_id",
+        labelExpression: "NULL",
+        conditions,
+        bindings,
+      }),
+    ];
+  },
+  project: projectRow("matterNote", matterSectionLink("notes")),
+};
 
 // Time and cost entries are the densest sources in the platform by row count and would dominate an
 // unfiltered timeline. They are REGISTERED rather than omitted, so a firm that wants them can have

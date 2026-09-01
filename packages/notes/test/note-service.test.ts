@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { createMatterNote, retractMatterNote, reviseMatterNote } from "../src/note-service.ts";
+import {
+  attachFileToMatterNote,
+  createMatterNote,
+  deleteMatterNote,
+  detachFileFromMatterNote,
+  editMatterNote,
+} from "../src/note-service.ts";
 import {
   readMatterNote,
-  readMatterNoteDetail,
-  readMatterNoteRevisions,
+  readMatterNoteDocuments,
   selectMatterNotesStatement,
-  type MatterNoteDisplayRow,
+  type MatterNoteRow,
 } from "../src/note-statements.ts";
 import { NoteValidationError } from "../src/validation.ts";
 import { MAX_NOTE_BODY_LENGTH } from "../src/types.ts";
@@ -18,50 +23,44 @@ import {
   commit,
   migratedDatabase,
   options,
+  seedFile,
   seedFirm,
   tickingClock,
   visibility,
 } from "./support.ts";
-import type { MatterNoteId } from "@magna-carta/identifiers/types";
+import type { FileId, MatterNoteId } from "@magna-carta/identifiers/types";
 
 const BODY = "Spoke to Mrs Herrera on Tuesday. She is thinking about the offer.";
 
-// The matter's note list, as every read below asks for it.
 async function listFor(
   database: Parameters<typeof selectMatterNotesStatement>[0],
   search?: string,
-): Promise<readonly MatterNoteDisplayRow[]> {
+): Promise<readonly MatterNoteRow[]> {
   const { results } = await selectMatterNotesStatement(database, MATTER, {
     limit: 50,
     visibility,
     search,
-  }).all<MatterNoteDisplayRow>();
+  }).all<MatterNoteRow>();
   return results;
 }
 
-async function writeNote(body = BODY) {
+async function writeNote(input: Partial<Parameters<typeof createMatterNote>[1]> = {}) {
   const { database, raw } = migratedDatabase();
   seedFirm(raw);
-  const created = createMatterNote(database, { matterId: MATTER, body }, options);
+  const created = createMatterNote(database, { matterId: MATTER, body: BODY, ...input }, options);
   await commit(database, created.effect);
   return { database, raw, noteId: created.noteId };
 }
 
 describe("writing a note", () => {
-  it("records the matter, the author, the instant and the first body", async () => {
+  it("records the matter, the author, the instant and the words", async () => {
     const { database, noteId } = await writeNote();
-    const note = await readMatterNoteDetail(database, noteId, visibility);
+    const note = await readMatterNote(database, noteId, visibility);
     expect(note?.matter_id).toBe(MATTER);
     expect(note?.author_user_id).toBe(ACTOR);
-    expect(note?.state).toBe("active");
-    expect(note?.head_ordinal).toBe(1);
     expect(note?.body).toBe(BODY);
-  });
-
-  it("trims the edges and keeps the paragraph breaks inside", async () => {
-    const { database, noteId } = await writeNote("  first thought\n\nsecond thought  ");
-    const note = await readMatterNoteDetail(database, noteId, visibility);
-    expect(note?.body).toBe("first thought\n\nsecond thought");
+    // Nobody has edited it, which is a different fact from "the author edited their own note".
+    expect(note?.last_edited_by).toBeNull();
   });
 
   it("refuses an empty body and a body past the ceiling", () => {
@@ -79,51 +78,178 @@ describe("writing a note", () => {
   });
 });
 
-describe("correcting a note", () => {
-  it("keeps every prior body and moves the head onto the newest", async () => {
-    const { database, noteId } = await writeNote("Spoke to Mrs Herrara.");
-    const clock = tickingClock();
-    for (const body of ["Spoke to Mrs Herrera.", "Spoke to Mrs Herrera about the offer."]) {
-      const { effect } = await reviseMatterNote(database, noteId, { body }, { ...options, clock });
-      await commit(database, effect);
-    }
-
-    const note = await readMatterNoteDetail(database, noteId, visibility);
-    expect(note?.head_ordinal).toBe(3);
-    expect(note?.body).toBe("Spoke to Mrs Herrera about the offer.");
-
-    // The round trip the design asks for: every body the note ever had is still readable, in order,
-    // and the misspelling that started it is still there.
-    const chain = await readMatterNoteRevisions(database, noteId, { limit: 100, visibility });
-    expect(chain.capped).toBe(false);
-    expect(chain.revisions.map((revision) => revision.body)).toEqual([
-      "Spoke to Mrs Herrara.",
-      "Spoke to Mrs Herrera.",
-      "Spoke to Mrs Herrera about the offer.",
-    ]);
-    expect(chain.revisions.map((revision) => revision.ordinal)).toEqual([1, 2, 3]);
+describe("when the thing happened", () => {
+  it("keeps the day it happened apart from the day it was typed", async () => {
+    const { database, noteId } = await writeNote({
+      body: "Call with the client.",
+      occurredOn: "2026-08-25",
+      occurredAtTime: "15:30",
+      timeZone: "America/Los_Angeles",
+    });
+    const note = await readMatterNote(database, noteId, visibility);
+    expect(note?.occurred_on).toBe("2026-08-25");
+    expect(note?.occurred_at_time).toBe("15:30");
+    expect(note?.time_zone).toBe("America/Los_Angeles");
+    // The typing instant is its own fact and is not overwritten by the occurrence.
+    expect(note?.created_at).not.toContain("2026-08-25");
   });
 
-  it("attributes a correction to whoever made it, not to the note's author", async () => {
+  it("accepts a date with no time, which is the common case", async () => {
+    const { database, noteId } = await writeNote({ occurredOn: "2026-08-25" });
+    const note = await readMatterNote(database, noteId, visibility);
+    expect(note?.occurred_on).toBe("2026-08-25");
+    expect(note?.occurred_at_time).toBeNull();
+    expect(note?.time_zone).toBeNull();
+  });
+
+  it("refuses a time with no date, a time with no zone, and a zone with no time", () => {
+    const { database } = migratedDatabase();
+    const base = { matterId: MATTER, body: BODY } as const;
+    // An hour with no day is not a moment anybody can place.
+    expect(() => createMatterNote(database, { ...base, occurredAtTime: "15:30" }, options)).toThrow(
+      NoteValidationError,
+    );
+    // A wall clock with no zone is not a time to anybody in another state.
+    expect(() =>
+      createMatterNote(
+        database,
+        { ...base, occurredOn: "2026-08-25", occurredAtTime: "15:30" },
+        options,
+      ),
+    ).toThrow(NoteValidationError);
+    // And a zone on a note that names no time says nothing.
+    expect(() =>
+      createMatterNote(
+        database,
+        { ...base, occurredOn: "2026-08-25", timeZone: "America/Los_Angeles" },
+        options,
+      ),
+    ).toThrow(NoteValidationError);
+  });
+
+  it("refuses a date that is not on the calendar, and a zone nothing can resolve", () => {
+    const { database } = migratedDatabase();
+    const base = { matterId: MATTER, body: BODY } as const;
+    expect(() =>
+      createMatterNote(database, { ...base, occurredOn: "2026-02-30" }, options),
+    ).toThrow(NoteValidationError);
+    expect(() =>
+      createMatterNote(
+        database,
+        { ...base, occurredOn: "2026-08-25", occurredAtTime: "09:00", timeZone: "Mars/Olympus" },
+        options,
+      ),
+    ).toThrow(NoteValidationError);
+  });
+
+  it("orders the list by when things happened, not by when they were typed", async () => {
+    const fresh = migratedDatabase();
+    seedFirm(fresh.raw);
+    const clock = tickingClock();
+    // Typed in this order; happened in the reverse.
+    for (const [body, occurredOn] of [
+      ["Oldest event, typed first.", "2026-08-01"],
+      ["Newest event, typed second.", "2026-08-20"],
+    ] as const) {
+      const created = createMatterNote(
+        fresh.database,
+        { matterId: MATTER, body, occurredOn },
+        { ...options, clock },
+      );
+      await commit(fresh.database, created.effect);
+    }
+    const { results } = await selectMatterNotesStatement(fresh.database, MATTER, {
+      limit: 50,
+      visibility,
+    }).all<MatterNoteRow>();
+    expect(results.map((row) => row.occurred_on)).toEqual(["2026-08-20", "2026-08-01"]);
+  });
+
+  it("falls back to the day it was written when the note names no occurrence", async () => {
+    const { database, raw } = migratedDatabase();
+    seedFirm(raw);
+    const clock = tickingClock();
+    const undated = createMatterNote(
+      database,
+      { matterId: MATTER, body: "No date on this one." },
+      { ...options, clock },
+    );
+    await commit(database, undated.effect);
+    const dated = createMatterNote(
+      database,
+      { matterId: MATTER, body: "Happened long ago.", occurredOn: "2020-01-01" },
+      { ...options, clock },
+    );
+    await commit(database, dated.effect);
+
+    const { results } = await selectMatterNotesStatement(database, MATTER, {
+      limit: 50,
+      visibility,
+    }).all<MatterNoteRow>();
+    // The undated note sorts on its written day, which is today, so it leads the one from 2020.
+    expect(results[0]?.id).toBe(undated.noteId);
+    expect(results[1]?.id).toBe(dated.noteId);
+  });
+});
+
+describe("editing a note", () => {
+  it("replaces the words and records who changed them", async () => {
     const { database, noteId } = await writeNote();
-    const { effect } = await reviseMatterNote(
+    const { effect } = await editMatterNote(
       database,
       noteId,
-      { body: "Corrected by a colleague." },
+      { body: "Corrected account of the call." },
       { ...options, actorUserId: COLLEAGUE, clock: tickingClock() },
     );
     await commit(database, effect);
 
-    const note = await readMatterNoteDetail(database, noteId, visibility);
-    // The note still belongs to whoever started it; the words showing belong to whoever wrote them.
+    const note = await readMatterNote(database, noteId, visibility);
+    expect(note?.body).toBe("Corrected account of the call.");
+    // The note still belongs to whoever started it; the change belongs to whoever made it.
     expect(note?.author_user_id).toBe(ACTOR);
-    expect(note?.revision_author_user_id).toBe(COLLEAGUE);
+    expect(note?.last_edited_by).toBe(COLLEAGUE);
   });
 
-  it("refuses to revise a note that is not this firm's", async () => {
+  it("keeps nothing of what the note said before", async () => {
+    const { database, raw, noteId } = await writeNote({ body: "The original words." });
+    const { effect } = await editMatterNote(
+      database,
+      noteId,
+      { body: "The replacement words." },
+      { ...options, clock: tickingClock() },
+    );
+    await commit(database, effect);
+    // The model the owner chose: an edit overwrites. Nothing anywhere holds the earlier text.
+    const rows = raw.prepare("SELECT body FROM matter_note").all() as { body: string }[];
+    expect(rows.map((row) => row.body)).toEqual(["The replacement words."]);
+    expect(JSON.stringify(rows)).not.toContain("original");
+  });
+
+  it("can move the occurrence, and can clear it", async () => {
+    const { database, noteId } = await writeNote({ occurredOn: "2026-08-25" });
+    const { effect } = await editMatterNote(
+      database,
+      noteId,
+      { body: BODY, occurredOn: "2026-08-26" },
+      { ...options, clock: tickingClock() },
+    );
+    await commit(database, effect);
+    expect((await readMatterNote(database, noteId, visibility))?.occurred_on).toBe("2026-08-26");
+
+    const cleared = await editMatterNote(
+      database,
+      noteId,
+      { body: BODY },
+      { ...options, clock: tickingClock() },
+    );
+    await commit(database, cleared.effect);
+    expect((await readMatterNote(database, noteId, visibility))?.occurred_on).toBeNull();
+  });
+
+  it("refuses a note that is not this firm's", async () => {
     const { database } = await writeNote();
     await expect(
-      reviseMatterNote(
+      editMatterNote(
         database,
         "matterNote_absent0000000000000" as MatterNoteId,
         { body: "x" },
@@ -133,104 +259,149 @@ describe("correcting a note", () => {
   });
 });
 
-describe("withdrawing a note", () => {
-  it("stops the body rendering and keeps the record of who withdrew it and why", async () => {
-    const { database, noteId } = await writeNote();
-    const { effect } = await retractMatterNote(
-      database,
-      noteId,
-      { reason: "Contains another client's privileged material, typed in error." },
-      { ...options, actorUserId: COLLEAGUE, clock: tickingClock() },
-    );
+describe("deleting a note", () => {
+  it("removes the row and its words", async () => {
+    const { database, raw, noteId } = await writeNote({ body: "Words that will not survive." });
+    const { effect } = await deleteMatterNote(database, noteId, {
+      ...options,
+      clock: tickingClock(),
+    });
     await commit(database, effect);
 
-    const note = await readMatterNoteDetail(database, noteId, visibility);
-    expect(note?.state).toBe("retracted");
-    // The READ nulls the body, not the caller. A surface that forgot to check the state gets
-    // nothing to display rather than something it should not have.
-    expect(note?.body).toBeNull();
-    expect(note?.retracted_by).toBe(COLLEAGUE);
-    expect(note?.retraction_reason).toBe(
-      "Contains another client's privileged material, typed in error.",
-    );
-    expect(note?.retracted_at).not.toBeNull();
+    expect(await readMatterNote(database, noteId, visibility)).toBeUndefined();
+    const remaining = raw.prepare("SELECT COUNT(*) AS count FROM matter_note").get() as {
+      count: number;
+    };
+    expect(remaining.count).toBe(0);
   });
 
-  it("keeps the row and every revision: nothing is deleted", async () => {
+  it("leaves an audit row that says a note existed and never what it said", async () => {
+    const { database, raw, noteId } = await writeNote({ body: "Privileged and gone." });
+    const { effect } = await deleteMatterNote(database, noteId, {
+      ...options,
+      clock: tickingClock(),
+    });
+    await commit(database, effect);
+
+    const audit = raw
+      .prepare(
+        "SELECT event, subject_id, metadata FROM audit_log WHERE event = 'notes.note.deleted'",
+      )
+      .all() as { event: string; subject_id: string; metadata: string | null }[];
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.subject_id).toBe(noteId);
+    expect(JSON.stringify(audit)).not.toContain("Privileged");
+  });
+
+  it("detaches its files and deletes none of them", async () => {
     const { database, raw, noteId } = await writeNote();
-    const { effect: revised } = await reviseMatterNote(
-      database,
-      noteId,
-      { body: "A second version." },
-      { ...options, clock: tickingClock() },
-    );
-    await commit(database, revised);
-    const { effect } = await retractMatterNote(
-      database,
-      noteId,
-      { reason: "Withdrawn." },
-      { ...options, clock: tickingClock() },
-    );
+    const fileId = seedFile(raw, MATTER, "letter.pdf");
+    const attached = await attachFileToMatterNote(database, noteId, fileId, options);
+    await commit(database, attached.effect);
+
+    const { effect } = await deleteMatterNote(database, noteId, {
+      ...options,
+      clock: tickingClock(),
+    });
     await commit(database, effect);
 
-    const rows = raw
-      .prepare("SELECT COUNT(*) AS count FROM matter_note_revision WHERE note_id = ?")
-      .get(noteId) as { count: number };
-    expect(rows.count).toBe(2);
+    const links = raw.prepare("SELECT COUNT(*) AS count FROM matter_note_document").get() as {
+      count: number;
+    };
+    expect(links.count).toBe(0);
+    // The document is untouched. Deleting a note has never been a way to delete a document.
+    const files = raw
+      .prepare("SELECT COUNT(*) AS count FROM file WHERE id = ? AND deleted_at IS NULL")
+      .get(fileId) as { count: number };
+    expect(files.count).toBe(1);
+  });
+});
+
+describe("the files a note points at", () => {
+  it("links one of the matter's documents and reads it back with its name", async () => {
+    const { database, raw, noteId } = await writeNote();
+    const fileId = seedFile(raw, MATTER, "engagement-letter.pdf");
+    const { effect } = await attachFileToMatterNote(database, noteId, fileId, options);
+    await commit(database, effect);
+
+    const documents = await readMatterNoteDocuments(database, [noteId], visibility);
+    expect(documents).toHaveLength(1);
+    expect(documents[0]?.file_id).toBe(fileId);
+    // The name comes from the matter's file record rather than a second copy that could drift.
+    expect(documents[0]?.file_name).toBe("engagement-letter.pdf");
+    expect(documents[0]?.linked_by).toBe(ACTOR);
   });
 
-  it("refuses a withdrawal with no reason, and a second withdrawal", async () => {
-    const { database, noteId } = await writeNote();
-    await expect(retractMatterNote(database, noteId, { reason: "   " }, options)).rejects.toThrow(
+  it("refuses a document from another matter", async () => {
+    const { database, raw, noteId } = await writeNote();
+    const elsewhere = seedFile(raw, OTHER_MATTER, "someone-elses.pdf");
+    await expect(attachFileToMatterNote(database, noteId, elsewhere, options)).rejects.toThrow(
       NoteValidationError,
     );
+  });
 
-    const { effect } = await retractMatterNote(
-      database,
-      noteId,
-      { reason: "Withdrawn." },
-      { ...options, clock: tickingClock() },
-    );
-    await commit(database, effect);
-    // The first withdrawal's actor, instant and reason are the record and are not rewritten.
+  it("refuses a file that does not exist", async () => {
+    const { database, noteId } = await writeNote();
     await expect(
-      retractMatterNote(database, noteId, { reason: "Withdrawn again." }, options),
+      attachFileToMatterNote(database, noteId, "file_absent00000000000" as FileId, options),
     ).rejects.toThrow(NoteValidationError);
   });
 
-  it("refuses to revise a withdrawn note", async () => {
-    const { database, noteId } = await writeNote();
-    const { effect } = await retractMatterNote(
+  it("refuses the same document twice on one note", async () => {
+    const { database, raw, noteId } = await writeNote();
+    const fileId = seedFile(raw, MATTER, "letter.pdf");
+    const first = await attachFileToMatterNote(database, noteId, fileId, options);
+    await commit(database, first.effect);
+    const second = await attachFileToMatterNote(database, noteId, fileId, {
+      ...options,
+      clock: tickingClock(),
+    });
+    // The unique index is what refuses it, so the batch aborts rather than writing a duplicate.
+    await expect(commit(database, second.effect)).rejects.toThrow(/UNIQUE/iu);
+  });
+
+  it("lets one document ride two notes", async () => {
+    const { database, raw, noteId } = await writeNote();
+    const fileId = seedFile(raw, MATTER, "appraisal.pdf");
+    const second = createMatterNote(
       database,
-      noteId,
-      { reason: "Withdrawn." },
+      { matterId: MATTER, body: "The follow-up call about the same letter." },
       { ...options, clock: tickingClock() },
     );
+    await commit(database, second.effect);
+
+    for (const target of [noteId, second.noteId]) {
+      const link = await attachFileToMatterNote(database, target, fileId, {
+        ...options,
+        clock: tickingClock(),
+      });
+      await commit(database, link.effect);
+    }
+    const documents = await readMatterNoteDocuments(database, [noteId, second.noteId], visibility);
+    expect(documents).toHaveLength(2);
+  });
+
+  it("detaching ends the association and keeps the document", async () => {
+    const { database, raw, noteId } = await writeNote();
+    const fileId = seedFile(raw, MATTER, "letter.pdf");
+    const attached = await attachFileToMatterNote(database, noteId, fileId, options);
+    await commit(database, attached.effect);
+
+    const { effect } = await detachFileFromMatterNote(database, attached.linkId, {
+      ...options,
+      clock: tickingClock(),
+    });
     await commit(database, effect);
-    await expect(
-      reviseMatterNote(database, noteId, { body: "New words." }, options),
-    ).rejects.toThrow(NoteValidationError);
+
+    expect(await readMatterNoteDocuments(database, [noteId], visibility)).toHaveLength(0);
+    const files = raw
+      .prepare("SELECT COUNT(*) AS count FROM file WHERE id = ? AND deleted_at IS NULL")
+      .get(fileId) as { count: number };
+    expect(files.count).toBe(1);
   });
 });
 
 describe("the matter's note list", () => {
-  it("returns a withdrawn note as a tombstone, with its reason and without its words", async () => {
-    const { database, noteId } = await writeNote("The words that came down.");
-    const { effect } = await retractMatterNote(
-      database,
-      noteId,
-      { reason: "Wrong matter." },
-      { ...options, clock: tickingClock() },
-    );
-    await commit(database, effect);
-
-    const rows = await listFor(database);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.state).toBe("retracted");
-    expect(rows[0]?.body).toBeNull();
-    expect(rows[0]?.retraction_reason).toBe("Wrong matter.");
-  });
-
   it("never reaches another matter, or the platform's own holding matter", async () => {
     const { database, raw } = await writeNote();
     const clock = tickingClock();
@@ -244,27 +415,23 @@ describe("the matter's note list", () => {
     }
     expect(await listFor(database)).toHaveLength(1);
 
-    // The holding matter carries a system key, so the visible-matter predicate excludes it from
-    // every read that composes it — including this one.
     const holding = await selectMatterNotesStatement(database, HOLDING_MATTER, {
       limit: 50,
       visibility,
-    }).all<MatterNoteDisplayRow>();
+    }).all<MatterNoteRow>();
     expect(holding.results).toHaveLength(0);
-    // The row really is there; it is the predicate that is keeping it out, not an empty table.
+    // The row really is there; it is the predicate keeping it out, not an empty table.
     const stored = raw
       .prepare("SELECT COUNT(*) AS count FROM matter_note WHERE matter_id = ?")
       .get(HOLDING_MATTER) as { count: number };
     expect(stored.count).toBe(1);
   });
-});
 
-describe("finding a note again", () => {
-  it("matches the current text and not a body the firm corrected away", async () => {
-    const { database, noteId } = await writeNote("Client says Nowak was driving.");
+  it("finds a note by its current words, and not by words edited out of it", async () => {
+    const { database, noteId } = await writeNote({ body: "Client says Nowak was driving." });
     expect(await listFor(database, "Nowak")).toHaveLength(1);
 
-    const { effect } = await reviseMatterNote(
+    const { effect } = await editMatterNote(
       database,
       noteId,
       { body: "Client says Novak was driving." },
@@ -272,46 +439,13 @@ describe("finding a note again", () => {
     );
     await commit(database, effect);
 
-    // The correction fixed what the note says AND what it discloses. Searching the name that was
-    // taken out finds nothing; the new one finds it.
     expect(await listFor(database, "Nowak")).toHaveLength(0);
     expect(await listFor(database, "Novak")).toHaveLength(1);
-
-    // And the superseded body is still readable from the note's own history, where somebody has
-    // already chosen to look at this note.
-    const chain = await readMatterNoteRevisions(database, noteId, { limit: 100, visibility });
-    expect(chain.revisions[0]?.body).toContain("Nowak");
-  });
-
-  it("never matches a withdrawn note", async () => {
-    const { database, noteId } = await writeNote("Findable words.");
-    expect(await listFor(database, "Findable")).toHaveLength(1);
-    const { effect } = await retractMatterNote(
-      database,
-      noteId,
-      { reason: "Withdrawn." },
-      { ...options, clock: tickingClock() },
-    );
-    await commit(database, effect);
-    expect(await listFor(database, "Findable")).toHaveLength(0);
   });
 
   it("treats a wildcard in the term as text a lawyer typed, not as an instruction", async () => {
-    const { database } = await writeNote("Fee split is 50% to co-counsel.");
-    const clock = tickingClock();
-    const other = createMatterNote(
-      database,
-      { matterId: MATTER, body: "No percentage in this one." },
-      { ...options, clock },
-    );
-    await commit(database, other.effect);
-
-    // "50%" is a literal. Unescaped, the trailing % would match anything after "50" and the term
-    // would be a prefix search the writer never asked for.
-    expect(await listFor(database, "50%")).toHaveLength(1);
-    // And a bare "%" searches for a percent SIGN — it finds the note that contains one and not the
-    // note that does not, rather than matching everything the way a wildcard would.
-    const percentMatches = await listFor(database, "%");
+    const { database } = await writeNote({ body: "Fee split is 50% to co-counsel." });
+    const percentMatches = await listFor(database, "50%");
     expect(percentMatches).toHaveLength(1);
     expect(percentMatches[0]?.body).toContain("50%");
   });
@@ -329,8 +463,8 @@ describe("attribution outlives the author", () => {
     await commit(database, created.effect);
 
     const note = await readMatterNote(database, created.noteId, visibility);
-    // The column does not null, repoint, or anonymize when a member leaves. That they have left is
-    // a JOIN on member.status at read time, which is why the note itself needs no column for it.
+    // The column does not null, repoint, or anonymize when a member leaves. That they have left is a
+    // JOIN on member.status at read time, which is why the note itself needs no column for it.
     expect(note?.author_user_id).toBe("user_noteDeparted00");
     const member = raw
       .prepare("SELECT status FROM member WHERE user_id = ?")
