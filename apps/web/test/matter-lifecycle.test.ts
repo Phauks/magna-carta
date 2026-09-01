@@ -10,12 +10,16 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  matterCloseChecklist,
+  matterCloseConsiderations,
   matterCloseRefusals,
   matterLifecycleBlock,
   matterLifecycleStep,
   CLOSE_REFUSED_PROBLEM_TYPE,
+  MATTER_CLOSE_REQUIREMENTS,
   MATTER_LIFECYCLE_STEPS,
 } from "../src/lib/matters/matter-lifecycle.ts";
+import { matterSections } from "../src/lib/matters/sections.ts";
 import { MATTER_STATUSES } from "../src/lib/matters/matter-status.ts";
 
 describe("matterLifecycleStep", () => {
@@ -31,13 +35,12 @@ describe("matterLifecycleStep", () => {
     }
   });
 
-  it("states what closing does and what it checks, and never calls closing destructive", () => {
+  it("says what closing does without overstating it", () => {
     const close = MATTER_LIFECYCLE_STEPS.open;
-    // The two things people assume about a close and are wrong about, both said before the press.
-    expect(close.consequences.join(" ")).toContain("does not seal it");
-    expect(close.requirements).toHaveLength(2);
-    expect(close.requirements.join(" ")).toContain("trust ledger");
-    expect(close.requirements.join(" ")).toContain("client credit");
+    // Closing changes a standing and stamps a date. It is not a deletion, and the sentence a reader
+    // is most likely to get wrong on their own is the one that has to be there.
+    expect(close.consequences.join(" ")).toContain("still takes entries");
+    expect(close.consequences.join(" ")).toContain("close date");
   });
 
   it("names the permission each endpoint enforces", () => {
@@ -142,5 +145,138 @@ describe("matterLifecycleBlock", () => {
     expect(
       matterLifecycleBlock({ step, isSample: false, sessionSettled: true, permissions: null }),
     ).toBeNull();
+  });
+});
+
+describe("matterCloseChecklist", () => {
+  const trustRefusal = {
+    code: "trust-balance-not-zero",
+    reason: "This matter still holds $1,250.00 on the Operating IOLTA trust ledger.",
+  };
+  const creditRefusal = {
+    code: "client-credit-open",
+    reason: "This matter carries $80.00 the firm owes back to the client.",
+  };
+
+  it("ticks nothing before a close has asked", () => {
+    // The rules are not readable from the window today, and a tick nobody verified would be a lie
+    // told in the one place a person is deciding whether to close somebody's file.
+    const rows = matterCloseChecklist(null);
+    expect(rows).toHaveLength(MATTER_CLOSE_REQUIREMENTS.length);
+    expect(rows.every((row) => row.state === "unknown")).toBe(true);
+    expect(rows.every((row) => row.reasons.length === 0)).toBe(true);
+  });
+
+  it("resolves the whole list from one refusal, because silence about a rule is that rule passing", () => {
+    const rows = matterCloseChecklist([trustRefusal]);
+    const trust = rows.find((row) => row.key === "trust");
+    const credit = rows.find((row) => row.key === "client-credit");
+    expect(trust?.state).toBe("blocked");
+    expect(trust?.reasons).toEqual([trustRefusal.reason]);
+    expect(credit?.state).toBe("met");
+    expect(credit?.reasons).toEqual([]);
+  });
+
+  it("blocks every rule that refused", () => {
+    const rows = matterCloseChecklist([trustRefusal, creditRefusal]);
+    expect(rows.filter((row) => row.state === "blocked")).toHaveLength(2);
+  });
+
+  it("carries a rule this build has never heard of rather than dropping it", () => {
+    // A precondition registered server-side after this screen shipped is the one a person most
+    // needs to read, and it is the one a fixed list would silently swallow.
+    const rows = matterCloseChecklist([
+      { code: "some-rule-shipped-later", reason: "The matter is under a litigation hold." },
+    ]);
+    const carried = rows.find((row) => row.key === "some-rule-shipped-later");
+    expect(carried?.state).toBe("blocked");
+    expect(carried?.label).toBe("The matter is under a litigation hold.");
+    expect(carried?.section).toBeNull();
+  });
+
+  it("points every requirement it knows at a section that exists", () => {
+    for (const requirement of MATTER_CLOSE_REQUIREMENTS) {
+      expect(matterSections.some((section) => section.slug === requirement.section)).toBe(true);
+    }
+  });
+});
+
+describe("matterCloseConsiderations", () => {
+  const money = (amountMinor: number): string => `$${(amountMinor / 100).toFixed(2)}`;
+
+  it("says nothing where the firm holds nothing against the matter", () => {
+    // A block with nothing in it is not drawn, so an empty answer is the whole contract here.
+    expect(
+      matterCloseConsiderations({
+        unbilled: {
+          timeEntryCount: 0,
+          timeAmountMinor: 0,
+          costEntryCount: 0,
+          costAmountMinor: 0,
+          receivableUnpaidMinor: 0,
+        },
+        custodyPacketCount: 0,
+        money,
+      }),
+    ).toEqual([]);
+  });
+
+  it("says nothing it has not read", () => {
+    expect(matterCloseConsiderations({ unbilled: null, custodyPacketCount: null, money })).toEqual(
+      [],
+    );
+  });
+
+  it("names unbilled work, what is still owed, and what the firm physically holds", () => {
+    const considerations = matterCloseConsiderations({
+      unbilled: {
+        timeEntryCount: 3,
+        timeAmountMinor: 390_000,
+        costEntryCount: 1,
+        costAmountMinor: 22_000,
+        receivableUnpaidMinor: 180_000,
+      },
+      custodyPacketCount: 2,
+      money,
+    });
+    expect(considerations.map((one) => one.key)).toEqual(["unbilled", "receivable", "custody"]);
+    expect(considerations[0]?.line).toContain("3 time entries and 1 cost");
+    expect(considerations[0]?.line).toContain("$4120.00");
+    // Each one carries the clause without which the finding would read as a blocker.
+    expect(considerations[1]?.line).toContain("does not stop a close");
+    expect(considerations[2]?.line).toContain("stays in the safe-custody register");
+  });
+
+  it("counts one of a thing as one of a thing", () => {
+    const considerations = matterCloseConsiderations({
+      unbilled: {
+        timeEntryCount: 1,
+        timeAmountMinor: 30_000,
+        costEntryCount: 0,
+        costAmountMinor: 0,
+        receivableUnpaidMinor: 0,
+      },
+      custodyPacketCount: 1,
+      money,
+    });
+    expect(considerations[0]?.line).toContain("1 time entry and 0 costs");
+    expect(considerations[1]?.line).toContain("1 packet");
+  });
+
+  it("points every consideration at a section that exists", () => {
+    const considerations = matterCloseConsiderations({
+      unbilled: {
+        timeEntryCount: 1,
+        timeAmountMinor: 1,
+        costEntryCount: 1,
+        costAmountMinor: 1,
+        receivableUnpaidMinor: 1,
+      },
+      custodyPacketCount: 1,
+      money,
+    });
+    for (const consideration of considerations) {
+      expect(matterSections.some((section) => section.slug === consideration.section)).toBe(true);
+    }
   });
 });

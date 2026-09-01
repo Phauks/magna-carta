@@ -41,8 +41,6 @@ export interface MatterLifecycleStep {
   readonly consequencesHeading: string;
   /** What the step does to the record. One fact per entry, each rendered as its own row. */
   readonly consequences: readonly string[];
-  /** What the server checks before it will take the step. Empty where it checks nothing. */
-  readonly requirements: readonly string[];
   /** The permission the endpoint names, so the control can say no before the server has to. */
   readonly permission: string;
   /** What is said once the step has been taken. */
@@ -79,7 +77,6 @@ export const MATTER_LIFECYCLE_STEPS: Readonly<Record<MatterStatus, MatterLifecyc
       "The firm's next matter number is drawn now, and stays with this matter for good.",
       "The matter joins the firm's working docket, where a consultation does not appear.",
     ],
-    requirements: [],
     permission: OPEN_MATTER_PERMISSION,
     doneSentence: "The matter is open.",
     failureSentence: "The matter could not be opened.",
@@ -90,14 +87,8 @@ export const MATTER_LIFECYCLE_STEPS: Readonly<Record<MatterStatus, MatterLifecyc
     busyLabel: "Closing",
     consequencesHeading: "What Closing Does",
     consequences: [
-      "The matter leaves the firm's active lists.",
-      "The record stays, and still takes entries against it. Closing archives a matter; it does not seal it.",
+      "The matter's standing becomes Closed: it leaves the firm's active lists, and the record stays and still takes entries against it.",
       "Today becomes the matter's close date, and a later close never moves it.",
-      "The matter number is untouched.",
-    ],
-    requirements: [
-      "The client's trust ledger for this matter holds nothing, and carries no disputed-funds hold.",
-      "No client credit is open against it, meaning money the firm has already conceded it owes back.",
     ],
     permission: CLOSE_MATTER_PERMISSION,
     doneSentence: "The matter is closed.",
@@ -111,9 +102,7 @@ export const MATTER_LIFECYCLE_STEPS: Readonly<Record<MatterStatus, MatterLifecyc
     consequences: [
       "The matter returns to the standing it held before it closed: Active if it carries a number, Prospective if it does not.",
       "The recorded close date is cleared.",
-      "The matter number is untouched.",
     ],
-    requirements: [],
     permission: REOPEN_MATTER_PERMISSION,
     doneSentence: "The matter is open again.",
     failureSentence: "The matter could not be reopened.",
@@ -163,6 +152,188 @@ export function matterCloseRefusals(problem: ApiProblem): readonly MatterCloseRe
 // first character is touched: the amounts, account names and dates in the rest are the server's.
 function refusal(code: string | undefined, detail: string): MatterCloseRefusal {
   return { code, reason: `${detail.charAt(0).toUpperCase()}${detail.slice(1)}` };
+}
+
+// ---- what a close has to clear, and what it is worth knowing about ---------------------------
+//
+// The close is the only step with a gate under it, and the gate is not this screen's: the server
+// runs the firm's own money rules and refuses. Two consequences shape everything below.
+//
+// THE CHECKLIST CANNOT BE ANSWERED IN ADVANCE, AND SAYS SO RATHER THAN GUESSING. Neither rule is
+// readable from here today: the matter trust-ledger read takes a trust-account handle and no route
+// hands one out, and the client-credit read takes a Directory entity id the matter record does not
+// carry. So every requirement rests at "checked when you close" — never at a tick nobody verified,
+// which is the one state a checklist must not invent.
+//
+// A REFUSAL ANSWERS THE WHOLE CHECKLIST, NOT JUST ITS OWN ROW. The close runs every rule and
+// reports every one that refused, so silence about a rule is that rule passing. One press therefore
+// resolves the list: the rules that refused carry their own sentences, and the rest are met.
+//
+// The codes are the subsystems' own (packages/trust/src/close-precondition.ts,
+// packages/billing/src/close-precondition.ts). This app deliberately does not depend on those
+// packages, so they are spelled here for the same reason every response shape in matters-api.ts is.
+
+/** A matter's client trust ledger still holding money, or a hold outliving the money it was on. */
+const TRUST_CLOSE_CODES: readonly string[] = ["trust-balance-not-zero", "trust-hold-active"];
+/** Money a correction left over that the firm has already conceded it owes the client back. */
+const CLIENT_CREDIT_CLOSE_CODE = "client-credit-open";
+
+/** Where a requirement is settled: the slug of the matter section that owns it. */
+export type MatterCloseRequirement = {
+  readonly key: string;
+  /** What has to be true, as one line. */
+  readonly label: string;
+  /** The refusal codes that mean this requirement is what stood in the way. */
+  readonly codes: readonly string[];
+  /** The matter section a person goes to in order to settle it. */
+  readonly section: string;
+};
+
+/** The two rules registered against the close hook, in the order a close runs them. */
+export const MATTER_CLOSE_REQUIREMENTS: readonly MatterCloseRequirement[] = [
+  {
+    key: "trust",
+    label: "The client's trust ledger for this matter is empty, with no disputed-funds hold on it.",
+    codes: TRUST_CLOSE_CODES,
+    section: "trust",
+  },
+  {
+    key: "client-credit",
+    label: "No client credit is open against the matter.",
+    codes: [CLIENT_CREDIT_CLOSE_CODE],
+    section: "billing",
+  },
+];
+
+/**
+ * Where one requirement stands. `unknown` is not a soft no: it is the honest state before a close
+ * has asked, and it is what every row rests at.
+ */
+export type MatterCloseCheckState = "unknown" | "met" | "blocked";
+
+export interface MatterCloseCheck {
+  readonly key: string;
+  /** What has to be true. For a rule this build does not know, the server's own sentence. */
+  readonly label: string;
+  readonly state: MatterCloseCheckState;
+  /** The refusing rule's own words: the amount, where it sits, and the movements that clear it. */
+  readonly reasons: readonly string[];
+  /** The matter section that settles it, where this build knows one. */
+  readonly section: string | null;
+}
+
+/**
+ * The close checklist, as a refusal (or the absence of one) leaves it.
+ *
+ * `null` means no close has been attempted, so nothing has been checked. A refusal resolves every
+ * row, because the close runs every rule and reports every failure — and a refusal citing a rule
+ * this build has never heard of becomes its own blocked row rather than disappearing, since a rule
+ * registered server-side after this screen shipped is exactly the one a person most needs to read.
+ */
+export function matterCloseChecklist(
+  refusals: readonly MatterCloseRefusal[] | null,
+): readonly MatterCloseCheck[] {
+  if (refusals === null) {
+    return MATTER_CLOSE_REQUIREMENTS.map((requirement) => ({
+      key: requirement.key,
+      label: requirement.label,
+      state: "unknown" as const,
+      reasons: [],
+      section: requirement.section,
+    }));
+  }
+  const known = MATTER_CLOSE_REQUIREMENTS.map((requirement) => {
+    const reasons = refusals
+      .filter((refusal) => refusal.code !== undefined && requirement.codes.includes(refusal.code))
+      .map((refusal) => refusal.reason);
+    return {
+      key: requirement.key,
+      label: requirement.label,
+      state: (reasons.length > 0 ? "blocked" : "met") as MatterCloseCheckState,
+      reasons,
+      section: requirement.section,
+    };
+  });
+  const accounted = new Set(MATTER_CLOSE_REQUIREMENTS.flatMap((one) => one.codes));
+  const unaccounted = refusals
+    .filter((refusal) => refusal.code === undefined || !accounted.has(refusal.code))
+    .map((refusal, index) => ({
+      key: refusal.code ?? `unnamed-${String(index)}`,
+      label: refusal.reason,
+      state: "blocked" as const,
+      reasons: [],
+      section: null,
+    }));
+  return [...known, ...unaccounted];
+}
+
+/**
+ * Something about this matter that is worth settling before it closes, and that closing will not
+ * settle for anybody.
+ *
+ * These are NOT requirements and never become them. The distinction is the whole point: an
+ * uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off, and a
+ * firm holds a client's original for decades after their last matter closed. Blocking on either
+ * would only teach people to write off what they meant to chase, or to unlink a packet from the
+ * matter it belongs to. So they are read, stated, and pointed at the section that settles them.
+ */
+export interface MatterCloseConsideration {
+  readonly key: string;
+  /** The finding, plus the one clause without which it would read as a blocker. */
+  readonly line: string;
+  /** The matter section that settles it. */
+  readonly section: string;
+}
+
+/** What the considerations are read from. Null where a read has not come back or failed. */
+export interface MatterCloseHoldings {
+  readonly unbilled: {
+    readonly timeEntryCount: number;
+    readonly timeAmountMinor: number;
+    readonly costEntryCount: number;
+    readonly costAmountMinor: number;
+    readonly receivableUnpaidMinor: number;
+  } | null;
+  /** How many custody packets the firm holds against this matter. */
+  readonly custodyPacketCount: number | null;
+  /** How this surface prints an amount in minor units. */
+  readonly money: (amountMinor: number) => string;
+}
+
+export function matterCloseConsiderations(
+  holdings: MatterCloseHoldings,
+): readonly MatterCloseConsideration[] {
+  const considerations: MatterCloseConsideration[] = [];
+  const unbilled = holdings.unbilled;
+  if (unbilled !== null) {
+    const entries = unbilled.timeEntryCount + unbilled.costEntryCount;
+    const amount = unbilled.timeAmountMinor + unbilled.costAmountMinor;
+    if (entries > 0) {
+      const time = `${String(unbilled.timeEntryCount)} ${unbilled.timeEntryCount === 1 ? "time entry" : "time entries"}`;
+      const cost = `${String(unbilled.costEntryCount)} ${unbilled.costEntryCount === 1 ? "cost" : "costs"}`;
+      considerations.push({
+        key: "unbilled",
+        line: `${time} and ${cost} are unbilled, worth ${holdings.money(amount)}. Closing does not bill them.`,
+        section: "billing",
+      });
+    }
+    if (unbilled.receivableUnpaidMinor > 0) {
+      considerations.push({
+        key: "receivable",
+        line: `${holdings.money(unbilled.receivableUnpaidMinor)} is still owed across this matter's bills. An unpaid bill does not stop a close; a write-off is its exit.`,
+        section: "billing",
+      });
+    }
+  }
+  const packets = holdings.custodyPacketCount;
+  if (packets !== null && packets > 0) {
+    considerations.push({
+      key: "custody",
+      line: `The firm holds ${String(packets)} ${packets === 1 ? "packet" : "packets"} of physical property against this matter. It stays in the safe-custody register, where it is, after the close.`,
+      section: "custodian",
+    });
+  }
+  return considerations;
 }
 
 /**

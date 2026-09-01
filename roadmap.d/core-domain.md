@@ -247,7 +247,7 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079, ADR-0080
   evidence: packages/matters/src/matter-service.ts (prospective/open/closed transitions, reopen restoring prior state, frozen numbers), reached from the matter masthead's status seal in apps/web/src/lib/matters/matter-status-dialog.svelte over the open/close/reopen routes.
-  notes: The UI has landed. Pressing the status seal opens the status window, which states what the step does to the record and, for a close, what the firm's own money rules check first; a refused close renders each rule's own sentence, which names the movements that clear it. One step per standing, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.
+  notes: The UI has landed. Pressing the status seal opens the status window, which states what the step does to the record and, for a close, renders the registered money rules as a checklist pointing at the section that settles each; a refused close resolves the whole list, carrying each refusing rule's own sentence and the movements that clear it. One step per standing, never a status picker - the contract takes no status on any of the three operations. Neither rule is readable before the close (the matter trust-ledger read takes a trust-account handle no route hands out, and the client-credit read takes a Directory entity id the matter record does not carry), so every row rests unticked and says so. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.
 
 - id: matters.lifecycle.consultations
   name: Consultations (prospective matters)

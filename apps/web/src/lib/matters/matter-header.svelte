@@ -14,14 +14,24 @@
    * standing was read in one corner and changed in another, and the header carries no overflow menu
    * now that the step it held has a better home. An action that belongs to a fact belongs on it.
    *
-   * THE WAY BACK RIDES THE SAME LINE. The return to the docket is the first thing on the ledger
-   * line, ahead of the number: it wears the eyebrow register the number already wears, so the line
-   * reads as one ledger rather than as a band of navigation stacked above a heading, and the way
-   * out sits where the eye starts. It names the destination rather than saying "Back", so a reader
-   * learns where it goes and not merely which direction.
+   * THE WAY BACK RIDES THE SAME LINE, AS AN ARROW ALONE. The return to the docket is the first
+   * thing on the ledger line, ahead of the number, wearing the eyebrow register the number already
+   * wears — so the line reads as one ledger rather than as a band of navigation stacked above a
+   * heading, and the way out sits where the eye starts.
+   *
+   * It carries no visible label, which is the one place this differs from the labelled BackLink the
+   * tools pages use. That component's rule is right where it applies: above a masthead, a bare
+   * arrow leaves a reader guessing which "back" is meant. Here it is unambiguous — a matter came
+   * from the docket, the docket is the only place up from it, and the line the arrow sits on names
+   * the matter it is leaving. A second caps label beside "MATTER 2026-0147" competed with the
+   * number for the same register and read as a breadcrumb trail with one crumb. The accessible name
+   * is on the anchor, so the destination is still spoken; it is EyebrowLink directly rather than a
+   * label-hiding option on BackLink, because a component whose stated reason for existing is that
+   * it names its destination should not grow a mode that does not.
    */
+  import EyebrowLink from "@magna-carta/design-system/eyebrow-link";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import BackLink from "$lib/navigation/back-link.svelte";
+  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import MatterStatusDialog from "$lib/matters/matter-status-dialog.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
@@ -54,9 +64,10 @@
              what it is; announcing it as a breadcrumb would send a reader looking for a path that
              is not there. -->
         <nav aria-label="Back to Matters" class="flex">
-          <BackLink href={MATTERS_HREF} label="Matters" />
+          <EyebrowLink href={MATTERS_HREF} aria-label="Back to Matters">
+            <ArrowLeft class="size-12" aria-hidden="true" />
+          </EyebrowLink>
         </nav>
-        <Masthead.MetaSeparator />
         {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`}
         <!-- The status seal rides the ledger line, beside the matter number — the top-left corner
              is where the matter's standing is read, and now also where it is changed. -->

@@ -107,7 +107,18 @@ good, and moves it into the working docket.
 
 **Closing a matter** archives it. It leaves the firm's active lists, and the record stays and still
 takes entries: closing a matter does not seal it. Today becomes the matter's close date, and a later
-close never moves that date. The matter number is untouched.
+close never moves that date.
+
+**Before it can close** is the checklist of the two rules that stop a close, each with a link to the
+part of the matter that settles it. Nothing is ticked until you press **Close Matter**, because
+neither rule can be read from the window yet: pressing it is what asks. One press answers the whole
+list. The rule that refused is marked and says, in its own words, what is in the way and what clears
+it; every other rule is ticked, because a close runs them all.
+
+**Worth settling first** lists what the firm still holds against the matter and closing will not
+settle for anybody: time and costs nobody has billed, what is still owed across the matter's bills,
+and physical property in the safe-custody register. None of these stops a close, and each names the
+section that settles it.
 
 **Reopening a matter** returns it to the standing it held before it closed, which is Active if it
 carries a number and Prospective if it does not, and clears the recorded close date.

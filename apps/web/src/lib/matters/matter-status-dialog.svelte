@@ -31,16 +31,27 @@
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
+  import { formatMoney } from "@magna-carta/design-system/data-table";
   import Archive from "@lucide/svelte/icons/archive";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Square from "@lucide/svelte/icons/square";
+  import SquareCheck from "@lucide/svelte/icons/square-check";
+  import SquareX from "@lucide/svelte/icons/square-x";
   import type { MatterRecord } from "./matter-record.ts";
+  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import type { MaturityStage } from "$lib/maturity/maturity.ts";
+  import { matterSections } from "./sections.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
+    matterCloseChecklist,
+    matterCloseConsiderations,
     matterCloseRefusals,
     matterLifecycleBlock,
     matterLifecycleStep,
     MATTER_LIFECYCLE_TRANSPORT_FAILURE,
+    type MatterCloseCheck,
+    type MatterCloseCheckState,
     type MatterCloseRefusal,
     type MatterLifecycleAction,
     type MatterLifecycleStep,
@@ -52,6 +63,8 @@
     reopenMatter,
     type MatterCloseNotice,
   } from "./matters-api.ts";
+  import { readMatterUnbilled, type MatterUnbilled } from "$lib/billing/billing-api.ts";
+  import { listCustodyPackets } from "$lib/custodian/custody-api.ts";
   import type { ApiOutcome } from "$lib/api/request.ts";
 
   let { matter }: { matter: MatterRecord } = $props();
@@ -74,9 +87,14 @@
   /** The step that was taken, held so the result reads about it and not about the next one. */
   let taken = $state<MatterLifecycleStep | null>(null);
   let notices = $state<readonly MatterCloseNotice[]>([]);
-  let refusals = $state<readonly MatterCloseRefusal[]>([]);
+  /** Null until a close has been attempted: nothing has asked the rules, so nothing is known. */
+  let refusals = $state<readonly MatterCloseRefusal[] | null>(null);
   let failure = $state<string | null>(null);
   let errorId = $state<string | null>(null);
+
+  /** What the firm still holds against the matter. Null while unread, and after a read that failed. */
+  let unbilled = $state<MatterUnbilled | null>(null);
+  let custodyPacketCount = $state<number | null>(null);
 
   /** Null until the session read comes back, either way; `settled` is what tells the two apart. */
   let permissions = $state<readonly string[] | null>(null);
@@ -87,6 +105,49 @@
 
   const StepIcon = $derived(STEP_ICON[step.action]);
   const isSample = $derived(matter.source === "sample");
+  const checklist = $derived(matterCloseChecklist(refusals));
+  // The firm's own currency is not read anywhere yet, and neither is a per-matter one. The billing
+  // surfaces default the same way and for the same reason, so this reads as they do rather than
+  // inventing a second answer.
+  const considerations = $derived(
+    matterCloseConsiderations({
+      unbilled,
+      custodyPacketCount,
+      money: (amountMinor) => formatMoney(amountMinor / 100, { currency: "USD" }),
+    }),
+  );
+
+  const CHECK_ICON: Record<MatterCloseCheckState, typeof Square> = {
+    unknown: Square,
+    met: SquareCheck,
+    blocked: SquareX,
+  };
+  const CHECK_TONE: Record<MatterCloseCheckState, string> = {
+    unknown: "text-text-subtle",
+    met: "text-status-success-subtle-foreground",
+    blocked: "text-status-danger-subtle-foreground",
+  };
+
+  /**
+   * Where a requirement or a consideration is settled, read from the section registry so this
+   * window cannot name a section that does not exist or label one differently from the nav.
+   *
+   * The stage comes with it because a section that is not built yet must not be dressed as a live
+   * link: Trust is where a client ledger is cleared and it is still a stub, so it is named with the
+   * Soon mark rather than offered as somewhere to go. That is the same rule a Soon control follows,
+   * applied to a destination.
+   */
+  function sectionLink(
+    slug: string,
+  ): { href: string; label: string; stage: MaturityStage } | null {
+    const section = matterSections.find((candidate) => candidate.slug === slug);
+    if (section === undefined) return null;
+    return {
+      href: `/matters/${matter.id}/${section.slug}`,
+      label: section.label,
+      stage: section.stage,
+    };
+  }
   const block = $derived(
     matterLifecycleBlock({ step, isSample, sessionSettled, permissions }),
   );
@@ -103,12 +164,32 @@
     })();
   });
 
+  // What the firm still holds against the matter, read only where it bears on the step in front of
+  // the reader: a close. Neither read gates anything, so a failure leaves its row unwritten rather
+  // than the window unusable — a consideration nobody could read is not a reason to refuse a close.
+  let holdingsRead = false;
+  $effect(() => {
+    if (!open || holdingsRead || isSample || step.action !== "close") return;
+    holdingsRead = true;
+    const matterId = matter.id;
+    void (async () => {
+      const [work, packets] = await Promise.all([
+        readMatterUnbilled(fetch, matterId),
+        listCustodyPackets(fetch, { matterId }),
+      ]);
+      if (work.kind === "ok") unbilled = work.value;
+      // The count is what this window shows; the register itself is one link away, which is where
+      // a person reads which packets they are and where each one sits.
+      if (packets.kind === "ok") custodyPacketCount = packets.value.data.length;
+    })();
+  });
+
   // A window opened again starts on the step, not on the last answer it gave.
   $effect(() => {
     if (!open) return;
     taken = null;
     notices = [];
-    refusals = [];
+    refusals = null;
     failure = null;
     errorId = null;
   });
@@ -119,9 +200,11 @@
       return;
     }
     errorId = outcome.problem.errorId ?? null;
-    // A refused close carries its reasons; anything else has at most the server's own sentence.
-    refusals = matterCloseRefusals(outcome.problem);
-    failure = refusals.length > 0 ? null : (outcome.problem.detail ?? step.failureSentence);
+    // A refused close carries its reasons, and those resolve the checklist; anything else has at
+    // most the server's own sentence, and leaves the checklist unasked rather than answered.
+    const refused = matterCloseRefusals(outcome.problem);
+    refusals = refused.length > 0 ? refused : null;
+    failure = refused.length > 0 ? null : (outcome.problem.detail ?? step.failureSentence);
   }
 
   // The matter behind the chrome is re-read rather than guessed at: reopen restores open OR
@@ -139,7 +222,7 @@
     if (working || block !== null) return;
     const completed = step;
     working = true;
-    refusals = [];
+    refusals = null;
     failure = null;
     errorId = null;
     // A double-press must not draw a second matter number or stamp a second close date, so every
@@ -168,6 +251,26 @@
     report(outcome);
   }
 </script>
+
+<!-- One destination, rendered two ways for one reason: a section that is built is somewhere to
+     go, and a section that is not is somewhere to be told about. Never a link that lands on a
+     stub and leaves a person no better off than before they followed it. -->
+{#snippet destination(link: { href: string; label: string; stage: MaturityStage })}
+  {#if link.stage === "soon"}
+    <span class="inline-flex items-center gap-4 text-xs text-text-subtle">
+      {link.label}
+      <MaturityBadge stage={link.stage} />
+    </span>
+  {:else}
+    <a
+      href={link.href}
+      class="text-text-link underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+      onclick={() => (open = false)}
+    >
+      {link.label}
+    </a>
+  {/if}
+{/snippet}
 
 <Dialog.Root bind:open>
   <!-- The seal is a real button around the chip, never a chip pretending to be one: a Badge labels
@@ -214,28 +317,78 @@
         </ul>
       </div>
 
-      {#if step.requirements.length > 0}
+      {#if step.action === "close"}
+        {#if refusals !== null}
+          <!-- The outcome is announced once, here; the checklist below carries which rule refused
+               and in whose words, so the two are never two copies of the same sentence. -->
+          <Alert.Root variant="danger">
+            <Alert.Title>{step.failureSentence}</Alert.Title>
+          </Alert.Root>
+        {/if}
+
+        <!-- The gate, as a checklist. Every row rests unticked and says so: neither rule can be
+             read from here yet, and a tick nobody verified is the one state a checklist must not
+             invent. One press resolves the whole list, because a refused close reports every rule
+             that refused and silence about a rule is that rule passing. -->
         <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">What It Requires</h3>
-          <ul class="flex list-disc flex-col gap-4 ps-16 text-sm text-text-muted">
-            {#each step.requirements as requirement (requirement)}
-              <li>{requirement}</li>
+          <h3 class="text-xs text-text-subtle uppercase">Before It Can Close</h3>
+          <ul class="flex flex-col gap-8 text-sm">
+            {#each checklist as check (check.key)}
+              {@const CheckIcon = CHECK_ICON[check.state]}
+              {@const link = check.section === null ? null : sectionLink(check.section)}
+              <li class="flex items-start gap-8">
+                <CheckIcon
+                  class="mt-2 size-16 shrink-0 {CHECK_TONE[check.state]}"
+                  aria-hidden="true"
+                />
+                <span class="flex flex-col gap-4">
+                  <span class={check.state === "blocked" ? "text-text-default" : "text-text-muted"}>
+                    {check.label}
+                  </span>
+                  {#each check.reasons as reason (reason)}
+                    <span class="text-status-danger-subtle-foreground">{reason}</span>
+                  {/each}
+                  <!-- The way to settle a requirement exists while it is in play and not after: a
+                       row the close has already ticked has nothing to go and do. -->
+                  {#if link !== null && check.state !== "met"}
+                    <span class="self-start">{@render destination(link)}</span>
+                  {/if}
+                </span>
+              </li>
             {/each}
           </ul>
+          <!-- The line stays in place and changes its words, never appearing and disappearing
+               between states: an unticked box with nothing said about it reads as a failed check,
+               which is the opposite of what it means here. -->
+          <p class="text-xs text-text-subtle">
+            {refusals === null
+              ? "Both are checked when you close; neither can be read from this window yet."
+              : "Answered by the close that was refused."}
+          </p>
         </div>
-      {/if}
 
-      {#if refusals.length > 0}
-        <Alert.Root variant="danger">
-          <Alert.Title>{step.failureSentence}</Alert.Title>
-          <Alert.Description>
-            <ul class="flex flex-col gap-4">
-              {#each refusals as refusal (refusal.reason)}
-                <li>{refusal.reason}</li>
+        <!-- Not requirements, and never becoming them: an unpaid bill's lawful exit is a write-off,
+             and a firm holds a client's original for decades after their last matter closed. A
+             block with nothing in it is not drawn. -->
+        {#if considerations.length > 0}
+          <div class="flex flex-col gap-8">
+            <h3 class="text-xs text-text-subtle uppercase">Worth Settling First</h3>
+            <ul class="flex flex-col gap-8 text-sm leading-normal">
+              {#each considerations as consideration (consideration.key)}
+                {@const link = sectionLink(consideration.section)}
+                <!-- The destination rides the end of the finding rather than sitting on a line of
+                     its own: two considerations settled in the same section stacked two identical
+                     link lines under each other, which read as one control repeated. -->
+                <li class="text-text-muted">
+                  {consideration.line}
+                  {#if link !== null}
+                    {@render destination(link)}
+                  {/if}
+                </li>
               {/each}
             </ul>
-          </Alert.Description>
-        </Alert.Root>
+          </div>
+        {/if}
       {/if}
 
       {#if failure !== null}
