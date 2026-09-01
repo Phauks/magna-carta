@@ -15,6 +15,9 @@
   },
   "references": [
     {
+      "path": "../access-control/tsconfig.build.json"
+    },
+    {
       "path": "../billing/tsconfig.build.json"
     },
     {
@@ -61,6 +64,9 @@
     },
     {
       "path": "../locations/tsconfig.build.json"
+    },
+    {
+      "path": "../matter-search/tsconfig.build.json"
     },
     {
       "path": "../matters/tsconfig.build.json"

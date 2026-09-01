@@ -1685,6 +1685,9 @@ importers:
       '@faker-js/faker':
         specifier: 'catalog:'
         version: 10.5.0
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../access-control
       '@magna-carta/billing':
         specifier: workspace:*
         version: link:../billing
@@ -1733,6 +1736,9 @@ importers:
       '@magna-carta/locations':
         specifier: workspace:*
         version: link:../locations
+      '@magna-carta/matter-search':
+        specifier: workspace:*
+        version: link:../matter-search
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../matters

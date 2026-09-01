@@ -199,8 +199,20 @@ const custodySource: MatterSearchSource = {
 // The people and organizations connected to this matter, matched on the display name the firm
 // records and on the capacity they act in.
 //
-// Two LEFT JOINs cover both entity kinds in one pass, and COALESCE picks whichever display name is
-// non-null — exactly one will be, because a party's entity is either a person or an organization.
+// THE NAME IS RESOLVED BY SCALAR SUBQUERY, NOT BY JOINING THE DIRECTORY, and that is the whole
+// shape of this source rather than a stylistic choice. Written as two LEFT JOINs onto
+// directory_person and directory_organization — which reads more naturally and is what this source
+// did first — SQLite plans a FULL SCAN of the directory: the join predicates and the COALESCE in the
+// WHERE clause leave it nothing to narrow on, so a party search on a five-party matter reads every
+// entity the firm has ever recorded. That is the exact failure the load-profile gate exists to
+// catch (packages/fixtures/src/load-profile/matter-search-measurements.ts) — a read that grows with
+// the FIRM rather than with the MATTER, invisible on a demo and ruinous on a real book.
+//
+// Driving from matter_party instead puts the matter's own index first, and each name is then a
+// primary-key lookup on a row set bounded by the matter's party count. Exactly one of the two
+// subqueries can answer, because an entity is a person or an organization and the identifier says
+// which.
+//
 // A soft-deleted link, a soft-deleted entity and an entity merged away are all excluded, matching
 // what the directory's own search excludes.
 //
@@ -212,6 +224,15 @@ const custodySource: MatterSearchSource = {
 //
 // No snippet: a party's name IS the title, and the sensitive typed identifiers beside it are
 // protected() columns that must never become an excerpt.
+const PARTY_DISPLAY_NAME =
+  `COALESCE(` +
+  `(SELECT ${DIRECTORY_PERSON_TABLE}.display_name FROM ${DIRECTORY_PERSON_TABLE} ` +
+  `WHERE ${DIRECTORY_PERSON_TABLE}.id = ${MATTER_PARTY_TABLE}.entity_id ` +
+  `AND ${DIRECTORY_PERSON_TABLE}.deleted_at IS NULL AND ${DIRECTORY_PERSON_TABLE}.status = 'active'), ` +
+  `(SELECT ${DIRECTORY_ORGANIZATION_TABLE}.display_name FROM ${DIRECTORY_ORGANIZATION_TABLE} ` +
+  `WHERE ${DIRECTORY_ORGANIZATION_TABLE}.id = ${MATTER_PARTY_TABLE}.entity_id ` +
+  `AND ${DIRECTORY_ORGANIZATION_TABLE}.deleted_at IS NULL AND ${DIRECTORY_ORGANIZATION_TABLE}.status = 'active'))`;
+
 const partiesSource: MatterSearchSource = {
   key: "parties",
   sectionSlug: "parties",
@@ -227,23 +248,16 @@ const partiesSource: MatterSearchSource = {
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
     const term = likeContainsTerm(request.query.trim());
-    const displayName = `COALESCE(${DIRECTORY_PERSON_TABLE}.display_name, ${DIRECTORY_ORGANIZATION_TABLE}.display_name)`;
     return [
       boundedSearchSelect(request.database, {
         request,
-        from:
-          `${MATTER_PARTY_TABLE} ` +
-          `LEFT JOIN ${DIRECTORY_PERSON_TABLE} ON ${DIRECTORY_PERSON_TABLE}.id = ${MATTER_PARTY_TABLE}.entity_id ` +
-          `AND ${DIRECTORY_PERSON_TABLE}.deleted_at IS NULL ` +
-          `LEFT JOIN ${DIRECTORY_ORGANIZATION_TABLE} ON ${DIRECTORY_ORGANIZATION_TABLE}.id = ${MATTER_PARTY_TABLE}.entity_id ` +
-          `AND ${DIRECTORY_ORGANIZATION_TABLE}.deleted_at IS NULL ` +
-          `AND ${DIRECTORY_ORGANIZATION_TABLE}.status = 'active'`,
+        from: MATTER_PARTY_TABLE,
         idColumn: `${MATTER_PARTY_TABLE}.id`,
         matterExpression: `${MATTER_PARTY_TABLE}.matter_id`,
         // Alphabetical, because a party list is read as a roll rather than as a history. Case-folded
         // so the order does not depend on how a name happens to be capitalized.
-        sortExpression: `LOWER(${displayName})`,
-        titleExpression: displayName,
+        sortExpression: `LOWER(${PARTY_DISPLAY_NAME})`,
+        titleExpression: PARTY_DISPLAY_NAME,
         snippetExpression: "NULL",
         // What they are to this matter — the role, and the capacity where the firm recorded one.
         secondaryExpression:
@@ -252,8 +266,8 @@ const partiesSource: MatterSearchSource = {
         actorExpression: "NULL",
         conditions: [
           `${MATTER_PARTY_TABLE}.deleted_at IS NULL`,
-          `${displayName} IS NOT NULL`,
-          `(${displayName} LIKE ? ESCAPE '\\' OR ${MATTER_PARTY_TABLE}.capacity LIKE ? ESCAPE '\\')`,
+          `${PARTY_DISPLAY_NAME} IS NOT NULL`,
+          `(${PARTY_DISPLAY_NAME} LIKE ? ESCAPE '\\' OR ${MATTER_PARTY_TABLE}.capacity LIKE ? ESCAPE '\\')`,
         ],
         bindings: [term, term],
         ascending: true,
