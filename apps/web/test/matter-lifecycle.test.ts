@@ -1,19 +1,20 @@
 /*
  * The status window's model, pinned. What is worth a test here is everything a person reads
- * immediately before a matter's standing changes:
+ * immediately before a matter's status changes:
  *
  *   - every status offers one step, and it is the step the contract actually serves;
- *   - the verdict on closing is the program's answer, with "nobody could ask" kept distinct from
- *     "a rule said no" — only one of those is something a person can act on;
- *   - a refused close reads in the same shape the verdict does, so the window never grows a second
- *     account of the same fact;
+ *   - what closing requires, answered by the rules rather than by the reader, with "nobody could
+ *     ask" kept distinct from "a rule said no" — only one of those is something a person can act on;
+ *   - a refused close reads in the shape the requirements are already in, so the window never grows
+ *     a second account of the same fact;
  *   - the physical-file rows say what they wait on and invent nothing, least of all a date somebody
  *     would destroy a client's file on.
  */
 import { describe, expect, it } from "vitest";
 import {
+  matterCanClose,
   matterCloseRefusals,
-  matterCloseStanding,
+  matterCloseRequirements,
   matterLifecycleBlock,
   matterLifecycleStep,
   CLOSE_REFUSED_PROBLEM_TYPE,
@@ -42,50 +43,66 @@ describe("matterLifecycleStep", () => {
   });
 });
 
-describe("matterCloseStanding", () => {
-  it("is checking until the program has answered", () => {
-    const standing = matterCloseStanding(null);
-    expect(standing.verdict).toBe("checking");
-    expect(standing.blockers).toEqual([]);
+describe("matterCloseRequirements", () => {
+  const held = {
+    code: "trust-balance-not-zero",
+    message: "this matter still holds $1,250.00 on the IOLTA trust ledger.",
+  };
+
+  it("is checking, not unmet, until the program has answered", () => {
+    // An unanswered requirement rendered as a failure is a firm told there is money on a matter
+    // that has none.
+    const rows = matterCloseRequirements(null);
+    expect(rows.every((row) => row.state === "checking")).toBe(true);
+    expect(rows.every((row) => row.detail === null)).toBe(true);
+    expect(matterCanClose(null)).toBeNull();
   });
 
-  it("reads yes as yes", () => {
-    const standing = matterCloseStanding({
+  it("marks every requirement met when nothing is in the way", () => {
+    const rows = matterCloseRequirements({
       matterId: "matter_1",
       status: "open",
       closable: true,
       blockers: [],
     });
-    expect(standing.verdict).toBe("ready");
-    expect(standing.sentence).toBe("Ready to close.");
+    expect(rows.every((row) => row.state === "met")).toBe(true);
+    expect(rows.map((row) => row.label).every((label) => label.length > 0)).toBe(true);
   });
 
-  it("keeps each rule's own words, with the capital the rule did not supply", () => {
-    const standing = matterCloseStanding({
+  it("answers every requirement from one reply: a rule not named is a rule that passed", () => {
+    const rows = matterCloseRequirements({
+      matterId: "matter_1",
+      status: "open",
+      closable: false,
+      blockers: [held],
+    });
+    const trust = rows.find((row) => row.key === "trust");
+    const credit = rows.find((row) => row.key === "client-credit");
+    expect(trust?.state).toBe("unmet");
+    // Only the leading character is the surface's: the amount and the ledger name are the server's.
+    expect(trust?.detail).toBe("This matter still holds $1,250.00 on the IOLTA trust ledger.");
+    expect(credit?.state).toBe("met");
+    expect(credit?.detail).toBeNull();
+  });
+
+  it("carries a rule this build has never heard of rather than dropping it", () => {
+    const rows = matterCloseRequirements({
       matterId: "matter_1",
       status: "open",
       closable: false,
       blockers: [
-        {
-          code: "trust-balance-not-zero",
-          message: "this matter still holds $1,250.00 on the IOLTA trust ledger.",
-        },
+        { code: "some-rule-shipped-later", message: "the matter is under a litigation hold." },
       ],
     });
-    expect(standing.verdict).toBe("blocked");
-    // Only the leading character is the surface's: the amounts and the ledger name are the server's.
-    expect(standing.blockers[0]?.message).toBe(
-      "This matter still holds $1,250.00 on the IOLTA trust ledger.",
-    );
-    expect(standing.blockers[0]?.code).toBe("trust-balance-not-zero");
+    const carried = rows.find((row) => row.key === "some-rule-shipped-later");
+    expect(carried?.state).toBe("unmet");
+    expect(carried?.label).toBe("The matter is under a litigation hold.");
   });
 
   it("keeps a question nobody could ask apart from a rule that said no", () => {
-    // Rendering an unreadable answer as a refusal would send somebody looking for money that is not
-    // there, and would disable a close the rules never refused.
-    const standing = matterCloseStanding(null, true);
-    expect(standing.verdict).toBe("unknown");
-    expect(standing.blockers).toEqual([]);
+    // Unknown must not disable a close the rules never refused, and must not read as a refusal.
+    const rows = matterCloseRequirements(null, true);
+    expect(rows.every((row) => row.state === "unknown")).toBe(true);
   });
 });
 
@@ -103,10 +120,12 @@ describe("matterCloseRefusals", () => {
         },
       ],
     });
+    // The rule's own words, untouched: the requirement list is where the capital is put on, because
+    // that is the surface that renders the sentence on its own line.
     expect(refusals).toEqual([
       {
         code: "client-credit-open",
-        message: "This matter carries $80.00 the firm owes back to the client.",
+        message: "this matter carries $80.00 the firm owes back to the client.",
       },
     ]);
   });

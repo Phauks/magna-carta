@@ -97,18 +97,19 @@ would not be real.
 A matter's status is the badge at the top left of its own page, beside the matter number: **Active**,
 **Prospective** or **Closed**. Press the badge to change it.
 
-The window is short on purpose. It states the matter's standing, whether it can be closed, and what
-becomes of the paper file, and it offers the one step the current standing allows: a consultation
-opens, an active matter closes, a closed matter reopens. There is no list of statuses to pick from,
+The window is short on purpose. It states the matter's status, what closing requires and whether
+each requirement is met, and what becomes of the paper file, and it offers the one step the current
+status allows: a consultation opens, an active matter closes, a closed matter reopens. There is no list of statuses to pick from,
 because a matter reaches a status by being opened, closed or reopened, not by being set to one.
 
-**Can close** is answered before you press anything. The program runs the firm's own rules against
-the matter and reports the verdict. Where the answer is no, the window names what is in the way, in
-the words of the rule that said so, and the **Close Matter** button stays disabled: there is nothing
-to be gained from a press whose refusal is already on the screen. Clear what it names, reopen the
-window, and it is asked again.
+**Requirements to close** lists what has to be true, each one already answered. Magna Carta runs
+the firm's own rules against the matter when the window opens, so a requirement is marked met or not
+before you press anything; nothing here is yours to tick. Where one is not met, the rule says in its
+own words what is in the way, and the **Close Matter** button stays disabled: there is nothing to be
+gained from a press whose refusal is already on the screen. Clear what it names, reopen the window,
+and it is asked again.
 
-Two rules stop a close, and both are about money that is not the firm's.
+Two requirements stop a close, and both are about money that is not the firm's.
 
 **Money still in the client's trust ledger.** A client ledger has to reach zero before its matter
 closes, and a hold on disputed funds stops a close even where the ledger is otherwise empty. The
@@ -124,7 +125,7 @@ An unpaid bill does **not** stop a close. An uncollectable receivable is an ordi
 outcome, and writing it off is its lawful exit.
 
 **Opening a consultation** draws your firm's next matter number, which then stays with the matter for
-good, and moves it into the working docket. **Reopening a matter** returns it to the standing it held
+good, and moves it into the working docket. **Reopening a matter** returns it to the status it held
 before it closed, which is Active if it carries a number and Prospective if it does not, and clears
 the recorded close date.
 

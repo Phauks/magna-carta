@@ -1,26 +1,26 @@
 <script lang="ts">
   /*
-   * The status seal, and the window behind it. Changing a matter's status is done HERE, by pressing
-   * the standing itself.
+   * The status seal, and the window behind it. A matter's status is changed HERE, by pressing the
+   * status itself.
    *
    * WHY THE SEAL IS THE CONTROL. The status is the fact the top-left corner of a matter exists to
    * state, and it is the only thing on the masthead a person changes rather than edits. Putting the
-   * change behind an overflow menu made the two strangers: you read the standing in one place and
+   * change behind an overflow menu made the two strangers: you read the status in one place and
    * changed it in another, three gestures away.
    *
    * WHAT THE WINDOW IS AND IS NOT. It is a short answer to three questions and nothing else: what
-   * the standing is, whether the matter can close, and what becomes of the paper file. It is NOT a
-   * description of what closing does, NOT a checklist for a person to work through, and NOT a
-   * summary of the matter — closing changes a standing and stamps a date, and everything else about
-   * the matter is on the sections that own it.
+   * the status is, what closing requires and whether each requirement is met, and what becomes of
+   * the paper file. It is NOT a description of what closing does, NOT a checklist for a person to
+   * work through, and NOT a summary of the matter — everything else about the matter is on the
+   * sections that own it.
    *
-   * THE PROGRAM ANSWERS "CAN THIS CLOSE", NOT THE READER. The close-readiness route runs the firm's
-   * own registered rules read-only, so the verdict is on screen before the button is pressed rather
-   * than discovered by pressing it. A No carries the rules' own sentences, which name the amount,
-   * where it sits, and the movements that clear it. The close still has the last word: the balance
-   * can move between the reading and the press, which is what the close's own commit guards are for,
-   * and a refusal at that moment lands in the same place as the verdict rather than as a second
-   * kind of message.
+   * THE PROGRAM ANSWERS THE REQUIREMENTS. The close-readiness route runs the firm's own registered
+   * rules read-only, so each requirement arrives already answered rather than being discovered by
+   * pressing the button. An unmet one carries the rule's own sentence, which names the amount, where
+   * it sits, and the movements that clear it. The close still has the last word: a balance can move
+   * between the reading and the press, which is what the close's own commit guards are for, and a
+   * refusal at that moment re-answers the requirements already on screen rather than arriving as a
+   * second kind of message.
    */
   import { invalidateAll } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -31,19 +31,21 @@
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
+  import CircleDot from "@lucide/svelte/icons/circle-dot";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
+    matterCanClose,
     matterCloseRefusals,
-    matterCloseStanding,
+    matterCloseRequirements,
     matterLifecycleBlock,
     matterLifecycleStep,
     MATTER_LIFECYCLE_TRANSPORT_FAILURE,
     MATTER_PHYSICAL_FILE_FACTS,
-    type MatterCloseVerdict,
+    type MatterCloseRequirementState,
     type MatterLifecycleStep,
   } from "./matter-lifecycle.ts";
   import {
@@ -67,16 +69,19 @@
   // The lifecycle glyph per step. Closing wears Archive rather than a destructive glyph: the record
   // stays additive after a close, and a bin would say the file was destroyed.
   const STEP_ICON = { open: FolderOpen, close: Archive, reopen: RotateCcw };
-  const VERDICT_ICON: Record<MatterCloseVerdict, typeof CircleCheck> = {
+  // Met, unmet, and the two kinds of no-answer-yet. Checking and unknown wear the quiet register on
+  // purpose: neither is a finding, and a grey mark reads as "nothing said" where a red one would
+  // read as "no".
+  const REQUIREMENT_ICON: Record<MatterCloseRequirementState, typeof CircleCheck> = {
     checking: CircleDashed,
-    ready: CircleCheck,
-    blocked: CircleAlert,
-    unknown: CircleDashed,
+    met: CircleCheck,
+    unmet: CircleAlert,
+    unknown: CircleDot,
   };
-  const VERDICT_TONE: Record<MatterCloseVerdict, string> = {
+  const REQUIREMENT_TONE: Record<MatterCloseRequirementState, string> = {
     checking: "text-text-subtle",
-    ready: "text-status-success-subtle-foreground",
-    blocked: "text-status-danger-subtle-foreground",
+    met: "text-status-success-subtle-foreground",
+    unmet: "text-status-danger-subtle-foreground",
     unknown: "text-text-subtle",
   };
 
@@ -101,16 +106,16 @@
 
   const StepIcon = $derived(STEP_ICON[step.action]);
   const isSample = $derived(matter.source === "sample");
-  const standing = $derived(matterCloseStanding(readiness, readinessFailed));
-  const VerdictIcon = $derived(VERDICT_ICON[standing.verdict]);
+  const requirements = $derived(matterCloseRequirements(readiness, readinessFailed));
+  const canClose = $derived(matterCanClose(readiness));
   // The paper file belongs to a matter the firm has taken on. A consultation has not drawn a number
   // and has no place in a file room, so the rows are not drawn rather than drawn empty.
   const hasPhysicalFile = $derived(matter.matterNumber !== null);
   const block = $derived(matterLifecycleBlock({ step, isSample, sessionSettled, permissions }));
-  // A control does not offer a press whose refusal is already on the screen. `checking` and
-  // `unknown` are NOT refusals and never disable it: nothing has been predicted there, and the
-  // close is the authority either way.
-  const refused = $derived(step.action === "close" && standing.verdict === "blocked");
+  // A control does not offer a press whose refusal is already on the screen. An unanswered question
+  // is NOT a refusal and never disables it: nothing has been predicted there, and the close is the
+  // authority either way.
+  const refused = $derived(step.action === "close" && canClose === false);
 
   // Who is asking, read once and only when somebody actually opens the window. Every matter page in
   // the app would otherwise pay for a request that only this control uses. A sample matter is
@@ -153,9 +158,9 @@
       return;
     }
     errorId = outcome.problem.errorId ?? null;
-    // A close refused at the last moment is the same answer the verdict already holds, arriving
-    // later: it lands there rather than beside it, so the window never shows two accounts of the
-    // matter's readiness at once.
+    // A close refused at the last moment is the same answer the requirements already hold, arriving
+    // later: it re-answers them rather than sitting beside them, so the window never shows two
+    // accounts of what closing requires at once.
     const refused = matterCloseRefusals(outcome.problem);
     if (refused.length > 0) {
       readiness = {
@@ -245,7 +250,7 @@
     {#if taken === null}
       <dl class="flex flex-col gap-8 text-sm">
         <div class="flex items-baseline justify-between gap-16">
-          <dt class="text-text-muted">Standing</dt>
+          <dt class="text-text-muted">Status</dt>
           <dd>
             <Badge
               variant={seal.variant}
@@ -256,22 +261,48 @@
             </Badge>
           </dd>
         </div>
+      </dl>
 
-        {#if step.action === "close" && !isSample}
-          <!-- The program's answer, not a list for the reader to work through. -->
-          <div class="flex items-baseline justify-between gap-16">
-            <dt class="text-text-muted">Can Close</dt>
-            <dd class="flex items-center gap-4 text-right {VERDICT_TONE[standing.verdict]}">
-              <VerdictIcon class="size-16 shrink-0" aria-hidden="true" />
-              {standing.sentence}
-            </dd>
-          </div>
-        {/if}
+      {#if step.action === "close" && !isSample}
+        <!-- What closing requires, each one already answered by the rules themselves. Not a
+             checklist: nothing here is a person's to tick, and the mark states what the program
+             found rather than what anybody is being asked to confirm. -->
+        <div class="flex flex-col gap-8">
+          <h3 class="text-xs text-text-subtle uppercase">Requirements To Close</h3>
+          <ul class="flex flex-col gap-8 text-sm">
+            {#each requirements as requirement (requirement.key)}
+              {@const RequirementIcon = REQUIREMENT_ICON[requirement.state]}
+              <li class="flex items-start gap-8">
+                <RequirementIcon
+                  class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE[requirement.state]}"
+                  aria-hidden="true"
+                />
+                <span class="flex flex-col gap-4">
+                  <span class={requirement.state === "met" ? "text-text-muted" : "text-text-default"}
+                    >{requirement.label}</span
+                  >
+                  {#if requirement.detail !== null}
+                    <span class="text-status-danger-subtle-foreground">{requirement.detail}</span>
+                  {/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+          {#if readinessFailed}
+            <!-- Unanswered is not unmet, and the difference is the whole reason this line exists. -->
+            <p class="text-xs text-text-subtle">
+              These could not be checked, so the close will check them.
+            </p>
+          {/if}
+        </div>
+      {/if}
 
-        {#if hasPhysicalFile}
-          <!-- The firm's own paper file, which is not the custody register: that one holds client
-               property left with the firm to guard. Neither row is served yet, so each says what it
-               waits on rather than being left off the window that ought to answer it. -->
+      {#if hasPhysicalFile}
+        <!-- The firm's own paper file, which is not the custody register: that one holds client
+             property left with the firm to guard. Neither row is served yet, so each says what it
+             waits on rather than being left off the window that ought to answer it. A consultation
+             has no place in a file room, so the list is not drawn at all rather than drawn empty. -->
+        <dl class="flex flex-col gap-8 text-sm">
           {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
             <div class="flex items-baseline justify-between gap-16">
               <dt class="text-text-muted">{fact.label}</dt>
@@ -282,20 +313,7 @@
             </div>
             <p class="-mt-4 text-xs text-text-subtle">{fact.waitingOn}</p>
           {/each}
-        {/if}
-      </dl>
-
-      {#if standing.blockers.length > 0}
-        <Alert.Root variant="danger">
-          <Alert.Title>What Is In The Way</Alert.Title>
-          <Alert.Description>
-            <ul class="flex flex-col gap-4">
-              {#each standing.blockers as blocker (blocker.message)}
-                <li>{blocker.message}</li>
-              {/each}
-            </ul>
-          </Alert.Description>
-        </Alert.Root>
+        </dl>
       {/if}
 
       {#if failure !== null}

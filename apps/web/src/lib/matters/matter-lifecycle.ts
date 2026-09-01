@@ -11,11 +11,11 @@
  * body, none of which takes a status. A control that let somebody pick "Closed" from a list would
  * be offering a state the lifecycle may not put a matter in from where it stands.
  *
- * THE PROGRAM DECIDES WHETHER A MATTER CAN CLOSE, AND THE WINDOW REPORTS IT. There is no checklist
- * for a person to work through: the close-readiness route runs the firm's own registered rules
- * read-only and answers, so the window states a verdict it was handed rather than a list of things
- * to go and confirm. What to do about a No is in the refusal itself, which names the amount, where
- * it sits, and the movements that clear it.
+ * THE PROGRAM ANSWERS THE REQUIREMENTS, NOT THE READER. The close-readiness route runs the firm's
+ * own registered rules read-only, so the window lists what closing requires with each one already
+ * answered, rather than handing somebody a list of things to go and confirm. What to do about an
+ * unmet requirement is in the rule's own words, which name the amount, where it sits, and the
+ * movements that clear it.
  */
 import type { ApiProblem } from "$lib/api/request.ts";
 import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
@@ -89,55 +89,106 @@ export function matterLifecycleStep(status: MatterStatus): MatterLifecycleStep {
   return MATTER_LIFECYCLE_STEPS[status];
 }
 
-// ---- can it close? ------------------------------------------------------------------------------
+// ---- what closing requires -----------------------------------------------------------------------
 
 /**
- * Where the verdict stands.
+ * One thing that has to be true before a matter closes, and the refusal codes that say it is not.
  *
- * `unknown` is its own answer and never collapses into `blocked`. A rule that refused and a question
- * nobody could put are different facts, and only the first is one a person can act on; showing the
- * second as a refusal would send somebody looking for money that is not there.
+ * These are NOT boxes for a person to tick. Each is a rule the firm's own subsystems enforce, and
+ * the close-readiness route runs all of them and answers; what this list adds is the plain statement
+ * of the rule, so a met requirement reads as a sentence about the matter rather than as the absence
+ * of an error. The codes are the subsystems' own (packages/trust/src/close-precondition.ts,
+ * packages/billing/src/close-precondition.ts) and are spelled here because this app deliberately does
+ * not depend on those packages, the same way every response shape in matters-api.ts is.
  */
-export type MatterCloseVerdict = "checking" | "ready" | "blocked" | "unknown";
+interface MatterCloseRequirement {
+  readonly key: string;
+  readonly label: string;
+  readonly codes: readonly string[];
+}
 
-export interface MatterCloseStanding {
-  readonly verdict: MatterCloseVerdict;
-  /** The verdict in one line. */
-  readonly sentence: string;
-  /** Each rule that stands in the way, in the words of the subsystem that owns it. */
-  readonly blockers: readonly MatterCloseBlocker[];
+const MATTER_CLOSE_REQUIREMENTS: readonly MatterCloseRequirement[] = [
+  {
+    key: "trust",
+    label: "The client's trust ledger for this matter is empty, with no disputed-funds hold.",
+    codes: ["trust-balance-not-zero", "trust-hold-active"],
+  },
+  {
+    key: "client-credit",
+    label: "No client credit is open against the matter.",
+    codes: ["client-credit-open"],
+  },
+];
+
+/**
+ * Where one requirement stands.
+ *
+ * `unknown` never collapses into `unmet`. A rule that refused and a question nobody could put are
+ * different facts, and only the first is one a person can act on; showing the second as a refusal
+ * would send somebody looking for money that is not there.
+ */
+export type MatterCloseRequirementState = "checking" | "met" | "unmet" | "unknown";
+
+export interface MatterCloseRequirementStatus {
+  readonly key: string;
+  /** What has to be true. For a rule this build does not know, the server's own sentence. */
+  readonly label: string;
+  readonly state: MatterCloseRequirementState;
+  /** The rule's own words where it is what stands in the way: the amount, and what clears it. */
+  readonly detail: string | null;
 }
 
 /**
- * The verdict, from what the readiness route answered.
+ * Every requirement, answered.
  *
- * `null` means the answer has not arrived yet; `failed` means it could not be had at all. The rule
- * messages are the server's own sentences and reach the screen unedited apart from the capital the
- * subsystem did not supply, because each is written as the tail of a sentence.
+ * `readiness` null means the answer has not arrived; `failed` means it could not be had at all. An
+ * answer resolves every requirement at once, because the route runs every rule and reports every
+ * failure — so a rule the answer does not mention is a rule that passed. A refusal naming a rule
+ * this build has never heard of becomes its own unmet row rather than disappearing, since a rule
+ * registered after this screen shipped is the one a person most needs to read.
  */
-export function matterCloseStanding(
+export function matterCloseRequirements(
   readiness: MatterCloseReadiness | null,
   failed = false,
-): MatterCloseStanding {
-  if (failed) {
+): readonly MatterCloseRequirementStatus[] {
+  if (failed || readiness === null) {
+    const state: MatterCloseRequirementState = failed ? "unknown" : "checking";
+    return MATTER_CLOSE_REQUIREMENTS.map((requirement) => ({
+      key: requirement.key,
+      label: requirement.label,
+      state,
+      detail: null,
+    }));
+  }
+  const known = MATTER_CLOSE_REQUIREMENTS.map((requirement) => {
+    const blocking = readiness.blockers.filter((blocker) =>
+      requirement.codes.includes(blocker.code),
+    );
     return {
-      verdict: "unknown",
-      sentence: "Whether this matter can close could not be read.",
-      blockers: [],
+      key: requirement.key,
+      label: requirement.label,
+      state: (blocking.length > 0 ? "unmet" : "met") as MatterCloseRequirementState,
+      detail:
+        blocking.length === 0
+          ? null
+          : blocking.map((blocker) => leadingCapital(blocker.message)).join(" "),
     };
-  }
-  if (readiness === null) return { verdict: "checking", sentence: "Checking", blockers: [] };
-  if (readiness.closable) {
-    return { verdict: "ready", sentence: "Ready to close.", blockers: [] };
-  }
-  return {
-    verdict: "blocked",
-    sentence: "Not ready to close.",
-    blockers: readiness.blockers.map((blocker) => ({
-      code: blocker.code,
-      message: leadingCapital(blocker.message),
-    })),
-  };
+  });
+  const accounted = new Set(MATTER_CLOSE_REQUIREMENTS.flatMap((one) => one.codes));
+  const unaccounted = readiness.blockers
+    .filter((blocker) => !accounted.has(blocker.code))
+    .map((blocker, index) => ({
+      key: blocker.code === "" ? `unnamed-${String(index)}` : blocker.code,
+      label: leadingCapital(blocker.message),
+      state: "unmet" as const,
+      detail: null,
+    }));
+  return [...known, ...unaccounted];
+}
+
+/** Whether the program says this matter would close right now. Unknown until it has answered. */
+export function matterCanClose(readiness: MatterCloseReadiness | null): boolean | null {
+  return readiness === null ? null : readiness.closable;
 }
 
 // A rule writes its message as the tail of a sentence ("this matter still holds $400 on…"), because
@@ -159,15 +210,15 @@ export const CLOSE_REFUSED_PROBLEM_TYPE = "matter-close-refused";
  * The named reasons a close was refused, or nothing where the failure was something else.
  *
  * A close refused at the last moment answers in the same shape the readiness route answers in, so
- * it updates the verdict already on screen rather than arriving as a second kind of message. That
- * is not a coincidence to be relied on quietly: it is why both read the rules' own failures.
+ * it re-answers the requirements already on screen rather than arriving as a second kind of message.
+ * That is not a coincidence to be relied on quietly: it is why both read the rules' own failures.
  */
 export function matterCloseRefusals(problem: ApiProblem): readonly MatterCloseBlocker[] {
   if (problem.type !== CLOSE_REFUSED_PROBLEM_TYPE) return [];
   return (problem.errors ?? []).flatMap((reason) =>
     reason.detail === undefined || reason.detail === ""
       ? []
-      : [{ code: reason.code ?? "", message: leadingCapital(reason.detail) }],
+      : [{ code: reason.code ?? "", message: reason.detail }],
   );
 }
 

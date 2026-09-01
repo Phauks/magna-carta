@@ -11,7 +11,7 @@
    * THE SEAL IS ALSO THE CONTROL. Pressing it opens the status window, which is where a matter is
    * opened, closed or reopened (matter-status-dialog.svelte). There is deliberately no second way
    * in: the lifecycle action used to sit in an overflow menu beside the title, which meant the
-   * standing was read in one corner and changed in another, and the header carries no overflow menu
+   * status was read in one corner and changed in another, and the header carries no overflow menu
    * now that the step it held has a better home. An action that belongs to a fact belongs on it.
    *
    * THE WAY BACK RIDES THE SAME LINE, AS AN ARROW ALONE. The return to the docket is the first
@@ -70,7 +70,7 @@
         </nav>
         {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`}
         <!-- The status seal rides the ledger line, beside the matter number — the top-left corner
-             is where the matter's standing is read, and now also where it is changed. -->
+             is where the matter's status is read, and now also where it is changed. -->
         <MatterStatusDialog {matter} />
       </span>
     </Masthead.Eyebrow>
