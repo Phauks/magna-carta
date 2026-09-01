@@ -286,8 +286,6 @@
           <FunnelX class="size-16" aria-hidden="true" />
         </Button>
       {/if}
-
-      <DataTable.GridColumnsMenu {grid} />
     </Masthead.Actions>
   </Masthead.Root>
 

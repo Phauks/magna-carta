@@ -215,10 +215,10 @@
       <div class="flex max-w-prose flex-col gap-4">
         <h2 class="text-lg font-semibold">At rest</h2>
         <p class="text-sm text-text-muted">
-          Sorted by the anchored Date column, newest first. Hover a header for its funnel; the
-          space is always reserved, so nothing moves. Click a row to select; double-click emits an
-          activation event — the grid itself opens nothing. The totals row sums what is in view,
-          voids never counted.
+          Sorted by the anchored Date column, newest first. Right-click a header for everything
+          the column can be asked — filter, hide, pin, the roster. Click a row to select;
+          double-click emits an activation event — the grid itself opens nothing. The totals row
+          sums what is in view, voids never counted.
         </p>
         {#if lastActivated !== null || lastSelectionCount > 0}
           <p class="text-xs text-text-muted">
@@ -227,9 +227,6 @@
               : ` · last activated ${lastActivated}`}
           </p>
         {/if}
-      </div>
-      <div class="flex justify-end">
-        <DataTable.GridColumnsMenu grid={restingGrid} />
       </div>
       <DataTable.Grid grid={restingGrid} caption="Time entries, at rest" cell={statusCell} />
       <DataTable.GridFooter grid={restingGrid}>
@@ -254,9 +251,10 @@
       <div class="flex max-w-prose flex-col gap-4">
         <h2 class="text-lg font-semibold">Filtered</h2>
         <p class="text-sm text-text-muted">
-          Status narrowed to Draft. The filtered column's funnel is apparent (accent fill, always
-          visible), the footer counts n of m with the one-click way out, and the totals row turns
-          scope-honest: "In view", never a silent whole-matter sum.
+          Status narrowed to Draft, from that header's own right-click menu. The filtered column
+          is MARKED (accent fill, no control in the cell), the footer counts n of m with the
+          one-click way out, and the totals row turns scope-honest: "In view", never a silent
+          whole-matter sum.
         </p>
       </div>
       <DataTable.Grid grid={filteredGrid} caption="Time entries, filtered" cell={statusCell} />
@@ -283,7 +281,7 @@
       <div class="flex max-w-prose flex-col gap-4">
         <h2 class="text-lg font-semibold">Pinned under horizontal scroll</h2>
         <p class="text-sm text-text-muted">
-          Every column shown inside a narrow viewport, Timekeeper pinned from the columns menu: the
+          Every column shown inside a narrow viewport, Timekeeper pinned from its header menu: the
           anchored Date column joins the sticky block, contiguous from the leading edge, a hairline
           marking where the pinned block ends. Scroll sideways — the block holds still, and the
           table scrolls its own container, never the page.
@@ -333,7 +331,7 @@
       <div class="flex max-w-prose flex-col gap-4">
         <h2 class="text-lg font-semibold">Zebra</h2>
         <p class="text-sm text-text-muted">
-          The columns menu's display setting. The stripe is the faintest tint — it never competes
+          The Columns submenu's display setting. The stripe is the faintest tint — it never competes
           with hover or a selected row.
         </p>
       </div>

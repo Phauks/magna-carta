@@ -19,7 +19,7 @@ export type GridSortDirection = "ascending" | "descending";
 export interface GridColumn<TRow> {
   /** Stable identity — keys the order/width/pin/visibility/filter state. */
   id: string;
-  /** The human label: header cell, columns menu, filter heading, footer filter list. */
+  /** The human label: header cell, header menu, filter heading, footer filter list. */
   label: string;
   /** The value type — drives sorting, alignment, default formatting, and the default filter kind. */
   type?: GridColumnType;
@@ -48,7 +48,7 @@ export interface GridColumn<TRow> {
   /** Anchored columns always show and always lead — the row's anchor (the Timesheet's Date).
    * Not hideable, not draggable, never dropped behind. */
   anchored?: boolean;
-  /** Start hidden; the columns menu shows it on demand. */
+  /** Start hidden; the header menu's Columns submenu shows it on demand. */
   hidden?: boolean;
   /** Start pinned (sticky under horizontal scroll). */
   pinned?: boolean;
