@@ -17,6 +17,7 @@ import {
 } from "@magna-carta/matters/close-preconditions";
 import type { CloseAdvisory } from "@magna-carta/matters/close-advisories";
 import { matterCustodyCloseAdvisory } from "@magna-carta/custodian/close-advisory";
+import { matterTasksCloseAdvisory } from "@magna-carta/tasks/close-advisory";
 import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
 import { listConsultations, listMatters } from "@magna-carta/matters/queries";
 import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
@@ -189,7 +190,10 @@ const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [
 // it and never blocks on them. A firm holds a client's will for decades after the last matter for
 // that client closed — that is the steady state of a safe-custody register, and a block here would
 // only teach people to unlink packets from matters before closing them.
-const CLOSE_ADVISORIES: readonly CloseAdvisory[] = [matterCustodyCloseAdvisory];
+const CLOSE_ADVISORIES: readonly CloseAdvisory[] = [
+  matterCustodyCloseAdvisory,
+  matterTasksCloseAdvisory,
+];
 
 // ---- shared helpers ----
 

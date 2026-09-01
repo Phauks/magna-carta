@@ -2385,6 +2385,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
