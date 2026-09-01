@@ -65,9 +65,12 @@ breadcrumbs (oldest first):
     });
     await step("Copy reports what actually happened, either way", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Copy details" }));
-      await expect(canvas.getByRole("button", { name: "Copy details" })).toBeVisible();
+      // findByText, not getByText: copying is asynchronous and the status line does not exist until
+      // it settles, so a synchronous query races the clipboard and fails on a slow runner. Either
+      // outcome is correct — a headless browser may refuse the clipboard, and the whole point of
+      // this control is that it never claims a success it did not have.
       await expect(
-        canvas.getByText(/Copied|Your browser would not let us copy/),
+        await canvas.findByText(/Copied|Your browser would not let us copy/),
       ).toBeVisible();
     });
   }}

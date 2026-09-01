@@ -7,7 +7,7 @@
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
-  import { expect, userEvent } from "storybook/test";
+  import { expect, userEvent, waitFor } from "storybook/test";
   import Button from "../lib/components/button/index.ts";
   import FailureBand from "../lib/components/failure-band/failure-band.svelte";
 
@@ -46,12 +46,13 @@
       ).toBeVisible();
     });
     await step("Pressing it reports what actually happened", async () => {
-      await userEvent.click(canvas.getByRole("button", { name: /Copy error ID/ }));
-      // Either outcome is correct here — the headless browser may refuse the clipboard, and the
-      // point of this control is that it never claims a success it did not have.
-      await expect(canvas.getByRole("button", { name: /Copy error ID/ })).toHaveTextContent(
-        /copied|select to copy/,
-      );
+      const chip = canvas.getByRole("button", { name: /Copy error ID/ });
+      await userEvent.click(chip);
+      // waitFor, because copying is asynchronous: the chip reads "copy" until it settles, and a
+      // synchronous assertion races it. Either outcome is correct — a headless browser may refuse
+      // the clipboard, and the point of this control is that it never claims a success it did not
+      // have.
+      await waitFor(() => expect(chip).toHaveTextContent(/copied|select to copy/));
     });
   }}
 >
