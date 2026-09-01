@@ -21,6 +21,7 @@
   import Funnel from "@lucide/svelte/icons/funnel";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import * as ContextMenu from "../context-menu/index.ts";
+  import { keepMenuFieldKeys } from "../context-menu/menu-field-keys.ts";
   import Input from "../input/index.ts";
   import type { GridColumn } from "./grid-columns.ts";
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
@@ -40,17 +41,6 @@
   const active = $derived(grid.filterFor(column.id) !== undefined);
 
   let setQuery = $state("");
-
-  /*
-   * A field inside a menu has to keep its own keys. Bits runs typeahead and roving focus off any
-   * character or arrow key that reaches the menu content, so a "m" typed into the contains field
-   * would jump the focus to the first item starting with "m", and an arrow in a number field would
-   * leave it. Escape and Tab still travel: dismissal and focus order belong to the menu.
-   */
-  function fieldKeydown(event: KeyboardEvent): void {
-    if (event.key === "Escape" || event.key === "Tab") return;
-    event.stopPropagation();
-  }
 
   // The set filter's stable universe (all rows, never the filtered view) with per-value counts.
   const setCounts = $derived(kind === "set" ? grid.setFilterCounts(column.id) : new Map());
@@ -126,7 +116,7 @@
     </ContextMenu.SubTrigger>
     <ContextMenu.SubContent class="mc-table-grid-filter-menu">
       {#if kind === "text"}
-        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={fieldKeydown}>
+        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
           <Input
             type="search"
             size="sm"
@@ -138,7 +128,7 @@
           />
         </div>
       {:else if kind === "set"}
-        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={fieldKeydown}>
+        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
           <Input
             type="search"
             size="sm"
@@ -172,7 +162,7 @@
           {/each}
         </div>
       {:else if kind === "range"}
-        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={fieldKeydown}>
+        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
           <div class="mc-table-filter-range-row">
             <Input
               type="number"
@@ -197,7 +187,7 @@
           {/if}
         </div>
       {:else if kind === "dateRange"}
-        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={fieldKeydown}>
+        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
           <div class="mc-table-filter-range-row">
             <Input
               type="date"
