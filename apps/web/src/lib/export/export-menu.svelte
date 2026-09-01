@@ -6,13 +6,14 @@
    * its document builder. The builder is a function, not a value, so the document's generation
    * instant is the moment of the click rather than the last render.
    */
+  import { onMount } from "svelte";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Download from "@lucide/svelte/icons/download";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import { toast } from "@magna-carta/design-system/toast";
-  import { keepExportOnShelf } from "./download-shelf.ts";
+  import { keepExportOnShelf, readDownloadPreferences } from "./download-shelf.ts";
   import { markShelfChanged } from "./download-shelf-signal.svelte.ts";
   import { renderCsvExport } from "./render-csv.ts";
   import { RemoteRenderError, renderRemoteExport } from "./render-remote.ts";
@@ -79,39 +80,66 @@
     },
   ];
 
+  // The member's own preference, read once when the menu mounts. Absent or unreadable resolves to
+  // the default — generate onto the shelf — because that is the behavior that loses nothing: the
+  // item is kept either way, and a member who wanted the file immediately takes it from the shelf
+  // in one more click. Guessing the other way would drop files somebody did not ask for.
+  let saveImmediately = $state(false);
+  onMount(() => {
+    void readDownloadPreferences(fetch).then((outcome) => {
+      if (outcome.kind === "ok") saveImmediately = outcome.value.saveImmediately;
+    });
+  });
+
+  /*
+   * Exporting GENERATES onto the member's shelf; it does not save a file. That is the point: several
+   * exports can be gathered and taken together, rather than each one dropping into the browser's
+   * download folder as it is made. The format still matters here — it is what the item is made for,
+   * and what its download will default to — which is why the menu keeps its formats.
+   *
+   * With the member's download-immediately preference on, the file is rendered and saved in the same
+   * act and the shelf records the format as taken. That is the only difference between the two
+   * paths: whether the bytes are produced now or when the member comes for them.
+   */
   async function download(format: ExportFormat): Promise<void> {
     const renderedDocument = exportDocument();
     if (renderedDocument === null) return;
     try {
-      saveExport(
-        await format.render(renderedDocument),
-        exportFilename(renderedDocument, format.extension),
-        format.contentType,
+      if (saveImmediately) {
+        saveExport(
+          await format.render(renderedDocument),
+          exportFilename(renderedDocument, format.extension),
+          format.contentType,
+        );
+      }
+      const outcome = await keepExportOnShelf(
+        fetch,
+        renderedDocument,
+        format.extension,
+        saveImmediately,
       );
-      // Keep it on the member's shelf so they can take it again while it is still current. The file
-      // is already saved by this point, so this never throws and never blocks — but it does REPORT.
-      // It was silent to begin with, and a document the register refused was indistinguishable from
-      // one that simply never arrived: the download worked, nothing appeared, and there was nothing
-      // for anyone to act on.
-      void keepExportOnShelf(fetch, renderedDocument, format.extension).then((outcome) => {
-        if (outcome.kind === "problem") {
-          const errorId = outcome.problem.errorId;
-          toast.error(
-            `Downloaded, but it could not be added to your Downloads.${errorId === undefined ? "" : ` (Error ID ${errorId})`}`,
-          );
-          return;
-        }
-        if (outcome.kind === "transport") {
-          toast.error("Downloaded, but your Downloads could not be reached to keep a copy.");
-          return;
-        }
-        // Tell the top-bar tray, so a download appears there at once rather than at the next page
-        // load — which is the moment a member looks up to confirm it was kept.
-        markShelfChanged();
-      });
+      if (outcome.kind !== "ok") {
+        // The two paths fail differently and must say so differently: with the preference on the
+        // member still has their file and only the copy was lost, while in the default path NOTHING
+        // was produced, and telling them it was merely "not kept" would be false.
+        const errorId = outcome.kind === "problem" ? outcome.problem.errorId : undefined;
+        const suffix = errorId === undefined ? "" : ` (Error ID ${errorId})`;
+        toast.error(
+          saveImmediately
+            ? `Downloaded, but it could not be added to your Downloads.${suffix}`
+            : `That export could not be added to your Downloads.${suffix}`,
+        );
+        return;
+      }
+      // Tell the top-bar tray, so it appears there at once rather than at the next page load — which
+      // is the moment a member looks up to see where their export went.
+      markShelfChanged();
+      if (!saveImmediately) {
+        toast.success(`Added to Downloads as ${format.extension.toUpperCase()}`);
+      }
     } catch (failure) {
-      // The document formats render server-side, so a render can fail after the click; the server's
-      // own sentence is the actionable one, with its Error ID when the failure minted one.
+      // Only reachable on the immediate path, where a render happens here; the document formats
+      // render server-side, so the server's own sentence is the actionable one.
       const message =
         failure instanceof RemoteRenderError
           ? failure.errorId === undefined
@@ -127,10 +155,10 @@
   <DropdownMenu.Trigger
     {disabled}
     class={buttonClasses({ variant: "ghost", size: "default" })}
-    aria-label="Download the report"
+    aria-label="Export the report"
   >
     <Download class="size-16" aria-hidden="true" />
-    Download Report
+    Export
     <ChevronDown class="size-16" aria-hidden="true" />
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">

@@ -37,6 +37,7 @@ function item(overrides: Partial<DownloadItemInsert> = {}): DownloadItemInsert {
     producer: "export",
     objectKey: "downloads/snapshot-one.json",
     byteSize: null,
+    requestedFormat: "xlsx",
     createdAt: "2026-08-31T12:00:00.000Z",
     expiresAt: "2026-09-07T12:00:00.000Z",
     state: "ready",
@@ -45,6 +46,17 @@ function item(overrides: Partial<DownloadItemInsert> = {}): DownloadItemInsert {
 }
 
 describe("download register statements", () => {
+  it("remembers the format the item was made for, distinct from what has been taken", async () => {
+    const database = await freshFirmDatabase();
+    await seedMembers(database);
+    await database.batch([insertDownloadItemStatement(database, item())]);
+
+    const row = (await readDownloadShelf(database, OWNER, 50))[0];
+    // Generated for a spreadsheet, and not yet taken in any format — two facts, both true.
+    expect(row?.requestedFormat).toBe("xlsx");
+    expect(row?.downloadedFormats).toEqual([]);
+  });
+
   it("puts a row on the shelf and reads it back", async () => {
     const database = await freshFirmDatabase();
     await seedMembers(database);
