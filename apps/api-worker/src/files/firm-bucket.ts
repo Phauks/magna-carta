@@ -50,3 +50,19 @@ export function resolveFirmBucket(env: Bindings, firmBucketName: string | null):
   }
   return { bucketName, bucket: env.R2 };
 }
+
+// The same pair, for a caller that holds only a firm id — a queue consumer whose message predates any
+// bucket field, or a sweep working from a firm id rather than a firm row. The control-plane row is the
+// registry of record for a firm's bucket (bucket_name is unique there precisely so an R2 event can be
+// resolved back to a firm), so this reads it and hands the answer to the resolver above rather than
+// letting a second notion of "the firm's bucket" exist. Prefer passing the name when a caller already
+// has it: this costs a control-plane read.
+export async function resolveFirmBucketForFirmId(
+  env: Bindings,
+  firmId: string,
+): Promise<FirmBucket> {
+  const { results } = await env.DB_CONTROL.prepare("SELECT bucket_name FROM firm WHERE id = ?1")
+    .bind(firmId)
+    .all<{ bucket_name: string | null }>();
+  return resolveFirmBucket(env, results[0]?.bucket_name ?? null);
+}

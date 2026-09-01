@@ -36,6 +36,7 @@ import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { corpusNeedsCompaction } from "./compaction-consumer.ts";
 import { searchCompactionJobName } from "./compaction-types.ts";
@@ -126,8 +127,9 @@ async function resolveMatterDocument(
   message: SearchIndexMessage,
   ports: SearchIndexPorts,
   coordinator: ReturnType<typeof coordinatorFor>,
+  bucket: R2Bucket,
 ): Promise<ResolveOutcome> {
-  const source = await env.R2.get(message.sourceKey);
+  const source = await bucket.get(message.sourceKey);
   if (source === null) {
     // The version's bytes are gone (reaped, or the version was withdrawn). Nothing to index and no
     // retry can bring them back — terminal, and recorded so it is visible rather than inferred.
@@ -175,6 +177,7 @@ async function resolveReviewDocument(
   env: Bindings,
   message: SearchIndexMessage,
   coordinator: ReturnType<typeof coordinatorFor>,
+  bucket: R2Bucket,
 ): Promise<ResolveOutcome> {
   const documentId = message.documentId as ReviewDocumentId;
   const reviewSetId = message.corpusId as ReviewSetId;
@@ -191,8 +194,8 @@ async function resolveReviewDocument(
   }
 
   const [textObject, metadataObject] = await Promise.all([
-    env.R2.get(message.sourceKey),
-    env.R2.get(message.metadataKey),
+    bucket.get(message.sourceKey),
+    bucket.get(message.metadataKey),
   ]);
   if (textObject === null || metadataObject === null) {
     // The derived objects are gone — the review set was closed and its cache released, or a
@@ -276,13 +279,17 @@ export async function indexOne(
   ports: SearchIndexPorts,
 ): Promise<void> {
   const coordinator = coordinatorFor(env, message);
+  // The document's source bytes, the split this publishes, the prior splits it retires and the
+  // natural-language feed object all live in one bucket — the firm's — so it is resolved once here and
+  // handed down rather than each leg reaching for the binding.
+  const { bucket } = await resolveFirmBucketForFirmId(env, message.firmId);
   await coordinator.markRunning();
 
   const scope = indexMessageCorpus(message);
   const resolved =
     scope.kind === "reviewSet"
-      ? await resolveReviewDocument(env, message, coordinator)
-      : await resolveMatterDocument(env, message, ports, coordinator);
+      ? await resolveReviewDocument(env, message, coordinator, bucket)
+      : await resolveMatterDocument(env, message, ports, coordinator, bucket);
   if (!resolved.ok) return;
 
   // Past this line the pipeline knows only "a corpus and its passages", which is what lets a second
@@ -331,7 +338,7 @@ export async function indexOne(
 
   const database = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
   const prior = await listSplitsForDocument(database, documentId);
-  await deletePriorSplitObjects(env.R2, prior, objectKey);
+  await deletePriorSplitObjects(bucket, prior, objectKey);
   // One atomic batch through the standard write chokepoint: the delete and the insert land together or
   // not at all. No outbox message — publishing a split has no consequence outside the firm's own
   // storage, and no idempotency record — convergence here is structural (the derived id and the
@@ -410,7 +417,7 @@ export async function indexOne(
     try {
       await writeNaturalLanguageFeedObject(
         database,
-        env.R2,
+        bucket,
         { matterId, documentId: documentId as FileId, version: message.version, passages },
         now,
       );

@@ -32,7 +32,7 @@ import {
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../app.ts";
-import { resolveFirmBucket } from "../files/firm-bucket.ts";
+import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { resolveNaturalLanguageProvisioningPort } from "./natural-language-binding.ts";
 
@@ -236,14 +236,10 @@ export async function tearDownNaturalLanguageInstance(
 // reconciliation reports and the next pass repairs. The other order would leave bytes in the firm's
 // bucket that no catalog row names and no sweep can recognize as garbage.
 
-// The firm's own bucket, resolved from the control-plane row through the one storage seam. Feed
-// objects are the firm's bytes, so a deletion or a reconciliation addresses them exactly the way every
-// other per-firm read does rather than reaching for the bound binding.
+// Feed objects are the firm's bytes, so a deletion or a reconciliation addresses them the way every
+// other per-firm read does — through the one storage seam, from the firm id these entry points carry.
 async function feedBucket(env: Bindings, firmId: string): Promise<R2Bucket> {
-  const { results } = await env.DB_CONTROL.prepare("SELECT bucket_name FROM firm WHERE id = ?1")
-    .bind(firmId)
-    .all<{ bucket_name: string | null }>();
-  return resolveFirmBucket(env, results[0]?.bucket_name ?? null).bucket;
+  return (await resolveFirmBucketForFirmId(env, firmId)).bucket;
 }
 
 export async function deleteNaturalLanguageFeed(
