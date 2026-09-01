@@ -394,7 +394,7 @@
   audience: public
   public-name: Search a matter
   public-summary: Search everything on a matter from one box — notes, files, parties and the rest — starting with the screen you are already on.
-  awaiting-owner: Seven flags decide the build. M2 is the largest — whether the file manager's own Search Results view retires into the matter's results page, survives beside it, or retires outright. M1 confirms that the header placement supersedes the settled "next to the status chip" ruling. M4 decides whether the query rides in the address, which is a confidentiality trade rather than a convenience one. M5 confirms the new search:matter permission and its seeding.
+  awaiting-owner: M1, M2 and M4 are settled (header placement supersedes the "next to the status chip" ruling; one results surface, with the Files group drawn by the file manager's own row machinery; the query rides in the address). Four carry a standing recommendation the build proceeds under, each reversible — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty.
   notes: The read layer is a registry of declared sources on the federated-timeline pattern, so a fourteenth searchable section is one source module rather than a change to the route, the control and the results page.
 
 - id: matters.search.sources

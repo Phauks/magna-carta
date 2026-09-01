@@ -1,9 +1,9 @@
 ---
 slug: a-matter-search-is-a-registry-of-sources-and-never-leaves-the-matter
-status: Proposed — owner decision required
+status: Proposed — placement, results surface and address settled; four recommendations standing
 area: Core domain
 date: 2026-08-31
-summary: "Searching within a matter is built as a registry of declared read-side sources, not as a screen. Each subsystem declares where its rows live, how to read a bounded page of them, which read capability gates them, and whether it has a non-privileged snippet — the same declaration shape the federated calendar timeline already uses, and for the same reason: a federated read cannot disagree with the register it is built from, because it IS that register. One control lives in the matter LAYOUT, so every section inherits it and no section can mount a second one; it is the design system's `ScreenSearch` with its `scope` seam filled, which is the consumer that seam was built for. One route, `GET /api/v1/matters/{matterId}/search`, narrows the registry before building any statement, so the default scope — the section the reader is standing on — is also the cheapest query. Two permission gates: a new `search:matter` primary, and a per-source gate that DROPS a source the member cannot read before it runs a query rather than filtering results afterwards. The shared statement builder composes the matter binding and the visible-matter predicate itself, so a source physically cannot search across matters. Review sets are structurally excluded, because a review set is its own corpus precisely so an ordinary matter search cannot name material an opposing party produced. Adding a fourteenth searchable section costs one source module, one registry line, one section flag and one presentation entry, and changes nothing about the route, the control or the results page. Seven owner flags are open, the largest being whether the file manager's own Search Results view retires into the matter's results page."
+summary: "Searching within a matter is built as a registry of declared read-side sources, not as a screen. Each subsystem declares where its rows live, how to read a bounded page of them, which read capability gates them, and whether it has a non-privileged snippet — the same declaration shape the federated calendar timeline already uses, and for the same reason: a federated read cannot disagree with the register it is built from, because it IS that register. One control lives in the matter LAYOUT, so every section inherits it and no section can mount a second one; it is the design system's `ScreenSearch` with its `scope` seam filled, which is the consumer that seam was built for. One route, `GET /api/v1/matters/{matterId}/search`, narrows the registry before building any statement, so the default scope — the section the reader is standing on — is also the cheapest query. Two permission gates: a new `search:matter` primary, and a per-source gate that DROPS a source the member cannot read before it runs a query rather than filtering results afterwards. The shared statement builder composes the matter binding and the visible-matter predicate itself, so a source physically cannot search across matters. Review sets are structurally excluded, because a review set is its own corpus precisely so an ordinary matter search cannot name material an opposing party produced. Adding a fourteenth searchable section costs one source module, one registry line, one section flag and one presentation entry, and changes nothing about the route, the control or the results page. Owner-settled 2026-08-31: the control sits top right, there is one results surface with the Files group drawn by the file manager's own row machinery, and the query rides in the address; four smaller recommendations stand, each reversible and none of them reaching the registry or the route."
 ---
 
 **A matter is fourteen screens holding one case, and nothing can ask that case a question.** A
@@ -121,9 +121,20 @@ option the screen-search decision rejected for the same reason: a scope that can
 is a scope that can be in the wrong position, and a search that sometimes answers with a settings
 page when you asked about a case is untrustworthy for both jobs.
 
-**Open, and blocking the build.** Seven flags in
-[`docs/specs/2026-08-31-matter-consolidated-search-design.md`](../../specs/2026-08-31-matter-consolidated-search-design.md).
-The largest is **M2**: whether the file manager's own Search Results view — which rulings S12, S17b,
-S19, S20, A27 and A28 all attach to — retires into the matter's results page, survives beside it, or
-retires outright. The recommendation is one results surface, with the Files group drawn by the file
-manager's own row machinery so no file affordance is lost.
+**Settled by the owner, 2026-08-31.** The control sits at the **top right of the matter screen**,
+superseding file-manager ruling S1's placement beside the status chip while keeping everything S1
+decided about what the control searches. There is **one results surface**: `/matters/[id]/search`,
+with the Files group drawn by the file manager's own row machinery so its right-click menu,
+download, restore and deleted-files option survive rather than being rebuilt — the rail's Search
+Results row navigates there pre-scoped to Files, which supersedes S12, S20 and S17b's placement
+while keeping S17b's promise that clicking it is never a dead click. And **the query rides in the
+address**, so a search survives a reload and can be handed to a colleague, accepting that a fragment
+of a matter's text lands in browser history on a URL that already names the matter.
+
+**Four recommendations stand, each reversible**, recorded as M3, M5, M6 and M7 in
+[`docs/specs/2026-08-31-matter-consolidated-search-design.md`](../../specs/2026-08-31-matter-consolidated-search-design.md):
+a hit may carry a snippet within a matter (with a source over a protected column declaring it has
+none); `search:matter` is a new key seeded to every default role; "include deleted" is per source
+and declared rather than one global toggle; and a source withheld for want of a permission says so
+rather than reading as empty. Each names in the spec what would have to change if it is corrected,
+and none of them reaches the registry or the route.

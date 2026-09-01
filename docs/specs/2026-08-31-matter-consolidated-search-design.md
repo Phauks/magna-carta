@@ -369,51 +369,59 @@ backlog.
 
 ## 11. Owner flags
 
-**M1 — placement.** The direction of 2026-08-31 puts the control at the **top right of the matter
-screen**. File-manager ruling **S1** puts the matter search **next to the matter status chip**. This
-design takes M1 as the newer ruling and treats S1's placement as superseded; S1's substance — that
-this control searches the whole matter, billing and time included, and is neither the app header nor
-the file-manager toolbar — is unchanged and is what this design builds. _Confirm the supersession._
+Three are settled. Four carry a standing recommendation the build proceeds under; each is
+reversible, and each says what would have to change if it is corrected.
 
-**M2 — does the file manager's Search Results view retire?** Ruling **S17b** keeps a Search Results
-row permanently in the file manager's rail, with its own field (S12, S20), its own deleted-files
-option (S19) and its own right-click behaviour (A27, A28). The matter search now owns the query.
-Three ways out:
+**M1 — placement. Settled 2026-08-31: the top right of the matter screen.** File-manager ruling
+**S1** put the matter search **next to the matter status chip**; the owner's direction supersedes
+that placement. S1's substance — that this control searches the whole matter, billing and time
+included, and is neither the app header nor the file-manager toolbar — is unchanged and is what this
+design builds.
 
-- _(a, recommended)_ **One results surface.** `/matters/[id]/search` renders every group, and the
-  Files group is drawn with the file manager's own row machinery so file affordances survive. The
-  rail's Search Results row navigates there, pre-scoped to Files. One search, one results page,
-  nothing lost.
-- _(b)_ **Both survive**, the file manager's view staying the Files-scoped rendering and the matter
-  page linking into it. Costs a reader two results surfaces for one query.
-- _(c)_ **The file manager's view retires outright**, losing its file-specific affordances until the
-  matter page grows them.
+**M2 — the file manager's Search Results view. Settled 2026-08-31: one results surface.**
+`/matters/[id]/search` renders every group, and the **Files group is drawn with the file manager's
+own row machinery** so its right-click menu, download, restore and the S19 deleted-files option all
+survive rather than being rebuilt. The rail's Search Results row navigates there pre-scoped to
+Files, keeping S17b's promise that there are several ways to reach it and that clicking it with no
+live query is never a dead click. This supersedes S12, S20 and S17b's placement of the field and the
+view; **A27's "Filter to This File" and A28's destination-scoped refusals move with the rows** and
+are not lost. Rejected: both surviving (two results surfaces for one query, free to drift), and the
+file-manager view retiring outright (its file affordances would be gone until the matter page grew
+them).
 
-**M3 — snippets within a matter.** Section 3.4 argues they are permitted here (the reader may
-already read every row this can return) with `declaresSnippet: false` for protected columns.
-_Confirm._ Note this is a narrower question than firm-wide note search, whose gate stays open in the
-roadmap and whose snippet answer is already "no snippet".
+**M3 — snippets within a matter. Recommendation standing.** Section 3.4 argues they are permitted
+here, because every row a source can return is one the same reader may already open on the section
+it links into — the reasoning `packages/notes` already records for its own within-a-matter search —
+with `declaresSnippet: false` for any source over a `protected()` column. _If corrected:_ every
+group renders pointers only (record title, actor, instant) and the reader follows the link. That is
+a change to the projections and the row snippets, not to the registry or the route. This is a
+narrower question than firm-wide note search, whose gate stays open in the roadmap and whose answer
+is already "no snippet".
 
-**M4 — does the query live in the address?** `/matters/[id]/search?q=easement` makes a search
-shareable and survives a reload. It also puts a fragment of a client's matter into browser history
-and into any referrer the page emits. Recommendation: **yes, with the query in the address**, since
-the URL already names the matter and the referrer surface is same-origin — but this is the owner's
-call because it is a confidentiality trade, not a convenience one.
+**M4 — the query in the address. Settled 2026-08-31: yes.** `/matters/[id]/search?q=easement&in=…`
+— a search survives a reload and can be handed to a colleague. The trade accepted with it: a
+fragment of a matter's text lands in browser history. The URL already names the matter, and the
+referrer surface is same-origin.
 
-**M5 — the new permission `search:matter`, seeded to every default role.** The alternative is
-changing the chokepoint to populate the permission set for permission-less routes, which this design
-rejects: a route with no gate should not silently receive a capability list. _Confirm the key and
-its seeding._
+**M5 — the new permission `search:matter`, seeded to every default role. Recommendation standing.**
+It is a real gate (a firm can withhold the consolidated surface without withholding the sections)
+and it is load-bearing besides: the chokepoint populates the resolved permission set only for a
+route naming a non-null permission, and the per-source gate needs that set. Rejected: changing the
+chokepoint to populate the set for permission-less routes — a route with no gate should not silently
+receive a capability list. _If corrected:_ the alternative is reusing an existing broad key, which
+would make the primary gate mean something it does not.
 
-**M6 — how far the "include deleted" idea generalizes.** Ruling **S19** gives the file source an
-"Include deleted files" option, off by default, implemented at the index as tag-and-filter.
-Recommendation: **the option is per source and declared, never one global toggle** — a retracted
-note's body must stay unmatchable (already settled in `packages/notes`), while a deleted file's name
-is legitimately findable. _Confirm._
+**M6 — how far "include deleted" generalizes. Recommendation standing: per source, declared, never
+one global toggle.** Ruling **S19** gives the file source its "Include deleted files" option, off by
+default. A retracted note's body must stay unmatchable — already settled in `packages/notes` and not
+reopened here — while a deleted file's **name** is legitimately findable. A global toggle would
+force one answer onto two subsystems that decided differently for good reasons.
 
-**M7 — what the panel shows when a source is withheld for want of a permission.** Section 4.2 keeps
-"no matches" and "you cannot see this" as different answers. The alternative is silence, which
-teaches a reader the matter holds nothing. _Confirm the disclosure._
+**M7 — a source withheld for want of a permission. Recommendation standing: say so.** Section 4.2
+keeps "nothing in Time matches" and "you cannot read Time" as different answers. The alternative is
+silence, which teaches a reader the matter holds nothing when it holds something they simply cannot
+see. What is disclosed is the reader's own permission set, never firm data. _If corrected:_ the
+withheld groups are dropped from the response and the scope dropdown hides them.
 
 ## 12. What this design deliberately does not do
 
