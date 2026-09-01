@@ -305,10 +305,10 @@
       await expect(panel.getByLabelText("Description")).toBeVisible();
     });
 
-    await step("The action bar carries the commit and the abandon, in that order", async () => {
+    await step("The action bar carries the commit alone; the abandon lives on close", async () => {
       const bar = partOf(dialog, "actions");
       const verbs = [...bar.querySelectorAll("button")].map((control) => control.textContent?.trim());
-      await expect(verbs).toEqual(["Cancel", "Save"]);
+      await expect(verbs).toEqual(["Save"]);
     });
 
     await step("A close gesture with unsaved work asks before it throws it away", async () => {

@@ -47,12 +47,15 @@ describe("resolveFirmBucket", () => {
     // Signing an upload into the firm's own bucket while every read goes through the bound binding
     // would drop the bytes somewhere nothing here can reach: ingest would find no object, retry, and
     // dead-letter. Refuse at resolve time instead.
-    expect(() =>
-      resolveFirmBucket(
-        envWithRealPresigning({ R2_BUCKET_NAME: BOUND_BUCKET }),
-        FIRM_PROVISIONED_BUCKET,
-      ),
-    ).toThrow(/not the R2 bucket bound to this Worker/);
+    expect(
+      () =>
+        resolveFirmBucket(
+          envWithRealPresigning({ R2_BUCKET_NAME: BOUND_BUCKET }),
+          FIRM_PROVISIONED_BUCKET,
+        ),
+      // The refusal names both buckets, so the member who reads it can hand the operator the two
+      // names that have to be reconciled.
+    ).toThrow(new RegExp(`${FIRM_PROVISIONED_BUCKET}[\\s\\S]*${BOUND_BUCKET}`));
   });
 
   it("accepts the firm bucket when it is the bound bucket", () => {

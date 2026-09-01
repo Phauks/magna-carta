@@ -39,6 +39,7 @@ import {
 import {
   closeMatterStatement,
   insertMatterStatement,
+  isConsultationNumberConflict,
   isMatterNumberConflict,
   type MatterFields,
   type MatterRow,
@@ -48,7 +49,12 @@ import {
   selectActiveSchemeStatement,
   selectMatterStatement,
   updateMatterFieldsStatement,
+  type NumberingPurpose,
 } from "./matter-statements.ts";
+import {
+  CONSULTATION_SCOPE_PREFIX,
+  DEFAULT_CONSULTATION_SCHEME,
+} from "./numbering/consultation-scheme.ts";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
 import {
   allocateCounterValueStatement,
@@ -169,6 +175,7 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     client_display_name: string | null;
     client_code: string | null;
     matter_number: string | null;
+    consultation_number: string | null;
     opened_at: string | null;
   }>();
   const row = results[0];
@@ -184,6 +191,7 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     clientDisplayName: row.client_display_name,
     clientCode: row.client_code,
     matterNumber: row.matter_number,
+    consultationNumber: row.consultation_number,
     openedAt: row.opened_at,
   };
 }
@@ -193,17 +201,36 @@ interface ActiveScheme {
   readonly startValue: number;
 }
 
-async function loadActiveScheme(database: SqlDatabase): Promise<ActiveScheme> {
-  const { results } = await selectActiveSchemeStatement(database).all<{ segments: string }>();
+async function loadActiveScheme(
+  database: SqlDatabase,
+  purpose: NumberingPurpose,
+): Promise<ActiveScheme> {
+  const { results } = await selectActiveSchemeStatement(database, purpose).all<{
+    segments: string;
+  }>();
   const row = results[0];
+  // The two purposes differ in what "no scheme configured" means. A matter number is the firm's
+  // own file numbering and there is no defensible default — rendering one would stamp a shape the
+  // firm never chose onto a number that is then frozen — so it refuses. A consultation number is
+  // scaffolding for a file that may never exist, and refusing to take a consultation because
+  // nobody has visited the settings screen is the worse failure, so it renders from the built-in
+  // default until the firm sets its own.
   if (row === undefined) {
+    if (purpose === "consultation") {
+      return {
+        segments: DEFAULT_CONSULTATION_SCHEME,
+        startValue: startValueOf(DEFAULT_CONSULTATION_SCHEME),
+      };
+    }
     throw new MatterValidationError("scheme-missing", "no active numbering scheme is configured");
   }
   const segments = numberingSchemeSchema.parse(JSON.parse(row.segments));
-  const counter = segments.find((segment) => segment.kind === "counter");
-  // numberingSchemeSchema guarantees exactly one counter; the start defaults to 1.
-  const startValue = counter?.start ?? 1;
-  return { segments, startValue };
+  return { segments, startValue: startValueOf(segments) };
+}
+
+// numberingSchemeSchema guarantees exactly one counter; the start defaults to 1.
+function startValueOf(segments: readonly NumberSegment[]): number {
+  return segments.find((segment) => segment.kind === "counter")?.start ?? 1;
 }
 
 // What a built mutation contributes to its batch plus the value it returns to the caller (and stores
@@ -280,20 +307,22 @@ async function runMatterDraw<T>(
   database: BatchDatabase,
   options: MatterServiceOptions,
   matterId: MatterId,
+  purpose: NumberingPurpose,
   numberContext: NumberContext,
   build: (matterNumber: string, now: string) => BuiltMutation<T>,
   responseCode: number,
 ): Promise<T & ReplayFlag> {
+  const consultation = purpose === "consultation";
   return await drawWithBoundedRetry(
     database,
     MATTER_NUMBERING_TABLES,
     {
-      sequenceLabel: "matter number",
+      sequenceLabel: consultation ? "consultation number" : "matter number",
       maxAttempts: options.maxAttempts,
       // Matters' own second collision: the rendered STRING is unique per firm, so a drawn number can
       // land on one a court or a legacy system already assigned by hand. That number drew no
       // allocation row, so only the matter_number index can see it, and the retry steps past it.
-      alsoRetryable: isMatterNumberConflict,
+      alsoRetryable: consultation ? isConsultationNumberConflict : isMatterNumberConflict,
       // Unlike custodian, matters has no named refusal for this: the counter would have to lose five
       // consecutive races, which is not a state a person can be told anything useful about. It stays
       // an unexpected fault, reported and correlated by the standard pipeline. The mapper still has
@@ -308,9 +337,12 @@ async function runMatterDraw<T>(
         newRecordId: options.idempotency?.newRecordId,
         now: () => options.clock.now(),
         effect: async () => {
-          const scheme = await loadActiveScheme(database);
+          const scheme = await loadActiveScheme(database, purpose);
           const context: RenderContext = { openedDate: options.clock.today(), ...numberContext };
-          const scopeKey = deriveScopeKey(scheme.segments, context);
+          // Both sequences count in the same tables; the prefix is what keeps them separate runs.
+          const scopeKey =
+            (consultation ? CONSULTATION_SCOPE_PREFIX : "") +
+            deriveScopeKey(scheme.segments, context);
           const startValue = scheme.startValue;
           const observed = (await readCounterValue(database, scopeKey)) ?? scheme.startValue;
           // Reported before the batch is composed, so a losing attempt can advance THIS scope's
@@ -378,6 +410,8 @@ export interface CreateMatterInput extends MatterFieldsInput {
 export interface CreatedMatter {
   readonly matterId: MatterId;
   readonly matterNumber: string | null;
+  // The tentative number a consultation is created with; null on a matter created straight to open.
+  readonly consultationNumber: string | null;
 }
 
 export async function createMatter(
@@ -390,16 +424,24 @@ export async function createMatter(
   const fields = fieldsFromInput(input);
 
   if (input.status === "prospective") {
-    // A consultation: no number, no counter touched.
-    return runMatterEffect<CreatedMatter>(database, options, 201, () => {
-      const now = options.clock.now();
-      return {
+    // A consultation: it draws its own tentative number, from the consultation sequence, and touches
+    // the MATTER counter not at all. The two runs are deliberately separate — a consultation that
+    // never becomes a matter must consume no matter number, because a gap in that run reads as a
+    // lost file — and the tentative number survives opening rather than being replaced by it.
+    return runMatterDraw<CreatedMatter>(
+      database,
+      options,
+      matterId,
+      "consultation",
+      input.numberContext ?? {},
+      (consultationNumber, now) => ({
         statements: [
           insertMatterStatement(database, {
             id: matterId,
             ...fields,
             status: "prospective",
             matterNumber: null,
+            consultationNumber,
             numberedAt: null,
             openedAt: null,
             createdAt: now,
@@ -407,9 +449,10 @@ export async function createMatter(
           auditStatement(database, options, "matter.created", matterId),
         ],
         outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
-        value: { matterId, matterNumber: null },
-      };
-    });
+        value: { matterId, matterNumber: null, consultationNumber },
+      }),
+      201,
+    );
   }
 
   // status === "open": draw the number at creation (the existing-client common case).
@@ -417,6 +460,7 @@ export async function createMatter(
     database,
     options,
     matterId,
+    "matter",
     input.numberContext ?? {},
     (number, now) => ({
       statements: [
@@ -425,6 +469,9 @@ export async function createMatter(
           ...fields,
           status: "open",
           matterNumber: number,
+          // Never a consultation, so there is no tentative number to carry: this matter was opened
+          // outright, and inventing one after the fact would put a number on a stage that never ran.
+          consultationNumber: null,
           numberedAt: now,
           openedAt: now,
           createdAt: now,
@@ -435,7 +482,7 @@ export async function createMatter(
         { topic: MATTER_CREATED_TOPIC, payload: { matterId } },
         { topic: MATTER_OPENED_TOPIC, payload: { matterId, matterNumber: number } },
       ],
-      value: { matterId, matterNumber: number },
+      value: { matterId, matterNumber: number, consultationNumber: null },
     }),
     201,
   );
@@ -467,10 +514,14 @@ export async function openMatter(
       `matter ${matterId} is ${matter.status}, not prospective`,
     );
   }
+  // The consultation number the matter already carries is untouched here: opening ADDS the permanent
+  // number, it does not rewrite the tentative one, so a document filed under the tentative number
+  // still resolves after the matter opens.
   const drawn = await runMatterDraw<{ matterId: MatterId; matterNumber: string }>(
     database,
     options,
     matterId,
+    "matter",
     input.numberContext ?? {},
     (number, now) => ({
       statements: [

@@ -18,12 +18,17 @@
    * into the More menu. The registry orders non-core sections last, so they fold first and
    * trailing core sections follow only when the strip is genuinely too narrow. The arithmetic and
    * the two rules it has to keep live in section-overflow.svelte.ts.
+   *
+   * THE STRIP CARRIES NO MATURITY BADGES. A tab names a place; how far along that place is belongs
+   * to the place itself, where a reader is already looking at it. Eleven pillboxes strung across
+   * one row read as chrome, crowded out the labels they were attached to, and made the strip about
+   * the build rather than about the matter. The measuring mirror drops them too — it exists to
+   * report what the strip actually draws, and a mirror wider than the strip folds tabs that fit.
    */
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import { SectionOverflow } from "$lib/matters/section-overflow.svelte.ts";
   import { matterSections, type MatterSection } from "$lib/matters/sections.ts";
 
@@ -70,7 +75,6 @@
         class="{tabClasses} {current ? tabActiveClasses : tabInactiveClasses}"
       >
         {section.label}
-        <MaturityBadge stage={section.stage} />
         {#if current}
           <!-- The gold bar over the band's rule — the active mark of the tabs register. -->
           <span
@@ -111,7 +115,6 @@
               class={current ? "font-semibold" : undefined}
             >
               {section.label}
-              <MaturityBadge stage={section.stage} class="ms-auto" />
             </DropdownMenu.Item>
           {/each}
         </DropdownMenu.Content>
@@ -120,7 +123,7 @@
   </div>
 
   <!-- The measuring mirror: every tab plus the More trigger, rendered identically (at the active
-       weight, badges included) but invisible, inert, and out of flow, so each width can be read
+       weight) but invisible, inert, and out of flow, so each width can be read
        without ever being seen. overflow-hidden clips the full-width row so it never expands the
        work canvas's scroll width (each child's clientWidth is intrinsic and unaffected by the
        clip); without it the off-screen mirror grows a phantom horizontal scrollbar. -->
@@ -131,7 +134,6 @@
     {#each matterSections as section, index (section.slug)}
       <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={overflow.itemWidths[index]}>
         {section.label}
-        <MaturityBadge stage={section.stage} />
       </span>
     {/each}
     <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={overflow.moreTriggerWidth}>

@@ -19,7 +19,6 @@
    * inventing it. A figure of record invented by a screen is worse than an absent one; the field
    * belongs to whatever surface records an appraisal, which knows what the appraisal was in.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -29,6 +28,8 @@
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { parseDate, type DateValue } from "@internationalized/date";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { addCustodyItem, listCustodyItemTypes, type CustodyItemType } from "./custody-api.ts";
   import {
     itemDraftReady,
@@ -52,7 +53,7 @@
   let draft = $state<ItemDraft>({ ...EMPTY_ITEM_DRAFT });
   let itemTypes = $state<readonly CustodyItemType[]>([]);
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let catalogRead = false;
 
   // The firm's own catalog of what a packet may contain, read once. A catalog that cannot be read
@@ -120,10 +121,11 @@
       open = false;
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing was recorded against this packet."
-        : (outcome.problem.detail ?? "The item could not be described.");
+    failure = stated(
+      outcome.failure,
+      "The item could not be described.",
+      "Nothing answered. Nothing was recorded against this packet.",
+    );
   }
 </script>
 
@@ -184,9 +186,12 @@
       </label>
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Item Was Not Recorded"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex items-center justify-end gap-8">

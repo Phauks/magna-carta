@@ -1044,3 +1044,395 @@ describe("the matter time listing", () => {
     expect(body.nextCursor).toBeNull();
   });
 });
+
+// The record surfaces: the widened summary, the internal memo, the matter-scoped entry number,
+// the event history, attachments, and convert-to-cost.
+
+describe("the widened entry record", () => {
+  it("serves rate, coding, enterer, entered date, memo and entry number on create + get + list", async () => {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      // A June date, before the second rate version other tests append — the assertion below pins
+      // the ORIGINAL $300 rate snapshot.
+      workDate: "2026-06-25",
+      rawDurationMinutes: 30,
+      narrative: "Reviewed discovery responses",
+      billable: true,
+      source: "manual",
+      memo: "waiting on opposing counsel",
+    });
+    expect(created.status).toBe(201);
+    const ack = (await created.json()) as { timeEntryId: string; entryNumber?: string };
+    // The matter drew its number from the TK- scheme, so the entry number is prefixed by it.
+    expect(ack.entryNumber).toMatch(/^TK-\d{4}\.\d{4}$/);
+
+    const detail = await get(`/api/v1/time-entries/${ack.timeEntryId}`);
+    expect(detail.status).toBe(200);
+    const body = (await detail.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      id: ack.timeEntryId,
+      entryNumber: ack.entryNumber,
+      memo: "waiting on opposing counsel",
+      rateE4: 3_000_000,
+      rateSource: "timekeeper",
+      rateCardId,
+      invoiceId: null,
+      source: "manual",
+      createdByUserId: ownerUserId,
+      createdByName: "Time Owner",
+      timekeeperName: "Time Owner",
+      attachmentCount: 0,
+    });
+    expect(typeof body["createdAt"]).toBe("string");
+
+    const listed = await get(`/api/v1/time-entries?matterId=${matterId}`);
+    const listBody = (await listed.json()) as {
+      data: { id: string; entryNumber: string | null; createdByName: string | null }[];
+    };
+    const listedEntry = listBody.data.find((entry) => entry.id === ack.timeEntryId);
+    expect(listedEntry).toMatchObject({
+      entryNumber: ack.entryNumber,
+      createdByName: "Time Owner",
+    });
+  });
+
+  it("draws consecutive matter-scoped numbers, and a void keeps its number", async () => {
+    const first = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-07-11",
+      rawDurationMinutes: 12,
+      narrative: "call",
+      billable: true,
+      source: "manual",
+    });
+    const second = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-07-11",
+      rawDurationMinutes: 12,
+      narrative: "call",
+      billable: true,
+      source: "manual",
+    });
+    const firstAck = (await first.json()) as { timeEntryId: string; entryNumber?: string };
+    const secondAck = (await second.json()) as { timeEntryId: string; entryNumber?: string };
+    const sequence = (number: string | undefined) => Number(number?.split(".")[1]);
+    expect(sequence(secondAck.entryNumber)).toBe(sequence(firstAck.entryNumber) + 1);
+
+    const voided = await post(`/api/v1/time-entries/${firstAck.timeEntryId}/void`, {});
+    expect(voided.status).toBe(200);
+    const detail = (await (await get(`/api/v1/time-entries/${firstAck.timeEntryId}`)).json()) as {
+      entryNumber: string | null;
+      status: string;
+    };
+    expect(detail.status).toBe("void");
+    expect(detail.entryNumber).toBe(firstAck.entryNumber);
+  });
+
+  it("patches the memo (and clears it with null) without the text ever reaching the audit trail", async () => {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-07-12",
+      rawDurationMinutes: 30,
+      narrative: "Hearing prep",
+      billable: true,
+      source: "manual",
+    });
+    const { timeEntryId } = (await created.json()) as { timeEntryId: string };
+
+    const patched = await patch(`/api/v1/time-entries/${timeEntryId}`, {
+      memo: "the privileged internal note",
+    });
+    expect(patched.status).toBe(200);
+    let detail = (await (await get(`/api/v1/time-entries/${timeEntryId}`)).json()) as {
+      memo: string | null;
+    };
+    expect(detail.memo).toBe("the privileged internal note");
+
+    // The audit trail records THAT the memo changed, never what it says.
+    const { results: auditRows } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT metadata FROM audit_log WHERE subject_id = ?1 AND event = 'time_entry.updated'",
+      )
+      .bind(timeEntryId)
+      .all<{ metadata: string | null }>();
+    expect(auditRows.length).toBeGreaterThanOrEqual(1);
+    for (const auditRow of auditRows) {
+      expect(auditRow.metadata ?? "").not.toContain("privileged internal note");
+    }
+    expect(auditRows[0]?.metadata).toContain("memo");
+
+    const cleared = await patch(`/api/v1/time-entries/${timeEntryId}`, { memo: null });
+    expect(cleared.status).toBe(200);
+    detail = (await (await get(`/api/v1/time-entries/${timeEntryId}`)).json()) as {
+      memo: string | null;
+    };
+    expect(detail.memo).toBeNull();
+  });
+});
+
+describe("the event history", () => {
+  it("serves the entry's recorded events oldest first with actors and redacted detail", async () => {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-07-13",
+      rawDurationMinutes: 30,
+      narrative: "Deposition outline",
+      billable: true,
+      source: "manual",
+    });
+    const { timeEntryId } = (await created.json()) as { timeEntryId: string };
+    await patch(`/api/v1/time-entries/${timeEntryId}`, { narrative: "Deposition outline v2" });
+    await post(`/api/v1/time-entries/${timeEntryId}/void`, {});
+
+    const response = await get(`/api/v1/time-entries/${timeEntryId}/events`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      data: {
+        at: string;
+        event: string;
+        actorUserId: string | null;
+        actorName: string | null;
+        detail: unknown;
+      }[];
+    };
+    expect(body.data.map((event) => event.event)).toEqual([
+      "time_entry.captured",
+      "time_entry.updated",
+      "time_entry.voided",
+    ]);
+    expect(body.data[0]).toMatchObject({
+      actorUserId: ownerUserId,
+      actorName: "Time Owner",
+      detail: { source: "manual" },
+    });
+    expect(body.data[1]?.detail).toEqual({ fields: ["narrative"] });
+    // The voided event predates any richer metadata — an honest blank, not a fabricated one.
+    expect(body.data[2]?.detail).toBeNull();
+  });
+
+  it("answers 404 for an unknown entry rather than an empty rail", async () => {
+    const response = await get(`/api/v1/time-entries/${newIdentifier("timeEntry")}/events`);
+    expect(response.status).toBe(404);
+  });
+});
+
+describe("attachments", () => {
+  async function seedMatterFile(fileMatterId: string, name: string): Promise<string> {
+    const fileId = newIdentifier("file");
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)",
+      )
+      .bind(fileId, fileMatterId, name, new Date().toISOString())
+      .run();
+    return fileId;
+  }
+
+  async function capture(): Promise<string> {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-07-14",
+      rawDurationMinutes: 30,
+      narrative: "Research memo drafting",
+      billable: true,
+      source: "manual",
+    });
+    return ((await created.json()) as { timeEntryId: string }).timeEntryId;
+  }
+
+  it("attaches one of the matter's files, serves it and the count, and detaches without deleting", async () => {
+    const timeEntryId = await capture();
+    const fileId = await seedMatterFile(matterId, "research-memo.pdf");
+
+    const attached = await post(`/api/v1/time-entries/${timeEntryId}/attachments`, { fileId });
+    expect(attached.status).toBe(200);
+
+    const listed = await get(`/api/v1/time-entries/${timeEntryId}/attachments`);
+    expect(listed.status).toBe(200);
+    const listBody = (await listed.json()) as {
+      data: { fileId: string; fileName: string | null; createdByName: string | null }[];
+    };
+    expect(listBody.data).toHaveLength(1);
+    expect(listBody.data[0]).toMatchObject({
+      fileId,
+      fileName: "research-memo.pdf",
+      createdByName: "Time Owner",
+    });
+    const detail = (await (await get(`/api/v1/time-entries/${timeEntryId}`)).json()) as {
+      attachmentCount: number;
+    };
+    expect(detail.attachmentCount).toBe(1);
+
+    // A duplicate attach is a 409, not a second row.
+    const duplicate = await post(`/api/v1/time-entries/${timeEntryId}/attachments`, { fileId });
+    expect(duplicate.status).toBe(409);
+
+    const detached = await post(`/api/v1/time-entries/${timeEntryId}/attachments/detach`, {
+      fileId,
+    });
+    expect(detached.status).toBe(200);
+    const relisted = (await (
+      await get(`/api/v1/time-entries/${timeEntryId}/attachments`)
+    ).json()) as {
+      data: unknown[];
+    };
+    expect(relisted.data).toHaveLength(0);
+    // Detach removed the LINK; the file stays in the matter.
+    const fileRow = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT deleted_at FROM file WHERE id = ?1")
+      .bind(fileId)
+      .first<{ deleted_at: string | null }>();
+    expect(fileRow).not.toBeNull();
+    expect(fileRow?.deleted_at).toBeNull();
+
+    // Both acts are on the entry's own history.
+    const events = (await (await get(`/api/v1/time-entries/${timeEntryId}/events`)).json()) as {
+      data: { event: string; detail: unknown }[];
+    };
+    expect(events.data.map((event) => event.event)).toContain("time_entry.file_attached");
+    expect(events.data.map((event) => event.event)).toContain("time_entry.file_detached");
+  });
+
+  it("refuses a file that is not on the entry's matter (422)", async () => {
+    const timeEntryId = await capture();
+    // A second matter with its own file.
+    const otherMatter = await post("/api/v1/matters", {
+      title: "Other matter",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    const otherMatterId = ((await otherMatter.json()) as { matterId: string }).matterId;
+    const foreignFileId = await seedMatterFile(otherMatterId, "foreign.pdf");
+
+    const refused = await post(`/api/v1/time-entries/${timeEntryId}/attachments`, {
+      fileId: foreignFileId,
+    });
+    expect(refused.status).toBe(422);
+    // And detaching a link that does not exist is a 404.
+    const missing = await post(`/api/v1/time-entries/${timeEntryId}/attachments/detach`, {
+      fileId: foreignFileId,
+    });
+    expect(missing.status).toBe(404);
+  });
+});
+
+describe("convert-to-cost", () => {
+  async function captureBillable(): Promise<string> {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-07-15",
+      rawDurationMinutes: 30,
+      narrative: "Courier run billed as time by mistake",
+      billable: true,
+      source: "manual",
+    });
+    return ((await created.json()) as { timeEntryId: string }).timeEntryId;
+  }
+
+  it("creates the cost, voids the entry in the same act, and cross-references both audit trails", async () => {
+    const timeEntryId = await captureBillable();
+    const response = await post(`/api/v1/time-entries/${timeEntryId}/convert-to-cost`, {});
+    expect(response.status).toBe(201);
+    const ack = (await response.json()) as { costEntryId: string; timeEntryId: string };
+    expect(ack.timeEntryId).toBe(timeEntryId);
+    expect(ack.costEntryId).toMatch(/^costEntry_/);
+
+    // The entry is void; its value lives on the cost now, never in both places.
+    const entry = (await (await get(`/api/v1/time-entries/${timeEntryId}`)).json()) as {
+      status: string;
+      amountMinor: number | null;
+    };
+    expect(entry.status).toBe("void");
+
+    const cost = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT matter_id, amount_minor, description, incurred_date, billable, status FROM cost_entry WHERE id = ?1",
+      )
+      .bind(ack.costEntryId)
+      .first<{
+        matter_id: string;
+        amount_minor: number;
+        description: string;
+        incurred_date: string;
+        billable: number;
+        status: string;
+      }>();
+    expect(cost).toMatchObject({
+      matter_id: matterId,
+      amount_minor: entry.amountMinor ?? 15_000,
+      description: "Courier run billed as time by mistake",
+      incurred_date: "2026-07-15",
+      billable: 1,
+      status: "draft",
+    });
+
+    // Each record's audit trail names the other.
+    const entryEvents = (await (
+      await get(`/api/v1/time-entries/${timeEntryId}/events`)
+    ).json()) as {
+      data: { event: string; detail: unknown }[];
+    };
+    const conversion = entryEvents.data.find(
+      (event) => event.event === "time_entry.converted_to_cost",
+    );
+    expect(conversion?.detail).toEqual({ costEntryId: ack.costEntryId });
+    const costAudit = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT metadata FROM audit_log WHERE subject_id = ?1 AND event = 'cost_entry.converted_from_time_entry'",
+      )
+      .bind(ack.costEntryId)
+      .first<{ metadata: string | null }>();
+    expect(JSON.parse(costAudit?.metadata ?? "null")).toEqual({ timeEntryId });
+
+    // Converting again refuses: the entry is void now.
+    const again = await post(`/api/v1/time-entries/${timeEntryId}/convert-to-cost`, {});
+    expect(again.status).toBe(409);
+  });
+
+  it("refuses an entry with no amount (422)", async () => {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-07-15",
+      rawDurationMinutes: 30,
+      narrative: "Internal admin",
+      billable: false,
+      source: "manual",
+    });
+    const { timeEntryId } = (await created.json()) as { timeEntryId: string };
+    const response = await post(`/api/v1/time-entries/${timeEntryId}/convert-to-cost`, {});
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses an actor without costs:track (403) — time:track alone is not the cost gate", async () => {
+    // trackOnly holds time:track by direct grant and nothing else, but may only convert an entry
+    // they own; capture one as them first (self-scope), then convert without costs:track.
+    const created = await post(
+      "/api/v1/time-entries",
+      {
+        matterId,
+        timekeeperUserId: trackOnlyUserId,
+        workDate: "2026-07-15",
+        rawDurationMinutes: 30,
+        narrative: "Their own entry",
+        billable: true,
+        source: "manual",
+      },
+      trackOnlyCookie,
+    );
+    const { timeEntryId } = (await created.json()) as { timeEntryId: string };
+    const response = await post(
+      `/api/v1/time-entries/${timeEntryId}/convert-to-cost`,
+      {},
+      trackOnlyCookie,
+    );
+    expect(response.status).toBe(403);
+  });
+});

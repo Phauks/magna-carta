@@ -16,7 +16,7 @@ import {
   readUploadStatus,
   submitAssembly,
   type ApiOutcome,
-  type ApiProblem,
+  type Problem,
   type AssemblyOutputFormat,
   type AssemblyStatus,
 } from "./document-api.ts";
@@ -40,7 +40,7 @@ export type CreationOutcome =
    * out. The document exists; the list will show what it settled as on the next read.
    */
   | { kind: "still-settling"; fileId: string }
-  | { kind: "problem"; problem: ApiProblem; stage: CreationStage }
+  | { kind: "problem"; problem: Problem; stage: CreationStage }
   | { kind: "transport"; stage: CreationStage };
 
 export interface CeremonyOptions {

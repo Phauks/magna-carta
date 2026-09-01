@@ -7,10 +7,11 @@
    * selection. None of that is decided here — it is DataTable.Grid, the same table the matter's
    * costs and bills are read in, so a person who has sorted one has sorted this.
    *
-   * IT STARTS AT THE TOP. The controls that used to sit in a strip above it — adding files, the
-   * columns menu — are the screen's, not the list's, and they live in the masthead with everything
-   * else that acts on the whole surface. What is left here is the list, which is what the pane is
-   * for, beginning where the pane begins.
+   * IT STARTS AT THE TOP. The controls that used to sit in a strip above it — adding files — are
+   * the screen's, not the list's, and they live in the masthead with everything else that acts on
+   * the whole surface. The column controls are not on the screen at all: they are summoned by
+   * right-clicking a heading. What is left here is the list, which is what the pane is for,
+   * beginning where the pane begins.
    *
    * DRAGGING FILES ONTO IT. The whole region is the drop target; there is no dashed box. A box
    * would either cover the rows or sit under them taking space, and the thing a person actually
@@ -45,7 +46,7 @@
     onRowAction,
     onAddFiles,
   }: {
-    /** The grid, created by the screen so its columns menu can sit in the masthead. */
+    /** The grid, created by the screen because the screen reads and drives its selection. */
     grid: DataTable.DataTableGridState<WorkbenchFile>;
     files: readonly WorkbenchFile[];
     onFiles: (dropped: File[]) => void;

@@ -17,7 +17,6 @@
    * destructible, and does not stand in for it. The register says so where it lists them; nothing on
    * this form implies otherwise by offering an action that would.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -25,6 +24,8 @@
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { parseDate, type DateValue } from "@internationalized/date";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { listMatterDocuments, type DocumentSummary } from "$lib/documents/document-api.ts";
   import { linkCustodyScan, type CustodyItem } from "./custody-api.ts";
   import { SCAN_KINDS, scanKindLabel } from "./custody-vocabulary.ts";
@@ -57,7 +58,7 @@
   let documents = $state<readonly DocumentSummary[]>([]);
   let readFailed = $state(false);
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let readMatterId: string | null = null;
 
   // One read per matter, when the form is in play. A read that could not run is stated rather than
@@ -129,10 +130,11 @@
       open = false;
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing was filed against this packet."
-        : (outcome.problem.detail ?? "The copy could not be linked.");
+    failure = stated(
+      outcome.failure,
+      "The copy could not be linked.",
+      "Nothing answered. Nothing was filed against this packet.",
+    );
   }
 </script>
 
@@ -221,9 +223,12 @@
       {/if}
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Copy Was Not Filed"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex items-center justify-end gap-8">

@@ -2395,6 +2395,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      '@magna-carta/sequence-numbering':
+        specifier: workspace:*
+        version: link:../sequence-numbering
       zod:
         specifier: 'catalog:'
         version: 4.4.3

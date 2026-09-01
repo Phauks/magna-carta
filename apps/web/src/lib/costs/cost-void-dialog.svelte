@@ -8,6 +8,8 @@
    * record as evidence of what was withdrawn. A withdrawn cost was never advanced.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as AlertDialog from "@magna-carta/design-system/alert-dialog";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
@@ -28,7 +30,7 @@
   } = $props();
 
   let sending = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   $effect(() => {
     const subject = cost?.id ?? null;
@@ -53,12 +55,11 @@
       onVoided();
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The cost was not voided and is unchanged."
-        : `${outcome.problem.detail ?? "The cost was not voided."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The cost was not voided.",
+      "The cost was not voided and is unchanged.",
+    );
   }
 </script>
 
@@ -68,10 +69,12 @@
     <AlertDialog.Description>{identity}</AlertDialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Changed</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Changed"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
     {/if}
 
     <p class="text-sm">

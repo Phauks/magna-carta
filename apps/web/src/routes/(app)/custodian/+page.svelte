@@ -15,6 +15,10 @@
    * somebody ends up staring at an almost-empty table with a filter set on a control they are not
    * looking at (docs/conventions/design-corrections.md, the matters docket round).
    *
+   * The grid is bound out of the listing for the clear-filters control alone. Column show/hide,
+   * pinning and the per-column filters are summoned from a column's own header, which is the one
+   * home for them; no surface carries a columns button.
+   *
    * THE CONTAINER TREE IS NOT A SECOND FILTER, WHICH IS WHY IT SURVIVED THAT CUT. It narrows to a
    * whole BRANCH — the safe and every box and position inside it — which is a subtree read the
    * server does once per request and which no column filter over loaded rows can express. It is
@@ -26,6 +30,8 @@
   import Button from "@magna-carta/design-system/button";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import Plus from "@lucide/svelte/icons/plus";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import {
     listCustodyLocations,
@@ -45,7 +51,7 @@
 
   let locations = $state<readonly CustodyLocationNode[]>([]);
   let occupancy = $state<readonly CustodyLocationOccupancy[]>([]);
-  let treeFailure = $state<string | null>(null);
+  let treeFailure = $state<StatedFailure | null>(null);
   let session = $state<SessionBootstrap | null>(null);
   let bootstrapped = false;
 
@@ -68,12 +74,10 @@
     if (counts.kind === "ok") occupancy = counts.value.data;
     // A tree that cannot be read leaves the register readable: the packets and their numbers are
     // still true, and only the Location column and the branch filter go quiet.
-    if (tree.kind !== "ok") {
-      treeFailure =
-        tree.kind === "transport"
-          ? "Nothing answered. The firm's custody locations could not be read."
-          : (tree.problem.detail ?? "The firm's custody locations could not be read.");
-    }
+    treeFailure =
+      tree.kind === "ok"
+        ? null
+        : stated(tree.failure, "The firm's custody locations could not be read.");
   }
 
   // ---- who is asking, and what they may do ------------------------------------------------------
@@ -180,10 +184,6 @@
           <FunnelX class="size-16" aria-hidden="true" />
         </Button>
       {/if}
-
-      {#if grid !== null}
-        <DataTable.GridColumnsMenu {grid} />
-      {/if}
     </Masthead.Actions>
   </Masthead.Root>
 
@@ -206,10 +206,13 @@
   {/if}
 
   {#if treeFailure !== null}
-    <Alert.Root variant="warning">
-      <Alert.Title>The Custody Locations Could Not Be Read</Alert.Title>
-      <Alert.Description>{treeFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={treeFailure.failure}
+      title="The Custody Locations Could Not Be Read"
+      fallback={treeFailure.fallback}
+      whenSilent={treeFailure.whenSilent}
+      onRetry={() => void readTree()}
+    />
   {/if}
 
   <div class="grid min-h-0 flex-1 gap-24 lg:grid-cols-4">

@@ -20,7 +20,6 @@
    * holding means relabelling objects in a safe. That is the one case the form takes a number, and
    * it says which case it is rather than offering a number field to everybody.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -31,6 +30,8 @@
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { parseDate, type DateValue } from "@internationalized/date";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import X from "@lucide/svelte/icons/x";
   import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
   import {
@@ -70,7 +71,7 @@
   let depositorName = $state<string | null>(null);
   let carriedIn = $state(false);
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const options = $derived(custodyLocationOptions(locations));
   const locationItems = $derived(
@@ -156,10 +157,13 @@
       open = false;
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing was logged, so no number was drawn."
-        : (outcome.problem.detail ?? "The packet could not be logged.");
+    failure = stated(
+      outcome.failure,
+      "The packet could not be logged.",
+      // Nothing answered is a stronger statement than a refusal, and it is the one a person about
+      // to press the button again needs: no number was drawn, so pressing again logs one packet.
+      "Nothing answered. Nothing was logged, so no number was drawn.",
+    );
   }
 </script>
 
@@ -290,9 +294,12 @@
       </div>
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Packet Was Not Logged"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex items-center justify-end gap-8">

@@ -38,6 +38,7 @@
   import * as ContextMenu from "../context-menu/index.ts";
   import Separator from "../separator/index.ts";
   import Skeleton from "../skeleton/index.ts";
+  import FolderGlyph from "../folder-glyph/index.ts";
   import Tree from "../tree/index.ts";
   import type { TreeItemContext, TreeNode } from "../tree/types.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
@@ -431,11 +432,13 @@
     <Home class="mc-tree-item-icon mc-folder-tree-icon" aria-hidden="true" />
   {:else}
     {@const folder = foldersById.get(context.node.id)}
-    {@const Glyph = folderGlyph(folder?.icon, context.expanded)}
-    <Glyph
+    <!-- The shared glyph, so this rail and every list that draws the same folder agree about what
+         its colour and mark look like. -->
+    <FolderGlyph
       class="mc-tree-item-icon mc-folder-tree-icon"
-      data-folder-color={folder?.color ?? "none"}
-      aria-hidden="true"
+      color={folder?.color}
+      icon={folder?.icon}
+      open={context.expanded}
     />
   {/if}
 {/snippet}

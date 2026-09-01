@@ -24,6 +24,8 @@
    * reformatted a client's number would be arguing with the person who wrote it down.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
@@ -82,7 +84,7 @@
   // ---- what the firm holds ----------------------------------------------------------------------
 
   let points = $state<DirectoryContactPoints | null>(null);
-  let readFailure = $state<string | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
 
   $effect(() => {
@@ -99,10 +101,7 @@
         return;
       }
       points = { emails: [], phones: [], addresses: [] };
-      readFailure =
-        outcome.kind === "transport"
-          ? "Nothing answered. How to reach this record could not be read."
-          : (outcome.problem.detail ?? "How to reach this record could not be read.");
+      readFailure = stated(outcome.failure, "How to reach this record could not be read.");
     })();
     return () => {
       cancelled = true;
@@ -122,7 +121,7 @@
   let open = $state(false);
   let channel = $state<Channel>("phones");
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   let emailAddress = $state("");
   let emailUse = $state<DirectoryContactUse>("work");
@@ -268,16 +267,17 @@
       reloadToken += 1;
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing was recorded."
-        : (outcome.problem.detail ?? "This could not be recorded.");
+    failure = stated(
+      outcome.failure,
+      "This could not be recorded.",
+      "Nothing was recorded.",
+    );
   }
 
   // ---- changing one ------------------------------------------------------------------------------
 
   let busyContactPointId = $state<string | null>(null);
-  let actionFailure = $state<string | null>(null);
+  let actionFailure = $state<StatedFailure | null>(null);
 
   async function setPermission(
     forChannel: Channel,
@@ -298,10 +298,11 @@
       reloadToken += 1;
       return;
     }
-    actionFailure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing changed."
-        : (outcome.problem.detail ?? "That could not be changed.");
+    actionFailure = stated(
+      outcome.failure,
+      "That could not be changed.",
+      "Nothing changed.",
+    );
   }
 
   async function remove(forChannel: Channel, contactPointId: string): Promise<void> {
@@ -318,10 +319,11 @@
       reloadToken += 1;
       return;
     }
-    actionFailure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing was removed."
-        : (outcome.problem.detail ?? "That could not be removed.");
+    actionFailure = stated(
+      outcome.failure,
+      "That could not be removed.",
+      "Nothing was removed.",
+    );
   }
 </script>
 
@@ -408,10 +410,12 @@
   </div>
 
   {#if readFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>This Record's Contact Details Could Not Be Read</Alert.Title>
-      <Alert.Description>{readFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={readFailure.failure}
+      title="This Record's Contact Details Could Not Be Read"
+      fallback={readFailure.fallback}
+      whenSilent={readFailure.whenSilent}
+    />
   {:else if points === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading how to reach this record">
       <Skeleton class="h-32 w-full" />
@@ -425,9 +429,12 @@
     </EmptyState>
   {:else}
     {#if actionFailure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Description>{actionFailure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={actionFailure.failure}
+        title="That Could Not Be Changed"
+        fallback={actionFailure.fallback}
+        whenSilent={actionFailure.whenSilent}
+      />
     {/if}
 
     {#if points.phones.length > 0}
@@ -791,9 +798,12 @@
       </div>
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="Nothing Was Recorded"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex justify-end gap-8">

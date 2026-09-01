@@ -1,0 +1,52 @@
+@layer components {
+  /*
+   * FailureBand — the inline failure, composed over Alert. The recipe owns only the footer row the
+   * Alert has no notion of: the copyable Error ID on the reading edge, the remedy on the far edge.
+   *
+   * The chip takes its colour from `currentcolor`, so it reads in the band's own hue in every
+   * variant and in every theme without a per-variant rule. It wraps under the message on a narrow
+   * screen rather than shrinking the identifier, which has to stay transcribable.
+   */
+  .mc-failure-band-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-8);
+    padding-block-start: var(--mc-space-4);
+  }
+  .mc-failure-band-error-id {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+    border-width: var(--mc-border-width-default);
+    border-style: solid;
+    border-color: currentcolor;
+    background-color: transparent;
+    padding-block: var(--mc-space-0);
+    padding-inline: var(--mc-space-8);
+    color: currentcolor;
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    cursor: pointer;
+  }
+  .mc-failure-band-error-id:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-style: solid;
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /* The verb, set apart from the identifier so the two never read as one string. */
+  .mc-failure-band-error-id-hint {
+    font-family: var(--mc-font-sans);
+    text-transform: uppercase;
+    letter-spacing: var(--mc-tracking-caps);
+  }
+  .mc-failure-band-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+  }
+}

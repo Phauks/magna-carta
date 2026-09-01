@@ -18,13 +18,12 @@
    * screen's one action row, so the grid is lent back to whoever mounted this listing rather than
    * being fenced behind a second strip of controls above the table.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import type { Snippet } from "svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import {
     listCustodyPackets,
@@ -162,16 +161,15 @@
 
 <div class="flex min-h-0 flex-1 flex-col gap-16">
   {#if loadFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Register Could Not Be Read</Alert.Title>
-      <Alert.Description>
-        {loadFailure}
-        <Button variant="secondary" class="mt-8" onclick={reread}>
-          <RotateCcw class="size-16" aria-hidden="true" />
-          Try again
-        </Button>
-      </Alert.Description>
-    </Alert.Root>
+    <!-- `list.failure` is the failure RECORD, so the sentence comes from `failureMessage` and the
+         Error ID, the request line and the remedy come from the record itself. Rendering the record
+         where a sentence belongs prints an object at the reader. -->
+    <FailureNotice
+      failure={loadFailure}
+      title="The Register Could Not Be Read"
+      fallback={list.failureMessage ?? undefined}
+      onRetry={reread}
+    />
   {:else}
     <DataTable.Grid
       grid={ownGrid}

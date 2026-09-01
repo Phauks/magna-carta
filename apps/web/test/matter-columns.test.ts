@@ -36,6 +36,7 @@ function matter(overrides: Partial<MatterSummary> = {}): MatterSummary {
     responsibleMemberId: "user_chase",
     clientDisplayName: "Pemberton Holdings",
     matterNumber: "2026-0147",
+    consultationNumber: null,
     createdAt: "2026-03-14T09:00:00.000Z",
     ...overrides,
   };
@@ -101,7 +102,20 @@ describe("the number column", () => {
     expect(matterNumberText(matter())).toBe("2026-0147");
   });
 
+  it("shows a consultation's own tentative number, which is the number people quote", () => {
+    expect(
+      matterNumberText(
+        matter({ matterNumber: null, consultationNumber: "C2026-0058", status: "prospective" }),
+      ),
+    ).toBe("C2026-0058");
+  });
+
+  it("prefers the matter number once one is drawn, keeping the tentative one off the column", () => {
+    expect(matterNumberText(matter({ consultationNumber: "C2026-0058" }))).toBe("2026-0147");
+  });
+
   it("names an unnumbered CONSULTATION for what it is rather than leaving a gap", () => {
+    // A consultation taken before the consultation sequence existed: no number of either kind.
     expect(matterNumberText(matter({ matterNumber: null, status: "prospective" }))).toBe(
       UNNUMBERED_DESIGNATION,
     );
@@ -118,6 +132,12 @@ describe("the number column", () => {
     // The grid sorts on `value`, not on the text: a null value sorts last in both directions,
     // which is exactly what an unnumbered matter should do.
     expect(columnById("matterNumber").value(matter({ matterNumber: null }))).toBeNull();
+    // A consultation is not unnumbered, so it sorts by the number it has.
+    expect(
+      columnById("matterNumber").value(
+        matter({ matterNumber: null, consultationNumber: "C2026-0058" }),
+      ),
+    ).toBe("C2026-0058");
   });
 
   it("always shows: the row's identity is not a column a person can hide", () => {

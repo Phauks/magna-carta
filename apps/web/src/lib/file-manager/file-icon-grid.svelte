@@ -12,6 +12,8 @@
    * horizontal axis, so there Left and Right move up and down rather than being dead keys.
    */
   import FileIcon from "@magna-carta/design-system/file-icon";
+  import FolderGlyph from "@magna-carta/design-system/folder-glyph";
+  import type { FolderColorName, FolderIconName } from "@magna-carta/design-system/folder-tree";
   import Separator from "@magna-carta/design-system/separator";
   import Pin from "@lucide/svelte/icons/pin";
   import type { DataTableGridState } from "@magna-carta/design-system/data-table";
@@ -22,6 +24,7 @@
 
   let {
     grid,
+    folderAppearance,
     hideExtensions,
     /** The reader's scale, applied to the tile as a whole so previews and text grow together. */
     scalePercent,
@@ -29,6 +32,8 @@
     onRowContextMenu,
   }: {
     grid: DataTableGridState<FileManagerRow>;
+    /** Each folder's colour and mark, so a tile draws the folder the firm marked. */
+    folderAppearance: Record<string, { color?: FolderColorName; icon?: FolderIconName }>;
     hideExtensions: boolean;
     scalePercent: number;
     onActivate: (row: FileManagerRow) => void;
@@ -70,7 +75,11 @@
           })}
       >
         {#if row.kind === "folder"}
-          <FileIcon folder class="size-48" />
+          <FolderGlyph
+            class="size-48"
+            color={folderAppearance[row.folder.id]?.color}
+            icon={folderAppearance[row.folder.id]?.icon}
+          />
         {:else}
           <FileIcon
             contentType={row.file.sniffedContentType ?? undefined}

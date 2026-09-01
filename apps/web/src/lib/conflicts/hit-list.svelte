@@ -76,15 +76,12 @@
 {/snippet}
 
 <section class="flex flex-col gap-16">
-  <div class="flex flex-wrap items-center justify-between gap-16">
-    <div class="flex items-center gap-8">
-      <h2 class="text-base font-semibold">Candidates</h2>
-      <MaturityBadge stage="soon" />
-      <span class="text-xs text-text-muted" title={partyCellTitle()}>
-        The Party column waits on a read that names many Directory entities at once.
-      </span>
-    </div>
-    <DataTable.GridColumnsMenu {grid} />
+  <div class="flex flex-wrap items-center gap-8">
+    <h2 class="text-base font-semibold">Candidates</h2>
+    <MaturityBadge stage="soon" />
+    <span class="text-xs text-text-muted" title={partyCellTitle()}>
+      The Party column waits on a read that names many Directory entities at once.
+    </span>
   </div>
 
   <DataTable.Grid {grid} caption="What this check surfaced" cell={hitCell} {loading}>

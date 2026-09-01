@@ -60,16 +60,21 @@
   /*
    * Three distinguishable body-row states, kept CALM — this is a work surface, so the identity lives
    * at the row's EDGE, not washed across the data. Zebra is the faintest (sunken); hover is a neutral
-   * wash (secondary); selection takes the same neutral fill BUT a gold accent bar on its leading edge
-   * (below) — a thin gilt marker, not a gold row. The header does none.
+   * wash (secondary); selection is a pale ACCENT tint plus the gold bar on its leading edge — a
+   * tinted row with a gilt marker, not a gold row. The header does none.
+   *
+   * Selection and hover used to take the same fill: `surface-selected` and `action-secondary` both
+   * resolve to the same neutral today, so "what is selected" was legible only from a two-pixel edge
+   * that the first column often hid. They are two different questions a reader asks at once — what
+   * is under my pointer, and what have I chosen — so they get two different answers. Selection wins
+   * where they meet, because a row stops being hovered the moment the pointer leaves and does not
+   * stop being chosen.
    */
   .mc-table-body .mc-table-row:hover {
     background-color: var(--mc-action-secondary);
   }
   .mc-table-body .mc-table-row[data-state="selected"] {
-    /* Selection has its OWN semantic role (not the hover/secondary fill), so a theme or a future
-       design pass can diverge chosen-state from hover without touching recipes. Same value today. */
-    background-color: var(--mc-surface-selected);
+    background-color: var(--mc-accent-subtle);
   }
   /* The last body row drops its cell hairline so it meets the table-card frame cleanly. */
   .mc-table-body .mc-table-row:last-child .mc-table-cell {
@@ -104,8 +109,11 @@
    * height. Comfortable density is the default (no override).
    */
   /* Zebra is the faintest tint (raised = neutral-50), deliberately LIGHTER than the selection /
-     hover fill (secondary = neutral-100), so a striped row never competes with a selected one. */
-  .mc-table[data-zebra="on"]
+     hover fill (secondary = neutral-100), so a striped row never competes with a selected one.
+     The grid opts OUT of this positional stripe: its body holds extra <tr>s (the pin rule, the
+     row-detail second lines) that shear nth-child parity, so it stripes by the record parity the
+     component stamps as data-stripe instead — see the grid section below. */
+  .mc-table[data-zebra="on"]:not(.mc-table-grid)
     .mc-table-body
     .mc-table-row:nth-child(even):not(:hover):not([data-state="selected"]) {
     background-color: var(--mc-surface-raised);
@@ -362,6 +370,21 @@
     cursor: pointer;
     user-select: none;
   }
+  /* The grid's zebra: RECORD parity from data-stripe, not child position — the pin rule and the
+     row-detail second lines are extra <tr>s that would shear nth-child — and one stripe covers
+     both lines of a row-detail pair. */
+  .mc-table-grid[data-zebra="on"]
+    .mc-table-body
+    .mc-table-row[data-stripe="even"]:not(:hover):not([data-pair-hover]):not(
+      [data-state="selected"]
+    ),
+  .mc-table-grid[data-zebra="on"]
+    .mc-table-body
+    .mc-table-grid-detail-row[data-stripe="even"]:not(:hover):not([data-pair-hover]):not(
+      [data-state="selected"]
+    ) {
+    background-color: var(--mc-surface-raised);
+  }
   /*
    * Header cells: sticky under vertical scroll, and the cell IS the hover unit — the label and
    * the filter control share one surface, so the funnel needs no hunting. The head cell drops the
@@ -438,13 +461,13 @@
     block-size: var(--mc-space-12);
   }
   /*
-   * The in-header filter: flush at the cell's END edge (label leading, funnel trailing; in an
-   * end-aligned column the label sits beside it at that same edge), its space reserved at all
-   * times so revealing it on hover moves nothing. Revealed while the cell is hovered or focused,
-   * and ALWAYS while active or open. Active is unmistakable: the accent-subtle fill.
+   * The in-header filter MARK: flush at the cell's END edge (label leading, mark trailing; in an
+   * end-aligned column the label sits beside it at that same edge). It is a state, not a control —
+   * the filter itself is set from the header's right-click menu — so it is drawn only while a
+   * filter is in play, and its slot is held at all times so appearing moves nothing. Active is
+   * unmistakable: the accent-subtle fill.
    */
-  .mc-table-grid-filter-trigger {
-    visibility: hidden;
+  .mc-table-grid-filter-mark {
     flex: none;
     margin-inline-start: auto;
     display: inline-flex;
@@ -454,28 +477,13 @@
     block-size: var(--mc-space-20);
     border-radius: var(--mc-radius-sm);
     background-color: transparent;
-    color: var(--mc-text-subtle);
-    cursor: pointer;
-  }
-  .mc-table-grid-head[data-align="end"] .mc-table-grid-filter-trigger {
-    margin-inline-start: var(--mc-space-0);
-  }
-  .mc-table-grid-head:hover .mc-table-grid-filter-trigger,
-  .mc-table-grid-head:focus-within .mc-table-grid-filter-trigger,
-  .mc-table-grid-filter-trigger[data-active="true"],
-  .mc-table-grid-filter-trigger[data-state="open"] {
-    visibility: visible;
-  }
-  .mc-table-grid-head-inner:hover .mc-table-grid-filter-trigger:not([data-active="true"]) {
-    color: var(--mc-text-default);
-  }
-  .mc-table-grid-filter-trigger[data-active="true"] {
-    background-color: var(--mc-accent-subtle);
     color: var(--mc-accent-subtle-foreground);
   }
-  .mc-table-grid-filter-trigger:focus-visible {
-    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
-    outline-offset: var(--mc-focus-ring-offset);
+  .mc-table-grid-head[data-align="end"] .mc-table-grid-filter-mark {
+    margin-inline-start: var(--mc-space-0);
+  }
+  .mc-table-grid-filter-mark[data-active="true"] {
+    background-color: var(--mc-accent-subtle);
   }
   /* The resize grip rides the header cell's END edge; its rule lights on hover and while dragging.
      Double-click fits the column to its widest value. */
@@ -500,42 +508,116 @@
     background-color: var(--mc-border-focus);
   }
   /*
-   * Pinned columns hold still under horizontal scroll: sticky cells at measured offsets,
-   * contiguous from the leading edge, a hairline marking where the pinned block ends. Sticky
+   * Pinned columns hold still under horizontal scroll — the leading block (member-pinned,
+   * contiguous from the leading edge at measured inset-inline-start offsets) and the trailing
+   * block (declared by the column model, stuck at measured inset-inline-end offsets). Sticky
    * body cells are positioned, so they paint over the scrolling cells with no z of their own;
-   * pinned header/totals cells sit one layer above their sticky row-mates. The z tokens are read
-   * INSIDE the grid's isolated stacking context, so they order only the table's own layers.
+   * pinned header/totals cells sit one layer above their sticky row-mates. A hairline marks
+   * where each pinned block MEETS the scrolling columns — the trailing block carries it on its
+   * LEADING edge, so it reads as pinned rather than floating. The z tokens are read INSIDE the
+   * grid's isolated stacking context, so they order only the table's own layers.
    */
   .mc-table-grid-head[data-pinned],
-  .mc-table-grid-cell[data-pinned] {
+  .mc-table-grid-cell[data-pinned],
+  .mc-table-grid-head[data-pinned-end],
+  .mc-table-grid-cell[data-pinned-end] {
     position: sticky;
   }
-  .mc-table-grid-head[data-pinned] {
+  .mc-table-grid-head[data-pinned],
+  .mc-table-grid-head[data-pinned-end] {
     z-index: var(--mc-z-overlay);
   }
-  .mc-table-grid .mc-table-body .mc-table-grid-cell[data-pinned] {
+  .mc-table-grid .mc-table-body .mc-table-grid-cell[data-pinned],
+  .mc-table-grid .mc-table-body .mc-table-grid-cell[data-pinned-end] {
     background-color: var(--mc-surface-default);
   }
   .mc-table-grid-head[data-pinned-edge],
   .mc-table-grid-cell[data-pinned-edge] {
     border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
   }
+  .mc-table-grid-head[data-pinned-end-edge],
+  .mc-table-grid-cell[data-pinned-end-edge],
+  .mc-table-grid-total-cell[data-pinned-end-edge] {
+    border-inline-start: var(--mc-border-width-default) solid var(--mc-border-default);
+  }
+  /* The row-detail second line's empty pinned cell sits flush at the trailing edge. */
+  .mc-table-grid-detail-pinned-cell {
+    inset-inline-end: var(--mc-space-0);
+  }
   /* Pinned body cells carry the row's state colors themselves (an opaque sticky cell would
-     otherwise mask hover, selection, and zebra). */
-  .mc-table-grid .mc-table-body .mc-table-row:hover .mc-table-grid-cell[data-pinned] {
+     otherwise mask hover, selection, and the stripe). data-pair-hover is the row-detail pair's
+     one hover unit — either line hovered paints both. */
+  .mc-table-grid .mc-table-body .mc-table-row:hover .mc-table-grid-cell[data-pinned],
+  .mc-table-grid .mc-table-body .mc-table-row:hover .mc-table-grid-cell[data-pinned-end],
+  .mc-table-grid .mc-table-body [data-pair-hover] .mc-table-grid-cell[data-pinned],
+  .mc-table-grid .mc-table-body [data-pair-hover] .mc-table-grid-cell[data-pinned-end] {
     background-color: var(--mc-action-secondary);
   }
-  .mc-table-grid
-    .mc-table-body
-    .mc-table-row[data-state="selected"]
-    .mc-table-grid-cell[data-pinned] {
-    background-color: var(--mc-surface-selected);
+  .mc-table-grid .mc-table-body [data-state="selected"] .mc-table-grid-cell[data-pinned],
+  .mc-table-grid .mc-table-body [data-state="selected"] .mc-table-grid-cell[data-pinned-end] {
+    background-color: var(--mc-accent-subtle);
   }
   .mc-table-grid[data-zebra="on"]
     .mc-table-body
-    .mc-table-row:nth-child(even):not(:hover):not([data-state="selected"])
-    .mc-table-grid-cell[data-pinned] {
+    [data-stripe="even"]:not(:hover):not([data-pair-hover]):not([data-state="selected"])
+    .mc-table-grid-cell[data-pinned],
+  .mc-table-grid[data-zebra="on"]
+    .mc-table-body
+    [data-stripe="even"]:not(:hover):not([data-pair-hover]):not([data-state="selected"])
+    .mc-table-grid-cell[data-pinned-end] {
     background-color: var(--mc-surface-raised);
+  }
+  /*
+   * ---- The row-detail second line ----
+   * With a rowDetail snippet each record renders as TWO <tr>s reading as ONE row of two lines:
+   * the primary line hands its hairline to the second line, and hover, selection, the stripe,
+   * and the mark voices cover the pair. The pair's hover unit is data-pair-hover, stamped by the
+   * grid on both lines — CSS :hover only ever knows one element.
+   */
+  .mc-table-grid .mc-table-body .mc-table-grid-detail-row {
+    cursor: pointer;
+    user-select: none;
+    transition-property: background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-table-grid .mc-table-body .mc-table-row[data-pair-hover],
+  .mc-table-grid .mc-table-body .mc-table-grid-detail-row[data-pair-hover] {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-table-grid .mc-table-body .mc-table-grid-detail-row[data-state="selected"] {
+    background-color: var(--mc-accent-subtle);
+  }
+  /* The selection's gilt edge runs down BOTH lines of the pair. */
+  .mc-table-grid
+    .mc-table-body
+    .mc-table-grid-detail-row[data-state="selected"]
+    .mc-table-cell:first-child {
+    border-inline-start-color: var(--mc-accent-default);
+  }
+  /* The mark voices cover the second line too. */
+  .mc-table-grid .mc-table-body .mc-table-grid-detail-row[data-clipboard="cut"],
+  .mc-table-grid .mc-table-body .mc-table-grid-detail-row[data-quiet="true"] {
+    color: var(--mc-text-subtle);
+  }
+  /* The pair's ONE hairline: the primary line's cells drop theirs and the second line carries
+     it — data rows only (the skeleton and empty rows keep the base hairline). */
+  .mc-table-grid[data-row-detail="on"]
+    .mc-table-body
+    .mc-table-row[data-grid-row]
+    > .mc-table-cell {
+    border-block-end-width: var(--mc-space-0);
+  }
+  .mc-table-grid .mc-table-body .mc-table-grid-detail-row:last-child .mc-table-cell {
+    border-block-end-width: var(--mc-space-0);
+  }
+  /* The second line reads as the first line's continuation, not another grid row: free height,
+     wrapping allowed, tucked under line one (both density variants keep their own line one). */
+  .mc-table-grid .mc-table-body .mc-table-grid-detail-row .mc-table-cell {
+    block-size: auto;
+    padding-block-start: var(--mc-space-0);
+    padding-block-end: var(--mc-space-4);
+    white-space: normal;
   }
   /*
    * ---- Row groups and row marks ----
@@ -696,58 +778,40 @@
     align-items: center;
     gap: var(--mc-space-12);
   }
-  /* The columns menu: a checkbox row per column, each with the pin control at the row's end, and
-     the display settings beneath a hairline. */
-  .mc-table-grid-columns {
+  /* The header's own menu (GridHeadMenu): the leading glyph on an item row, and the Columns
+     submenu, which holds a row per column and so takes the popover's width and scrolls rather than
+     running past the viewport on a wide table. */
+  .mc-table-grid-head-menu-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-table-grid-head-menu-columns {
+    min-inline-size: var(--mc-size-popover);
+    max-block-size: var(--mc-size-popover);
+    overflow-y: auto;
+  }
+  /* The filter submenu: the ONE filter mechanism, in the header menu. A field inside a menu keeps
+     the menu's own padding off it, and a long value list scrolls rather than running off-screen. */
+  .mc-table-grid-filter-menu {
+    /* At least the popover width, but grows to fit wider content (the date-range field). */
+    min-inline-size: var(--mc-size-popover);
+  }
+  .mc-table-grid-filter-menu-field {
     display: flex;
     flex-direction: column;
     gap: var(--mc-space-4);
-    min-inline-size: var(--mc-size-popover);
+    padding: var(--mc-space-4);
   }
-  .mc-table-grid-columns-option {
-    display: flex;
-    align-items: center;
-    gap: var(--mc-space-8);
-    padding-block: var(--mc-space-4);
-    padding-inline: var(--mc-space-8);
-    border-radius: var(--mc-radius-sm);
-    font-size: var(--mc-font-size-sm);
-    color: var(--mc-text-default);
-    cursor: pointer;
+  .mc-table-grid-filter-menu-facets {
+    max-block-size: var(--mc-size-popover);
+    overflow-y: auto;
   }
-  .mc-table-grid-columns-option:hover {
-    background-color: var(--mc-surface-selected);
-  }
-  .mc-table-grid-columns-rule {
-    block-size: var(--mc-border-width-default);
-    background-color: var(--mc-border-default);
-    margin-block: var(--mc-space-4);
-  }
-  .mc-table-grid-pin {
+  /* The per-value count sits at the row's end, quieter than the value it counts. */
+  .mc-table-grid-filter-menu-count {
     margin-inline-start: auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    inline-size: var(--mc-space-20);
-    block-size: var(--mc-space-20);
-    border-radius: var(--mc-radius-sm);
-    background-color: transparent;
-    color: var(--mc-text-subtle);
-    cursor: pointer;
-  }
-  .mc-table-grid-pin:hover {
-    background-color: var(--mc-surface-raised);
-    color: var(--mc-text-default);
-  }
-  .mc-table-grid-pin[aria-pressed="true"] {
-    color: var(--mc-accent-subtle-foreground);
-  }
-  .mc-table-grid-pin:focus-visible {
-    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
-    outline-offset: var(--mc-focus-ring-offset);
-  }
-  .mc-table-grid-pin-icon {
-    inline-size: var(--mc-space-12);
-    block-size: var(--mc-space-12);
+    padding-inline-start: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-variant-numeric: tabular-nums;
   }
 }
