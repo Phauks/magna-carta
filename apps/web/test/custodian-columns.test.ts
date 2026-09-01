@@ -58,7 +58,7 @@ describe("the register's columns", () => {
 
   it("filters status on the word a person says, not the stored value", () => {
     expect(columnText("status", packet())).toBe("Held");
-    expect(columnText("status", packet({ status: "out" }))).toBe("Out");
+    expect(columnText("status", packet({ status: "out" }))).toBe("Checked out");
   });
 
   it("names a location from the firm's own tree", () => {

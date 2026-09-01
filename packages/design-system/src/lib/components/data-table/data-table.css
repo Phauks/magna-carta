@@ -608,6 +608,24 @@
   .mc-table-grid-empty-value {
     color: var(--mc-text-subtle);
   }
+  /*
+   * A PLACEHOLDER ROW IS NOT A ROW, AND TAKES NONE OF A ROW'S TREATMENT.
+   *
+   * The grid's cells are `white-space: nowrap` because a row holds one line per value and a column
+   * of values has to align down the page. A placeholder holds PROSE, and inherited nowrap makes
+   * that prose one unbreakable line: the empty state's own `max-inline-size` cannot wrap what is
+   * forbidden to wrap, so the sentence widens the table past its frame and the whole empty state,
+   * watermark and heading and action included, is dragged off to the inline end of a table nobody
+   * can see the far side of. The table is `width: 100%`, so wrapping is the entire fix: the
+   * placeholder then spans exactly the frame and its content centres in what the reader can see.
+   *
+   * The custody register showed this worst, because its empty state is four lines of prose, but it
+   * was never that screen's defect: any surface whose empty state runs past one short line has it,
+   * which is why the fix is here and not there.
+   */
+  .mc-table-grid-placeholder {
+    white-space: normal;
+  }
   /* The filtered-empty state says WHY the table is empty and hands over the way out. */
   .mc-table-grid-empty {
     display: flex;

@@ -33,6 +33,7 @@
   import Separator from "@magna-carta/design-system/separator";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import FileText from "@lucide/svelte/icons/file-text";
+  import Plus from "@lucide/svelte/icons/plus";
   import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
@@ -56,12 +57,16 @@
     holdMeaning,
     itemStatusEntry,
     packetStatusEntry,
+    scanKindLabel,
   } from "./custody-vocabulary.ts";
+  import AddItemDialog from "./add-item-dialog.svelte";
+  import LinkScanDialog from "./link-scan-dialog.svelte";
 
   let {
     open = $bindable(false),
     packetId,
     locations,
+    mayManage = false,
   }: {
     /** Whether the window is showing. */
     open?: boolean;
@@ -69,6 +74,14 @@
     packetId: string | null;
     /** The firm's container tree, so a movement's from and to nodes read as names. */
     locations: readonly CustodyLocationNode[];
+    /**
+     * Whether this member may write to the register.
+     *
+     * Passed down rather than read here: the surface that opened this window has already asked who
+     * is signed in, and a window that asked again would be a second request for an answer the page
+     * is holding, made every time somebody opens a row.
+     */
+    mayManage?: boolean;
   } = $props();
 
   /** What the movement form and the release capture form are waiting on, said the same way twice. */
@@ -83,6 +96,8 @@
   let movements = $state<readonly CustodyMovement[] | null>(null);
   let loadFailure = $state<string | null>(null);
   let printOpen = $state(false);
+  let itemDialogOpen = $state(false);
+  let scanDialogOpen = $state(false);
   let shownPacketId: string | null = null;
 
   const directory = new DirectoryNames();
@@ -101,6 +116,33 @@
     entity: (entityId) => directory.nameOf(entityId),
   };
 
+  async function read(asked: string): Promise<void> {
+    // The roster settles its own failure internally and is shared across the app; asking again
+    // when it is already read costs nothing.
+    void firmRoster.load(fetch);
+    const [detail, ledger] = await Promise.all([
+      readCustodyPacket(fetch, asked),
+      listCustodyMovements(fetch, asked),
+    ]);
+    if (shownPacketId !== asked) return;
+    if (detail.kind === "ok") {
+      packet = detail.value;
+      const handles = [
+        ...detail.value.owners.map((owner) => owner.entityId),
+        ...(detail.value.depositorEntityId === null ? [] : [detail.value.depositorEntityId]),
+      ];
+      void directory.resolve(fetch, handles);
+    } else {
+      loadFailure =
+        detail.kind === "transport"
+          ? "Nothing answered. This packet could not be read."
+          : (detail.problem.detail ?? "This packet could not be read.");
+    }
+    // A ledger that failed leaves the packet readable: where the property is and whom it is held
+    // for are still true, and the history says its own absence rather than failing the window.
+    movements = ledger.kind === "ok" ? ledger.value.data : [];
+  }
+
   $effect(() => {
     const asked = packetId;
     if (asked === null || !open) return;
@@ -109,33 +151,21 @@
     packet = null;
     movements = null;
     loadFailure = null;
-    // The roster settles its own failure internally and is shared across the app; asking again
-    // when it is already read costs nothing.
-    void firmRoster.load(fetch);
-    void (async () => {
-      const [detail, ledger] = await Promise.all([
-        readCustodyPacket(fetch, asked),
-        listCustodyMovements(fetch, asked),
-      ]);
-      if (shownPacketId !== asked) return;
-      if (detail.kind === "ok") {
-        packet = detail.value;
-        const handles = [
-          ...detail.value.owners.map((owner) => owner.entityId),
-          ...(detail.value.depositorEntityId === null ? [] : [detail.value.depositorEntityId]),
-        ];
-        void directory.resolve(fetch, handles);
-      } else {
-        loadFailure =
-          detail.kind === "transport"
-            ? "Nothing answered. This packet could not be read."
-            : (detail.problem.detail ?? "This packet could not be read.");
-      }
-      // A ledger that failed leaves the packet readable: where the property is and whom it is held
-      // for are still true, and the history says its own absence rather than failing the window.
-      movements = ledger.kind === "ok" ? ledger.value.data : [];
-    })();
+    void read(asked);
   });
+
+  /*
+   * Read the packet again after writing to it.
+   *
+   * The whole window is re-read rather than the one list that changed, because describing an item
+   * appends to the chain of custody as well as to the contents: a window that patched its own
+   * Contents tab would show a packet whose history did not mention the thing now sitting in it.
+   */
+  function reread(): void {
+    const asked = shownPacketId;
+    if (asked === null) return;
+    void read(asked);
+  }
 
   const standingHolds = $derived(packet === null ? [] : holdsInForce(packet.holds));
   const release = $derived(
@@ -149,6 +179,13 @@
 
   const events = $derived(
     movements === null ? [] : orderedOldestFirst(movementEvents(movements, names)),
+  );
+
+  /** Why a write control is refused, or undefined where it is not. */
+  const writeRefusal = $derived(
+    mayManage
+      ? undefined
+      : "Writing to the register needs the custody:manage permission, which this account does not hold.",
   );
 
   const heading = $derived(packet?.name ?? "Custody Packet");
@@ -295,9 +332,33 @@
   {/if}
 {/snippet}
 
+{#snippet describeItemButton()}
+  <Button
+    variant="secondary"
+    disabled={packet === null || writeRefusal !== undefined}
+    title={writeRefusal}
+    onclick={() => (itemDialogOpen = true)}
+  >
+    <Plus class="size-16" aria-hidden="true" />
+    Describe An Item
+  </Button>
+{/snippet}
+
+{#snippet fileCopyButton()}
+  <Button
+    variant="secondary"
+    disabled={packet === null || writeRefusal !== undefined}
+    title={writeRefusal}
+    onclick={() => (scanDialogOpen = true)}
+  >
+    <Plus class="size-16" aria-hidden="true" />
+    File A Copy
+  </Button>
+{/snippet}
+
 {#snippet contentsTab()}
   {#if packet === null || packet.items.length === 0}
-    <EmptyState title="Nothing Described Yet">
+    <EmptyState title="Nothing Described Yet" actions={describeItemButton}>
       A packet can be logged before anyone opens it, and this one has no contents recorded. What is
       inside is described item by item, which is how the register answers whether the firm holds an
       original will for somebody.
@@ -332,6 +393,7 @@
           </span>
         </div>
       {/each}
+      <div class="flex">{@render describeItemButton()}</div>
     </div>
   {/if}
 {/snippet}
@@ -371,7 +433,7 @@
 
 {#snippet scansTab()}
   {#if packet === null || packet.scans.length === 0}
-    <EmptyState title="No Scanned Copies">
+    <EmptyState title="No Scanned Copies" actions={fileCopyButton}>
       A scan is an ordinary document filed on a matter, linked here. It is never a substitute for the
       original, and its existence changes nothing about what may be done with what the firm holds.
     </EmptyState>
@@ -380,10 +442,13 @@
       {#each packet.scans as scan (scan.id)}
         <div class="flex items-center gap-8">
           <FileText class="size-16 text-text-muted" aria-hidden="true" />
-          <span>{scan.kind}</span>
+          <!-- The register's own word for what the copy is. The enum was being printed raw, so a
+               piece of correspondence read as `correspondence`. -->
+          <span>{scanKindLabel(scan.kind)}</span>
           <span class="text-xs text-text-muted">captured {scan.capturedAt}</span>
         </div>
       {/each}
+      <div class="flex">{@render fileCopyButton()}</div>
     </div>
   {/if}
 {/snippet}
@@ -453,3 +518,13 @@
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />
 {/if}
+
+<AddItemDialog bind:open={itemDialogOpen} {packetId} onAdded={reread} />
+
+<LinkScanDialog
+  bind:open={scanDialogOpen}
+  {packetId}
+  filingMatterId={packet?.filingMatterId ?? null}
+  items={packet?.items ?? []}
+  onLinked={reread}
+/>

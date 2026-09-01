@@ -200,7 +200,11 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     presentation: "chip",
   },
   out: {
-    label: "Out",
+    // "Checked out", not "Out". The word is still the ledger's own — `checked_out` is the movement
+    // that produces this state — and the one-word form was read as an unexplained flag rather than
+    // as the sentence "somebody has this and it is coming back". A status a reader has to be told
+    // the meaning of is doing none of a status's work.
+    label: "Checked out",
     tone: "warning",
     meaning: "Checked out. The ledger names who has it and when it is due back.",
     presentation: "chip",
