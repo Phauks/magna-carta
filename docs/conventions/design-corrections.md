@@ -209,6 +209,24 @@ is usually the fastest way to understand the rule.
 - **A capability the backend does not serve yet still renders**, disabled, with the "Soon" badge and
   one honest line naming what it waits on. This is the standing rule from
   [`ui-design.md`](ui-design.md); it is repeated here because it is the one most often skipped.
+- **A Soon seam ships where it is legible at rest, never behind a glyph.** The rule above says a
+  designed-but-unwired capability stays VISIBLE, and an overflow menu is the one place that quietly
+  breaks it: the matter header's `...` held exactly one item, the status's lifecycle action,
+  disabled and marked Soon, so the menu had to be opened before a reader could learn there was
+  nothing in it to press. That is a control's width of chrome spent to say nothing, and the seam it
+  was protecting stopped being visible the moment it went in the drawer. A single unwired action
+  belongs on the row as a named disabled control, or it waits until it is wired. _(matter chrome,
+  2026-09-01)_
+- **A menu earns its glyph from what opening it offers.** An overflow is a container for a set that
+  is genuinely too long or too secondary for the row — not a place to put one thing so the row
+  looks tidy. Count the live items before drawing the trigger: at one, the item goes on the row; at
+  zero, neither the item nor the trigger is drawn. _(matter chrome, 2026-09-01)_
+- **No navigation entry is called "Other".** A tab earns its place by naming something a reader
+  would go looking for, and "Other" names the absence of a category — it can only be found by
+  ruling every other tab out, and it exists as the drawer whatever nobody placed gets pushed into.
+  The matter registry's Other section was removed rather than described better: content with no
+  home yet waits for the section that will own it, which is a smaller debt than a permanent bin
+  that teaches members the file has an unsorted corner. _(matter section strip, 2026-09-01)_
 - **A result region is furniture, not a reward.** The structure that will hold results (a frame, a
   panel set, tabs) renders at rest, empty and calm, so arriving data fills a shape the reader
   already has and population is never a surprise. The list-screen "table holds the vertical space"
@@ -368,6 +386,30 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-01 — the matter screens, chrome-removal round
+
+Two removals and one addition. Both removals were issued the same way: the owner looked at the
+shipped chrome and could not name what a part of it was for. The generalizations are promoted above.
+
+- **The header band's overflow (`...`) control is gone.** Its only item was the status's lifecycle
+  action, disabled and marked Soon. Asked what it was buying, the honest answer was a control's
+  width and one glyph a member has to press to discover there is nothing behind it. The lifecycle
+  action returns as a named control on the row when it is wired, and the band now carries no
+  actions at all: the inline-end column is the section strip and nothing else.
+- **The Other section is gone from the registry and the route tree.** It was the only tab whose
+  label described no place — it named everything the other thirteen did not cover, which is a bin
+  rather than a destination, and its stub had to be written in the abstract because nothing concrete
+  was ever going to live there first.
+- **Magnus takes a matter section**, a `soon` stub for now. Local to this round rather than
+  generalizable: it leads the NON-core group rather than sitting among the core record sections,
+  because the assistant reads a matter and records nothing on it, so it should not hold a working
+  section's width while it is a stub. It is visible at desk width and the last of its group to fold.
+
+Left open by this round and not decided here: whether the fourteen sections should be
+GROUPED (time, fees, costs, billing and trust are one financial neighbourhood; files, emails,
+notes and messaging are a record-and-correspondence one) rather than sitting as one flat strip
+that folds by measurement. The owner raised it; nothing is built against it yet.
 
 ### 2026-09-01 — the matter chrome, identity-block round
 

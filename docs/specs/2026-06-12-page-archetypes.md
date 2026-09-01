@@ -97,7 +97,7 @@ Matters, Contacts, the trust ledger, billing, the intake queue — the workhorse
 
 A matter, a contact — the header + tabs + content pattern.
 
-- **Header:** breadcrumb, title, **status chip**, key metadata (number · type · responsible), and actions (⋯ · a contextual action like _Add time_ · `New`).
+- **Header:** breadcrumb, title, **status chip**, key metadata (number · type · responsible), and any contextual actions the record offers (_Add time_ · `New`), each named on the row. No overflow (⋯) menu: the owner's 2026-09-01 ruling ([`design-corrections.md`](../conventions/design-corrections.md)) is that a menu earns its glyph from what opening it offers, so one action goes on the row and no action draws no trigger.
 - **Tabs:** the horizontal set (§2), gold-underlined active tab, More… overflow.
 - **Content:** full-width, archetype-appropriate per tab. The **Overview** tab is a focused dashboard of the record: a main column (recent **activity** timeline, **upcoming deadlines**) + a side rail (**financials** snapshot, **parties**, **details**).
 

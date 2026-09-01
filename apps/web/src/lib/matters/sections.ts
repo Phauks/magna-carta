@@ -81,6 +81,21 @@ export const matterSections: readonly MatterSection[] = [
       "counsel, courts — linked from the firm Directory with conflict-aware roles.",
   },
   {
+    /*
+     * Magnus reads the matter rather than recording anything on it, so it is not a core record
+     * section and does not hold a core section's width: it leads the non-core group, visible on a
+     * wide canvas and the last of that group to fold. The assistant has a permanent home in the
+     * app shell as well; this is where a conversation already scoped to one matter belongs.
+     */
+    slug: "magnus",
+    label: "Magnus",
+    core: false,
+    stage: "soon",
+    description:
+      "Ask Magnus about this matter. The assistant answers in plain language from what you " +
+      "attach to the conversation, and every exchange is kept on the matter record.",
+  },
+  {
     slug: "notes",
     label: "Notes",
     core: false,
@@ -128,14 +143,5 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
       "person, read in its own time zone, and reports when it has passed.",
-  },
-  {
-    slug: "other",
-    label: "Other",
-    core: false,
-    stage: "soon",
-    description:
-      "Everything else the matter accumulates — research, tasks, and tool output — finds its " +
-      "home here.",
   },
 ];
