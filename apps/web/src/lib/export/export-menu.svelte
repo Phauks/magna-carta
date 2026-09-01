@@ -119,16 +119,29 @@
         saveImmediately,
       );
       if (outcome.kind !== "ok") {
-        // The two paths fail differently and must say so differently: with the preference on the
-        // member still has their file and only the copy was lost, while in the default path NOTHING
-        // was produced, and telling them it was merely "not kept" would be false.
         const errorId = outcome.kind === "problem" ? outcome.problem.errorId : undefined;
         const suffix = errorId === undefined ? "" : ` (Error ID ${errorId})`;
-        toast.error(
-          saveImmediately
-            ? `Downloaded, but it could not be added to your Downloads.${suffix}`
-            : `That export could not be added to your Downloads.${suffix}`,
-        );
+        if (saveImmediately) {
+          // The member already has their file; only the kept copy was lost.
+          toast.error(`Downloaded, but it could not be added to your Downloads.${suffix}`);
+          return;
+        }
+        /*
+         * The default path produced NOTHING yet — no file, and no shelf item. Generating instead of
+         * downloading is only an improvement while the shelf works; when it refuses, a member who
+         * asked for a report must not be left with neither. So fall back to what exporting used to
+         * do and hand them the file, then say plainly that it was not kept.
+         */
+        try {
+          saveExport(
+            await format.render(renderedDocument),
+            exportFilename(renderedDocument, format.extension),
+            format.contentType,
+          );
+          toast.error(`Downloaded instead: it could not be added to your Downloads.${suffix}`);
+        } catch {
+          toast.error(`That export could not be produced.${suffix}`);
+        }
         return;
       }
       // Tell the top-bar tray, so it appears there at once rather than at the next page load — which
