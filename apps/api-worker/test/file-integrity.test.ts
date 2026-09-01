@@ -32,6 +32,9 @@ beforeAll(async () => {
   poolFirmId = (
     await seedFirm({ name: "File Integrity Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
+    .bind(poolFirmId)
+    .run();
   // tools:fileIntegrity is already seeded onto Owner/Admin by the baseline migration; granting it
   // directly is an idempotent belt so this suite does not depend on migration ordering.
   await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)

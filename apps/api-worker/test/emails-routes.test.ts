@@ -172,6 +172,7 @@ async function filedTopicRows(
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   firmId = (await seedFirm({ name: "Email Filing Routes Firm" })).firmId;
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1").bind(firmId).run();
   firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
 
   const owner = await seedCredentialedUser("emails-routes-owner@example.com", {
