@@ -8844,6 +8844,11 @@ export const downloadItem = sqliteTable(
     // plain list does not answer: a member who can see they already took the Word copy is looking at
     // a shelf, and one who cannot is looking at a pile. Empty means built and never fetched, which is
     // a real and visible state.
+    // The format this item was MADE for, distinct from the formats it has been taken in: exporting
+    // generates onto the shelf rather than downloading, so the member's choice at the export control
+    // has to survive until they come back for it. Null on every row written before the column
+    // existed, where the format asked for WAS the format taken.
+    requestedFormat: text("requested_format"),
     downloadedFormatsJson: text("downloaded_formats_json").notNull().default("[]"),
     createdAt: text("created_at").notNull(),
     // When the shelf lets go, written by the producer from one constant so a row and the lifecycle

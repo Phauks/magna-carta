@@ -23,6 +23,8 @@ export interface DownloadItemRow {
   readonly producer: DownloadItemProducer;
   readonly objectKey: string;
   readonly byteSize: number | null;
+  /** The format the item was MADE for; null on rows written before the column existed. */
+  readonly requestedFormat: string | null;
   readonly downloadedFormats: readonly string[];
   readonly createdAt: string;
   readonly expiresAt: string;
@@ -37,6 +39,7 @@ export interface DownloadItemInsert {
   readonly producer: DownloadItemProducer;
   readonly objectKey: string;
   readonly byteSize: number | null;
+  readonly requestedFormat: string | null;
   readonly createdAt: string;
   readonly expiresAt: string;
   readonly state: DownloadItemState;
@@ -65,6 +68,8 @@ function toRow(record: Record<string, unknown>): DownloadItemRow {
     producer: record["producer"] as DownloadItemProducer,
     objectKey: String(record["object_key"]),
     byteSize: record["byte_size"] === null ? null : Number(record["byte_size"]),
+    requestedFormat:
+      typeof record["requested_format"] === "string" ? record["requested_format"] : null,
     downloadedFormats: parseFormats(record["downloaded_formats_json"]),
     createdAt: String(record["created_at"]),
     expiresAt: String(record["expires_at"]),
@@ -73,7 +78,7 @@ function toRow(record: Record<string, unknown>): DownloadItemRow {
 }
 
 const COLUMNS =
-  "id, member_id, title, kind, producer, object_key, byte_size, downloaded_formats_json, created_at, expires_at, state";
+  "id, member_id, title, kind, producer, object_key, byte_size, requested_format, downloaded_formats_json, created_at, expires_at, state";
 
 export function insertDownloadItemStatement(
   database: SqlDatabase,
@@ -81,7 +86,7 @@ export function insertDownloadItemStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DOWNLOAD_ITEM_TABLE} (id, member_id, title, kind, producer, object_key, byte_size, downloaded_formats_json, created_at, expires_at, state) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '[]', ?8, ?9, ?10)`,
+      `INSERT INTO ${DOWNLOAD_ITEM_TABLE} (id, member_id, title, kind, producer, object_key, byte_size, requested_format, downloaded_formats_json, created_at, expires_at, state) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, '[]', ?9, ?10, ?11)`,
     )
     .bind(
       row.id,
@@ -91,6 +96,7 @@ export function insertDownloadItemStatement(
       row.producer,
       row.objectKey,
       row.byteSize,
+      row.requestedFormat,
       row.createdAt,
       row.expiresAt,
       row.state,
