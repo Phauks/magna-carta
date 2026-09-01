@@ -18,6 +18,8 @@
    * reviewer actually opened, caching what it learns for the rest of the visit.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import Button from "@magna-carta/design-system/button";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
@@ -48,7 +50,7 @@
   const checkId = $derived(page.params.checkId ?? "");
 
   let result = $state<CheckWithHits | null>(null);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let loading = $state(true);
   let session = $state<SessionBootstrap | null>(null);
   let openHit = $state<HitDetail | null>(null);
@@ -72,12 +74,11 @@
       return;
     }
     result = null;
-    failure =
-      outcome.kind === "transport"
-        ? "The check could not be reached."
-        : `${outcome.problem.detail ?? "The check could not be read."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The check could not be read.",
+      "The check could not be reached.",
+    );
   }
 
   $effect(() => {
@@ -182,16 +183,13 @@
 </Masthead.Root>
 
 {#if failure !== null}
-  <Alert.Root variant="danger">
-    <Alert.Title>The Check Could Not Be Read</Alert.Title>
-    <Alert.Description>
-      {failure}
-      <Button variant="secondary" class="mt-8" onclick={() => void read()}>
-        <RotateCcw class="size-16" aria-hidden="true" />
-        Try again
-      </Button>
-    </Alert.Description>
-  </Alert.Root>
+  <FailureNotice
+    failure={failure.failure}
+    title="The Check Could Not Be Read"
+    fallback={failure.fallback}
+    whenSilent={failure.whenSilent}
+    onRetry={() => void read()}
+  />
 {:else if loading && result === null}
   <div class="flex flex-col gap-8">
     <Skeleton class="h-16 w-full" />

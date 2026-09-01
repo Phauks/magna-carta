@@ -1,0 +1,93 @@
+@layer components {
+  /*
+   * FailureDetails — the diagnostics block on a failure surface. A quiet definition list of the
+   * facts a reader scans, the optional full trace in the monospace face, and one Copy control.
+   *
+   * The trace sits on the SUNKEN surface with a hairline: it is a quotation from the machine, not a
+   * sentence the product is saying, and reading it as a distinct object is what stops it competing
+   * with the message above. `user-select: all` makes one click take the whole block, so a reader
+   * whose browser refuses the clipboard still has a one-gesture path to the same text. It is
+   * deliberately NOT height-capped — a scroll box hides breadcrumbs from a reader who is manually
+   * selecting the text precisely because copying just failed for them.
+   */
+  .mc-failure-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-12);
+    max-inline-size: var(--mc-size-prose);
+    margin-inline: auto;
+  }
+  .mc-failure-details-facts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    margin: var(--mc-space-0);
+  }
+  .mc-failure-details-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--mc-space-16);
+  }
+  .mc-failure-details-term {
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+  }
+  .mc-failure-details-value {
+    margin: var(--mc-space-0);
+    text-align: end;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  .mc-failure-details-value-mono {
+    margin: var(--mc-space-0);
+    text-align: end;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+    overflow-wrap: anywhere;
+  }
+  .mc-failure-details-trace {
+    margin: var(--mc-space-0);
+    border-radius: var(--mc-radius-md);
+    border-width: var(--mc-border-width-default);
+    border-style: solid;
+    border-color: var(--mc-border-default);
+    background-color: var(--mc-surface-sunken);
+    padding-block: var(--mc-space-12);
+    padding-inline: var(--mc-space-12);
+    text-align: start;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+  /*
+   * The status line and the button share a row, so the reported outcome sits beside the control
+   * that produced it. A grid rather than a flex row because the status must be allowed to take the
+   * free space and wrap: the refusal message is a sentence, not a word — a reader who cannot copy
+   * needs telling what to do instead.
+   */
+  .mc-failure-details-actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--mc-space-12);
+  }
+  .mc-failure-details-status {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+}

@@ -16,6 +16,8 @@
    * Anything else it has ever been called is added afterwards, in the record's own Names pane.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
@@ -50,7 +52,7 @@
   let displayName = $state("");
 
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   /** What the firm may already hold under a similar spelling, resolved to names people recognize. */
   let candidates = $state<readonly { entityId: string; name: string }[]>([]);
@@ -156,10 +158,11 @@
       open = false;
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing was recorded, so nothing was half-created."
-        : (outcome.problem.detail ?? "The record could not be created.");
+    failure = stated(
+      outcome.failure,
+      "The record could not be created.",
+      "Nothing was recorded, so nothing was half-created.",
+    );
   }
 </script>
 
@@ -253,9 +256,12 @@
       {/if}
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Record Could Not Be Created"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex items-center justify-end gap-8">

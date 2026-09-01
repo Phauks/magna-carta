@@ -19,6 +19,8 @@
    * waits on — a reader can see the shape of what is coming and can never mistake it for working.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Select from "@magna-carta/design-system/select";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -51,7 +53,7 @@
 
   let locations = $state<readonly CustodyLocationNode[]>([]);
   let occupancy = $state<readonly CustodyLocationOccupancy[]>([]);
-  let treeFailure = $state<string | null>(null);
+  let treeFailure = $state<StatedFailure | null>(null);
   let bootstrapped = false;
 
   $effect(() => {
@@ -67,10 +69,7 @@
       // A tree that cannot be read leaves the register readable: the packets and their numbers are
       // still true, and only the Location column and the branch filter go quiet.
       if (tree.kind !== "ok") {
-        treeFailure =
-          tree.kind === "transport"
-            ? "Nothing answered. The firm's custody locations could not be read."
-            : (tree.problem.detail ?? "The firm's custody locations could not be read.");
+        treeFailure = stated(tree.failure, "The firm's custody locations could not be read.");
       }
     })();
   });
@@ -164,10 +163,12 @@
           Where things are
         </h2>
         {#if treeFailure !== null}
-          <Alert.Root variant="warning">
-            <Alert.Title>The Custody Locations Could Not Be Read</Alert.Title>
-            <Alert.Description>{treeFailure}</Alert.Description>
-          </Alert.Root>
+          <FailureNotice
+            failure={treeFailure.failure}
+            title="The Custody Locations Could Not Be Read"
+            fallback={treeFailure.fallback}
+            whenSilent={treeFailure.whenSilent}
+          />
         {:else if occupancy.length === 0}
           <p class="text-xs text-text-muted">
             No container has been described yet. A custody tree is offices, safes, cabinets, shelves

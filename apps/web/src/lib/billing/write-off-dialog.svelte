@@ -11,6 +11,8 @@
    * and the ceiling is shown rather than discovered when the server refuses.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
@@ -18,7 +20,7 @@
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FileMinus from "@lucide/svelte/icons/file-minus";
   import Info from "@lucide/svelte/icons/info";
-  import { billingFailureText, writeOffBalance } from "./billing-api.ts";
+  import { billingFailure, writeOffBalance } from "./billing-api.ts";
   import { amountFieldText, readBoundedAmountMinor } from "./amount-entry.ts";
   import { civilToday, matterUnpaidMinor, type InvoiceRow } from "./invoice-standing.ts";
 
@@ -44,7 +46,7 @@
   let reason = $state("");
   let effectiveDate = $state(civilToday());
   let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   $effect(() => {
     if (!open) return;
@@ -80,7 +82,7 @@
       onWrittenOff(written);
       return;
     }
-    failure = billingFailureText(outcome, "The balance is unchanged.");
+    failure = billingFailure(outcome, "The balance is unchanged.");
   }
 </script>
 
@@ -92,10 +94,11 @@
     </Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Written Off</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Written Off"
+        fallback={failure.fallback}
+      />
     {/if}
 
     <div class="flex flex-col gap-16">

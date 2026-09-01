@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { JoiningOutcome } from "../src/lib/auth/joining-api.ts";
+import { problemOutcome, transportOutcome } from "../src/lib/api/request.ts";
 import {
   CONFIRMATION_MAIL_UNAVAILABLE,
   CONFIRMATION_REFUSED,
@@ -22,8 +23,10 @@ import {
 } from "../src/routes/register/joining-messages.ts";
 
 function refusal(status: number, extra: Record<string, unknown> = {}): JoiningOutcome<unknown> {
-  return { kind: "problem", problem: { status, ...extra } };
+  return problemOutcome({ status, ...extra }, "POST /invitations/redemptions");
 }
+
+const nothingAnswered: JoiningOutcome<unknown> = transportOutcome("POST /invitations/redemptions");
 
 describe("joiningErrorMessage", () => {
   it("renders the step's own refusal for a verdict on what was entered", () => {
@@ -38,9 +41,7 @@ describe("joiningErrorMessage", () => {
 
   it("does not treat an outage as a verdict", () => {
     expect(joiningErrorMessage(refusal(500), REDEMPTION_REFUSED)).toBe(JOINING_UNAVAILABLE);
-    expect(joiningErrorMessage({ kind: "transport" }, REDEMPTION_REFUSED)).toBe(
-      JOINING_UNAVAILABLE,
-    );
+    expect(joiningErrorMessage(nothingAnswered, REDEMPTION_REFUSED)).toBe(JOINING_UNAVAILABLE);
   });
 
   it("says the same thing whatever detail the server sent with the refusal", () => {
@@ -83,7 +84,7 @@ describe("joiningSupportErrorId", () => {
 
   it("shows nothing when the server sent none, or nothing answered at all", () => {
     expect(joiningSupportErrorId(refusal(500))).toBeNull();
-    expect(joiningSupportErrorId({ kind: "transport" })).toBeNull();
+    expect(joiningSupportErrorId(nothingAnswered)).toBeNull();
   });
 });
 

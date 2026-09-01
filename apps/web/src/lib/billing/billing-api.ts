@@ -14,7 +14,8 @@
  * politeness. Nothing here tries to be clever about that: a refused write surfaces the server's own
  * words.
  */
-import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
+import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+import { requestJson, type ApiOutcome, type Failure, type Page } from "$lib/api/request.ts";
 
 /** The permissions the billing routes name. A member without one is refused server-side. */
 export const BILLING_PERMISSIONS = {
@@ -494,17 +495,11 @@ export function setArrangement(
  * that is the handle a firm quotes when it reports the failure. A dead transport says nothing
  * changed, which is the only thing anyone can be certain of.
  */
-export function billingFailureText(
-  outcome:
-    | { kind: "problem"; problem: { detail?: string; errorId?: string } }
-    | { kind: "transport" },
+export function billingFailure(
+  outcome: { kind: "problem"; failure: Failure } | { kind: "transport"; failure: Failure },
   whenSilent: string,
-): string {
-  if (outcome.kind === "transport") return `Nothing answered. ${whenSilent}`;
-  const words = outcome.problem.detail ?? whenSilent;
-  return outcome.problem.errorId === undefined
-    ? words
-    : `${words} Error ID ${outcome.problem.errorId}.`;
+): StatedFailure {
+  return stated(outcome.failure, whenSilent);
 }
 
 /**

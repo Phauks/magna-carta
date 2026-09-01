@@ -47,6 +47,8 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { Failure } from "$lib/api/request.ts";
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -155,7 +157,8 @@
      */
     loading?: boolean;
     /** Why the caller's read failed, when it did. Null while it is fine or still going. */
-    readFailure?: string | null;
+    /** The failed read, whole — the sheet renders the Error ID and the remedy from it. */
+    readFailure?: Failure | null;
     /** Read again. Absent where the caller has nothing to retry. */
     onRetryRead?: () => void;
     /** Something was written; the time wants re-reading. */
@@ -1018,15 +1021,13 @@
       {#if readFailure !== null}
         <!-- The read failed; the record itself is untouched by that, and the sheet says so rather
              than showing an empty table that reads as a day with no work in it. -->
-        <Alert.Root variant="danger">
-          <Alert.Title>Time Could Not Be Read</Alert.Title>
-          <Alert.Description>
-            {readFailure} The record itself is unaffected: nothing was changed by this failure.
-          </Alert.Description>
-        </Alert.Root>
-        {#if onRetryRead !== undefined}
-          <Button class="self-start" variant="secondary" onclick={onRetryRead}>Retry</Button>
-        {/if}
+        <FailureNotice
+          failure={readFailure}
+          subject="The time entries"
+          fallback="The time on this sheet could not be read. The record itself is unaffected:
+            nothing was changed by this failure."
+          onRetry={onRetryRead}
+        />
       {/if}
       {#if firmMatters.failure !== null}
         <!-- The sheet still opens and still holds what is typed into it; what it cannot do is file

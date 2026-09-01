@@ -17,6 +17,8 @@
    * consequence, not a filing convenience.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Button from "@magna-carta/design-system/button";
@@ -26,7 +28,7 @@
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
   import Undo2 from "@lucide/svelte/icons/undo-2";
-  import { billingFailureText, issueCreditNote, type CreditNoteLineRequest } from "./billing-api.ts";
+  import { billingFailure, issueCreditNote, type CreditNoteLineRequest } from "./billing-api.ts";
   import { readAmountMinor } from "./amount-entry.ts";
   import { billUnpaidMinor, civilToday, type InvoiceRow } from "./invoice-standing.ts";
 
@@ -55,7 +57,7 @@
   let creditedLineId = $state<string>(GENERAL_CREDIT);
   let effectiveDate = $state(civilToday());
   let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   $effect(() => {
     if (!open) return;
@@ -122,7 +124,7 @@
       onIssued(outcome.value.clientCreditMinor);
       return;
     }
-    failure = billingFailureText(outcome, "No credit note was issued and the bill is unchanged.");
+    failure = billingFailure(outcome, "No credit note was issued and the bill is unchanged.");
   }
 
   /** The credit-note kinds the contract accepts; anything else is recorded as an adjustment. */
@@ -150,10 +152,11 @@
     </Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Credited</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Credited"
+        fallback={failure.fallback}
+      />
     {/if}
 
     <div class="flex flex-col gap-16">

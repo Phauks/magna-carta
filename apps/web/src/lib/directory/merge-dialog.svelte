@@ -18,6 +18,8 @@
    * click is a reflex and a checkbox is a sentence somebody had to read past.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
@@ -59,7 +61,7 @@
   let choices = $state<Record<string, MergeFieldChoice>>({});
   let acknowledged = $state(false);
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const master = $derived(swapped ? right : left);
   const subordinate = $derived(swapped ? left : right);
@@ -101,10 +103,11 @@
       onMerged(outcome.value.mergeId);
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Neither record was changed."
-        : (outcome.problem.detail ?? "The records could not be folded together.");
+    failure = stated(
+      outcome.failure,
+      "The records could not be folded together.",
+      "Neither record was changed.",
+    );
   }
 </script>
 
@@ -204,9 +207,12 @@
       </div>
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Records Were Not Folded Together"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex items-center justify-end gap-16">

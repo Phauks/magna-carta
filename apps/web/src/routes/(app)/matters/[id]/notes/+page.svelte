@@ -38,6 +38,8 @@
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import NoteDeleteDialog from "$lib/matters/note-delete-dialog.svelte";
   import {
     attachNoteDocument,
@@ -79,7 +81,7 @@
   let draftOccurredOn = $state("");
   let draftOccurredAtTime = $state("");
   let saving = $state(false);
-  let writeFailure = $state<string | null>(null);
+  let writeFailure = $state<StatedFailure | null>(null);
   // The instant the note will be stamped with, shown live so the composer is not describing a
   // moment that has already passed by the time somebody presses Save.
   let composerNow = $state(new Date().toISOString());
@@ -168,18 +170,6 @@
     void noteList.load((cursor) => listMatterNotes(fetch, matterId, cursor, term));
   }
 
-  function refusalText(
-    outcome:
-      | { kind: "transport" }
-      | { kind: "problem"; problem: { detail?: string; errorId?: string } },
-    whenSilent: string,
-  ): string {
-    if (outcome.kind === "transport") return `Nothing answered. ${whenSilent}`;
-    return `${outcome.problem.detail ?? whenSilent}${
-      outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-    }`;
-  }
-
   // The occurrence as the server takes it: all three together or none at all. A time with no date is
   // refused server-side, so the composer simply does not send one.
   function occurrenceOf(
@@ -212,7 +202,7 @@
       refresh();
       return;
     }
-    writeFailure = refusalText(outcome, "The note was not written.");
+    writeFailure = stated(outcome.failure, "The note was not written.");
   }
 
   async function saveEdit(noteId: string): Promise<void> {
@@ -231,7 +221,7 @@
       refresh();
       return;
     }
-    writeFailure = refusalText(outcome, "The note was not changed.");
+    writeFailure = stated(outcome.failure, "The note was not changed.");
   }
 
   function beginEdit(note: MatterNote): void {
@@ -253,7 +243,7 @@
       refresh();
       return;
     }
-    writeFailure = refusalText(outcome, "The document was not attached.");
+    writeFailure = stated(outcome.failure, "The document was not attached.");
   }
 
   async function detach(attachmentId: string): Promise<void> {
@@ -266,7 +256,7 @@
       refresh();
       return;
     }
-    writeFailure = refusalText(outcome, "The document was not detached.");
+    writeFailure = stated(outcome.failure, "The document was not detached.");
   }
 
   function applySearch(term: string): void {
@@ -364,10 +354,11 @@
   </div>
 
   {#if writeFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Nothing Changed</Alert.Title>
-      <Alert.Description>{writeFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={writeFailure.failure}
+      title="Nothing Changed"
+      fallback={writeFailure.fallback}
+    />
   {/if}
 
   {#if composing}
@@ -435,10 +426,12 @@
   {/if}
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Notes Unavailable</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      {failure}
+      title="Notes Unavailable"
+      fallback="The notes on this matter could not be read."
+      onRetry={refresh}
+    />
   {/if}
 
   <div class="flex min-h-0 flex-1 flex-col gap-8">

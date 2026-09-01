@@ -1,27 +1,24 @@
 /*
- * The app's transport seam: one same-origin `fetch` against a relative `/api/v1` path, and the
- * three outcomes a caller has to render. Lifted out of the Documents surface when a second surface
- * needed it — a per-surface copy would be a per-surface place for the problem-document handling to
- * drift.
+ * The app's transport seam: one same-origin `fetch` against a relative `/api/v1` path, and the three
+ * outcomes a caller has to render.
  *
- * `apps/web` does not depend on @magna-carta/api-client, so each surface hand-writes the response
- * shapes it reads, mirroring apps/api-worker/openapi/openapi.json. This module owns the envelope only;
- * the shapes stay with the surface that reads them.
+ * This is the ONE home for reading a problem document. It used to be four: this module, the joining
+ * screens, the WHOIS tool and the safe-browse tool each kept a private copy, and the copies had
+ * begun to disagree about which fields matter — the joining one grew `attemptsRemaining` precisely
+ * because this one dropped it. The shapes themselves live in ./problem.ts; this module owns the
+ * envelope, and the response bodies stay with the surface that reads them (apps/web does not depend
+ * on @magna-carta/api-client, so each surface hand-writes what it reads, mirroring
+ * apps/api-worker/openapi/openapi.json).
  *
  * Every call resolves rather than throws. A caller has three outcomes to render — the value, a
  * server that answered with a problem document, and nothing answering at all — and collapsing the
  * last two into one `catch` loses the only distinction that changes what a person should do about it.
  */
+import { readProblem, requestLine, type Failure, type Problem } from "./problem.ts";
+import { platformHealth } from "$lib/diagnostics/platform-health.svelte.ts";
 
-/** A failed call surfaced to the user. `errorId` is the correlation handle every problem carries. */
-export interface ApiProblem {
-  status: number;
-  /** The problem document's machine-readable type, when it sent one. */
-  type?: string;
-  /** The human-readable detail, when it sent one. Server-authored — never a raw exception. */
-  detail?: string;
-  errorId?: string;
-}
+export type { Failure, Problem, ProblemFieldError } from "./problem.ts";
+export { readProblem, requestLine } from "./problem.ts";
 
 /**
  * One page of a cursor-paged listing. `nextCursor` is a string when the record continues past this
@@ -33,25 +30,38 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
+/**
+ * The three outcomes.
+ *
+ * Both failing branches carry a `failure` — the record every failure surface renders from. On the
+ * `problem` branch `failure.problem` IS `problem`; the field is repeated rather than reached through
+ * so that the ~50 call sites reading `outcome.problem.detail` keep working unchanged while anything
+ * rendering a failure can hand `outcome.failure` straight to the component without reassembling the
+ * request line and the timestamp by hand at each site. Repeating a reference costs nothing; making
+ * every caller rebuild the same two facts is what produced the drift this file exists to end.
+ */
 export type ApiOutcome<T> =
   | { kind: "ok"; value: T }
-  | { kind: "problem"; problem: ApiProblem }
-  | { kind: "transport" };
+  | { kind: "problem"; problem: Problem; failure: Failure }
+  | { kind: "transport"; failure: Failure };
 
-// Read the correlation handle and the server's own words off a problem document. Defensive: a body
-// that is not JSON still yields a usable problem carrying the HTTP status.
-async function readProblem(response: Response): Promise<ApiProblem> {
-  try {
-    const body = (await response.json()) as Record<string, unknown>;
-    return {
-      status: response.status,
-      type: typeof body.type === "string" ? body.type : undefined,
-      detail: typeof body.detail === "string" ? body.detail : undefined,
-      errorId: typeof body.errorId === "string" ? body.errorId : undefined,
-    };
-  } catch {
-    return { status: response.status };
-  }
+/**
+ * A refusal outcome for a caller that already holds the problem — a failure line read off a stream,
+ * a storage write that never went through `requestJson`, a test. Exists so those callers do not
+ * hand-assemble the failure record and quietly leave a field out of it, which is how the request
+ * line and the timestamp went missing from most surfaces in the first place.
+ */
+export function problemOutcome<T>(
+  problem: Problem,
+  request: string,
+  failedAt: Date = new Date(),
+): ApiOutcome<T> {
+  return { kind: "problem", problem, failure: { problem, request, failedAt } };
+}
+
+/** The matching "nothing answered" outcome. */
+export function transportOutcome<T>(request: string, failedAt: Date = new Date()): ApiOutcome<T> {
+  return { kind: "transport", failure: { problem: null, request, failedAt } };
 }
 
 interface JsonRequest {
@@ -70,26 +80,47 @@ export async function requestJson<T>(
   path: string,
   request: JsonRequest = {},
 ): Promise<ApiOutcome<T>> {
+  const method = request.method ?? "GET";
   const headers: Record<string, string> = { accept: "application/json" };
   if (request.body !== undefined) headers["content-type"] = "application/json";
   if (request.idempotencyKey !== undefined) headers["idempotency-key"] = request.idempotencyKey;
 
+  const line = requestLine(method, path);
+
   let response: Response;
   try {
     response = await fetchImpl(path, {
-      method: request.method ?? "GET",
+      method,
       headers,
       body: request.body === undefined ? undefined : JSON.stringify(request.body),
     });
   } catch {
-    return { kind: "transport" };
+    return failed(transportOutcome(line));
   }
 
-  if (!response.ok) return { kind: "problem", problem: await readProblem(response) };
+  if (!response.ok) {
+    const problem = await readProblem(response);
+    return failed(problemOutcome(problem, line));
+  }
 
   try {
-    return { kind: "ok", value: (await response.json()) as T };
+    const value = (await response.json()) as T;
+    // A read that worked is evidence too: it clears a platform notice rather than leaving one up
+    // until it ages out, so recovery is visible as soon as it happens.
+    platformHealth.noteSuccess();
+    return { kind: "ok", value };
   } catch {
-    return { kind: "transport" };
+    // The server answered successfully and the body will not parse. Nothing described a failure, so
+    // this is the "nothing answered" case rather than a refusal, and it says so.
+    return failed(transportOutcome(line));
   }
+}
+
+/**
+ * Every failing outcome passes through here, which is what makes the platform notice complete: no
+ * surface has to remember to report its failures, and one that forgot would be invisible to it.
+ */
+function failed<T>(outcome: ApiOutcome<T>): ApiOutcome<T> {
+  if (outcome.kind !== "ok") platformHealth.note(outcome.failure);
+  return outcome;
 }

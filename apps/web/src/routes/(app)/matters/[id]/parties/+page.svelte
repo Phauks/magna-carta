@@ -10,6 +10,8 @@
    * parties" and "not a real matter" are different facts.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as AlertDialog from "@magna-carta/design-system/alert-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
@@ -35,9 +37,9 @@
   if (!section) throw new Error('The matter section registry is missing "parties".');
 
   let parties = $state<readonly MatterPartyEntry[] | null>(null);
-  let loadFailure = $state<string | null>(null);
+  let loadFailure = $state<StatedFailure | null>(null);
   let severing = $state<MatterPartyEntry | null>(null);
-  let severFailure = $state<string | null>(null);
+  let severFailure = $state<StatedFailure | null>(null);
   let severInFlight = $state(false);
   // Bumped to force a re-read after a link is severed.
   let reloadToken = $state(0);
@@ -68,13 +70,9 @@
       if (result.kind === "ok") {
         parties = result.value.parties;
         loadFailure = null;
-      } else if (result.kind === "transport") {
-        parties = [];
-        loadFailure = "Nothing answered. The parties on this matter could not be read.";
       } else {
         parties = [];
-        loadFailure =
-          result.problem.detail ?? "The parties on this matter could not be read.";
+        loadFailure = stated(result.failure, "The parties on this matter could not be read.");
       }
     })();
     return () => {
@@ -94,10 +92,11 @@
       reloadToken += 1;
       return;
     }
-    severFailure =
-      result.kind === "transport"
-        ? "Nothing answered. The party is still on this matter."
-        : (result.problem.detail ?? "The party could not be removed from this matter.");
+    severFailure = stated(
+      result.failure,
+      "The party could not be removed from this matter.",
+      "The party is still on this matter.",
+    );
   }
 </script>
 
@@ -127,10 +126,12 @@
   </div>
 
   {#if loadFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Parties Could Not Be Read</Alert.Title>
-      <Alert.Description>{loadFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={loadFailure.failure}
+      title="Parties Could Not Be Read"
+      fallback={loadFailure.fallback}
+      whenSilent={loadFailure.whenSilent}
+    />
   {:else if parties === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Loading the matter's parties">
       <Skeleton class="h-32 w-full" />
@@ -216,9 +217,12 @@
         </AlertDialog.Description>
       </div>
       {#if severFailure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{severFailure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={severFailure.failure}
+          title="The Party Was Not Severed"
+          fallback={severFailure.fallback}
+          whenSilent={severFailure.whenSilent}
+        />
       {/if}
       <div class="flex justify-end gap-8">
         <AlertDialog.Cancel disabled={severInFlight}>Cancel</AlertDialog.Cancel>

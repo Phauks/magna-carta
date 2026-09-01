@@ -33,6 +33,16 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
     ],
   },
   {
+    title: "Failures",
+    pages: [
+      {
+        label: "Failure states",
+        href: "/developer-console/failure-states",
+        note: "Every failure shape, at all three scales",
+      },
+    ],
+  },
+  {
     title: "Document automation",
     pages: [
       {

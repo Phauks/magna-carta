@@ -11,7 +11,8 @@
  * (after a sever, say) is that matter's list being read again, and blanking it would flash a
  * skeleton over a table the reader is still looking at.
  */
-import type { ApiOutcome, Page } from "$lib/api/request.ts";
+import type { ApiOutcome, Failure, Page } from "$lib/api/request.ts";
+import { guidanceFor, type ProblemGuidance } from "$lib/diagnostics/guidance.ts";
 
 /** Fetches one page. `cursor` is absent for the first. */
 export type PageReader<T> = (cursor?: string) => Promise<ApiOutcome<Page<T>>>;
@@ -21,7 +22,14 @@ export class PagedList<T> {
   items = $state<readonly T[] | null>(null);
   /** Non-null while the record continues past what is on screen. */
   nextCursor = $state<string | null>(null);
-  failure = $state<string | null>(null);
+  /**
+   * THE WHOLE FAILURE, NOT A SENTENCE SQUEEZED OUT OF IT. This field used to be a `string`, and
+   * because it was, every one of the nine surfaces built on this class was structurally incapable of
+   * showing an Error ID, a status, or a remedy — however their own templates were written. Holding
+   * the record is the entire fix; `failureMessage` is still here for a surface that only wants the
+   * sentence.
+   */
+  failure = $state<Failure | null>(null);
   /** True only while a FURTHER page is in flight; the first read is `items === null`. */
   loadingMore = $state(false);
 
@@ -34,6 +42,37 @@ export class PagedList<T> {
 
   constructor(whenUnreadable: string) {
     this.#whenUnreadable = whenUnreadable;
+  }
+
+  /**
+   * The sentence for the current failure, with this list's own words as the fallback.
+   *
+   * Order of preference: the server's own `detail`, which is written for the caller and knows things
+   * no client-side table can; then the area's own sentence, which is the per-channel copy the
+   * standing ruling in docs/conventions/design-corrections.md asks for; then the shared presenter's
+   * default, which exists so nothing ever renders blank.
+   */
+  get failureMessage(): string | null {
+    const failure = this.failure;
+    if (failure === null) return null;
+    if (failure.problem === null) return `Nothing answered. ${this.#whenUnreadable}`;
+    return failure.problem.detail ?? this.#whenUnreadable;
+  }
+
+  /**
+   * The tone, heading and remedy for the current failure — everything a failure surface needs beyond
+   * the sentence. The message is replaced by `failureMessage` so the area's own words win over the
+   * shared default.
+   */
+  get failureGuidance(): ProblemGuidance | null {
+    const failure = this.failure;
+    if (failure === null) return null;
+    return { ...guidanceFor(failure), message: this.failureMessage ?? "" };
+  }
+
+  /** The correlation handle for the current failure, where the server issued one. */
+  get failureErrorId(): string | null {
+    return this.failure?.problem?.errorId ?? null;
   }
 
   /** True when this list is already showing (or loading) the given subject. */
@@ -91,9 +130,6 @@ export class PagedList<T> {
     // A failed FURTHER page keeps the rows already on screen: they were read successfully and are
     // still true. Only the first page has nothing to keep.
     this.items = existing;
-    this.failure =
-      result.kind === "transport"
-        ? `Nothing answered. ${this.#whenUnreadable}`
-        : (result.problem.detail ?? this.#whenUnreadable);
+    this.failure = result.failure;
   }
 }

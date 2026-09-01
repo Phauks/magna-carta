@@ -12,18 +12,19 @@
    * because "no costs recorded" and "not a real matter" are different facts.
    *
    * A FAILED READ KEEPS ITS EVIDENCE. The failing request, the answer, the moment and the
-   * correlation handle are held here rather than collapsed into one sentence, because they are what
-   * a person needs to report the failure and what support needs to find it.
+   * correlation handle travel on the failure record itself rather than being held in four separate
+   * pieces of page state, because they are what a person needs to report the failure and what
+   * support needs to find it.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import CostErrorState from "$lib/costs/cost-error-state.svelte";
   import CostLedger from "$lib/costs/cost-ledger.svelte";
-  import CostProblemReportDialog from "$lib/costs/cost-problem-report-dialog.svelte";
+  import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
+  import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
+  import { gapReason } from "$lib/costs/cost-gaps.ts";
   import { listMatterCostLedger, type CostLedgerEntry } from "$lib/costs/cost-operations.ts";
   import Button from "@magna-carta/design-system/button";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { readSession } from "$lib/matters/matters-api.ts";
-  import type { ApiOutcome, Page } from "$lib/api/request.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -38,14 +39,7 @@
   let permissions = $state<readonly string[] | null>(null);
   // Bumped after a write, so the ledger re-reads what the server now holds rather than guessing.
   let reloadToken = $state(0);
-
-  /* What the last failed read answered, kept so the error surface can hand it to a report. */
-  let failureStatus = $state<number | null>(null);
-  let failureErrorId = $state<string | null>(null);
-  let failedAt = $state(new Date());
   let reportOpen = $state(false);
-
-  const request = $derived(`GET /api/v1/costs?matterId=${matter.id}`);
 
   $effect(() => {
     void (async () => {
@@ -53,20 +47,6 @@
       if (outcome.kind === "ok") permissions = outcome.value.permissions;
     })();
   });
-
-  /* One read, wrapped so the problem behind a failure survives the paging state's summary of it. */
-  async function read(cursor?: string): Promise<ApiOutcome<Page<CostLedgerEntry>>> {
-    const outcome = await listMatterCostLedger(fetch, matter.id, cursor);
-    if (outcome.kind === "ok") {
-      failureStatus = null;
-      failureErrorId = null;
-      return outcome;
-    }
-    failedAt = new Date();
-    failureStatus = outcome.kind === "problem" ? outcome.problem.status : null;
-    failureErrorId = outcome.kind === "problem" ? (outcome.problem.errorId ?? null) : null;
-    return outcome;
-  }
 
   $effect(() => {
     const matterId = matter.id;
@@ -77,11 +57,11 @@
       list.settleEmpty();
       return;
     }
-    void list.load(read);
+    void list.load((cursor) => listMatterCostLedger(fetch, matter.id, cursor));
   });
 
   function loadMore(): void {
-    void list.loadMore(read);
+    void list.loadMore((cursor) => listMatterCostLedger(fetch, matter.id, cursor));
   }
 </script>
 
@@ -90,16 +70,22 @@
 </svelte:head>
 
 {#if loadFailure !== null}
-  <CostErrorState
-    detail={loadFailure}
-    {request}
-    status={failureStatus}
-    errorId={failureErrorId}
-    {failedAt}
+  <FailureScreen
+    failure={loadFailure}
+    scale="screen"
+    subject="The costs"
+    fallback={list.failureMessage ?? undefined}
+    reassurance="The record itself is unaffected: nothing was changed by this failure, and the costs
+      are still on the firm's record."
     onRetry={() => (reloadToken += 1)}
     onReport={() => (reportOpen = true)}
   />
-  <CostProblemReportDialog bind:open={reportOpen} errorId={failureErrorId} route={request} />
+  <ReportDialog
+    bind:open={reportOpen}
+    errorId={list.failureErrorId}
+    route={loadFailure.request}
+    screenshotReason={gapReason("screenshot")}
+  />
 {:else if isSample}
   <section class="flex flex-col gap-16">
     <Alert.Root variant="info">

@@ -15,6 +15,8 @@
    * opinion about when to destroy a client's irreplaceable property.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -26,7 +28,7 @@
   let { onOpenPacket }: { onOpenPacket: (packetId: string) => void } = $props();
 
   let reminders = $state<readonly CustodyReminder[] | null>(null);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let asked = false;
 
   $effect(() => {
@@ -39,10 +41,7 @@
         return;
       }
       reminders = [];
-      failure =
-        outcome.kind === "transport"
-          ? "Nothing answered. What is due could not be read."
-          : (outcome.problem.detail ?? "What is due could not be read.");
+      failure = stated(outcome.failure, "What is due could not be read.");
     })();
   });
 
@@ -54,10 +53,12 @@
 
 <div class="flex flex-col gap-16">
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>What Is Due Could Not Be Read</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="What Is Due Could Not Be Read"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {:else if reminders === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading what is due">
       <Skeleton class="h-32 w-full" />

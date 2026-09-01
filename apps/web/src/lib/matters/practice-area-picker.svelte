@@ -20,6 +20,8 @@
    * cannot add "Immigration" should still learn that it is a thing to ask for.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Combobox from "@magna-carta/design-system/combobox";
   import { createMatterType, type MatterTypeSummary } from "./matters-api.ts";
   import {
@@ -57,7 +59,7 @@
 
   let query = $state("");
   let adopting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const firmTypes = $derived(matterTypes.filter((type) => type.active));
   const unadopted = $derived(unadoptedPracticeAreas(firmTypes.map((type) => type.name)));
@@ -99,10 +101,11 @@
     );
     adopting = false;
     if (outcome.kind !== "ok") {
-      failure =
-        outcome.kind === "transport"
-          ? "Nothing answered, so the practice area was not added."
-          : (outcome.problem.detail ?? "The practice area could not be added.");
+      failure = stated(
+        outcome.failure,
+        "The practice area could not be added.",
+        "Nothing answered, so the practice area was not added.",
+      );
       query = selectedName;
       return;
     }
@@ -195,8 +198,10 @@
 </Combobox.Root>
 
 {#if failure !== null}
-  <Alert.Root variant="danger">
-    <Alert.Title>The Practice Area Was Not Added</Alert.Title>
-    <Alert.Description>{failure}</Alert.Description>
-  </Alert.Root>
+  <FailureNotice
+    failure={failure.failure}
+    title="The Practice Area Was Not Added"
+    fallback={failure.fallback}
+    whenSilent={failure.whenSilent}
+  />
 {/if}

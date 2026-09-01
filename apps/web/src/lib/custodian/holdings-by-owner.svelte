@@ -19,6 +19,8 @@
    * difference between "there are no more" and "we stopped counting".
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
@@ -29,7 +31,7 @@
 
   let rows = $state<readonly CustodyHoldingsByOwner[] | null>(null);
   let capped = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let asked = false;
 
   $effect(() => {
@@ -49,20 +51,19 @@
         return;
       }
       rows = [];
-      failure =
-        outcome.kind === "transport"
-          ? "Nothing answered. The firm's holdings by owner could not be read."
-          : (outcome.problem.detail ?? "The firm's holdings by owner could not be read.");
+      failure = stated(outcome.failure, "The firm's holdings by owner could not be read.");
     })();
   });
 </script>
 
 <div class="flex flex-col gap-16">
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Holdings By Owner Could Not Be Read</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="Holdings By Owner Could Not Be Read"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {:else if rows === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading holdings by owner">
       <Skeleton class="h-32 w-full" />
