@@ -1,85 +1,61 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type {
+  FileId,
   MatterId,
+  MatterNoteDocumentId,
   MatterNoteId,
-  MatterNoteRevisionId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import type { MatterNoteState } from "./types.ts";
+import type { NoteOccurrence } from "./types.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync
 // fitness test.
 export const MATTER_NOTE_TABLE = "matter_note";
-export const MATTER_NOTE_REVISION_TABLE = "matter_note_revision";
+export const MATTER_NOTE_DOCUMENT_TABLE = "matter_note_document";
 
 // Every read in this module composes the visible-matter predicate, and it is a REQUIRED argument on
 // each one rather than an option with a default. A note is the most privileged free-text record this
 // platform holds, and an id-addressed read that skipped the predicate is exactly the read an
-// information-barrier overlay would later be built past. The same discipline the calendar's own
-// direct reads carry, for the same reason.
+// information-barrier overlay would later be built past.
 
 export interface MatterNoteRow {
   readonly id: MatterNoteId;
   readonly matter_id: MatterId;
   readonly author_user_id: UserId;
-  readonly head_ordinal: number;
-  readonly state: MatterNoteState;
-  readonly retracted_at: string | null;
-  readonly retracted_by: UserId | null;
-  readonly retraction_reason: string | null;
+  readonly body: string;
+  readonly last_edited_by: UserId | null;
+  readonly occurred_on: string | null;
+  readonly occurred_at_time: string | null;
+  readonly time_zone: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
 
-// A note as a surface renders it: the identity row, plus the body of whichever revision is currently
-// the head and who wrote that body. One join on the unique (note_id, ordinal) index, never a
-// correlated max() per row.
-export interface MatterNoteDisplayRow extends MatterNoteRow {
-  readonly body: string | null;
-  readonly revision_id: MatterNoteRevisionId | null;
-  readonly revision_author_user_id: UserId | null;
-  readonly revision_created_at: string | null;
-}
-
-export interface MatterNoteRevisionRow {
-  readonly id: MatterNoteRevisionId;
+export interface MatterNoteDocumentRow {
+  readonly id: MatterNoteDocumentId;
   readonly note_id: MatterNoteId;
-  readonly body: string;
-  readonly author_user_id: UserId;
-  readonly ordinal: number;
-  readonly created_at: string;
+  readonly file_id: FileId;
+  readonly linked_at: string;
+  readonly linked_by: UserId | null;
+  // Resolved by the read from the matter's own file record, so a surface names a document the way
+  // the File Manager names it rather than keeping a second copy of the name that could drift.
+  readonly file_name: string;
+  readonly content_type: string | null;
 }
 
 const NOTE_COLUMNS =
   `${MATTER_NOTE_TABLE}.id, ${MATTER_NOTE_TABLE}.matter_id, ${MATTER_NOTE_TABLE}.author_user_id, ` +
-  `${MATTER_NOTE_TABLE}.head_ordinal, ${MATTER_NOTE_TABLE}.state, ${MATTER_NOTE_TABLE}.retracted_at, ` +
-  `${MATTER_NOTE_TABLE}.retracted_by, ${MATTER_NOTE_TABLE}.retraction_reason, ` +
+  `${MATTER_NOTE_TABLE}.body, ${MATTER_NOTE_TABLE}.last_edited_by, ${MATTER_NOTE_TABLE}.occurred_on, ` +
+  `${MATTER_NOTE_TABLE}.occurred_at_time, ${MATTER_NOTE_TABLE}.time_zone, ` +
   `${MATTER_NOTE_TABLE}.created_at, ${MATTER_NOTE_TABLE}.updated_at`;
-
-// The head join, and the reason the body column is CASE-guarded rather than merely joined.
-//
-// A retracted note's body stops rendering EVERYWHERE, and "everywhere" has to include the read that
-// every surface is built on, not just the surfaces that remember to check the state. Leaving the
-// body on the row and trusting each caller to hide it makes the tombstone a rendering convention —
-// one careless template, one export, one debug log, and the withdrawn words are back. So the read
-// itself returns NULL for a retracted note's body: a caller that forgets the state column gets
-// nothing to display rather than something it should not have.
-const HEAD_REVISION_JOIN =
-  `LEFT JOIN ${MATTER_NOTE_REVISION_TABLE} ON ${MATTER_NOTE_REVISION_TABLE}.note_id = ${MATTER_NOTE_TABLE}.id ` +
-  `AND ${MATTER_NOTE_REVISION_TABLE}.ordinal = ${MATTER_NOTE_TABLE}.head_ordinal`;
-
-const NOTE_DISPLAY_COLUMNS =
-  `${NOTE_COLUMNS}, ` +
-  `CASE WHEN ${MATTER_NOTE_TABLE}.state = 'retracted' THEN NULL ELSE ${MATTER_NOTE_REVISION_TABLE}.body END AS body, ` +
-  `${MATTER_NOTE_REVISION_TABLE}.id AS revision_id, ` +
-  `${MATTER_NOTE_REVISION_TABLE}.author_user_id AS revision_author_user_id, ` +
-  `${MATTER_NOTE_REVISION_TABLE}.created_at AS revision_created_at`;
 
 export interface InsertMatterNoteInput {
   readonly id: MatterNoteId;
   readonly matterId: MatterId;
   readonly authorUserId: UserId;
+  readonly body: string;
+  readonly occurrence: NoteOccurrence;
   readonly now: string;
 }
 
@@ -89,82 +65,73 @@ export function insertMatterNoteStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_NOTE_TABLE} (id, matter_id, author_user_id, head_ordinal, state, ` +
-        `retracted_at, retracted_by, retraction_reason, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, 1, 'active', NULL, NULL, NULL, ?4, ?4)`,
+      `INSERT INTO ${MATTER_NOTE_TABLE} (id, matter_id, author_user_id, body, last_edited_by, ` +
+        `occurred_on, occurred_at_time, time_zone, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?8)`,
     )
-    .bind(input.id, input.matterId, input.authorUserId, input.now);
+    .bind(
+      input.id,
+      input.matterId,
+      input.authorUserId,
+      input.body,
+      input.occurrence.occurredOn,
+      input.occurrence.occurredAtTime,
+      input.occurrence.timeZone,
+      input.now,
+    );
 }
 
-export interface InsertMatterNoteRevisionInput {
-  readonly id: MatterNoteRevisionId;
-  readonly noteId: MatterNoteId;
-  readonly body: string;
-  readonly authorUserId: UserId;
-  readonly ordinal: number;
-  readonly now: string;
-}
-
-// The only write this table has. There is no update statement and no delete statement in this
-// module, and three database triggers make that structural rather than a habit of this file.
-export function insertMatterNoteRevisionStatement(
+// Editing a note. The words are replaced, `updated_at` moves, and `last_edited_by` records who
+// changed them — which is not always the author, and is the one fact an edit-in-place model can
+// still cheaply keep.
+export function updateMatterNoteStatement(
   database: SqlDatabase,
-  input: InsertMatterNoteRevisionInput,
+  input: {
+    readonly id: MatterNoteId;
+    readonly body: string;
+    readonly occurrence: NoteOccurrence;
+    readonly editedBy: UserId;
+    readonly now: string;
+  },
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_NOTE_REVISION_TABLE} (id, note_id, body, author_user_id, ordinal, created_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+      `UPDATE ${MATTER_NOTE_TABLE} SET body = ?1, occurred_on = ?2, occurred_at_time = ?3, ` +
+        `time_zone = ?4, last_edited_by = ?5, updated_at = ?6 WHERE id = ?7`,
     )
-    .bind(input.id, input.noteId, input.body, input.authorUserId, input.ordinal, input.now);
+    .bind(
+      input.body,
+      input.occurrence.occurredOn,
+      input.occurrence.occurredAtTime,
+      input.occurrence.timeZone,
+      input.editedBy,
+      input.now,
+      input.id,
+    );
 }
 
-// Moves the head onto the revision just appended, guarded on the ordinal the caller observed.
+// Deleting a note, and it really is a delete: the row goes and its words go with it.
 //
-// D1 has no interactive transaction, so the check rides the write. Unguarded, two members revising
-// at once would both compute the same next ordinal — and while the unique index on
-// (note_id, ordinal) already aborts the losing batch at its revision insert, this guard is what
-// makes the head move mean what it says even if that index were ever relaxed. Cheap, and the failure
-// it prevents is a note rendering a body that is not its latest.
-export function advanceMatterNoteHeadStatement(
+// The links go first because they reference it. They are the association and never the document, so
+// removing them leaves every attached file exactly where it lives in the matter's file record — a
+// note's deletion has never been a way to delete a document, and this is where that is true rather
+// than merely intended.
+export function deleteMatterNoteDocumentsStatement(
   database: SqlDatabase,
-  input: {
-    readonly id: MatterNoteId;
-    readonly fromOrdinal: number;
-    readonly toOrdinal: number;
-    readonly now: string;
-  },
+  noteId: MatterNoteId,
 ): SqlStatement {
   return database
-    .prepare(
-      `UPDATE ${MATTER_NOTE_TABLE} SET head_ordinal = ?1, updated_at = ?2 ` +
-        `WHERE id = ?3 AND head_ordinal = ?4 AND state = 'active'`,
-    )
-    .bind(input.toOrdinal, input.now, input.id, input.fromOrdinal);
+    .prepare(`DELETE FROM ${MATTER_NOTE_DOCUMENT_TABLE} WHERE note_id = ?1`)
+    .bind(noteId);
 }
 
-// Withdrawal. Guarded on the state the caller observed so a second retraction cannot overwrite the
-// first one's actor, instant and reason — the record of WHO withdrew the note is the point of
-// retraction being visible, and a racing second call must not rewrite it.
-export function retractMatterNoteStatement(
+export function deleteMatterNoteStatement(
   database: SqlDatabase,
-  input: {
-    readonly id: MatterNoteId;
-    readonly retractedBy: UserId;
-    readonly reason: string;
-    readonly now: string;
-  },
+  noteId: MatterNoteId,
 ): SqlStatement {
-  return database
-    .prepare(
-      `UPDATE ${MATTER_NOTE_TABLE} SET state = 'retracted', retracted_at = ?1, retracted_by = ?2, ` +
-        `retraction_reason = ?3, updated_at = ?1 WHERE id = ?4 AND state = 'active'`,
-    )
-    .bind(input.now, input.retractedBy, input.reason, input.id);
+  return database.prepare(`DELETE FROM ${MATTER_NOTE_TABLE} WHERE id = ?1`).bind(noteId);
 }
 
-// The lean identity read the write paths make to decide whether a change is allowed. No body, no
-// join: revising a note does not need the words it is replacing.
 export function selectMatterNoteStatement(
   database: SqlDatabase,
   id: MatterNoteId,
@@ -191,60 +158,11 @@ export async function readMatterNote(
   return results[0];
 }
 
-// The single-note DISPLAY read: the identity plus its head body. Beside the lean read above rather
-// than replacing it, on the calendar's precedent — carrying the join through the lifecycle paths
-// would widen three reads to serve one.
-export function selectMatterNoteDetailStatement(
-  database: SqlDatabase,
-  id: MatterNoteId,
-  visibility: VisibleMatterPredicate,
-): SqlStatement {
-  return database
-    .prepare(
-      `SELECT ${NOTE_DISPLAY_COLUMNS} FROM ${MATTER_NOTE_TABLE} ${HEAD_REVISION_JOIN} ` +
-        `WHERE ${MATTER_NOTE_TABLE}.id = ? AND ` +
-        visibility.fragmentFor(`${MATTER_NOTE_TABLE}.matter_id`),
-    )
-    .bind(id, ...visibility.bindings);
-}
-
-export async function readMatterNoteDetail(
-  database: SqlDatabase,
-  id: MatterNoteId,
-  visibility: VisibleMatterPredicate,
-): Promise<MatterNoteDisplayRow | undefined> {
-  const { results } = await selectMatterNoteDetailStatement(
-    database,
-    id,
-    visibility,
-  ).all<MatterNoteDisplayRow>();
-  return results[0];
-}
-
-// Finding a note again, which is the second-most-common thing anybody does with one.
+// Finding a note again on this matter, matched against its text.
 //
-// THREE THINGS THIS DELIBERATELY DOES NOT MATCH, each for its own reason.
-//
-// A RETRACTED NOTE'S BODY. Withdrawal stops the words rendering everywhere, and a search that still
-// found them would be the clearest possible way around the tombstone. The head join already nulls
-// the body on a retracted row, so this matches against the join's own output rather than the
-// revision table, and the exclusion follows from that rather than from a second rule.
-//
-// A SUPERSEDED BODY. Only the current text is searched, and this is the substantive choice. A note
-// corrected to take out the wrong client's name must stop being findable BY that name — otherwise
-// the correction fixed what the note says and not what it discloses, which is most of why somebody
-// corrects one. The earlier bodies stay readable from the note's own history, where a person has
-// already chosen to look at that note.
-//
-// ANYTHING OUTSIDE THIS MATTER. The caller supplies one matter and the predicate composes over it,
-// so this is a search WITHIN a case rather than across the firm. That boundary is the reason no
-// snippet question arises here: every row this can return is a note whose body the same reader is
-// already being shown on the same screen.
-//
-// The match is a LIKE scan rather than an index, and that is a bounded cost rather than an
-// unmeasured one: the matter predicate narrows to one case's notes before the scan runs, and one
-// matter's notes are counted in tens. A firm-wide note search is a different question with a
-// different answer, and it is not built here.
+// The match is a LIKE scan rather than an index, and that is a bounded cost rather than an unmeasured
+// one: the matter predicate narrows to one case's notes before the scan runs. A firm-wide note search
+// is a different question with a different answer, and it is not built here.
 function searchConditionFor(
   search: string | undefined,
 ): { condition: string; bindings: readonly unknown[] } | undefined {
@@ -254,24 +172,21 @@ function searchConditionFor(
   // not turn every following character into a match-anything.
   const escaped = term.replace(/[\\%_]/gu, (character) => `\\${character}`);
   return {
-    condition:
-      `${MATTER_NOTE_TABLE}.state = 'active' AND EXISTS (SELECT 1 FROM ${MATTER_NOTE_REVISION_TABLE} AS matching_revision ` +
-      `WHERE matching_revision.note_id = ${MATTER_NOTE_TABLE}.id ` +
-      `AND matching_revision.ordinal = ${MATTER_NOTE_TABLE}.head_ordinal ` +
-      `AND matching_revision.body LIKE ? ESCAPE '\\')`,
+    condition: `${MATTER_NOTE_TABLE}.body LIKE ? ESCAPE '\\'`,
     bindings: [`%${escaped}%`],
   };
 }
 
-// The matter's own note list, newest first. Keyset over (created_at, id) so it shares the timeline's
-// cursor shape and the (matter_id, created_at, id) index serves the filter, the sort and the walk.
+// The matter's note list, newest first.
 //
-// Retracted notes are RETURNED here and excluded from the federated timeline. That asymmetry is
-// deliberate and it is the whole design of retraction: the matter's own notes surface is where the
-// firm sees that a note was withdrawn, by whom and why — a tombstone somebody can act on — while the
-// timeline is a read spanning every matter, where an entry for a withdrawn note would be an
-// unexplained gap at best and a pointer at the withdrawal at worst. The body is already NULL on a
-// retracted row by the projection above, so what this returns is the tombstone and never the words.
+// ORDERED BY WHEN THE THING HAPPENED, falling back to the day the note was written. A note recording
+// Tuesday's call belongs beside Tuesday's hearing, not beside the Thursday it was typed — which is
+// how every other record of something that happened is ordered here, and the one source that orders
+// by write time instead (the audit log) has that called out as its weakness in
+// packages/calendar/src/sources/all.ts. The written instant is the tiebreaker within a day, so two
+// notes about the same day read in the order they were recorded.
+const ORDERING_DATE = `COALESCE(${MATTER_NOTE_TABLE}.occurred_on, substr(${MATTER_NOTE_TABLE}.created_at, 1, 10))`;
+
 export function selectMatterNotesStatement(
   database: SqlDatabase,
   matterId: MatterId,
@@ -279,7 +194,6 @@ export function selectMatterNotesStatement(
     readonly cursor?: { sortKey: string; id: string };
     readonly limit: number;
     readonly visibility: VisibleMatterPredicate;
-    // Free text to match against the notes' CURRENT bodies. See searchConditionFor below.
     readonly search?: string;
   },
 ): SqlStatement {
@@ -292,7 +206,7 @@ export function selectMatterNotesStatement(
   }
   if (options.cursor !== undefined) {
     conditions.push(
-      `(${MATTER_NOTE_TABLE}.created_at < ? OR (${MATTER_NOTE_TABLE}.created_at = ? AND ${MATTER_NOTE_TABLE}.id < ?))`,
+      `(${ORDERING_DATE} < ? OR (${ORDERING_DATE} = ? AND ${MATTER_NOTE_TABLE}.id < ?))`,
     );
     bindings.push(options.cursor.sortKey, options.cursor.sortKey, options.cursor.id);
   }
@@ -301,56 +215,128 @@ export function selectMatterNotesStatement(
   bindings.push(options.limit);
   return database
     .prepare(
-      `SELECT ${NOTE_DISPLAY_COLUMNS} FROM ${MATTER_NOTE_TABLE} ${HEAD_REVISION_JOIN} ` +
+      `SELECT ${NOTE_COLUMNS}, ${ORDERING_DATE} AS ordering_date FROM ${MATTER_NOTE_TABLE} ` +
         `WHERE ${conditions.join(" AND ")} ` +
-        `ORDER BY ${MATTER_NOTE_TABLE}.created_at DESC, ${MATTER_NOTE_TABLE}.id DESC LIMIT ?`,
+        `ORDER BY ${ORDERING_DATE} DESC, ${MATTER_NOTE_TABLE}.id DESC LIMIT ?`,
     )
     .bind(...bindings);
 }
 
-// One note's whole chain, oldest first — every body the note has ever had, each with its own author
-// and instant. This is what makes an edit a correction rather than an overwrite: the prior words are
-// not merely retained, they are reachable.
-//
-// A retracted note's chain is NOT readable through this statement. The route refuses it before
-// reaching here, and the refusal is the point: retraction stops the body rendering everywhere, and a
-// history read that still served every superseded body would be a way around the tombstone rather
-// than an exception to it.
-export function selectMatterNoteRevisionsStatement(
+// ---- the files a note points at ----
+
+export function insertMatterNoteDocumentStatement(
   database: SqlDatabase,
-  noteId: MatterNoteId,
-  options: { readonly limit: number; readonly visibility: VisibleMatterPredicate },
+  input: {
+    readonly id: MatterNoteDocumentId;
+    readonly noteId: MatterNoteId;
+    readonly fileId: FileId;
+    readonly linkedBy: UserId;
+    readonly now: string;
+  },
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT ${MATTER_NOTE_REVISION_TABLE}.id, ${MATTER_NOTE_REVISION_TABLE}.note_id, ` +
-        `${MATTER_NOTE_REVISION_TABLE}.body, ${MATTER_NOTE_REVISION_TABLE}.author_user_id, ` +
-        `${MATTER_NOTE_REVISION_TABLE}.ordinal, ${MATTER_NOTE_REVISION_TABLE}.created_at ` +
-        `FROM ${MATTER_NOTE_REVISION_TABLE} ` +
-        `JOIN ${MATTER_NOTE_TABLE} ON ${MATTER_NOTE_TABLE}.id = ${MATTER_NOTE_REVISION_TABLE}.note_id ` +
-        `WHERE ${MATTER_NOTE_REVISION_TABLE}.note_id = ? ` +
-        `AND ${MATTER_NOTE_TABLE}.state = 'active' AND ` +
-        options.visibility.fragmentFor(`${MATTER_NOTE_TABLE}.matter_id`) +
-        ` ORDER BY ${MATTER_NOTE_REVISION_TABLE}.ordinal ASC LIMIT ?`,
+      `INSERT INTO ${MATTER_NOTE_DOCUMENT_TABLE} (id, note_id, file_id, linked_at, linked_by) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5)`,
     )
-    .bind(noteId, ...options.visibility.bindings, options.limit);
+    .bind(input.id, input.noteId, input.fileId, input.now, input.linkedBy);
 }
 
-// Over-reads by ONE to learn whether the chain continues past the cap, and reports that as a
-// boolean rather than a count. A read that returned a bare array would be indistinguishable from a
-// complete history, and "we stopped at a hundred" and "there are a hundred" are different facts
-// about a record somebody may be relying on. Over-reading by one learns the bound BIT and never by
-// how much, and a magnitude invented here would be the same dishonesty one level down — the shape
-// readOpenDeadlineTimeZones already uses in packages/calendar.
-export async function readMatterNoteRevisions(
+// Detaching. The association goes; the document does not. This statement names the link's own id
+// rather than the pair, so a caller cannot express "remove whatever links these two" and accidentally
+// remove a row somebody else created in the same instant.
+export function deleteMatterNoteDocumentStatement(
+  database: SqlDatabase,
+  id: MatterNoteDocumentId,
+): SqlStatement {
+  return database.prepare(`DELETE FROM ${MATTER_NOTE_DOCUMENT_TABLE} WHERE id = ?1`).bind(id);
+}
+
+// The files on one note, joined to the matter's file record for the name a person reads. Soft-deleted
+// files are excluded: a document the firm deleted is not on the note's list either, and the link row
+// staying behind is what lets it come back if the deletion is undone.
+export function selectMatterNoteDocumentsStatement(
+  database: SqlDatabase,
+  noteIds: readonly MatterNoteId[],
+  visibility: VisibleMatterPredicate,
+): SqlStatement {
+  const placeholders = noteIds.map(() => "?").join(", ");
+  return database
+    .prepare(
+      `SELECT ${MATTER_NOTE_DOCUMENT_TABLE}.id, ${MATTER_NOTE_DOCUMENT_TABLE}.note_id, ` +
+        `${MATTER_NOTE_DOCUMENT_TABLE}.file_id, ${MATTER_NOTE_DOCUMENT_TABLE}.linked_at, ` +
+        `${MATTER_NOTE_DOCUMENT_TABLE}.linked_by, file.name AS file_name, ` +
+        // The media type lives on the file's CURRENT version, not on the file, and the sniffed type
+        // wins over the declared one: what a file says it is was typed by whoever uploaded it, and
+        // what it was read to be came from the file-type verifier.
+        `COALESCE(current_version.sniffed_content_type, current_version.declared_content_type) AS content_type ` +
+        `FROM ${MATTER_NOTE_DOCUMENT_TABLE} ` +
+        `JOIN file ON file.id = ${MATTER_NOTE_DOCUMENT_TABLE}.file_id ` +
+        `LEFT JOIN file_version AS current_version ON current_version.id = file.current_version_id ` +
+        `JOIN ${MATTER_NOTE_TABLE} ON ${MATTER_NOTE_TABLE}.id = ${MATTER_NOTE_DOCUMENT_TABLE}.note_id ` +
+        `WHERE ${MATTER_NOTE_DOCUMENT_TABLE}.note_id IN (${placeholders}) ` +
+        `AND file.deleted_at IS NULL AND ` +
+        visibility.fragmentFor(`${MATTER_NOTE_TABLE}.matter_id`) +
+        ` ORDER BY ${MATTER_NOTE_DOCUMENT_TABLE}.linked_at ASC, ${MATTER_NOTE_DOCUMENT_TABLE}.id ASC`,
+    )
+    .bind(...noteIds, ...visibility.bindings);
+}
+
+export async function readMatterNoteDocuments(
+  database: SqlDatabase,
+  noteIds: readonly MatterNoteId[],
+  visibility: VisibleMatterPredicate,
+): Promise<readonly MatterNoteDocumentRow[]> {
+  if (noteIds.length === 0) return [];
+  const { results } = await selectMatterNoteDocumentsStatement(
+    database,
+    noteIds,
+    visibility,
+  ).all<MatterNoteDocumentRow>();
+  return results;
+}
+
+// One link, addressed by its own id, for the detach path's precondition read.
+export async function readMatterNoteDocument(
+  database: SqlDatabase,
+  id: MatterNoteDocumentId,
+  visibility: VisibleMatterPredicate,
+): Promise<{ id: MatterNoteDocumentId; note_id: MatterNoteId } | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${MATTER_NOTE_DOCUMENT_TABLE}.id, ${MATTER_NOTE_DOCUMENT_TABLE}.note_id ` +
+        `FROM ${MATTER_NOTE_DOCUMENT_TABLE} ` +
+        `JOIN ${MATTER_NOTE_TABLE} ON ${MATTER_NOTE_TABLE}.id = ${MATTER_NOTE_DOCUMENT_TABLE}.note_id ` +
+        `WHERE ${MATTER_NOTE_DOCUMENT_TABLE}.id = ? AND ` +
+        visibility.fragmentFor(`${MATTER_NOTE_TABLE}.matter_id`),
+    )
+    .bind(id, ...visibility.bindings)
+    .all<{ id: MatterNoteDocumentId; note_id: MatterNoteId }>();
+  return results[0];
+}
+
+// Is this file a live file on this matter? The link path's one precondition, and the reason a note
+// cannot point at another matter's document: a link across matters would be a disclosure wearing an
+// association, and the check is in SQL rather than in the caller's head.
+export async function fileIsOnMatter(
+  database: SqlDatabase,
+  fileId: FileId,
+  matterId: MatterId,
+): Promise<boolean> {
+  const { results } = await database
+    .prepare(`SELECT 1 AS present FROM file WHERE id = ? AND matter_id = ? AND deleted_at IS NULL`)
+    .bind(fileId, matterId)
+    .all<{ present: number }>();
+  return results.length > 0;
+}
+
+export async function countMatterNoteDocuments(
   database: SqlDatabase,
   noteId: MatterNoteId,
-  options: { readonly limit: number; readonly visibility: VisibleMatterPredicate },
-): Promise<{ revisions: readonly MatterNoteRevisionRow[]; capped: boolean }> {
-  const { results } = await selectMatterNoteRevisionsStatement(database, noteId, {
-    ...options,
-    limit: options.limit + 1,
-  }).all<MatterNoteRevisionRow>();
-  const capped = results.length > options.limit;
-  return { revisions: capped ? results.slice(0, options.limit) : results, capped };
+): Promise<number> {
+  const { results } = await database
+    .prepare(`SELECT COUNT(*) AS count FROM ${MATTER_NOTE_DOCUMENT_TABLE} WHERE note_id = ?`)
+    .bind(noteId)
+    .all<{ count: number }>();
+  return results[0]?.count ?? 0;
 }

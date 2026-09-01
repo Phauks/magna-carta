@@ -98,14 +98,12 @@ END;
 -- read counsel's theory of the indemnity clause, and a Read-only seat is frequently an outside
 -- accountant or an auditor.
 --
--- notes:retract is a separate key so a firm CAN narrow it, and it is seeded to the same three seats
--- rather than reserved to attorneys. The case that decides this is the one the primitive exists for:
--- somebody types another person's protected health information, or a privileged communication
--- belonging to a different client, into the wrong note. Whoever typed it is who notices, and holding
--- withdrawal behind a colleague's availability means the content keeps rendering — on the matter, on
--- the federated timeline, in search — until that colleague gets to it. Retraction destroys nothing:
--- it stops a body rendering and records who withdrew it, when, and why. The key is separate so the
--- act is separately grantable and separately auditable, not so it is scarce by default.
+-- AMENDED on 2026-09-01, hours after this migration was written and in the same change that
+-- supersedes the model it created: it originally also seeded a third key, notes:retract, for a
+-- withdrawal state that no longer exists. Deleting a note now rides notes:write. Migrations are
+-- applied by tag and carry no content hash, so amending this one changes only what a firm that has
+-- not yet run it receives; 20260901T120000_matter-notes-edit-and-delete additionally DELETEs those
+-- grants, so a firm that already ran the original converges on the same state either way.
 --
 -- Each rolePermission_ handle is minted once and committed as a literal; the role_id values are the
 -- five seeded roles from the baseline's member-rbac seed.
@@ -114,7 +112,4 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermi
 INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notesReadParalegal000', 'role_917LCQyRKP50Z9bW89vXl', 'notes:read');--> statement-breakpoint
 INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notesWriteOwnerAdmin0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'notes:write');--> statement-breakpoint
 INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notesWriteAttorney000', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'notes:write');--> statement-breakpoint
-INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notesWriteParalegal00', 'role_917LCQyRKP50Z9bW89vXl', 'notes:write');--> statement-breakpoint
-INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notesRetractOwnrAdmin', 'role_Gw-zKO8hOHQuNv2bWokMp', 'notes:retract');--> statement-breakpoint
-INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notesRetractAttorney0', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'notes:retract');--> statement-breakpoint
-INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notesRetractParalegal', 'role_917LCQyRKP50Z9bW89vXl', 'notes:retract');
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notesWriteParalegal00', 'role_917LCQyRKP50Z9bW89vXl', 'notes:write');

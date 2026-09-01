@@ -11934,52 +11934,38 @@
           "authorUserId": {
             "type": "string"
           },
-          "state": {
-            "type": "string",
-            "enum": [
-              "active",
-              "retracted"
-            ]
-          },
           "body": {
+            "type": "string"
+          },
+          "lastEditedBy": {
             "type": [
               "string",
               "null"
             ]
           },
-          "revisionCount": {
-            "type": "integer",
-            "exclusiveMinimum": 0
-          },
-          "currentRevisionAuthorUserId": {
+          "occurredOn": {
             "type": [
               "string",
               "null"
             ]
           },
-          "currentRevisionCreatedAt": {
+          "occurredAtTime": {
             "type": [
               "string",
               "null"
             ]
           },
-          "retractedAt": {
+          "timeZone": {
             "type": [
               "string",
               "null"
             ]
           },
-          "retractedBy": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "retractionReason": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterNoteDocument"
+            }
           },
           "createdAt": {
             "type": "string"
@@ -11992,66 +11978,51 @@
           "id",
           "matterId",
           "authorUserId",
-          "state",
           "body",
-          "revisionCount",
-          "currentRevisionAuthorUserId",
-          "currentRevisionCreatedAt",
-          "retractedAt",
-          "retractedBy",
-          "retractionReason",
+          "lastEditedBy",
+          "occurredOn",
+          "occurredAtTime",
+          "timeZone",
+          "documents",
           "createdAt",
           "updatedAt"
         ]
       },
-      "MatterNoteRevisionList": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MatterNoteRevision"
-            }
-          },
-          "capped": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "data",
-          "capped"
-        ]
-      },
-      "MatterNoteRevision": {
+      "MatterNoteDocument": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
           },
-          "noteId": {
+          "fileId": {
             "type": "string"
           },
-          "body": {
+          "fileName": {
             "type": "string"
           },
-          "authorUserId": {
+          "contentType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkedAt": {
             "type": "string"
           },
-          "ordinal": {
-            "type": "integer",
-            "exclusiveMinimum": 0
-          },
-          "createdAt": {
-            "type": "string"
+          "linkedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
-          "noteId",
-          "body",
-          "authorUserId",
-          "ordinal",
-          "createdAt"
+          "fileId",
+          "fileName",
+          "contentType",
+          "linkedAt",
+          "linkedBy"
         ]
       },
       "CreatedMatterNote": {
@@ -12072,6 +12043,28 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 20000
+          },
+          "occurredOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "occurredAtTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 120
           }
         },
         "required": [
@@ -12092,30 +12085,51 @@
           "ok"
         ]
       },
-      "ReviseMatterNoteRequest": {
+      "EditMatterNoteRequest": {
         "type": "object",
         "properties": {
           "body": {
             "type": "string",
             "minLength": 1,
             "maxLength": 20000
+          },
+          "occurredOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "occurredAtTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 120
           }
         },
         "required": [
           "body"
         ]
       },
-      "RetractMatterNoteRequest": {
+      "AttachMatterNoteDocumentRequest": {
         "type": "object",
         "properties": {
-          "reason": {
+          "fileId": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 500
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
           }
         },
         "required": [
-          "reason"
+          "fileId"
         ]
       },
       "CustodyLocation": {
@@ -53256,7 +53270,7 @@
     },
     "/api/v1/matters/{matterId}/notes": {
       "get": {
-        "description": "The matter's notes, newest first. A withdrawn note is returned as a tombstone: its author, its instants, who withdrew it and why, and never its body, which the read itself nulls rather than leaving to the caller to hide. Pass a search term to narrow to the notes whose current text contains it; earlier versions are deliberately not matched, so a note corrected to take out a name stops being findable by that name.",
+        "description": "The matter's notes, most recent first. Ordered by when the thing each note describes happened, falling back to the day it was written, so a note about Tuesday's call sits beside Tuesday. Each carries the documents it points at. Pass a search term to narrow to the notes whose text contains it.",
         "operationId": "notes.listNotes",
         "tags": [
           "notes"
@@ -53357,7 +53371,7 @@
         }
       },
       "post": {
-        "description": "Writes a note on the matter. The note records who wrote it and when, and those do not change afterwards — a correction appends a new version rather than replacing this one, because what makes a note worth having is that it was written then, by that person, saying that.",
+        "description": "Writes a note on the matter. The note records who wrote it and when. Say separately when the thing it describes happened where there is such a moment: a note typed on Thursday about a call on Tuesday carries both, and the matter's history places it on the Tuesday.",
         "operationId": "notes.createNote",
         "tags": [
           "notes"
@@ -53457,7 +53471,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is still in progress, or the note is withdrawn",
+            "description": "A request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -53490,191 +53504,13 @@
       }
     },
     "/api/v1/notes/{noteId}": {
-      "get": {
-        "description": "One note, as it currently stands.",
-        "operationId": "notes.readNote",
+      "patch": {
+        "description": "Changes a note's text, and when it says the thing happened. The previous text is replaced and is not kept: what the note said before is gone. Who made the change is recorded.",
+        "operationId": "notes.editNote",
         "tags": [
           "notes"
         ],
-        "x-mc-operationId": "notes.readNote",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "notes:read",
-        "x-mc-resource": "matter",
-        "x-mc-audited": false,
-        "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "notes"
-        ],
-        "x-mc-deprecated": false,
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^matterNote_[A-Za-z0-9_-]{21}$"
-            },
-            "required": true,
-            "name": "noteId",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The note",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MatterNoteDetail"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks the required permission",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the note is unknown",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/notes/{noteId}/revisions": {
-      "get": {
-        "description": "Every body this note has had, oldest first, each with its own author and instant. This is what makes correcting a note an addition rather than an overwrite: the earlier words are not merely retained, they are readable. A withdrawn note has no readable history: the tombstone is not a door around itself. `capped` is true when the note has more versions than were returned.",
-        "operationId": "notes.readNoteHistory",
-        "tags": [
-          "notes"
-        ],
-        "x-mc-operationId": "notes.readNoteHistory",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "notes:read",
-        "x-mc-resource": "matter",
-        "x-mc-audited": false,
-        "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "notes"
-        ],
-        "x-mc-deprecated": false,
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^matterNote_[A-Za-z0-9_-]{21}$"
-            },
-            "required": true,
-            "name": "noteId",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The note's revisions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MatterNoteRevisionList"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks the required permission",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the note is unknown",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is still in progress, or the note is withdrawn",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "description": "Corrects a note by adding a new version of its text. The previous version is kept and stays readable; the new one becomes what the note shows. A revision is attributed to whoever made it, which is not always the note's original author.",
-        "operationId": "notes.reviseNote",
-        "tags": [
-          "notes"
-        ],
-        "x-mc-operationId": "notes.reviseNote",
+        "x-mc-operationId": "notes.editNote",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "notes:write",
@@ -53712,14 +53548,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReviseMatterNoteRequest"
+                "$ref": "#/components/schemas/EditMatterNoteRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The note was revised",
+            "description": "The note was changed",
             "content": {
               "application/json": {
                 "schema": {
@@ -53769,7 +53605,129 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is still in progress, or the note is withdrawn",
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes a note. The note and its text are removed and cannot be recovered. Documents the note pointed at are untouched and stay in the matter's files: deleting a note has never been a way to delete a document.",
+        "operationId": "notes.deleteNote",
+        "tags": [
+          "notes"
+        ],
+        "x-mc-operationId": "notes.deleteNote",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "notes:write",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "notes"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterNote_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "noteId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The note was deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterNoteAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the note is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -53801,17 +53759,17 @@
         }
       }
     },
-    "/api/v1/notes/{noteId}/retract": {
+    "/api/v1/notes/{noteId}/documents": {
       "post": {
-        "description": "Withdraws a note: its text stops being shown anywhere and it leaves the matter's activity history, while the record that it existed, who wrote it, and who withdrew it remains. This is the answer to text that should never have been written down — another client's privileged material, or somebody's medical information typed in by mistake. Nothing is deleted, and the reason is required, because a withdrawal a firm cannot explain later is worse than the note.",
-        "operationId": "notes.retractNote",
+        "description": "Points a note at one of the matter's documents. The document is not copied or moved: it stays in the matter's files with everything that follows from being there. Only a document on the note's own matter can be attached.",
+        "operationId": "notes.attachNoteDocument",
         "tags": [
           "notes"
         ],
-        "x-mc-operationId": "notes.retractNote",
+        "x-mc-operationId": "notes.attachNoteDocument",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
-        "x-mc-permission": "notes:retract",
+        "x-mc-permission": "notes:write",
         "x-mc-resource": "matter",
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
@@ -53846,14 +53804,138 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RetractMatterNoteRequest"
+                "$ref": "#/components/schemas/AttachMatterNoteDocumentRequest"
               }
             }
           }
         },
         "responses": {
+          "201": {
+            "description": "The document was attached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMatterNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the note is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/note-documents/{attachmentId}": {
+      "delete": {
+        "description": "Stops a note pointing at a document. The document is untouched and stays in the matter's files.",
+        "operationId": "notes.detachNoteDocument",
+        "tags": [
+          "notes"
+        ],
+        "x-mc-operationId": "notes.detachNoteDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "notes:write",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "notes"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterNoteDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "attachmentId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
           "200": {
-            "description": "The note was withdrawn",
+            "description": "The document was detached",
             "content": {
               "application/json": {
                 "schema": {
@@ -53903,7 +53985,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is still in progress, or the note is withdrawn",
+            "description": "A request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
