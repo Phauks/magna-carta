@@ -1,6 +1,6 @@
 ---
 slug: a-note-never-reaches-a-merge-field-or-a-review-set
-status: Proposed
+status: Accepted — built
 area: Notes and activity
 date: 2026-08-15
 summary: "Two containment rules, stated as rules because both failures would look reasonable to whoever wrote them. No merge field ever resolves to a note or a comment on any record — the document-scrub engine removes document-level PDF surfaces and is structurally blind to merge-filled text, which is page content, so a catalog entry resolving to a note body would put internal work product into the body of a letter assembled under the firm's letterhead and the one machine built to stop privileged text escaping in a PDF would not see it; the guard is a source-scan fitness function over the merge-field catalog, landing in the same slice as the note table. And notes stay outside the discovery collection vocabulary — review_document.source_kind is a three-value CHECK over file versions, email messages and email attachments, so a note is structurally uncollectable today, and that default is defended rather than inherited: widening the enum would put every candid internal assessment one bulk load away from a production set with only a process-level quality gate between them, so a note genuinely ordered produced is exported as a document into the matter's file record and collected as that document, which gives it a version, a hash and a custodian of record and makes production a deliberate attributable act."
@@ -27,7 +27,7 @@ document metadata. The one machine in this platform built to stop privileged tex
 PDF is structurally blind to this route.
 
 **Decision one: no merge field ever resolves to a note or a comment, on any record.** Not the body,
-not the latest revision, not a count, not a concatenation. It is a rule rather than a judgement call
+not a count, not a concatenation, and not the documents a note points at. It is a rule rather than a judgement call
 because the merge-field catalog is a data table that grows by entries, and the entry that does this
 will look entirely reasonable to whoever adds it — "the matter's latest note" is a plausible thing for
 a template author to ask for. The guard is a **source-scan fitness function over the catalog**, in the

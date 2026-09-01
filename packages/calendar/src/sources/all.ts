@@ -228,6 +228,63 @@ const documentFiledSource = directInstantSource({
   section: "files",
 });
 
+// A note written on the matter. DECLARES NO LABEL, and it is not close.
+//
+// A note body is the successor to a time entry's narrative as the most privileged free-text field in
+// this platform, and its first eight words are frequently the whole disclosure — "Client admits she
+// was driving" projected onto a read that spans every matter is the exact leak the label discipline
+// exists to prevent. The entry says a note was written, on this matter, then, by them; the words are
+// one authenticated request away behind the link.
+//
+// SORTED BY WHEN THE THING HAPPENED, falling back to the day the note was written. A note recording
+// Tuesday's call belongs beside Tuesday's hearing rather than beside the Thursday somebody typed it,
+// which is how every other record of something that happened is ordered here — an event by starts_on,
+// a deadline by due_on, a time entry by work_date. The one source that orders by when the ROW was
+// written is the audit log, and that is named as its weakness in the constant below it rather than
+// treated as the house style.
+//
+// This is a civilDate source for that reason, and the fallback is a date cut from the created
+// instant rather than the instant itself: mixing the two shapes in one column would sort a note
+// typed at nine in the morning before a note that happened the same day, on nothing but the presence
+// of a "T".
+const matterNoteSource: TimelineSource = {
+  key: "matterNote",
+  kinds: ["matterNote"],
+  visibilityAnchor: "matter",
+  timeColumnShape: "civilDate",
+  declaresLabel: false,
+  supportsMemberFilter: false,
+  buildStatements: (request) => {
+    const orderingDate = "COALESCE(matter_note.occurred_on, substr(matter_note.created_at, 1, 10))";
+    const window = civilDateWindowConditions(
+      orderingDate,
+      request.scope.fromDate,
+      request.scope.toDate,
+    );
+    const conditions = [...window.conditions];
+    const bindings = [...window.bindings];
+    if (request.scope.matterId !== undefined) {
+      conditions.push("matter_note.matter_id = ?");
+      bindings.push(request.scope.matterId);
+    }
+    return [
+      boundedSelect(request.database, {
+        request,
+        from: "matter_note",
+        sortColumn: orderingDate,
+        idColumn: "matter_note.id",
+        matterExpression: "matter_note.matter_id",
+        kindExpression: "'matterNote'",
+        actorExpression: "matter_note.author_user_id",
+        labelExpression: "NULL",
+        conditions,
+        bindings,
+      }),
+    ];
+  },
+  project: projectRow("matterNote", matterSectionLink("notes")),
+};
+
 // Time and cost entries are the densest sources in the platform by row count and would dominate an
 // unfiltered timeline. They are REGISTERED rather than omitted, so a firm that wants them can have
 // them, and a calendar surface defaults them off through the ordinary kind filter — which is a user
@@ -773,6 +830,7 @@ export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   emailFiledSource,
   documentAssemblySource,
   documentFiledSource,
+  matterNoteSource,
   timeEntrySource,
   costEntrySource,
   conflictsCheckSource,

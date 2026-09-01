@@ -99,6 +99,8 @@ import type {
   MatterAssignmentId,
   MatterCourtCaseId,
   MatterDeadlineId,
+  MatterNoteDocumentId,
+  MatterNoteId,
   MatterEstateId,
   MatterEventId,
   MatterEventParticipantId,
@@ -6134,6 +6136,118 @@ export const matterDeadline = sqliteTable(
   ],
 );
 
+// A note on a matter: what the firm wrote down about a case that no other record holds.
+//
+// ONE ROW, edited in place and deleted outright. The first cut of this table held an identity row
+// and a chain of revisions, so a correction appended and nothing was ever removed. The owner's
+// direction on 2026-09-01 replaced it: a note is edited and deleted like any other record, because
+// replacing a note with another note every time somebody fixes a word accumulates without end and
+// the chain was never what a firm asked for. What that costs is stated where it belongs, in the
+// package's own CLAUDE.md, rather than argued here.
+//
+// The attachment is a real foreign key to `matter` and not a `subject_kind`/`subject_id` pair. The
+// cost of the polymorphic shape is already measured in this schema: `audit_log.subject_id` is
+// untyped, holds whatever the writer thought the subject was, and the timeline's read of it needs a
+// prefix scan to confine itself to rows whose subject really is a matter.
+export const matterNote = sqliteTable(
+  "matter_note",
+  {
+    id: text("id").primaryKey().$type<MatterNoteId>(), // matterNote_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // Who wrote it first, and it never nulls, never repoints, and is not anonymized when they leave.
+    // An unattributed record is worth a fraction of an attributed one. That a former member wrote it
+    // is a JOIN on member.status at read time, never a column here: a fact that is a join cannot
+    // drift from the row it joins.
+    authorUserId: text("author_user_id").notNull().$type<UserId>(),
+    body: text("body").notNull(),
+    // Who last changed the words, where anybody has. Null on a note nobody has edited, which is why
+    // it is not simply the author repeated: "nobody has touched this since it was written" and "the
+    // author edited their own note" are different facts and the column can say which.
+    lastEditedBy: text("last_edited_by").$type<UserId>(),
+    // WHEN THE THING HAPPENED, which is not when the note was typed. A note written on Thursday about
+    // a call on Tuesday carries both: created_at is the typing, and this is the call. Optional,
+    // because plenty of notes record no single moment ("do not call this client before 10am").
+    //
+    // A civil date and a separate optional wall-clock time, on the calendar's model and for its
+    // reasons: "that afternoon, we don't know when" is a real and common answer, and no column
+    // stores midnight-local-as-UTC, which is the daylight-saving off-by-one that moves a record by a
+    // day when the clocks change.
+    occurredOn: text("occurred_on"), // civil date, YYYY-MM-DD
+    occurredAtTime: text("occurred_at_time"), // wall clock, HH:MM
+    // The zone the wall-clock time above is read in. Required whenever there IS one and meaningless
+    // without one — a bare "3pm" on a record somebody reads in another state is not a time.
+    timeZone: text("time_zone"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The matter's own note list and the federated timeline's read of it. The timeline sorts by when
+    // the thing HAPPENED where the note says, falling back to the day it was written, so the index
+    // leads with the matter and the fallback date is computed in the read.
+    index("matter_note_matter_created_at_id_index").on(table.matterId, table.createdAt, table.id),
+    index("matter_note_matter_occurred_on_id_index").on(table.matterId, table.occurredOn, table.id),
+    // The firm-wide timeline window, which bounds by date across every matter.
+    index("matter_note_created_at_id_index").on(table.createdAt, table.id),
+    index("matter_note_author_index").on(table.authorUserId),
+    check("matter_note_body_check", sql`length(${table.body}) > 0`),
+    check(
+      "matter_note_occurred_on_shape_check",
+      sql`${table.occurredOn} IS NULL OR ${table.occurredOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_note_occurred_at_time_shape_check",
+      sql`${table.occurredAtTime} IS NULL OR ${table.occurredAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    // A time with no date is not a moment anybody can place, and a wall clock with no zone is not a
+    // time. Both directions of the second one: a zone on a note that names no time says nothing.
+    check(
+      "matter_note_occurrence_shape_check",
+      sql`(${table.occurredAtTime} IS NULL OR ${table.occurredOn} IS NOT NULL)
+        AND (${table.occurredAtTime} IS NULL) = (${table.timeZone} IS NULL)`,
+    ),
+  ],
+);
+
+// A file on the matter, linked to a note. Modelled on matter_asset_document, and the reasoning
+// carries over unchanged.
+//
+// BYTES NEVER REACH A NOTE ROUTE. Upload is the File Manager's presigned-upload and quarantine
+// chokepoint, and this row links the resulting handle. A letter attached to a note is still in the
+// matter's file list, still previewable, still convertible, still under any legal hold, still in
+// discovery — it gained an association and lost nothing.
+//
+// MANY-TO-MANY in both directions. One letter is discussed in the note about the call that preceded
+// it and the note about the call that followed; one note about a document review names every file it
+// covered. Requiring a file to belong to one note would make a firm choose which note to attach it
+// to, which is how a link stops being used.
+export const matterNoteDocument = sqliteTable(
+  "matter_note_document",
+  {
+    id: text("id").primaryKey().$type<MatterNoteDocumentId>(), // matterNoteDocument_ handle
+    noteId: text("note_id")
+      .notNull()
+      .$type<MatterNoteId>()
+      .references(() => matterNote.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    linkedAt: text("linked_at").notNull(),
+    linkedBy: text("linked_by").$type<UserId>(),
+  },
+  (table) => [
+    index("matter_note_document_note_index").on(table.noteId),
+    // The reverse read: which notes discuss this document. Not unique — see the table comment.
+    index("matter_note_document_file_index").on(table.fileId),
+    // One document rides one note once. A second identical link is a duplicate row a person reads as
+    // the same file twice, and detaching one would leave the other behind.
+    uniqueIndex("matter_note_document_note_file_unique_index").on(table.noteId, table.fileId),
+  ],
+);
+
 // What the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a
 // reservation. Its own table and NOT a nullable matter_id on matter_event, twice over: every read of
 // matter_event is "what happened on this case" and the visibility predicate keys off the matter — a
@@ -8734,6 +8848,11 @@ export const downloadItem = sqliteTable(
     // plain list does not answer: a member who can see they already took the Word copy is looking at
     // a shelf, and one who cannot is looking at a pile. Empty means built and never fetched, which is
     // a real and visible state.
+    // The format this item was MADE for, distinct from the formats it has been taken in: exporting
+    // generates onto the shelf rather than downloading, so the member's choice at the export control
+    // has to survive until they come back for it. Null on every row written before the column
+    // existed, where the format asked for WAS the format taken.
+    requestedFormat: text("requested_format"),
     downloadedFormatsJson: text("downloaded_formats_json").notNull().default("[]"),
     createdAt: text("created_at").notNull(),
     // When the shelf lets go, written by the producer from one constant so a row and the lifecycle

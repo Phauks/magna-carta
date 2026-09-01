@@ -142,7 +142,7 @@ export const DESTINATIONS: readonly Destination[] = [
     description: "Reports and files the platform made for you, ready to download again.",
     group: "top",
     shipped: true,
-    stage: "beta",
+    stage: "alpha",
     defaultStarred: true,
   },
   {

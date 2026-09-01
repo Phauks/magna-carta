@@ -181,6 +181,15 @@ export const PERMISSIONS = [
   // firm-wide calendar, which is a matter-scoped read repeated under the same visibility predicate.
   "calendar:read", // read matter timelines, events, deadlines, and the firm-wide calendar
   "calendar:manage", // record, edit, and cancel events; record, satisfy, vacate, and supersede deadlines; manage the event-type catalog
+  // Matter notes — what the firm wrote down about a case that no other record holds. Two keys, on the
+  // ordinary read/write split: a note is attorney work product and the most candid text the firm
+  // produces, so "may read this matter's notes" is a grant a firm makes deliberately and separately
+  // from "works this matter". Deleting rides notes:write rather than taking a third key — a member
+  // trusted to write the firm's record of a case is trusted to remove what should not be in it, and
+  // a separate key would only be a gate on the one act somebody performs in a hurry. Both bind
+  // resource: "matter" — a note IS one matter's record and cannot exist without one.
+  "notes:read", // read a matter's notes and the files linked to them
+  "notes:write", // write a note, edit one, delete one, and link or unlink the matter's files
   // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
   // because the register concentrates a matter's financially sensitive facts (what the estate owns,
   // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a

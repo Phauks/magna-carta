@@ -41,7 +41,6 @@
     caption,
     emptyTitle,
     emptyBody,
-    columnsMenu = false,
     onOpenPacket,
   }: {
     /** The server-side narrowing. A change of any field is a different question and a fresh read. */
@@ -54,8 +53,6 @@
     emptyTitle: string;
     /** What belongs here, said to somebody looking at nothing. */
     emptyBody: Snippet;
-    /** Whether the show/hide-columns control renders. The firm-wide register wants it. */
-    columnsMenu?: boolean;
     /**
      * Open one packet. The window itself belongs to the surface rather than to this listing, so
      * every panel that names a packet — this one, the overdue list, what is due — opens the SAME
@@ -140,12 +137,6 @@
 {/snippet}
 
 <div class="flex flex-col gap-16">
-  {#if columnsMenu}
-    <div class="flex justify-end">
-      <DataTable.GridColumnsMenu {grid} />
-    </div>
-  {/if}
-
   {#if loadFailure !== null}
     <Alert.Root variant="danger">
       <Alert.Title>The Register Could Not Be Read</Alert.Title>

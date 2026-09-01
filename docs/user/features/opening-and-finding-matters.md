@@ -34,10 +34,13 @@ has taken on. Choose **Consultations** to see them.
 
 ## Reading the table
 
-Each column header sorts when you press it, and carries a small funnel that filters just that
-column. **Columns** at the right chooses which columns show, pins one so it stays put when the table
-scrolls sideways, and turns row striping on or off. Columns can be dragged into the order you prefer
-and resized by their edges.
+Each column header sorts when you press it. Everything else a column can be asked is on its
+right-click menu: **Filter** narrows by that column alone, and beside it you can hide the column,
+pin it so it stays put when the table scrolls sideways, or open **Columns** for every column the
+table can show and the row-striping setting. A column you have hidden has no header left to
+right-click, so **Columns** is where you bring it back. A column that is being filtered is marked
+in its heading — hover the mark to read what it is narrowed to. Columns can be dragged into the
+order you prefer and resized by their edges.
 
 Three columns are worth explaining:
 

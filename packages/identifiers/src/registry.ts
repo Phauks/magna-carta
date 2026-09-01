@@ -257,6 +257,12 @@ export const ENTITY_PREFIXES = {
   matterEventType: "matterEventType",
   matterEventParticipant: "matterEventParticipant",
   matterDeadline: "matterDeadline",
+  // The matter note: what the firm wrote down about a case that no other record holds — its words,
+  // who wrote them, when they were written, and optionally when the thing they describe happened. A
+  // `matterNoteDocument` links one of the matter's files to one note, which is an ASSOCIATION with
+  // its own identity: detaching it leaves the document exactly where it lives.
+  matterNote: "matterNote",
+  matterNoteDocument: "matterNoteDocument",
   // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
   // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
   // its own table rather than a null where a case should be; a `firmEventParticipant` is one person

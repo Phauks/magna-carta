@@ -1,8 +1,15 @@
 # Downloads
 
-Anything the platform makes for you gathers under **Downloads** in the sidebar, so you can take it
-again without running it a second time. Exported reports go there automatically the moment you
-download one.
+Anything the platform makes for you gathers under **Downloads**, so you can take it whenever you
+want it rather than the moment you make it.
+
+**Exporting a report adds it here; it does not save a file.** Pick the format you want on the Export
+menu and the report appears in your Downloads, ready. That way you can run several reports across a
+morning and take them all at once, instead of a file landing in your downloads folder each time.
+
+There are two ways in. The **download button in the top bar**, beside the timer, marks itself when
+something new arrives; clicking it shows what you have made recently and links to the full list.
+**Downloads** in the sidebar opens that full list directly.
 
 Each item is held for **seven days** and then clears itself. The list shows what it is, where it came
 from, which formats you have already taken, when you made it, and the day it stops being available.
@@ -11,13 +18,31 @@ from, which formats you have already taken, when you made it, and the day it sto
 
 Use **Download** on any row.
 
-An exported report can be taken in **any** format, not only the one you chose the first time — the
-report itself is kept rather than the file, so the same figures are available as Excel, Word, PDF,
-CSV, or plain text. The figures are exactly as they were when you ran it: an export you took on
+An exported report can be taken in **any** format, not only the one you made it for — the report
+itself is kept rather than the file, so the same figures are available as Excel, Word, PDF, CSV, or
+plain text. The figures are exactly as they were when you ran it: an export you took on
 Monday still reads Monday's numbers on Thursday, which is what makes it worth keeping.
 
 A file the platform assembled for you, such as a bundle of documents, downloads directly through your
 browser, so your browser's own download manager handles pausing, resuming, and the transfer speed.
+
+## Taking several at once
+
+Tick the ones you want and choose **Download Selected**. They arrive together as a single zip file,
+each in the format it was made for.
+
+A file the platform assembled for you cannot travel inside that zip — it downloads directly through
+your browser instead, so your browser handles pausing and resuming. If your selection includes one,
+it opens on its own alongside the zip.
+
+## If you would rather have the file straight away
+
+**Settings · Downloads** has a switch: _save a file as soon as I export_. Turn it on and exporting
+does both — the file downloads immediately, and the item still appears in your Downloads so you can
+take it again later. The setting follows you to any computer you sign in on.
+
+Where a file lands is your browser's own choice, not the platform's. Every browser has an "ask where
+to save each file" setting; turn that on and it will ask you each time.
 
 ## Clearing the list
 

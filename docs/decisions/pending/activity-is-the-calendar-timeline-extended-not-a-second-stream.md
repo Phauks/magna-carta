@@ -1,9 +1,9 @@
 ---
 slug: activity-is-the-calendar-timeline-extended-not-a-second-stream
-status: Proposed
+status: Accepted — built
 area: Notes and activity
 date: 2026-08-15
-summary: "A record's activity stream is the calendar's existing federated timeline read with one more declared source on it, not a new subsystem and not a projection table. packages/calendar already reads one page across fourteen sources under one comparable sort key, one shared cursor and one required visible-matter predicate, and its registry states that a source is a read-side declaration and never a write-side obligation on the subsystem that owns the rows — so a note joins it for one registry row, one statement builder, one projection and one label decision, with no change to any write path anywhere. The package's own invariant decides it: nothing is projected, copied or backfilled, which is what makes the class of bug where the timeline disagrees with the register unwritable, because the timeline IS the register. Three consequences are accepted rather than discovered: a note source declares no label and projects NULL, on the precedent that a filed email's subject line and a time entry's narrative are both refused; the source reads live heads only and excludes retracted notes, on the soft-delete precedent; and a note on a Directory entity cannot join at all until a third visibilityAnchor with its own predicate is designed, because the firm anchor is a reviewed one-entry allowlist and reaching for it would be a silent loosening of the exemption the package guards most carefully."
+summary: "A record's activity stream is the calendar's existing federated timeline read with one more declared source on it, not a new subsystem and not a projection table. packages/calendar already reads one page across fourteen sources under one comparable sort key, one shared cursor and one required visible-matter predicate, and its registry states that a source is a read-side declaration and never a write-side obligation on the subsystem that owns the rows — so a note joins it for one registry row, one statement builder, one projection and one label decision, with no change to any write path anywhere. The package's own invariant decides it: nothing is projected, copied or backfilled, which is what makes the class of bug where the timeline disagrees with the register unwritable, because the timeline IS the register. Three consequences are accepted rather than discovered: a note source declares no label and projects NULL, on the precedent that a filed email's subject line and a time entry's narrative are both refused; the source reads the note table directly and orders by when the thing it records HAPPENED, falling back to the day it was written, which is how every other record of an occurrence is ordered here; and a note on a Directory entity cannot join at all until a third visibilityAnchor with its own predicate is designed, because the firm anchor is a reviewed one-entry allowlist and reaching for it would be a silent loosening of the exemption the package guards most carefully."
 ---
 
 **The activity stream already exists, it is called the timeline, and the only correct way to put notes
@@ -45,8 +45,20 @@ narrative is "the single most privileged free-text field in the billing corpus."
 that field. The source projects `NULL AS label` and the entry says a note was written, when, and by
 whom.
 
-**The source reads live heads and excludes retracted notes.** Notes are corrected by appending a
-revision, so an unfiltered read would show a note once per edit. Filtering on the status column beside
+**The source orders by when the thing happened.** A note carries the instant it was typed and,
+optionally, the day and time of what it describes; the source sorts on the second falling back to the
+first, so a note about Tuesday's call sits beside Tuesday's hearing rather than beside the Thursday
+somebody wrote it down. That is how `matterEvent`, `matterDeadline` and `timeEntry` are all ordered,
+and the one source that orders by when the ROW was written — the audit log — has that named as its
+weakness rather than treated as the house style.
+
+_(Amended 2026-09-01: this paragraph originally described reading live revision heads and excluding
+retracted notes. The revision chain and the retraction state were removed by the owner's direction
+the same day; a note is now one row, edited in place and deleted outright, so there is no head to
+choose and no state to filter. The decision this fragment records — that activity is the calendar's
+federated read with one more declared source, never a second stream — is unaffected.)_
+
+Filtering on the status column beside
 the date column is the failure the package names in its own custody constants; the filed-document
 source's `deleted_at IS NULL` is the pattern.
 

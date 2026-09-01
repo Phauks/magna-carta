@@ -39,6 +39,14 @@
     font-optical-sizing: auto;
     text-wrap: balance;
   }
+  /*
+   * The compact density (variants.ts). A masthead that shares its band with navigation cannot
+   * spend a full display line on the title. Only the title moves: the eyebrow and the meta hold
+   * their own steps, because shrinking those costs legibility without buying meaningful height.
+   */
+  .mc-masthead-compact .mc-masthead-title {
+    font-size: var(--mc-font-size-2xl);
+  }
   .mc-masthead-meta {
     display: flex;
     flex-wrap: wrap;

@@ -2,17 +2,18 @@
 worktree: /home/user/magna-carta
 area: The download register — a per-member shelf of what the platform produced, and the export snapshots that fill it
 status: building
-touches: packages/database/drizzle/per-firm, packages/access-control, packages/data-access, apps/api-worker/src/routes, apps/api-worker/src/downloads, apps/api-worker/src/conversions, apps/api-worker/openapi/openapi.json, packages/api-client, apps/web/src/lib/export, apps/web/src/lib/navigation/destinations.ts, apps/web/src/routes/(app)/downloads, roadmap.d/reports.md, changelog.d/
+touches: apps/web/src/lib/export, apps/web/src/lib/components/app-shell.svelte, apps/web/src/lib/navigation/destinations.ts, apps/web/src/routes/(app)/downloads, docs/user, changelog.d/
 ---
 
-Building the download register: a per-member list of what the platform made for you, held for a
-short retention window, downloadable again until it expires. The export framework and its server-side
-Word/PDF renderer landed on this branch already; this stream gives what they produce a home.
+The download register landed (the table, the routes, the retention sweep, the /downloads page). This
+stream now adds the top-bar download tray on the owner's direction, seated beside the Time Keeper.
 
-Two things a concurrent stream should know. **This stream does not touch
-`apps/web/src/lib/components/app-shell.svelte`** — the register is a sidebar destination and a page,
-not new top-bar chrome, and both `slice-0-7b-app-shell` and `claude/focused-cori-b8z77b` have claims
-over the shell. **It also stays out of `docs/conventions/design-corrections.md`** at
-`claude/focused-cori-b8z77b`'s request; the owner ruling this stream is built on (notifications carry
-matter work, downloads are not matter work) is recorded in this stream's spec and ADR fragment, and
-belongs in the ruling ledger once that branch lands.
+**It edits `apps/web/src/lib/components/app-shell.svelte`** — one import and one seated component, no
+other change to the shell. `slice-0-7b-app-shell` declares that file but its branch resolves to no
+ref and its work has landed, and `vp run worktrees` reports no live overlap on it; a stream that
+picks the shell back up should know this line is here. Everything the tray does lives in
+`$lib/export/download-tray.svelte`, so the shell seats it and does nothing else with it.
+
+This stream stays out of `docs/conventions/design-corrections.md` at `claude/focused-cori-b8z77b`'s
+request; the owner ruling it rests on (notifications carry matter work, downloads do not) is recorded
+in this slice's spec and ADR fragment and belongs in the ruling ledger once that branch lands.

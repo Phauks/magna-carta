@@ -11,6 +11,8 @@ import Meta from "./masthead-meta.svelte";
 import MetaSeparator from "./masthead-meta-separator.svelte";
 import Title from "./masthead-title.svelte";
 
+export { mastheadDensityClass, type MastheadDensity } from "./variants.ts";
+
 export {
   Root,
   Actions,

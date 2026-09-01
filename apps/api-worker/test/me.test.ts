@@ -134,6 +134,9 @@ describe("GET /api/v1/me", () => {
         "documents:edit",
         "documents:forceReleaseLock",
         "documents:reconcile",
+        // Reading and clearing one's OWN download shelf, so it seeds to every role that can be
+        // handed a generated file at all — the same reasoning notifications:read carries.
+        "downloads:shelf",
         "emails:file",
         // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
         // file mail are different grants. Owner/Admin and Attorney carry it by seed; Paralegal gets
@@ -189,11 +192,19 @@ describe("GET /api/v1/me", () => {
         // privilege: it is scoped to the session's own user id and every row is filtered by matter
         // visibility at read time, so the key grants sight of nothing the member could not already
         // reach, and a firm whose staff cannot see their own deadlines is a firm the feature failed.
+        // The three matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
+        // Attorney and Paralegal — and to neither Billing nor Read-only.
+        "notes:read",
+        "notes:retract",
+        "notes:write",
         "notifications:read",
         // Every reports key is Owner/Admin alone — narrower than the trust and billing reads a firm
         // grants more widely, because an aggregate across every matter and client is a different
         // exposure from a per-matter read. reports:productivity is narrower still in kind: a report
         // about people rather than about money.
+        // Exporting a report's rows, seeded wherever a report can be read at all: the export is the
+        // same figures the reader already has, in a file.
+        "reports:export",
         "reports:financial",
         "reports:operational",
         "reports:produce",

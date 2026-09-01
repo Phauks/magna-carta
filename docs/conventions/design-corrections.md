@@ -96,6 +96,23 @@ is usually the fastest way to understand the rule.
   thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
   agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,
   2026-08-30)_
+- **A column's controls are summoned from the column, not from a control anywhere else.**
+  Right-clicking a column heading opens that column's menu, and everything a column can be ASKED is
+  in it: filter it, hide it, pin it, and — one arrow to the right — the full roster of columns,
+  where a hidden column (which has no heading to point at) is brought back. A `Columns` button in
+  the action row is removed, not moved: it asked the reader to leave the thing they were looking
+  at, find a control, and then find the column again in a list. The in-header filter funnel goes
+  the same way, for the narrower version of the same reason — a control parked in a data cell,
+  hunted for on hover, when the column it belongs to is the thing already under the pointer. What
+  the header still does by DIRECT gesture it keeps and the menu does not repeat: clicking the label
+  sorts, the grip resizes and double-click fits. A surface's own display settings ride the same
+  Columns submenu, beside the columns they change. _(every list surface, 2026-08-31)_
+- **A state stays visible where a control was removed; it just stops being pressable.** Taking the
+  funnel out of the header cell must not take with it the answer to "is this column narrowed" —
+  that is the reader's, not the control's. So the cell keeps a MARK in the same reserved slot, in
+  the same accent-subtle treatment, drawn only while a filter is in play and carrying nothing to
+  press. Absence is still the signal; presence is still unmistakable. _(every list surface,
+  2026-08-31)_
 
 ### Data entry
 
@@ -114,6 +131,59 @@ is usually the fastest way to understand the rule.
 
 ### Controls and patterns
 
+- **Only a surface nobody can open yet wears a maturity mark.** A screen a member can reach does
+  not announce how finished it is: "Alpha" beside a working tab is a fact about the build, not
+  about the matter, and once eight of fourteen tabs carry one the navigation reads as a release
+  plan instead of the sections of a file. The labelled pill also cost each tab about as much width
+  as its own label, which is what pushed most of a section strip into an overflow menu. `soon` is
+  the one stage that still marks, because it states something a reader must know before they click
+  — there is nothing behind this yet — and it is the same device the standing "designed-but-unwired
+  ships visible and marked Soon" rule depends on. The stages themselves survive and still decide
+  whether a destination is a live link or a stub; reaching one just stopped being something the
+  product says out loud. Enforced in the model: `alpha` and `beta` present as null in
+  `apps/web/src/lib/maturity/maturity.ts`, exactly as `ready` does. _(matter section strip,
+  2026-08-31)_
+- **Find which column sets a band's height before you spend design shrinking one.** Where two
+  columns share a band, the taller one owns the height and work on the other is invisible. The
+  matter chrome's inline-end column was the overflow control stacked over the section strip —
+  40px + 8px + 41px — and it floored the band at 90px, so three identity treatments that look
+  nothing alike measured at exactly 90px, and putting the whole identity on one line bought nothing
+  at all. Moving the control onto the strip's row made that column 41px and the identity block
+  mattered again. Measure the columns, not the thing you were about to change. _(matter chrome,
+  2026-09-01)_
+- **Drop a row before you shrink a face.** A row is twenty-odd pixels; a type step is a few, and it
+  is spent out of the scale contrast the register depends on. The matter's ledger line and status
+  seal moved down to lead the citation, which bought a whole row and cost the number nothing it
+  could not say from there — while the type step that would have matched it took the display face
+  close enough to the citation that the masthead stopped reading as one. Take the structural
+  saving first and the type step only if it is still needed. _(matter chrome, 2026-09-01)_
+- **The display step comes from the recipe, never a utility on the element.** A screen that needs a
+  smaller masthead title asks for a density on `Masthead.Root`; it does not put `text-2xl` on the
+  Title. The masthead is the one door to the display serif, and a call site that can set the step
+  itself has taken that door off its hinges — the next screen picks a different size and the
+  register is gone. Add the variant to the recipe instead. _(matter chrome, 2026-09-01)_
+- **A control sharing a row with navigation sits above the rule, not on it.** The rule under a
+  section strip belongs to the sections — their active mark draws on it — so a bordered control on
+  the same row stops short of it. Sitting on the rule, the control reads as one more tab.
+  _(matter chrome, 2026-09-01)_
+- **A vertical navigation rail belongs to the app shell, and there is only one.** A page that needs
+  more room does not answer it by standing a second rail inside the work canvas beside the shell's
+  own: two vertical navigations on one screen make the member ask which one they are in. Module
+  navigation stays in the page's own chrome, horizontal, however tight that gets. The section rail
+  proposed for matters was rejected on exactly this ground: it oversteps what the main shell does.
+  _(matter chrome arrangements, 2026-08-31)_
+- **The inline-end half of a masthead is a column, not a slot.** Where a page's chrome would
+  otherwise spend a whole row on navigation beneath the masthead, that navigation moves into the
+  empty half beside the title: actions on the title's row, the strip beneath them, packed to the
+  end and flush against the band's bottom rule so the active mark still lands on a rule. One band
+  instead of two. _(matter chrome, 2026-08-31)_
+- **A chrome band holds one height at every canvas width.** A band whose contents can wrap is a
+  band that grows as the window narrows, and an arrangement adopted to RECOVER vertical space that
+  grows past the one it replaced has done the opposite of its job. Whatever shares the row with
+  navigation truncates instead: the title and the citation each take an ellipsis, with the full
+  text on the element's `title`. Measure it at the narrow canvas before believing it — this one was
+  only visible at 1024 and cost 27px there while saving 42px at desk width. _(matter chrome,
+  2026-08-31)_
 - **A reveal toggle is the Lucide eye / eye-off icon, centered in a square hit target** — never a
   text toggle. _(auth flow, 2026-08-07)_
 - **Every non-initial step of a multi-step flow carries the same Back control**, from one component,
@@ -194,6 +264,16 @@ is usually the fastest way to understand the rule.
   caret, per browser, defaulting to open. A shut heading still states any fault among the rows it
   hides, because the reason a list is exhaustive is that omissions read as health. _(Build Versions
   panel, 2026-08-31)_
+- **A comparison between two things allowed to differ is a status colour, not a sentence about
+  them.** Explaining in prose that two related builds deploy separately and may disagree is the "no
+  info lines" rule applied to a comparison: state the judgment (matched, one behind, differ) as a
+  coloured read instead, reserving the alarmed colour for the one state that actually calls for
+  action. _(Build Versions panel, second round, 2026-08-31)_
+- **A line whose content can go empty stays mounted, empty, rather than being unmounted.**
+  Conditionally rendering a status line (present only while there is something to say) resizes the
+  surface around it every time the condition flips; mount it unconditionally and give it inert
+  filler when it has nothing to report, so height never depends on wording. _(Build Versions panel,
+  second round, 2026-08-31)_
 
 ### List screens
 
@@ -289,6 +369,47 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-01 — the matter chrome, identity-block round
+
+With the section strip in the band, the owner asked what more the left side could give back. Six
+settings were rendered and measured; the generalizable parts are promoted above. What was decided:
+
+- **The identity block folds to two rows and the title steps down once.** The ledger line and the
+  status seal lead the citation instead of holding a row above the title, and the title takes the
+  Masthead recipe's new `compact` density (2rem to 1.5rem).
+- **The overflow control moved onto the section strip's row.** This is the change that mattered:
+  it is the only one that got the band under 90px, because it is the only one that touched the
+  column actually setting the height. 111px became 76px — 152px before the strip moved at all.
+- **A third density step was built, measured and dropped.** At 1.25rem the display face is close
+  enough to the citation that the register's scale contrast nearly goes, and it bought nothing over
+  the structural saving, so it is not in the variant.
+
+### 2026-08-31 — the matter chrome, section-navigation round
+
+The owner asked what could be done with the empty inline-end half of the matter masthead, which
+carried one overflow control while the section strip spent a whole row of its own below. Four
+arrangements were built from the shipping design system and measured against today's chrome; the
+generalizable parts are promoted above. What was decided:
+
+- **Arrangement B ships:** the actions on the title's row and the section strip beneath them, both
+  packed to the inline end, in one band with one rule. Chosen because it "retains most of what we
+  have" — the masthead keeps the serif title at masthead scale, the ledger line and the citation,
+  and the strip keeps its comfortable density and the gold bar. 152px of chrome becomes 111px.
+- **The section rail was rejected** for overstepping the main shell. Promoted above.
+- **The Alpha pillboxes come off everywhere**, so the navigation reads as the firm's actual usage
+  rather than as a build status. Promoted above.
+
+Engineering that the round produced rather than the owner:
+
+- The strip's fold arithmetic moved to `section-overflow.svelte.ts`, so the live nav and the
+  candidates could not fold their tabs by two different rules. It stayed after the candidates went.
+- An even split of the band was measured against a capped identity block, and both against a
+  wrapping one. Wrapping cost 27px at a 1024 canvas — a net loss. Capping the identity block
+  starved the strip to a single tab. The even split with a truncating title and a truncating
+  citation is what holds 111px at every width, and it is why the citation is now one joined string:
+  a flex row of separate entries cannot ellipsis, and truncating each entry to its share gives four
+  stubs and no citation.
+
 ### 2026-08-31 — the Build Versions panel
 
 Five corrections against the version overlay, all from the owner, all promoted above:
@@ -306,6 +427,20 @@ Five corrections against the version overlay, all from the owner, all promoted a
   version, so the fold never turns the fleet list into a claim of health.
 - **Copy feedback stopped being a check glyph** and became the control darkening for a second. The
   glyph widened the button on every press, which read as the identifier itself changing.
+
+### 2026-08-31 — the Build Versions panel, second round
+
+Two more corrections against the same panel, both promoted above:
+
+- The fixed sentence explaining that `magna-carta-web` and `magna-carta` deploy separately and may
+  report different builds was deleted. In its place, the leading pair carries a colour-coded sync
+  badge — green **In sync**, amber **Web behind** (the one state that is actually actionable), or
+  neutral **Different builds** for any other difference — shown only once both sides have reported a
+  real commit to compare.
+- The **"Services checked … ago"** / **"Checking services"** line is now mounted unconditionally
+  whenever the panel can read the aggregate, with a non-breaking space when it has nothing to say.
+  It used to appear and disappear as the read moved through in-flight, freshly-answered, and aged,
+  resizing the popover under the reader each time.
 
 ### 2026-08-31 — WHOIS Lookup tool page, deployed-site review
 

@@ -195,6 +195,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // or documents:forceReleaseLock (displacing a colleague's hold), so both are absent here.
         "documents:checkout",
         "documents:edit",
+        // The download shelf is where a generated file waits to be collected, and it reaches every
+        // default role: a member who could ask for the file is the member who collects it.
+        "downloads:shelf",
         "emails:file",
         "emails:manageLinks",
         "emails:read",
@@ -214,6 +217,13 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "matterAssets:manage",
         "matterAssets:read",
         "matters:create",
+        // A paralegal writes the note about the call they took, so this role carries both note keys.
+        // Deleting rides notes:write rather than taking a key of its own: a member trusted to write
+        // the firm's record of a case is trusted to remove what should not be in it. Billing and
+        // Read-only carry neither, which is the deliberate contrast with calendar:read reaching
+        // every seat — a note is the firm's candid assessment of a case.
+        "notes:read",
+        "notes:write",
         "notifications:read",
         "support:request",
         "tools:aiTextDetection",
@@ -260,6 +270,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:run",
         "costs:approve",
         "custody:read",
+        // The download shelf reaches every default role: whoever could ask for a generated file is
+        // whoever collects it.
+        "downloads:shelf",
         "emails:read",
         "firm:readMembers",
         "firm:reportIncident",
@@ -299,6 +312,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:read",
         "conflicts:run",
         "custody:read",
+        "downloads:shelf",
         "emails:read",
         "firm:readMembers",
         "firm:reportIncident",

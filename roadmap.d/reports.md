@@ -88,7 +88,7 @@
   scope: A per-member shelf of what the platform produced — exports, bundles, converted files — held for a short retention window and downloadable again until it expires.
   status: partial
   surface: screen
-  evidence: Built and reachable at /downloads (sidebar destination). The per-firm `download_item` table, the four `/api/v1/downloads` routes under `downloads:shelf`, and the daily retention sweep are live; export snapshots fill it today, storing the tabular document rather than a rendered file so every format stays available. The bundle and conversion producers write through `artifactShelfStatement` when their own surfaces land — neither has a client that can create one yet. Deliberately not the notification feed: notifications carry matter work (owner ruling, 2026-08-31). Spec: docs/specs/2026-08-31-download-register-design.md.
+  evidence: Built and reachable two ways — the top-bar download tray beside the Time Keeper ($lib/export/download-tray.svelte) and the /downloads page behind it. Exporting GENERATES onto the shelf rather than saving a file, so several can be gathered and taken as one client-zip archive; download_item.requested_format remembers what each was made for. Settings · Downloads carries the per-member save-immediately preference (user-tier scoped setting). Where a file lands is deliberately not offered: the local-disk pickers are Chromium-only and can never apply to a bundle whose bytes bypass the page, so that answer belongs to the desktop app.
 
 - id: reports.custom-builder
   name: Custom report builder

@@ -9,6 +9,7 @@
  * and its conversion edge is the one way a PDF gets made, so neither format may grow a client-side
  * generator here.
  */
+import { saveToTarget } from "./save-target.ts";
 
 /**
  * One table cell. A plain string renders as-is everywhere; a figure that spreadsheet software
@@ -71,14 +72,19 @@ export function exportFilename(exportDocument: TabularExportDocument, extension:
   return `${safeTitle} ${date} ${time}.${extension}`;
 }
 
-/** Hand the rendered bytes to the browser as a saved file. */
-export function saveExport(content: string | Blob, filename: string, contentType: string): void {
-  const url = URL.createObjectURL(
-    content instanceof Blob ? content : new Blob([content], { type: contentType }),
-  );
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
+/*
+ * Hand the rendered bytes over as a saved file — the ONE seam every download in the app passes
+ * through, which is what makes where they land a single decision rather than four.
+ *
+ * The destination logic lives in save-target.ts; this stays the name every caller knows. It resolves
+ * to where the file went ("folder" | "browser") so a surface can say so, and it never rejects: a
+ * chosen folder that cannot be written falls back to the ordinary download inside that module,
+ * because a folder is a convenience and the file is the point.
+ */
+export function saveExport(
+  content: string | Blob,
+  filename: string,
+  contentType: string,
+): Promise<"folder" | "browser"> {
+  return saveToTarget(content, filename, contentType);
 }
