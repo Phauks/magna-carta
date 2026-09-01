@@ -16,6 +16,7 @@
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
+  import Checkbox from "@magna-carta/design-system/checkbox";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import MatterSearchResults from "$lib/matters/matter-search-results.svelte";
   import {
@@ -132,6 +133,27 @@
         </Select.Root>
       {/snippet}
     </ScreenSearch>
+
+    {#if search.deletedOptionApplies}
+      <!-- The scope area, where the ruling puts it: off by default, and only where a selected
+           source has a deleted set. Re-running on change rather than filtering what is on screen —
+           the deleted rows were never fetched, so there is nothing here to filter. -->
+      <label class="flex items-center gap-4 text-sm text-text-muted">
+        <Checkbox
+          bind:checked={
+            () => search.includeDeleted,
+            (next) => {
+              search.includeDeleted = next === true;
+              if (addressQuery.trim() !== "") {
+                const sources = options.find((option) => option.value === addressScope)?.sources ?? [];
+                void search.run(fetch, addressQuery, sources, PAGE_LIMIT);
+              }
+            }
+          }
+        />
+        Include deleted files
+      </label>
+    {/if}
 
     {#if search.answer !== null}
       <span class="text-sm text-text-muted">

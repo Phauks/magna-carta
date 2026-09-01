@@ -2944,6 +2944,7 @@ export type MatterSearchGroup = {
     section: string;
     answerShape: 'listing' | 'ranked';
     matchedFields: Array<string>;
+    supportsDeleted: boolean;
     hits: Array<MatterSearchHit>;
     hasMore: boolean;
     skipped: 'permission' | 'query-too-short' | 'engine-unavailable' | null;

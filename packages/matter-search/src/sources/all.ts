@@ -145,8 +145,14 @@ const filesSource: MatterSearchSource = {
         sortExpression: `${FILE_TABLE}.created_at`,
         titleExpression: `${FILE_TABLE}.name`,
         snippetExpression: "NULL",
-        // Which folder it is in, so two files of the same name are told apart without opening either.
-        secondaryExpression: `${FOLDER_TABLE}.name`,
+        // Which folder it is in, so two files of the same name are told apart without opening
+        // either — and, on a file the firm has deleted, that fact FIRST. A deleted file that came
+        // back looking live is the one outcome the option must not produce: somebody would act on
+        // a document that is not in the matter any more.
+        secondaryExpression:
+          `CASE WHEN ${FILE_TABLE}.deleted_at IS NULL THEN ${FOLDER_TABLE}.name ` +
+          `WHEN ${FOLDER_TABLE}.name IS NULL THEN 'Deleted' ` +
+          `ELSE 'Deleted · ' || ${FOLDER_TABLE}.name END`,
         actorExpression: "NULL",
         conditions,
         bindings: [likeContainsTerm(request.query.trim())],

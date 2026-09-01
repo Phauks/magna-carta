@@ -77,6 +77,12 @@ export class MatterSearch {
   matterId = $state("");
   scope = $state(EVERYTHING_SCOPE);
   answer = $state<MatterSearchAnswer | null>(null);
+  /**
+   * Whether records the firm has deleted join the answer. Off by default, and honored only by the
+   * sources that declared they can honor it — a note is deleted outright and has no deleted set to
+   * offer, so turning this on cannot resurrect one.
+   */
+  includeDeleted = $state(false);
   failure = $state<string | null>(null);
   busy = $state(false);
 
@@ -94,6 +100,16 @@ export class MatterSearch {
 
   sourcesForScope(options: readonly SearchScope[]): readonly string[] {
     return options.find((option) => option.value === this.scope)?.sources ?? [];
+  }
+
+  /**
+   * Whether the deleted option means anything to what is currently being searched — read off the
+   * SERVER'S answer rather than from a list held here, so the browser never has to know which
+   * sources have deleted sets. Before the first search it is false, and the control is simply not
+   * offered yet, which is honest: nothing has been searched.
+   */
+  get deletedOptionApplies(): boolean {
+    return this.answer?.groups.some((group) => group.supportsDeleted) === true;
   }
 
   /** Abandons whatever is in flight and clears the answer — the reader emptied the field. */
@@ -124,6 +140,7 @@ export class MatterSearch {
     const outcome = await searchMatter(fetchImpl, this.matterId, query, {
       sources,
       limit,
+      includeDeleted: this.includeDeleted,
       signal: controller.signal,
     });
     // A superseded search says nothing about the screen, whether it was aborted or merely slow.

@@ -27,6 +27,8 @@ Nine parts of a matter answer today — files by name, time narratives, costs, p
 
 A section you do not have access to says so rather than coming back empty. That distinction matters more than it looks: a search that answered "nothing found" for a section you cannot see would tell you the matter holds nothing when it may hold a great deal.
 
+Next to the scope, **Include deleted** is off by default and appears only where a searched section has a deleted set to offer. A deleted file joins the results marked as deleted, never looking live.
+
 Top results appear under the field; **Open full results** gives the whole answer its own page, and the search lives in the address — so a reload keeps it, and a colleague can be handed the link.
 
 Assets are matched on their description alone: an asset's account and policy numbers are sealed, and searching them would let somebody confirm a full number by typing it.

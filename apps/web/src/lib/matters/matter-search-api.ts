@@ -33,6 +33,8 @@ export interface MatterSearchGroup {
   answerShape: "listing" | "ranked";
   /** What the source matched on, in the reader's words — rendered so a hit is never a guess. */
   matchedFields: string[];
+  /** Whether this source honors `includeDeleted` — what decides if the control is worth offering. */
+  supportsDeleted: boolean;
   hits: MatterSearchHit[];
   /** Measured, never estimated: the server read one row past the limit to know. */
   hasMore: boolean;

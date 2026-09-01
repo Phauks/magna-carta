@@ -69,6 +69,11 @@ export interface MatterSearchGroup {
   // What this source matched on, in the reader's words. Rendered on the group so nobody has to
   // guess why a hit is a hit — "file names", "the note's current text".
   readonly matchedFields: readonly string[];
+  // Whether this source can honor a request to include records the firm has deleted. On the wire
+  // because the CLIENT has to decide whether to offer the control at all, and the alternative is a
+  // browser that keeps its own list of which sources have deleted sets — a second place that knows
+  // what the registry knows, free to fall behind it.
+  readonly supportsDeleted: boolean;
   readonly hits: readonly MatterSearchHit[];
   // True when the source holds more than was returned. Measured by reading one row past the limit,
   // never estimated — so a group can say "more" without ever claiming a total it did not count.

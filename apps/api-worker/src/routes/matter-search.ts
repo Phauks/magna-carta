@@ -81,6 +81,9 @@ const SearchGroup = z
     section: z.string(),
     answerShape: z.enum(["listing", "ranked"]),
     matchedFields: z.array(z.string()),
+    // Whether this source honors `includeDeleted`, so a client can offer that control only where it
+    // means something rather than keeping its own list of which sources have deleted sets.
+    supportsDeleted: z.boolean(),
     hits: z.array(SearchHit),
     // Measured by reading one row past the limit, never estimated — so a group can say more exists
     // without ever claiming a total nobody counted.
@@ -180,6 +183,7 @@ function wireAnswer(answer: MatterSearchAnswer): z.infer<typeof SearchAnswer> {
       section: group.section,
       answerShape: group.answerShape,
       matchedFields: [...group.matchedFields],
+      supportsDeleted: group.supportsDeleted,
       hits: group.hits.map((hit) => ({
         id: hit.id,
         title: hit.title,

@@ -12198,6 +12198,9 @@
               "type": "string"
             }
           },
+          "supportsDeleted": {
+            "type": "boolean"
+          },
           "hits": {
             "type": "array",
             "items": {
@@ -12225,6 +12228,7 @@
           "section",
           "answerShape",
           "matchedFields",
+          "supportsDeleted",
           "hits",
           "hasMore",
           "skipped"

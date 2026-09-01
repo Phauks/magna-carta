@@ -22,6 +22,7 @@
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
+  import Checkbox from "@magna-carta/design-system/checkbox";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
@@ -146,6 +147,24 @@
     >
       <div class="flex items-center gap-8 border-b border-border-default px-12 py-8">
         <span class="text-xs text-text-muted">{scopeLabel}</span>
+        {#if search.deletedOptionApplies}
+          <!-- Off by default, and offered only where a selected source has a deleted set to offer —
+               which the SERVER says, on the answer, rather than this control keeping its own list.
+               A deleted record joins the results marked as deleted; it never comes back looking
+               live, because somebody would act on a document that is no longer in the matter. -->
+          <label class="flex items-center gap-4 text-xs text-text-muted">
+            <Checkbox
+              bind:checked={
+                () => search.includeDeleted,
+                (next) => {
+                  search.includeDeleted = next === true;
+                  if (query.trim() !== "") void run(query);
+                }
+              }
+            />
+            Include deleted
+          </label>
+        {/if}
         <!-- On the scope line, where the ruling puts it: a reader may want to act on the whole
              result set, and a panel cannot carry that. -->
         <a

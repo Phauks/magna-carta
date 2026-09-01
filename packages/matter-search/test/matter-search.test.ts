@@ -237,6 +237,28 @@ describe("deleted records join an answer only when asked for, and only where dec
     expect(titles(answer.groups, "files")).toContain("Easement draft (superseded).pdf");
   });
 
+  it("marks a deleted file rather than returning it looking live", async () => {
+    // The failure this prevents is not a missing badge: it is somebody acting on a document that is
+    // no longer in the matter because the row read exactly like the live ones beside it.
+    const answer = await search("easement", { includeDeleted: true });
+    const deleted = group(answer.groups, "files").hits.find(
+      (hit) => hit.title === "Easement draft (superseded).pdf",
+    );
+    expect(deleted?.secondary).toContain("Deleted");
+    const live = group(answer.groups, "files").hits.find(
+      (hit) => hit.title === "Easement survey.pdf",
+    );
+    expect(live?.secondary ?? "").not.toContain("Deleted");
+  });
+
+  it("tells a caller which sources could honor the option at all", async () => {
+    // On the wire so the browser never keeps its own list of which sources have deleted sets — a
+    // second place that knows what the registry knows, free to fall behind it.
+    const answer = await search("easement");
+    expect(group(answer.groups, "files").supportsDeleted).toBe(true);
+    expect(group(answer.groups, "notes").supportsDeleted).toBe(false);
+  });
+
   it("never hands the flag to a source that has not declared it can honor one", async () => {
     // A retracted note stays unmatchable whatever a caller asks for. The flag is filtered by the
     // runner against the source's declaration, so this is a property of the machinery rather than

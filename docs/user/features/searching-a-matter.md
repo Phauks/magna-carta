@@ -61,6 +61,15 @@ Two things a group can tell you besides its results:
   nothing there. If a section you cannot see were simply left out of the answer, you would come away
   believing the matter was empty when it was not.
 
+## Deleted files
+
+Next to the scope there is an **Include deleted** option, off by default. Turn it on and files the
+firm has deleted join the results, each one marked **Deleted** so it can never be mistaken for a live
+document — the point is to find something you know was there, not to act on it as though it still is.
+
+It only appears where it means something. Most parts of a matter have no deleted set to offer: a note
+is deleted outright rather than hidden, so nothing can bring one back.
+
 ## The full results page
 
 **Open full results** at the top of the results panel gives the whole answer its own page, with more
