@@ -37,6 +37,21 @@
 -- own task bell without silencing the one that says a filing is due.
 --
 -- Column comments live beside the Drizzle definitions in packages/database/src/per-firm-schema.ts.
+--
+-- contract: notification_event and notification_in_app_suppression are each dropped after their
+-- rows are copied into a replacement. Both are same-transaction table REBUILDS, not data removals —
+-- each copy is exhaustive (every column, no predicate), the drop and the rename run inside the one
+-- migration transaction, and a failure at any point rolls the whole thing back with the original
+-- table intact. It is the only way SQLite can widen a CHECK constraint.
+--
+-- notification_recipient.event_id DOES carry a foreign key to notification_event.id, which is why
+-- the file brackets the work in PRAGMA foreign_keys=OFF / ON. That is the standard SQLite rebuild
+-- and it is safe here for a specific reason rather than by convention: the copy preserves every id
+-- verbatim and the replacement takes the original's name, so every referencing row resolves to the
+-- same row it resolved to before. Nothing is re-keyed, so there is no window in which a reference
+-- would be repointed or dropped. The suppression tally has no referent at all — it is keyed by
+-- member, category and civil date. The two new tables in the first half of this file are ordinary
+-- creates and drop nothing.
 CREATE TABLE `matter_task` (
 	`id` text PRIMARY KEY NOT NULL,
 	`matter_id` text,

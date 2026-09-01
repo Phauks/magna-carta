@@ -16,7 +16,6 @@
    * that the firm decided not to do the work and keeps the decision; deleting is for a task that
    * should not exist. Collapsing them would lose the difference the record exists to hold.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -27,6 +26,8 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Textarea from "@magna-carta/design-system/textarea";
   import { formatDate } from "@magna-carta/design-system/data-table";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import Plus from "@lucide/svelte/icons/plus";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -131,7 +132,11 @@
   let draftDueAtTime = $state("");
   let draftAssignee = $state("");
   let saving = $state(false);
-  let writeFailure = $state<string | null>(null);
+  // The failure RECORD, not a sentence assembled from it: the Error ID and the remedy reach the
+  // screen from the record, and a surface that flattened it would drop both. The words travel with
+  // the failure rather than with the surface, because one slot here holds several different
+  // actions and "the task was not completed" and "the task was not deleted" are different facts.
+  let writeFailure = $state<StatedFailure | null>(null);
 
   // Editing an existing task, keyed by task so only the one being edited turns into fields.
   let editingTaskId = $state<string | null>(null);
@@ -224,18 +229,6 @@
     reload();
   }
 
-  function refusalText(
-    outcome:
-      | { kind: "transport" }
-      | { kind: "problem"; problem: { detail?: string; errorId?: string } },
-    whenSilent: string,
-  ): string {
-    if (outcome.kind === "transport") return `Nothing answered. ${whenSilent}`;
-    return `${outcome.problem.detail ?? whenSilent}${
-      outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-    }`;
-  }
-
   // The due date as the server takes it: a date needs a zone, a time needs a date, and nothing is
   // inferred. A time with no date is simply not sent.
   function dueOf(dueOn: string, dueAtTime: string) {
@@ -272,7 +265,7 @@
       reload();
       return;
     }
-    writeFailure = refusalText(outcome, whenSilent);
+    writeFailure = stated(outcome.failure, whenSilent);
   }
 
   async function saveTask(): Promise<void> {
@@ -420,10 +413,11 @@
   </div>
 
   {#if writeFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Nothing Changed</Alert.Title>
-      <Alert.Description>{writeFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={writeFailure.failure}
+      title="Nothing Changed"
+      fallback={writeFailure.fallback}
+    />
   {/if}
 
   {#if composing}
@@ -505,10 +499,12 @@
   {/if}
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Tasks Unavailable</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      {failure}
+      title="Tasks Unavailable"
+      fallback="The tasks could not be read."
+      onRetry={reload}
+    />
   {:else if tasks === null}
     <div class="flex flex-col gap-8">
       {#each [0, 1, 2] as row (row)}
