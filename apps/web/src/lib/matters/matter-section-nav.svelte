@@ -3,27 +3,33 @@
    * The matter's section strip — route-driven navigation styled in the tabs register. The design
    * system's Tabs is Bits UI's state-based ARIA tablist, the wrong semantics for links that
    * change the address, so this strip renders real anchors inside a nav landmark and speaks the
-   * Tabs recipe's visual language through tokens (hairline track, quiet triggers, the gold bar
-   * under the active section). No tablist ARIA is faked onto the links; the current section is
-   * stated with aria-current="page". One identical strip for every matter status — status never
-   * gates navigation.
+   * Tabs recipe's visual language through tokens (quiet triggers, the gold bar under the active
+   * section). No tablist ARIA is faked onto the links; the current section is stated with
+   * aria-current="page". One identical strip for every matter status — status never gates
+   * navigation.
+   *
+   * IT DRAWS NO RULE OF ITS OWN. The strip sits in the inline-end column of the matter's header
+   * band (matter-header.svelte), flush against the band's bottom border, and packed to the end of
+   * that column. The band owns the rule; the gold active bar lands on it. A border here would
+   * draw a second line a few pixels above the first.
    *
    * Overflow is measurement-driven, not breakpoint-driven: an invisible mirror of the full strip
-   * reports each tab's width (bind:clientWidth), and as the container narrows, trailing sections
-   * fold into the More menu. The registry orders non-core sections last, so they fold first and
-   * trailing core sections follow only when the strip is genuinely too narrow. The mirror
-   * measures every tab at the active weight (the widest state) so activating a section never
-   * changes what fits, and the row carries no gap so the per-tab widths sum exactly to the row.
+   * reports each tab's width (bind:clientWidth), and as the column narrows, trailing sections fold
+   * into the More menu. The registry orders non-core sections last, so they fold first and
+   * trailing core sections follow only when the strip is genuinely too narrow. The arithmetic and
+   * the two rules it has to keep live in section-overflow.svelte.ts.
    *
    * THE STRIP CARRIES NO MATURITY BADGES. A tab names a place; how far along that place is belongs
    * to the place itself, where a reader is already looking at it. Eleven pillboxes strung across
    * one row read as chrome, crowded out the labels they were attached to, and made the strip about
-   * the build rather than about the matter.
+   * the build rather than about the matter. The measuring mirror drops them too — it exists to
+   * report what the strip actually draws, and a mirror wider than the strip folds tabs that fit.
    */
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import { SectionOverflow } from "$lib/matters/section-overflow.svelte.ts";
   import { matterSections, type MatterSection } from "$lib/matters/sections.ts";
 
   let { matterId }: { matterId: string } = $props();
@@ -43,38 +49,10 @@
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  let containerWidth = $state(0);
-  let moreTriggerWidth = $state(0);
-  let tabWidths = $state<number[]>(matterSections.map(() => 0));
+  const overflow = new SectionOverflow(() => matterSections.length);
 
-  const visibleCount = $derived.by(() => {
-    const total = matterSections.length;
-    // Until the mirror reports (the first client frame), show everything; the strip settles as
-    // soon as the measurements land.
-    if (containerWidth === 0 || moreTriggerWidth === 0 || tabWidths.some((width) => width === 0)) {
-      return total;
-    }
-    const fullWidth = tabWidths.reduce((sum, width) => sum + width, 0);
-    if (fullWidth <= containerWidth) {
-      return total;
-    }
-    // Reserve room for the More trigger, then fit tabs greedily from the front of the registry.
-    const available = containerWidth - moreTriggerWidth;
-    let used = 0;
-    let count = 0;
-    for (const width of tabWidths) {
-      if (used + width > available) {
-        break;
-      }
-      used += width;
-      count += 1;
-    }
-    // Overview always holds the line; below one tab the strip is simply too narrow to help.
-    return Math.max(count, 1);
-  });
-
-  const visibleSections = $derived(matterSections.slice(0, visibleCount));
-  const overflowSections = $derived(matterSections.slice(visibleCount));
+  const visibleSections = $derived(matterSections.slice(0, overflow.visibleCount));
+  const overflowSections = $derived(matterSections.slice(overflow.visibleCount));
   const activeInOverflow = $derived(
     overflowSections.some((section) => isCurrentSection(section, page.url.pathname)),
   );
@@ -87,8 +65,8 @@
   const tabActiveClasses = "font-semibold text-text-default";
 </script>
 
-<nav aria-label="Matter sections" class="relative border-b border-border-default">
-  <div class="flex items-center" bind:clientWidth={containerWidth}>
+<nav aria-label="Matter sections" class="relative w-full">
+  <div class="flex items-center justify-end" bind:clientWidth={overflow.containerWidth}>
     {#each visibleSections as section (section.slug)}
       {@const current = isCurrentSection(section, page.url.pathname)}
       <a
@@ -98,7 +76,7 @@
       >
         {section.label}
         {#if current}
-          <!-- The gold bar over the track — the active mark of the tabs register. -->
+          <!-- The gold bar over the band's rule — the active mark of the tabs register. -->
           <span
             class="absolute inset-x-12 bottom-0 bg-accent-default"
             style="block-size: var(--mc-focus-ring-width)"
@@ -154,11 +132,11 @@
     aria-hidden="true"
   >
     {#each matterSections as section, index (section.slug)}
-      <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={tabWidths[index]}>
+      <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={overflow.itemWidths[index]}>
         {section.label}
       </span>
     {/each}
-    <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={moreTriggerWidth}>
+    <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={overflow.moreTriggerWidth}>
       More
       <ChevronDown class="size-16" aria-hidden="true" />
     </span>

@@ -183,6 +183,7 @@ export type DownloadSnapshotCreatedResponse = {
 export type DownloadSnapshotRequest = {
     title: string;
     format: string;
+    taken?: boolean;
     document: {
         title: string;
         generatedAt: string;
@@ -208,6 +209,7 @@ export type DownloadItem = {
     kind: 'artifact' | 'snapshot';
     producer: 'export' | 'bundle' | 'conversion';
     byteSize: number | null;
+    requestedFormat: string | null;
     downloadedFormats: Array<string>;
     createdAt: string;
     expiresAt: string;
@@ -222,6 +224,10 @@ export type DownloadFetchResponse = {
 
 export type DownloadFetchRequest = {
     format: string;
+};
+
+export type DownloadPreferences = {
+    saveImmediately: boolean;
 };
 
 export type ToolsConnectionResponse = {
@@ -7080,6 +7086,72 @@ export type DownloadsRemoveResponses = {
 };
 
 export type DownloadsRemoveResponse = DownloadsRemoveResponses[keyof DownloadsRemoveResponses];
+
+export type DownloadPreferencesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/preferences';
+};
+
+export type DownloadPreferencesGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadPreferencesGetError = DownloadPreferencesGetErrors[keyof DownloadPreferencesGetErrors];
+
+export type DownloadPreferencesGetResponses = {
+    /**
+     * The member's preferences
+     */
+    200: DownloadPreferences;
+};
+
+export type DownloadPreferencesGetResponse = DownloadPreferencesGetResponses[keyof DownloadPreferencesGetResponses];
+
+export type DownloadPreferencesUpdateData = {
+    body: DownloadPreferences;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/preferences';
+};
+
+export type DownloadPreferencesUpdateErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadPreferencesUpdateError = DownloadPreferencesUpdateErrors[keyof DownloadPreferencesUpdateErrors];
+
+export type DownloadPreferencesUpdateResponses = {
+    /**
+     * The preferences as they now stand
+     */
+    200: DownloadPreferences;
+};
+
+export type DownloadPreferencesUpdateResponse = DownloadPreferencesUpdateResponses[keyof DownloadPreferencesUpdateResponses];
 
 export type ToolsConnectionGetData = {
     body?: never;

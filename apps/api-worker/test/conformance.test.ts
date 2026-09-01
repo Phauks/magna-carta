@@ -226,6 +226,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
+  // notes:* governs matter notes — the note, its revisions and its retraction all hang off the
+  // matter that owns them, so the namespace binds "matter" exactly as documents:* and files:* do.
+  notes: "matter",
   // downloads:* governs a member's own shelf of what the platform produced for them. It binds the
   // FIRM rather than the matter, on the custody:* reasoning: a shelf spans every matter a member
   // bundled or exported from, and an export that ran outside any matter (the Firm Usage report) has
@@ -234,10 +237,6 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
   // carries), so its routes carry the matter resource.
   documents: "matter",
-  // notes:* governs the matter's own note trail — every note route is addressed under a matter
-  // (or under a note that belongs to one), so the matter is its nearest tenancy root, the same
-  // binding documents:* and time:* carry.
-  notes: "matter",
   // time:* governs time entries and the rate engine, all scoped to matters; the matter resource
   // is the nearest tenancy root for every time-entry mutation and read.
   time: "matter",
@@ -997,6 +996,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documents.forceRelease",
       "documents.reconcile",
       "documents.viewSession",
+      "downloadPreferences.get",
+      "downloadPreferences.update",
       "downloads.bundleEvents",
       "downloads.bundleStatus",
       "downloads.fetch",
