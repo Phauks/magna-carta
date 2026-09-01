@@ -21,12 +21,25 @@ import { resolveSupportSession } from "../support/resolve-support-session.ts";
 import { resolveSupportPermissions } from "../support/tier-permissions.ts";
 
 // What resolveFirmContext returns and the chokepoint threads to loadPermissions and the handler:
-// the session firm's per-firm database handle plus its display name (so a handler reading the firm
-// need not re-query the control plane). Opaque to the chokepoint; consumed by handlers via c.get(
+// the session firm's per-firm database handle, an on-demand reader for its name, and its bucket.
+// Opaque to the chokepoint; consumed by handlers via c.get(
 // "chokepointFirmContext"). The firm came from the SESSION, never the URL.
 export interface FirmContext {
   readonly firmDatabase: ProxyBatchDatabase;
-  readonly firmName: string;
+  /**
+   * The firm's readable name, resolved ON DEMAND rather than carried.
+   *
+   * A FIRM CAN BE RENAMED, so this is the one fact here that is never served from the row cache
+   * below: a cached name would be a stale name, and the two places that ask for it are the session
+   * bootstrap (the name in the app shell) and a file-integrity receipt — a document a firm relies
+   * on, where last week's name would be wrong in a way nobody could see. Lazy rather than eagerly
+   * read because two routes out of a hundred want it, and making every request pay a control-plane
+   * read for a string almost none of them use is what put it in the cache in the first place.
+   *
+   * Empty string when the firm row has vanished mid-request (the same answer the assembly consumer
+   * gives for the same absence) — a caller holding a firm context has already passed the gate.
+   */
+  readonly readFirmName: () => Promise<string>;
   // The firm's R2 bucket name, for the upload/download presigner (null until provisioning created it;
   // an active firm always has it). The bucket came from the SESSION firm row, never client input.
   readonly bucketName: string | null;
@@ -80,6 +93,24 @@ function makeResolveSession(
   };
 }
 
+// How long a fully-provisioned firm row is believed without re-reading the control plane. The
+// two facts it is allowed to answer for — that the firm EXISTS, and its bucket — neither of which
+// a rename or an edit can move: bucket_name flips exactly once, from NULL, and a row that is gone
+// is covered by the member gate on the firm's own database, which still runs on every request. So
+// the staleness a minute admits is a hard-deleted firm's lingering session surviving that minute.
+// Rows still provisioning (no bucket yet) are never cached, so a founder watches the bucket appear
+// on the very request after it exists.
+//
+// THE FIRM'S NAME IS DELIBERATELY NOT HERE. A firm can be renamed, and a name is the one value on
+// the row that changes in the ordinary life of a firm — so it is resolved on demand instead
+// (FirmContext.readFirmName), and this cache holds nothing a rename could falsify.
+const FIRM_ROW_CACHE_MILLISECONDS = 60_000;
+
+interface CachedFirmRow {
+  readonly bucketName: string;
+  readonly expiresAtMilliseconds: number;
+}
+
 // resolveFirmContext port (the structural-absence gate). Returns null — mapped to the
 // chokepoint's 404, no existence oracle — for EVERY structural absence:
 //   • the firm row is missing from this control plane,
@@ -88,10 +119,18 @@ function makeResolveSession(
 // it returns the context so the read self-heals to a 200 with empty permissions; only an explicit
 // non-active status is the absence. (me.get carries permission: null, so the chokepoint resolves
 // the firm here and skips the permission gate; the handler loads the empty permission set itself.)
+//
+// The control-plane row read is CACHED per isolate for a minute (see FIRM_ROW_CACHE_MILLISECONDS
+// for why that is sound), because it was a serial ~100ms on the front of every request for facts
+// that do not move. Only a complete, provisioned row is cached — absence is never cached (the
+// structural gate stays live), and neither is a row mid-provisioning. The member-active check
+// against the firm's own database still runs on every request; the row order is unchanged where it
+// matters: the DO is still never addressed for a firm the control plane does not answer for.
 function makeResolveFirmContext(): (
   c: Context,
   session: ResolvedSession,
 ) => Promise<FirmContext | null> {
+  const firmRowCache = new Map<FirmId, CachedFirmRow>();
   return async (c, session) => {
     // A session that carries no firm has no firm context, which is this port's own definition of
     // absence. The chokepoint already answers such a session before asking (its firmless-admission
@@ -99,18 +138,54 @@ function makeResolveFirmContext(): (
     // callable on its own and must not be readable as "no firm means fall back to something".
     if (session.firmId === null) return null;
     const env = (c as Context<{ Bindings: Bindings }>).env;
+
     // THE NAME PEOPLE READ IS `display_name`, and `name` is only sometimes it. A firm created
-    // through the operator door is named by a human typing one, so the two agree. A SELF-SERVE firm
-    // is not: `firm.name` there is the registration's own handle, because firm names are not unique
-    // in the world and a UNIQUE column over them would let a stranger probe for any firm by trying
-    // to register its name — so the readable name lives in `display_name` and `name` is machinery.
-    // Resolving `name` alone put that handle on screen for every self-serve firm.
-    const firmRow = await env.DB_CONTROL.prepare(
-      "SELECT name, display_name, bucket_name FROM firm WHERE id = ?1",
-    )
-      .bind(session.firmId)
-      .first<{ name: string; display_name: string | null; bucket_name: string | null }>();
-    if (firmRow === null) return null;
+    // through the operator door is named by a human typing one, so the two agree. A SELF-SERVE
+    // firm is not: `firm.name` there is the registration's own handle, because firm names are not
+    // unique in the world and a UNIQUE column over them would let a stranger probe for any firm
+    // by trying to register its name — so the readable name lives in `display_name` and `name` is
+    // machinery. Resolving `name` alone put that handle on screen for every self-serve firm.
+    const nameOf = (row: { name: string; display_name: string | null }): string =>
+      row.display_name ?? row.name;
+
+    let bucketName: string | null;
+    // The row this request read for itself, when it read one. A cache MISS has already paid for the
+    // whole row, so the name it carries is this request's own fresh answer and readFirmName below
+    // must not go back for it; a cache HIT has no row, and readFirmName reads one when asked.
+    let firmRowThisRequest: { name: string; display_name: string | null } | null = null;
+
+    const cached = firmRowCache.get(session.firmId);
+    if (cached !== undefined && cached.expiresAtMilliseconds > Date.now()) {
+      bucketName = cached.bucketName;
+    } else {
+      firmRowCache.delete(session.firmId);
+      const firmRow = await env.DB_CONTROL.prepare(
+        "SELECT name, display_name, bucket_name FROM firm WHERE id = ?1",
+      )
+        .bind(session.firmId)
+        .first<{ name: string; display_name: string | null; bucket_name: string | null }>();
+      if (firmRow === null) return null;
+      firmRowThisRequest = firmRow;
+      bucketName = firmRow.bucket_name;
+      if (bucketName !== null) {
+        // A blunt bound, not an eviction policy: an isolate serves nowhere near this many firms,
+        // so the clear exists only so the map cannot grow without limit across a long isolate life.
+        if (firmRowCache.size >= 1000) firmRowCache.clear();
+        firmRowCache.set(session.firmId, {
+          bucketName,
+          expiresAtMilliseconds: Date.now() + FIRM_ROW_CACHE_MILLISECONDS,
+        });
+      }
+    }
+
+    const firmId = session.firmId;
+    const readFirmName = async (): Promise<string> => {
+      if (firmRowThisRequest !== null) return nameOf(firmRowThisRequest);
+      const row = await env.DB_CONTROL.prepare("SELECT name, display_name FROM firm WHERE id = ?1")
+        .bind(firmId)
+        .first<{ name: string; display_name: string | null }>();
+      return row === null ? "" : nameOf(row);
+    };
 
     // Every firm is reachable by name through its per-firm FirmDatabase Durable Object; the stub
     // self-migrates the per-firm lineage on first access. The firm is addressed by its session
@@ -127,8 +202,8 @@ function makeResolveFirmContext(): (
 
     return {
       firmDatabase,
-      firmName: firmRow.display_name ?? firmRow.name,
-      bucketName: firmRow.bucket_name,
+      readFirmName,
+      bucketName,
     };
   };
 }

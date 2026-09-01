@@ -5,29 +5,34 @@
    * whether or not the API answers; opening it asks GET /api/v1/meta/versions what every other
    * part of the deployment is running.
    *
-   * TWO KINDS OF LINE, AND EACH IS NAMED FOR WHAT IT IS. The build line ("This page") reports the
-   * bundle this browser is running — a thing that can outlive the deployment that served it by
-   * however long the tab stays open, so it is not headed by a Worker's name. Every deployment line
-   * is headed by the Cloudflare Worker it reports on (`magna-carta`, `magna-carta-scan`, …) and by
-   * nothing else: the names arrive from the API's roster, which reads them off the wrangler
-   * configs that deploy them, so a row that says "Not reporting" tells the reader exactly which
-   * project is silent and no row carries an invented product name.
+   * EVERY ROW IS HEADED BY THE CLOUDFLARE WORKER IT REPORTS ON (`magna-carta`, `magna-carta-web`,
+   * `magna-carta-scan`, …) and by nothing else: the names arrive from the API's roster, which reads
+   * them off the wrangler configs that deploy them, so a row that says "Not reporting" tells the
+   * reader exactly which project is silent and no row carries an invented product name.
+   *
+   * THE PAGE'S OWN BUILD IS NOT A STANDING ROW. It was one, headed "This page", and it duplicated
+   * magna-carta-web: that Worker serves the interface, so its commit and timestamps are this page's,
+   * said once under a name someone can act on (owner ruling, 2026-08-31 — the reasoning and the
+   * fallback rule live on showsPageBuildRow in version-overlay-model.ts). It comes back only where
+   * nothing else states this build: signed out, or with the web row silent.
    *
    * THE DEPLOYMENT LIST IS THE WHOLE FLEET. Every dedicated sibling Worker appears, the unbound
    * ones included — a worker missing from the list reads as "everything is listed and healthy",
-   * which is worse than an honest "Not deployed" row.
+   * which is worse than an honest "Not deployed" row. The fleet beneath the leading pair folds
+   * away and remembers the fold, and a folded heading still counts the Workers that came back
+   * without a version, so folding hides rows and never hides a fault.
    *
    * TWO WORKERS SERVE THE APP'S ADDRESS, split by route pattern: `magna-carta-web` serves the
    * interface (this page included) and `magna-carta` answers the API. They deploy separately, so
-   * the page's commit and the API's commit are allowed to differ without a warning — a difference
-   * is the normal state whenever one of them shipped more recently, and the panel says so in one
-   * line under the deployment list instead of raising an alarm about it
-   * (version-overlay-model.ts records why the old "Different Builds" warning was retired).
+   * the two are allowed to differ, and the front rows carry a colour-coded sync badge instead of a
+   * fixed sentence — success once they match, warning only when the web build is the one behind
+   * (apiWebSyncState in version-overlay-model.ts), neutral for any other difference, since
+   * differing is a normal state and not every difference is a fault.
    *
    * THE CHIP NOTICES AN UPSTREAM DEPLOY. SvelteKit's version poll (svelte.config.js names each
    * build by its commit) compares the running bundle against what the deployment serving it is
-   * publishing now; when a newer bundle is live the chip carries a warning dot and the panel
-   * leads with a Reload control.
+   * publishing now; when a newer bundle is live the chip carries a warning dot and a Reload control
+   * appears in the panel header, beside Refresh, where the panel's other gesture already is.
    *
    * TWO SCOPES, ONE COMPONENT. Inside a session (`scope="app"`) the panel reports the whole
    * deployment. On the signed-out surfaces (`scope="public"` — sign in, password reset, the
@@ -52,33 +57,42 @@
   import * as Popover from "@magna-carta/design-system/popover";
   import Separator from "@magna-carta/design-system/separator";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import Check from "@lucide/svelte/icons/check";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import { updated } from "$app/state";
   import { requestJson, type ApiProblem } from "$lib/api/request.ts";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
+  import { fleetSectionPreference } from "$lib/versions/version-panel-preferences.svelte.ts";
   import {
+    apiWebSyncState,
     copyLineForPart,
     describeObservationAge,
     describeRetainedRows,
+    findWebWorkerRow,
     formatVersionTimestamp,
     isRealCommit,
     partitionDeploymentRows,
     readsServiceAggregate,
     serviceStateDescription,
     serviceStateLabel,
+    showsPageBuildRow,
+    summarizeSilentWorkers,
+    syncStateBadgeVariant,
+    syncStateLabel,
     versionChipLabel,
     API_WORKER_UNIT_NAME,
+    FLEET_SECTION_LABEL,
     NO_SERVICES_NOTICE,
     PAGE_BUILD_ROW_NAME,
     READ_IN_FLIGHT_NOTICE,
     RELOAD_ACTION_LABEL,
     SIGNED_OUT_ESTATE_NOTICE,
     UPDATE_AVAILABLE_EXPLANATION,
-    WEB_TOPOLOGY_NOTICE,
     type MetaVersionsValue,
     type ServiceVersionState,
+    type VersionReadPhase,
     type VersionScope,
   } from "$lib/versions/version-overlay-model.ts";
 
@@ -152,6 +166,18 @@
       : null,
   );
 
+  // A retained answer still counts as answered: its web row goes on speaking for this build.
+  const readPhase = $derived<VersionReadPhase>(
+    value !== null ? "answered" : failure !== null ? "failed" : "pending",
+  );
+  const webWorkerRow = $derived(value === null ? null : findWebWorkerRow(value.services));
+  const showsOwnBuild = $derived(
+    showsPageBuildRow({ readsAggregate, read: readPhase, webRow: webWorkerRow }),
+  );
+  // Whether magna-carta-web is running the same build as magna-carta, and if not, which side is
+  // behind — the colour-coded read of the pair the front rows show, in place of a fixed sentence.
+  const syncState = $derived(value === null ? null : apiWebSyncState(value.api, webWorkerRow));
+
   async function copyPart(
     rowKey: string,
     part: {
@@ -161,7 +187,7 @@
       buildTime: string | null;
     },
   ): Promise<void> {
-    // The check appears only when the clipboard actually took the text — a denied clipboard
+    // The fill appears only when the clipboard actually took the text — a denied clipboard
     // permission must not claim a copy that never happened (and must not surface as a page error).
     try {
       await navigator.clipboard.writeText(copyLineForPart(part));
@@ -171,7 +197,7 @@
     copiedRow = rowKey;
     setTimeout(() => {
       if (copiedRow === rowKey) copiedRow = null;
-    }, 2000);
+    }, 1000);
   }
 
   function badgeVariantFor(state: ServiceVersionState): "neutral" | "warning" {
@@ -217,10 +243,20 @@
       {/if}
     </div>
     {#if part.state === "reported" && part.commit !== null}
+      <!-- The copied confirmation is the control filling in for a moment, not a glyph appearing
+           beside the identifier: a check pushed the commit sideways every time it was copied, and
+           the width change read as the value itself changing (owner ruling, 2026-08-31). The
+           aria-label keeps stating the action for a screen reader.
+
+           The fill is the step BEYOND ghost's own hover (which is --mc-action-secondary): whoever
+           just clicked this is by definition hovering it, so a confirmation painted in the hover
+           colour is no confirmation at all. -->
       <Button
         variant="ghost"
         size="sm"
-        class="shrink-0 font-mono text-xs tabular-nums"
+        class="shrink-0 font-mono text-xs tabular-nums {copiedRow === part.rowKey
+          ? 'bg-action-secondary-hover'
+          : ''}"
         aria-label="Copy the {part.name} version"
         onclick={() =>
           copyPart(part.rowKey, {
@@ -230,12 +266,7 @@
             buildTime: part.buildTime,
           })}
       >
-        <!-- No copy glyph: the button's own shape says it is pressable, and the check appearing
-             is the confirmation. The aria-label keeps stating the action for a screen reader. -->
         {part.commit}
-        {#if copiedRow === part.rowKey}
-          <Check class="size-16" aria-hidden="true" />
-        {/if}
       </Button>
     {:else if stateLabel !== null}
       <Badge variant={badgeVariantFor(part.state)}>{stateLabel}</Badge>
@@ -268,29 +299,57 @@
     class="mc-scrollbar flex flex-col gap-8 overflow-y-auto"
     style="inline-size: var(--mc-size-prose); max-height: var(--bits-floating-available-height)"
   >
-    <div class="flex items-center justify-between gap-8">
-      <p class="text-sm font-medium">Build Versions</p>
-      {#if readsAggregate}
-        <div class="flex items-center gap-8">
-          <!-- The in-flight word sits where the age line sits, so a re-ask is visible before its
-               answer lands without a spinner and without moving anything. -->
-          {#if loading}
-            <p class="text-xs text-text-muted">{READ_IN_FLIGHT_NOTICE}</p>
-          {:else if observationAge !== null}
-            <p class="text-xs text-text-muted">Services {observationAge}</p>
+    <div class="flex flex-col gap-4">
+      <div class="flex items-center justify-between gap-8">
+        <p class="text-sm font-medium">Build Versions</p>
+        <div class="flex items-center gap-4">
+          {#if updateAvailable}
+            <!-- The one reload gesture, seated beside Refresh because the two are the panel's
+                 only actions and a reader looking for either looks here. It is warning-tinted so
+                 it reads as the answer to the chip's dot rather than as a second refresh. -->
+            <Button
+              variant="ghost"
+              size="icon"
+              class="shrink-0 text-status-warning"
+              aria-label={RELOAD_ACTION_LABEL}
+              onclick={() => location.reload()}
+            >
+              <RotateCw class="size-16" aria-hidden="true" />
+            </Button>
           {/if}
-          <Button
-            variant="ghost"
-            size="icon"
-            class="shrink-0"
-            aria-label="Refresh the version read"
-            aria-busy={loading}
-            disabled={loading}
-            onclick={() => refresh({ fresh: true })}
-          >
-            <RefreshCw class="size-16" aria-hidden="true" />
-          </Button>
+          {#if readsAggregate}
+            <Button
+              variant="ghost"
+              size="icon"
+              class="shrink-0"
+              aria-label="Refresh the version read"
+              aria-busy={loading}
+              disabled={loading}
+              onclick={() => refresh({ fresh: true })}
+            >
+              <RefreshCw class="size-16" aria-hidden="true" />
+            </Button>
+          {/if}
         </div>
+      </div>
+      <!-- Under the header, not beside it: the age line grows and shrinks as the clock ticks, and
+           on the header row that motion pushed the controls around (owner ruling, 2026-08-31). The
+           in-flight word takes the same seat, so a re-ask is visible before its answer lands
+           without a spinner and without moving anything. The line itself is never conditionally
+           mounted — a read that lands inside the fresh window (no age line yet) or ends "Checking
+           services" would otherwise make this row appear and disappear as the clock ticks past ten
+           seconds, resizing the popover under the reader's eye (owner ruling, 2026-08-31); an
+           empty line holds the same height so the panel's size never depends on wording. -->
+      {#if readsAggregate}
+        <p class="text-xs text-text-muted">
+          {#if loading}
+            {READ_IN_FLIGHT_NOTICE}
+          {:else if observationAge !== null}
+            Services {observationAge}
+          {:else}
+            &nbsp;
+          {/if}
+        </p>
       {/if}
     </div>
 
@@ -324,31 +383,29 @@
     {/if}
 
     {#if updateAvailable}
-      <!-- The one reload callout: the version poll saw a newer bundle where this page came from.
-           A page-versus-API commit difference deliberately raises nothing — the two Workers deploy
-           separately, so differing is the normal state (the topology line below says so). -->
-      <div class="flex flex-col gap-4">
-        <div class="flex items-center justify-between gap-8">
-          <Badge variant="warning">Update Available</Badge>
-          <Button variant="secondary" size="sm" onclick={() => location.reload()}>
-            {RELOAD_ACTION_LABEL}
-          </Button>
-        </div>
+      <!-- The words behind the header's Reload control and the chip's dot: the version poll saw a
+           newer bundle where this page came from. This is a different question from the sync
+           badge below (this build against the deployment serving it, not the API against
+           magna-carta-web), so the two can disagree without contradicting each other. -->
+      <div class="flex items-center justify-between gap-8">
+        <Badge variant="warning">Update Available</Badge>
         <p class="text-xs text-text-muted">{UPDATE_AVAILABLE_EXPLANATION}</p>
       </div>
     {/if}
 
-    <!-- The build line: the bundle this browser is running, which is not a deployment row — the
-         tab can outlive the deployment that served it. -->
-    {@render partRow({
-      rowKey: "page",
-      name: PAGE_BUILD_ROW_NAME,
-      isWorkerName: false,
-      state: "reported",
-      commit: webCommitLabel,
-      commitTime: BUILD_IDENTITY.committedAt,
-      buildTime: BUILD_IDENTITY.builtAt,
-    })}
+    {#if showsOwnBuild}
+      <!-- The build line, which appears only when no reporting magna-carta-web row is there to
+           state the same commit under the name someone can act on. -->
+      {@render partRow({
+        rowKey: "page",
+        name: PAGE_BUILD_ROW_NAME,
+        isWorkerName: false,
+        state: "reported",
+        commit: webCommitLabel,
+        commitTime: BUILD_IDENTITY.committedAt,
+        buildTime: BUILD_IDENTITY.builtAt,
+      })}
+    {/if}
 
     {#if readsAggregate}
       {#if value !== null || loading}
@@ -374,7 +431,7 @@
           {:else}
             {@const deploymentRows = partitionDeploymentRows(value.services)}
             <!-- The two Workers that serve the app's address lead the list, with the topology
-                 line that explains them; the rest of the fleet sits beneath the separator. -->
+                 line that explains them; the rest of the fleet sits beneath the fold. -->
             <div class="flex flex-col">
               {#each deploymentRows.front as service (service.id)}
                 {@render partRow({
@@ -388,22 +445,58 @@
                 })}
               {/each}
             </div>
-            <p class="text-xs text-text-muted">{WEB_TOPOLOGY_NOTICE}</p>
-            {#if deploymentRows.rest.length > 0}
-              <Separator />
-              <div class="flex flex-col">
-                {#each deploymentRows.rest as service (service.id)}
-                  {@render partRow({
-                    rowKey: service.id,
-                    name: service.service,
-                    isWorkerName: true,
-                    state: service.state,
-                    commit: service.commit,
-                    commitTime: service.commitTime,
-                    buildTime: service.buildTime,
-                  })}
-                {/each}
+            {#if syncState !== null}
+              <!-- The pair's sync read, colour-coded: success once magna-carta-web matches the
+                   API it serves, warning only when the web build is the one behind (the
+                   actionable case), neutral for any other difference — the two Workers deploy
+                   separately, so differing is a normal state, not a fault. -->
+              <div class="flex items-center gap-8">
+                <Badge variant={syncStateBadgeVariant(syncState)}>{syncStateLabel(syncState)}</Badge>
               </div>
+            {/if}
+            {#if deploymentRows.rest.length > 0}
+              {@const silentWorkers = summarizeSilentWorkers(deploymentRows.rest)}
+              <Separator />
+              <!-- The fold. Its own visible label is its accessible name, aria-expanded carries
+                   the state, and when it is shut the count of Workers that came back without a
+                   version rides beside it, so folding the list away never folds a fault away. -->
+              <Button
+                variant="ghost"
+                size="sm"
+                class="w-full justify-between gap-8"
+                aria-expanded={!fleetSectionPreference.collapsed}
+                onclick={() => fleetSectionPreference.toggle()}
+              >
+                <span class="flex items-center gap-8">
+                  <span class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+                    {FLEET_SECTION_LABEL}
+                  </span>
+                  {#if fleetSectionPreference.collapsed && silentWorkers !== null}
+                    <Badge variant="warning">{silentWorkers}</Badge>
+                  {/if}
+                </span>
+                <ChevronRight
+                  class="size-16 shrink-0 text-text-muted transition-transform duration-fast ease-standard motion-reduce:transition-none {fleetSectionPreference.collapsed
+                    ? ''
+                    : 'rotate-90'}"
+                  aria-hidden="true"
+                />
+              </Button>
+              {#if !fleetSectionPreference.collapsed}
+                <div class="flex flex-col">
+                  {#each deploymentRows.rest as service (service.id)}
+                    {@render partRow({
+                      rowKey: service.id,
+                      name: service.service,
+                      isWorkerName: true,
+                      state: service.state,
+                      commit: service.commit,
+                      commitTime: service.commitTime,
+                      buildTime: service.buildTime,
+                    })}
+                  {/each}
+                </div>
+              {/if}
             {/if}
           {/if}
         {:else}

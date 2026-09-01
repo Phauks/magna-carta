@@ -175,6 +175,55 @@ export type ExportRenderRequest = {
     };
 };
 
+export type DownloadSnapshotCreatedResponse = {
+    id: string;
+    expiresAt: string;
+};
+
+export type DownloadSnapshotRequest = {
+    title: string;
+    format: string;
+    document: {
+        title: string;
+        generatedAt: string;
+        sections: Array<{
+            title: string;
+            headers: Array<string>;
+            rows: Array<Array<string | {
+                text: string;
+                number: number;
+            }>>;
+            endAlignedColumns?: Array<number>;
+        }>;
+    };
+};
+
+export type DownloadShelfResponse = {
+    items: Array<DownloadItem>;
+};
+
+export type DownloadItem = {
+    id: string;
+    title: string;
+    kind: 'artifact' | 'snapshot';
+    producer: 'export' | 'bundle' | 'conversion';
+    byteSize: number | null;
+    downloadedFormats: Array<string>;
+    createdAt: string;
+    expiresAt: string;
+    state: 'building' | 'ready' | 'failed' | 'expired';
+};
+
+export type DownloadFetchResponse = {
+    kind: 'artifact' | 'snapshot';
+    url?: string;
+    document?: unknown;
+};
+
+export type DownloadFetchRequest = {
+    format: string;
+};
+
 export type ToolsConnectionResponse = {
     ip: string;
     asn: number;
@@ -2830,6 +2879,61 @@ export type ContinuanceChainNode = {
     timeZone: string;
     status: string;
     statusReason: string | null;
+};
+
+export type MatterNotePage = {
+    data: Array<MatterNoteDetail>;
+    nextCursor: string | null;
+};
+
+export type MatterNoteDetail = {
+    id: string;
+    matterId: string;
+    authorUserId: string;
+    state: 'active' | 'retracted';
+    body: string | null;
+    revisionCount: number;
+    currentRevisionAuthorUserId: string | null;
+    currentRevisionCreatedAt: string | null;
+    retractedAt: string | null;
+    retractedBy: string | null;
+    retractionReason: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type MatterNoteRevisionList = {
+    data: Array<MatterNoteRevision>;
+    capped: boolean;
+};
+
+export type MatterNoteRevision = {
+    id: string;
+    noteId: string;
+    body: string;
+    authorUserId: string;
+    ordinal: number;
+    createdAt: string;
+};
+
+export type CreatedMatterNote = {
+    id: string;
+};
+
+export type CreateMatterNoteRequest = {
+    body: string;
+};
+
+export type MatterNoteAcknowledged = {
+    ok: true;
+};
+
+export type ReviseMatterNoteRequest = {
+    body: string;
+};
+
+export type RetractMatterNoteRequest = {
+    reason: string;
 };
 
 export type CustodyLocation = {
@@ -6824,6 +6928,158 @@ export type ReportsExportRenderResponses = {
      */
     200: unknown;
 };
+
+export type DownloadsRecordSnapshotData = {
+    body: DownloadSnapshotRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/snapshots';
+};
+
+export type DownloadsRecordSnapshotErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * The document is past the register's bounds
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsRecordSnapshotError = DownloadsRecordSnapshotErrors[keyof DownloadsRecordSnapshotErrors];
+
+export type DownloadsRecordSnapshotResponses = {
+    /**
+     * The shelf item that was created
+     */
+    201: DownloadSnapshotCreatedResponse;
+};
+
+export type DownloadsRecordSnapshotResponse = DownloadsRecordSnapshotResponses[keyof DownloadsRecordSnapshotResponses];
+
+export type DownloadsShelfData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads';
+};
+
+export type DownloadsShelfErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsShelfError = DownloadsShelfErrors[keyof DownloadsShelfErrors];
+
+export type DownloadsShelfResponses = {
+    /**
+     * The member's shelf
+     */
+    200: DownloadShelfResponse;
+};
+
+export type DownloadsShelfResponse = DownloadsShelfResponses[keyof DownloadsShelfResponses];
+
+export type DownloadsFetchData = {
+    body: DownloadFetchRequest;
+    path: {
+        downloadItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/{downloadItemId}/fetches';
+};
+
+export type DownloadsFetchErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * No such item on this member's shelf
+     */
+    404: Problem;
+    /**
+     * The item's retention window has closed and its bytes are gone
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsFetchError = DownloadsFetchErrors[keyof DownloadsFetchErrors];
+
+export type DownloadsFetchResponses = {
+    /**
+     * The URL to download, or the document to render
+     */
+    200: DownloadFetchResponse;
+};
+
+export type DownloadsFetchResponse = DownloadsFetchResponses[keyof DownloadsFetchResponses];
+
+export type DownloadsRemoveData = {
+    body?: never;
+    path: {
+        downloadItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/{downloadItemId}';
+};
+
+export type DownloadsRemoveErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks downloads:shelf
+     */
+    403: Problem;
+    /**
+     * No such item on this member's shelf
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsRemoveError = DownloadsRemoveErrors[keyof DownloadsRemoveErrors];
+
+export type DownloadsRemoveResponses = {
+    /**
+     * Removed
+     */
+    204: void;
+};
+
+export type DownloadsRemoveResponse = DownloadsRemoveResponses[keyof DownloadsRemoveResponses];
 
 export type ToolsConnectionGetData = {
     body?: never;
@@ -16749,6 +17005,292 @@ export type CalendarContinuanceChainResponses = {
 };
 
 export type CalendarContinuanceChainResponse = CalendarContinuanceChainResponses[keyof CalendarContinuanceChainResponses];
+
+export type NotesListNotesData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        search?: string;
+    };
+    url: '/api/v1/matters/{matterId}/notes';
+};
+
+export type NotesListNotesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesListNotesError = NotesListNotesErrors[keyof NotesListNotesErrors];
+
+export type NotesListNotesResponses = {
+    /**
+     * One page of notes
+     */
+    200: MatterNotePage;
+};
+
+export type NotesListNotesResponse = NotesListNotesResponses[keyof NotesListNotesResponses];
+
+export type NotesCreateNoteData = {
+    body: CreateMatterNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/notes';
+};
+
+export type NotesCreateNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesCreateNoteError = NotesCreateNoteErrors[keyof NotesCreateNoteErrors];
+
+export type NotesCreateNoteResponses = {
+    /**
+     * The note
+     */
+    201: CreatedMatterNote;
+};
+
+export type NotesCreateNoteResponse = NotesCreateNoteResponses[keyof NotesCreateNoteResponses];
+
+export type NotesReadNoteData = {
+    body?: never;
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}';
+};
+
+export type NotesReadNoteErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesReadNoteError = NotesReadNoteErrors[keyof NotesReadNoteErrors];
+
+export type NotesReadNoteResponses = {
+    /**
+     * The note
+     */
+    200: MatterNoteDetail;
+};
+
+export type NotesReadNoteResponse = NotesReadNoteResponses[keyof NotesReadNoteResponses];
+
+export type NotesReadNoteHistoryData = {
+    body?: never;
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}/revisions';
+};
+
+export type NotesReadNoteHistoryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     */
+    409: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesReadNoteHistoryError = NotesReadNoteHistoryErrors[keyof NotesReadNoteHistoryErrors];
+
+export type NotesReadNoteHistoryResponses = {
+    /**
+     * The note's revisions
+     */
+    200: MatterNoteRevisionList;
+};
+
+export type NotesReadNoteHistoryResponse = NotesReadNoteHistoryResponses[keyof NotesReadNoteHistoryResponses];
+
+export type NotesReviseNoteData = {
+    body: ReviseMatterNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}/revisions';
+};
+
+export type NotesReviseNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesReviseNoteError = NotesReviseNoteErrors[keyof NotesReviseNoteErrors];
+
+export type NotesReviseNoteResponses = {
+    /**
+     * The note was revised
+     */
+    200: MatterNoteAcknowledged;
+};
+
+export type NotesReviseNoteResponse = NotesReviseNoteResponses[keyof NotesReviseNoteResponses];
+
+export type NotesRetractNoteData = {
+    body: RetractMatterNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}/retract';
+};
+
+export type NotesRetractNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesRetractNoteError = NotesRetractNoteErrors[keyof NotesRetractNoteErrors];
+
+export type NotesRetractNoteResponses = {
+    /**
+     * The note was withdrawn
+     */
+    200: MatterNoteAcknowledged;
+};
+
+export type NotesRetractNoteResponse = NotesRetractNoteResponses[keyof NotesRetractNoteResponses];
 
 export type CustodyListLocationsData = {
     body?: never;

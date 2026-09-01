@@ -76,6 +76,7 @@ import type {
   IndexSplitId,
   IntegrationConnectionId,
   InvoiceApplicationId,
+  DownloadItemId,
   InvoiceDeliveryId,
   InvoiceId,
   InvoiceLineId,
@@ -98,6 +99,8 @@ import type {
   MatterAssignmentId,
   MatterCourtCaseId,
   MatterDeadlineId,
+  MatterNoteId,
+  MatterNoteRevisionId,
   MatterEstateId,
   MatterEventId,
   MatterEventParticipantId,
@@ -6227,6 +6230,114 @@ export const matterDeadline = sqliteTable(
   ],
 );
 
+// A note on a matter: what the firm wrote down about a case that no other record holds. Two tables,
+// because a note is an IDENTITY that persists and a BODY that gets corrected, and those have
+// different lifetimes — the identity carries the matter, who first wrote it, when, and whether it
+// still stands; each revision carries one body, its own author, and its own instant.
+//
+// The attachment is a real foreign key to `matter` and not a `subject_kind`/`subject_id` pair. The
+// cost of the polymorphic shape is already measured in this schema: `audit_log.subject_id` is
+// untyped, holds whatever the writer thought the subject was, and the timeline's read of it needs a
+// prefix scan to confine itself to rows whose subject really is a matter. A note is a first-class
+// record read on a hot surface, so it gets a real key, a real index, and a real cascade story.
+export const matterNote = sqliteTable(
+  "matter_note",
+  {
+    id: text("id").primaryKey().$type<MatterNoteId>(), // matterNote_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // Who wrote it FIRST, and it never nulls, never repoints, and is not anonymized when they leave.
+    // An unattributed contemporaneous record is worth a fraction of an attributed one — the whole
+    // value of "I spoke to her on Tuesday" is that a specific person wrote it on a specific day. That
+    // a former member wrote it is a JOIN on member.status at read time, never a column here: a fact
+    // that is a join cannot drift from the row it joins.
+    authorUserId: text("author_user_id").notNull().$type<UserId>(),
+    // The chain's live head, as the ordinal of the revision that currently renders. A POINTER on the
+    // identity row rather than a flag on each revision, because the revision table is append-only by
+    // trigger and moving a flag there would be an UPDATE it refuses. Moving the head is an UPDATE
+    // here, which carries no trigger, and the unique index on (note_id, ordinal) below is what makes
+    // "exactly one head" a schema fact rather than a convention.
+    headOrdinal: integer("head_ordinal").notNull().default(1),
+    // A retracted note stops rendering its body everywhere and leaves the federated timeline
+    // entirely; the row, its revisions, its author and its instants all remain. This is the answer to
+    // "this should never have been written", and it is deliberately visible — the firm can see that a
+    // note was withdrawn and by whom, which is what makes it a correction mechanism rather than a
+    // quiet erasure. There is no third state and no delete.
+    state: text("state", { enum: ["active", "retracted"] })
+      .notNull()
+      .default("active"),
+    retractedAt: text("retracted_at"), // UTC instant
+    retractedBy: text("retracted_by").$type<UserId>(),
+    // Required on retraction. "Why did this stop rendering" is the question somebody asks later, and
+    // the only bad answer is silence — the same reasoning that makes a vacated deadline's reason
+    // required.
+    retractionReason: text("retraction_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The matter's own note list and the federated timeline's read of it.
+    index("matter_note_matter_created_at_id_index").on(table.matterId, table.createdAt, table.id),
+    // The firm-wide timeline window, which bounds by date across every matter.
+    index("matter_note_created_at_id_index").on(table.createdAt, table.id),
+    index("matter_note_author_index").on(table.authorUserId),
+    check("matter_note_state_check", sql`${table.state} IN ('active', 'retracted')`),
+    check("matter_note_head_ordinal_check", sql`${table.headOrdinal} > 0`),
+    // A retracted note names who withdrew it, when, and why; an active one claims none of the three.
+    // Both directions, so neither a retraction missing its record nor a live note carrying one is
+    // expressible.
+    check(
+      "matter_note_retraction_shape_check",
+      sql`(${table.state} = 'retracted' AND ${table.retractedAt} IS NOT NULL AND ${table.retractedBy} IS NOT NULL AND ${table.retractionReason} IS NOT NULL AND length(${table.retractionReason}) > 0)
+        OR (${table.state} = 'active' AND ${table.retractedAt} IS NULL AND ${table.retractedBy} IS NULL AND ${table.retractionReason} IS NULL)`,
+    ),
+  ],
+);
+
+// One body of one note, with its own author and its own instant. APPEND-ONLY, enforced by three
+// triggers in the migration rather than by application code: an edit appends a revision and moves the
+// note's head, and every prior body stays readable from the note's own surface.
+//
+// The reasoning is that a note is neither the ledger nor the calendar. The ledger is append-only
+// because a third party relies on it; no rule of conduct demands that of a note. The calendar edits
+// in place because it records a PLAN, and a firm made to file a compensating row to fix a typo stops
+// recording. But a note is a contemporaneous record whose evidentiary weight comes from having been
+// written then, by that person, saying that — and editing it in place destroys the one property that
+// makes it worth keeping.
+export const matterNoteRevision = sqliteTable(
+  "matter_note_revision",
+  {
+    id: text("id").primaryKey().$type<MatterNoteRevisionId>(), // matterNoteRevision_ handle
+    noteId: text("note_id")
+      .notNull()
+      .$type<MatterNoteId>()
+      .references(() => matterNote.id),
+    // The words. The most privileged free-text column this schema has after a time entry's narrative:
+    // it is registered report-manual in the PII registry, it is never projected onto the federated
+    // timeline, and no merge field may resolve to it (a fitness function in packages/notes holds
+    // that last one, because a catalog entry that did would put work product into a letter under the
+    // firm's letterhead and the PDF metadata scrub is structurally blind to page content).
+    body: text("body").notNull(),
+    // Whoever wrote THIS body, which is not always whoever started the note: a colleague correcting a
+    // partner's note is a real and ordinary thing, and the correction is theirs.
+    authorUserId: text("author_user_id").notNull().$type<UserId>(),
+    // Its place in the chain, from 1. The unique index below makes two revisions racing for the same
+    // ordinal a collision that aborts the whole batch — which is the right outcome and the reason the
+    // head pointer needs no separate guard: two members revising at once, one loses, and neither
+    // silently overwrites the other's words.
+    ordinal: integer("ordinal").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("matter_note_revision_note_ordinal_unique_index").on(table.noteId, table.ordinal),
+    index("matter_note_revision_author_index").on(table.authorUserId),
+    check("matter_note_revision_body_check", sql`length(${table.body}) > 0`),
+    check("matter_note_revision_ordinal_check", sql`${table.ordinal} > 0`),
+  ],
+);
+
 // What the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a
 // reservation. Its own table and NOT a nullable matter_id on matter_event, twice over: every read of
 // matter_event is "what happened on this case" and the visibility predicate keys off the matter — a
@@ -8779,5 +8890,90 @@ export const aiSearchDisclosureAcknowledgement = sqliteTable(
   },
   (table) => [
     check("ai_search_disclosure_acknowledgement_scope_check", sql`${table.scope} = 'firm'`),
+  ],
+);
+
+// The download register — one member's shelf of what the platform produced for them, held for a
+// short retention window and then swept. A SHELF, NOT A HISTORY: "what have I ever downloaded" is an
+// audit question `audit_log` already answers under a different key, and nothing here is the firm's
+// record — filing an export into a matter stays a separate, audited act producing a real document.
+//
+// The gap it closes: a bulk bundle is addressed by the content hash of its selection and a
+// conversion by its job id, both held only in a Durable Object and an R2 object, so a member who
+// closed the tab had no way back to an artifact that sat in the bucket, paid for, until its
+// lifecycle rule reaped it.
+export const downloadItem = sqliteTable(
+  "download_item",
+  {
+    id: text("id").primaryKey().$type<DownloadItemId>(), // downloadItem_ handle
+    // WHOSE SHELF. Every read is scoped to this column, never to the firm alone: a colleague's
+    // exports are not the reader's business. A bundle is content-addressed and genuinely shared
+    // between two members who selected the same files — the artifact is shared, these rows are not.
+    memberId: text("member_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // What the reader sees, composed by the producer from what the member asked for. Never a key.
+    title: text("title").notNull(),
+    // TWO KINDS, and the distinction decides what "download again" does. An `artifact` points at
+    // bytes that cannot be re-derived (a bundle of the firm's own files, a conversion result) and
+    // re-downloads as a freshly minted presigned GET. A `snapshot` is an export, and stores the
+    // tabular DOCUMENT rather than a rendered file — this platform holds that an export is a
+    // document and formats are renderers, so one row serves every format and the figures stay frozen
+    // at the instant of the export rather than being recomputed into a different answer.
+    kind: text("kind", { enum: ["artifact", "snapshot"] }).notNull(),
+    // WHICH PRODUCER made it. Closed now rather than later: SQLite cannot widen a table CHECK without
+    // a destructive rebuild. `bundle` and `conversion` are here with no client able to create one yet
+    // — both producers exist server-side and neither has a screen — because the alternative is
+    // rebuilding this table on the day one lands.
+    producer: text("producer", { enum: ["export", "bundle", "conversion"] }).notNull(),
+    // For an artifact, the producer's own key under the producer's own prefix, which is what keeps
+    // this table a catalog rather than a second store. For a snapshot, this register's own object
+    // holding the stored document, swept with the row.
+    objectKey: text("object_key").notNull(),
+    // Bytes where the producer knows them. Null on a snapshot, whose size is a property of a
+    // rendering nobody has asked for yet rather than of the row.
+    byteSize: integer("byte_size"),
+    // WHAT HAS BEEN TAKEN — format tokens, appended to rather than replaced. The half of the ask a
+    // plain list does not answer: a member who can see they already took the Word copy is looking at
+    // a shelf, and one who cannot is looking at a pile. Empty means built and never fetched, which is
+    // a real and visible state.
+    downloadedFormatsJson: text("downloaded_formats_json").notNull().default("[]"),
+    createdAt: text("created_at").notNull(),
+    // When the shelf lets go, written by the producer from one constant so a row and the lifecycle
+    // rule over its prefix cannot drift into the register outliving the bytes it points at.
+    expiresAt: text("expires_at").notNull(),
+    // `building` is why this is a column rather than a derivation: a bundle is enqueued before its
+    // bytes exist, and a member watching a large archive build should see it here rather than wonder
+    // whether the request was taken. `failed` is terminal and keeps the row so the outcome is learned
+    // instead of the row vanishing. `expired` is written by the sweep, but a read that finds the
+    // object already gone reports it without waiting for the sweep to catch up.
+    state: text("state", { enum: ["building", "ready", "failed", "expired"] }).notNull(),
+  },
+  (table) => [
+    // The shelf read: one member's rows, newest first, walked by the (created_at, id) pair so the
+    // order is total and a page boundary cannot repeat or drop a row sharing an instant with its
+    // neighbour.
+    index("download_item_member_created_index").on(table.memberId, table.createdAt, table.id),
+    // The sweep's read, across the firm rather than one member. Leading with the expiry is what keeps
+    // the daily pass a range scan over the tail rather than a walk of every shelf in the firm.
+    index("download_item_expiry_index").on(table.expiresAt, table.state),
+    check("download_item_kind_check", sql`${table.kind} IN ('artifact', 'snapshot')`),
+    check(
+      "download_item_producer_check",
+      sql`${table.producer} IN ('export', 'bundle', 'conversion')`,
+    ),
+    check(
+      "download_item_state_check",
+      sql`${table.state} IN ('building', 'ready', 'failed', 'expired')`,
+    ),
+    check("download_item_title_nonempty_check", sql`length(trim(${table.title})) > 0`),
+    check("download_item_object_key_nonempty_check", sql`length(trim(${table.objectKey})) > 0`),
+    // A snapshot has no byte size and an artifact's is never negative; zero is a real answer (an
+    // empty archive) and stays representable.
+    check(
+      "download_item_byte_size_check",
+      sql`${table.byteSize} IS NULL OR ${table.byteSize} >= 0`,
+    ),
   ],
 );

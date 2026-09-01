@@ -12,6 +12,8 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import { toast } from "@magna-carta/design-system/toast";
+  import { keepExportOnShelf } from "./download-shelf.ts";
+  import { markShelfChanged } from "./download-shelf-signal.svelte.ts";
   import { renderCsvExport } from "./render-csv.ts";
   import { RemoteRenderError, renderRemoteExport } from "./render-remote.ts";
   import { renderTextExport } from "./render-text.ts";
@@ -86,6 +88,27 @@
         exportFilename(renderedDocument, format.extension),
         format.contentType,
       );
+      // Keep it on the member's shelf so they can take it again while it is still current. The file
+      // is already saved by this point, so this never throws and never blocks — but it does REPORT.
+      // It was silent to begin with, and a document the register refused was indistinguishable from
+      // one that simply never arrived: the download worked, nothing appeared, and there was nothing
+      // for anyone to act on.
+      void keepExportOnShelf(fetch, renderedDocument, format.extension).then((outcome) => {
+        if (outcome.kind === "problem") {
+          const errorId = outcome.problem.errorId;
+          toast.error(
+            `Downloaded, but it could not be added to your Downloads.${errorId === undefined ? "" : ` (Error ID ${errorId})`}`,
+          );
+          return;
+        }
+        if (outcome.kind === "transport") {
+          toast.error("Downloaded, but your Downloads could not be reached to keep a copy.");
+          return;
+        }
+        // Tell the top-bar tray, so a download appears there at once rather than at the next page
+        // load — which is the moment a member looks up to confirm it was kept.
+        markShelfChanged();
+      });
     } catch (failure) {
       // The document formats render server-side, so a render can fail after the click; the server's
       // own sentence is the actionable one, with its Error ID when the failure minted one.

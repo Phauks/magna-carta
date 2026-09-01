@@ -41,7 +41,14 @@
     </script>
     %sveltekit.head%
   </head>
-  <body>
+  <!-- Preload on hover: a link's code and load-function data start fetching the moment the pointer
+       settles on it (touch: on touchstart), so by the time the click lands the navigation has a
+       head start on its API read — the matter chrome blocks on one, and the ~200-400ms between
+       hover and click is exactly the round trip it was paying after the click instead. Loads are
+       reads by design (mutations ride explicit requests, never a load), so preloading one early is
+       the same read a beat sooner, never a repeated side effect. Opt any exception out per-link
+       with data-sveltekit-preload-data="off". -->
+  <body data-sveltekit-preload-data="hover">
     %sveltekit.body%
   </body>
 </html>

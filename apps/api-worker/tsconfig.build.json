@@ -75,6 +75,9 @@
       "path": "../../packages/encryption/tsconfig.build.json"
     },
     {
+      "path": "../../packages/export-document/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/feature-flags/tsconfig.build.json"
     },
     {
@@ -118,6 +121,9 @@
     },
     {
       "path": "../../packages/money/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/notes/tsconfig.build.json"
     },
     {
       "path": "../../packages/notifications/tsconfig.build.json"

@@ -39,6 +39,9 @@ and graduate into _Standing rules_ above when they turn out to bind everywhere.
 - **Matter file manager** — [`file-manager-rulings.md`](file-manager-rulings.md). Machine-checkable
   entries are asserted by [`tooling/file-manager-rulings/`](../../tooling/file-manager-rulings/),
   which opens the surface in a browser and exercises each one.
+- **File Workbench** — [`file-workbench-rulings.md`](file-workbench-rulings.md). The Tools surface an
+  unfiled file is brought to. Two rounds so far; the rulings that generalize beyond it are promoted
+  into _Standing rules_ below.
 
 ---
 
@@ -62,6 +65,11 @@ is usually the fastest way to understand the rule.
 - **Error copy is per-channel and specific.** One generic failure message across channels that fail
   differently is wrong: only authenticator codes rotate, so only their message says so. _(auth flow,
   2026-08-07)_
+- **A surface states findings; it does not explain itself to the reader.** No standing note beside a
+  result telling somebody what the product does or why it is good ("Every file that arrives here is
+  scanned before anything else touches it"). It is read once, skipped ever after, and it takes room
+  from the answer the reader came for. A fact that a reader must have to read the result correctly
+  is part of the result, in its own row. _(file workbench, 2026-08-31)_
 
 ### Lists and tables
 
@@ -139,6 +147,20 @@ is usually the fastest way to understand the rule.
   transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
   number of times before reporting failure, and shows each attempt as it happens; the member is
   never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
+- **An empty screen is the filled screen lacking information**, not a different screen. The same
+  regions render, each saying what it is missing. A centred card that replaces the layout teaches a
+  person nothing about where things will be, and it makes the first real use of the screen a second
+  first impression. _(file workbench, 2026-08-31)_
+- **No pill describing a result's provenance.** A chip reading "Ran on arrival" or "Needs your
+  consent" beside a finding annotates the mechanism rather than the answer. Where when-it-ran
+  matters, it is a row in the result. _(file workbench, 2026-08-31)_
+- **Values are encapsulated, never floating.** A set of readings renders inside something with a
+  heading and edges — a table — so a reader can see where one set ends and the next begins. A bare
+  label-and-value list poured onto the page reads as text, and a long value runs into the heading
+  under it. _(file workbench, 2026-08-31)_
+- **A list of records is the product's one grid**, with its sorting, its per-column filters, its
+  show/hide, its selection gestures and its footer counts. A pane being narrow is a reason to start
+  columns hidden, never a reason to hand-roll a second list. _(file workbench, 2026-08-31)_
 - **A page's primary query control sits at the reading edge, not in the masthead's far-right
   actions slot.** Left-aligned below the masthead, where the eye starts; the far right is for
   secondary actions. Results render below it, so nothing about the control reflows when they
@@ -150,6 +172,38 @@ is usually the fastest way to understand the rule.
   the same-day "orienting text persists" ruling, which presumed the text should exist — copy that
   does legitimately exist (an honest empty-state or error line stating a fact about this result)
   still must not vanish or move between states. _(safe website viewer, 2026-08-31)_
+- **One fact, once, under the name that can act on it.** Where a panel can state the same fact two
+  ways, it states it the way a reader could do something about. The version overlay carried both a
+  "This page" line and a `magna-carta-web` row; they are the same commit, and the Worker's name is
+  the one someone can open in a dashboard. The duplicate goes, and comes back only as a fallback for
+  the case where the surviving line cannot answer. _(Build Versions panel, 2026-08-31)_
+- **A confirmation changes the control's fill, never its width.** Feedback on a press (copied,
+  saved, applied) tints or fills the control for about a second. It does not append a glyph beside
+  the value: the width change reads as the value itself changing, which is the one thing a
+  confirmation must not suggest. _(Build Versions panel, 2026-08-31)_
+- **Text that grows on a clock never shares a row with a control.** A line whose length changes on
+  its own ("checked 2 minutes ago" becoming "checked 14 minutes ago") sits under the header, not
+  beside the buttons, so nothing the reader is aiming at moves while they aim. _(Build Versions
+  panel, 2026-08-31)_
+- **The action that answers a signal sits with the surface's other controls, as a symbol.** A
+  panel's gestures belong in one cluster in its header, where a reader looks for any of them, and a
+  state-triggered action joins that cluster rather than opening a second control somewhere in the
+  body. Distinguish it by its own icon and register, never by repeating the neighbour's glyph.
+  _(Build Versions panel, 2026-08-31)_
+- **A long reference list folds, remembers the fold, and counts what folding hides.** Behind a
+  caret, per browser, defaulting to open. A shut heading still states any fault among the rows it
+  hides, because the reason a list is exhaustive is that omissions read as health. _(Build Versions
+  panel, 2026-08-31)_
+- **A comparison between two things allowed to differ is a status colour, not a sentence about
+  them.** Explaining in prose that two related builds deploy separately and may disagree is the "no
+  info lines" rule applied to a comparison: state the judgment (matched, one behind, differ) as a
+  coloured read instead, reserving the alarmed colour for the one state that actually calls for
+  action. _(Build Versions panel, second round, 2026-08-31)_
+- **A line whose content can go empty stays mounted, empty, rather than being unmounted.**
+  Conditionally rendering a status line (present only while there is something to say) resizes the
+  surface around it every time the condition flips; mount it unconditionally and give it inert
+  filler when it has nothing to report, so height never depends on wording. _(Build Versions panel,
+  second round, 2026-08-31)_
 
 ### List screens
 
@@ -244,6 +298,38 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-08-31 — the Build Versions panel
+
+Five corrections against the version overlay, all from the owner, all promoted above:
+
+- The **"This page / committed … · built …"** line was deleted as duplicative of the
+  `magna-carta-web` row. It survives only as the fallback for a panel nothing else can speak for:
+  signed out, a failed read, or a silent web row.
+- **"Services checked … ago"** moved off the header row and under the header. It grows and shrinks
+  as the clock ticks, and on the header row that motion pushed the Refresh control around.
+- The **Reload** control moved into the header beside Refresh and became a symbol (a warning-tinted
+  `rotate-cw`, distinct from Refresh's `refresh-cw`). The Update Available block keeps the badge and
+  the sentence and no longer carries a second copy of the gesture.
+- The **Workers** beneath the leading pair fold behind a caret, and the fold is remembered per
+  browser. It defaults to open, and a shut heading counts any worker that came back without a
+  version, so the fold never turns the fleet list into a claim of health.
+- **Copy feedback stopped being a check glyph** and became the control darkening for a second. The
+  glyph widened the button on every press, which read as the identifier itself changing.
+
+### 2026-08-31 — the Build Versions panel, second round
+
+Two more corrections against the same panel, both promoted above:
+
+- The fixed sentence explaining that `magna-carta-web` and `magna-carta` deploy separately and may
+  report different builds was deleted. In its place, the leading pair carries a colour-coded sync
+  badge — green **In sync**, amber **Web behind** (the one state that is actually actionable), or
+  neutral **Different builds** for any other difference — shown only once both sides have reported a
+  real commit to compare.
+- The **"Services checked … ago"** / **"Checking services"** line is now mounted unconditionally
+  whenever the panel can read the aggregate, with a non-breaking space when it has nothing to say.
+  It used to appear and disappear as the read moved through in-flight, freshly-answered, and aged,
+  resizing the popover under the reader each time.
 
 ### 2026-08-31 — WHOIS Lookup tool page, deployed-site review
 

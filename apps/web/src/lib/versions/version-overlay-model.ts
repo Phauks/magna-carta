@@ -70,17 +70,62 @@ export function versionChipLabel(commit: string): string {
   return isRealCommit(commit) ? commit : "dev";
 }
 
-/*
- * DELIBERATELY ABSENT: a page-versus-API "different builds" warning. The panel carried one while
- * the bundle shipped inside the API Worker, when a difference meant this tab predated the one
- * deployment there was. Since the interface moved onto its own Worker (magna-carta-web, serving
- * the app's address by route pattern), the page and the API deploy separately and their commits
- * differ whenever one has shipped more recently than the other — a normal state, not an anomaly,
- * and a standing warning about a normal state teaches people to ignore warnings. The reload signal
- * is the version poll (UPDATE_AVAILABLE_EXPLANATION below), which compares this tab against the
- * deployment that actually serves it. The rows still show every commit; the reader who needs the
- * comparison has it, without an alarm attached.
+/**
+ * Whether the two Workers that serve the app's address — `magna-carta-web` and `magna-carta` — are
+ * running the same build, and if not, which side is behind. Comparable only when both sides carry
+ * a real commit: a dev build or a web row that has not reported (unbound/unreachable/unreported)
+ * gives no basis for a comparison, so the panel shows no indicator then rather than guessing.
  */
+export type ApiWebSyncState = "in-sync" | "web-behind" | "mismatch";
+
+/**
+ * Compares the API's own commit against the `magna-carta-web` row. "web-behind" only when the
+ * commit times say so directly — a build time earlier than the API's — so an unresolvable order
+ * (a missing timestamp, or the API the one that is behind) falls into the calmer "mismatch" bucket
+ * rather than a claim this function cannot back up.
+ */
+export function apiWebSyncState(
+  api: { commit: string; commitTime: string | null },
+  web: ServiceVersionRow | null,
+): ApiWebSyncState | null {
+  if (!isRealCommit(api.commit)) return null;
+  if (web === null || web.state !== "reported" || !isRealCommit(web.commit)) return null;
+  if (web.commit === api.commit) return "in-sync";
+  if (web.commitTime === null || api.commitTime === null) return "mismatch";
+  const webTime = Date.parse(web.commitTime);
+  const apiTime = Date.parse(api.commitTime);
+  if (Number.isNaN(webTime) || Number.isNaN(apiTime)) return "mismatch";
+  return webTime < apiTime ? "web-behind" : "mismatch";
+}
+
+/**
+ * The badge colour for each sync state. Calm, not alarmed: the two Workers deploy separately, so
+ * differing is a normal state the reader should be able to see at a glance, not a fault — "warning"
+ * is reserved for the one case that is actually actionable, `magna-carta-web` running behind the
+ * API it serves.
+ */
+export function syncStateBadgeVariant(state: ApiWebSyncState): "success" | "warning" | "neutral" {
+  switch (state) {
+    case "in-sync":
+      return "success";
+    case "web-behind":
+      return "warning";
+    case "mismatch":
+      return "neutral";
+  }
+}
+
+/** The badge's text for each sync state. */
+export function syncStateLabel(state: ApiWebSyncState): string {
+  switch (state) {
+    case "in-sync":
+      return "In sync";
+    case "web-behind":
+      return "Web behind";
+    case "mismatch":
+      return "Different builds";
+  }
+}
 
 /** The honest label for a service that could not report a version. Reported rows carry none. */
 export function serviceStateLabel(state: ServiceVersionState): string | null {
@@ -208,20 +253,47 @@ export function formatVersionTimestamp(iso: string | null): string | null {
 export const API_WORKER_UNIT_NAME = "magna-carta";
 
 /**
- * The build line's name. The old panel headed this row "magna-carta", which was the Worker that
- * SERVED the bundle, not the thing the row reports on — the bundle the browser is running right
- * now, which can outlive the deployment that served it by however long the tab stays open.
+ * The build line's name. It heads the bundle the browser is running, never the Worker that served
+ * it — the two are different things, and the tab can outlive the deployment by however long it
+ * stays open.
  */
 export const PAGE_BUILD_ROW_NAME = "This page";
 
+/** The wire id of the row for the Worker that serves the interface. */
+export const WEB_WORKER_ROW_ID = "web";
+
+/** The `magna-carta-web` row out of an aggregate's services, or null when the read has none. */
+export function findWebWorkerRow(services: readonly ServiceVersionRow[]): ServiceVersionRow | null {
+  return services.find((row) => row.id === WEB_WORKER_ROW_ID) ?? null;
+}
+
+/** Where the aggregate read has got to, which decides what the panel can lean on. */
+export type VersionReadPhase = "pending" | "answered" | "failed";
+
 /**
- * The topology in one line, where a reader comparing the rows will look for it. The app's address
- * is split by route pattern: magna-carta-web serves the interface, magna-carta answers the API.
- * They deploy separately, which is why their commits are allowed to differ without a warning.
+ * Whether the panel still owes a line for this bundle's own build.
+ *
+ * Owner ruling, 2026-08-31 (docs/conventions/design-corrections.md): the standing "This page" row
+ * duplicated magna-carta-web. That Worker serves the interface, so whenever it reports, its commit
+ * and timestamps ARE this page's, said once under the name someone can act on. The divergence the
+ * row used to cover, a tab left open across a deploy, is already carried and carried better by the
+ * update signal on the chip and the reload control beside it.
+ *
+ * So the line survives only where nothing else states this build: a signed-out panel (no aggregate
+ * to read), a read that failed, and a web row that came back silent. Dropping it unconditionally
+ * would leave those panels reporting no version at all, which is the opposite of the point. While
+ * a first read is still in flight it stays away: the skeletons hold that space, and a row that
+ * appears for a moment and then vanishes reads as a glitch rather than as an answer.
  */
-export const WEB_TOPOLOGY_NOTICE =
-  "This page is served by magna-carta-web and the API answers from magna-carta. The two deploy " +
-  "separately, so their versions can differ.";
+export function showsPageBuildRow(panel: {
+  readsAggregate: boolean;
+  read: VersionReadPhase;
+  webRow: ServiceVersionRow | null;
+}): boolean {
+  if (!panel.readsAggregate) return true;
+  if (panel.read === "pending") return false;
+  return panel.webRow === null || panel.webRow.state !== "reported";
+}
 
 /**
  * The deployment list's order: the two Workers that serve the app's address lead — magna-carta
@@ -235,9 +307,28 @@ export function partitionDeploymentRows(services: readonly ServiceVersionRow[]):
   rest: ServiceVersionRow[];
 } {
   return {
-    front: services.filter((row) => row.id === "web"),
-    rest: services.filter((row) => row.id !== "web"),
+    front: services.filter((row) => row.id === WEB_WORKER_ROW_ID),
+    rest: services.filter((row) => row.id !== WEB_WORKER_ROW_ID),
   };
+}
+
+/**
+ * The heading over the rest of the fleet — the Workers beneath the pair that serves the app's
+ * address. It heads a collapsible section, so it is also the toggle's visible label.
+ */
+export const FLEET_SECTION_LABEL = "Workers";
+
+/**
+ * What a collapsed fleet must still say out loud. Every sibling Worker is listed, the silent ones
+ * included, because a list that quietly omits them reads as "everything is healthy" — and folding
+ * the section away would do exactly that omission by another route. So a collapsed heading carries
+ * the count of rows that came back without a version, which is the one fact all three non-answers
+ * share; a fleet that is entirely reporting carries nothing, and the collapse is free.
+ */
+export function summarizeSilentWorkers(rows: readonly ServiceVersionRow[]): string | null {
+  const silent = rows.filter((row) => row.state !== "reported").length;
+  if (silent === 0) return null;
+  return `${String(silent)} without a version`;
 }
 
 /**
@@ -246,7 +337,7 @@ export function partitionDeploymentRows(services: readonly ServiceVersionRow[]):
  */
 export const UPDATE_AVAILABLE_EXPLANATION = "A newer deployment is live. Reload to pick it up.";
 
-/** The Reload control's one label. */
+/** The Reload control's one label. It heads an icon control, so it is the accessible name too. */
 export const RELOAD_ACTION_LABEL = "Reload";
 
 /** The line under the Deployment heading when the read reports no sibling worker at all. */

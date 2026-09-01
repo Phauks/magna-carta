@@ -110,6 +110,9 @@
       "path": "packages/encryption/tsconfig.test.json"
     },
     {
+      "path": "packages/export-document/tsconfig.test.json"
+    },
+    {
       "path": "packages/feature-flags/tsconfig.test.json"
     },
     {
@@ -162,6 +165,9 @@
     },
     {
       "path": "packages/money/tsconfig.test.json"
+    },
+    {
+      "path": "packages/notes/tsconfig.test.json"
     },
     {
       "path": "packages/notifications/tsconfig.test.json"

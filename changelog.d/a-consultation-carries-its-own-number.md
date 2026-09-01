@@ -3,7 +3,7 @@ category: Added
 audience: public
 ---
 
-**A consultation is numbered from the moment it is recorded.** A prospective matter carried no number at all, so every surface that prints a matter number printed the word "Consultation" instead — a category, not a name, and nothing a person can quote on an intake sheet, a conflicts check, or a bill for the consultation itself. Consultations now draw a tentative number from their own sequence at creation (`matter.consultation_number`, migration `20260831T223721_consultation-number`).
+**A consultation is numbered from the moment it is recorded.** A prospective matter carried no number at all, so every surface that prints a matter number printed the word "Consultation" instead — a category, not a name, and nothing a person can quote on an intake sheet, a conflicts check, or a bill for the consultation itself. Consultations now draw a tentative number from their own sequence at creation (`matter.consultation_number`, migration `20260901T020001_consultation-number`).
 
 It is a SEPARATE run from the matter number, not a preview of it. A consultation that never becomes a matter must consume no matter number — a gap in that run reads as a lost file — so the two never share a counter, and opening a matter ADDS its permanent number rather than replacing the tentative one, which stays on the record so anything filed under it still resolves. Both draws ride the same `matter_number_counter` / `matter_number_allocation` mechanism (and the same allocation-key backstop against a losing concurrent draw), separated by a `consultation/` scope-key prefix that no rendered matter scope key can forge — every segment value is folded into the URL-safe set, which contains no `/`.
 

@@ -138,6 +138,14 @@ export const PROBLEM_TYPES = {
   // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
   // deactivates the shipped one, which changes nothing for anybody else.
   "calendar-platform-type-immutable": "calendar-platform-type-immutable",
+  // A write against a note that has been withdrawn (HTTP 409): revising one, withdrawing one twice,
+  // or reading the earlier versions of one. A withdrawn note's body has stopped rendering
+  // everywhere, so appending to it would put new words behind a tombstone where nothing displays
+  // them, and serving its history would be a way around the tombstone rather than an exception to
+  // it. Withdrawing twice is refused because the first withdrawal's actor, instant and reason are
+  // the record and are not rewritten. Not `validation`: the request was well formed and the note's
+  // state is what refuses it.
+  "note-retracted": "note-retracted",
   // A firm event given an event type from another category (HTTP 422). The two calendar scopes share
   // one type catalog and `category` is the only thing separating them, so typing the all-hands as a
   // "Hearing" would file a staff meeting as procedural history everywhere a surface groups by

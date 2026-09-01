@@ -106,6 +106,14 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "REVIEW_MATTER_LIMIT and the response says so on `matterScopeCapped` — the one thing that " +
     "must never be silent here, because this is the screen a firm reads before trusting a rule " +
     "to file without confirmation.",
+  "notes.readNoteHistory":
+    "The version chain of ONE note, capped at MAX_NOTE_REVISION_PAGE_SIZE " +
+    "(packages/notes/src/types.ts), with the response's `capped` flag saying when the note has " +
+    "more versions than were returned — readMatterNoteRevisions over-reads by exactly one to " +
+    "learn that bit. The real bound is how many times a person corrected one note, and the cap is " +
+    "the belt on it: a chain that long is a corrupted note or an automated writer rather than a " +
+    "lawyer fixing typos. Not paged, because a note's history is read as one account of how its " +
+    "wording got to where it is, and a withdrawn note has none at all (the route refuses it).",
   "emails.autoFileDecisions":
     "The decisions recorded for ONE message, capped at MESSAGE_DECISION_LIMIT " +
     "(apps/api-worker/src/routes/auto-file-rules.ts), with the response's `capped` flag saying " +

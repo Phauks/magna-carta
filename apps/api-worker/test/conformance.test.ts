@@ -226,6 +226,11 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
+  // downloads:* governs a member's own shelf of what the platform produced for them. It binds the
+  // FIRM rather than the matter, on the custody:* reasoning: a shelf spans every matter a member
+  // bundled or exported from, and an export that ran outside any matter (the Firm Usage report) has
+  // none at all, so binding to "matter" would name a resource most rows do not have.
+  downloads: "firm",
   // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
   // carries), so its routes carry the matter resource.
   documents: "matter",
@@ -990,6 +995,10 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documents.viewSession",
       "downloads.bundleEvents",
       "downloads.bundleStatus",
+      "downloads.fetch",
+      "downloads.recordSnapshot",
+      "downloads.remove",
+      "downloads.shelf",
       "downloads.zip",
       "emailInspector.inspect",
       "emails.accept",
