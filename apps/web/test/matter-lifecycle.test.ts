@@ -163,6 +163,15 @@ describe("the physical file", () => {
     ]);
   });
 
+  it("assumes no medium: firms use boxes, cabinets, safes, shelves", () => {
+    // A row called Box would decide, for every firm, what a file is kept in. What holds a file is a
+    // record with a kind of its own, and this screen must not pre-empt it with a word.
+    const labels = MATTER_PHYSICAL_FILE_FACTS.map((fact) => fact.label.toLowerCase()).join(" ");
+    for (const medium of ["box", "cabinet", "safe", "shelf", "drawer", "crate"]) {
+      expect(labels).not.toContain(medium);
+    }
+  });
+
   it("says what it waits on once, in the sentence every unserved capability uses", () => {
     expect(MATTER_PHYSICAL_FILE_WAITING_ON.startsWith("Not built yet. Waiting on ")).toBe(true);
   });

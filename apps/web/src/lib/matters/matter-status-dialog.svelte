@@ -247,7 +247,11 @@
     </Badge>
   </Dialog.Trigger>
 
-  <Dialog.Content showClose={false} class="max-w-2xl">
+  <!-- The firm's wide working window, not a confirmation's width. The left side is bounded and
+       always will be; the right side is a panel that grows into a real physical-file register, and
+       a surface sized to today's sparse version would have to be resized the day it arrives. The
+       structure that will hold the work renders at rest. -->
+  <Dialog.Content showClose={false} class="max-w-record-window">
     <Dialog.Title>Matter Status</Dialog.Title>
     <Dialog.Description>
       {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`} ·
@@ -261,7 +265,7 @@
       <div class="flex flex-col gap-24 sm:flex-row">
         <div class="flex flex-1 flex-col gap-16">
           <dl class="flex flex-col gap-8 text-sm">
-            <div class="flex items-baseline justify-between gap-16">
+            <div class="grid grid-cols-2 items-baseline gap-16">
               <dt class="text-text-muted">Status</dt>
               <dd>
                 <Badge
@@ -318,7 +322,10 @@
           {/if}
         </div>
 
-        <Separator orientation="vertical" class="hidden sm:block" />
+        <!-- self-stretch, not the component's own h-full: this flex row has no height of its own,
+             so a percentage height resolves against auto and the rule renders one pixel wide and
+             zero tall. Stretching is what makes it take the taller column's height. -->
+        <Separator orientation="vertical" class="hidden h-auto self-stretch sm:block" />
 
         <div class="flex flex-1 flex-col gap-8">
           <h3 class="text-xs text-text-subtle uppercase">Physical File</h3>
@@ -327,9 +334,9 @@
                what it waits on rather than being left off the window that ought to answer it. -->
           <dl class="flex flex-col gap-8 text-sm">
             {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
-              <div class="flex items-baseline justify-between gap-16">
+              <div class="grid grid-cols-2 items-baseline gap-16">
                 <dt class="text-text-muted">{fact.label}</dt>
-                <dd class="flex items-center gap-8 text-right text-text-subtle">
+                <dd class="flex items-center gap-8 text-text-subtle">
                   Not recorded
                   <MaturityBadge stage="soon" />
                 </dd>

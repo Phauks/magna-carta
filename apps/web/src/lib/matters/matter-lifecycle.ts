@@ -251,12 +251,18 @@ export interface MatterPhysicalFileFact {
 }
 
 /**
- * The rows. Box is its own row rather than part of Location because a box holds the folders of
- * several matters at once: it is a record in its own right, and a matter points at it.
+ * The rows.
+ *
+ * "Held In" names the thing the folder physically sits inside and deliberately does not say what
+ * kind of thing that is. Firms do not agree: a box at a remote store, a drawer in a cabinet, a
+ * safe, a shelf, a crate. A row called Box would have decided that for every firm, and the register
+ * behind it will carry the medium as a fact of the container rather than as a word this screen
+ * assumed. It is its own row rather than part of Location for the same reason it will be its own
+ * record: one container holds the folders of several matters, so a matter points at it.
  */
 export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
   { key: "location", label: "Location" },
-  { key: "container", label: "Box" },
+  { key: "container", label: "Held In" },
   { key: "destroy-after", label: "Destroy After" },
 ];
 
@@ -267,7 +273,7 @@ export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
  * knowing where a file is kept is a register, and knowing when it may be destroyed is a policy.
  */
 export const MATTER_PHYSICAL_FILE_WAITING_ON = soonDependencySentence(
-  "a register of the firm's own physical files, and a firm file-retention policy for the destruction date",
+  "a register of the firm's own physical files and what holds them, and a firm file-retention policy for the destruction date",
 );
 
 /**
