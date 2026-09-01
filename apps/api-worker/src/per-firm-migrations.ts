@@ -82,6 +82,7 @@ import seedDownloadRegisterPermissionSql from "@magna-carta/database/drizzle/per
 import seedFileWorkbenchPermissionSql from "@magna-carta/database/drizzle/per-firm/20260901T000000_seed-file-workbench-permission.sql";
 import matterNotesSql from "@magna-carta/database/drizzle/per-firm/20260901T010000_matter-notes.sql";
 import downloadItemRequestedFormatSql from "@magna-carta/database/drizzle/per-firm/20260901T020000_download-item-requested-format.sql";
+import matterNotesEditAndDeleteSql from "@magna-carta/database/drizzle/per-firm/20260901T120000_matter-notes-edit-and-delete.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -177,6 +178,7 @@ export function perFirmMigrations(): Migration[] {
     // lands second renames its own migration rather than slotting in under an earlier stamp.
     "20260901T010000_matter-notes": matterNotesSql,
     "20260901T020000_download-item-requested-format": downloadItemRequestedFormatSql,
+    "20260901T120000_matter-notes-edit-and-delete": matterNotesEditAndDeleteSql,
   });
 }
 

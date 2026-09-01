@@ -28,9 +28,13 @@ import { MERGE_SUBJECTS } from "../src/catalog/subjects.ts";
 // Notes reach a document by ONE deliberate route, and it is not this one: a person exports a note as
 // a document into the matter's file record, which gives it a version, a hash and a custodian of
 // record, and that is an attributable single act rather than a field somebody bound by accident.
+//
+// The link table is on the list for the same reason as the note itself. A note can now point at the
+// matter's files, so a resolver reaching matter_note_document would be one join away from the bodies
+// of every note that discusses the document being assembled.
 
 // The per-firm tables the note primitive owns (packages/notes/src/note-statements.ts).
-const NOTE_TABLES = ["matter_note", "matter_note_revision"];
+const NOTE_TABLES = ["matter_note", "matter_note_document"];
 
 // Words that would name a note-shaped fact in a merge key. Deliberately broader than the tables:
 // a catalogue entry reaches its data through a batched read, so the key is where the intent shows up
