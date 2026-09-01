@@ -1,0 +1,280 @@
+import { assertPermission } from "@magna-carta/access-control/registry";
+import { boundedSearchSelect, likeContainsTerm, matterSectionLink } from "./build.ts";
+import {
+  MatterSearchSourceRegistry,
+  type MatterSearchSource,
+  type SourceSearchRequest,
+} from "./registry.ts";
+import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
+
+// The declared sources. Each is a read-side declaration — where the rows live, how to read a bounded
+// page of them, which capability gates them, and how to project one — and NOT a write-side
+// obligation on the subsystem that owns them. Adding a source is one entry here plus one statement
+// builder and one projection. It is never a change to anybody's write path.
+//
+// Table names are tracked against @magna-carta/database's per-firm schema by the schema-name-sync
+// fitness test, the same way every other statements module tracks them.
+const MATTER_NOTE_TABLE = "matter_note";
+const MATTER_NOTE_REVISION_TABLE = "matter_note_revision";
+const FILE_TABLE = "file";
+const FOLDER_TABLE = "folder";
+const CUSTODY_PACKET_TABLE = "custody_packet";
+const MATTER_PARTY_TABLE = "matter_party";
+const DIRECTORY_PERSON_TABLE = "directory_person";
+const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
+
+// A source that reads a REVIEW SET table cannot be declared here, and the fitness test in
+// test/corpus-isolation.test.ts proves it over every registered statement rather than trusting this
+// comment. The reason is not tidiness: packages/search/src/corpus.ts made a review set its own
+// corpus precisely so that an ordinary matter search is structurally unable to name material an
+// opposing party produced, which may be attorney's-eyes-only under a protective order. A matter
+// search that could reach it would be a disclosure nobody authorized.
+
+function projectInto(sourceKey: string, section: string) {
+  return (row: MatterSearchRawRow): MatterSearchHit => ({
+    sourceKey,
+    id: row.row_id,
+    title: row.title,
+    snippet: row.snippet,
+    secondary: row.secondary,
+    actorUserId: row.actor_user_id,
+    sortKey: row.sort_key,
+    link: matterSectionLink(row.matter_id, section, row.row_id),
+  });
+}
+
+function tooShort(request: SourceSearchRequest, minimum: number): boolean {
+  return request.query.trim().length < minimum;
+}
+
+// ---- notes -----------------------------------------------------------------------------------
+
+// The matter's notes, matched against each note's CURRENT text.
+//
+// THREE THINGS THIS DELIBERATELY DOES NOT MATCH, and none of them is re-decided here — every one is
+// settled in packages/notes and this source composes the same rules rather than restating them.
+//
+// A RETRACTED NOTE'S BODY. Withdrawal stops the words rendering everywhere, and a search that still
+// found them would be the clearest possible way around the tombstone.
+//
+// A SUPERSEDED BODY. Only the head revision is searched. A note corrected to take out the wrong
+// client's name must stop being findable BY that name — otherwise the correction fixed what the note
+// says and not what it discloses, which is most of why somebody corrects one.
+//
+// ANYTHING OUTSIDE THIS MATTER — which is the builder's doing, not this source's.
+//
+// The snippet is DECLARED, and this is the source where that decision is load-bearing: a note is the
+// most privileged free text the platform holds. It is allowed here because every row this can return
+// is a note whose body the same reader is already shown on the Notes tab this hit links into, behind
+// the same notes:read capability. A firm-wide note search is a different question with a different
+// answer, and it is not built here.
+const notesSource: MatterSearchSource = {
+  key: "notes",
+  sectionSlug: "notes",
+  permission: assertPermission("notes:read"),
+  answerShape: "listing",
+  matchedFields: ["the note's current text"],
+  declaresSnippet: true,
+  minimumQueryLength: 2,
+  // A retracted note is unmatchable in either direction, so there is no deleted set to include.
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from:
+          `${MATTER_NOTE_TABLE} JOIN ${MATTER_NOTE_REVISION_TABLE} ` +
+          `ON ${MATTER_NOTE_REVISION_TABLE}.note_id = ${MATTER_NOTE_TABLE}.id ` +
+          `AND ${MATTER_NOTE_REVISION_TABLE}.ordinal = ${MATTER_NOTE_TABLE}.head_ordinal`,
+        idColumn: `${MATTER_NOTE_TABLE}.id`,
+        matterExpression: `${MATTER_NOTE_TABLE}.matter_id`,
+        sortExpression: `${MATTER_NOTE_TABLE}.created_at`,
+        // A note has no name; the reader recognizes it by when it was written and who wrote it, and
+        // the snippet carries the words. The title is the instant, rendered by the client.
+        titleExpression: `${MATTER_NOTE_TABLE}.created_at`,
+        snippetExpression: `${MATTER_NOTE_REVISION_TABLE}.body`,
+        secondaryExpression: "NULL",
+        actorExpression: `${MATTER_NOTE_TABLE}.author_user_id`,
+        conditions: [
+          `${MATTER_NOTE_TABLE}.state = 'active'`,
+          `${MATTER_NOTE_REVISION_TABLE}.body LIKE ? ESCAPE '\\'`,
+        ],
+        bindings: [likeContainsTerm(request.query.trim())],
+      }),
+    ];
+  },
+  project: projectInto("notes", "notes"),
+};
+
+// ---- files -----------------------------------------------------------------------------------
+
+// The matter's files, matched on NAME. Contents are a second half this source does not have yet: the
+// keyword engine, its write pipeline and its compaction are built, but no engine is deployed, so the
+// port answers engine-not-implemented and the surface says "names only" rather than implying it
+// looked inside anything. Slice 3 adds the content half behind the same source key, and nothing
+// above this file changes when it does.
+//
+// The snippet is declared ABSENT, and that is not an oversight: a file name IS the title, so an
+// excerpt would be the same string twice. When contents join, the excerpt is the matching passage
+// and this flips.
+const filesSource: MatterSearchSource = {
+  key: "files",
+  sectionSlug: "files",
+  // Reading a matter's file list is open to any authenticated firm member, exactly as the file list
+  // route itself is — files:* gate writing and organizing, never reading.
+  permission: null,
+  answerShape: "listing",
+  matchedFields: ["file names"],
+  declaresSnippet: false,
+  minimumQueryLength: 2,
+  supportsDeleted: true,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    const conditions = [`${FILE_TABLE}.name LIKE ? ESCAPE '\\'`];
+    // Deleted files join the answer only when asked for, and they arrive MARKED rather than
+    // disguised — the client renders them on the deleted register's own quieter row, offering
+    // Restore rather than a pretend live file.
+    if (!request.includeDeleted) conditions.push(`${FILE_TABLE}.deleted_at IS NULL`);
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from: `${FILE_TABLE} LEFT JOIN ${FOLDER_TABLE} ON ${FOLDER_TABLE}.id = ${FILE_TABLE}.folder_id`,
+        idColumn: `${FILE_TABLE}.id`,
+        matterExpression: `${FILE_TABLE}.matter_id`,
+        sortExpression: `${FILE_TABLE}.created_at`,
+        titleExpression: `${FILE_TABLE}.name`,
+        snippetExpression: "NULL",
+        // Which folder it is in, so two files of the same name are told apart without opening either.
+        secondaryExpression: `${FOLDER_TABLE}.name`,
+        actorExpression: "NULL",
+        conditions,
+        bindings: [likeContainsTerm(request.query.trim())],
+      }),
+    ];
+  },
+  project: projectInto("files", "files"),
+};
+
+// ---- custody ---------------------------------------------------------------------------------
+
+// The physical originals held for this matter, matched on the packet's name and its custody number —
+// the same two columns the custody register's own search matches, so a packet findable there is
+// findable here and neither can surprise the other.
+//
+// One difference, and it is a repair rather than a divergence: the register's own search interpolates
+// the term into a LIKE with no ESCAPE clause, so a custody number containing an underscore matches
+// more than it should. Everything built here escapes, because the shared builder does it. The
+// register's own route is another stream's file and is not touched from here.
+const custodySource: MatterSearchSource = {
+  key: "custody",
+  sectionSlug: "custodian",
+  permission: assertPermission("custody:read"),
+  answerShape: "listing",
+  matchedFields: ["packet names", "custody numbers"],
+  declaresSnippet: false,
+  minimumQueryLength: 2,
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    const term = likeContainsTerm(request.query.trim());
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from: CUSTODY_PACKET_TABLE,
+        idColumn: `${CUSTODY_PACKET_TABLE}.id`,
+        matterExpression: `${CUSTODY_PACKET_TABLE}.matter_id`,
+        sortExpression: `${CUSTODY_PACKET_TABLE}.created_at`,
+        titleExpression: `${CUSTODY_PACKET_TABLE}.name`,
+        snippetExpression: "NULL",
+        // Where it is and what state it is in — the two facts somebody searching for an original
+        // actually wants, and the reason a hit here often needs no click at all.
+        secondaryExpression: `${CUSTODY_PACKET_TABLE}.custody_number || ' · ' || ${CUSTODY_PACKET_TABLE}.status`,
+        actorExpression: "NULL",
+        conditions: [
+          `(${CUSTODY_PACKET_TABLE}.name LIKE ? ESCAPE '\\' OR ${CUSTODY_PACKET_TABLE}.custody_number LIKE ? ESCAPE '\\')`,
+        ],
+        bindings: [term, term],
+      }),
+    ];
+  },
+  project: projectInto("custody", "custodian"),
+};
+
+// ---- parties ---------------------------------------------------------------------------------
+
+// The people and organizations connected to this matter, matched on the display name the firm
+// records and on the capacity they act in.
+//
+// Two LEFT JOINs cover both entity kinds in one pass, and COALESCE picks whichever display name is
+// non-null — exactly one will be, because a party's entity is either a person or an organization.
+// A soft-deleted link, a soft-deleted entity and an entity merged away are all excluded, matching
+// what the directory's own search excludes.
+//
+// It matches DISPLAY NAMES ONLY, and that is a real limit worth stating: the directory keeps every
+// name an entity has ever held, so a search for a maiden name finds the woman who now goes by
+// another one — but that corpus is an FTS5 trigram index this source does not read yet. Within a
+// matter the party list is small and a substring scan is honest; joining the name corpus is a
+// deliberate later step, not an omission nobody noticed.
+//
+// No snippet: a party's name IS the title, and the sensitive typed identifiers beside it are
+// protected() columns that must never become an excerpt.
+const partiesSource: MatterSearchSource = {
+  key: "parties",
+  sectionSlug: "parties",
+  // Reading who is on a matter is open to any authenticated firm member, exactly as the matter's own
+  // party read is. The sensitive identifiers behind those names are separately gated and are not
+  // read here at all.
+  permission: null,
+  answerShape: "listing",
+  matchedFields: ["party names", "the capacity they act in"],
+  declaresSnippet: false,
+  minimumQueryLength: 2,
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    const term = likeContainsTerm(request.query.trim());
+    const displayName = `COALESCE(${DIRECTORY_PERSON_TABLE}.display_name, ${DIRECTORY_ORGANIZATION_TABLE}.display_name)`;
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from:
+          `${MATTER_PARTY_TABLE} ` +
+          `LEFT JOIN ${DIRECTORY_PERSON_TABLE} ON ${DIRECTORY_PERSON_TABLE}.id = ${MATTER_PARTY_TABLE}.entity_id ` +
+          `AND ${DIRECTORY_PERSON_TABLE}.deleted_at IS NULL ` +
+          `LEFT JOIN ${DIRECTORY_ORGANIZATION_TABLE} ON ${DIRECTORY_ORGANIZATION_TABLE}.id = ${MATTER_PARTY_TABLE}.entity_id ` +
+          `AND ${DIRECTORY_ORGANIZATION_TABLE}.deleted_at IS NULL ` +
+          `AND ${DIRECTORY_ORGANIZATION_TABLE}.status = 'active'`,
+        idColumn: `${MATTER_PARTY_TABLE}.id`,
+        matterExpression: `${MATTER_PARTY_TABLE}.matter_id`,
+        // Alphabetical, because a party list is read as a roll rather than as a history. Case-folded
+        // so the order does not depend on how a name happens to be capitalized.
+        sortExpression: `LOWER(${displayName})`,
+        titleExpression: displayName,
+        snippetExpression: "NULL",
+        // What they are to this matter — the role, and the capacity where the firm recorded one.
+        secondaryExpression:
+          `CASE WHEN ${MATTER_PARTY_TABLE}.capacity IS NULL THEN ${MATTER_PARTY_TABLE}.role ` +
+          `ELSE ${MATTER_PARTY_TABLE}.role || ' · ' || ${MATTER_PARTY_TABLE}.capacity END`,
+        actorExpression: "NULL",
+        conditions: [
+          `${MATTER_PARTY_TABLE}.deleted_at IS NULL`,
+          `${displayName} IS NOT NULL`,
+          `(${displayName} LIKE ? ESCAPE '\\' OR ${MATTER_PARTY_TABLE}.capacity LIKE ? ESCAPE '\\')`,
+        ],
+        bindings: [term, term],
+        ascending: true,
+      }),
+    ];
+  },
+  project: projectInto("parties", "parties"),
+};
+
+// The registry, in the order the matter's own section strip reads. A group renders in this order, so
+// the answer and the tabs above it never disagree about where things live.
+export const matterSearchSources = new MatterSearchSourceRegistry([
+  filesSource,
+  partiesSource,
+  notesSource,
+  custodySource,
+]);

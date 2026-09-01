@@ -254,13 +254,15 @@ One group per source — never a flat merged list:
       "section": "notes",
       "answerShape": "ranked",
       "matchedFields": ["the note's current text"],
-      "hits": [{ "id": "…", "link": "/matters/…/notes?entry=…", "snippet": "…", "recordedAt": "…" }],
+      "hits": [
+        { "id": "…", "link": "/matters/…/notes?entry=…", "snippet": "…", "recordedAt": "…" },
+      ],
       "capped": true,
-      "nextCursor": null
+      "nextCursor": null,
     },
     { "source": "time", "skipped": "permission" },
-    { "source": "files", "skipped": "query-too-short" }
-  ]
+    { "source": "files", "skipped": "query-too-short" },
+  ],
 }
 ```
 

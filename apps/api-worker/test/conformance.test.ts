@@ -257,6 +257,14 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // it is an assembly INPUT, not a matter document — so the firm is its tenancy root, which is also
   // why the catalogue lives in its own tables rather than as matter-rooted file rows. The act of
   // ASSEMBLING is matter-rooted and rides documents:assemble instead.
+  // notes:* governs a matter's notes, their revision chains and the retraction record on a withdrawn
+  // one. A note IS one matter's record and cannot exist without one, so it binds the MATTER — the
+  // matterAssets:* binding rather than custody:*'s firm one.
+  notes: "matter",
+  // search:matter runs one consolidated search across a matter's sections. It names one matter, it
+  // cannot run without one, and it never widens past it — searching the whole application is the
+  // command palette's job and carries no permission at all.
+  search: "matter",
   templates: "firm",
   // trust:* governs the trust account and the client/matter sub-ledger under it. It binds the FIRM
   // rather than the matter, on the custody reasoning rather than the costs one: a trust account is
@@ -1098,6 +1106,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matterAssets.releaseEncumbrance",
       "matterAssets.unlinkDocument",
       "matterAssets.updateAsset",
+      "matterSearch.search",
       "matterTypes.create",
       "matterTypes.deactivate",
       "matterTypes.list",
@@ -1134,6 +1143,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "nonBillableCategories.create",
       "nonBillableCategories.list",
       "nonBillableCategories.update",
+      "notes.createNote",
+      "notes.listNotes",
+      "notes.readNote",
+      "notes.readNoteHistory",
+      "notes.retractNote",
+      "notes.reviseNote",
       "notificationPreferences.get",
       "notificationPreferences.getTrustComplianceRecipients",
       "notificationPreferences.setTrustComplianceRecipients",
