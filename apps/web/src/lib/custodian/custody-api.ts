@@ -213,15 +213,33 @@ export interface CustodyMovement {
   releaseWitnessedByUserId: string | null;
 }
 
+/** What a history read is being asked for. */
+export interface CustodyMovementQuery {
+  /**
+   * One item's own chain of custody.
+   *
+   * The server answers the item's OWN entries plus the packet-wide ones, because an item inside a
+   * packet goes wherever the packet goes: the will was in the box when the box moved to the Reno
+   * safe. A read that returned only the rows naming the item would show "Contents described" over a
+   * decade and call that a chain of custody. Every row carries `itemId`, so a surface can say which
+   * of the two each entry is rather than presenting them as one undifferentiated list.
+   */
+  itemId?: string;
+  cursor?: string;
+}
+
 /** A packet's history, newest first, cursor-paged. */
 export function listCustodyMovements(
   fetchImpl: typeof fetch,
   packetId: string,
-  cursor?: string,
+  parameters: CustodyMovementQuery = {},
 ): Promise<ApiOutcome<Page<CustodyMovement>>> {
   return requestJson(
     fetchImpl,
-    `/api/v1/custody/packets/${encodeURIComponent(packetId)}/movements${query({ cursor })}`,
+    `/api/v1/custody/packets/${encodeURIComponent(packetId)}/movements${query({
+      itemId: parameters.itemId,
+      cursor: parameters.cursor,
+    })}`,
   );
 }
 

@@ -109,6 +109,13 @@ entered on Monday is the normal case.
 at the entry it corrects. Both stay visible. That is what makes the register worth something if it is
 ever questioned — nobody could have gone back and made it say something else.
 
+**Each item has a chain of custody too.** Open a packet, go to Contents, and click an item: its own
+history opens underneath it. It shows what happened to that item and everything that happened to the
+packet holding it, because an original will inside a deed box went to the Reno safe when the box did.
+Entries about the whole packet say so, so a move of the box is never mistaken for something that
+happened to this will alone. The packet's own history works the other way round: an entry about one
+item names which item, rather than leaving you to guess which of five instruments was withdrawn.
+
 ## Giving an original back
 
 Handing an original over for good is the one thing the register will not let you record casually, and

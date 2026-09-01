@@ -6,6 +6,12 @@
    * first, above everything descriptive — what stands against it. The right pane is context: what is
    * inside, the holds, the scanned copies, and the chain of custody.
    *
+   * CONTENTS AND HISTORY ARE THE SAME LEDGER AT TWO SCOPES. Each item in Contents opens onto its own
+   * chain of custody, because the question a firm is asked is about the object rather than the
+   * envelope: where has this will been, and who has had it. The History tab is the whole packet's,
+   * and an entry there about one item names the item. Neither is a second record, so the two can
+   * never come to disagree about the same object.
+   *
    * WHY THE REFUSALS LEAD. A firm holding an original will or a set of deeds is answerable for it,
    * and the two acts it never comes back from are releasing the property and destroying it. Both are
    * refused by the server under conditions the person standing at the safe cannot see — a hold
@@ -22,6 +28,7 @@
    * the overdue list, what is due — opens THIS one, so a reader meets the same window whichever
    * door they came through.
    */
+  import * as Accordion from "@magna-carta/design-system/accordion";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -62,6 +69,7 @@
     scanKindLabel,
   } from "./custody-vocabulary.ts";
   import AddItemDialog from "./add-item-dialog.svelte";
+  import ItemHistory from "./item-history.svelte";
   import LinkScanDialog from "./link-scan-dialog.svelte";
 
   let {
@@ -100,6 +108,8 @@
   let printOpen = $state(false);
   let itemDialogOpen = $state(false);
   let scanDialogOpen = $state(false);
+  /** Which items have been opened onto their own history. Opening is what reads the ledger. */
+  let openItemIds = $state<string[]>([]);
   let shownPacketId: string | null = null;
 
   const directory = new DirectoryNames();
@@ -112,10 +122,19 @@
   );
   const locationNames = $derived(new Map(locations.map((node) => [node.id, node.name])));
 
+  // The packet's own items, so a history row about one of them names it rather than reading as an
+  // unexplained entry in the middle of the packet's own story.
+  const itemNames = $derived(
+    new Map(
+      (packet?.items ?? []).map((item) => [item.id, `Item ${item.ordinal}: ${item.description}`]),
+    ),
+  );
+
   const names: CustodyNameLookup = {
     member: (userId) => memberNames.get(userId) ?? null,
     location: (locationId) => locationNames.get(locationId) ?? null,
     entity: (entityId) => directory.nameOf(entityId),
+    item: (itemId) => itemNames.get(itemId) ?? null,
   };
 
   async function read(asked: string): Promise<void> {
@@ -150,6 +169,9 @@
     packet = null;
     movements = null;
     loadFailure = null;
+    // A different packet's items are different items; keeping the last one's open set would open
+    // rows that are not there and leave this packet's contents shut.
+    openItemIds = [];
     void read(asked);
   });
 
@@ -366,34 +388,60 @@
     </EmptyState>
   {:else}
     <div class="flex flex-col gap-12">
-      {#each packet.items as item (item.id)}
-        <div class="flex flex-col gap-4">
-          <div class="flex flex-wrap items-center gap-8">
-            <span>{item.description}</span>
-            <Badge
-              variant={itemStatusEntry(item.status).tone}
-              title={itemStatusEntry(item.status).meaning}
-            >
-              {itemStatusEntry(item.status).label}
-            </Badge>
-            {#if item.intrinsicValue}
-              <Badge
-                variant="accent"
-                title="An irreplaceable original. It is never destructible, and the refusal has no override."
-              >
-                Irreplaceable original
-              </Badge>
-            {/if}
-          </div>
-          <span class="text-xs text-text-muted">
-            Item {item.ordinal}{item.instrumentDate === null
-              ? ""
-              : ` · dated ${item.instrumentDate}`}{item.reviewOn === null
-              ? ""
-              : ` · review ${item.reviewOn}`}
-          </span>
-        </div>
-      {/each}
+      <!-- Each item opens onto its own chain of custody. The question a firm is asked is about the
+           OBJECT — where has this will been — and a packet that held one history for the whole
+           envelope could only answer it about the box. Opening is what reads the ledger, so a
+           packet with nine items draws a list rather than nine histories nobody asked for. -->
+      <!-- The wrapper passes `value`/`onValueChange` through rather than exposing a bindable, so
+           the open set is held here and handed back. -->
+      <Accordion.Root
+        type="multiple"
+        value={openItemIds}
+        onValueChange={(value) => (openItemIds = value)}
+      >
+        {#each packet.items as item (item.id)}
+          <Accordion.Item value={item.id}>
+            <Accordion.Trigger>
+              <span class="flex min-w-0 flex-col gap-4 text-start">
+                <span class="flex flex-wrap items-center gap-8">
+                  <span>{item.description}</span>
+                  <Badge
+                    variant={itemStatusEntry(item.status).tone}
+                    title={itemStatusEntry(item.status).meaning}
+                  >
+                    {itemStatusEntry(item.status).label}
+                  </Badge>
+                  {#if item.intrinsicValue}
+                    <Badge
+                      variant="accent"
+                      title="An irreplaceable original. It is never destructible, and the refusal has no override."
+                    >
+                      Irreplaceable original
+                    </Badge>
+                  {/if}
+                </span>
+                <span class="text-xs text-text-muted">
+                  Item {item.ordinal}{item.instrumentDate === null
+                    ? ""
+                    : ` · dated ${item.instrumentDate}`}{item.reviewOn === null
+                    ? ""
+                    : ` · review ${item.reviewOn}`}
+                </span>
+              </span>
+            </Accordion.Trigger>
+            <Accordion.Content>
+              {#if openItemIds.includes(item.id) && packetId !== null}
+                <ItemHistory
+                  {packetId}
+                  itemId={item.id}
+                  label={item.description}
+                  {names}
+                />
+              {/if}
+            </Accordion.Content>
+          </Accordion.Item>
+        {/each}
+      </Accordion.Root>
       <div class="flex">{@render describeItemButton()}</div>
     </div>
   {/if}

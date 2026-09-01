@@ -429,6 +429,15 @@ What is local to this surface:
   the grid's cells are `white-space: nowrap` for the sake of aligned columns, the placeholder cell
   inherited it, and a wordy empty state therefore widened the table past its own frame. Fixed in the
   shared table recipe, the same way the empty docket's hover band was.
+- **An item needed a history of its own**, and the ledger had been recording one all along: rows
+  carry an optional item, so withdrawing one instrument or superseding it was already written
+  against the item rather than the envelope, and nothing could read them back at that scope. The
+  read is the same ledger with one more filter rather than a second record. Two things had to be
+  decided rather than assumed: an item's history INCLUDES the packet-wide rows, because an item goes
+  wherever its packet goes and a history of only the rows naming it would show "Contents described"
+  over a decade of moves; and each list marks whichever kind of row is the odd one out in it, so
+  neither reads as the other. Each item in Contents opens onto its own rail, and opening is what
+  reads the ledger.
 - **Entry is three modals**, at the owner's direction, over the register's existing write endpoints:
   New Packet on the register and on a matter's section, Describe An Item and File A Copy inside the
   packet window, each on the tab it belongs to. The owner also raised a centralized modal framework;
