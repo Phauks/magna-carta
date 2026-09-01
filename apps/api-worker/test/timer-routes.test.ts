@@ -160,15 +160,26 @@ describe("timer start -> bind -> stop-commit", () => {
 
     const stop = await post("/api/v1/timer/stop-commit", {});
     expect(stop.status).toBe(201);
-    const { timeEntryId } = (await stop.json()) as { timeEntryId: string };
+    const { timeEntryId, entryNumber } = (await stop.json()) as {
+      timeEntryId: string;
+      entryNumber?: string;
+    };
+    // A timer commit draws the matter-scoped entry number like any other capture.
+    expect(entryNumber).toMatch(/\.\d{4}$/);
 
     const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
-      .prepare("SELECT source, live_run_id, status FROM time_entry WHERE id = ?1")
+      .prepare("SELECT source, live_run_id, status, entry_number FROM time_entry WHERE id = ?1")
       .bind(timeEntryId)
-      .first<{ source: string; live_run_id: string | null; status: string }>();
+      .first<{
+        source: string;
+        live_run_id: string | null;
+        status: string;
+        entry_number: string | null;
+      }>();
     expect(row?.source).toBe("timer");
     expect(row?.live_run_id).toBe(liveRunId);
     expect(row?.status).toBe("draft");
+    expect(row?.entry_number).toBe(entryNumber);
 
     // The DO cleared after the confirmed commit: a fresh read reports no live timer.
     const read = await get("/api/v1/timer/read");

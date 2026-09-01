@@ -227,7 +227,6 @@
           {query}
           {locations}
           onOpenPacket={openPacket}
-          columnsMenu
           caption="The firm's custody register"
           emptyTitle="Nothing Is In Custody Yet"
         >

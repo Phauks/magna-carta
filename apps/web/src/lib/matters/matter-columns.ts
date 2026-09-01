@@ -66,22 +66,28 @@ export function matterVocabulary(
 }
 
 /**
- * What a PROSPECTIVE matter's number column reads. A consultation is unnumbered by design — the
- * number is drawn when it opens — so the cell states the designation rather than leaving a gap that
- * reads as a record the platform failed to fill.
+ * What a PROSPECTIVE matter's number column reads when it carries no number of either kind — a
+ * consultation taken before the firm's consultation sequence existed. The designation states what
+ * the record is rather than leaving a gap that reads as a number the platform failed to fill.
  */
 export const UNNUMBERED_DESIGNATION = "Consultation";
 
 /**
  * The number as it prints.
  *
- * The designation is tied to the STATUS, not merely to the absence of a number. An open or closed
- * matter with no number is not a consultation: it is a numbered thing whose number is missing, which
- * happens where a row was written without drawing one. Calling that "Consultation" would assert a
- * lifecycle state the record does not hold, so it reads as an honest gap instead.
+ * A consultation carries its own tentative number, so that is what the column shows while the matter
+ * is prospective — the number people quote is the one on the screen. Once the matter opens it prints
+ * the matter number: the permanent number is what the file is called from then on, and the tentative
+ * one stays on the record (and in search) rather than in the column.
+ *
+ * The fallback designation is tied to the STATUS, not merely to the absence of a number. An open or
+ * closed matter with no number is not a consultation: it is a numbered thing whose number is
+ * missing, which happens where a row was written without drawing one. Calling that "Consultation"
+ * would assert a lifecycle state the record does not hold, so it reads as an honest gap instead.
  */
 export function matterNumberText(matter: MatterSummary): string {
   if (matter.matterNumber !== null) return matter.matterNumber;
+  if (matter.consultationNumber !== null) return matter.consultationNumber;
   return matter.status === "prospective" ? UNNUMBERED_DESIGNATION : "";
 }
 
@@ -105,7 +111,7 @@ export function matterColumns(vocabulary: MatterVocabulary): GridColumn<MatterSu
       id: "matterNumber",
       label: "Matter Number",
       anchored: true,
-      value: (matter) => matter.matterNumber,
+      value: (matter) => matter.matterNumber ?? matter.consultationNumber,
       text: matterNumberText,
     },
     { id: "title", label: "Title", value: (matter) => matter.title },

@@ -56,7 +56,7 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 
 **Sort and narrow the list**
 
-The list is a table. Click a column heading to sort by it; click again to reverse. **Columns** at the top right adds **Added** and **Safety**, which start hidden because the pane is narrow, and it can hide any column you do not want. Each heading also carries a filter, so you can show only the PDFs, or only files above a size.
+The list is a table. Click a column heading to sort by it; click again to reverse. Right-click a heading and open **Columns** to add **Added** and **Safety**, which start hidden because the pane is narrow, or to hide any column you do not want; the same menu hides or pins the column you right-clicked. **Filter** is on that menu too, so you can show only the PDFs, or only files above a size.
 
 **Get rid of a file**
 

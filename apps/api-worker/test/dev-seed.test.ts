@@ -47,6 +47,7 @@ describe("dev seed route", () => {
     expect(first.matterId).toMatch(/^matter_/);
     expect(first.credentials.email).toContain("@");
     expect(first.credentials.password.length).toBeGreaterThan(0);
+    // Five documents plus the browsable archive sample the file manager reads inside.
     expect(first.fileCount).toBe(6);
 
     // A second call resumes the same tenant rather than duplicating it.
@@ -86,8 +87,9 @@ describe("dev seed route", () => {
     );
     expect(listResponse.status).toBe(200);
     const list = (await listResponse.json()) as { data: FileSummary[] };
-    // Four clean files show by default (the quarantined one is excluded).
-    expect(list.data).toHaveLength(4);
+    // Five clean files show by default (the quarantined one is excluded): the four seeded
+    // documents and the committed zip that browsing inside an archive needs.
+    expect(list.data).toHaveLength(5);
     for (const file of list.data) {
       expect(file.currentVersionId).not.toBeNull();
       expect(file.status).toBe("clean");
@@ -104,7 +106,7 @@ describe("dev seed route", () => {
     );
     expect(withQuarantined.status).toBe(200);
     const widened = (await withQuarantined.json()) as { data: FileSummary[] };
-    expect(widened.data).toHaveLength(5);
+    expect(widened.data).toHaveLength(6);
     const quarantined = widened.data.find((file) => file.status === "quarantined");
     expect(quarantined).toBeDefined();
     expect(quarantined?.currentVersionId).toBeNull();

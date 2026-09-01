@@ -19,7 +19,7 @@ export type GridSortDirection = "ascending" | "descending";
 export interface GridColumn<TRow> {
   /** Stable identity — keys the order/width/pin/visibility/filter state. */
   id: string;
-  /** The human label: header cell, columns menu, filter heading, footer filter list. */
+  /** The human label: header cell, header menu, filter heading, footer filter list. */
   label: string;
   /** The value type — drives sorting, alignment, default formatting, and the default filter kind. */
   type?: GridColumnType;
@@ -48,10 +48,17 @@ export interface GridColumn<TRow> {
   /** Anchored columns always show and always lead — the row's anchor (the Timesheet's Date).
    * Not hideable, not draggable, never dropped behind. */
   anchored?: boolean;
-  /** Start hidden; the columns menu shows it on demand. */
+  /** Start hidden; the header menu's Columns submenu shows it on demand. */
   hidden?: boolean;
   /** Start pinned (sticky under horizontal scroll). */
   pinned?: boolean;
+  /**
+   * Pinned to the TRAILING edge: the column stays stuck to the end of the scroll viewport while
+   * the rest of the table scrolls under it (the Time Sheet's always-in-reach column). Declarative,
+   * not a member toggle — it always renders last, never drags, and the leading pin control leaves
+   * it alone.
+   */
+  pinnedEnd?: boolean;
   /** Sum this column in the totals row. Only meaningful for number/money columns. */
   total?: "sum";
   /** Formats the totals-row sum; defaults to the column's type formatting. */
@@ -169,7 +176,8 @@ export function sortGridRows<TRow>(
 /**
  * The visible columns in render order: the anchored block first (the row's anchor reads first),
  * then the pinned block (sticky columns stay contiguous from the leading edge), then the rest —
- * each block preserving the member-set order. The Docket's ordering, shared exactly.
+ * each block preserving the member-set order — and the trailing-pinned block LAST, stuck to the
+ * end of the viewport. The Docket's ordering, shared exactly.
  */
 export function visibleGridColumns<TRow>(
   columns: readonly GridColumn<TRow>[],
@@ -182,16 +190,19 @@ export function visibleGridColumns<TRow>(
     .map((id) => byId.get(id))
     .filter((column): column is GridColumn<TRow> => column !== undefined)
     .filter((column) => column.anchored || !hiddenColumnIds.has(column.id));
+  const scrolling = ordered.filter((column) => !column.anchored && column.pinnedEnd !== true);
   return [
     ...ordered.filter((column) => column.anchored),
-    ...ordered.filter((column) => !column.anchored && pinnedColumnIds.has(column.id)),
-    ...ordered.filter((column) => !column.anchored && !pinnedColumnIds.has(column.id)),
+    ...scrolling.filter((column) => pinnedColumnIds.has(column.id)),
+    ...scrolling.filter((column) => !pinnedColumnIds.has(column.id)),
+    ...ordered.filter((column) => !column.anchored && column.pinnedEnd === true),
   ];
 }
 
 /**
- * The column order after dropping `fromId` before/after `toId`. Anchored columns hold their ground:
- * nothing lands ahead of the anchored block, and an anchored column never moves.
+ * The column order after dropping `fromId` before/after `toId`. Anchored columns hold their
+ * ground: nothing lands ahead of the anchored block, and an anchored column never moves. A
+ * trailing-pinned column never moves either — both its edges are declared, not arranged.
  */
 export function movedGridColumnOrder<TRow>(
   columns: readonly GridColumn<TRow>[],
@@ -201,6 +212,8 @@ export function movedGridColumnOrder<TRow>(
   after: boolean,
 ): string[] {
   if (fromId === toId) return [...order];
+  const held = columns.find((column) => column.id === fromId);
+  if (held?.pinnedEnd === true) return [...order];
   const anchored = new Set(columns.filter((column) => column.anchored).map((column) => column.id));
   if (anchored.has(fromId)) return [...order];
   const next = order.filter((id) => id !== fromId);

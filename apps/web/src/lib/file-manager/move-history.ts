@@ -46,6 +46,19 @@ export class MoveHistory {
     return this.redoable.at(-1) ?? null;
   }
 
+  /*
+   * THE STACK IS READABLE, newest first. One step at a time is the button's job; a reader who
+   * moved five things and wants the lot back should be able to see the five and choose, rather
+   * than pressing Undo repeatedly and watching to see where it stops.
+   */
+  get undoDescriptions(): readonly string[] {
+    return this.undoable.map((move) => move.description).toReversed();
+  }
+
+  get redoDescriptions(): readonly string[] {
+    return this.redoable.map((move) => move.description).toReversed();
+  }
+
   /** Pop the move to reverse. The caller performs the reversal and reports nothing back. */
   takeUndo(): RecordedMove | null {
     const move = this.undoable.pop();

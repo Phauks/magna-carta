@@ -455,7 +455,6 @@
       <Timer class="size-16" aria-hidden="true" />
       Time Sheet
     </Button>
-    <DataTable.GridColumnsMenu {grid} />
     <Button
       variant="secondary"
       size="icon"

@@ -446,7 +446,6 @@
         {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
       </Button>
     {/if}
-    <DataTable.GridColumnsMenu {grid} />
     <Button
       variant="secondary"
       size="icon"

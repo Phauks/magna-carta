@@ -10,7 +10,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
   import Grid from "../lib/components/data-table/data-table-grid.svelte";
-  import LitigationGrid from "./support/litigation-grid.svelte";
+  import LitigationGrid, { TIME_COLUMNS } from "./support/litigation-grid.svelte";
 
   const { Story } = defineMeta({
     title: "Data Display/DataTableGrid",
@@ -32,6 +32,11 @@
   // so the block cannot be mistaken for the sort), and two rows waiting on the clipboard.
   const PINNED_ROW_KEYS = ["t12", "t05"];
   const CLIPBOARD_MARKS: Record<string, "cut" | "copy" | undefined> = { t04: "cut", t07: "copy" };
+
+  // The Time Sheet's shape: the Status column stuck to the trailing edge while the rest scrolls.
+  const TRAILING_PINNED_COLUMNS = TIME_COLUMNS.map((column) =>
+    column.id === "status" ? Object.assign({}, column, { pinnedEnd: true }) : column,
+  );
 </script>
 
 <!--
@@ -176,8 +181,9 @@
 </Story>
 
 <!--
-  The one filter mechanism, parameterized by column type, living INSIDE the header cell. Active
-  is unmistakable, the clear affordance exists only while a filter is in play, the footer counts
+  The one filter mechanism, parameterized by column type, living in the header's OWN menu — the
+  cell itself carries no control, only the mark that says a filter is in play. Active is
+  unmistakable, the clear affordance exists only while a filter is in play, the footer counts
   "n of m", and the filtered-empty state says why.
 -->
 <Story
@@ -186,39 +192,52 @@
   play={async ({ canvas, step }) => {
     const table = canvas.getByRole("table");
     const body = within(document.body);
-    // The funnel's space is reserved but it is REVEALED by the header cell's hover or focus (one
-    // hover unit). The runner's synthetic hover cannot engage CSS :hover, so the keyboard path —
-    // focus lands in the cell, :focus-within reveals the funnel — stands in for it here.
-    const openFunnel = async (column: string): Promise<void> => {
-      canvas.getByRole("button", { name: column }).focus();
-      await userEvent.click(await canvas.findByRole("button", { name: `Filter ${column}` }));
+    const headOf = (label: string): HTMLElement =>
+      canvas.getByRole("button", { name: label }).closest("th")!;
+    // Right-click the heading, then step into the column's Filter submenu — the one way in.
+    const openFilter = async (label: string): Promise<void> => {
+      await fireEvent.contextMenu(headOf(label));
+      await body.findByRole("menu");
+      await userEvent.click(body.getByRole("menuitem", { name: `Filter ${label}` }));
+      await waitFor(() => expect(body.getAllByRole("menu").length).toBeGreaterThan(1));
+    };
+    const closeMenu = async (): Promise<void> => {
+      await userEvent.keyboard("{Escape}{Escape}");
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
+      await waitFor(() => expect(document.body).not.toHaveStyle({ pointerEvents: "none" }));
     };
 
+    await step("The header cell carries no filter control at all", async () => {
+      await expect(canvas.queryByRole("button", { name: /^Filter / })).toBeNull();
+    });
+
     await step("The set filter lists every value with its count", async () => {
-      await openFunnel("Status");
-      await waitFor(() => expect(body.getByText("Filter Status", { selector: "p" })).toBeVisible());
-      const draftRow = (await body.findByRole("checkbox", { name: "Draft" })).closest("label")!;
-      await expect(within(draftRow as HTMLElement).getByText("3")).toBeVisible();
+      await openFilter("Status");
+      // Bits settles the submenu after positioning, so re-query rather than holding a node.
+      await waitFor(() =>
+        expect(
+          within(body.getByRole("menuitemcheckbox", { name: /^Draft/ })).getByText("3"),
+        ).toBeVisible(),
+      );
     });
 
     await step("Every ghost text is the FIELD'S NAME, never an instruction", async () => {
-      // The narrow field above the checkboxes carries the column's own name — no "Type to…" hint.
+      // The narrow field above the choices carries the column's own name — no "Type to…" hint.
       const narrow = body.getByRole("searchbox", { name: "Narrow the Status choices" });
       await expect(narrow).toHaveAttribute("placeholder", "Status");
     });
 
     await step("A set filter carries NO clear control — everything selected IS no filter", async () => {
-      await expect(body.queryByRole("button", { name: /Clear This Filter/ })).toBeNull();
+      await expect(body.queryByRole("menuitem", { name: /Clear This Filter/ })).toBeNull();
     });
 
     await step("The select control is ONE control that says what pressing it will do", async () => {
       // Everything is on, so the one control offers the act that is available: select none.
-      const toggle = body.getByRole("button", { name: "Select none" });
-      await expect(body.queryByRole("button", { name: "Select all" })).toBeNull();
-      await userEvent.click(toggle);
+      await expect(body.queryByRole("menuitem", { name: "Select all" })).toBeNull();
+      await userEvent.click(body.getByRole("menuitem", { name: "Select none" }));
       // Nothing is on now, so the SAME control reads the other way.
-      await waitFor(() => expect(body.getByRole("button", { name: "Select all" })).toBeVisible());
-      await expect(body.queryByRole("button", { name: "Select none" })).toBeNull();
+      await waitFor(() => expect(body.getByRole("menuitem", { name: "Select all" })).toBeVisible());
+      await expect(body.queryByRole("menuitem", { name: "Select none" })).toBeNull();
     });
 
     await step("Selecting none empties the list, and the table says why", async () => {
@@ -226,13 +245,23 @@
         expect(within(table).getByText(/No entries match the filter on Status/)).toBeVisible(),
       );
       await expect(within(table).getByText(/All 12 entries are hidden/)).toBeVisible();
-      await expect(canvas.getByRole("button", { name: /Filtered:/ })).toHaveAttribute("data-active", "true");
       // Even with a filter in play, a SET filter still carries no clear control of its own.
-      await expect(body.queryByRole("button", { name: /Clear This Filter/ })).toBeNull();
+      await expect(body.queryByRole("menuitem", { name: /Clear This Filter/ })).toBeNull();
+    });
+
+    await step("The header cell MARKS the filtered column, without offering a control", async () => {
+      const mark = headOf("Status").querySelector(".mc-table-grid-filter-mark")!;
+      await expect(mark).toHaveAttribute("data-active", "true");
+      await expect(mark.querySelector("svg")).not.toBeNull();
+      await expect(mark.getAttribute("title")).toMatch(/^Filtered: /);
+      // An unfiltered column keeps the slot and draws nothing in it.
+      const quiet = headOf("Title").querySelector(".mc-table-grid-filter-mark")!;
+      await expect(quiet).not.toHaveAttribute("data-active");
+      await expect(quiet.querySelector("svg")).toBeNull();
     });
 
     await step("Checking one value keeps its rows and the footer counts n of m", async () => {
-      await userEvent.click(body.getByRole("checkbox", { name: "Draft" }));
+      await userEvent.click(body.getByRole("menuitemcheckbox", { name: /^Draft/ }));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(3));
       await expect(canvas.getAllByText(/Showing 3 of 12 entries · filtered/).length).toBeGreaterThan(0);
       await expect(canvas.getAllByText(/on Status/).length).toBeGreaterThan(0);
@@ -242,53 +271,50 @@
     });
 
     await step("Select all returns the whole set, which is no filter at all", async () => {
-      await userEvent.click(body.getByRole("button", { name: "Select all" }));
+      await userEvent.click(body.getByRole("menuitem", { name: "Select all" }));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(12));
       await expect(within(table).getByText("Total")).toBeVisible();
-      await expect(canvas.getByRole("button", { name: "Filter Status" })).not.toHaveAttribute(
-        "data-active",
-      );
-      await userEvent.keyboard("{Escape}");
-      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
+      await closeMenu();
+      await expect(
+        headOf("Status").querySelector(".mc-table-grid-filter-mark"),
+      ).not.toHaveAttribute("data-active");
     });
 
     await step("The numeric range filter keeps rows inside its bounds", async () => {
-      await openFunnel("Hours");
+      await openFilter("Hours");
       const from = await body.findByRole("spinbutton", { name: "From" });
       // "From" and "To" ARE the fields' names, so they stand as ghost text.
       await expect(from).toHaveAttribute("placeholder", "From");
       await userEvent.type(from, "2");
+      // A field inside a menu keeps its own keys: typing did not hand focus to a menu item.
+      await expect(from).toHaveFocus();
       await waitFor(() => expect(bodyRows(table)).toHaveLength(6));
       await waitFor(() => expect(body.getByText("In hours, as billed.")).toBeVisible());
       // A range filter DOES carry a clear control, and only while the filter is in play.
-      await userEvent.click(body.getByRole("button", { name: /Clear This Filter/ }));
-      await waitFor(() =>
-        expect(body.queryByRole("button", { name: /Clear This Filter/ })).toBeNull(),
-      );
-      await userEvent.keyboard("{Escape}");
-      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
+      await userEvent.click(body.getByRole("menuitem", { name: /Clear This Filter/ }));
+      await waitFor(() => expect(bodyRows(table)).toHaveLength(12));
+      await closeMenu();
     });
 
     await step("The date range filter narrows by the work date", async () => {
-      await openFunnel("Date");
+      await openFilter("Date");
       const from = await body.findByLabelText("From");
       await fireEvent.input(from, { target: { value: "2026-08-10" } });
       await waitFor(() => expect(bodyRows(table)).toHaveLength(6));
-      await userEvent.click(body.getByRole("button", { name: /Clear This Filter/ }));
-      await userEvent.keyboard("{Escape}");
-      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
+      await userEvent.click(body.getByRole("menuitem", { name: /Clear This Filter/ }));
+      await closeMenu();
     });
 
     await step("The text filter matches on containment", async () => {
-      await openFunnel("Title");
+      await openFilter("Title");
       const contains = await body.findByRole("searchbox", { name: "Filter Title" });
       // The ghost text is the field's name, not a description of the matching rule.
       await expect(contains).toHaveAttribute("placeholder", "Title");
       await userEvent.type(contains, "motion");
+      await expect(contains).toHaveFocus();
       await waitFor(() => expect(bodyRows(table)).toHaveLength(3));
       // Clear All Filters from the footer clears every filter at once.
-      await userEvent.keyboard("{Escape}");
-      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
+      await closeMenu();
       await userEvent.click(canvas.getByRole("button", { name: "Show all" }));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(12));
     });
@@ -300,9 +326,9 @@
 </Story>
 
 <!--
-  The columns menu: show/hide with the anchored column immovable, the pin control per row (the
-  anchored block joins the sticky set so pinned columns are contiguous from the leading edge),
-  and the zebra display setting.
+  The header's own menu (right-click a column heading): hide and pin the column being pointed at,
+  and one arrow to the right the full roster — show/hide with the anchored column immovable, and
+  the zebra display setting. There is no columns button anywhere on the surface.
 -->
 <Story
   name="Columns and pinning"
@@ -310,31 +336,54 @@
   play={async ({ canvas, step }) => {
     const table = canvas.getByRole("table");
     const body = within(document.body);
+    // The sort control's accessible name is its own text — the column label — so the header cell
+    // it sits in is reachable from the label alone.
+    const headOf = (label: string): HTMLElement =>
+      canvas.getByRole("button", { name: label }).closest("th")!;
+    const openColumns = async (label: string): Promise<void> => {
+      await fireEvent.contextMenu(headOf(label));
+      await body.findByRole("menu");
+      await userEvent.click(body.getByRole("menuitem", { name: "Columns" }));
+      await waitFor(() => expect(body.getAllByRole("menu").length).toBeGreaterThan(1));
+    };
+    const closeMenu = async (): Promise<void> => {
+      await userEvent.keyboard("{Escape}{Escape}");
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
+      await waitFor(() => expect(document.body).not.toHaveStyle({ pointerEvents: "none" }));
+    };
 
-    await step("The columns menu shows a hidden column on demand", async () => {
+    await step("The header's Columns submenu shows a hidden column on demand", async () => {
       await expect(canvas.queryByRole("button", { name: "Entry Number" })).toBeNull();
-      await userEvent.click(canvas.getByRole("button", { name: "Columns" }));
-      await userEvent.click(await body.findByRole("checkbox", { name: "Entry Number" }));
+      await openColumns("Date");
+      await userEvent.click(body.getByRole("menuitemcheckbox", { name: "Entry Number" }));
       await expect(canvas.getByRole("button", { name: "Entry Number" })).toBeVisible();
       await expect(within(table).getAllByText("2026-0147.0001").length).toBeGreaterThan(0);
     });
 
     await step("The anchored column cannot be hidden — it always shows", async () => {
-      const dateCheckbox = body.getByRole("checkbox", { name: "Date" });
-      await expect(dateCheckbox).toBeDisabled();
-      await expect(dateCheckbox).toBeChecked();
+      const dateRow = body.getByRole("menuitemcheckbox", { name: "Date" });
+      await expect(dateRow).toHaveAttribute("data-disabled");
+      await expect(dateRow).toHaveAttribute("aria-checked", "true");
+      await closeMenu();
+    });
+
+    await step("Hiding a column is on the column being pointed at", async () => {
+      await fireEvent.contextMenu(headOf("Entry Number"));
+      await body.findByRole("menu");
+      await userEvent.click(body.getByRole("menuitem", { name: "Hide Entry Number" }));
+      await waitFor(() =>
+        expect(canvas.queryByRole("button", { name: "Entry Number" })).toBeNull(),
+      );
+      await waitFor(() => expect(document.body).not.toHaveStyle({ pointerEvents: "none" }));
     });
 
     await step("Pinning a column makes the anchored block + it sticky, contiguously", async () => {
-      await userEvent.click(
-        body.getByRole("button", {
-          name: "Pin Timekeeper so it keeps its place when the list scrolls sideways",
-        }),
-      );
-      const timekeeperHead = canvas
-        .getByRole("button", { name: "Timekeeper" })
-        .closest("th")!;
-      const dateHead = canvas.getByRole("button", { name: "Date" }).closest("th")!;
+      await fireEvent.contextMenu(headOf("Timekeeper"));
+      await body.findByRole("menu");
+      await userEvent.click(body.getByRole("menuitem", { name: "Pin Timekeeper" }));
+      await waitFor(() => expect(document.body).not.toHaveStyle({ pointerEvents: "none" }));
+      const timekeeperHead = headOf("Timekeeper");
+      const dateHead = headOf("Date");
       await waitFor(() => expect(timekeeperHead).toHaveAttribute("data-pinned", "true"));
       await expect(dateHead).toHaveAttribute("data-pinned", "true");
       // The pinned block is contiguous: Timekeeper renders directly after the anchor.
@@ -351,22 +400,34 @@
     });
 
     await step("The pin is ONE glyph; fill is the only difference between pinned and not", async () => {
-      const glyphOf = (name: RegExp): SVGSVGElement =>
-        body.getByRole("button", { name }).querySelector("svg")!;
-      const pinnedGlyph = glyphOf(/^Unpin: Timekeeper/);
-      const unpinnedGlyph = glyphOf(/^Pin Title /);
-      // classList matching is exact per token, so `lucide-pin-off` could never satisfy it.
+      await fireEvent.contextMenu(headOf("Timekeeper"));
+      await body.findByRole("menu");
+      const pinnedGlyph = body
+        .getByRole("menuitem", { name: "Unpin Timekeeper" })
+        .querySelector("svg")!;
       await expect(pinnedGlyph.classList.contains("lucide-pin")).toBe(true);
+      await expect(pinnedGlyph).toHaveAttribute("fill", "currentColor");
+      const pinnedPaths = pinnedGlyph.innerHTML;
+      await closeMenu();
+
+      await fireEvent.contextMenu(headOf("Title"));
+      await body.findByRole("menu");
+      const unpinnedGlyph = body
+        .getByRole("menuitem", { name: "Pin Title" })
+        .querySelector("svg")!;
+      // classList matching is exact per token, so `lucide-pin-off` could never satisfy it.
       await expect(unpinnedGlyph.classList.contains("lucide-pin")).toBe(true);
       // Same geometry, so the drawn paths are identical; only the fill differs.
-      await expect(pinnedGlyph.innerHTML).toBe(unpinnedGlyph.innerHTML);
-      await expect(pinnedGlyph).toHaveAttribute("fill", "currentColor");
+      await expect(unpinnedGlyph.innerHTML).toBe(pinnedPaths);
       await expect(unpinnedGlyph).toHaveAttribute("fill", "none");
+      await closeMenu();
     });
 
-    await step("Zebra striping is the columns menu's display setting", async () => {
-      await userEvent.click(body.getByRole("checkbox", { name: "Shade alternate rows" }));
+    await step("Zebra striping is the Columns submenu's display setting", async () => {
+      await openColumns("Date");
+      await userEvent.click(body.getByRole("menuitemcheckbox", { name: "Shade alternate rows" }));
       await expect(table).toHaveAttribute("data-zebra", "on");
+      await closeMenu();
     });
   }}
 >
@@ -453,6 +514,100 @@
         quiet: row.status === "Void",
       })}
     />
+  {/snippet}
+</Story>
+
+<!--
+  The Time Sheet's two grid capabilities together: a TRAILING pinned column (Status stays stuck to
+  the end edge while the table scrolls sideways, a leading hairline saying "pinned, not floating")
+  and the row-detail second line (each record is two <tr>s reading as ONE row of two lines — the
+  hairline moves to the second line, and hover/selection cover the pair).
+-->
+<Story
+  name="Trailing pin and row detail"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const table = canvas.getByRole("table");
+    const primaryRow = (index: number): HTMLElement =>
+      Array.from(table.querySelectorAll("tbody tr[data-grid-row]"))[index] as HTMLElement;
+    const detailRow = (index: number): HTMLElement =>
+      Array.from(table.querySelectorAll("tbody tr[data-grid-detail-row]"))[index] as HTMLElement;
+
+    await step("The trailing-pinned column renders last, stuck to the end edge", async () => {
+      const statusHead = canvas.getByRole("button", { name: "Status" }).closest("th")!;
+      // The offsets are measured from the rendered header, so the attributes land after mount.
+      await waitFor(() => expect(statusHead).toHaveAttribute("data-pinned-end", "true"));
+      await expect(statusHead).toHaveAttribute("data-pinned-end-edge", "true");
+      await expect(statusHead.style.insetInlineEnd).toBe("0px");
+      // Last in render order, whatever the member-set order says.
+      const headers = Array.from(table.querySelectorAll("thead th"));
+      await expect(headers.at(-1)?.getAttribute("data-grid-column")).toBe("status");
+      // Both its edges are declared, so it offers no drag.
+      await expect(statusHead).not.toHaveAttribute("draggable");
+    });
+
+    await step("Its body and totals cells stick with it", async () => {
+      await waitFor(() =>
+        expect(
+          primaryRow(0).querySelector('td[data-pinned-end="true"][data-pinned-end-edge="true"]'),
+        ).not.toBeNull(),
+      );
+      const totalsCells = Array.from(table.querySelectorAll("tfoot td"));
+      await expect(
+        totalsCells.filter((cellElement) => cellElement.getAttribute("data-pinned-end") === "true"),
+      ).toHaveLength(1);
+    });
+
+    await step("Each record carries its second line across the scrolling columns", async () => {
+      await expect(table).toHaveAttribute("data-row-detail", "on");
+      await expect(table.querySelectorAll("tbody tr[data-grid-detail-row]")).toHaveLength(12);
+      // Seven columns show (Entry Number starts hidden): six scrolling + the trailing pin, so
+      // the second line spans the six and keeps an empty pinned cell for the hairline.
+      const detailCells = detailRow(0).querySelectorAll("td");
+      await expect(detailCells).toHaveLength(2);
+      await expect(detailCells[0]).toHaveAttribute("colspan", "6");
+      await expect(detailCells[1]).toHaveAttribute("data-pinned-end", "true");
+      await expect(detailCells[1]).toHaveTextContent("");
+      await expect(detailRow(0)).toHaveTextContent("Recorded by");
+    });
+
+    await step("The pair is ONE hover unit — either line hovered marks both", async () => {
+      await fireEvent.pointerEnter(primaryRow(1));
+      await expect(primaryRow(1)).toHaveAttribute("data-pair-hover", "true");
+      await expect(detailRow(1)).toHaveAttribute("data-pair-hover", "true");
+      await fireEvent.pointerLeave(primaryRow(1));
+      await expect(primaryRow(1)).not.toHaveAttribute("data-pair-hover");
+      await expect(detailRow(1)).not.toHaveAttribute("data-pair-hover");
+    });
+
+    await step("Selection covers the pair, from either line", async () => {
+      await userEvent.click(detailRow(2));
+      await expect(primaryRow(2)).toHaveAttribute("data-state", "selected");
+      await expect(detailRow(2)).toHaveAttribute("data-state", "selected");
+      await userEvent.click(primaryRow(2));
+      await expect(primaryRow(2)).not.toHaveAttribute("data-state", "selected");
+      await expect(detailRow(2)).not.toHaveAttribute("data-state", "selected");
+    });
+
+    await step("The columns menu holds the trailing pin — it is not the member's to move", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Columns" }));
+      const body = within(document.body);
+      const heldPin = await body.findByRole("button", {
+        name: "Status always keeps its place at the trailing edge",
+      });
+      await expect(heldPin).toBeDisabled();
+      await expect(heldPin).toHaveAttribute("aria-pressed", "true");
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid columns={TRAILING_PINNED_COLUMNS}>
+      {#snippet rowDetail(row)}
+        Recorded by {row.timekeeper}: {row.title}.
+      {/snippet}
+    </LitigationGrid>
   {/snippet}
 </Story>
 

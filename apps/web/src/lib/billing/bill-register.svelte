@@ -468,7 +468,6 @@
       <Plus class="size-16" aria-hidden="true" />
       Draft Bill
     </Button>
-    <DataTable.GridColumnsMenu {grid} />
     <Button
       variant="secondary"
       size="icon"

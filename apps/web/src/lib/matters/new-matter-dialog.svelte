@@ -116,7 +116,11 @@
     locations: readonly LocationSummary[];
     /** The docket as loaded, which is where the clients the firm already has come from. */
     matters: readonly MatterSummary[];
-    onCreated: (created: { matterId: string; matterNumber: string | null }) => void;
+    onCreated: (created: {
+      matterId: string;
+      matterNumber: string | null;
+      consultationNumber: string | null;
+    }) => void;
     /** A practice area this window added to the firm, so the screen that owns the list holds it. */
     onMatterTypeAdopted?: (created: MatterTypeSummary) => void;
   } = $props();
@@ -527,7 +531,9 @@
                 {#each clientMatters.slice(0, 4) as clientMatter (clientMatter.id)}
                   <li class="flex items-center gap-8 text-sm">
                     <span class="tabular-nums text-text-muted">
-                      {clientMatter.matterNumber ?? matterStatusLabel(clientMatter.status)}
+                      {clientMatter.matterNumber ??
+                        clientMatter.consultationNumber ??
+                        matterStatusLabel(clientMatter.status)}
                     </span>
                     <span class="truncate">{clientMatter.title}</span>
                     <Badge variant="neutral">{matterStatusLabel(clientMatter.status)}</Badge>

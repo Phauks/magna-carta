@@ -11,8 +11,10 @@ export interface MatterFixture {
   title: string;
   description: string | null;
   status: "prospective" | "open" | "closed";
-  /** Null until open draws it; frozen thereafter. A consultation is unnumbered by design. */
+  /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
+  /** The consultation's own tentative number, kept after opening rather than replaced by it. */
+  consultationNumber: string | null;
   matterTypeName: string | null;
   locationName: string | null;
   responsibleAttorneyName: string;
@@ -61,6 +63,7 @@ export const matterFixtures: readonly MatterFixture[] = [
       "recovery of improvement costs and holdover damages.",
     status: "open",
     matterNumber: "2026-0147",
+    consultationNumber: "C2026-0031",
     matterTypeName: "Commercial Litigation",
     locationName: "Reno",
     responsibleAttorneyName: "Eleanor Vance",
@@ -158,6 +161,7 @@ export const matterFixtures: readonly MatterFixture[] = [
       "conflicts run at intake, retention undecided.",
     status: "prospective",
     matterNumber: null,
+    consultationNumber: "C2026-0058",
     matterTypeName: "Estate & Probate",
     locationName: null,
     responsibleAttorneyName: "Priya Raghunathan",
@@ -179,6 +183,7 @@ export const matterFixtures: readonly MatterFixture[] = [
       "access road; judgment entered and recorded.",
     status: "closed",
     matterNumber: "2024-0089",
+    consultationNumber: null,
     matterTypeName: "Real Property",
     locationName: "Reno",
     responsibleAttorneyName: "Marcus Okafor",
