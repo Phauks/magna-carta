@@ -349,3 +349,32 @@ export function reopenMatter(
 export const OPEN_MATTER_PERMISSION = "matters:open";
 export const CLOSE_MATTER_PERMISSION = "matters:close";
 export const REOPEN_MATTER_PERMISSION = "matters:reopen";
+
+/** One rule standing in the way of a close, in the words of the subsystem that owns it. */
+export interface MatterCloseBlocker {
+  code: string;
+  message: string;
+}
+
+/** Whether a matter would close right now, and what stands in the way if it would not. */
+export interface MatterCloseReadiness {
+  matterId: string;
+  status: MatterStatus;
+  closable: boolean;
+  blockers: MatterCloseBlocker[];
+}
+
+/**
+ * Ask whether the matter would close, without closing it.
+ *
+ * The close rules are pure reads with their own commit guard, so the server can run them read-only:
+ * this is the same question the close asks and none of the write. It is a reading of the present and
+ * never a promise — a balance can move a second later, which is why the close re-asserts every rule
+ * inside its own batch — so a screen states what it says and still lets the close have the last word.
+ */
+export function readMatterCloseReadiness(
+  fetchImpl: typeof fetch,
+  matterId: string,
+): Promise<ApiOutcome<MatterCloseReadiness>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/close-readiness`);
+}

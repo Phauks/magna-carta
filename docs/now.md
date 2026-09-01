@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 775 nodes of the feature ledger in
+is the complete register rather than a digest: all 776 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**775 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**776 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 137 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **638 that are units of work**, for the reason set out under [What a roll-up is
+count the **639 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -32,9 +32,9 @@ not](#what-a-roll-up-is-not).
 | --- | --- | ---: | ---: |
 | Done | shipped | 274 | 43% |
 | Part-built | partial, in-build | 114 | 18% |
-| Ahead | designed, planned, researching, not-started | 210 | 33% |
+| Ahead | designed, planned, researching, not-started | 211 | 33% |
 | Parked | deferred, cut | 40 | 6% |
-| **All units of work** | | **638** | **100%** |
+| **All units of work** | | **639** | **100%** |
 
 ### Every status
 
@@ -46,14 +46,14 @@ not](#what-a-roll-up-is-not).
 | `designed` | 45 | 7% |
 | `planned` | 16 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 144 | 23% |
+| `not-started` | 145 | 23% |
 | `deferred` | 38 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **638** | **100%** |
+| **All statuses** | **639** | **100%** |
 
 ### What a roll-up is not
 
-**137 of the 775 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
+**137 of the 776 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 274 of 638 (43%). Shipped plus partial is 387 (61%).**
+**Shipped alone is 274 of 639 (43%). Shipped plus partial is 387 (61%).**
 
 The 113 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -101,7 +101,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
-| Core Domain — Directory, Matters & Locations | 32 | 20 | 0 | 0 | 2 | 0 | 3 | 1 | 0 | 58 | 55% |
+| Core Domain — Directory, Matters & Locations | 32 | 20 | 0 | 0 | 2 | 0 | 4 | 1 | 0 | 59 | 54% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **274** | **113** | **1** | **45** | **16** | **5** | **144** | **38** | **2** | **638** | **43%** |
+| **All areas** | **274** | **113** | **1** | **45** | **16** | **5** | **145** | **38** | **2** | **639** | **43%** |
 
 ## Where we have been
 
@@ -595,7 +595,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 58 units of work, 55% shipped. 32 done, 20 part-built, 5 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 59 units of work, 54% shipped. 32 done, 20 part-built, 6 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete on main; UI deferred until the design-system app shell lands._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md)._
@@ -623,10 +623,11 @@ to change a line here, edit the node in its area file and re-run the build.
   - `matters.types` · `partial` · **Flexible matter types** — Matter types carrying type-specific fields for mixed practices, via the shared custom-fields engine. _Note: Backend shipped; practice-area templates explicitly deferred (status.d/1-4: "before first client"); UI not built._
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
-  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens the status window, which states what the step does to the record and, for a close, renders the registered money rules as a checklist pointing at the section that settles each; a refused close resolves the whole list, carrying each refusing rule's own sentence and the movements that clear it. One step per standing, never a status picker - the contract takes no status on any of the three operations. Neither rule is readable before the close (the matter trust-ledger read takes a trust-account handle no route hands out, and the client-credit read takes a Directory entity id the matter record does not carry), so every row rests unticked and says so. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
+  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the standing, whether the matter can close, what becomes of the paper file, and the one step the standing allows. The verdict is the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only and answers before the button is pressed, so a press whose refusal is already known is disabled rather than offered. One step per standing, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
     - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
-    - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
+    - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
     - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
+  - `matters.physical-file` · `not-started` · **Physical file register and retention** — The firm's OWN paper file for a matter - where it sits once the matter closes, and the date it may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard. _Note: Surfaced rather than hidden - the matter status window renders both rows, marked Soon, naming what each waits on, because a window that answers "what becomes of the file" while silently omitting the question is worse than one that says it cannot answer yet. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks._
   - `matters.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop. _Note: The Files UI has landed since this said it was queued. What it does not yet offer is folder navigation, document-type assignment or drag-and-drop, which is the rest of this node's scope; the backend for all three is built._
     - `matters.file-manager.content-hash` · `shipped` · **Content hash on every stored object** — SHA-256 computed at write time for fixity, delta verification, duplicate detection, upload short-circuit, scan-verdict caching, and no-op version skip. _Note: Cross-matter blob dedup deliberately undecided per the white paper._
     - `matters.file-manager.bulk-download` · `shipped` · **Bulk download (zip)** — Streaming, store-mode, ZIP64 archives of selected files/folders or a whole matter, versions pinned at request time, access-checked and audit-logged; single-file selections download directly. _Note: Client-portal reuse awaits the portal (not built)._

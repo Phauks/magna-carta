@@ -97,33 +97,16 @@ would not be real.
 A matter's status is the badge at the top left of its own page, beside the matter number: **Active**,
 **Prospective** or **Closed**. Press the badge to change it.
 
-The window that opens says what the change will do before you make it, and offers the one step the
-matter's current standing allows. A consultation opens, an active matter closes, a closed matter
-reopens. There is no list of statuses to pick from, because a matter reaches a status by being
-opened, closed or reopened, not by being set to one.
+The window is short on purpose. It states the matter's standing, whether it can be closed, and what
+becomes of the paper file, and it offers the one step the current standing allows: a consultation
+opens, an active matter closes, a closed matter reopens. There is no list of statuses to pick from,
+because a matter reaches a status by being opened, closed or reopened, not by being set to one.
 
-**Opening a consultation** draws your firm's next matter number, which then stays with the matter for
-good, and moves it into the working docket.
-
-**Closing a matter** archives it. It leaves the firm's active lists, and the record stays and still
-takes entries: closing a matter does not seal it. Today becomes the matter's close date, and a later
-close never moves that date.
-
-**Before it can close** is the checklist of the two rules that stop a close, each with a link to the
-part of the matter that settles it. Nothing is ticked until you press **Close Matter**, because
-neither rule can be read from the window yet: pressing it is what asks. One press answers the whole
-list. The rule that refused is marked and says, in its own words, what is in the way and what clears
-it; every other rule is ticked, because a close runs them all.
-
-**Worth settling first** lists what the firm still holds against the matter and closing will not
-settle for anybody: time and costs nobody has billed, what is still owed across the matter's bills,
-and physical property in the safe-custody register. None of these stops a close, and each names the
-section that settles it.
-
-**Reopening a matter** returns it to the standing it held before it closed, which is Active if it
-carries a number and Prospective if it does not, and clears the recorded close date.
-
-### If a matter will not close
+**Can close** is answered before you press anything. The program runs the firm's own rules against
+the matter and reports the verdict. Where the answer is no, the window names what is in the way, in
+the words of the rule that said so, and the **Close Matter** button stays disabled: there is nothing
+to be gained from a press whose refusal is already on the screen. Clear what it names, reopen the
+window, and it is asked again.
 
 Two rules stop a close, and both are about money that is not the firm's.
 
@@ -140,14 +123,30 @@ against another of this client's bills.
 An unpaid bill does **not** stop a close. An uncollectable receivable is an ordinary business
 outcome, and writing it off is its lawful exit.
 
+**Opening a consultation** draws your firm's next matter number, which then stays with the matter for
+good, and moves it into the working docket. **Reopening a matter** returns it to the standing it held
+before it closed, which is Active if it carries a number and Prospective if it does not, and clears
+the recorded close date.
+
 **Notices are not refusals.** A close can report things worth knowing without stopping: if the firm
-still holds physical property in the safe-custody register against the matter, the window says so
+still holds a client's property in the safe-custody register against the matter, the window says so
 after the matter closes. The property stays exactly where it is, listed in the register, until
 somebody moves, releases or destroys it.
 
 **"This step needs the matters:close permission."** Closing, opening and reopening are each a
 permission your firm grants, and this account does not have that one. Ask whoever administers your
 firm.
+
+### The physical file
+
+**Physical file** and **Destroy after** are on the window and are not filled in yet. They are about
+your firm's own paper file for the matter: where it sits once the matter is closed, and the date it
+may be destroyed. Neither is recorded anywhere in Magna Carta today, and the window says so rather
+than leaving the questions off the screen that ought to answer them.
+
+They are deliberately not the safe-custody register, which is a different thing: **Custodian** holds
+a client's own property left with the firm to guard, and it stays there for as long as the client's
+affairs need it, long after the matter that brought it in has closed.
 
 ## If a matter will not open
 

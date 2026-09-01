@@ -1,10 +1,9 @@
 /*
- * The one lifecycle step each matter status offers, and everything a person is told before taking
+ * The one lifecycle step each matter status offers, and the facts the status window states beside
  * it.
  *
  * WHY THIS IS A MODEL AND NOT MARKUP. The words on the window that closes a firm's file are worth a
- * test, and a test cannot reach a sentence written inside a template. So the consequences, the
- * preconditions and the reading of a refusal live here, and the window renders them.
+ * test, and a test cannot reach a sentence written inside a template.
  *
  * ONE STEP, NEVER A PICKER. A matter's status is not a field somebody chooses a value for. Each
  * status offers exactly one next step: a consultation opens, an active matter closes, a closed
@@ -12,19 +11,21 @@
  * body, none of which takes a status. A control that let somebody pick "Closed" from a list would
  * be offering a state the lifecycle may not put a matter in from where it stands.
  *
- * WHAT THE CONSEQUENCES SAY AND WHY THEY ARE HERE AT ALL. Closing is the one step that is worth
- * stopping over: it is the step somebody takes once, on somebody else's file, and the two things
- * people assume about it are both wrong. Closing does not seal a matter (the record still takes
- * entries), and it does not fail quietly over money (the firm's own trust and credit rules refuse
- * it outright). Stating both before the press is not the surface explaining itself; it is the
- * result of the press, said in advance.
+ * THE PROGRAM DECIDES WHETHER A MATTER CAN CLOSE, AND THE WINDOW REPORTS IT. There is no checklist
+ * for a person to work through: the close-readiness route runs the firm's own registered rules
+ * read-only and answers, so the window states a verdict it was handed rather than a list of things
+ * to go and confirm. What to do about a No is in the refusal itself, which names the amount, where
+ * it sits, and the movements that clear it.
  */
 import type { ApiProblem } from "$lib/api/request.ts";
+import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
 import type { MatterStatus } from "./matter-status.ts";
 import {
   CLOSE_MATTER_PERMISSION,
   OPEN_MATTER_PERMISSION,
   REOPEN_MATTER_PERMISSION,
+  type MatterCloseBlocker,
+  type MatterCloseReadiness,
 } from "./matters-api.ts";
 
 /** The lifecycle operations, which are also the three endpoints that serve them. */
@@ -37,10 +38,6 @@ export interface MatterLifecycleStep {
   readonly label: string;
   /** What the control reads while the call is in flight. */
   readonly busyLabel: string;
-  /** The heading over the consequences, title case. */
-  readonly consequencesHeading: string;
-  /** What the step does to the record. One fact per entry, each rendered as its own row. */
-  readonly consequences: readonly string[];
   /** The permission the endpoint names, so the control can say no before the server has to. */
   readonly permission: string;
   /** What is said once the step has been taken. */
@@ -59,24 +56,12 @@ export interface MatterLifecycleStep {
 export const MATTER_LIFECYCLE_TRANSPORT_FAILURE =
   "Nothing answered. The matter's status is unchanged.";
 
-/**
- * The step each status offers.
- *
- * Every sentence here states what the platform actually does. Opening draws the number from the
- * firm's own counter; closing stamps a close date the contract will not let a re-close move, and is
- * refused by the trust and client-credit rules; reopening clears that date and restores the status
- * the matter held before, which is the server's decision and not this screen's.
- */
+/** The step each status offers. */
 export const MATTER_LIFECYCLE_STEPS: Readonly<Record<MatterStatus, MatterLifecycleStep>> = {
   prospective: {
     action: "open",
     label: "Open Matter",
     busyLabel: "Opening",
-    consequencesHeading: "What Opening Does",
-    consequences: [
-      "The firm's next matter number is drawn now, and stays with this matter for good.",
-      "The matter joins the firm's working docket, where a consultation does not appear.",
-    ],
     permission: OPEN_MATTER_PERMISSION,
     doneSentence: "The matter is open.",
     failureSentence: "The matter could not be opened.",
@@ -85,11 +70,6 @@ export const MATTER_LIFECYCLE_STEPS: Readonly<Record<MatterStatus, MatterLifecyc
     action: "close",
     label: "Close Matter",
     busyLabel: "Closing",
-    consequencesHeading: "What Closing Does",
-    consequences: [
-      "The matter's standing becomes Closed: it leaves the firm's active lists, and the record stays and still takes entries against it.",
-      "Today becomes the matter's close date, and a later close never moves it.",
-    ],
     permission: CLOSE_MATTER_PERMISSION,
     doneSentence: "The matter is closed.",
     failureSentence: "The matter could not be closed.",
@@ -98,11 +78,6 @@ export const MATTER_LIFECYCLE_STEPS: Readonly<Record<MatterStatus, MatterLifecyc
     action: "reopen",
     label: "Reopen Matter",
     busyLabel: "Reopening",
-    consequencesHeading: "What Reopening Does",
-    consequences: [
-      "The matter returns to the standing it held before it closed: Active if it carries a number, Prospective if it does not.",
-      "The recorded close date is cleared.",
-    ],
     permission: REOPEN_MATTER_PERMISSION,
     doneSentence: "The matter is open again.",
     failureSentence: "The matter could not be reopened.",
@@ -114,6 +89,65 @@ export function matterLifecycleStep(status: MatterStatus): MatterLifecycleStep {
   return MATTER_LIFECYCLE_STEPS[status];
 }
 
+// ---- can it close? ------------------------------------------------------------------------------
+
+/**
+ * Where the verdict stands.
+ *
+ * `unknown` is its own answer and never collapses into `blocked`. A rule that refused and a question
+ * nobody could put are different facts, and only the first is one a person can act on; showing the
+ * second as a refusal would send somebody looking for money that is not there.
+ */
+export type MatterCloseVerdict = "checking" | "ready" | "blocked" | "unknown";
+
+export interface MatterCloseStanding {
+  readonly verdict: MatterCloseVerdict;
+  /** The verdict in one line. */
+  readonly sentence: string;
+  /** Each rule that stands in the way, in the words of the subsystem that owns it. */
+  readonly blockers: readonly MatterCloseBlocker[];
+}
+
+/**
+ * The verdict, from what the readiness route answered.
+ *
+ * `null` means the answer has not arrived yet; `failed` means it could not be had at all. The rule
+ * messages are the server's own sentences and reach the screen unedited apart from the capital the
+ * subsystem did not supply, because each is written as the tail of a sentence.
+ */
+export function matterCloseStanding(
+  readiness: MatterCloseReadiness | null,
+  failed = false,
+): MatterCloseStanding {
+  if (failed) {
+    return {
+      verdict: "unknown",
+      sentence: "Whether this matter can close could not be read.",
+      blockers: [],
+    };
+  }
+  if (readiness === null) return { verdict: "checking", sentence: "Checking", blockers: [] };
+  if (readiness.closable) {
+    return { verdict: "ready", sentence: "Ready to close.", blockers: [] };
+  }
+  return {
+    verdict: "blocked",
+    sentence: "Not ready to close.",
+    blockers: readiness.blockers.map((blocker) => ({
+      code: blocker.code,
+      message: leadingCapital(blocker.message),
+    })),
+  };
+}
+
+// A rule writes its message as the tail of a sentence ("this matter still holds $400 on…"), because
+// the subsystem that owns the rule does not know what the surface above it will put in front of it.
+// Rendered as its own line it needs the capital the server did not supply. Only the first character
+// is touched: the amounts, account names and dates in the rest are the server's.
+function leadingCapital(message: string): string {
+  return `${message.charAt(0).toUpperCase()}${message.slice(1)}`;
+}
+
 /**
  * The problem type the close endpoint answers with when its preconditions refuse a matter. Matched
  * on the type rather than the status, because a 409 also means a request with this idempotency key
@@ -121,220 +155,60 @@ export function matterLifecycleStep(status: MatterStatus): MatterLifecycleStep {
  */
 export const CLOSE_REFUSED_PROBLEM_TYPE = "matter-close-refused";
 
-/** One rule that refused a close, in the words of the subsystem that owns it. */
-export interface MatterCloseRefusal {
-  /** The rule, machine-readable. Absent where a server answered without one. */
-  readonly code: string | undefined;
-  /** What is in the way and what clears it, as one sentence. */
-  readonly reason: string;
-}
-
 /**
  * The named reasons a close was refused, or nothing where the failure was something else.
  *
- * The refusal is the useful half of a refused close: each entry names what is in the way AND the
- * movements that clear it, which is what somebody told no actually needs. A generic failure line
- * would throw all of that away, so a caller that renders one without asking here first is losing
- * the only part of the answer that can be acted on.
+ * A close refused at the last moment answers in the same shape the readiness route answers in, so
+ * it updates the verdict already on screen rather than arriving as a second kind of message. That
+ * is not a coincidence to be relied on quietly: it is why both read the rules' own failures.
  */
-export function matterCloseRefusals(problem: ApiProblem): readonly MatterCloseRefusal[] {
+export function matterCloseRefusals(problem: ApiProblem): readonly MatterCloseBlocker[] {
   if (problem.type !== CLOSE_REFUSED_PROBLEM_TYPE) return [];
   return (problem.errors ?? []).flatMap((reason) =>
     reason.detail === undefined || reason.detail === ""
       ? []
-      : [refusal(reason.code, reason.detail)],
+      : [{ code: reason.code ?? "", message: leadingCapital(reason.detail) }],
   );
 }
 
-// A precondition writes its message as the tail of a sentence ("this matter still holds $400 on…"),
-// because the subsystem that owns the rule does not know what the surface above it will put in
-// front of it. Rendered as its own line, it needs the capital the server did not supply. Only the
-// first character is touched: the amounts, account names and dates in the rest are the server's.
-function refusal(code: string | undefined, detail: string): MatterCloseRefusal {
-  return { code, reason: `${detail.charAt(0).toUpperCase()}${detail.slice(1)}` };
+// ---- the physical file ---------------------------------------------------------------------------
+
+/**
+ * Where the firm's own paper file for this matter sits, and the date it may be destroyed.
+ *
+ * NEITHER IS MODELLED, AND NEITHER IS THE CUSTODY REGISTER. Custodian holds CLIENT property left
+ * with the firm to guard — an original will, a deed, a passport — which stays in the register for as
+ * long as the client's affairs need it, long after the matter that brought it in has closed. The
+ * firm's own file for a matter is a different object with a different life, and the platform does
+ * not carry it: no register, no location, and no retention clock anywhere to derive a destruction
+ * date from. The custody register is explicit that it runs no timer at all — an original is
+ * destroyed on a written basis, by two people, never because a date arrived.
+ *
+ * So both rows render and say what they are waiting for, which is the standing rule for anything
+ * designed ahead of what serves it. A date invented here would be a date somebody destroys a
+ * client's file on.
+ */
+export interface MatterPhysicalFileFact {
+  readonly key: string;
+  readonly label: string;
+  /** The one honest sentence the row owes about what it is waiting for. */
+  readonly waitingOn: string;
 }
 
-// ---- what a close has to clear, and what it is worth knowing about ---------------------------
-//
-// The close is the only step with a gate under it, and the gate is not this screen's: the server
-// runs the firm's own money rules and refuses. Two consequences shape everything below.
-//
-// THE CHECKLIST CANNOT BE ANSWERED IN ADVANCE, AND SAYS SO RATHER THAN GUESSING. Neither rule is
-// readable from here today: the matter trust-ledger read takes a trust-account handle and no route
-// hands one out, and the client-credit read takes a Directory entity id the matter record does not
-// carry. So every requirement rests at "checked when you close" — never at a tick nobody verified,
-// which is the one state a checklist must not invent.
-//
-// A REFUSAL ANSWERS THE WHOLE CHECKLIST, NOT JUST ITS OWN ROW. The close runs every rule and
-// reports every one that refused, so silence about a rule is that rule passing. One press therefore
-// resolves the list: the rules that refused carry their own sentences, and the rest are met.
-//
-// The codes are the subsystems' own (packages/trust/src/close-precondition.ts,
-// packages/billing/src/close-precondition.ts). This app deliberately does not depend on those
-// packages, so they are spelled here for the same reason every response shape in matters-api.ts is.
-
-/** A matter's client trust ledger still holding money, or a hold outliving the money it was on. */
-const TRUST_CLOSE_CODES: readonly string[] = ["trust-balance-not-zero", "trust-hold-active"];
-/** Money a correction left over that the firm has already conceded it owes the client back. */
-const CLIENT_CREDIT_CLOSE_CODE = "client-credit-open";
-
-/** Where a requirement is settled: the slug of the matter section that owns it. */
-export type MatterCloseRequirement = {
-  readonly key: string;
-  /** What has to be true, as one line. */
-  readonly label: string;
-  /** The refusal codes that mean this requirement is what stood in the way. */
-  readonly codes: readonly string[];
-  /** The matter section a person goes to in order to settle it. */
-  readonly section: string;
-};
-
-/** The two rules registered against the close hook, in the order a close runs them. */
-export const MATTER_CLOSE_REQUIREMENTS: readonly MatterCloseRequirement[] = [
+export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
   {
-    key: "trust",
-    label: "The client's trust ledger for this matter is empty, with no disputed-funds hold on it.",
-    codes: TRUST_CLOSE_CODES,
-    section: "trust",
+    key: "location",
+    label: "Physical File",
+    waitingOn: soonDependencySentence("a register of the firm's own physical files"),
   },
   {
-    key: "client-credit",
-    label: "No client credit is open against the matter.",
-    codes: [CLIENT_CREDIT_CLOSE_CODE],
-    section: "billing",
+    key: "destroy-after",
+    label: "Destroy After",
+    waitingOn: soonDependencySentence("a firm file-retention policy"),
   },
 ];
 
-/**
- * Where one requirement stands. `unknown` is not a soft no: it is the honest state before a close
- * has asked, and it is what every row rests at.
- */
-export type MatterCloseCheckState = "unknown" | "met" | "blocked";
-
-export interface MatterCloseCheck {
-  readonly key: string;
-  /** What has to be true. For a rule this build does not know, the server's own sentence. */
-  readonly label: string;
-  readonly state: MatterCloseCheckState;
-  /** The refusing rule's own words: the amount, where it sits, and the movements that clear it. */
-  readonly reasons: readonly string[];
-  /** The matter section that settles it, where this build knows one. */
-  readonly section: string | null;
-}
-
-/**
- * The close checklist, as a refusal (or the absence of one) leaves it.
- *
- * `null` means no close has been attempted, so nothing has been checked. A refusal resolves every
- * row, because the close runs every rule and reports every failure — and a refusal citing a rule
- * this build has never heard of becomes its own blocked row rather than disappearing, since a rule
- * registered server-side after this screen shipped is exactly the one a person most needs to read.
- */
-export function matterCloseChecklist(
-  refusals: readonly MatterCloseRefusal[] | null,
-): readonly MatterCloseCheck[] {
-  if (refusals === null) {
-    return MATTER_CLOSE_REQUIREMENTS.map((requirement) => ({
-      key: requirement.key,
-      label: requirement.label,
-      state: "unknown" as const,
-      reasons: [],
-      section: requirement.section,
-    }));
-  }
-  const known = MATTER_CLOSE_REQUIREMENTS.map((requirement) => {
-    const reasons = refusals
-      .filter((refusal) => refusal.code !== undefined && requirement.codes.includes(refusal.code))
-      .map((refusal) => refusal.reason);
-    return {
-      key: requirement.key,
-      label: requirement.label,
-      state: (reasons.length > 0 ? "blocked" : "met") as MatterCloseCheckState,
-      reasons,
-      section: requirement.section,
-    };
-  });
-  const accounted = new Set(MATTER_CLOSE_REQUIREMENTS.flatMap((one) => one.codes));
-  const unaccounted = refusals
-    .filter((refusal) => refusal.code === undefined || !accounted.has(refusal.code))
-    .map((refusal, index) => ({
-      key: refusal.code ?? `unnamed-${String(index)}`,
-      label: refusal.reason,
-      state: "blocked" as const,
-      reasons: [],
-      section: null,
-    }));
-  return [...known, ...unaccounted];
-}
-
-/**
- * Something about this matter that is worth settling before it closes, and that closing will not
- * settle for anybody.
- *
- * These are NOT requirements and never become them. The distinction is the whole point: an
- * uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off, and a
- * firm holds a client's original for decades after their last matter closed. Blocking on either
- * would only teach people to write off what they meant to chase, or to unlink a packet from the
- * matter it belongs to. So they are read, stated, and pointed at the section that settles them.
- */
-export interface MatterCloseConsideration {
-  readonly key: string;
-  /** The finding, plus the one clause without which it would read as a blocker. */
-  readonly line: string;
-  /** The matter section that settles it. */
-  readonly section: string;
-}
-
-/** What the considerations are read from. Null where a read has not come back or failed. */
-export interface MatterCloseHoldings {
-  readonly unbilled: {
-    readonly timeEntryCount: number;
-    readonly timeAmountMinor: number;
-    readonly costEntryCount: number;
-    readonly costAmountMinor: number;
-    readonly receivableUnpaidMinor: number;
-  } | null;
-  /** How many custody packets the firm holds against this matter. */
-  readonly custodyPacketCount: number | null;
-  /** How this surface prints an amount in minor units. */
-  readonly money: (amountMinor: number) => string;
-}
-
-export function matterCloseConsiderations(
-  holdings: MatterCloseHoldings,
-): readonly MatterCloseConsideration[] {
-  const considerations: MatterCloseConsideration[] = [];
-  const unbilled = holdings.unbilled;
-  if (unbilled !== null) {
-    const entries = unbilled.timeEntryCount + unbilled.costEntryCount;
-    const amount = unbilled.timeAmountMinor + unbilled.costAmountMinor;
-    if (entries > 0) {
-      const time = `${String(unbilled.timeEntryCount)} ${unbilled.timeEntryCount === 1 ? "time entry" : "time entries"}`;
-      const cost = `${String(unbilled.costEntryCount)} ${unbilled.costEntryCount === 1 ? "cost" : "costs"}`;
-      considerations.push({
-        key: "unbilled",
-        line: `${time} and ${cost} are unbilled, worth ${holdings.money(amount)}. Closing does not bill them.`,
-        section: "billing",
-      });
-    }
-    if (unbilled.receivableUnpaidMinor > 0) {
-      considerations.push({
-        key: "receivable",
-        line: `${holdings.money(unbilled.receivableUnpaidMinor)} is still owed across this matter's bills. An unpaid bill does not stop a close; a write-off is its exit.`,
-        section: "billing",
-      });
-    }
-  }
-  const packets = holdings.custodyPacketCount;
-  if (packets !== null && packets > 0) {
-    considerations.push({
-      key: "custody",
-      line: `The firm holds ${String(packets)} ${packets === 1 ? "packet" : "packets"} of physical property against this matter. It stays in the safe-custody register, where it is, after the close.`,
-      section: "custodian",
-    });
-  }
-  return considerations;
-}
+// ---- what stops the step being taken from this screen ---------------------------------------------
 
 /**
  * Why the step cannot be taken from this screen, or nothing where it can.

@@ -247,7 +247,7 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079, ADR-0080
   evidence: packages/matters/src/matter-service.ts (prospective/open/closed transitions, reopen restoring prior state, frozen numbers), reached from the matter masthead's status seal in apps/web/src/lib/matters/matter-status-dialog.svelte over the open/close/reopen routes.
-  notes: The UI has landed. Pressing the status seal opens the status window, which states what the step does to the record and, for a close, renders the registered money rules as a checklist pointing at the section that settles each; a refused close resolves the whole list, carrying each refusing rule's own sentence and the movements that clear it. One step per standing, never a status picker - the contract takes no status on any of the three operations. Neither rule is readable before the close (the matter trust-ledger read takes a trust-account handle no route hands out, and the client-credit read takes a Directory entity id the matter record does not carry), so every row rests unticked and says so. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.
+  notes: The UI has landed. Pressing the status seal opens a short status window - the standing, whether the matter can close, what becomes of the paper file, and the one step the standing allows. The verdict is the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only and answers before the button is pressed, so a press whose refusal is already known is disabled rather than offered. One step per standing, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.
 
 - id: matters.lifecycle.consultations
   name: Consultations (prospective matters)
@@ -267,7 +267,7 @@
   surface: internal
   slices: 1-1-matters-locations-file-manager
   evidence: packages/matters/src/close-preconditions.ts holds the registry and CLOSE_PRECONDITIONS is empty there by design — the matter shell runs what it is handed and imports no subsystem. The rules are registered in apps/api-worker/src/routes/matters.ts, where the subsystems meet.
-  notes: Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing.
+  notes: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing.
 
 - id: matters.lifecycle.stale-consultations
   name: Stale-consultation policy and bulk close
@@ -277,6 +277,13 @@
   slices: 1-1-matters-locations-file-manager
   evidence: staleAgeDays setting in packages/matters/src/settings.ts; isStale flag in queries.ts
   notes: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found.
+
+- id: matters.physical-file
+  name: Physical file register and retention
+  scope: The firm's OWN paper file for a matter - where it sits once the matter closes, and the date it may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard.
+  status: not-started
+  evidence: Nothing in the tree models it. Custodian is client property (packages/custodian), the close stamps closed_at as the instant retention would run from (packages/matters/src/matter-service.ts), and no retention policy or destruction date exists anywhere to run from it - the custody register is explicit that it runs no timer at all and destroys an original only on a written basis by two people.
+  notes: Surfaced rather than hidden - the matter status window renders both rows, marked Soon, naming what each waits on, because a window that answers "what becomes of the file" while silently omitting the question is worse than one that says it cannot answer yet. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks.
 
 - id: matters.file-manager
   name: File Manager

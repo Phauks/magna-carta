@@ -31,6 +31,12 @@ let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 const todayInUtc = () => new Date().toISOString().slice(0, 10);
 const clock = { now: () => new Date().toISOString(), today: () => todayInUtc() };
 
+function get(path: string): Promise<Response> {
+  return SELF.fetch(`https://example.com${path}`, {
+    headers: { accept: "application/json", origin: "https://example.com", cookie: ownerCookie },
+  });
+}
+
 function post(path: string, body?: unknown): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
     method: "POST",
@@ -202,5 +208,76 @@ describe("closing a matter against its trust ledger", () => {
     const closed = await post(`/api/v1/matters/${matterId}/close`);
 
     expect(closed.status).toBe(200);
+  });
+});
+
+// The read-only half of the same gate. A screen that offers a close can state whether it would go
+// through instead of making somebody press a button to find out — and the answer has to come from
+// the rules themselves, because a second implementation of "can this close" is a second answer.
+describe("asking whether a matter would close", () => {
+  interface Readiness {
+    matterId: string;
+    status: string;
+    closable: boolean;
+    blockers: { code: string; message: string }[];
+  }
+
+  it("says yes for a matter that holds no client money", async () => {
+    const matterId = await openMatter("Readiness Clear Matter", "entity_ready_clear");
+
+    const readiness = await readJson<Readiness>(
+      await get(`/api/v1/matters/${matterId}/close-readiness`),
+    );
+
+    expect(readiness.closable).toBe(true);
+    expect(readiness.status).toBe("open");
+    expect(readiness.blockers).toEqual([]);
+  });
+
+  it("says no in the rule's own words, and leaves the matter open", async () => {
+    const matterId = await openMatter("Readiness Held Matter", "entity_ready_held");
+    await post("/api/v1/trust/deposits", {
+      trustAccountId,
+      matterId,
+      amountMinor: 125000,
+      currency: "USD",
+      effectiveDate: todayInUtc(),
+      description: "Retainer received",
+      method: "check",
+      reference: "3400",
+      source: "Ready Holdings",
+      purpose: "Advance on fees and costs",
+    });
+
+    const readiness = await readJson<Readiness>(
+      await get(`/api/v1/matters/${matterId}/close-readiness`),
+    );
+
+    expect(readiness.closable).toBe(false);
+    expect(readiness.blockers[0]?.code).toBe("trust-balance-not-zero");
+    expect(readiness.blockers[0]?.message).toContain("$1,250.00");
+    expect(readiness.blockers[0]?.message).toContain("disburse the remaining funds to the client");
+    // The whole point of a probe: asking the question must not answer it by acting on it.
+    const detail = await readJson<{ status: string }>(await get(`/api/v1/matters/${matterId}`));
+    expect(detail.status).toBe("open");
+  });
+
+  it("says no for a matter that is already closed, and says which no it is", async () => {
+    const matterId = await openMatter("Readiness Closed Matter", "entity_ready_closed");
+    expect((await post(`/api/v1/matters/${matterId}/close`)).status).toBe(200);
+
+    const readiness = await readJson<Readiness>(
+      await get(`/api/v1/matters/${matterId}/close-readiness`),
+    );
+
+    expect(readiness.status).toBe("closed");
+    expect(readiness.closable).toBe(false);
+    expect(readiness.blockers[0]?.code).toBe("matter-already-closed");
+  });
+
+  it("404s a matter this firm does not have", async () => {
+    const response = await get(`/api/v1/matters/${newIdentifier("matter")}/close-readiness`);
+
+    expect(response.status).toBe(404);
   });
 });

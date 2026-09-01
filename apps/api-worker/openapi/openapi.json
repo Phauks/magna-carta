@@ -4128,6 +4128,49 @@
           "responsibleMemberName"
         ]
       },
+      "MatterCloseReadiness": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "prospective",
+              "open",
+              "closed"
+            ]
+          },
+          "closable": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "status",
+          "closable",
+          "blockers"
+        ]
+      },
       "MatterActionAck": {
         "type": "object",
         "properties": {
@@ -37854,6 +37897,91 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/close-readiness": {
+      "get": {
+        "description": "Answers whether this matter would close right now, without closing it. Runs the same close preconditions the close runs and reports each one that stands in the way, with the balance and the movements that clear it, in the words of the subsystem that owns the rule. A matter that is already closed is reported as not closable, with that as its blocker. The answer is a reading of the present, never a guarantee: the close re-asserts every rule inside its own batch, so a balance that moves in between is caught there.",
+        "operationId": "matters.closeReadiness",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.closeReadiness",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:close",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether the matter can close, and what stands in the way",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterCloseReadiness"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
