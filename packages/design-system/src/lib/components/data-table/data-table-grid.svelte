@@ -3,7 +3,7 @@
    * DataTable.Grid — the platform's ONE table (the settled cross-surface ruling: any behavior gap
    * between two tables is a defect by definition). Driven by the declarative column model
    * (grid-columns.ts) through a shared state object (createDataTableGrid), it carries the settled
-   * machinery: type-aware stable sorting, the in-header per-column filters, column show/hide,
+   * machinery: type-aware stable sorting, the per-column filters, column show/hide,
    * drag-reorder (anchored columns lead), pinning at measured sticky offsets, resize grips with
    * double-click fit, the Docket's selection model (click / Ctrl / Shift / Ctrl+A scoped to the
    * table / arrows / click-empty-clears), activation as its own event, the scope-honest totals
@@ -13,20 +13,27 @@
    * Rendering stays the consumer's: the `cell` snippet supplies each cell (status chips and the
    * like are the surface's business); without it, cells render the column model's typed text.
    * Selection is emitted, never presented — this component opens nothing.
+   *
+   * Every column control — filtering included — is summoned from the header itself (GridHeadMenu,
+   * on right-click), never from a button on the surface or in the header cell. The cell shows only
+   * whether a filter is in play; see that component for what the menu carries and why.
    */
   import type { Snippet } from "svelte";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import Funnel from "@lucide/svelte/icons/funnel";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import Pin from "@lucide/svelte/icons/pin";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import Button from "../button/index.ts";
   import Skeleton from "../skeleton/index.ts";
+  import * as ContextMenu from "../context-menu/index.ts";
   import type { GridCellContext, GridColumn } from "./grid-columns.ts";
   import { gridCellText, gridColumnAlign } from "./grid-columns.ts";
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
+  import { gridFilterSummary } from "./grid-filters.ts";
   import { gridRowMarkAttributes } from "./grid-rows.ts";
-  import GridColumnFilter from "./data-table-grid-filter.svelte";
+  import GridHeadMenu from "./data-table-grid-head-menu.svelte";
 
   type Props = {
     grid: DataTableGridState<TRow>;
@@ -51,6 +58,11 @@
     /** Right-click on a row: the selection re-targets first, then this fires for the surface's
      * menu. Rows carry no menu of their own here. */
     onRowContextMenu?: (event: MouseEvent, row: TRow, selectedRows: readonly TRow[]) => void;
+    /**
+     * The surface's own display settings, rendered in the header menu's Columns submenu beneath the
+     * shared ones. ContextMenu.CheckboxItem rows, so the menu keeps one keyboard model throughout.
+     */
+    settings?: Snippet;
     class?: string;
   };
   let {
@@ -63,6 +75,7 @@
     skeletonRowCount = 8,
     density = "comfortable",
     onRowContextMenu,
+    settings,
     class: className,
   }: Props = $props();
 
@@ -70,6 +83,12 @@
   let headerCells = $state<Record<string, HTMLTableCellElement | null>>({});
 
   const rowKeyOf = (row: TRow): string => grid.options.rowKey(row);
+  /** The filter mark's tooltip, or undefined when no filter is in play and no mark is drawn. */
+  const filterMarkTitle = (column: GridColumn<TRow>): string | undefined => {
+    const filter = grid.filterFor(column.id);
+    if (filter === undefined) return undefined;
+    return `Filtered: ${gridFilterSummary(column, filter)}. Right-click the header to change or clear it`;
+  };
   const ariaSortOf = (columnId: string): "ascending" | "descending" | "none" =>
     grid.sortColumnId === columnId ? grid.sortDirection : "none";
 
@@ -202,6 +221,9 @@
   }
 
   function gripPointerDown(event: PointerEvent, column: GridColumn<TRow>): void {
+    // Only the primary button drags: a right-click on the grip is asking for the header's menu,
+    // and starting a resize under an open menu leaves the column following the pointer.
+    if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     grid.snapshotColumnWidths(measuredWidths());
@@ -331,76 +353,104 @@
         {#each grid.visibleColumns as column (column.id)}
           {@const pinned = pinnedAttributes(column.id)}
           {@const width = grid.columnWidthOf(column.id)}
-          <th
-            bind:this={headerCells[column.id]}
-            scope="col"
-            class="mc-table-head mc-table-grid-head"
-            data-grid-column={column.id}
-            data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
-            data-pinned={pinned["data-pinned"]}
-            data-pinned-edge={pinned["data-pinned-edge"]}
-            data-pinned-end={pinned["data-pinned-end"]}
-            data-pinned-end-edge={pinned["data-pinned-end-edge"]}
-            data-dragging={draggingColumnId === column.id ? "true" : undefined}
-            data-drop={dropTarget?.columnId === column.id
-              ? dropTarget.after
-                ? "after"
-                : "before"
-              : undefined}
-            aria-sort={ariaSortOf(column.id)}
-            draggable={column.anchored || column.pinnedEnd === true ? undefined : true}
-            style={[
-              pinned.style,
-              width === undefined ? undefined : `width: ${width}px`,
-            ]
-              .filter(Boolean)
-              .join("; ") || undefined}
-            ondragstart={(event) => {
-              if (column.anchored || column.pinnedEnd === true) return;
-              draggingColumnId = column.id;
-              if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-            }}
-            ondragend={() => {
-              draggingColumnId = null;
-              dropTarget = null;
-            }}
-            ondragover={(event) => headDragOver(event, column)}
-            ondragleave={() => {
-              if (dropTarget?.columnId === column.id) dropTarget = null;
-            }}
-            ondrop={(event) => headDrop(event, column)}
-          >
-            <span class="mc-table-grid-head-inner">
-              <button
-                type="button"
-                class="mc-table-grid-sort"
-                title="Sort by {column.label}"
-                onclick={() => grid.toggleSort(column.id)}
-              >
-                {column.label}
-                <span class="mc-table-grid-sort-arrow">
-                  {#if grid.sortColumnId === column.id}
-                    {#if grid.sortDirection === "ascending"}
-                      <ArrowUp class="mc-table-grid-sort-arrow" aria-hidden="true" />
-                    {:else}
-                      <ArrowDown class="mc-table-grid-sort-arrow" aria-hidden="true" />
-                    {/if}
-                  {/if}
-                </span>
-              </button>
-              <GridColumnFilter {grid} {column} />
-            </span>
-            <span
-              class="mc-table-grid-grip"
-              data-resizing={resizingColumnId === column.id ? "true" : undefined}
-              aria-hidden="true"
-              title="Drag to resize the {column.label} column. Double-click fits it to its widest value"
-              onpointerdown={(event) => gripPointerDown(event, column)}
-              ondblclick={(event) => gripDoubleClick(event, column)}
-              onclick={(event) => event.stopPropagation()}
-              ondragstart={(event) => event.preventDefault()}
-            ></span>
-          </th>
+          <!--
+            The header cell IS the menu's trigger region, so the cell is rendered through Bits'
+            delegation snippet: nothing may wrap a `<th>`. Only the colliding props go through the
+            trigger to be merged — the inline style (Bits adds its own) and the contextmenu handler,
+            which stops the event at the cell so a surface listening for a ROW's right-click over
+            the same region (the file manager) never re-targets its selection off a header.
+          -->
+          <ContextMenu.Root>
+            <ContextMenu.Trigger
+              style={[pinned.style, width === undefined ? undefined : `width: ${width}px`]
+                .filter(Boolean)
+                .join("; ") || undefined}
+              oncontextmenu={(event: MouseEvent) => event.stopPropagation()}
+            >
+              {#snippet child({ props })}
+                <th
+                  bind:this={headerCells[column.id]}
+                  {...props}
+                  scope="col"
+                  class="mc-table-head mc-table-grid-head"
+                  data-grid-column={column.id}
+                  data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
+                  data-pinned={pinned["data-pinned"]}
+                  data-pinned-edge={pinned["data-pinned-edge"]}
+                  data-pinned-end={pinned["data-pinned-end"]}
+                  data-pinned-end-edge={pinned["data-pinned-end-edge"]}
+                  data-dragging={draggingColumnId === column.id ? "true" : undefined}
+                  data-drop={dropTarget?.columnId === column.id
+                    ? dropTarget.after
+                      ? "after"
+                      : "before"
+                    : undefined}
+                  aria-sort={ariaSortOf(column.id)}
+                  draggable={column.anchored || column.pinnedEnd === true ? undefined : true}
+                  ondragstart={(event) => {
+                    if (column.anchored || column.pinnedEnd === true) return;
+                    draggingColumnId = column.id;
+                    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+                  }}
+                  ondragend={() => {
+                    draggingColumnId = null;
+                    dropTarget = null;
+                  }}
+                  ondragover={(event) => headDragOver(event, column)}
+                  ondragleave={() => {
+                    if (dropTarget?.columnId === column.id) dropTarget = null;
+                  }}
+                  ondrop={(event) => headDrop(event, column)}
+                >
+                  <span class="mc-table-grid-head-inner">
+                    <button
+                      type="button"
+                      class="mc-table-grid-sort"
+                      title="Sort by {column.label}. Right-click the header for its column controls"
+                      onclick={() => grid.toggleSort(column.id)}
+                    >
+                      {column.label}
+                      <span class="mc-table-grid-sort-arrow">
+                        {#if grid.sortColumnId === column.id}
+                          {#if grid.sortDirection === "ascending"}
+                            <ArrowUp class="mc-table-grid-sort-arrow" aria-hidden="true" />
+                          {:else}
+                            <ArrowDown class="mc-table-grid-sort-arrow" aria-hidden="true" />
+                          {/if}
+                        {/if}
+                      </span>
+                    </button>
+                    <!--
+                      The filter's MARK, not its control: it says a filter is in play on this column
+                      and nothing else, so the cell holds only the column's name and its state. The
+                      slot is reserved whether or not it shows, so a filter appearing moves nothing.
+                    -->
+                    <span
+                      class="mc-table-grid-filter-mark"
+                      data-active={grid.filterFor(column.id) === undefined ? undefined : "true"}
+                      title={filterMarkTitle(column)}
+                    >
+                      {#if grid.filterFor(column.id) !== undefined}
+                        <Funnel class="mc-table-filter-icon" aria-hidden="true" />
+                        <span class="sr-only">{column.label} is filtered</span>
+                      {/if}
+                    </span>
+                  </span>
+                  <span
+                    class="mc-table-grid-grip"
+                    data-resizing={resizingColumnId === column.id ? "true" : undefined}
+                    aria-hidden="true"
+                    title="Drag to resize the {column.label} column. Double-click fits it to its widest value"
+                    onpointerdown={(event) => gripPointerDown(event, column)}
+                    ondblclick={(event) => gripDoubleClick(event, column)}
+                    onclick={(event) => event.stopPropagation()}
+                    ondragstart={(event) => event.preventDefault()}
+                  ></span>
+                </th>
+              {/snippet}
+            </ContextMenu.Trigger>
+            <GridHeadMenu {grid} {column} {settings} />
+          </ContextMenu.Root>
         {/each}
       </tr>
     </thead>

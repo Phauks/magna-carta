@@ -3,9 +3,9 @@
    * The File Workbench: the files, the file, and what has been read about it.
    *
    * The screen owns its own chrome. The masthead is here rather than in the route because every
-   * control in it acts on this surface — adding files, which columns the list shows, and whether
-   * the file is drawn beside its readings and on which side. A route that held those would have to
-   * reach into the list's grid to do it.
+   * control in it acts on this surface — adding files, and whether the file is drawn beside its
+   * readings and on which side. A route that held those would have to reach into the list's grid
+   * to do it.
    *
    * TWO CONTAINERS, SIDE BY SIDE. The list has edges and so do the readings: the right side is one
    * panel with the file's name across its top, its capability tabs beneath that, and the findings
@@ -69,8 +69,8 @@
   let selectedKeys = $state<readonly string[]>([]);
   let activeId = $state<string | null>(null);
 
-  // The grid lives here rather than inside the list, so its columns menu can sit in the masthead
-  // with the rest of the screen's controls and the list can begin at the top of its pane.
+  // The grid lives here rather than inside the list: the screen reads and drives its selection
+  // (which file the readings are about), and the list can begin at the top of its pane.
   const grid = DataTable.createDataTableGrid<WorkbenchFile>({
     columns: railColumns,
     rows: () => source.files,
@@ -219,7 +219,6 @@
         <Upload class="size-16" aria-hidden="true" />
         Add Files
       </Button>
-      <DataTable.GridColumnsMenu {grid} />
       <Button
         variant="secondary"
         size="sm"

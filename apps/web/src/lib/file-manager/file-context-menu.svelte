@@ -106,7 +106,9 @@
             {entry.label}
           </ContextMenu.SubTrigger>
           <ContextMenu.SubContent class="mc-scrollbar overflow-y-auto">
-            <div class="p-4">
+            <!-- The field keeps its own keys: without this, a character typed here reaches the
+                 menu's typeahead and jumps focus onto a type row mid-word. -->
+            <div class="p-4" role="presentation" onkeydown={ContextMenu.keepMenuFieldKeys}>
               <Input
                 size="sm"
                 bind:value={typeQuery}

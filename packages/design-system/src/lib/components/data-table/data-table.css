@@ -461,13 +461,13 @@
     block-size: var(--mc-space-12);
   }
   /*
-   * The in-header filter: flush at the cell's END edge (label leading, funnel trailing; in an
-   * end-aligned column the label sits beside it at that same edge), its space reserved at all
-   * times so revealing it on hover moves nothing. Revealed while the cell is hovered or focused,
-   * and ALWAYS while active or open. Active is unmistakable: the accent-subtle fill.
+   * The in-header filter MARK: flush at the cell's END edge (label leading, mark trailing; in an
+   * end-aligned column the label sits beside it at that same edge). It is a state, not a control —
+   * the filter itself is set from the header's right-click menu — so it is drawn only while a
+   * filter is in play, and its slot is held at all times so appearing moves nothing. Active is
+   * unmistakable: the accent-subtle fill.
    */
-  .mc-table-grid-filter-trigger {
-    visibility: hidden;
+  .mc-table-grid-filter-mark {
     flex: none;
     margin-inline-start: auto;
     display: inline-flex;
@@ -477,28 +477,13 @@
     block-size: var(--mc-space-20);
     border-radius: var(--mc-radius-sm);
     background-color: transparent;
-    color: var(--mc-text-subtle);
-    cursor: pointer;
-  }
-  .mc-table-grid-head[data-align="end"] .mc-table-grid-filter-trigger {
-    margin-inline-start: var(--mc-space-0);
-  }
-  .mc-table-grid-head:hover .mc-table-grid-filter-trigger,
-  .mc-table-grid-head:focus-within .mc-table-grid-filter-trigger,
-  .mc-table-grid-filter-trigger[data-active="true"],
-  .mc-table-grid-filter-trigger[data-state="open"] {
-    visibility: visible;
-  }
-  .mc-table-grid-head-inner:hover .mc-table-grid-filter-trigger:not([data-active="true"]) {
-    color: var(--mc-text-default);
-  }
-  .mc-table-grid-filter-trigger[data-active="true"] {
-    background-color: var(--mc-accent-subtle);
     color: var(--mc-accent-subtle-foreground);
   }
-  .mc-table-grid-filter-trigger:focus-visible {
-    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
-    outline-offset: var(--mc-focus-ring-offset);
+  .mc-table-grid-head[data-align="end"] .mc-table-grid-filter-mark {
+    margin-inline-start: var(--mc-space-0);
+  }
+  .mc-table-grid-filter-mark[data-active="true"] {
+    background-color: var(--mc-accent-subtle);
   }
   /* The resize grip rides the header cell's END edge; its rule lights on hover and while dragging.
      Double-click fits the column to its widest value. */
@@ -775,68 +760,40 @@
     align-items: center;
     gap: var(--mc-space-12);
   }
-  /* The columns menu: a checkbox row per column, each with the pin control at the row's end, and
-     the display settings beneath a hairline. */
-  .mc-table-grid-columns {
+  /* The header's own menu (GridHeadMenu): the leading glyph on an item row, and the Columns
+     submenu, which holds a row per column and so takes the popover's width and scrolls rather than
+     running past the viewport on a wide table. */
+  .mc-table-grid-head-menu-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-table-grid-head-menu-columns {
+    min-inline-size: var(--mc-size-popover);
+    max-block-size: var(--mc-size-popover);
+    overflow-y: auto;
+  }
+  /* The filter submenu: the ONE filter mechanism, in the header menu. A field inside a menu keeps
+     the menu's own padding off it, and a long value list scrolls rather than running off-screen. */
+  .mc-table-grid-filter-menu {
+    /* At least the popover width, but grows to fit wider content (the date-range field). */
+    min-inline-size: var(--mc-size-popover);
+  }
+  .mc-table-grid-filter-menu-field {
     display: flex;
     flex-direction: column;
     gap: var(--mc-space-4);
-    min-inline-size: var(--mc-size-popover);
+    padding: var(--mc-space-4);
   }
-  .mc-table-grid-columns-option {
-    display: flex;
-    align-items: center;
-    gap: var(--mc-space-8);
-    padding-block: var(--mc-space-4);
-    padding-inline: var(--mc-space-8);
-    border-radius: var(--mc-radius-sm);
-    font-size: var(--mc-font-size-sm);
-    color: var(--mc-text-default);
-    cursor: pointer;
+  .mc-table-grid-filter-menu-facets {
+    max-block-size: var(--mc-size-popover);
+    overflow-y: auto;
   }
-  .mc-table-grid-columns-option:hover {
-    background-color: var(--mc-surface-selected);
-  }
-  .mc-table-grid-columns-rule {
-    block-size: var(--mc-border-width-default);
-    background-color: var(--mc-border-default);
-    margin-block: var(--mc-space-4);
-  }
-  .mc-table-grid-pin {
+  /* The per-value count sits at the row's end, quieter than the value it counts. */
+  .mc-table-grid-filter-menu-count {
     margin-inline-start: auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    inline-size: var(--mc-space-20);
-    block-size: var(--mc-space-20);
-    border-radius: var(--mc-radius-sm);
-    background-color: transparent;
-    color: var(--mc-text-subtle);
-    cursor: pointer;
-  }
-  .mc-table-grid-pin:hover {
-    background-color: var(--mc-surface-raised);
-    color: var(--mc-text-default);
-  }
-  .mc-table-grid-pin[aria-pressed="true"] {
-    color: var(--mc-accent-subtle-foreground);
-  }
-  /* A trailing-pinned column's pin is held by the column model, not the member: it reads muted
-     AT REST (after the pressed rule, so the muting wins) and offers no press. */
-  .mc-table-grid-pin:disabled {
-    color: var(--mc-action-disabled-foreground);
-    cursor: not-allowed;
-  }
-  .mc-table-grid-pin:disabled:hover {
-    background-color: transparent;
-    color: var(--mc-action-disabled-foreground);
-  }
-  .mc-table-grid-pin:focus-visible {
-    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
-    outline-offset: var(--mc-focus-ring-offset);
-  }
-  .mc-table-grid-pin-icon {
-    inline-size: var(--mc-space-12);
-    block-size: var(--mc-space-12);
+    padding-inline-start: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-variant-numeric: tabular-nums;
   }
 }

@@ -1632,7 +1632,6 @@
           >
             <FileManagerToolbar
               {manager}
-              {grid}
               {trail}
               viewTitle={VIEW_TITLES[manager.view]}
               onToggleRail={toggleRail}
@@ -1660,6 +1659,7 @@
                   <DataTable.Grid
                     grid={archiveGrid}
                     cell={archiveCell}
+                    settings={displaySettings}
                     caption="Inside this archive"
                     empty={emptyArchive}
                     loading={archiveLoading}
@@ -1786,6 +1786,7 @@
                     <DataTable.Grid
                       grid={deletedGrid}
                       cell={deletedCell}
+                      settings={displaySettings}
                       caption="This matter's deleted files"
                       empty={emptyDeleted}
                       loading={deletedLoading}
@@ -1804,6 +1805,7 @@
                   <div class="flex min-h-0 flex-1 flex-col">
                     <DataTable.Grid
                       grid={historyGrid}
+                      settings={displaySettings}
                       caption="This matter's file changelog"
                       empty={emptyHistory}
                       loading={historyLoading}
@@ -1833,6 +1835,7 @@
                   <DataTable.Grid
                     {grid}
                     {cell}
+                    settings={displaySettings}
                     caption="This matter's files"
                     empty={emptyFolder}
                     {loading}
@@ -2192,6 +2195,21 @@
       Paste
     </ContextMenu.Item>
   {/if}
+{/snippet}
+
+{#snippet displaySettings()}
+  <!-- The surface's own display settings ride the header menu's Columns submenu, in the same
+       family as the zebra setting and beside the columns they change. -->
+  <ContextMenu.CheckboxItem
+    bind:checked={() => manager.hideExtensions, (next) => manager.setHideExtensions(next)}
+  >
+    Hide file extensions
+  </ContextMenu.CheckboxItem>
+  <ContextMenu.CheckboxItem
+    bind:checked={() => manager.showSidebarCounts, (next) => manager.setShowSidebarCounts(next)}
+  >
+    Show file counts in the sidebar
+  </ContextMenu.CheckboxItem>
 {/snippet}
 
 {#snippet emptyFolder()}

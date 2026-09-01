@@ -2896,30 +2896,23 @@ export type MatterNoteDetail = {
     id: string;
     matterId: string;
     authorUserId: string;
-    state: 'active' | 'retracted';
-    body: string | null;
-    revisionCount: number;
-    currentRevisionAuthorUserId: string | null;
-    currentRevisionCreatedAt: string | null;
-    retractedAt: string | null;
-    retractedBy: string | null;
-    retractionReason: string | null;
+    body: string;
+    lastEditedBy: string | null;
+    occurredOn: string | null;
+    occurredAtTime: string | null;
+    timeZone: string | null;
+    documents: Array<MatterNoteDocument>;
     createdAt: string;
     updatedAt: string;
 };
 
-export type MatterNoteRevisionList = {
-    data: Array<MatterNoteRevision>;
-    capped: boolean;
-};
-
-export type MatterNoteRevision = {
+export type MatterNoteDocument = {
     id: string;
-    noteId: string;
-    body: string;
-    authorUserId: string;
-    ordinal: number;
-    createdAt: string;
+    fileId: string;
+    fileName: string;
+    contentType: string | null;
+    linkedAt: string;
+    linkedBy: string | null;
 };
 
 export type CreatedMatterNote = {
@@ -2928,18 +2921,24 @@ export type CreatedMatterNote = {
 
 export type CreateMatterNoteRequest = {
     body: string;
+    occurredOn?: string | null;
+    occurredAtTime?: string | null;
+    timeZone?: string | null;
 };
 
 export type MatterNoteAcknowledged = {
     ok: true;
 };
 
-export type ReviseMatterNoteRequest = {
+export type EditMatterNoteRequest = {
     body: string;
+    occurredOn?: string | null;
+    occurredAtTime?: string | null;
+    timeZone?: string | null;
 };
 
-export type RetractMatterNoteRequest = {
-    reason: string;
+export type AttachMatterNoteDocumentRequest = {
+    fileId: string;
 };
 
 export type CustodyLocation = {
@@ -17150,7 +17149,7 @@ export type NotesCreateNoteErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     * A request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -17174,8 +17173,11 @@ export type NotesCreateNoteResponses = {
 
 export type NotesCreateNoteResponse = NotesCreateNoteResponses[keyof NotesCreateNoteResponses];
 
-export type NotesReadNoteData = {
+export type NotesDeleteNoteData = {
     body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
     path: {
         noteId: string;
     };
@@ -17183,7 +17185,11 @@ export type NotesReadNoteData = {
     url: '/api/v1/notes/{noteId}';
 };
 
-export type NotesReadNoteErrors = {
+export type NotesDeleteNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
     /**
      * No valid session
      */
@@ -17197,78 +17203,151 @@ export type NotesReadNoteErrors = {
      */
     404: Problem;
     /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
      * Rate limited
      */
     429: Problem;
 };
 
-export type NotesReadNoteError = NotesReadNoteErrors[keyof NotesReadNoteErrors];
+export type NotesDeleteNoteError = NotesDeleteNoteErrors[keyof NotesDeleteNoteErrors];
 
-export type NotesReadNoteResponses = {
+export type NotesDeleteNoteResponses = {
     /**
-     * The note
+     * The note was deleted
      */
-    200: MatterNoteDetail;
+    200: MatterNoteAcknowledged;
 };
 
-export type NotesReadNoteResponse = NotesReadNoteResponses[keyof NotesReadNoteResponses];
+export type NotesDeleteNoteResponse = NotesDeleteNoteResponses[keyof NotesDeleteNoteResponses];
 
-export type NotesReadNoteHistoryData = {
+export type NotesEditNoteData = {
+    body: EditMatterNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}';
+};
+
+export type NotesEditNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesEditNoteError = NotesEditNoteErrors[keyof NotesEditNoteErrors];
+
+export type NotesEditNoteResponses = {
+    /**
+     * The note was changed
+     */
+    200: MatterNoteAcknowledged;
+};
+
+export type NotesEditNoteResponse = NotesEditNoteResponses[keyof NotesEditNoteResponses];
+
+export type NotesAttachNoteDocumentData = {
+    body: AttachMatterNoteDocumentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}/documents';
+};
+
+export type NotesAttachNoteDocumentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesAttachNoteDocumentError = NotesAttachNoteDocumentErrors[keyof NotesAttachNoteDocumentErrors];
+
+export type NotesAttachNoteDocumentResponses = {
+    /**
+     * The document was attached
+     */
+    201: CreatedMatterNote;
+};
+
+export type NotesAttachNoteDocumentResponse = NotesAttachNoteDocumentResponses[keyof NotesAttachNoteDocumentResponses];
+
+export type NotesDetachNoteDocumentData = {
     body?: never;
-    path: {
-        noteId: string;
-    };
-    query?: never;
-    url: '/api/v1/notes/{noteId}/revisions';
-};
-
-export type NotesReadNoteHistoryErrors = {
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the note is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
-     */
-    409: Problem;
-    /**
-     * Rate limited
-     */
-    429: Problem;
-};
-
-export type NotesReadNoteHistoryError = NotesReadNoteHistoryErrors[keyof NotesReadNoteHistoryErrors];
-
-export type NotesReadNoteHistoryResponses = {
-    /**
-     * The note's revisions
-     */
-    200: MatterNoteRevisionList;
-};
-
-export type NotesReadNoteHistoryResponse = NotesReadNoteHistoryResponses[keyof NotesReadNoteHistoryResponses];
-
-export type NotesReviseNoteData = {
-    body: ReviseMatterNoteRequest;
     headers: {
         'idempotency-key': string;
     };
     path: {
-        noteId: string;
+        attachmentId: string;
     };
     query?: never;
-    url: '/api/v1/notes/{noteId}/revisions';
+    url: '/api/v1/note-documents/{attachmentId}';
 };
 
-export type NotesReviseNoteErrors = {
+export type NotesDetachNoteDocumentErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -17286,7 +17365,7 @@ export type NotesReviseNoteErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     * A request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -17299,70 +17378,16 @@ export type NotesReviseNoteErrors = {
     429: Problem;
 };
 
-export type NotesReviseNoteError = NotesReviseNoteErrors[keyof NotesReviseNoteErrors];
+export type NotesDetachNoteDocumentError = NotesDetachNoteDocumentErrors[keyof NotesDetachNoteDocumentErrors];
 
-export type NotesReviseNoteResponses = {
+export type NotesDetachNoteDocumentResponses = {
     /**
-     * The note was revised
+     * The document was detached
      */
     200: MatterNoteAcknowledged;
 };
 
-export type NotesReviseNoteResponse = NotesReviseNoteResponses[keyof NotesReviseNoteResponses];
-
-export type NotesRetractNoteData = {
-    body: RetractMatterNoteRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path: {
-        noteId: string;
-    };
-    query?: never;
-    url: '/api/v1/notes/{noteId}/retract';
-};
-
-export type NotesRetractNoteErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the note is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
-     */
-    409: Problem;
-    /**
-     * The request body is not a shape this operation accepts
-     */
-    422: Problem;
-    /**
-     * Rate limited
-     */
-    429: Problem;
-};
-
-export type NotesRetractNoteError = NotesRetractNoteErrors[keyof NotesRetractNoteErrors];
-
-export type NotesRetractNoteResponses = {
-    /**
-     * The note was withdrawn
-     */
-    200: MatterNoteAcknowledged;
-};
-
-export type NotesRetractNoteResponse = NotesRetractNoteResponses[keyof NotesRetractNoteResponses];
+export type NotesDetachNoteDocumentResponse = NotesDetachNoteDocumentResponses[keyof NotesDetachNoteDocumentResponses];
 
 export type CustodyListLocationsData = {
     body?: never;

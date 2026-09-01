@@ -168,9 +168,6 @@
 </script>
 
 <div class="flex flex-col gap-8">
-  <div class="flex justify-end">
-    <DataTable.GridColumnsMenu {grid} />
-  </div>
   <DataTable.Grid {grid} caption="Time entries" {loading} {density} {rowDetail} class="max-h-96">
     {#snippet cell({ row, column, text })}
       {#if column.id === "status"}

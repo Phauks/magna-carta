@@ -382,7 +382,6 @@
           </Popover.Content>
         </Popover.Root>
 
-        <DataTable.GridColumnsMenu {grid} />
       {/if}
     </Masthead.Actions>
   </Masthead.Root>

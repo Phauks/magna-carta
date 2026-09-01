@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7ddf95dd-3fcb-4fe6-8dad-839e83e7907f",
+  "id": "96cb72c9-d901-445f-9e18-4b22fd76812d",
   "prevId": "f19b086f-47ec-463c-a0ed-b35636a3ef76",
   "tables": {
     "account_balance": {
@@ -12071,13 +12071,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "consultation_number": {
-          "name": "consultation_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "system_key": {
           "name": "system_key",
           "type": "text",
@@ -12122,14 +12115,6 @@
           ],
           "isUnique": true,
           "where": "\"matter\".\"matter_number\" IS NOT NULL"
-        },
-        "matter_consultation_number_unique_index": {
-          "name": "matter_consultation_number_unique_index",
-          "columns": [
-            "consultation_number"
-          ],
-          "isUnique": true,
-          "where": "\"matter\".\"consultation_number\" IS NOT NULL"
         },
         "matter_system_key_unique_index": {
           "name": "matter_system_key_unique_index",
@@ -15047,38 +15032,36 @@
           "notNull": true,
           "autoincrement": false
         },
-        "head_ordinal": {
-          "name": "head_ordinal",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "state": {
-          "name": "state",
+        "body": {
+          "name": "body",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "'active'"
+          "autoincrement": false
         },
-        "retracted_at": {
-          "name": "retracted_at",
+        "last_edited_by": {
+          "name": "last_edited_by",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "retracted_by": {
-          "name": "retracted_by",
+        "occurred_on": {
+          "name": "occurred_on",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "retraction_reason": {
-          "name": "retraction_reason",
+        "occurred_at_time": {
+          "name": "occurred_at_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "time_zone": {
+          "name": "time_zone",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -15105,6 +15088,15 @@
           "columns": [
             "matter_id",
             "created_at",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "matter_note_matter_occurred_on_id_index": {
+          "name": "matter_note_matter_occurred_on_id_index",
+          "columns": [
+            "matter_id",
+            "occurred_on",
             "id"
           ],
           "isUnique": false
@@ -15143,22 +15135,26 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
-        "matter_note_state_check": {
-          "name": "matter_note_state_check",
-          "value": "\"matter_note\".\"state\" IN ('active', 'retracted')"
+        "matter_note_body_check": {
+          "name": "matter_note_body_check",
+          "value": "length(\"matter_note\".\"body\") > 0"
         },
-        "matter_note_head_ordinal_check": {
-          "name": "matter_note_head_ordinal_check",
-          "value": "\"matter_note\".\"head_ordinal\" > 0"
+        "matter_note_occurred_on_shape_check": {
+          "name": "matter_note_occurred_on_shape_check",
+          "value": "\"matter_note\".\"occurred_on\" IS NULL OR \"matter_note\".\"occurred_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
         },
-        "matter_note_retraction_shape_check": {
-          "name": "matter_note_retraction_shape_check",
-          "value": "(\"matter_note\".\"state\" = 'retracted' AND \"matter_note\".\"retracted_at\" IS NOT NULL AND \"matter_note\".\"retracted_by\" IS NOT NULL AND \"matter_note\".\"retraction_reason\" IS NOT NULL AND length(\"matter_note\".\"retraction_reason\") > 0)\n        OR (\"matter_note\".\"state\" = 'active' AND \"matter_note\".\"retracted_at\" IS NULL AND \"matter_note\".\"retracted_by\" IS NULL AND \"matter_note\".\"retraction_reason\" IS NULL)"
+        "matter_note_occurred_at_time_shape_check": {
+          "name": "matter_note_occurred_at_time_shape_check",
+          "value": "\"matter_note\".\"occurred_at_time\" IS NULL OR \"matter_note\".\"occurred_at_time\" GLOB '[0-2][0-9]:[0-5][0-9]'"
+        },
+        "matter_note_occurrence_shape_check": {
+          "name": "matter_note_occurrence_shape_check",
+          "value": "(\"matter_note\".\"occurred_at_time\" IS NULL OR \"matter_note\".\"occurred_on\" IS NOT NULL)\n        AND (\"matter_note\".\"occurred_at_time\" IS NULL) = (\"matter_note\".\"time_zone\" IS NULL)"
         }
       }
     },
-    "matter_note_revision": {
-      "name": "matter_note_revision",
+    "matter_note_document": {
+      "name": "matter_note_document",
       "columns": {
         "id": {
           "name": "id",
@@ -15174,59 +15170,72 @@
           "notNull": true,
           "autoincrement": false
         },
-        "body": {
-          "name": "body",
+        "file_id": {
+          "name": "file_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "author_user_id": {
-          "name": "author_user_id",
+        "linked_at": {
+          "name": "linked_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "ordinal": {
-          "name": "ordinal",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
+        "linked_by": {
+          "name": "linked_by",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         }
       },
       "indexes": {
-        "matter_note_revision_note_ordinal_unique_index": {
-          "name": "matter_note_revision_note_ordinal_unique_index",
+        "matter_note_document_note_index": {
+          "name": "matter_note_document_note_index",
           "columns": [
-            "note_id",
-            "ordinal"
-          ],
-          "isUnique": true
-        },
-        "matter_note_revision_author_index": {
-          "name": "matter_note_revision_author_index",
-          "columns": [
-            "author_user_id"
+            "note_id"
           ],
           "isUnique": false
+        },
+        "matter_note_document_file_index": {
+          "name": "matter_note_document_file_index",
+          "columns": [
+            "file_id"
+          ],
+          "isUnique": false
+        },
+        "matter_note_document_note_file_unique_index": {
+          "name": "matter_note_document_note_file_unique_index",
+          "columns": [
+            "note_id",
+            "file_id"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {
-        "matter_note_revision_note_id_matter_note_id_fk": {
-          "name": "matter_note_revision_note_id_matter_note_id_fk",
-          "tableFrom": "matter_note_revision",
+        "matter_note_document_note_id_matter_note_id_fk": {
+          "name": "matter_note_document_note_id_matter_note_id_fk",
+          "tableFrom": "matter_note_document",
           "tableTo": "matter_note",
           "columnsFrom": [
             "note_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "matter_note_document_file_id_file_id_fk": {
+          "name": "matter_note_document_file_id_file_id_fk",
+          "tableFrom": "matter_note_document",
+          "tableTo": "file",
+          "columnsFrom": [
+            "file_id"
           ],
           "columnsTo": [
             "id"
@@ -15237,16 +15246,7 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_note_revision_body_check": {
-          "name": "matter_note_revision_body_check",
-          "value": "length(\"matter_note_revision\".\"body\") > 0"
-        },
-        "matter_note_revision_ordinal_check": {
-          "name": "matter_note_revision_ordinal_check",
-          "value": "\"matter_note_revision\".\"ordinal\" > 0"
-        }
-      }
+      "checkConstraints": {}
     },
     "matter_number_allocation": {
       "name": "matter_number_allocation",
@@ -16730,14 +16730,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "purpose": {
-          "name": "purpose",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'matter'"
         },
         "active": {
           "name": "active",
@@ -19613,20 +19605,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "memo": {
-          "name": "memo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "entry_number": {
-          "name": "entry_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -19650,14 +19628,6 @@
         }
       },
       "indexes": {
-        "time_entry_entry_number_unique_index": {
-          "name": "time_entry_entry_number_unique_index",
-          "columns": [
-            "entry_number"
-          ],
-          "isUnique": true,
-          "where": "\"time_entry\".\"entry_number\" IS NOT NULL"
-        },
         "time_entry_timekeeper_work_date_index": {
           "name": "time_entry_timekeeper_work_date_index",
           "columns": [
@@ -19799,179 +19769,6 @@
           "value": "(\"time_entry\".\"amount_minor\" IS NULL) = (\"time_entry\".\"rate_e4\" IS NULL)"
         }
       }
-    },
-    "time_entry_attachment": {
-      "name": "time_entry_attachment",
-      "columns": {
-        "time_entry_id": {
-          "name": "time_entry_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_id": {
-          "name": "file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "time_entry_attachment_file_id_index": {
-          "name": "time_entry_attachment_file_id_index",
-          "columns": [
-            "file_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "time_entry_attachment_time_entry_id_time_entry_id_fk": {
-          "name": "time_entry_attachment_time_entry_id_time_entry_id_fk",
-          "tableFrom": "time_entry_attachment",
-          "tableTo": "time_entry",
-          "columnsFrom": [
-            "time_entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "time_entry_attachment_file_id_file_id_fk": {
-          "name": "time_entry_attachment_file_id_file_id_fk",
-          "tableFrom": "time_entry_attachment",
-          "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "time_entry_attachment_time_entry_id_file_id_pk": {
-          "columns": [
-            "time_entry_id",
-            "file_id"
-          ],
-          "name": "time_entry_attachment_time_entry_id_file_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "time_entry_number_allocation": {
-      "name": "time_entry_number_allocation",
-      "columns": {
-        "scope_key": {
-          "name": "scope_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "drawn_value": {
-          "name": "drawn_value",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "time_entry_id": {
-          "name": "time_entry_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "allocated_at": {
-          "name": "allocated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "time_entry_number_allocation_time_entry_id_index": {
-          "name": "time_entry_number_allocation_time_entry_id_index",
-          "columns": [
-            "time_entry_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "time_entry_number_allocation_time_entry_id_time_entry_id_fk": {
-          "name": "time_entry_number_allocation_time_entry_id_time_entry_id_fk",
-          "tableFrom": "time_entry_number_allocation",
-          "tableTo": "time_entry",
-          "columnsFrom": [
-            "time_entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "time_entry_number_allocation_scope_key_drawn_value_pk": {
-          "columns": [
-            "scope_key",
-            "drawn_value"
-          ],
-          "name": "time_entry_number_allocation_scope_key_drawn_value_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "time_entry_number_counter": {
-      "name": "time_entry_number_counter",
-      "columns": {
-        "scope_key": {
-          "name": "scope_key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "next_value": {
-          "name": "next_value",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "token_usage_meter": {
       "name": "token_usage_meter",

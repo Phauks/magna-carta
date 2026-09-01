@@ -96,6 +96,23 @@ is usually the fastest way to understand the rule.
   thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
   agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,
   2026-08-30)_
+- **A column's controls are summoned from the column, not from a control anywhere else.**
+  Right-clicking a column heading opens that column's menu, and everything a column can be ASKED is
+  in it: filter it, hide it, pin it, and — one arrow to the right — the full roster of columns,
+  where a hidden column (which has no heading to point at) is brought back. A `Columns` button in
+  the action row is removed, not moved: it asked the reader to leave the thing they were looking
+  at, find a control, and then find the column again in a list. The in-header filter funnel goes
+  the same way, for the narrower version of the same reason — a control parked in a data cell,
+  hunted for on hover, when the column it belongs to is the thing already under the pointer. What
+  the header still does by DIRECT gesture it keeps and the menu does not repeat: clicking the label
+  sorts, the grip resizes and double-click fits. A surface's own display settings ride the same
+  Columns submenu, beside the columns they change. _(every list surface, 2026-08-31)_
+- **A state stays visible where a control was removed; it just stops being pressable.** Taking the
+  funnel out of the header cell must not take with it the answer to "is this column narrowed" —
+  that is the reader's, not the control's. So the cell keeps a MARK in the same reserved slot, in
+  the same accent-subtle treatment, drawn only while a filter is in play and carrying nothing to
+  press. Absence is still the signal; presence is still unmistakable. _(every list surface,
+  2026-08-31)_
 
 ### Data entry
 
@@ -126,6 +143,29 @@ is usually the fastest way to understand the rule.
   product says out loud. Enforced in the model: `alpha` and `beta` present as null in
   `apps/web/src/lib/maturity/maturity.ts`, exactly as `ready` does. _(matter section strip,
   2026-08-31)_
+- **Find which column sets a band's height before you spend design shrinking one.** Where two
+  columns share a band, the taller one owns the height and work on the other is invisible. The
+  matter chrome's inline-end column was the overflow control stacked over the section strip —
+  40px + 8px + 41px — and it floored the band at 90px, so three identity treatments that look
+  nothing alike measured at exactly 90px, and putting the whole identity on one line bought nothing
+  at all. Moving the control onto the strip's row made that column 41px and the identity block
+  mattered again. Measure the columns, not the thing you were about to change. _(matter chrome,
+  2026-09-01)_
+- **Drop a row before you shrink a face.** A row is twenty-odd pixels; a type step is a few, and it
+  is spent out of the scale contrast the register depends on. The matter's ledger line and status
+  seal moved down to lead the citation, which bought a whole row and cost the number nothing it
+  could not say from there — while the type step that would have matched it took the display face
+  close enough to the citation that the masthead stopped reading as one. Take the structural
+  saving first and the type step only if it is still needed. _(matter chrome, 2026-09-01)_
+- **The display step comes from the recipe, never a utility on the element.** A screen that needs a
+  smaller masthead title asks for a density on `Masthead.Root`; it does not put `text-2xl` on the
+  Title. The masthead is the one door to the display serif, and a call site that can set the step
+  itself has taken that door off its hinges — the next screen picks a different size and the
+  register is gone. Add the variant to the recipe instead. _(matter chrome, 2026-09-01)_
+- **A control sharing a row with navigation sits above the rule, not on it.** The rule under a
+  section strip belongs to the sections — their active mark draws on it — so a bordered control on
+  the same row stops short of it. Sitting on the rule, the control reads as one more tab.
+  _(matter chrome, 2026-09-01)_
 - **A vertical navigation rail belongs to the app shell, and there is only one.** A page that needs
   more room does not answer it by standing a second rail inside the work canvas beside the shell's
   own: two vertical navigations on one screen make the member ask which one they are in. Module
@@ -328,6 +368,21 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-01 — the matter chrome, identity-block round
+
+With the section strip in the band, the owner asked what more the left side could give back. Six
+settings were rendered and measured; the generalizable parts are promoted above. What was decided:
+
+- **The identity block folds to two rows and the title steps down once.** The ledger line and the
+  status seal lead the citation instead of holding a row above the title, and the title takes the
+  Masthead recipe's new `compact` density (2rem to 1.5rem).
+- **The overflow control moved onto the section strip's row.** This is the change that mattered:
+  it is the only one that got the band under 90px, because it is the only one that touched the
+  column actually setting the height. 111px became 76px — 152px before the strip moved at all.
+- **A third density step was built, measured and dropped.** At 1.25rem the display face is close
+  enough to the citation that the register's scale contrast nearly goes, and it bought nothing over
+  the structural saving, so it is not in the variant.
 
 ### 2026-08-31 — the matter chrome, section-navigation round
 

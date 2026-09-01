@@ -2,17 +2,24 @@
   /*
    * The matter's header band — the ceremonial edge and the section navigation, in ONE band.
    *
-   * The arrangement (owner's selection, 2026-08-31): the identity block on the reading edge, and
-   * the inline-end half of the band — which previously held one overflow control and otherwise
-   * nothing — carrying a column of its own: the actions on the title's row, the section strip
-   * beneath them, packed to the end and flush against the band's bottom rule. The strip no longer
-   * costs a row of its own, and the masthead keeps every bit of its ceremony: the serif title at
-   * masthead scale, the ledger line, the citation.
+   * The arrangement (owner's selections, 2026-08-31 and 2026-09-01): the identity block on the
+   * reading edge, the section strip and the overflow control sharing ONE row at the inline end,
+   * flush against the band's bottom rule. 152px of chrome became 111px when the strip moved off
+   * its own row, and 76px when the identity block stopped spending three rows on itself.
    *
-   * THE STRIP SITS ON THE RULE ON PURPOSE. `justify-between` pins the actions to the top of the
-   * column and the strip to the bottom, so the gold active bar lands on the band's own border
-   * rather than floating in the middle of it. That is why the band draws the rule and the nav
-   * does not.
+   * WHY THE OVERFLOW CONTROL IS ON THE STRIP'S ROW, AND NOT ABOVE IT. Stacked, that column is the
+   * control (40px) over the strip (41px) with a gap between them — 89px, which floored the whole
+   * band at 90px however short the identity block got. Three quite different identity treatments
+   * were measured at exactly 90px because of it. One row at the inline end is 41px, and the
+   * identity block sets the height again. The control carries `pb-8` so it sits ABOVE the rule
+   * rather than on it: the rule belongs to the sections, whose gold active bar draws on it, and a
+   * bordered button sitting on it reads as part of the strip.
+   *
+   * THE LEDGER LINE HAS NO ROW OF ITS OWN. The matter number and its status seal lead the citation
+   * beneath the title, where they still read first, instead of costing a full line above it. That
+   * is a whole row rather than a few points of type, which is why it beat shrinking the title
+   * further — at the next step down the display face is close enough to the citation that the
+   * masthead register's scale contrast nearly goes.
    *
    * THE TITLE TRUNCATES; IT DOES NOT WRAP. At a 1024 canvas there is not room for a full-scale
    * serif title AND a useful strip on one row, and only three things can give. Letting the title
@@ -24,8 +31,9 @@
    * height at every canvas width, which is the property this arrangement was chosen for.
    *
    * The Masthead recipe is the one door to the display serif, so the identity block still composes
-   * Masthead.Heading — only the Actions slot is left unused, because these actions belong to the
-   * column and not to the title's inline end.
+   * Masthead.Heading and takes its step from the recipe's own `density` rather than a type utility
+   * on the Title. The Actions slot is left unused: this action belongs to the strip's row, not to
+   * the title's inline end.
    *
    * Status never gates or varies the screen flow — it changes only what this header showcases:
    * the seal, the number-or-Consultation line, and which lifecycle action label is offered.
@@ -90,41 +98,51 @@
    * element — which is the smaller loss.
    */
   const citation = $derived(metaEntries.join(" · "));
+
+  /*
+   * The number the file is called by. A consultation wears its own tentative number and is LABELLED
+   * as one, so nobody reads it as a matter number; once the matter opens the permanent number takes
+   * the line and the tentative one stays on the record. A consultation taken before the sequence
+   * existed has neither, and says only what it is.
+   */
+  const ledgerLine = $derived.by(() => {
+    if (matter.matterNumber !== null) return `Matter ${matter.matterNumber}`;
+    return matter.consultationNumber === null
+      ? "Consultation"
+      : `Consultation ${matter.consultationNumber}`;
+  });
 </script>
 
-<Masthead.Root class="items-stretch border-b border-border-default">
+<Masthead.Root density="compact" class="items-stretch border-b border-border-default">
   <Masthead.Heading class="min-w-0 max-w-2xl flex-1 pb-16">
-    <Masthead.Eyebrow>
-      <span class="flex items-center gap-8">
-        <!--
-          The number the file is called by, in the one place the eye goes for it. A consultation
-          wears its own tentative number and is LABELLED as one, so nobody reads it as a matter
-          number; once the matter opens, the permanent number takes the line.
-        -->
-        {matter.matterNumber !== null
-          ? `Matter ${matter.matterNumber}`
-          : matter.consultationNumber !== null
-            ? `Consultation ${matter.consultationNumber}`
-            : "Consultation"}
-        <!-- The status seal rides the ledger line, beside the matter number — the top-left corner
-             is where the matter's standing is read, not the action rail. -->
-        <Badge
-          variant={seal.variant}
-          class="uppercase"
-          style="letter-spacing: var(--mc-tracking-caps)"
-        >
-          {seal.label}
-        </Badge>
-      </span>
-    </Masthead.Eyebrow>
     <Masthead.Title class="truncate" title={matter.title}>{matter.title}</Masthead.Title>
     <Masthead.Meta class="flex-nowrap">
+      <!-- The ledger line and the status seal lead the citation: still the first thing read on the
+           line, without costing a line of their own. Both hold their width so the citation is what
+           gives when the band narrows. -->
+      <span
+        class="flex-none text-xs font-semibold text-text-subtle uppercase"
+        style="letter-spacing: var(--mc-tracking-caps)"
+      >
+        {ledgerLine}
+      </span>
+      <Badge
+        variant={seal.variant}
+        class="flex-none uppercase"
+        style="letter-spacing: var(--mc-tracking-caps)"
+      >
+        {seal.label}
+      </Badge>
+      <Masthead.MetaSeparator />
       <span class="truncate" title={citation}>{citation}</span>
     </Masthead.Meta>
   </Masthead.Heading>
 
-  <div class="flex min-w-0 flex-1 flex-col items-end justify-between gap-8">
-    <div class="flex flex-none items-center gap-8 pt-4">
+  <div class="flex min-w-0 flex-1 items-end justify-end gap-8">
+    <div class="min-w-0 flex-1">
+      <MatterSectionNav matterId={matter.id} />
+    </div>
+    <div class="flex flex-none items-center pb-8">
       <DropdownMenu.Root>
         <!-- The overflow (⋯) carries a token border so it reads as a control at rest, not just on
              hover — the quiet ghost was too easy to miss. The lifecycle action lives inside it,
@@ -144,7 +162,5 @@
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     </div>
-
-    <MatterSectionNav matterId={matter.id} />
   </div>
 </Masthead.Root>
