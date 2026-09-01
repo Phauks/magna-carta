@@ -14,4 +14,12 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // index on `email` are both carried across, and no row loses a value — the reasoning is written
   // out in the migration's own `-- contract:` header.
   "20260829T101500_firmless-account",
+  // The matter note collapses from an identity row plus a revision chain into one row, edited in
+  // place and deleted outright, on the owner's direction. Audited: every note that still stands
+  // carries across with its head revision's body, joined on the (note_id, ordinal) unique index the
+  // old schema pinned; the copy SELECT is column-for-column and the three new occurrence columns
+  // take NULL, which each CHECK accepts. Retracted notes are deliberately NOT carried — the new
+  // model has no state that could hold one, and copying its body would restore withdrawn text to
+  // every surface. The reasoning is written out in the migration's own `-- contract:` header.
+  "20260901T120000_matter-notes-edit-and-delete",
 ]);

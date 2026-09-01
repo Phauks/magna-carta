@@ -23,49 +23,53 @@
   audience: public
   public-summary: A note on a matter, dated and attributed the moment it is written.
 
-- id: notes.matter-note.revisions
-  name: Correction by appended revision
-  scope: An edit appends a revision and moves the head; every prior body is retained with its own author and instant, and is readable from the note's own history.
+- id: notes.matter-note.edit-and-delete
+  name: Edit and delete
+  scope: An edit replaces a note's text and records who changed it; a delete removes the row and its words, leaving an audit entry that names no content.
   status: shipped
   slices: 4-4-matter-notes
   surface: screen
-  evidence: reviseMatterNote in packages/notes/src/note-service.ts; the readable chain in the Notes section's History control
+  evidence: editMatterNote and deleteMatterNote in packages/notes/src/note-service.ts, over the reviewed rebuild in packages/database/drizzle/per-firm/20260901T120000_matter-notes-edit-and-delete.sql
   audience: public
-  public-summary: Correcting a note keeps what it said before, so the earlier version is never lost.
+  public-summary: Edit a note to change what it says, or delete one outright.
+  notes: Replaced correction-by-revision and withdrawal on the owner's direction, 2026-09-01. Nothing records what a note said before an edit, and a deletion leaves only an audit row naming no content; the superseded reasoning is kept in docs/decisions/pending/ rather than deleted.
 
 - id: notes.matter-note.append-only-enforcement
   name: Append-only revisions, enforced by the database
-  scope: Three RAISE(ABORT) triggers refuse UPDATE, DELETE and INSERT OR REPLACE on the revision table; none guards the note head, whose state must move for withdrawal.
-  status: shipped
+  scope: Three RAISE(ABORT) triggers that refused UPDATE, DELETE and INSERT OR REPLACE on the revision table.
+  status: cut
   slices: 4-4-matter-notes
-  surface: internal
-  evidence: packages/database/drizzle/per-firm/20260901T010000_matter-notes.sql; packages/notes/test/append-only.test.ts issues each refused statement by hand
-  notes: Honouring a court-ordered destruction is therefore a reviewed migration rather than a query, which was the accepted cost.
+  evidence: dropped by packages/database/drizzle/per-firm/20260901T120000_matter-notes-edit-and-delete.sql
+  notes: CUT on the owner's direction, 2026-09-01, hours after it shipped. A note is edited in place and deleted outright, so there is no append-only body left to guard.
 
-- id: notes.matter-note.retraction
-  name: Withdrawal
-  scope: A state with its own actor, instant and required reason. The body stops rendering everywhere and the note leaves the federated read; the row and every revision remain.
+- id: notes.matter-note.occurrence
+  name: When the thing happened
+  scope: A civil date, an optional wall-clock time and its zone, recording when what the note describes took place, separately from when the note was typed.
   status: shipped
   slices: 4-4-matter-notes
   surface: screen
-  evidence: retractMatterNote in packages/notes/src/note-service.ts; the read nulls a retracted body in HEAD_REVISION_JOIN rather than trusting the caller
+  evidence: the occurred_on/occurred_at_time/time_zone columns and their coherence CHECK in packages/database/src/per-firm-schema.ts; normalizeOccurrence in packages/notes/src/validation.ts
   audience: public
-  public-summary: Withdraw a note that should never have been written: the text stops being shown everywhere, and the record that it existed stays.
+  public-summary: Say when a call or meeting actually happened, not just when you wrote it down.
+  notes: Nothing infers one — no default to today, no invented midnight, no assumed zone. Every read orders by it, falling back to the day the note was written.
 
-- id: notes.matter-note.no-delete
-  name: No delete path
-  scope: No route, no capability, and no statement in the package deletes a note. The one case where bytes must genuinely leave routes through the erasure residue report and a person.
+- id: notes.matter-note.documents
+  name: Documents on a note
+  scope: A note points at the matter's own files, many-to-many, linking a handle rather than moving bytes.
   status: shipped
   slices: 4-4-matter-notes
-  surface: internal
-  evidence: matter_note_revision.body registered report-manual, and both author columns pseudonymize-keep, in packages/data-access/src/pii-registry.ts
+  surface: screen
+  evidence: matter_note_document in packages/database/src/per-firm-schema.ts on the matter_asset_document model; attachFileToMatterNote and detachFileFromMatterNote in packages/notes/src/note-service.ts
+  audience: public
+  public-summary: Attach the letter a note discusses, without moving it out of the matter's files.
+  notes: Upload stays the File Manager's chokepoint, so an attached document keeps its versions, holds and discovery reachability. Deleting a note detaches its documents and deletes none of them.
 
 - id: notes.activity
   name: The note on the matter's activity history
   scope: One declared source on the calendar's federated read — keyed matterNote, matter-anchored, declaring no label — reading the note table in place.
   status: shipped
   slices: 4-4-matter-notes
-  evidence: matterNoteSource in packages/calendar/src/sources/all.ts; packages/notes/test/timeline-source.test.ts proves one entry per note, the created instant as sort key, and exclusion once withdrawn
+  evidence: matterNoteSource in packages/calendar/src/sources/all.ts; packages/notes/test/timeline-source.test.ts proves one entry per note, the occurrence as sort key with the written day as fallback, and the entry leaving when the note is deleted
   notes: No second activity stream was built; a note joins the register that already exists, which is why nothing projects or backfills.
 
 - id: notes.activity.no-label

@@ -27,7 +27,7 @@ document metadata. The one machine in this platform built to stop privileged tex
 PDF is structurally blind to this route.
 
 **Decision one: no merge field ever resolves to a note or a comment, on any record.** Not the body,
-not the latest revision, not a count, not a concatenation. It is a rule rather than a judgement call
+not a count, not a concatenation, and not the documents a note points at. It is a rule rather than a judgement call
 because the merge-field catalog is a data table that grows by entries, and the entry that does this
 will look entirely reasonable to whoever adds it — "the matter's latest note" is a plausible thing for
 a template author to ask for. The guard is a **source-scan fitness function over the catalog**, in the

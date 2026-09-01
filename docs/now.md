@@ -30,17 +30,17 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 277 | 43% |
+| Done | shipped | 276 | 43% |
 | Part-built | partial, in-build | 113 | 18% |
 | Ahead | designed, planned, researching, not-started | 208 | 33% |
-| Parked | deferred, cut | 40 | 6% |
+| Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **638** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 277 | 43% |
+| `shipped` | 276 | 43% |
 | `partial` | 112 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 45 | 7% |
@@ -48,7 +48,7 @@ not](#what-a-roll-up-is-not).
 | `researching` | 5 | 1% |
 | `not-started` | 142 | 22% |
 | `deferred` | 38 | 6% |
-| `cut` | 2 | 0% |
+| `cut` | 3 | 0% |
 | **All statuses** | **638** | **100%** |
 
 ### What a roll-up is not
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 277 of 638 (43%). Shipped plus partial is 389 (61%).**
+**Shipped alone is 276 of 638 (43%). Shipped plus partial is 388 (61%).**
 
 The 112 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**390 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**389 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 32 | 8% |
+| A person can open it today (`screen`) | 33 | 9% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
-| No user surface by nature (`internal`) | 178 | 46% |
+| No user surface by nature (`internal`) | 176 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **390** | **100%** |
+| **Everything with something built** | **389** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 6 | 0% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
-| Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 0 | 11 | 64% |
+| Matter Notes and Activity | 6 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 11 | 55% |
 | Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **277** | **112** | **1** | **45** | **16** | **5** | **142** | **38** | **2** | **638** | **43%** |
+| **All areas** | **276** | **112** | **1** | **45** | **16** | **5** | **142** | **38** | **3** | **638** | **43%** |
 
 ## Where we have been
 
@@ -1054,14 +1054,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Matter Notes and Activity
 
-[`roadmap.d/notes.md`](../roadmap.d/notes.md) — 11 units of work, 64% shipped. 7 done, 0 part-built, 4 ahead, 0 parked.
+[`roadmap.d/notes.md`](../roadmap.d/notes.md) — 11 units of work, 55% shipped. 6 done, 0 part-built, 4 ahead, 1 parked.
 
 - `notes` · `partial` · **Matter notes and activity** — The note primitive — a dated, attributed record on a matter, corrected by appended revision and withdrawn rather than deleted — and its entry on the federated activity read.
   - `notes.matter-note` · `shipped` · **The matter note** — An identity row carrying the matter, the original author, the created instant and the state, with the body held as revisions beside it.
-    - `notes.matter-note.revisions` · `shipped` · **Correction by appended revision** — An edit appends a revision and moves the head; every prior body is retained with its own author and instant, and is readable from the note's own history.
-    - `notes.matter-note.append-only-enforcement` · `shipped` · **Append-only revisions, enforced by the database** — Three RAISE(ABORT) triggers refuse UPDATE, DELETE and INSERT OR REPLACE on the revision table; none guards the note head, whose state must move for withdrawal. _Note: Honouring a court-ordered destruction is therefore a reviewed migration rather than a query, which was the accepted cost._
-    - `notes.matter-note.retraction` · `shipped` · **Withdrawal** — A state with its own actor, instant and required reason. The body stops rendering everywhere and the note leaves the federated read; the row and every revision remain.
-    - `notes.matter-note.no-delete` · `shipped` · **No delete path** — No route, no capability, and no statement in the package deletes a note. The one case where bytes must genuinely leave routes through the erasure residue report and a person.
+    - `notes.matter-note.edit-and-delete` · `shipped` · **Edit and delete** — An edit replaces a note's text and records who changed it; a delete removes the row and its words, leaving an audit entry that names no content. _Note: Replaced correction-by-revision and withdrawal on the owner's direction, 2026-09-01. Nothing records what a note said before an edit, and a deletion leaves only an audit row naming no content; the superseded reasoning is kept in docs/decisions/pending/ rather than deleted._
+    - `notes.matter-note.append-only-enforcement` · `cut` · **Append-only revisions, enforced by the database** — Three RAISE(ABORT) triggers that refused UPDATE, DELETE and INSERT OR REPLACE on the revision table. _Note: CUT on the owner's direction, 2026-09-01, hours after it shipped. A note is edited in place and deleted outright, so there is no append-only body left to guard._
+    - `notes.matter-note.occurrence` · `shipped` · **When the thing happened** — A civil date, an optional wall-clock time and its zone, recording when what the note describes took place, separately from when the note was typed. _Note: Nothing infers one — no default to today, no invented midnight, no assumed zone. Every read orders by it, falling back to the day the note was written._
+    - `notes.matter-note.documents` · `shipped` · **Documents on a note** — A note points at the matter's own files, many-to-many, linking a handle rather than moving bytes. _Note: Upload stays the File Manager's chokepoint, so an attached document keeps its versions, holds and discovery reachability. Deleting a note detaches its documents and deletes none of them._
   - `notes.activity` · `shipped` · **The note on the matter's activity history** — One declared source on the calendar's federated read — keyed matterNote, matter-anchored, declaring no label — reading the note table in place. _Note: No second activity stream was built; a note joins the register that already exists, which is why nothing projects or backfills._
     - `notes.activity.no-label` · `shipped` · **No privileged text on the federated read** — The source projects NULL AS label, so an entry says a note was written, on this matter, then, by them, and never a word of it.
     - `notes.confidentiality.no-merge-field` · `shipped` · **No merge field reaches a note** — A source scan and a catalogue scan refuse any merge-field entry, subject or batched read that resolves to a note table. _Note: The PDF metadata scrub is structurally blind to this route, because merge-filled text is page content rather than a document-level surface._

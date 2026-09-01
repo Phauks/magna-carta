@@ -1,24 +1,31 @@
-import { MAX_NOTE_BODY_LENGTH, MAX_RETRACTION_REASON_LENGTH } from "./types.ts";
+import {
+  CIVIL_DATE_PATTERN,
+  MAX_NOTE_BODY_LENGTH,
+  WALL_CLOCK_TIME_PATTERN,
+  type NoteOccurrence,
+} from "./types.ts";
 
 // Every refusal this subsystem raises, as a code the route maps to a problem type. Codes — never
 // messages — drive the mapping, so a message can be reworded without changing the contract.
 export type NoteValidationCode =
-  // An empty body, or one past the ceiling. The schema carries the emptiness check too; this exists
-  // to turn a database abort into a named refusal a caller can act on.
   | "note-empty-body"
   | "note-body-too-long"
-  // A retraction with no reason, or one longer than a reason should be. Required because "why did
-  // this stop rendering" is the question somebody asks later and the only bad answer is silence.
-  | "note-retraction-reason-required"
-  | "note-retraction-reason-too-long"
-  // An act asked of a note that has already been withdrawn. A retracted note is not revised and not
-  // retracted twice: its body has stopped rendering, and appending to it would put new words behind
-  // a tombstone where nothing displays them.
-  | "note-retracted"
+  // The occurrence shape refusals. Each names the one thing that is wrong rather than a generic
+  // "invalid date", because each is fixed by the caller supplying a different field.
+  | "note-invalid-date"
+  | "note-invalid-time"
+  | "note-time-without-date"
+  | "note-time-without-zone"
+  | "note-unknown-time-zone"
   // A note this reader cannot reach, or one that is not on the matter the caller named. Kept
   // distinct because they are fixed differently, and neither ever reveals which by its message.
   | "note-unknown"
-  | "note-matter-mismatch";
+  | "note-matter-mismatch"
+  // A file that is not a live file on this note's matter. Refused rather than linked, because a link
+  // to another matter's document is a disclosure wearing an association.
+  | "note-unknown-file"
+  | "note-file-matter-mismatch"
+  | "note-too-many-files";
 
 export class NoteValidationError extends Error {
   constructor(
@@ -48,19 +55,81 @@ export function normalizeNoteBody(body: string): string {
   return normalized;
 }
 
-export function normalizeRetractionReason(reason: string): string {
-  const normalized = reason.trim();
-  if (normalized.length === 0) {
-    refuse(
-      "note-retraction-reason-required",
-      "withdrawing a note requires a reason: the note stops rendering and the reason is what stays",
-    );
+// Whether a runtime can resolve a zone. Validated at the WRITE and never at the read, for the reason
+// the calendar states: a row whose zone nothing can resolve is a record nobody can display and
+// nobody can correct without a migration.
+function isResolvableTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
   }
-  if (normalized.length > MAX_RETRACTION_REASON_LENGTH) {
-    refuse(
-      "note-retraction-reason-too-long",
-      `a retraction reason is at most ${String(MAX_RETRACTION_REASON_LENGTH)} characters; it says why the words came down, not what they were`,
-    );
+}
+
+// The occurrence as it will be stored, with the three-way coherence checked once here rather than at
+// each call site. Nothing is inferred: a caller that supplies a date and no time gets a date and no
+// time, and this never invents a midnight, a zone, or today.
+export function normalizeOccurrence(input: {
+  readonly occurredOn?: string | null;
+  readonly occurredAtTime?: string | null;
+  readonly timeZone?: string | null;
+}): NoteOccurrence {
+  const occurredOn = input.occurredOn ?? null;
+  const occurredAtTime = input.occurredAtTime ?? null;
+  const timeZone = input.timeZone ?? null;
+
+  if (occurredOn !== null) {
+    if (!CIVIL_DATE_PATTERN.test(occurredOn)) {
+      refuse(
+        "note-invalid-date",
+        "the date it happened must be a civil date of the form YYYY-MM-DD",
+      );
+    }
+    // The pattern alone accepts 2026-02-30. A round trip through the calendar catches a rollover.
+    const [year, month, day] = occurredOn.split("-").map(Number) as [number, number, number];
+    const roundTrip = new Date(Date.UTC(year, month - 1, day));
+    if (
+      roundTrip.getUTCFullYear() !== year ||
+      roundTrip.getUTCMonth() !== month - 1 ||
+      roundTrip.getUTCDate() !== day
+    ) {
+      refuse("note-invalid-date", `${occurredOn} is not a date on the calendar`);
+    }
   }
-  return normalized;
+
+  if (occurredAtTime !== null) {
+    if (!WALL_CLOCK_TIME_PATTERN.test(occurredAtTime)) {
+      refuse(
+        "note-invalid-time",
+        "the time it happened must be a wall-clock time of the form HH:MM",
+      );
+    }
+    if (occurredOn === null) {
+      refuse(
+        "note-time-without-date",
+        "an hour with no day is not a moment anybody can place; give the date it happened as well",
+      );
+    }
+    if (timeZone === null) {
+      refuse(
+        "note-time-without-zone",
+        "a wall-clock time needs the zone it is read in, or it is not a time to anybody in another state",
+      );
+    }
+  }
+
+  if (timeZone !== null) {
+    if (occurredAtTime === null) {
+      refuse(
+        "note-time-without-zone",
+        "a time zone on a note that names no time says nothing; give the time or drop the zone",
+      );
+    }
+    if (!isResolvableTimeZone(timeZone)) {
+      refuse("note-unknown-time-zone", `${timeZone} is not a time zone this platform can resolve`);
+    }
+  }
+
+  return { occurredOn, occurredAtTime, timeZone };
 }

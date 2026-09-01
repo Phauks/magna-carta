@@ -445,24 +445,28 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member appeared, and when, is that matter's record of the appearance",
   },
-  // The matter note. Three entries across two tables, and the split between them is the whole point.
+  // The matter note. Two entries on one table now that a note is one row: the words, and who wrote
+  // them.
   //
-  // The BODY is report-manual, which is the action this registry defines as "free-text / document
-  // content — surfaced in the residue report, not auto-erased", and a note is precisely what that
-  // action was written for. A note body may name anybody — the client, the opposing party, a witness,
-  // a doctor, a person mentioned once in passing — and no automated pass can safely rewrite prose
-  // without either destroying the record's meaning or missing the reference it was asked to remove.
-  // So the platform neither silently erases a note nor silently refuses to: it reports it, and a
-  // person decides. This is also the one route by which bytes ever leave these tables, because the
-  // product has no delete path at all.
+  // The BODY is report-manual, which this registry defines as "free-text / document content —
+  // surfaced in the residue report, not auto-erased", and a note is precisely what that action was
+  // written for. A note body may name anybody — the client, the opposing party, a witness, a doctor,
+  // a person mentioned once in passing — and no automated pass can safely rewrite prose without
+  // either destroying the record's meaning or missing the reference it was asked to remove. So the
+  // platform neither silently erases a note nor silently refuses to: it reports it, and a person
+  // decides.
   //
-  // The two AUTHOR columns are pseudonymize-keep on the user axis: append-only rows whose subject
-  // reference is replaced and never deleted. Erasing a member anonymizes the member row into a
-  // tombstone and the note's author column then points at that tombstone, which is the correct
-  // outcome — a note's attribution is not decoration, it is most of what makes a contemporaneous
-  // record worth having, and the federated timeline reads that column as the entry's actor.
+  // Note what CHANGED here, because it is the erasure story and not a detail: a note is now deleted
+  // outright rather than withdrawn, so a firm acting on a residue report can remove one itself
+  // through the ordinary surface. The registry entry is what makes it appear on that report at all.
+  //
+  // The two AUTHOR columns are pseudonymize-keep on the user axis: the subject reference is replaced
+  // and never dropped. Erasing a member anonymizes the member row into a tombstone and the note's
+  // author column then points at that tombstone, which is the correct outcome — a note's attribution
+  // is most of what makes a record worth having, and the federated timeline reads that column as the
+  // entry's actor.
   {
-    table: "matter_note_revision",
+    table: "matter_note",
     subjectKey: "body",
     action: "report-manual",
     note: "the words themselves: attorney work product that may name anybody, with no structured subject column and no safe automated rewrite",
@@ -471,13 +475,13 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     table: "matter_note",
     subjectKey: "author_user_id",
     action: "pseudonymize-keep",
-    note: "who first wrote the note; the reference is replaced at the member tombstone, never dropped",
+    note: "who wrote the note; the reference is replaced at the member tombstone, never dropped",
   },
   {
-    table: "matter_note_revision",
-    subjectKey: "author_user_id",
+    table: "matter_note",
+    subjectKey: "last_edited_by",
     action: "pseudonymize-keep",
-    note: "who wrote this particular body, which is not always who started the note",
+    note: "who last changed the words, where anybody has",
   },
   // The firm's own calendar scope. A firm event's participant table takes the same three keys as a
   // matter event's, for the same three shapes — but the retention basis differs: attendance at the
@@ -1006,6 +1010,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // control row about which FILE evidences which asset. The linked document's own retention is
   // expressed by its `file` entry, exactly as for file_version, email_attachment, and custody_scan.
   "matter_asset_document",
+  // A note's link to one of the matter's files: two handles, an instant, and firm-member provenance
+  // (linked_by). Whose document it is resolves through the file and the matter, never through a
+  // column here — the same shape matter_asset_document sits in directly above.
+  "matter_note_document",
   // The three structured attribute tables that describe an OBJECT and reference no person: a vehicle's
   // make, model, identification number, and plate; a firearm's make, model, calibre, and serial; a
   // digital asset's platform, its public handle, and who holds it. Every identifier on them is public
