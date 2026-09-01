@@ -197,8 +197,14 @@
       {/each}
     </div>
   {:else if attachments.length === 0}
+    <!-- The invitation names only the sources this record actually has, so it never points at a
+         control that is not on screen. -->
     <EmptyState title="Nothing Attached Yet">
-      Point this record at a document the matter already holds, or upload one.
+      {#if onAttachUpload}
+        Point this record at a document the matter already holds, or upload one.
+      {:else}
+        Point this record at a document the matter already holds.
+      {/if}
     </EmptyState>
   {:else}
     <ul class="mc-record-attachments-list">
@@ -335,17 +341,23 @@
       </Popover.Root>
 
       <!--
-        The second source. It is the shared upload surface rather than a bare button so a file can be
-        dragged onto it as well as chosen, and so the control that opens the picker is a real, named
-        input a keyboard reaches.
+        The second source, offered only by a record kind that can actually take an upload. It is the
+        shared upload surface rather than a bare button so a file can be dragged onto it as well as
+        chosen, and so the control that opens the picker is a real, named input a keyboard reaches.
+
+        A record whose only source is the matter's own files gets no dropzone at all. Rendering one
+        that silently swallows the file is worse than not offering it: the person watches their
+        document go in, sees nothing attached, and has no way to tell that from a failure.
       -->
-      <Dropzone
-        multiple
-        disabled={!canEdit}
-        label="Upload a file from this computer"
-        prompt="Upload…"
-        onFiles={(files) => onAttachUpload?.(files)}
-      />
+      {#if onAttachUpload}
+        <Dropzone
+          multiple
+          disabled={!canEdit}
+          label="Upload a file from this computer"
+          prompt="Upload…"
+          onFiles={(files) => onAttachUpload(files)}
+        />
+      {/if}
 
       {#if !canEdit && attachDisabledReason !== undefined}
         <p class="mc-record-attachments-refusal">{attachDisabledReason}</p>

@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 775 nodes of the feature ledger in
+is the complete register rather than a digest: all 776 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**775 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**776 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 137 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **638 that are units of work**, for the reason set out under [What a roll-up is
+count the **639 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 273 | 43% |
+| Done | shipped | 274 | 43% |
 | Part-built | partial, in-build | 114 | 18% |
 | Ahead | designed, planned, researching, not-started | 210 | 33% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **638** | **100%** |
+| **All units of work** | | **639** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 273 | 43% |
+| `shipped` | 274 | 43% |
 | `partial` | 113 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 45 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 144 | 23% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **638** | **100%** |
+| **All statuses** | **639** | **100%** |
 
 ### What a roll-up is not
 
-**137 of the 775 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**137 of the 776 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 273 of 638 (43%). Shipped plus partial is 386 (61%).**
+**Shipped alone is 274 of 639 (43%). Shipped plus partial is 387 (61%).**
 
 The 113 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**387 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**388 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 32 | 8% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 47% |
+| A person can open it today (`screen`) | 33 | 9% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
 | No user surface by nature (`internal`) | 175 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **387** | **100%** |
+| **Everything with something built** | **388** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 6 | 0% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
-| Matter Notes and Activity | 6 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 11 | 55% |
+| Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
 | Observability & Diagnostics | 11 | 1 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 20 | 55% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **273** | **113** | **1** | **45** | **16** | **5** | **144** | **38** | **3** | **638** | **43%** |
+| **All areas** | **274** | **113** | **1** | **45** | **16** | **5** | **144** | **38** | **3** | **639** | **43%** |
 
 ## Where we have been
 
@@ -325,7 +325,7 @@ in this one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**31 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**32 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -352,6 +352,7 @@ in this one.
 - **Invoice delivery record** (`financial.billing.delivery`) — **Built; no screen yet.** Whether a delivery recorded in error can be corrected. The record is append-only by design and a wrong row cannot be edited or removed, but the design names no correction shape either — unlike a credit note, whose answer is a further credit note. Either a superseding row that names the one it corrects, or the record simply stands. Also unresolved: the design names outcome as a column without enumerating it, so delivered and failed are the built floor rather than an answered vocabulary.
 - **Billing automations** (`financial.billing.automations`) — **A group of capabilities.** Three flags decide what gets built. Whether a recurring schedule may finalize a bill or only draft one — finalizing is irreversible, posts the receivable, locks work in progress, and is what permits money to leave trust. Whether payment reminders ship on or off out of the box and on what cadence, since telling a client they owe money is an act in the firm's voice and a schedule nobody set should be a stated default rather than a silence. And whether a payment plan may ever charge anything, which the design recommends against on three independent grounds rather than deferring. Billing automations design, flags M1, M2 and M3.
 - **Client intake / CRM** (`intake`) — **A group of capabilities.** Does the first slice ship staff-entered intake only, with no public form at all? The whole mechanism — submission, triage, prospect entity, prospective matter, preliminary check, stage, comprehensive check, conversion — works with a receptionist typing into a screen, and shipped that way it needs no anonymous surface, no bot control, no rate-limit tuning and no disclosure analysis. The public form is an accelerant on a flow that has to exist either way, and answering this decides how much of the area is in the first slice. Client intake design flag J1.
+- **Documents on a note** (`notes.matter-note.documents`) — **Built and reachable.** A note cannot upload a NEW document, only point at one the matter already holds. Whether the note window should also file a document into the matter — which means the presigned upload, the quarantine chokepoint and a scan wait inside a note — is an owner call, not a gap to close quietly.
 - **Scheduled reminders** (`notifications.scheduling`) — **Built; no screen by nature.** Two, both about how much of a firm's overdue work one pass carries. The deadline horizon's lead window — "an open deadline enters the firm's configured lead window" needs a number and a bound, and a lead the platform picks is a lead the firm did not choose. And whether 200 findings per kind per pass is the right ceiling: it is counted rather than silent, but a busy litigation practice can exceed it honestly, and raising it is a firm-observable change in how much gets reported as well as a load question.
 - **Payments** (`payments`) — **A group of capabilities.** The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
 - **Trust-compliance reports** (`reports.trust-compliance`) — **Built; no screen yet.** What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
@@ -1054,14 +1055,15 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Matter Notes and Activity
 
-[`roadmap.d/notes.md`](../roadmap.d/notes.md) — 11 units of work, 55% shipped. 6 done, 0 part-built, 4 ahead, 1 parked.
+[`roadmap.d/notes.md`](../roadmap.d/notes.md) — 12 units of work, 58% shipped. 7 done, 0 part-built, 4 ahead, 1 parked.
 
-- `notes` · `partial` · **Matter notes and activity** — The note primitive — a dated, attributed record on a matter, corrected by appended revision and withdrawn rather than deleted — and its entry on the federated activity read.
-  - `notes.matter-note` · `shipped` · **The matter note** — An identity row carrying the matter, the original author, the created instant and the state, with the body held as revisions beside it.
+- `notes` · `partial` · **Matter notes and activity** — The note primitive — a dated, attributed record on a matter, edited in place and deleted outright, opened in the shared record window — and its entry on the federated activity read.
+  - `notes.matter-note` · `shipped` · **The matter note** — One row carrying the matter, the author, the words, the instant it was written, and optionally when the thing it describes happened.
     - `notes.matter-note.edit-and-delete` · `shipped` · **Edit and delete** — An edit replaces a note's text and records who changed it; a delete removes the row and its words, leaving an audit entry that names no content. _Note: Replaced correction-by-revision and withdrawal on the owner's direction, 2026-09-01. Nothing records what a note said before an edit, and a deletion leaves only an audit row naming no content; the superseded reasoning is kept in docs/decisions/pending/ rather than deleted._
     - `notes.matter-note.append-only-enforcement` · `cut` · **Append-only revisions, enforced by the database** — Three RAISE(ABORT) triggers that refused UPDATE, DELETE and INSERT OR REPLACE on the revision table. _Note: CUT on the owner's direction, 2026-09-01, hours after it shipped. A note is edited in place and deleted outright, so there is no append-only body left to guard._
+    - `notes.matter-note.record-window` · `shipped` · **The note's record window** — A note is written, read, changed and deleted in the shared two-pane record window, with its attachments as the right-hand tab and a printable sheet. _Note: Replaced the inline composer on the owner's direction, 2026-09-01. The window states every generated field before anything is typed, and the Date and its Time sit on one line._
     - `notes.matter-note.occurrence` · `shipped` · **When the thing happened** — A civil date, an optional wall-clock time and its zone, recording when what the note describes took place, separately from when the note was typed. _Note: Nothing infers one — no default to today, no invented midnight, no assumed zone. Every read orders by it, falling back to the day the note was written._
-    - `notes.matter-note.documents` · `shipped` · **Documents on a note** — A note points at the matter's own files, many-to-many, linking a handle rather than moving bytes. _Note: Upload stays the File Manager's chokepoint, so an attached document keeps its versions, holds and discovery reachability. Deleting a note detaches its documents and deletes none of them._
+    - `notes.matter-note.documents` · `shipped` · **Documents on a note** — A note points at the matter's own files, many-to-many, linking a handle rather than moving bytes. _Note: Upload stays the File Manager's chokepoint, so an attached document keeps its versions, holds and discovery reachability. Deleting a note detaches its documents and deletes none of them. The window takes the choices while the note is still a draft and writes them after the note itself, so attaching never means saving and reopening; where one of them does not land, the list names which rather than reporting a failure to save._
   - `notes.activity` · `shipped` · **The note on the matter's activity history** — One declared source on the calendar's federated read — keyed matterNote, matter-anchored, declaring no label — reading the note table in place. _Note: No second activity stream was built; a note joins the register that already exists, which is why nothing projects or backfills._
     - `notes.activity.no-label` · `shipped` · **No privileged text on the federated read** — The source projects NULL AS label, so an entry says a note was written, on this matter, then, by them, and never a word of it.
     - `notes.confidentiality.no-merge-field` · `shipped` · **No merge field reaches a note** — A source scan and a catalogue scan refuse any merge-field entry, subject or batched read that resolves to a note table. _Note: The PDF metadata scrub is structurally blind to this route, because merge-filled text is page content rather than a document-level surface._

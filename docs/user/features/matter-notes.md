@@ -5,32 +5,43 @@ standing instruction, the reasoning behind a decision. Find them on a matter und
 
 ## Writing a Note
 
-Press **Write Note**. Before you type anything the composer shows you what the note will carry: which
-matter it lands on, whose name goes on it, and the moment it will be stamped with. Nothing is stored
-that you were not shown.
+Press **New Note**. The note opens in the same record window every other record opens in: the note
+itself on the left, what it carries on the right, and one row of actions underneath.
 
-Write the note, and where there is a moment it describes, say when that was under **When It
-Happened**. This is not the same as when you are typing. A note written on Thursday about a call on
-Tuesday should say Tuesday, and the matter's history will place it there, beside whatever else
-happened that day. Add a time if you know it; the zone is your own and is shown beside the field.
+Before you type anything the window shows you what the note will carry: which matter it lands on,
+whose name goes on it, and the moment it will be stamped with. Nothing is stored that you were not
+shown.
+
+Write the note, and where there is a moment it describes, say when that was under **Date**, with
+**Time** beside it. This is not the same as when you are typing. A note written on Thursday about a
+call on Tuesday should say Tuesday, and the matter's history will place it there, beside whatever
+else happened that day. Add a time if you know it; the zone is your own and is shown beside the
+field.
 
 Plenty of notes describe no single moment, such as a standing instruction about how to work the
 matter. Leave the date empty for those.
 
+Press **Save** when you are done, or **Cancel** to throw the note away. Closing the window while you
+have unsaved work asks first.
+
 Write what you would want a colleague to find in two years, and assume it will be read by somebody
 who was not there. A note is part of the firm's record of the matter and may be read in litigation.
 
-## Editing a Note
+## Reading and Editing a Note
 
-Press **Edit**, change the text or the date, and press **Save Changes**.
+Click a note in the list to open it. Press the pencil in the window's header to change it, edit the
+text or the date, and press **Save**.
 
 An edit replaces what was there. **The previous text is not kept and cannot be recovered.** The note
 records who last changed it and when, so a colleague can see it was edited, but not what it said
 before.
 
+The printer beside the pencil lays the note out on paper: both of the times it carries, who wrote it,
+who last changed it, and every document attached to it.
+
 ## Deleting a Note
 
-Press **Delete** and confirm.
+Open the note, press **Delete**, and confirm.
 
 The note and its text are removed and cannot be recovered by anyone, including your administrator.
 What remains is an entry in the firm's audit log saying a note existed on this matter and who deleted
@@ -41,23 +52,30 @@ were: deleting a note has never been a way to delete a document.
 
 ## Attaching Documents
 
-Press **Attach** on a note and choose a document from the matter's files.
+Open the note's **Attachments** tab, press **From the Matter…**, and pick a document. You can do this
+while you are still writing the note: the documents you choose are attached when you save it, so you
+never have to save, find the note again and reopen it to attach the letter you were writing about.
 
 The document is not copied, moved, or uploaded again. The note points at the file the matter already
 holds, so it keeps its versions, its history, and everything else that follows from living in the
 matter's file record. One document can be attached to several notes, which is what you want when two
 calls both concerned the same letter.
 
-Only documents on the same matter can be attached. Press the **X** beside an attachment to stop the
-note pointing at it; the document itself is untouched.
+Only documents on the same matter can be attached, and a document the note already carries is not
+offered again. Press the broken-link control beside an attachment to **Detach** it; the document
+itself is untouched and stays in the matter's files.
 
-If the **Attach** control is unavailable, the matter has no documents the note is not already
-pointing at.
+A note cannot upload a new document. If the file is not in the matter yet, put it there under
+**Files** first, then attach it.
+
+If a note is saved but a document does not attach — the connection dropped at the wrong moment, say —
+the list says so and names the document. The note itself is written; open it and attach the document
+again rather than writing the note a second time.
 
 ## Finding a Note
 
-The search box above the list narrows to the notes on this matter whose text contains what you type.
-Clear it with the **X** beside it.
+The search box beside the **Notes** heading narrows the list to the notes on this matter whose text
+contains what you type. Clear it with the **X** beside it.
 
 Search matches the text as it stands now. If a note was edited to take out a name, searching for that
 name will not find it.

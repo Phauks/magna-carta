@@ -111,6 +111,30 @@ is usually the fastest way to understand the rule.
   field is what starts a fresh search; leaving it returns the field to naming the selection. A
   filled seat that renders its ghost text reads as an empty field with nobody in it. _(new matter,
   2026-08-30)_
+- **A record is MADE in the same window it is read in.** Starting one is a modal act: the record
+  window opens with nothing in it and its fields already open. A form that unfolds inside the list
+  it will join is a second place to learn where a record's fields live, and the list loses its own
+  shape while somebody is typing. _(matter notes, 2026-09-01)_
+- **A field's label is the plain word for what it holds.** "Date", not "When It Happened"; a label
+  that reads as a sentence is a question the surface is asking rather than a name for the value. A
+  field whose meaning genuinely needs a sentence gets the sentence beside it, and keeps the plain
+  label. _(matter notes, 2026-09-01)_
+- **One moment is one line.** A date and the time on that date are a single fact, so they sit side
+  by side; stacking them reads as two separate questions and doubles the height of every record that
+  carries one. The same holds for a value and its unit, and a quantity and its currency. _(matter
+  notes, 2026-09-01)_
+- **What a record will carry is on screen before it is saved, generated fields included.** Who is
+  writing, what it will be filed against, the instant it will be stamped with. They are stated, not
+  editable — but a person writing a record that may be read years later must never have to guess
+  what is being stored beside their words. _(matter notes, 2026-09-01)_
+- **A record takes its attachments while it is still being written.** The files ride the record from
+  the first draft: chosen in the window, held, and written the moment the record itself is. Making
+  somebody save, find the record again and reopen it to attach the document they were writing about
+  is the same work done twice. _(matter notes, 2026-09-01)_
+- **A source a surface cannot actually use is not offered.** A picker, dropzone or button with
+  nothing behind it swallows the gesture in silence: the person watches their file go in, sees
+  nothing happen, and cannot tell that from a failure. Either wire it or leave it out — a control
+  that does nothing is worse than an absent one. _(matter notes, 2026-09-01)_
 
 ### Controls and patterns
 
@@ -328,6 +352,29 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-01 — the matter Notes section, first review round
+
+The owner opened the Notes section on a real matter and reported that it never stopped loading, then
+issued four corrections and, after the first pass, a fifth. Everything generalizable is promoted
+above. What is local to this surface:
+
+- The primary action reads **"+ New Note"**. It names the thing being made.
+- Writing, reading, editing and deleting a note all happen in the shared record window, opened from
+  the list. The list keeps the search and one row per note, and a row opens the note.
+- The occurrence field is labelled **Date**, with **Time** on the same line beside it. The zone the
+  wall-clock time is read in is stated beside them, and only once a time has been entered.
+- A note's Attachments tab offers the matter's own documents and nothing else. Notes have no upload
+  path, so the shared tab's dropzone is withheld rather than rendered inert.
+
+**On the loading report, honestly:** it did not reproduce. The Notes section was driven end to end
+against a real Worker — sign-in, an empty matter, a matter with notes, writing one through the
+window, attaching a document — and the list settled every time
+(`apps/web/e2e/matter-notes.spec.ts`), as does the route's empty-page envelope
+(`apps/api-worker/test/notes-routes.test.ts`). What the rebuild changed is the shape that made a
+permanent skeleton possible at all: the notes read is now an effect of its own, so nothing else the
+screen wants can abort it before the read is asked for, and a failed read settles the list and
+offers Retry instead of leaving the skeleton standing.
 
 ### 2026-08-31 — the matter chrome, section-navigation round
 
