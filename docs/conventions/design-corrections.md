@@ -96,6 +96,23 @@ is usually the fastest way to understand the rule.
   thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
   agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,
   2026-08-30)_
+- **A column's controls are summoned from the column, not from a control anywhere else.**
+  Right-clicking a column heading opens that column's menu, and everything a column can be ASKED is
+  in it: filter it, hide it, pin it, and — one arrow to the right — the full roster of columns,
+  where a hidden column (which has no heading to point at) is brought back. A `Columns` button in
+  the action row is removed, not moved: it asked the reader to leave the thing they were looking
+  at, find a control, and then find the column again in a list. The in-header filter funnel goes
+  the same way, for the narrower version of the same reason — a control parked in a data cell,
+  hunted for on hover, when the column it belongs to is the thing already under the pointer. What
+  the header still does by DIRECT gesture it keeps and the menu does not repeat: clicking the label
+  sorts, the grip resizes and double-click fits. A surface's own display settings ride the same
+  Columns submenu, beside the columns they change. _(every list surface, 2026-08-31)_
+- **A state stays visible where a control was removed; it just stops being pressable.** Taking the
+  funnel out of the header cell must not take with it the answer to "is this column narrowed" —
+  that is the reader's, not the control's. So the cell keeps a MARK in the same reserved slot, in
+  the same accent-subtle treatment, drawn only while a filter is in play and carrying nothing to
+  press. Absence is still the signal; presence is still unmistakable. _(every list surface,
+  2026-08-31)_
 
 ### Data entry
 

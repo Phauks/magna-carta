@@ -14,11 +14,9 @@
    * control visible and disabled with the reason, so the toolbar never changes shape under the
    * pointer.
    */
-  import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Button from "@magna-carta/design-system/button";
   import { buttonClasses } from "@magna-carta/design-system/button";
-  import Checkbox from "@magna-carta/design-system/checkbox";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
@@ -30,15 +28,13 @@
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import Plus from "@lucide/svelte/icons/plus";
+  import Settings2 from "@lucide/svelte/icons/settings-2";
   import Upload from "@lucide/svelte/icons/upload";
   import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
-  import type { DataTableGridState } from "@magna-carta/design-system/data-table";
-  import type { FileManagerRow } from "./file-rows.ts";
   import type { FileManagerState } from "./file-manager-state.svelte.ts";
 
   let {
     manager,
-    grid,
     /** Home first, then each ancestor, ending here. Empty past Home means the reader is at the root. */
     trail,
     viewTitle = null,
@@ -49,7 +45,6 @@
     onUpload,
   }: {
     manager: FileManagerState;
-    grid: DataTableGridState<FileManagerRow>;
     trail: readonly { id: string; label: string }[];
     /**
      * A view that is not a place in the folder tree TITLES the breadcrumb rather than adding a
@@ -66,6 +61,9 @@
   const HomeIcon = FOLDER_TREE_HOME_ICON;
 
 
+  /** The icon view is the one place with no table header to carry the display settings. */
+  const iconView = $derived(manager.listMode === "icons" && manager.view === "browse");
+
   /** Creating needs a current folder; the views that show rows from many folders have none. */
   const noDestinationReason = $derived(
     manager.view === "browse"
@@ -73,24 +71,6 @@
       : "This view has no current folder to create into. Open a folder first.",
   );
 </script>
-
-{#snippet displaySettings()}
-  <!-- The surface's own display settings ride the columns menu, beside the columns they change. -->
-  <label class="flex cursor-pointer items-center gap-8 rounded-sm px-8 py-4 text-sm">
-    <Checkbox
-      bind:checked={() => manager.hideExtensions, (next) => manager.setHideExtensions(next)}
-      aria-label="Hide file extensions"
-    />
-    <span>Hide file extensions</span>
-  </label>
-  <label class="flex cursor-pointer items-center gap-8 rounded-sm px-8 py-4 text-sm">
-    <Checkbox
-      bind:checked={() => manager.showSidebarCounts, (next) => manager.setShowSidebarCounts(next)}
-      aria-label="Show file counts in the sidebar"
-    />
-    <span>Show file counts in the sidebar</span>
-  </label>
-{/snippet}
 
 <div class="flex items-center gap-4 border-b border-border-default px-8 py-4">
   <Button
@@ -171,7 +151,34 @@
         <LayoutGrid class="size-16" aria-hidden="true" />
       {/if}
     </Button>
-    <DataTable.GridColumnsMenu {grid} iconOnly settings={displaySettings} />
+    {#if iconView}
+      <!-- The two display settings ride the table header's Columns menu everywhere there IS a
+           header. The icon view has no table at all, so it carries them here instead — not a
+           second home for them, the only one this view has. -->
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          class={buttonClasses({ variant: "ghost", size: "icon" })}
+          title="Display settings"
+          aria-label="Display settings"
+        >
+          <Settings2 class="size-16" aria-hidden="true" />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+          <DropdownMenu.CheckboxItem
+            bind:checked={() => manager.hideExtensions, (next) => manager.setHideExtensions(next)}
+          >
+            Hide file extensions
+          </DropdownMenu.CheckboxItem>
+          <DropdownMenu.CheckboxItem
+            bind:checked={
+              () => manager.showSidebarCounts, (next) => manager.setShowSidebarCounts(next)
+            }
+          >
+            Show file counts in the sidebar
+          </DropdownMenu.CheckboxItem>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+    {/if}
     <!-- An active pane toggle reads through its glyph and hairline, never a dark fill. -->
     <Button
       variant="ghost"
