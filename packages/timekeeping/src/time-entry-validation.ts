@@ -13,7 +13,16 @@ export type TimeEntryValidationCode =
   | "draft-only"
   | "not-found"
   | "empty-name"
-  | "empty-patch";
+  | "empty-patch"
+  // Attachment guards: the file is not one of the entry's matter's own live documents, or the
+  // link already exists / does not exist.
+  | "file-not-on-matter"
+  | "already-attached"
+  | "not-attached"
+  // Conversion guards: an entry already billed (or claimed by a draft bill), already void, or
+  // carrying no amount cannot convert to another charge kind.
+  | "no-amount"
+  | "claimed-by-draft";
 
 export class TimeEntryValidationError extends Error {
   constructor(

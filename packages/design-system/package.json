@@ -24,6 +24,7 @@
     "./date-picker": "./src/lib/components/date-picker/index.ts",
     "./date-range-picker": "./src/lib/components/date-range-picker/index.ts",
     "./dialog": "./src/lib/components/dialog/index.ts",
+    "./folder-glyph": "./src/lib/components/folder-glyph/index.ts",
     "./folder-tree": "./src/lib/components/folder-tree/index.ts",
     "./form": "./src/lib/components/form/index.ts",
     "./formatters": "./src/lib/formatters/index.ts",

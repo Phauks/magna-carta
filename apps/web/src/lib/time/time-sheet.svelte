@@ -56,6 +56,10 @@
   import { formatMoney } from "@magna-carta/design-system/data-table";
   import { formatDuration } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
+  import { mergeClasses } from "@magna-carta/design-system/internal/merge-classes";
+  import { parseDate } from "@internationalized/date";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
   import Calendar from "@lucide/svelte/icons/calendar";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import CircleCheckBig from "@lucide/svelte/icons/circle-check-big";
@@ -259,7 +263,6 @@
     // truncated to its number is a matter the reader has to go and look up.
     [TIME_SHEET_COLUMN_IDENTIFIERS.matter]: 320,
     [TIME_SHEET_COLUMN_IDENTIFIERS.dateEntered]: 134,
-    [TIME_SHEET_COLUMN_IDENTIFIERS.description]: 300,
     [TIME_SHEET_COLUMN_IDENTIFIERS.worked]: 104,
     [TIME_SHEET_COLUMN_IDENTIFIERS.hours]: 132,
     [TIME_SHEET_COLUMN_IDENTIFIERS.rate]: 96,
@@ -485,7 +488,10 @@
   </span>
 {/snippet}
 
-{#snippet descriptionCell(row: SheetRow)}
+<!-- THE DESCRIPTION IS THE ROW'S SECOND LINE, not a column: it is prose, usually far longer than
+     any other fact on the row, so it gets the row's full width underneath the fields and wraps
+     there. The internal memo is its on-demand twin on a third line. -->
+{#snippet rowDetail(row: SheetRow)}
   {@const refusal = editRefusal(row)}
   <div class="flex w-full flex-col gap-4">
     <div class="flex w-full items-start gap-4">
@@ -679,15 +685,16 @@
   {:else if isUnservedSheetColumn(column.id)}
     {@render unservedCell(column.id)}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.workDate}
-    <Input
-      type="date"
-      value={row.workDate}
-      title={editRefusal(row) ?? "The day the work is for"}
-      disabled={editRefusal(row) !== undefined}
-      onchange={(event) => commitWorkDate(row, event.currentTarget.value)}
-    />
-  {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.description}
-    {@render descriptionCell(row)}
+    <!-- The product's own calendar, not the browser's: one themed picker on every surface. -->
+    <span class="block" title={editRefusal(row) ?? "The day the work is for"}>
+      <DatePicker
+        value={parseDate(row.workDate)}
+        disabled={editRefusal(row) !== undefined}
+        onValueChange={(picked) => {
+          if (picked !== undefined) commitWorkDate(row, picked.toString());
+        }}
+      />
+    </span>
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.worked}
     {@render durationCell(row)}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.hours}
@@ -777,11 +784,15 @@
 {/snippet}
 
 <Dialog.Root bind:open>
+  <!-- The sheet is a WORKING surface, so windowed it still takes nearly the whole screen; filling
+       it entirely drops the rounded corners — a panel with no edge on screen has no corners to
+       round. -->
   <Dialog.Content
     showClose={false}
     class={expanded
-      ? "flex h-screen w-screen max-w-none flex-col gap-0 p-0"
-      : "flex max-h-screen w-full max-w-record-window flex-col gap-0 p-0"}
+      ? "flex h-screen w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0"
+      : "flex max-h-screen w-full max-w-none flex-col gap-0 p-0"}
+    style={expanded ? undefined : "inline-size: 97vw; block-size: 94vh"}
   >
     <div class="flex flex-wrap items-center gap-8 border-b border-border-default px-24 py-16">
       <div class="flex min-w-0 flex-col gap-4">
@@ -818,26 +829,18 @@
               {/each}
             </div>
             <p class="text-xs text-text-subtle">Custom range</p>
-            <div class="flex items-end gap-8">
-              <div class="flex flex-col gap-4">
-                <Label for="time-sheet-range-from">From</Label>
-                <Input
-                  id="time-sheet-range-from"
-                  type="date"
-                  bind:value={customRangeFrom}
-                  onchange={applyCustomRange}
-                />
-              </div>
-              <div class="flex flex-col gap-4">
-                <Label for="time-sheet-range-to">To</Label>
-                <Input
-                  id="time-sheet-range-to"
-                  type="date"
-                  bind:value={customRangeTo}
-                  onchange={applyCustomRange}
-                />
-              </div>
-            </div>
+            <!-- One themed range picker instead of two bare date fields: pick both ends on one
+                 calendar, drag across days, and the range applies as it lands. -->
+            <DateRangePicker
+              value={customRangeFrom === "" || customRangeTo === ""
+                ? undefined
+                : { start: parseDate(customRangeFrom), end: parseDate(customRangeTo) }}
+              onValueChange={(range) => {
+                customRangeFrom = range?.start?.toString() ?? "";
+                customRangeTo = range?.end?.toString() ?? "";
+                if (customRangeFrom !== "" && customRangeTo !== "") applyCustomRange();
+              }}
+            />
             <p class="text-xs text-text-muted">
               {customRangeNote ??
                 "The range applies as you pick it. A preset above returns to a named scope."}
@@ -859,88 +862,112 @@
           New Entry
         </Button>
 
-        {#if searchOpen}
-          <Input
-            class="w-full"
-            value={searchText}
-            placeholder="Search"
-            aria-label="Search rows by description or person"
-            oninput={(event) => (searchText = event.currentTarget.value)}
-            onblur={() => {
-              if (searchText === "") searchOpen = false;
-            }}
-          />
-        {:else}
+        <!-- Opening search must not move a single control: the button keeps its place and the
+             field OVERLAYS leftward across the header's slack instead of inserting itself into
+             the row. -->
+        <span class="relative inline-flex">
           <Button
             variant="secondary"
             size="icon"
             title="Search the rows in view"
             aria-label="Search"
+            aria-expanded={searchOpen}
             onclick={() => (searchOpen = true)}
           >
             <Search class="size-16" aria-hidden="true" />
           </Button>
-        {/if}
+          {#if searchOpen}
+            <div
+              class="absolute end-0 top-0 z-dropdown"
+              style="inline-size: var(--mc-size-record-context)"
+            >
+              <Input
+                class="w-full"
+                value={searchText}
+                placeholder="Search"
+                aria-label="Search rows by description or person"
+                oninput={(event) => (searchText = event.currentTarget.value)}
+                onblur={() => {
+                  if (searchText === "") searchOpen = false;
+                }}
+                {@attach (field) => field.focus()}
+              />
+            </div>
+          {/if}
+        </span>
 
-        <!-- The button does the step; its list says what each step WAS, so several can be walked
-             back at once. What a step was is never printed on the toolbar. -->
-        <Button
-          variant="secondary"
-          size="icon"
-          disabled={!store.history.canUndo}
-          title={store.history.undoTitle}
-          aria-label="Undo"
-          onclick={() => runUndo(1)}
-        >
-          <Undo2 class="size-16" aria-hidden="true" />
-        </Button>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            class={buttonClasses({ variant: "secondary", size: "icon" })}
+        <!-- Undo and redo are SPLIT CONTROLS: the button does the step, the caret fused to its
+             side opens the stack, where each entry says what that step WAS and choosing the Nth
+             walks all N at once. What a step was is never printed on the toolbar itself. -->
+        <span class="inline-flex">
+          <Button
+            variant="secondary"
+            size="icon"
+            class="rounded-e-none"
             disabled={!store.history.canUndo}
-            title={store.history.undoStackTitle}
-            aria-label="Undo history"
+            title={store.history.undoTitle}
+            aria-label="Undo"
+            onclick={() => runUndo(1)}
           >
-            <ChevronDown class="size-16" aria-hidden="true" />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            <DropdownMenu.GroupHeading>Undo, newest change first</DropdownMenu.GroupHeading>
-            {#each store.history.undoLabels as label, index (index)}
-              <DropdownMenu.Item onSelect={() => runUndo(index + 1)}>
-                {index + 1}. {label}
-              </DropdownMenu.Item>
-            {/each}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+            <Undo2 class="size-16" aria-hidden="true" />
+          </Button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              class={mergeClasses(
+                buttonClasses({ variant: "secondary", size: "icon" }),
+                "rounded-s-none border-s-0",
+              )}
+              disabled={!store.history.canUndo}
+              title={store.history.undoStackTitle}
+              aria-label="Undo history"
+            >
+              <ChevronDown class="size-16" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              <DropdownMenu.GroupHeading>Undo, newest change first</DropdownMenu.GroupHeading>
+              {#each store.history.undoLabels as label, index (index)}
+                <DropdownMenu.Item onSelect={() => runUndo(index + 1)}>
+                  {index + 1}. {label}
+                </DropdownMenu.Item>
+              {/each}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </span>
 
-        <Button
-          variant="secondary"
-          size="icon"
-          disabled={!store.history.canRedo}
-          title={store.history.redoTitle}
-          aria-label="Redo"
-          onclick={() => runRedo(1)}
-        >
-          <Redo2 class="size-16" aria-hidden="true" />
-        </Button>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            class={buttonClasses({ variant: "secondary", size: "icon" })}
+        <span class="inline-flex">
+          <Button
+            variant="secondary"
+            size="icon"
+            class="rounded-e-none"
             disabled={!store.history.canRedo}
-            title={store.history.redoStackTitle}
-            aria-label="Redo history"
+            title={store.history.redoTitle}
+            aria-label="Redo"
+            onclick={() => runRedo(1)}
           >
-            <ChevronDown class="size-16" aria-hidden="true" />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            <DropdownMenu.GroupHeading>Redo, next change first</DropdownMenu.GroupHeading>
-            {#each store.history.redoLabels as label, index (index)}
-              <DropdownMenu.Item onSelect={() => runRedo(index + 1)}>
-                {index + 1}. {label}
-              </DropdownMenu.Item>
-            {/each}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+            <Redo2 class="size-16" aria-hidden="true" />
+          </Button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              class={mergeClasses(
+                buttonClasses({ variant: "secondary", size: "icon" }),
+                "rounded-s-none border-s-0",
+              )}
+              disabled={!store.history.canRedo}
+              title={store.history.redoStackTitle}
+              aria-label="Redo history"
+            >
+              <ChevronDown class="size-16" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              <DropdownMenu.GroupHeading>Redo, next change first</DropdownMenu.GroupHeading>
+              {#each store.history.redoLabels as label, index (index)}
+                <DropdownMenu.Item onSelect={() => runRedo(index + 1)}>
+                  {index + 1}. {label}
+                </DropdownMenu.Item>
+              {/each}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </span>
 
         <!-- Absence is the signal: the control exists only while a filter is in play. -->
         {#if grid.isFiltered}
@@ -1023,6 +1050,7 @@
         <DataTable.Grid
           {grid}
           {cell}
+          {rowDetail}
           {loading}
           class="h-full"
           caption={matterTitle === null

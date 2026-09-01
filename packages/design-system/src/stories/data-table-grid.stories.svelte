@@ -10,7 +10,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
   import Grid from "../lib/components/data-table/data-table-grid.svelte";
-  import LitigationGrid from "./support/litigation-grid.svelte";
+  import LitigationGrid, { TIME_COLUMNS } from "./support/litigation-grid.svelte";
 
   const { Story } = defineMeta({
     title: "Data Display/DataTableGrid",
@@ -32,6 +32,11 @@
   // so the block cannot be mistaken for the sort), and two rows waiting on the clipboard.
   const PINNED_ROW_KEYS = ["t12", "t05"];
   const CLIPBOARD_MARKS: Record<string, "cut" | "copy" | undefined> = { t04: "cut", t07: "copy" };
+
+  // The Time Sheet's shape: the Status column stuck to the trailing edge while the rest scrolls.
+  const TRAILING_PINNED_COLUMNS = TIME_COLUMNS.map((column) =>
+    column.id === "status" ? Object.assign({}, column, { pinnedEnd: true }) : column,
+  );
 </script>
 
 <!--
@@ -509,6 +514,100 @@
         quiet: row.status === "Void",
       })}
     />
+  {/snippet}
+</Story>
+
+<!--
+  The Time Sheet's two grid capabilities together: a TRAILING pinned column (Status stays stuck to
+  the end edge while the table scrolls sideways, a leading hairline saying "pinned, not floating")
+  and the row-detail second line (each record is two <tr>s reading as ONE row of two lines — the
+  hairline moves to the second line, and hover/selection cover the pair).
+-->
+<Story
+  name="Trailing pin and row detail"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const table = canvas.getByRole("table");
+    const primaryRow = (index: number): HTMLElement =>
+      Array.from(table.querySelectorAll("tbody tr[data-grid-row]"))[index] as HTMLElement;
+    const detailRow = (index: number): HTMLElement =>
+      Array.from(table.querySelectorAll("tbody tr[data-grid-detail-row]"))[index] as HTMLElement;
+
+    await step("The trailing-pinned column renders last, stuck to the end edge", async () => {
+      const statusHead = canvas.getByRole("button", { name: "Status" }).closest("th")!;
+      // The offsets are measured from the rendered header, so the attributes land after mount.
+      await waitFor(() => expect(statusHead).toHaveAttribute("data-pinned-end", "true"));
+      await expect(statusHead).toHaveAttribute("data-pinned-end-edge", "true");
+      await expect(statusHead.style.insetInlineEnd).toBe("0px");
+      // Last in render order, whatever the member-set order says.
+      const headers = Array.from(table.querySelectorAll("thead th"));
+      await expect(headers.at(-1)?.getAttribute("data-grid-column")).toBe("status");
+      // Both its edges are declared, so it offers no drag.
+      await expect(statusHead).not.toHaveAttribute("draggable");
+    });
+
+    await step("Its body and totals cells stick with it", async () => {
+      await waitFor(() =>
+        expect(
+          primaryRow(0).querySelector('td[data-pinned-end="true"][data-pinned-end-edge="true"]'),
+        ).not.toBeNull(),
+      );
+      const totalsCells = Array.from(table.querySelectorAll("tfoot td"));
+      await expect(
+        totalsCells.filter((cellElement) => cellElement.getAttribute("data-pinned-end") === "true"),
+      ).toHaveLength(1);
+    });
+
+    await step("Each record carries its second line across the scrolling columns", async () => {
+      await expect(table).toHaveAttribute("data-row-detail", "on");
+      await expect(table.querySelectorAll("tbody tr[data-grid-detail-row]")).toHaveLength(12);
+      // Seven columns show (Entry Number starts hidden): six scrolling + the trailing pin, so
+      // the second line spans the six and keeps an empty pinned cell for the hairline.
+      const detailCells = detailRow(0).querySelectorAll("td");
+      await expect(detailCells).toHaveLength(2);
+      await expect(detailCells[0]).toHaveAttribute("colspan", "6");
+      await expect(detailCells[1]).toHaveAttribute("data-pinned-end", "true");
+      await expect(detailCells[1]).toHaveTextContent("");
+      await expect(detailRow(0)).toHaveTextContent("Recorded by");
+    });
+
+    await step("The pair is ONE hover unit — either line hovered marks both", async () => {
+      await fireEvent.pointerEnter(primaryRow(1));
+      await expect(primaryRow(1)).toHaveAttribute("data-pair-hover", "true");
+      await expect(detailRow(1)).toHaveAttribute("data-pair-hover", "true");
+      await fireEvent.pointerLeave(primaryRow(1));
+      await expect(primaryRow(1)).not.toHaveAttribute("data-pair-hover");
+      await expect(detailRow(1)).not.toHaveAttribute("data-pair-hover");
+    });
+
+    await step("Selection covers the pair, from either line", async () => {
+      await userEvent.click(detailRow(2));
+      await expect(primaryRow(2)).toHaveAttribute("data-state", "selected");
+      await expect(detailRow(2)).toHaveAttribute("data-state", "selected");
+      await userEvent.click(primaryRow(2));
+      await expect(primaryRow(2)).not.toHaveAttribute("data-state", "selected");
+      await expect(detailRow(2)).not.toHaveAttribute("data-state", "selected");
+    });
+
+    await step("The columns menu holds the trailing pin — it is not the member's to move", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Columns" }));
+      const body = within(document.body);
+      const heldPin = await body.findByRole("button", {
+        name: "Status always keeps its place at the trailing edge",
+      });
+      await expect(heldPin).toBeDisabled();
+      await expect(heldPin).toHaveAttribute("aria-pressed", "true");
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid columns={TRAILING_PINNED_COLUMNS}>
+      {#snippet rowDetail(row)}
+        Recorded by {row.timekeeper}: {row.title}.
+      {/snippet}
+    </LitigationGrid>
   {/snippet}
 </Story>
 

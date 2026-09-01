@@ -99,7 +99,9 @@ export class DataTableGridState<TRow> {
       columns.filter((column) => column.hidden && !column.anchored).map((column) => column.id),
     );
     this.pinnedColumnIds = new Set(
-      columns.filter((column) => column.pinned).map((column) => column.id),
+      columns
+        .filter((column) => column.pinned && column.pinnedEnd !== true)
+        .map((column) => column.id),
     );
     const initialSortColumn = options.initialSort
       ? columns.find((column) => column.id === options.initialSort?.columnId)
@@ -235,6 +237,8 @@ export class DataTableGridState<TRow> {
   }
 
   togglePinned(columnId: string): void {
+    // A trailing-pinned column is already stuck to its own edge — the leading pin leaves it alone.
+    if (this.columnById(columnId)?.pinnedEnd === true) return;
     const next = new Set(this.pinnedColumnIds);
     if (next.has(columnId)) next.delete(columnId);
     else next.add(columnId);

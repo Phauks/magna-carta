@@ -281,4 +281,14 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "The postal addresses on one directory entity. Written only by " +
     "addAddress/updateAddress/removeAddress in packages/directory/src/contact-address.ts, reached " +
     "from the entity's own route behind directory:edit and from nowhere else at all.",
+  "timeEntries.listAttachments":
+    "The files one time entry points at. Written only by attachFileToTimeEntry in " +
+    "packages/timekeeping/src/time-entry-attachments.ts — the single insert statement in the " +
+    "workspace — reached from the attach route behind time:track and from no queue consumer, " +
+    "sweep, or ingest path; the row is a person deciding that this document belongs with this " +
+    "entry. time_entry_attachment is keyed on (time_entry_id, file_id) in " +
+    "packages/database/src/per-firm-schema.ts, so a file counts once however often it is offered. " +
+    "Read whole on purpose: it IS the attachments tab on the record, and a page boundary through " +
+    "it would show a member some of the work's documents and let them believe it was all of them. " +
+    "The entry's HISTORY is the unbounded read here, and it is cursor-paged.",
 };

@@ -25,7 +25,9 @@
     "./narrative-template-service": "./src/narrative-template-service.ts",
     "./quick-add-parser": "./src/quick-add-parser.ts",
     "./my-day": "./src/my-day.ts",
-    "./queries": "./src/queries.ts"
+    "./queries": "./src/queries.ts",
+    "./entry-numbering": "./src/entry-numbering.ts",
+    "./time-entry-attachments": "./src/time-entry-attachments.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -35,6 +37,7 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/money": "workspace:*",
+    "@magna-carta/sequence-numbering": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

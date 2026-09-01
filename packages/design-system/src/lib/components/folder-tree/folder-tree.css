@@ -47,38 +47,41 @@
     padding-inline: var(--mc-space-4);
   }
 
-  /* The folder glyph takes the folder's own colour; an uncoloured folder keeps the row's ink. */
-  .mc-folder-tree-icon[data-folder-color="red"] {
+  /* The folder glyph takes the folder's own colour; an uncoloured folder keeps the row's ink.
+     Keyed on the SHARED glyph class, not the tree's own: the rail, the file list and the icon view
+     all draw the same folder, so a colour that only the rail honoured read as a colour that had
+     not saved. The custom properties above stay here, where the palette is declared. */
+  .mc-folder-glyph[data-folder-color="red"] {
     color: var(--mc-folder-color-red);
   }
-  .mc-folder-tree-icon[data-folder-color="orange"] {
+  .mc-folder-glyph[data-folder-color="orange"] {
     color: var(--mc-folder-color-orange);
   }
-  .mc-folder-tree-icon[data-folder-color="yellow"] {
+  .mc-folder-glyph[data-folder-color="yellow"] {
     color: var(--mc-folder-color-yellow);
   }
-  .mc-folder-tree-icon[data-folder-color="green"] {
+  .mc-folder-glyph[data-folder-color="green"] {
     color: var(--mc-folder-color-green);
   }
-  .mc-folder-tree-icon[data-folder-color="blue"] {
+  .mc-folder-glyph[data-folder-color="blue"] {
     color: var(--mc-folder-color-blue);
   }
-  .mc-folder-tree-icon[data-folder-color="purple"] {
+  .mc-folder-glyph[data-folder-color="purple"] {
     color: var(--mc-folder-color-purple);
   }
-  .mc-folder-tree-icon[data-folder-color="pink"] {
+  .mc-folder-glyph[data-folder-color="pink"] {
     color: var(--mc-folder-color-pink);
   }
-  .mc-folder-tree-icon[data-folder-color="brown"] {
+  .mc-folder-glyph[data-folder-color="brown"] {
     color: var(--mc-folder-color-brown);
   }
-  .mc-folder-tree-icon[data-folder-color="grey"] {
+  .mc-folder-glyph[data-folder-color="grey"] {
     color: var(--mc-folder-color-grey);
   }
-  .mc-folder-tree-icon[data-folder-color="black"] {
+  .mc-folder-glyph[data-folder-color="black"] {
     color: var(--mc-folder-color-black);
   }
-  .mc-folder-tree-icon[data-folder-color="white"] {
+  .mc-folder-glyph[data-folder-color="white"] {
     color: var(--mc-folder-color-white);
   }
 

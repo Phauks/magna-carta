@@ -26,7 +26,27 @@ import { parseQuickAdd } from "@magna-carta/timekeeping/quick-add-parser";
 import {
   listTimeEntriesForTimekeeperDay,
   listTimeEntriesByMatter,
+  listTimeEntryEvents,
+  readTimeEntryRecord,
+  type TimeEntryRecordItem,
 } from "@magna-carta/timekeeping/queries";
+import {
+  entryNumberAllocationStatement,
+  entryNumberBlockOpenStatements,
+  isEntryNumberConflict,
+  planEntryNumberBlock,
+  TIME_ENTRY_NUMBERING_TABLES,
+  type EntryNumberBlockPlan,
+} from "@magna-carta/timekeeping/entry-numbering";
+import {
+  attachFileToTimeEntry,
+  detachFileFromTimeEntry,
+  listTimeEntryAttachments,
+} from "@magna-carta/timekeeping/time-entry-attachments";
+import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
+import { captureCost } from "@magna-carta/costs/cost-entry-service";
+import { CostValidationError } from "@magna-carta/costs/cost-validation";
+import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
 import type { TimeEntryId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
@@ -72,6 +92,16 @@ const CreateTimeEntryRequest = z
     utbmsActivityCodeId: identifierField("utbmsCode").nullable().optional(),
     rateCardId: identifierField("rateCard").nullable().optional(),
     overrideRateE4: z.number().int().positive().nullable().optional(),
+    memo: z
+      .string()
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The firm's own note about the entry. Internal only: it never appears on a bill, a " +
+          "print sheet, or the client portal, and the audit trail records that it changed, never " +
+          "what it says.",
+      }),
   })
   .openapi("CreateTimeEntryRequest");
 
@@ -85,6 +115,9 @@ const PatchTimeEntryRequest = z
       .optional(),
     utbmsTaskCodeId: identifierField("utbmsCode").nullable().optional(),
     utbmsActivityCodeId: identifierField("utbmsCode").nullable().optional(),
+    memo: z.string().nullable().optional().openapi({
+      description: "The firm-internal note. Null clears it; absent leaves it unchanged.",
+    }),
   })
   .openapi("PatchTimeEntryRequest");
 
@@ -103,21 +136,100 @@ const TimeEntrySummary = z
     id: z.string(),
     matterId: z.string(),
     timekeeperUserId: z.string(),
+    // The timekeeper's name, resolved through the member mirror. Null where the member row is
+    // gone: an honest gap rather than a user_ handle standing in for a person.
+    timekeeperName: z.string().nullable(),
     workDate: z.string(),
+    // The billed (rounded) quantity; rawDurationMinutes is what was actually worked before
+    // rounding. The two are served side by side so a screen can show both literacies.
     durationMinutes: z.number().int(),
     rawDurationMinutes: z.number().int(),
     narrative: z.string(),
     billable: z.boolean(),
     amountMinor: z.number().int().nullable(),
     currency: z.string(),
+    // The rate snapshot frozen at capture (scale 4), with where it came from and which card
+    // resolved it. All three null on non-billable internal time.
+    rateE4: z.number().int().nullable(),
+    rateSource: z
+      .enum(["override", "matter", "client", "timekeeper", "role", "card_default"])
+      .nullable(),
+    rateCardId: z.string().nullable(),
+    utbmsTaskCodeId: z.string().nullable(),
+    utbmsTaskCode: z.string().nullable(),
+    utbmsTaskLabel: z.string().nullable(),
+    utbmsActivityCodeId: z.string().nullable(),
+    utbmsActivityCode: z.string().nullable(),
+    utbmsActivityLabel: z.string().nullable(),
     status: z.enum(["draft", "submitted", "approved", "billed", "void"]),
-    // Present on the per-matter listing, where the timekeeper is a column and an identifier is not
-    // a name. Null where the member row is gone: an honest gap rather than a user_ handle standing
-    // in for a person. Absent on the My-Day listing, whose rows are all the caller's own.
-    timekeeperName: z.string().nullable().optional(),
+    source: z.enum(["timer", "manual", "quick_add", "grid", "offline_sync", "calendar"]),
+    // The invoice a billed entry rides; null until billing locks the row.
+    invoiceId: z.string().nullable(),
+    // Firm-internal note; never client-facing.
+    memo: z.string().nullable(),
+    // The matter-scoped reference ("2026-0147.0042"), immutable and never reused. Null on entries
+    // captured before the sequence existed — an honest gap, never a backfilled guess.
+    entryNumber: z.string().nullable(),
+    // When the entry was written down (distinct from workDate, the date the work was FOR), and by
+    // whom — the enterer, which delegated capture makes a different person from the timekeeper.
+    createdAt: z.string(),
+    createdByUserId: z.string().nullable(),
+    createdByName: z.string().nullable(),
+    attachmentCount: z.number().int(),
   })
   .openapi("TimeEntrySummary");
 const TimeEntryListResponse = paginated(TimeEntrySummary).openapi("TimeEntryListResponse");
+
+const TimeEntryEventItem = z
+  .object({
+    at: z.string(),
+    // The raw audit event string (e.g. "time_entry.captured", "time_entry.kicked_back").
+    event: z.string(),
+    actorUserId: z.string().nullable(),
+    // Resolved through the member mirror; null for system events and departed members.
+    actorName: z.string().nullable(),
+    // The event's redacted metadata, passed through as recorded (null when the event carried none
+    // — older writes recorded less, and those render as honest blanks).
+    detail: z.unknown().nullable(),
+  })
+  .openapi("TimeEntryEventItem");
+const TimeEntryEventsResponse = paginated(TimeEntryEventItem).openapi("TimeEntryEventsResponse");
+
+const TimeEntryAttachmentItem = z
+  .object({
+    fileId: z.string(),
+    // The file's CURRENT name, resolved at read time; null where the file row is gone.
+    fileName: z.string().nullable(),
+    createdAt: z.string(),
+    createdByUserId: z.string().nullable(),
+    createdByName: z.string().nullable(),
+  })
+  .openapi("TimeEntryAttachmentItem");
+const TimeEntryAttachmentListResponse = z
+  .object({ data: z.array(TimeEntryAttachmentItem) })
+  .openapi("TimeEntryAttachmentListResponse");
+
+const AttachTimeEntryFileRequest = z
+  .object({ fileId: identifierField("file") })
+  .openapi("AttachTimeEntryFileRequest");
+const DetachTimeEntryFileRequest = z
+  .object({ fileId: identifierField("file") })
+  .openapi("DetachTimeEntryFileRequest");
+const TimeEntryAttachmentAck = z
+  .object({ timeEntryId: z.string(), fileId: z.string() })
+  .openapi("TimeEntryAttachmentAck");
+
+const ConvertToCostRequest = z
+  .object({
+    // A billable cost on an electronic-billing matter must carry a UTBMS expense code (the task
+    // code on the time entry is not one), so the conversion accepts it here; without it such a
+    // conversion is refused with the same 422 a direct cost capture gets.
+    utbmsExpenseCodeId: identifierField("utbmsCode").nullable().optional(),
+  })
+  .openapi("ConvertToCostRequest");
+const ConvertToCostAck = z
+  .object({ costEntryId: z.string(), timeEntryId: z.string() })
+  .openapi("ConvertToCostAck");
 
 const QuickAddPreviewResponse = z
   .object({
@@ -128,8 +240,20 @@ const QuickAddPreviewResponse = z
   })
   .openapi("QuickAddPreviewResponse");
 
-const TimeEntryAck = z.object({ timeEntryId: z.string() }).openapi("TimeEntryAck");
-const GridBatchAck = z.object({ timeEntryIds: z.array(z.string()) }).openapi("GridBatchAck");
+const TimeEntryAck = z
+  .object({
+    timeEntryId: z.string(),
+    // Present on capture, where the number is drawn; the lifecycle acks carry only the id.
+    entryNumber: z.string().optional(),
+  })
+  .openapi("TimeEntryAck");
+const GridBatchAck = z
+  .object({
+    timeEntryIds: z.array(z.string()),
+    // Aligned with timeEntryIds, one drawn number per captured entry.
+    entryNumbers: z.array(z.string()).optional(),
+  })
+  .openapi("GridBatchAck");
 
 const timeEntryParam = z.object({ id: identifierPathParam("timeEntry", "id") });
 
@@ -251,6 +375,29 @@ const previewMeta: RouteMeta = {
   idempotency: "optional",
   rateLimit: "default",
 };
+const eventsMeta: RouteMeta = {
+  operationId: "timeEntries.events",
+  surface: "app",
+  authenticated: true,
+  permission: TRACK,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+const listAttachmentsMeta: RouteMeta = {
+  operationId: "timeEntries.listAttachments",
+  surface: "app",
+  authenticated: true,
+  permission: TRACK,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+const attachFileMeta = writeMeta("timeEntries.attachFile", TRACK);
+const detachFileMeta = writeMeta("timeEntries.detachFile", TRACK);
+const convertToCostMeta = writeMeta("timeEntries.convertToCost", TRACK);
 
 const createRoute = defineOpenAPIRoute(createMeta, {
   method: "post",
@@ -410,6 +557,138 @@ const voidRoute = transitionRoute(
   "Voids a time entry. The row freezes — it can no longer be edited or billed.",
 );
 
+const eventsRoute = defineOpenAPIRoute(eventsMeta, {
+  method: "get",
+  path: "/api/v1/time-entries/{id}/events",
+  description:
+    "Lists the entry's recorded audit events, OLDEST first — the order a history rail reads in: " +
+    "captured, updated, submitted, approved, kicked back, voided, files attached and detached, " +
+    "conversions. Each event carries its instant, its actor (id and resolved name), and the " +
+    "redacted detail the write recorded — older writes recorded less, and those render as honest " +
+    "blanks rather than guesses. CURSOR-PAGED: an entry worked over a week records an event per " +
+    "edit, so the history grows with the work rather than with the lifecycle.",
+  request: { params: timeEntryParam, query: cursorQuery },
+  responses: {
+    200: {
+      description: "The entry's events",
+      content: { "application/json": { schema: TimeEntryEventsResponse } },
+    },
+    401: readErrorResponses[401],
+    403: readErrorResponses[403],
+    404: readErrorResponses[404],
+    429: readErrorResponses[429],
+  },
+});
+
+const listAttachmentsRoute = defineOpenAPIRoute(listAttachmentsMeta, {
+  method: "get",
+  path: "/api/v1/time-entries/{id}/attachments",
+  description:
+    "Lists the files attached to the entry — references to documents in the entry's own matter, " +
+    "oldest link first, with the attacher resolved.",
+  request: { params: timeEntryParam },
+  responses: {
+    200: {
+      description: "The entry's attachments",
+      content: { "application/json": { schema: TimeEntryAttachmentListResponse } },
+    },
+    401: readErrorResponses[401],
+    403: readErrorResponses[403],
+    404: readErrorResponses[404],
+    429: readErrorResponses[429],
+  },
+});
+
+const attachFileRoute = defineOpenAPIRoute(attachFileMeta, {
+  method: "post",
+  path: "/api/v1/time-entries/{id}/attachments",
+  description:
+    "Attaches one of the matter's own files to the entry, by reference — no bytes move. A file on " +
+    "another matter (or a deleted one) is refused: an entry can never point outside its own " +
+    "matter's record.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: timeEntryParam,
+    body: {
+      content: { "application/json": { schema: AttachTimeEntryFileRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "The file was attached",
+      content: { "application/json": { schema: TimeEntryAttachmentAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+
+const detachFileRoute = defineOpenAPIRoute(detachFileMeta, {
+  method: "post",
+  path: "/api/v1/time-entries/{id}/attachments/detach",
+  description:
+    "Detaches a file from the entry. Detaching is not deleting: the link goes, the file stays in " +
+    "the matter, and both acts stay on the entry's audit trail.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: timeEntryParam,
+    body: {
+      content: { "application/json": { schema: DetachTimeEntryFileRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "The file was detached",
+      content: { "application/json": { schema: TimeEntryAttachmentAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+
+const convertToCostRoute = defineOpenAPIRoute(convertToCostMeta, {
+  method: "post",
+  path: "/api/v1/time-entries/{id}/convert-to-cost",
+  description:
+    "Converts the entry into a cost: one act creates the cost entry carrying the entry's matter, " +
+    "narrative and amount, and voids the time entry, so the value is never counted twice. Both " +
+    "records' audit trails name each other. Refused for an entry that is billed, claimed by a " +
+    "draft invoice, already void, or carrying no amount.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: timeEntryParam,
+    body: {
+      content: { "application/json": { schema: ConvertToCostRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      description: "The cost entry was created and the time entry voided",
+      content: { "application/json": { schema: ConvertToCostAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+
 const previewRoute = defineOpenAPIRoute(previewMeta, {
   method: "post",
   path: "/api/v1/time-entries/quick-add-preview",
@@ -466,10 +745,20 @@ function timeEntryErrorResponse(
       detail: "No such time entry.",
     });
   }
+  if (error.code === "not-attached") {
+    return problemJson(c, {
+      type: "not-found",
+      title: "Not found",
+      status: 404,
+      detail: error.message,
+    });
+  }
   if (
     error.code === "frozen-entry" ||
     error.code === "illegal-transition" ||
-    error.code === "draft-only"
+    error.code === "draft-only" ||
+    error.code === "already-attached" ||
+    error.code === "claimed-by-draft"
   ) {
     return problemJson(c, {
       type: "conflict",
@@ -560,34 +849,39 @@ async function resolveCaptureValues(
   };
 }
 
-// Row type read from the time_entry table for the list / get handlers.
-interface TimeEntryRow {
-  id: string;
-  matter_id: string;
-  timekeeper_user_id: string;
-  work_date: string;
-  duration_minutes: number;
-  raw_duration_minutes: number;
-  narrative: string;
-  billable: number;
-  amount_minor: number | null;
-  currency: string;
-  status: "draft" | "submitted" | "approved" | "billed" | "void";
-}
-
-function rowToSummary(row: TimeEntryRow) {
+// Maps the shared record read (queries.ts) onto the wire summary — one mapper for the listings,
+// the detail, and any handler that echoes an entry, so no surface can serve less than another.
+function recordToSummary(item: TimeEntryRecordItem): z.infer<typeof TimeEntrySummary> {
   return {
-    id: row.id,
-    matterId: row.matter_id,
-    timekeeperUserId: row.timekeeper_user_id,
-    workDate: row.work_date,
-    durationMinutes: row.duration_minutes,
-    rawDurationMinutes: row.raw_duration_minutes,
-    narrative: row.narrative,
-    billable: row.billable === 1,
-    amountMinor: row.amount_minor,
-    currency: row.currency,
-    status: row.status,
+    id: item.id,
+    matterId: item.matterId,
+    timekeeperUserId: item.timekeeperUserId,
+    timekeeperName: item.timekeeperName,
+    workDate: item.workDate,
+    durationMinutes: item.durationMinutes,
+    rawDurationMinutes: item.rawDurationMinutes,
+    narrative: item.narrative,
+    billable: item.billable,
+    amountMinor: item.amountMinor,
+    currency: item.currency,
+    rateE4: item.rateE4,
+    rateSource: item.rateSource as z.infer<typeof TimeEntrySummary>["rateSource"],
+    rateCardId: item.rateCardId,
+    utbmsTaskCodeId: item.utbmsTaskCodeId,
+    utbmsTaskCode: item.utbmsTaskCode,
+    utbmsTaskLabel: item.utbmsTaskLabel,
+    utbmsActivityCodeId: item.utbmsActivityCodeId,
+    utbmsActivityCode: item.utbmsActivityCode,
+    utbmsActivityLabel: item.utbmsActivityLabel,
+    status: item.status,
+    source: item.source as z.infer<typeof TimeEntrySummary>["source"],
+    invoiceId: item.invoiceId,
+    memo: item.memo,
+    entryNumber: item.entryNumber,
+    createdAt: item.createdAt,
+    createdByUserId: item.createdByUserId,
+    createdByName: item.createdByName,
+    attachmentCount: item.attachmentCount,
   };
 }
 
@@ -619,38 +913,77 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           firm.firmDatabase,
           request,
         );
-        result = await runIdempotentEffect({
-          database: firm.firmDatabase,
-          key: idempotency.key,
-          fingerprint: idempotency.fingerprint,
-          now,
-          effect: async () => {
-            const captured = await captureTimeEntry(
-              firm.firmDatabase,
-              {
-                matterId: request.matterId,
-                timekeeperUserId: request.timekeeperUserId,
-                workDate: request.workDate,
-                rawDurationMinutes: request.rawDurationMinutes,
-                durationMinutes,
-                narrative: request.narrative,
-                billable: request.billable,
-                nonBillableCategoryId: request.nonBillableCategoryId ?? undefined,
-                source: request.source,
-                utbmsTaskCodeId: request.utbmsTaskCodeId ?? undefined,
-                utbmsActivityCodeId: request.utbmsActivityCodeId ?? undefined,
-                rate,
-                currency,
-              },
-              { clock: { now }, actorUserId: userId },
-            );
-            return {
-              write: captured.effect,
-              responseCode: 201,
-              responseBody: canonicalJsonStringify({ timeEntryId: captured.timeEntryId }),
-            };
+        // The entry-number draw wraps the idempotent effect (the matter-number arrangement): the
+        // plan is read INSIDE the effect so a replayed request never draws, and a losing
+        // concurrent draw aborts on the allocation primary key and retries with a fresh number.
+        result = await drawWithBoundedRetry(
+          firm.firmDatabase,
+          TIME_ENTRY_NUMBERING_TABLES,
+          {
+            sequenceLabel: "time-entry number",
+            alsoRetryable: isEntryNumberConflict,
+            nonConvergenceError: ({ message }) => new Error(message),
           },
-        });
+          async (observe) =>
+            await runIdempotentEffect({
+              database: firm.firmDatabase,
+              key: idempotency.key,
+              fingerprint: idempotency.fingerprint,
+              now,
+              effect: async () => {
+                const plan = await planEntryNumberBlock(firm.firmDatabase, request.matterId, 1);
+                observe({
+                  scopeKey: plan.scopeKey,
+                  observedValue: plan.observedValue,
+                  startValue: plan.startValue,
+                });
+                const entryNumber = plan.numbers[0];
+                const captured = await captureTimeEntry(
+                  firm.firmDatabase,
+                  {
+                    matterId: request.matterId,
+                    timekeeperUserId: request.timekeeperUserId,
+                    workDate: request.workDate,
+                    rawDurationMinutes: request.rawDurationMinutes,
+                    durationMinutes,
+                    narrative: request.narrative,
+                    billable: request.billable,
+                    nonBillableCategoryId: request.nonBillableCategoryId ?? undefined,
+                    source: request.source,
+                    utbmsTaskCodeId: request.utbmsTaskCodeId ?? undefined,
+                    utbmsActivityCodeId: request.utbmsActivityCodeId ?? undefined,
+                    memo: request.memo ?? undefined,
+                    entryNumber,
+                    rate,
+                    currency,
+                  },
+                  { clock: { now }, actorUserId: userId },
+                );
+                return {
+                  write: {
+                    statements: [
+                      ...entryNumberBlockOpenStatements(firm.firmDatabase, plan),
+                      ...captured.effect.statements,
+                      // Last: time_entry_id is a foreign key, so the entry row must exist first.
+                      entryNumberAllocationStatement(
+                        firm.firmDatabase,
+                        plan,
+                        0,
+                        captured.timeEntryId,
+                        now(),
+                      ),
+                    ],
+                    outboxMessages: captured.effect.outboxMessages,
+                  },
+                  responseCode: 201,
+                  responseBody: canonicalJsonStringify({
+                    timeEntryId: captured.timeEntryId,
+                    ...(entryNumber === undefined ? {} : { entryNumber }),
+                  }),
+                };
+              },
+            }),
+        );
       } catch (caught) {
         if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
         throw caught;
@@ -689,23 +1022,9 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           timekeeperUserId: query.timekeeperUserId,
           workDate: query.workDate,
         });
-        // Map to the TimeEntrySummary shape (queries.ts Page uses readonly arrays; map to mutable).
-        const data = page.data.map((item) => ({
-          id: item.id,
-          matterId: item.matterId,
-          timekeeperUserId: item.timekeeperUserId,
-          workDate: item.workDate,
-          durationMinutes: item.durationMinutes,
-          rawDurationMinutes: item.rawDurationMinutes,
-          narrative: item.narrative,
-          billable: item.billable,
-          amountMinor: item.amountMinor,
-          currency: item.currency,
-          status: item.status,
-        }));
         // One timekeeper on one date is a complete answer by construction, so the page is the whole
         // record and the cursor is null rather than absent — the envelope is uniform.
-        return c.json({ data, nextCursor: null }, 200);
+        return c.json({ data: page.data.map(recordToSummary), nextCursor: null }, 200);
       }
 
       if (query.matterId !== undefined) {
@@ -719,26 +1038,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           ...(query.status === undefined ? {} : { status: query.status }),
           ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
         });
-        return c.json(
-          {
-            nextCursor: page.nextCursor,
-            data: page.data.map((item) => ({
-              id: item.id,
-              matterId: item.matterId,
-              timekeeperUserId: item.timekeeperUserId,
-              workDate: item.workDate,
-              durationMinutes: item.durationMinutes,
-              rawDurationMinutes: item.rawDurationMinutes,
-              narrative: item.narrative,
-              billable: item.billable,
-              amountMinor: item.amountMinor,
-              currency: item.currency,
-              status: item.status,
-              timekeeperName: item.timekeeperName,
-            })),
-          },
-          200,
-        );
+        return c.json({ nextCursor: page.nextCursor, data: page.data.map(recordToSummary) }, 200);
       }
 
       // No recognized filter — return an empty list rather than a full-table scan.
@@ -746,27 +1046,169 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
     },
   );
 
-  // GET /api/v1/time-entries/{id} — detail
+  // GET /api/v1/time-entries/{id} — detail, through the same record read the listings use.
   app.openapi(
     { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
-      const { results } = await firm.firmDatabase
-        .prepare(
-          "SELECT id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, amount_minor, currency, status FROM time_entry WHERE id = ?1",
-        )
-        .bind(id)
-        .all<TimeEntryRow>();
-      const row = results[0];
-      if (row === undefined)
+      const record = await readTimeEntryRecord(firm.firmDatabase, id);
+      if (record === undefined)
         return problemJson(c, {
           type: "not-found",
           title: "Not found",
           status: 404,
           detail: "No such time entry in this firm.",
         });
-      return c.json(rowToSummary(row), 200);
+      return c.json(recordToSummary(record), 200);
+    },
+  );
+
+  // GET /api/v1/time-entries/{id}/events — the entry's recorded history, oldest first.
+  app.openapi(
+    { ...eventsRoute, middleware: chokepointMiddleware(chokepoint, eventsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      // 404 for an unknown entry rather than an empty rail — an absent record and a record with
+      // no history are different answers.
+      const record = await readTimeEntryRecord(firm.firmDatabase, id);
+      if (record === undefined)
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such time entry in this firm.",
+        });
+      const { cursor } = c.req.valid("query");
+      const page = await listTimeEntryEvents(
+        firm.firmDatabase,
+        id,
+        cursor === undefined ? {} : { cursor },
+      );
+      return c.json(
+        {
+          nextCursor: page.nextCursor,
+          data: page.data.map((event) => ({
+            at: event.at,
+            event: event.event,
+            actorUserId: event.actorUserId,
+            actorName: event.actorName,
+            // The stored metadata is redacted JSON written by this platform; parse it back into
+            // the object the writer recorded. A row that carried none passes through as null.
+            detail:
+              event.metadataJson === null ? null : (JSON.parse(event.metadataJson) as unknown),
+          })),
+        } as z.infer<typeof TimeEntryEventsResponse>,
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/time-entries/{id}/attachments — the entry's attached files.
+  app.openapi(
+    { ...listAttachmentsRoute, middleware: chokepointMiddleware(chokepoint, listAttachmentsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const record = await readTimeEntryRecord(firm.firmDatabase, id);
+      if (record === undefined)
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such time entry in this firm.",
+        });
+      const attachments = await listTimeEntryAttachments(firm.firmDatabase, id as TimeEntryId);
+      return c.json({ data: attachments } as z.infer<typeof TimeEntryAttachmentListResponse>, 200);
+    },
+  );
+
+  // POST /api/v1/time-entries/{id}/attachments — attach one of the matter's files by reference.
+  app.openapi(
+    { ...attachFileRoute, middleware: chokepointMiddleware(chokepoint, attachFileRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const { fileId } = c.req.valid("json");
+      const entryId = id as TimeEntryId;
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          now,
+          effect: async () => {
+            const { effect } = await attachFileToTimeEntry(firm.firmDatabase, entryId, fileId, {
+              clock: { now },
+              actorUserId: userId,
+            });
+            return {
+              write: effect,
+              responseCode: 200,
+              responseBody: canonicalJsonStringify({ timeEntryId: entryId, fileId }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(
+        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof TimeEntryAttachmentAck>,
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/time-entries/{id}/attachments/detach — remove the link, keep the file.
+  app.openapi(
+    { ...detachFileRoute, middleware: chokepointMiddleware(chokepoint, detachFileRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const { fileId } = c.req.valid("json");
+      const entryId = id as TimeEntryId;
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          now,
+          effect: async () => {
+            const { effect } = await detachFileFromTimeEntry(firm.firmDatabase, entryId, fileId, {
+              clock: { now },
+              actorUserId: userId,
+            });
+            return {
+              write: effect,
+              responseCode: 200,
+              responseBody: canonicalJsonStringify({ timeEntryId: entryId, fileId }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(
+        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof TimeEntryAttachmentAck>,
+        200,
+      );
     },
   );
 
@@ -927,49 +1369,111 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
         const resolved = await Promise.all(
           entries.map((entry) => resolveCaptureValues(firm.firmDatabase, entry)),
         );
-        result = await runIdempotentEffect({
-          database: firm.firmDatabase,
-          key: idempotency.key,
-          fingerprint: idempotency.fingerprint,
-          now,
-          effect: async () => {
-            const statements: EffectWrite["statements"][number][] = [];
-            const outboxMessages: EffectWrite["outboxMessages"][number][] = [];
-            const ids: string[] = [];
-            for (let i = 0; i < entries.length; i++) {
-              const entry = entries[i];
-              const res = resolved[i];
-              if (entry === undefined || res === undefined) continue;
-              const captured = await captureTimeEntry(
-                firm.firmDatabase,
-                {
-                  matterId: entry.matterId,
-                  timekeeperUserId: entry.timekeeperUserId,
-                  workDate: entry.workDate,
-                  rawDurationMinutes: entry.rawDurationMinutes,
-                  durationMinutes: res.durationMinutes,
-                  narrative: entry.narrative,
-                  billable: entry.billable,
-                  nonBillableCategoryId: entry.nonBillableCategoryId ?? undefined,
-                  source: "grid",
-                  utbmsTaskCodeId: entry.utbmsTaskCodeId ?? undefined,
-                  utbmsActivityCodeId: entry.utbmsActivityCodeId ?? undefined,
-                  rate: res.rate,
-                  currency: res.currency,
-                },
-                { clock: { now }, actorUserId: userId },
-              );
-              statements.push(...captured.effect.statements);
-              outboxMessages.push(...captured.effect.outboxMessages);
-              ids.push(captured.timeEntryId);
-            }
-            return {
-              write: { statements, outboxMessages },
-              responseCode: 201,
-              responseBody: canonicalJsonStringify({ timeEntryIds: ids }),
-            };
+        // Entry numbers are drawn as one BLOCK per matter: one counter read, consecutive values,
+        // one guarded increment by the block size. The bounded retry re-runs the whole effect on a
+        // losing concurrent draw, so the batch re-renders fresh numbers.
+        result = await drawWithBoundedRetry(
+          firm.firmDatabase,
+          TIME_ENTRY_NUMBERING_TABLES,
+          {
+            sequenceLabel: "time-entry number",
+            alsoRetryable: isEntryNumberConflict,
+            nonConvergenceError: ({ message }) => new Error(message),
           },
-        });
+          async (observe) =>
+            await runIdempotentEffect({
+              database: firm.firmDatabase,
+              key: idempotency.key,
+              fingerprint: idempotency.fingerprint,
+              now,
+              effect: async () => {
+                // Plan one number block per distinct matter, sized to how many of the batch's
+                // entries land on it, preserving the batch's own order within each matter.
+                const blockSizes = new Map<string, number>();
+                for (const entry of entries) {
+                  blockSizes.set(entry.matterId, (blockSizes.get(entry.matterId) ?? 0) + 1);
+                }
+                const plans = new Map<string, { plan: EntryNumberBlockPlan; used: number }>();
+                for (const [matterId, count] of blockSizes) {
+                  const plan = await planEntryNumberBlock(firm.firmDatabase, matterId, count);
+                  plans.set(matterId, { plan, used: 0 });
+                }
+                // The retry's out-of-band advance can carry one scope; the first is as good as
+                // any — a lost draw re-reads every counter fresh on the next attempt regardless.
+                const firstPlan = [...plans.values()][0]?.plan;
+                if (firstPlan !== undefined) {
+                  observe({
+                    scopeKey: firstPlan.scopeKey,
+                    observedValue: firstPlan.observedValue,
+                    startValue: firstPlan.startValue,
+                  });
+                }
+
+                const statements: EffectWrite["statements"][number][] = [];
+                const allocationStatements: EffectWrite["statements"][number][] = [];
+                const outboxMessages: EffectWrite["outboxMessages"][number][] = [];
+                const ids: string[] = [];
+                const numbers: string[] = [];
+                for (const { plan } of plans.values()) {
+                  statements.push(...entryNumberBlockOpenStatements(firm.firmDatabase, plan));
+                }
+                for (let i = 0; i < entries.length; i++) {
+                  const entry = entries[i];
+                  const res = resolved[i];
+                  if (entry === undefined || res === undefined) continue;
+                  const held = plans.get(entry.matterId);
+                  const blockIndex = held?.used ?? 0;
+                  if (held !== undefined) held.used += 1;
+                  const entryNumber = held?.plan.numbers[blockIndex];
+                  const captured = await captureTimeEntry(
+                    firm.firmDatabase,
+                    {
+                      matterId: entry.matterId,
+                      timekeeperUserId: entry.timekeeperUserId,
+                      workDate: entry.workDate,
+                      rawDurationMinutes: entry.rawDurationMinutes,
+                      durationMinutes: res.durationMinutes,
+                      narrative: entry.narrative,
+                      billable: entry.billable,
+                      nonBillableCategoryId: entry.nonBillableCategoryId ?? undefined,
+                      source: "grid",
+                      utbmsTaskCodeId: entry.utbmsTaskCodeId ?? undefined,
+                      utbmsActivityCodeId: entry.utbmsActivityCodeId ?? undefined,
+                      memo: entry.memo ?? undefined,
+                      entryNumber,
+                      rate: res.rate,
+                      currency: res.currency,
+                    },
+                    { clock: { now }, actorUserId: userId },
+                  );
+                  statements.push(...captured.effect.statements);
+                  if (held !== undefined) {
+                    allocationStatements.push(
+                      entryNumberAllocationStatement(
+                        firm.firmDatabase,
+                        held.plan,
+                        blockIndex,
+                        captured.timeEntryId,
+                        now(),
+                      ),
+                    );
+                  }
+                  outboxMessages.push(...captured.effect.outboxMessages);
+                  ids.push(captured.timeEntryId);
+                  if (entryNumber !== undefined) numbers.push(entryNumber);
+                }
+                return {
+                  // Allocations last: every entry row they reference exists by then.
+                  write: { statements: [...statements, ...allocationStatements], outboxMessages },
+                  responseCode: 201,
+                  responseBody: canonicalJsonStringify({
+                    timeEntryIds: ids,
+                    entryNumbers: numbers,
+                  }),
+                };
+              },
+            }),
+        );
       } catch (caught) {
         if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
         throw caught;
@@ -1096,6 +1600,162 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
       return c.json({ timeEntryId: outcome.id } as z.infer<typeof TimeEntryAck>, 200);
+    },
+  );
+
+  // POST /api/v1/time-entries/{id}/convert-to-cost — one act: create the cost, void the entry.
+  // Time is WIP, not a ledger posting, and so is a cost — the conversion moves value between the
+  // two work-in-progress stores and touches no ledger. The void in the same batch is what keeps
+  // the value from ever being counted twice; both audit trails name the other record.
+  app.openapi(
+    { ...convertToCostRoute, middleware: chokepointMiddleware(chokepoint, convertToCostRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const { utbmsExpenseCodeId } = c.req.valid("json");
+      const entryId = id as TimeEntryId;
+
+      // The chokepoint enforces time:track; the same act also creates a cost row, so the actor
+      // must hold costs:track as well — a conversion is not a way around the cost capture gate.
+      const permissions = await loadEffectivePermissions(firm.firmDatabase, userId);
+      if (!permissions.has(assertPermission("costs:track"))) {
+        return problemJson(c, {
+          type: "permission-denied",
+          title: "Forbidden",
+          status: 403,
+          detail: "Converting an entry to a cost requires the costs:track capability.",
+        });
+      }
+
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        // Pre-reads produce the named refusals; the freeze-guarded void statement in the batch is
+        // the concurrency backstop behind them.
+        const { results: entryRows } = await firm.firmDatabase
+          .prepare(
+            "SELECT matter_id, narrative, billable, amount_minor, currency, status, invoice_id, work_date FROM time_entry WHERE id = ?1",
+          )
+          .bind(entryId)
+          .all<{
+            matter_id: string;
+            narrative: string;
+            billable: number;
+            amount_minor: number | null;
+            currency: string;
+            status: "draft" | "submitted" | "approved" | "billed" | "void";
+            invoice_id: string | null;
+            work_date: string;
+          }>();
+        const entry = entryRows[0];
+        if (entry === undefined) {
+          throw new TimeEntryValidationError("not-found", `no such time entry: ${entryId}`);
+        }
+        if (entry.status === "billed" || entry.status === "void" || entry.invoice_id !== null) {
+          throw new TimeEntryValidationError(
+            "frozen-entry",
+            `time entry ${entryId} is ${entry.status} and cannot convert — a billed entry is evidence on a bill, and a void entry already carries no value`,
+          );
+        }
+        // An entry a draft invoice has claimed is spoken for: voiding it out from under the draft
+        // would leave the bill charging a voided row. Release the claim first.
+        const { results: claimRows } = await firm.firmDatabase
+          .prepare(
+            "SELECT 1 AS present FROM invoice_wip_claim WHERE source_kind = 'time_entry' AND source_id = ?1 AND released_at IS NULL",
+          )
+          .bind(entryId)
+          .all<{ present: number }>();
+        if (claimRows[0] !== undefined) {
+          throw new TimeEntryValidationError(
+            "claimed-by-draft",
+            "a draft invoice has claimed this entry — release the claim before converting it",
+          );
+        }
+        if (entry.amount_minor === null) {
+          throw new TimeEntryValidationError(
+            "no-amount",
+            "this entry carries no amount, and a cost is an amount — resolve a rate (or re-rate) before converting",
+          );
+        }
+        const amountMinor = entry.amount_minor;
+
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          now,
+          effect: async () => {
+            const serviceOptions = { clock: { now }, actorUserId: userId };
+            const cost = await captureCost(
+              firm.firmDatabase,
+              {
+                matterId: entry.matter_id,
+                incurredDate: entry.work_date,
+                amountMinor,
+                currency: entry.currency,
+                // The hard/soft classification is a required column the cost store still carries;
+                // converted professional time is no third-party outlay, which is the soft class.
+                disbursementClass: "soft",
+                billable: entry.billable === 1,
+                utbmsExpenseCodeId: utbmsExpenseCodeId ?? undefined,
+                description: entry.narrative,
+                source: "manual",
+              },
+              serviceOptions,
+            );
+            const voided = await voidTimeEntry(firm.firmDatabase, entryId, serviceOptions);
+            return {
+              write: {
+                statements: [
+                  ...cost.effect.statements,
+                  // The cross-references: each record's trail names the other, ids only.
+                  domainAuditStatement(firm.firmDatabase, {
+                    event: "cost_entry.converted_from_time_entry",
+                    subjectId: cost.costEntryId,
+                    actorUserId: userId,
+                    clock: { now },
+                    metadata: { timeEntryId: entryId },
+                  }),
+                  ...voided.effect.statements,
+                  domainAuditStatement(firm.firmDatabase, {
+                    event: "time_entry.converted_to_cost",
+                    subjectId: entryId,
+                    actorUserId: userId,
+                    clock: { now },
+                    metadata: { costEntryId: cost.costEntryId },
+                  }),
+                ],
+                outboxMessages: [...cost.effect.outboxMessages, ...voided.effect.outboxMessages],
+              },
+              responseCode: 201,
+              responseBody: canonicalJsonStringify({
+                costEntryId: cost.costEntryId,
+                timeEntryId: entryId,
+              }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
+        if (caught instanceof CostValidationError) {
+          return problemJson(c, {
+            type: "validation",
+            title: "The entry cannot become this cost",
+            status: 422,
+            detail: caught.message,
+          });
+        }
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(
+        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ConvertToCostAck>,
+        201,
+      );
     },
   );
 }

@@ -1,5 +1,4 @@
 import {
-  appendCursorPredicate,
   appendCursorPredicateOnColumn,
   assemblePage,
   DEFAULT_PAGE_SIZE,
@@ -74,6 +73,107 @@ function toTimeEntryListItem(row: TimeEntryRowRaw): TimeEntryListItem {
   };
 }
 
+// ---------------------------------------------------------------------------------------------
+// The RECORD read: the listing/get shape the API serves, with every stored fact on the row plus
+// the resolved display facts — the timekeeper's and the enterer's names through the member mirror
+// (null where the member row is gone: an honest gap, never a user_ handle standing in for a
+// person), the UTBMS task/activity code and label, and the attachment count. One column set and
+// one join fragment shared by the My-Day read, the per-matter read and the single-entry detail,
+// so the three surfaces can never disagree about what an entry is.
+// ---------------------------------------------------------------------------------------------
+
+const TIME_ENTRY_RECORD_COLUMNS = [
+  "time_entry.id",
+  "time_entry.matter_id",
+  "time_entry.timekeeper_user_id",
+  "time_entry.work_date",
+  "time_entry.duration_minutes",
+  "time_entry.raw_duration_minutes",
+  "time_entry.narrative",
+  "time_entry.billable",
+  "time_entry.currency",
+  "time_entry.rate_e4",
+  "time_entry.rate_card_id",
+  "time_entry.rate_source",
+  "time_entry.amount_minor",
+  "time_entry.utbms_task_code_id",
+  "time_entry.utbms_activity_code_id",
+  "time_entry.status",
+  "time_entry.source",
+  "time_entry.invoice_id",
+  "time_entry.memo",
+  "time_entry.entry_number",
+  "time_entry.created_at",
+  "time_entry.created_by",
+  "timekeeper.display_name AS timekeeper_name",
+  "enterer.display_name AS created_by_name",
+  "task_code.code AS utbms_task_code",
+  "task_code.label AS utbms_task_label",
+  "activity_code.code AS utbms_activity_code",
+  "activity_code.label AS utbms_activity_label",
+  `(SELECT COUNT(*) FROM time_entry_attachment attachment WHERE attachment.time_entry_id = time_entry.id) AS attachment_count`,
+].join(", ");
+
+const TIME_ENTRY_RECORD_JOINS =
+  `LEFT JOIN member timekeeper ON timekeeper.user_id = time_entry.timekeeper_user_id ` +
+  `LEFT JOIN member enterer ON enterer.user_id = time_entry.created_by ` +
+  `LEFT JOIN utbms_code task_code ON task_code.id = time_entry.utbms_task_code_id ` +
+  `LEFT JOIN utbms_code activity_code ON activity_code.id = time_entry.utbms_activity_code_id`;
+
+interface TimeEntryRecordRowRaw extends TimeEntryRowRaw {
+  rate_card_id: string | null;
+  utbms_task_code_id: string | null;
+  utbms_activity_code_id: string | null;
+  invoice_id: string | null;
+  memo: string | null;
+  entry_number: string | null;
+  created_by: UserId | null;
+  timekeeper_name: string | null;
+  created_by_name: string | null;
+  utbms_task_code: string | null;
+  utbms_task_label: string | null;
+  utbms_activity_code: string | null;
+  utbms_activity_label: string | null;
+  attachment_count: number;
+}
+
+export interface TimeEntryRecordItem extends TimeEntryListItem {
+  readonly rateCardId: string | null;
+  readonly utbmsTaskCodeId: string | null;
+  readonly utbmsTaskCode: string | null;
+  readonly utbmsTaskLabel: string | null;
+  readonly utbmsActivityCodeId: string | null;
+  readonly utbmsActivityCode: string | null;
+  readonly utbmsActivityLabel: string | null;
+  readonly invoiceId: string | null;
+  readonly memo: string | null;
+  readonly entryNumber: string | null;
+  readonly createdByUserId: UserId | null;
+  readonly createdByName: string | null;
+  readonly timekeeperName: string | null;
+  readonly attachmentCount: number;
+}
+
+function toTimeEntryRecordItem(row: TimeEntryRecordRowRaw): TimeEntryRecordItem {
+  return {
+    ...toTimeEntryListItem(row),
+    rateCardId: row.rate_card_id,
+    utbmsTaskCodeId: row.utbms_task_code_id,
+    utbmsTaskCode: row.utbms_task_code,
+    utbmsTaskLabel: row.utbms_task_label,
+    utbmsActivityCodeId: row.utbms_activity_code_id,
+    utbmsActivityCode: row.utbms_activity_code,
+    utbmsActivityLabel: row.utbms_activity_label,
+    invoiceId: row.invoice_id,
+    memo: row.memo,
+    entryNumber: row.entry_number,
+    createdByUserId: row.created_by,
+    createdByName: row.created_by_name,
+    timekeeperName: row.timekeeper_name,
+    attachmentCount: row.attachment_count,
+  };
+}
+
 export interface ListTimekeeperDayParams {
   readonly timekeeperUserId: UserId;
   readonly workDate: string;
@@ -82,7 +182,8 @@ export interface ListTimekeeperDayParams {
 }
 
 // My Day's entry list: one timekeeper, one work date, newest first. Driven by the
-// (timekeeper_user_id, work_date) index so the keyset sort needs no temporary B-tree.
+// (timekeeper_user_id, work_date) index so the keyset sort needs no temporary B-tree; the record
+// joins land on primary keys.
 export function listTimeEntriesForTimekeeperDayStatement(
   database: SqlDatabase,
   timekeeperUserId: UserId,
@@ -90,13 +191,21 @@ export function listTimeEntriesForTimekeeperDayStatement(
   cursor: SortCursor | undefined,
   limit: number,
 ): SqlStatement {
-  const conditions = ["timekeeper_user_id = ?", "work_date = ?", "status != 'void'"];
+  const conditions = [
+    "time_entry.timekeeper_user_id = ?",
+    "time_entry.work_date = ?",
+    "time_entry.status != 'void'",
+  ];
   const bindings: unknown[] = [timekeeperUserId, workDate];
-  appendCursorPredicate(conditions, bindings, cursor);
+  appendCursorPredicateOnColumn(conditions, bindings, cursor, {
+    sortColumn: "time_entry.created_at",
+    idColumn: "time_entry.id",
+    ascending: false,
+  });
   bindings.push(limit);
   return database
     .prepare(
-      `SELECT ${TIME_ENTRY_LIST_COLUMNS} FROM ${TIME_ENTRY_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
+      `SELECT ${TIME_ENTRY_RECORD_COLUMNS} FROM ${TIME_ENTRY_TABLE} AS time_entry ${TIME_ENTRY_RECORD_JOINS} WHERE ${conditions.join(" AND ")} ORDER BY time_entry.created_at DESC, time_entry.id DESC LIMIT ?`,
     )
     .bind(...bindings);
 }
@@ -104,7 +213,7 @@ export function listTimeEntriesForTimekeeperDayStatement(
 export async function listTimeEntriesForTimekeeperDay(
   database: SqlDatabase,
   params: ListTimekeeperDayParams,
-): Promise<Page<TimeEntryListItem>> {
+): Promise<Page<TimeEntryRecordItem>> {
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
   const { results } = await listTimeEntriesForTimekeeperDayStatement(
     database,
@@ -112,8 +221,92 @@ export async function listTimeEntriesForTimekeeperDay(
     params.workDate,
     decodeCursor(params.cursor),
     pageSize + 1,
-  ).all<TimeEntryRowRaw>();
-  return assemblePage(results, pageSize, toTimeEntryListItem);
+  ).all<TimeEntryRecordRowRaw>();
+  return assemblePage(results, pageSize, toTimeEntryRecordItem);
+}
+
+// One entry, whole — the GET detail. Same columns and joins as the listings, so the detail can
+// never know less than the row a listing showed. Undefined when no such entry exists.
+export async function readTimeEntryRecord(
+  database: SqlDatabase,
+  timeEntryId: string,
+): Promise<TimeEntryRecordItem | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${TIME_ENTRY_RECORD_COLUMNS} FROM ${TIME_ENTRY_TABLE} AS time_entry ${TIME_ENTRY_RECORD_JOINS} WHERE time_entry.id = ?1`,
+    )
+    .bind(timeEntryId)
+    .all<TimeEntryRecordRowRaw>();
+  const row = results[0];
+  return row === undefined ? undefined : toTimeEntryRecordItem(row);
+}
+
+// An entry's recorded audit events, OLDEST first — the order a history rail reads in. The metadata
+// is the stored redacted JSON, verbatim; actor names resolve through the member mirror and stay
+// null for system events and departed members (honest blanks, like the file history).
+//
+// CURSOR-PAGED, ascending. An entry's history is not bounded by its lifecycle: a draft worked over
+// a week records an event per edit, and an entry that collects attachments records one per act. The
+// keyset is (created_at, id) — the same total order the subject-led audit index walks.
+export interface TimeEntryEventItem {
+  readonly at: string;
+  readonly event: string;
+  readonly actorUserId: UserId | null;
+  readonly actorName: string | null;
+  readonly metadataJson: string | null;
+}
+
+export interface ListTimeEntryEventsParams {
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}
+
+export async function listTimeEntryEvents(
+  database: SqlDatabase,
+  timeEntryId: string,
+  params: ListTimeEntryEventsParams = {},
+): Promise<Page<TimeEntryEventItem>> {
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const conditions = ["a.subject_id = ?", "a.event LIKE 'time_entry.%'"];
+  const bindings: unknown[] = [timeEntryId];
+  appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(params.cursor), {
+    sortColumn: "a.created_at",
+    idColumn: "a.id",
+    ascending: true,
+  });
+  // One more than the page, as the has-more probe.
+  bindings.push(pageSize + 1);
+
+  const { results } = await database
+    .prepare(
+      `SELECT a.id, a.created_at, a.event, a.actor_user_id, a.metadata, m.display_name AS actor_name ` +
+        `FROM audit_log a LEFT JOIN member m ON m.user_id = a.actor_user_id ` +
+        `WHERE ${conditions.join(" AND ")} ` +
+        `ORDER BY a.created_at ASC, a.id ASC LIMIT ?`,
+    )
+    .bind(...bindings)
+    .all<{
+      id: string;
+      created_at: string;
+      event: string;
+      actor_user_id: UserId | null;
+      metadata: string | null;
+      actor_name: string | null;
+    }>();
+
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
+    data: rows.map((row) => ({
+      at: row.created_at,
+      event: row.event,
+      actorUserId: row.actor_user_id,
+      actorName: row.actor_name,
+      metadataJson: row.metadata,
+    })),
+  };
 }
 
 export interface WeeklyGridParams {
@@ -203,14 +396,8 @@ export interface ListTimeEntriesByMatterParams {
   readonly pageSize?: number;
 }
 
-// One entry on a matter, with the timekeeper's name resolved. The name is joined here rather than
-// looked up per row by the caller: a matter with forty entries would otherwise be forty reads to
-// print a column, and the join is on member's primary key. An outer join, because a member row can
-// be archived while the time they recorded stays on the matter forever — that reads as a null name
-// and the screen says so, rather than showing a user_ handle where a person's name belongs.
-export interface MatterTimeEntry extends TimeEntryListItem {
-  readonly timekeeperName: string | null;
-}
+// The per-matter row keeps its historical name; it is the same record shape every listing serves.
+export type MatterTimeEntry = TimeEntryRecordItem;
 
 // Per-matter individual entry list, newest-first, every status unless one is named. Distinct from
 // listUnbilledByMatter, which aggregates into a single work-in-progress summary row; this returns
@@ -227,9 +414,6 @@ export async function listTimeEntriesByMatter(
   database: SqlDatabase,
   params: ListTimeEntriesByMatterParams,
 ): Promise<Page<MatterTimeEntry>> {
-  const columns = TIME_ENTRY_LIST_COLUMNS.split(", ")
-    .map((column) => `time_entry.${column}`)
-    .join(", ");
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
 
   const conditions = ["time_entry.matter_id = ?"];
@@ -248,15 +432,15 @@ export async function listTimeEntriesByMatter(
 
   const { results } = await database
     .prepare(
-      `SELECT ${columns}, member.display_name AS timekeeper_name
+      `SELECT ${TIME_ENTRY_RECORD_COLUMNS}
          FROM ${TIME_ENTRY_TABLE} AS time_entry
-         LEFT JOIN member ON member.user_id = time_entry.timekeeper_user_id
+         ${TIME_ENTRY_RECORD_JOINS}
         WHERE ${conditions.join(" AND ")}
         ORDER BY time_entry.work_date DESC, time_entry.id DESC
         LIMIT ?`,
     )
     .bind(...bindings)
-    .all<TimeEntryRowRaw & { timekeeper_name: string | null }>();
+    .all<TimeEntryRecordRowRaw>();
 
   const hasMore = results.length > pageSize;
   const rows = hasMore ? results.slice(0, pageSize) : results;
@@ -265,9 +449,6 @@ export async function listTimeEntriesByMatter(
     // The cursor is minted over the SORT key, not created_at — assemblePage mints over created_at,
     // which is the right key only for a read ordered by it.
     nextCursor: hasMore && last !== undefined ? encodeCursor(last.work_date, last.id) : null,
-    data: rows.map((row) => ({
-      ...toTimeEntryListItem(row),
-      timekeeperName: row.timekeeper_name,
-    })),
+    data: rows.map(toTimeEntryRecordItem),
   };
 }

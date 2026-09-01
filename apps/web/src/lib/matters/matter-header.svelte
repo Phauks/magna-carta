@@ -99,9 +99,18 @@
    */
   const citation = $derived(metaEntries.join(" · "));
 
-  const ledgerLine = $derived(
-    matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`,
-  );
+  /*
+   * The number the file is called by. A consultation wears its own tentative number and is LABELLED
+   * as one, so nobody reads it as a matter number; once the matter opens the permanent number takes
+   * the line and the tentative one stays on the record. A consultation taken before the sequence
+   * existed has neither, and says only what it is.
+   */
+  const ledgerLine = $derived.by(() => {
+    if (matter.matterNumber !== null) return `Matter ${matter.matterNumber}`;
+    return matter.consultationNumber === null
+      ? "Consultation"
+      : `Consultation ${matter.consultationNumber}`;
+  });
 </script>
 
 <Masthead.Root density="compact" class="items-stretch border-b border-border-default">
