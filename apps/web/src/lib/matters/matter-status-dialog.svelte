@@ -14,6 +14,12 @@
    * to work through, and NOT a summary of the matter — everything else about the matter is on the
    * sections that own it.
    *
+   * THE STEP IS SEATED ON THE STATUS, NOT AT THE FOOT OF THE WINDOW. Somebody may open this to read
+   * where the file is kept, and a window whose bottom-right corner offers Close Matter puts the act
+   * they did not come for exactly where a hand goes by habit. So the corner offers only the way out,
+   * and the step is a quiet control beside the fact it changes, with the requirements that gate it
+   * directly beneath as the reason it is disabled.
+   *
    * TWO SIDES, AND THE DIVISION IS THE POINT. The left is the matter's status and the step it
    * offers; the right is the paper file. They are apart because the paper file is a STANDING fact
    * and not a consequence of the step: a firm keeps a matter's folder in a box, commonly with other
@@ -263,9 +269,15 @@
       <div class="flex flex-col gap-24 sm:flex-row">
         <div class="flex flex-1 flex-col gap-16">
           <dl class="flex flex-col gap-8 text-sm">
-            <div class="grid grid-cols-2 items-baseline gap-16">
+            <div class="grid grid-cols-2 items-center gap-16">
               <dt class="text-text-muted">Status</dt>
-              <dd>
+              <!-- The step sits on the status, not at the foot of the window. A window somebody
+                   opened to read the file's whereabouts should not carry the close as the thing its
+                   bottom-right corner offers: that is where a screen puts the act it was opened for,
+                   and this one was not necessarily opened for that. Seated here it is quiet, it is
+                   beside the fact it changes, and the requirements that gate it read as the reason
+                   it is disabled rather than as a paragraph somewhere above a button. -->
+              <dd class="flex flex-wrap items-center gap-8">
                 <Badge
                   variant={seal.variant}
                   class="uppercase"
@@ -273,9 +285,26 @@
                 >
                   {seal.label}
                 </Badge>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={block !== null || refused || working}
+                  title={block ?? undefined}
+                  aria-describedby={block === null ? undefined : blockedDescriptionIdentifier}
+                  onclick={take}
+                >
+                  <StepIcon class="size-16" aria-hidden="true" />
+                  {working ? step.busyLabel : step.label}
+                </Button>
               </dd>
             </div>
           </dl>
+
+          <!-- What is in the way gets its own line: a disabled control can be neither hovered nor
+               focused, so the sentence has to be readable on the screen. -->
+          {#if block !== null}
+            <p id={blockedDescriptionIdentifier} class="text-xs text-text-subtle">{block}</p>
+          {/if}
 
           {#if step.action === "close" && !isSample}
             <!-- What closing requires, each one already answered by the rules themselves. Not a
@@ -370,33 +399,10 @@
       </Alert.Root>
     {/if}
 
-    <div class="flex flex-col gap-8">
-      {#if taken === null}
-        <!-- What is in the way gets its own line: a disabled control can be neither hovered nor
-             focused, so the sentence has to be readable on the screen. -->
-        {#if block !== null}
-          <p id={blockedDescriptionIdentifier} class="text-xs text-text-subtle">{block}</p>
-        {/if}
-        <div class="flex items-center justify-end gap-8">
-          <Button variant="secondary" disabled={working} onclick={() => (open = false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={block !== null || refused || working}
-            title={block ?? undefined}
-            aria-describedby={block === null ? undefined : blockedDescriptionIdentifier}
-            onclick={take}
-          >
-            <StepIcon class="size-16" aria-hidden="true" />
-            {working ? step.busyLabel : step.label}
-          </Button>
-        </div>
-      {:else}
-        <div class="flex items-center justify-end gap-8">
-          <Button variant="secondary" onclick={() => (open = false)}>Done</Button>
-        </div>
-      {/if}
+    <!-- The window's own corner offers only the way out of it. Nothing here acts on the matter, so
+         there is no press in the place a reader's hand goes by habit that they did not come for. -->
+    <div class="flex items-center justify-end gap-8">
+      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Done</Button>
     </div>
   </Dialog.Content>
 </Dialog.Root>

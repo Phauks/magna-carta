@@ -314,6 +314,10 @@ local to this surface:
   of closing: a firm keeps a matter's folder in a box, a cabinet, a safe or on a shelf, commonly with
   other matters' folders and commonly at a remote store, and closing the matter moves none of that.
   Nor may the row name a medium, because firms do not agree on one.
+- The step does not sit at the foot of the window. Somebody may open this window to read where the
+  paper file is kept, and a bottom-right primary button puts the act they did not come for where a
+  hand goes by habit. The step is a quiet control on the status row, beside the fact it changes; the
+  window's corner offers only the way out of it.
 - The Soon rows carry no dependency sentence and no note about the close. A row reading "Not
   recorded" beside the Soon mark has already said it is not built; the paragraphs repeating it were
   the loudest copy on a window whose point is to be short. Recorded here rather than promoted: the

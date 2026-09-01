@@ -97,11 +97,15 @@ would not be real.
 A matter's status is the badge at the top left of its own page, beside the matter number: **Active**,
 **Prospective** or **Closed**. Press the badge to change it.
 
-The window is short on purpose, and it has two sides. On the left, the matter's status, what
-closing requires and whether each requirement is met, and the one step the current status allows: a
-consultation opens, an active matter closes, a closed matter reopens. On the right, the firm's own
-physical file for the matter. There is no list of statuses to pick from,
-because a matter reaches a status by being opened, closed or reopened, not by being set to one.
+The window is short on purpose, and it has two sides. On the left, the matter's status, the one step
+the current status allows, and what closing requires. On the right, the firm's own physical file for
+the matter.
+
+The step sits beside the status itself, not at the foot of the window: a consultation opens, an
+active matter closes, a closed matter reopens. There is no list of statuses to pick from, because a
+matter reaches a status by being opened, closed or reopened, not by being set to one. The bottom of
+the window offers only **Done**, so a window you opened to read something cannot close a matter with
+a press in the corner your hand goes to by habit.
 
 **Requirements to close** lists what has to be true, each one already answered. Magna Carta runs
 the firm's own rules against the matter when the window opens, so a requirement is marked met or not
