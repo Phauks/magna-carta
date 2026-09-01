@@ -324,7 +324,7 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+      const firmBucket = resolveFirmBucket(c.env, firm.bucketName);
       const { jobId } = c.req.valid("param");
 
       const coordinator = c.env.CONVERSION_JOB.get(
@@ -332,7 +332,7 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
       );
       const progress = await resolveConversionProgress(
         c.env,
-        bucketName,
+        firmBucket,
         await coordinator.status(),
       );
       return c.json(progress, 200);
