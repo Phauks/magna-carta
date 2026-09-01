@@ -52,7 +52,6 @@ describe("a matter search answers from every section at once", () => {
     const answer = await search("easement");
     expect(titles(answer.groups, "files")).toEqual(["Easement survey.pdf"]);
     expect(titles(answer.groups, "custody")).toEqual(["Original easement deed"]);
-    expect(group(answer.groups, "notes").hits).toHaveLength(1);
     expect(group(answer.groups, "notes").hits[0]?.snippet).toBe("The easement runs east.");
   });
 
@@ -104,21 +103,22 @@ describe("a matter search never leaves its matter", () => {
   });
 });
 
-describe("a note's search follows the notes package's own rules", () => {
-  it("never matches a retracted note, whose words stopped rendering everywhere", async () => {
-    const answer = await search("misdescribed");
-    expect(group(answer.groups, "notes").hits).toEqual([]);
+describe("a note's search follows the notes package's own model", () => {
+  it("matches the words the note holds, and orders by when the note is ABOUT", async () => {
+    // The note about 2026-07-14 was typed on 2026-08-01. It must sort by the earlier date, because
+    // that is the order the Notes tab itself uses — a search that placed it differently from the
+    // list it links into would make the reader check twice.
+    const answer = await search("easement");
+    const notes = group(answer.groups, "notes");
+    expect(notes.hits.map((hit) => hit.id)).toEqual(["matterNote_easement", "matterNote_occurred"]);
+    expect(notes.hits[1]?.sortKey).toBe("2026-07-14");
   });
 
-  it("never matches a superseded body, so a correction changes what is findable", async () => {
-    // The original said "Easement-Wrongname"; the correction took the name out. Searching the name
-    // must now find nothing — otherwise the correction fixed what the note SAYS and not what it
-    // DISCLOSES, which is most of why somebody corrects one.
-    const answer = await search("wrongname");
-    expect(group(answer.groups, "notes").hits).toEqual([]);
-
-    const stillFindable = await search("neighbour");
-    expect(group(stillFindable.groups, "notes").hits).toHaveLength(1);
+  it("carries the note's own words as the excerpt", async () => {
+    const answer = await search("neighbour");
+    expect(group(answer.groups, "notes").hits[0]?.snippet).toBe(
+      "Spoke to the neighbour about the easement fence.",
+    );
   });
 });
 

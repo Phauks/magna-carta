@@ -329,7 +329,7 @@ Checked against `apps/api-worker/src/routes/` and the domain packages, not assum
 
 | Section                  | Source in slice 1 | What exists today                                                                                                                                                                                                                                         |
 | ------------------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Notes                    | **yes**           | `search` on the notes list — a `LIKE` over each note's **current** head body. Retracted bodies and superseded bodies deliberately do not match.                                                                                                           |
+| Notes                    | **yes**           | `search` on the notes list — a `LIKE` over the note's text, ordered by the day the note is about.                                                                                                                                                         |
 | Custodian                | **yes**           | `search` on the custody list                                                                                                                                                                                                                              |
 | Parties                  | **yes**           | `searchNames` — FTS5 trigram over the directory name corpus, joined to this matter's party links                                                                                                                                                          |
 | Files                    | **names only**    | The file list has no `search` param; names are matched by a new statement. **Contents are not searchable**: the Tantivy engine, write pipeline and compaction are built but no engine is deployed, so `SearchIndexPort` answers `engine-not-implemented`. |
@@ -394,8 +394,8 @@ them).
 
 **M3 — snippets within a matter. Recommendation standing.** Section 3.4 argues they are permitted
 here, because every row a source can return is one the same reader may already open on the section
-it links into — the reasoning `packages/notes` already records for its own within-a-matter search —
-with `declaresSnippet: false` for any source over a `protected()` column. _If corrected:_ every
+it links into — the reasoning `packages/notes` records for its own within-a-matter search — with
+`declaresSnippet: false` for any source over a `protected()` column. _If corrected:_ every
 group renders pointers only (record title, actor, instant) and the reader follows the link. That is
 a change to the projections and the row snippets, not to the registry or the route. This is a
 narrower question than firm-wide note search, whose gate stays open in the roadmap and whose answer
@@ -416,9 +416,10 @@ would make the primary gate mean something it does not.
 
 **M6 — how far "include deleted" generalizes. Recommendation standing: per source, declared, never
 one global toggle.** Ruling **S19** gives the file source its "Include deleted files" option, off by
-default. A retracted note's body must stay unmatchable — already settled in `packages/notes` and not
-reopened here — while a deleted file's **name** is legitimately findable. A global toggle would
-force one answer onto two subsystems that decided differently for good reasons.
+default, because a file is soft-deleted and its name is legitimately findable afterwards. A note is
+deleted outright and has no deleted set to offer at all, so its source declares that the flag means
+nothing to it and the runner never hands it one. Those are two subsystems that decided differently
+for good reasons, and a global toggle would force one answer onto both.
 
 **M7 — a source withheld for want of a permission. Recommendation standing: say so.** Section 4.2
 keeps "nothing in Time matches" and "you cannot read Time" as different answers. The alternative is

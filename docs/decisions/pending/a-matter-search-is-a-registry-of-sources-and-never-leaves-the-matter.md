@@ -97,9 +97,9 @@ gains a required `search:` field — a source key, or `null` with a reason — c
 `ScreenSearch` is already in the one-implementation registry, so a screen that hand-rolls a second
 search box fails the gate.
 
-**Honest on day one.** Four sources exist to build against today — notes (a `LIKE` over each note's
-current head body), custody, matter parties (the directory's FTS5 trigram corpus, joined through the
-party links) and file **names**. File **contents** are not searchable: the Tantivy engine, its write
+**Honest on day one.** Four sources exist to build against today — notes (a `LIKE` over the note's
+text, ordered by the day it is about), custody, matter parties (their recorded display names, joined
+through the party links) and file **names**. File **contents** are not searchable: the Tantivy engine, its write
 pipeline and its compaction are built, but no engine is deployed, so the port answers
 `engine-not-implemented`. That is nine declared Soons against four sources, and the ratio is the
 point — the ledger of what is missing belongs on the screen, not in a backlog.

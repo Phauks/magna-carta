@@ -217,16 +217,12 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "matterAssets:manage",
         "matterAssets:read",
         "matters:create",
-        // A paralegal writes the note about the call they took, so this role carries all three note
-        // keys. notes:retract is the one worth stating: it is a separate key so a firm CAN narrow
-        // it, and it is seeded here rather than reserved to attorneys because the case it exists
-        // for is somebody typing another client's privileged material into the wrong note, and
-        // whoever typed it is who notices. Holding withdrawal behind a colleague's availability
-        // would leave that content rendering until they got to it. Retraction destroys nothing.
-        // Billing and Read-only carry none of the three: a note is the firm's candid assessment of
-        // a case, which is the deliberate contrast with calendar:read reaching every seat.
+        // A paralegal writes the note about the call they took, so this role carries both note keys.
+        // Deleting rides notes:write rather than taking a key of its own: a member trusted to write
+        // the firm's record of a case is trusted to remove what should not be in it. Billing and
+        // Read-only carry neither, which is the deliberate contrast with calendar:read reaching
+        // every seat — a note is the firm's candid assessment of a case.
         "notes:read",
-        "notes:retract",
         "notes:write",
         "notifications:read",
         // Consolidated matter search reaches every seat, and it discloses nothing by doing

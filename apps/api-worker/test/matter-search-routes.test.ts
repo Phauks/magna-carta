@@ -240,7 +240,7 @@ describe("one query, answered from every section the member may read", () => {
 
   it("says what each source matched on, so a hit never has to be guessed at", async () => {
     const answer = await search("easement");
-    expect(group(answer, "notes").matchedFields).toEqual(["the note's current text"]);
+    expect(group(answer, "notes").matchedFields).toEqual(["the note's text"]);
     expect(group(answer, "files").matchedFields).toEqual(["file names"]);
   });
 

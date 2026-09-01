@@ -181,21 +181,15 @@ export const PERMISSIONS = [
   // firm-wide calendar, which is a matter-scoped read repeated under the same visibility predicate.
   "calendar:read", // read matter timelines, events, deadlines, and the firm-wide calendar
   "calendar:manage", // record, edit, and cancel events; record, satisfy, vacate, and supersede deadlines; manage the event-type catalog
-  // Matter notes — what the firm wrote down about a case that no other record holds. THREE keys, and
-  // the third is the whole point. Reading and writing split for the ordinary reason: a note is
-  // attorney work product and the most candid text the firm produces, so "may read this matter's
-  // notes" is a grant a firm makes deliberately and separately from "works this matter". Retraction
-  // gets its own key because it is the one act that removes a COLLEAGUE'S words from view — it does
-  // not delete anything, but it stops a body rendering everywhere and drops the note out of the
-  // federated timeline, and an act with that reach should not ride an ordinary write permission that
-  // every fee-earner holds. There is deliberately no delete key, because there is no delete path: a
-  // note is corrected by appending a revision and withdrawn by retraction, and the one case where
-  // bytes must genuinely leave routes through the erasure residue report and a person, never an API.
-  // All three bind resource: "matter" — a note IS one matter's record and cannot exist without one,
-  // the matterAssets:* binding rather than custody:*'s firm binding.
-  "notes:read", // read a matter's notes, one note's revision chain, and the retraction record on a withdrawn one
-  "notes:write", // write a note on a matter, and append a revision correcting one
-  "notes:retract", // withdraw a note: its body stops rendering everywhere and it leaves the timeline, with a required reason
+  // Matter notes — what the firm wrote down about a case that no other record holds. Two keys, on the
+  // ordinary read/write split: a note is attorney work product and the most candid text the firm
+  // produces, so "may read this matter's notes" is a grant a firm makes deliberately and separately
+  // from "works this matter". Deleting rides notes:write rather than taking a third key — a member
+  // trusted to write the firm's record of a case is trusted to remove what should not be in it, and
+  // a separate key would only be a gate on the one act somebody performs in a hurry. Both bind
+  // resource: "matter" — a note IS one matter's record and cannot exist without one.
+  "notes:read", // read a matter's notes and the files linked to them
+  "notes:write", // write a note, edit one, delete one, and link or unlink the matter's files
   // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
   // because the register concentrates a matter's financially sensitive facts (what the estate owns,
   // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a

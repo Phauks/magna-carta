@@ -1,7 +1,7 @@
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
-import type { MatterId, UserId } from "@magna-carta/identifiers/types";
+import type { FileId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 
 // Shared scaffolding for the notes package tests: a migrated in-memory per-firm database, a fixed
@@ -63,4 +63,22 @@ export function seedFirm(raw: ReturnType<typeof migratedDatabase>["raw"]): void 
   raw.exec(
     `INSERT INTO matter (${matterColumns}) VALUES ('${HOLDING_MATTER}', 'Custody holdings', 'open', '${ACTOR}', 'custody-holding', '2026-01-04T00:00:00.000Z', '2026-01-04T00:00:00.000Z', '2026-01-04T00:00:00.000Z')`,
   );
+}
+
+// A live file on a matter, for the attachment paths. Only the columns the note's read touches are
+// filled: a file's own suite covers the rest, and inventing values here would be a second opinion
+// about a shape that already has one.
+export function seedFile(
+  raw: ReturnType<typeof migratedDatabase>["raw"],
+  matterId: MatterId,
+  name: string,
+): FileId {
+  const fileId = `file_${name
+    .replace(/[^a-zA-Z0-9]/gu, "")
+    .padEnd(21, "0")
+    .slice(0, 21)}` as FileId;
+  raw.exec(
+    `INSERT INTO file (id, matter_id, name, edit_state, created_at, updated_at) VALUES ('${fileId}', '${matterId}', '${name}', 'idle', '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z')`,
+  );
+  return fileId;
 }

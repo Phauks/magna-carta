@@ -13,7 +13,7 @@ The shared statement builder is where the guarantees live rather than in anyone'
 
 `ScreenSearch` gains its first production consumer for the `scope` seam it shipped with, unchanged. The control renders from the matter **layout**, so every section inherits it and none can mount a second one; `sections.ts` now carries a required `searchSource` — a key, or `null` with the line saying what it waits on — and `pnpm run lint:matter-search-coverage` refuses a section that answers neither way, which is what makes the growth mechanical rather than remembered.
 
-Four sources ship (files by name, parties, notes, custody); ten sections decline with a reason. Notes composes `packages/notes`'s own rules rather than restating them, so a retracted body and a superseded body both stay unmatchable. Two incidental fixes: the transport seam takes an `AbortSignal`, and the api-worker conformance suite was already red on this branch's base — the notes routes had landed without their six operation ids or a `notes` namespace binding.
+Four sources ship (files by name, parties, notes, custody); ten sections decline with a reason. Notes composes `packages/notes`'s own model rather than restating it — one row, edited in place, ordered by the day the note is ABOUT rather than the day it was typed, so a hit sits where the Notes tab itself would put it. Two incidental fixes: the transport seam takes an `AbortSignal`, and the api-worker conformance suite was already red on this branch's base — the notes routes had landed without their six operation ids or a `notes` namespace binding.
 
 ## Public
 

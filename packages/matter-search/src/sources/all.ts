@@ -15,7 +15,6 @@ import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
 // Table names are tracked against @magna-carta/database's per-firm schema by the schema-name-sync
 // fitness test, the same way every other statements module tracks them.
 const MATTER_NOTE_TABLE = "matter_note";
-const MATTER_NOTE_REVISION_TABLE = "matter_note_revision";
 const FILE_TABLE = "file";
 const FOLDER_TABLE = "folder";
 const CUSTODY_PACKET_TABLE = "custody_packet";
@@ -49,57 +48,51 @@ function tooShort(request: SourceSearchRequest, minimum: number): boolean {
 
 // ---- notes -----------------------------------------------------------------------------------
 
-// The matter's notes, matched against each note's CURRENT text.
+// The matter's notes, matched against their text.
 //
-// THREE THINGS THIS DELIBERATELY DOES NOT MATCH, and none of them is re-decided here — every one is
-// settled in packages/notes and this source composes the same rules rather than restating them.
+// A note is ONE ROW, edited in place and deleted outright — the owner's model, and this source
+// composes it rather than restating it. Two consequences worth naming, because the first cut of this
+// source assumed the opposite and the merge caught it: there is no revision chain to join, so
+// searching matches the words the note holds now because those are the only words it holds; and
+// there is no tombstone, so a deleted note is simply absent rather than excluded by a condition.
 //
-// A RETRACTED NOTE'S BODY. Withdrawal stops the words rendering everywhere, and a search that still
-// found them would be the clearest possible way around the tombstone.
-//
-// A SUPERSEDED BODY. Only the head revision is searched. A note corrected to take out the wrong
-// client's name must stop being findable BY that name — otherwise the correction fixed what the note
-// says and not what it discloses, which is most of why somebody corrects one.
-//
-// ANYTHING OUTSIDE THIS MATTER — which is the builder's doing, not this source's.
+// ORDERED BY WHEN THE THING HAPPENED, falling back to the day the note was written — the same
+// expression the Notes tab's own list orders by. A search that put a note about Tuesday's call in a
+// different place from the list it links into would make the reader check twice.
 //
 // The snippet is DECLARED, and this is the source where that decision is load-bearing: a note is the
 // most privileged free text the platform holds. It is allowed here because every row this can return
 // is a note whose body the same reader is already shown on the Notes tab this hit links into, behind
 // the same notes:read capability. A firm-wide note search is a different question with a different
 // answer, and it is not built here.
+const NOTE_ORDERING_DATE = `COALESCE(${MATTER_NOTE_TABLE}.occurred_on, substr(${MATTER_NOTE_TABLE}.created_at, 1, 10))`;
+
 const notesSource: MatterSearchSource = {
   key: "notes",
   sectionSlug: "notes",
   permission: assertPermission("notes:read"),
   answerShape: "listing",
-  matchedFields: ["the note's current text"],
+  matchedFields: ["the note's text"],
   declaresSnippet: true,
   minimumQueryLength: 2,
-  // A retracted note is unmatchable in either direction, so there is no deleted set to include.
+  // A deleted note is gone rather than hidden, so there is no deleted set to include.
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from:
-          `${MATTER_NOTE_TABLE} JOIN ${MATTER_NOTE_REVISION_TABLE} ` +
-          `ON ${MATTER_NOTE_REVISION_TABLE}.note_id = ${MATTER_NOTE_TABLE}.id ` +
-          `AND ${MATTER_NOTE_REVISION_TABLE}.ordinal = ${MATTER_NOTE_TABLE}.head_ordinal`,
+        from: MATTER_NOTE_TABLE,
         idColumn: `${MATTER_NOTE_TABLE}.id`,
         matterExpression: `${MATTER_NOTE_TABLE}.matter_id`,
-        sortExpression: `${MATTER_NOTE_TABLE}.created_at`,
-        // A note has no name; the reader recognizes it by when it was written and who wrote it, and
-        // the snippet carries the words. The title is the instant, rendered by the client.
-        titleExpression: `${MATTER_NOTE_TABLE}.created_at`,
-        snippetExpression: `${MATTER_NOTE_REVISION_TABLE}.body`,
+        sortExpression: NOTE_ORDERING_DATE,
+        // A note has no name; the reader recognizes it by when it is about, and the snippet carries
+        // the words. The title is that date, rendered by the client.
+        titleExpression: NOTE_ORDERING_DATE,
+        snippetExpression: `${MATTER_NOTE_TABLE}.body`,
         secondaryExpression: "NULL",
         actorExpression: `${MATTER_NOTE_TABLE}.author_user_id`,
-        conditions: [
-          `${MATTER_NOTE_TABLE}.state = 'active'`,
-          `${MATTER_NOTE_REVISION_TABLE}.body LIKE ? ESCAPE '\\'`,
-        ],
+        conditions: [`${MATTER_NOTE_TABLE}.body LIKE ? ESCAPE '\\'`],
         bindings: [likeContainsTerm(request.query.trim())],
       }),
     ];

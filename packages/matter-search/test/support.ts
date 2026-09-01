@@ -55,41 +55,13 @@ function seedMatters(raw: Raw): void {
 
 export function seedNote(
   raw: Raw,
-  options: { id: string; matterId: string; body: string; state?: "active" | "retracted" },
-): void {
-  const state = options.state ?? "active";
-  raw.exec(
-    `INSERT INTO matter_note (id, matter_id, author_user_id, head_ordinal, state, retracted_at, ` +
-      `retracted_by, retraction_reason, created_at, updated_at) VALUES ('${options.id}', ` +
-      `'${options.matterId}', '${ACTOR}', 1, '${state}', ` +
-      `${state === "retracted" ? `'${INSTANT}'` : "NULL"}, ` +
-      `${state === "retracted" ? `'${ACTOR}'` : "NULL"}, ` +
-      `${state === "retracted" ? "'Wrong client named.'" : "NULL"}, '${INSTANT}', '${INSTANT}')`,
-  );
-  raw.exec(
-    `INSERT INTO matter_note_revision (id, note_id, body, author_user_id, ordinal, created_at) ` +
-      `VALUES ('${options.id}_rev1', '${options.id}', ${quote(options.body)}, '${ACTOR}', 1, '${INSTANT}')`,
-  );
-}
-
-// A note that has been CORRECTED: two revisions, the head being the second. The first body must stay
-// unmatchable, which is what makes a correction a correction rather than a cosmetic edit.
-export function seedCorrectedNote(
-  raw: Raw,
-  options: { id: string; matterId: string; original: string; corrected: string },
+  options: { id: string; matterId: string; body: string; occurredOn?: string },
 ): void {
   raw.exec(
-    `INSERT INTO matter_note (id, matter_id, author_user_id, head_ordinal, state, retracted_at, ` +
-      `retracted_by, retraction_reason, created_at, updated_at) VALUES ('${options.id}', ` +
-      `'${options.matterId}', '${ACTOR}', 2, 'active', NULL, NULL, NULL, '${INSTANT}', '${INSTANT}')`,
-  );
-  raw.exec(
-    `INSERT INTO matter_note_revision (id, note_id, body, author_user_id, ordinal, created_at) ` +
-      `VALUES ('${options.id}_rev1', '${options.id}', ${quote(options.original)}, '${ACTOR}', 1, '${INSTANT}')`,
-  );
-  raw.exec(
-    `INSERT INTO matter_note_revision (id, note_id, body, author_user_id, ordinal, created_at) ` +
-      `VALUES ('${options.id}_rev2', '${options.id}', ${quote(options.corrected)}, '${ACTOR}', 2, '${INSTANT}')`,
+    `INSERT INTO matter_note (id, matter_id, author_user_id, body, last_edited_by, occurred_on, ` +
+      `occurred_at_time, time_zone, created_at, updated_at) VALUES ('${options.id}', ` +
+      `'${options.matterId}', '${ACTOR}', ${quote(options.body)}, NULL, ` +
+      `${quote(options.occurredOn ?? null)}, NULL, NULL, '${INSTANT}', '${INSTANT}')`,
   );
 }
 
@@ -144,17 +116,13 @@ export function seededDatabase() {
   seedMatters(raw);
 
   seedNote(raw, { id: "matterNote_easement", matterId: MATTER, body: "The easement runs east." });
+  // A note ABOUT an earlier day than the day it was typed, so the ordering expression is exercised
+  // rather than assumed — it is the one the Notes tab itself orders by.
   seedNote(raw, {
-    id: "matterNote_retracted",
+    id: "matterNote_occurred",
     matterId: MATTER,
-    body: "The easement was misdescribed.",
-    state: "retracted",
-  });
-  seedCorrectedNote(raw, {
-    id: "matterNote_corrected",
-    matterId: MATTER,
-    original: "Spoke to Mr Easement-Wrongname about the fence.",
-    corrected: "Spoke to the neighbour about the fence.",
+    body: "Spoke to the neighbour about the easement fence.",
+    occurredOn: "2026-07-14",
   });
   seedNote(raw, { id: "matterNote_decoy", matterId: OTHER_MATTER, body: "An easement elsewhere." });
 
