@@ -395,7 +395,7 @@
   public-name: Search a matter
   public-summary: Search everything on a matter from one box — notes, files, parties and what the firm holds in custody — starting with the screen you are already on.
   awaiting-owner: Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
-  notes: PARTIAL because eight of the fourteen sections answer; the other six decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page.
+  notes: PARTIAL because nine of the fourteen sections answer; the other five decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page.
 
 - id: matters.search.sources
   name: Declared search sources
@@ -403,8 +403,8 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
-  evidence: packages/matter-search/src/sources/all.ts registers eight sources (files, time, costs, parties, notes, custody, calendar, matter assets) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds
-  notes: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Review-set sources are structurally refused — a review set is its own corpus.
+  evidence: packages/matter-search/src/sources/all.ts registers nine sources (files, time, costs, parties, notes, custody, billing, calendar, matter assets) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds
+  notes: PARTIAL because five sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. Review-set sources are structurally refused: a review set is its own corpus.
 
 - id: matters.search.file-contents
   name: File contents in a matter search

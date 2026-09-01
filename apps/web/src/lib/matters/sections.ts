@@ -87,7 +87,7 @@ export const matterSections: readonly MatterSection[] = [
       "Flat charges for professional services recorded on this matter — the fee agreement and " +
       "the work-in-progress fee ledger, waiting to be claimed by a bill.",
     searchSource: null,
-    searchWaitingOn: "Searching fee descriptions lands with the fees source",
+    searchWaitingOn: "A fee has no store yet — nothing on the wire carries the record to search",
   },
   {
     slug: "billing",
@@ -97,8 +97,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Invoices, payments, and the matter's billing arrangement — hourly, flat fee, or " +
       "contingency — with the full accounting of what has been billed and collected.",
-    searchSource: null,
-    searchWaitingOn: "Searching invoice numbers and memos lands with the billing source",
+    searchSource: "billing",
   },
   {
     slug: "parties",

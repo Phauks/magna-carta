@@ -18,6 +18,7 @@ import Clock from "@lucide/svelte/icons/clock";
 import ReceiptText from "@lucide/svelte/icons/receipt-text";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
 import Landmark from "@lucide/svelte/icons/landmark";
+import FileSpreadsheet from "@lucide/svelte/icons/file-spreadsheet";
 
 export interface SourcePresentation {
   /** The group heading, in the reader's vocabulary — matching the section tab's own label. */
@@ -43,6 +44,7 @@ const PRESENTATION: Readonly<Record<string, SourcePresentation>> = {
   costs: { heading: "Costs", icon: ReceiptText, titleKind: "text" },
   calendar: { heading: "Calendar", icon: CalendarDays, titleKind: "text" },
   matterAssets: { heading: "Assets", icon: Landmark, titleKind: "text" },
+  billing: { heading: "Billing", icon: FileSpreadsheet, titleKind: "text" },
 };
 
 /** Never undefined: an unknown source renders under its own key rather than disappearing. */

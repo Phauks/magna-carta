@@ -40,6 +40,9 @@ export interface BoundedSearchSelectSpec {
   readonly from: string;
   // The row's own identifier column, qualified where the FROM clause joins.
   readonly idColumn: string;
+  // What a reader opens, where that differs from the row itself. Defaults to the row: only a source
+  // whose screen is organised by something other than its rows needs this.
+  readonly linkIdExpression?: string;
   // The expression naming this row's matter — bound to the searched matter, and handed to the
   // visibility predicate.
   readonly matterExpression: string;
@@ -88,7 +91,8 @@ export function boundedSearchSelect(
 
   const order = spec.ascending === true ? "ASC" : "DESC";
   const sql =
-    `SELECT ${spec.idColumn} AS row_id, ${spec.matterExpression} AS matter_id, ` +
+    `SELECT ${spec.idColumn} AS row_id, ${spec.linkIdExpression ?? "NULL"} AS link_id, ` +
+    `${spec.matterExpression} AS matter_id, ` +
     `${spec.sortExpression} AS sort_key, ${spec.titleExpression} AS title, ` +
     `${spec.snippetExpression} AS snippet, ${spec.secondaryExpression} AS secondary, ` +
     `${spec.actorExpression} AS actor_user_id ` +

@@ -230,6 +230,7 @@ describe("one query, answered from every section the member may read", () => {
       "parties",
       "notes",
       "custody",
+      "billing",
       "calendar",
       "matterAssets",
     ]);

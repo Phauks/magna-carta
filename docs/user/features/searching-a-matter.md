@@ -43,8 +43,10 @@ row came back. Its plain public-record identifiers — a parcel number, a vehicl
 on the search service being switched on; until it is, the results say so rather than leaving you to
 assume the search read your PDFs.
 
-Six sections do not answer yet — Fees, Billing, Trust, Messaging, Emails and Overview — and each says
-so in the dropdown rather than being left out.
+Five sections do not answer yet — Fees, Trust, Messaging, Emails and Overview — and each says so in the
+dropdown rather than being left out. Fees is the one worth explaining: a fee is meant to be its own
+record and the server does not keep one yet, so there is nothing there to search rather than a search
+that has not been written.
 
 ## Reading the results
 

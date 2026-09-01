@@ -101,6 +101,7 @@ export const MATTER_SEARCH_PLAN_SCAN_ALLOWLIST: readonly string[] = [];
 // It is a list rather than a blanket allowance so that a NEW source materialising a sort has to be
 // added deliberately, with somebody looking at whether it could cheaply have been avoided:
 //
+//   billing      — sorts on created_at; the matter index leads (matter_id, invoice_id).
 //   costs        — sorts on incurred_date; the matter index leads (matter_id, status).
 //   matterAssets — sorts on created_at; the matter index leads (matter_id, class, created_at, id),
 //                  and `class` sits between, so the order cannot be walked.
@@ -115,6 +116,7 @@ export const MATTER_SEARCH_PLAN_SCAN_ALLOWLIST: readonly string[] = [];
 // thousands of time entries — and it is a write cost on every insert, taken for a read that has no
 // measured problem. Golden rule 10: it is recorded, not pre-emptively bought.
 export const MATTER_SEARCH_MATERIALISED_SORTS: readonly string[] = [
+  "matter-search.billing",
   "matter-search.costs",
   "matter-search.matterAssets",
   "matter-search.notes",

@@ -25,6 +25,8 @@ const TIME_ENTRY_TABLE = "time_entry";
 const COST_ENTRY_TABLE = "cost_entry";
 const MATTER_EVENT_TABLE = "matter_event";
 const MATTER_ASSET_TABLE = "matter_asset";
+const INVOICE_LINE_TABLE = "invoice_line";
+const INVOICE_TABLE = "invoice";
 
 // A source that reads a REVIEW SET table cannot be declared here, and the fitness test in
 // test/corpus-isolation.test.ts proves it over every registered statement rather than trusting this
@@ -42,7 +44,8 @@ function projectInto(sourceKey: string, section: string) {
     secondary: row.secondary,
     actorUserId: row.actor_user_id,
     sortKey: row.sort_key,
-    link: matterSectionLink(row.matter_id, section, row.row_id),
+    // The row's identity, unless the source declared a different thing to open.
+    link: matterSectionLink(row.matter_id, section, row.link_id ?? row.row_id),
   });
 }
 
@@ -449,6 +452,63 @@ const matterAssetsSource: MatterSearchSource = {
   project: projectInto("matterAssets", "other"),
 };
 
+// ---- billing ---------------------------------------------------------------------------------
+
+// The bills that charge this matter, matched on what each line says it is for and on the invoice's
+// own number.
+//
+// DRIVEN FROM invoice_line, WHICH IS THE ONLY TABLE HERE THAT KNOWS THE MATTER. An invoice belongs
+// to a client and may bill several of that client's matters, so `invoice` carries no matter at all;
+// the reach is `invoice_line.matter_id`, and its (matter_id, invoice_id) index is what keeps the
+// narrowing index-served. That ordering is not incidental — the parties source proved that a join
+// is exactly where a matter filter goes wrong quietly, and this is the second join in the registry.
+//
+// THE ROW IS A LINE AND THE DESTINATION IS AN INVOICE, which is why `linkIdExpression` exists. The
+// line is the right identity — it is what matched, and it is what a keyset walks — while the Billing
+// tab is organised by invoice, so a link carrying the line id would land on a page that cannot
+// resolve it. Two different facts, kept as two.
+const billingSource: MatterSearchSource = {
+  key: "billing",
+  sectionSlug: "billing",
+  permission: assertPermission("billing:read"),
+  answerShape: "listing",
+  matchedFields: ["invoice line descriptions", "invoice numbers"],
+  declaresSnippet: false,
+  minimumQueryLength: 2,
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    const term = likeContainsTerm(request.query.trim());
+    const invoiceNumber =
+      `(SELECT ${INVOICE_TABLE}.invoice_number FROM ${INVOICE_TABLE} ` +
+      `WHERE ${INVOICE_TABLE}.id = ${INVOICE_LINE_TABLE}.invoice_id)`;
+    const invoiceStatus =
+      `(SELECT ${INVOICE_TABLE}.status FROM ${INVOICE_TABLE} ` +
+      `WHERE ${INVOICE_TABLE}.id = ${INVOICE_LINE_TABLE}.invoice_id)`;
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from: INVOICE_LINE_TABLE,
+        idColumn: `${INVOICE_LINE_TABLE}.id`,
+        linkIdExpression: `${INVOICE_LINE_TABLE}.invoice_id`,
+        matterExpression: `${INVOICE_LINE_TABLE}.matter_id`,
+        sortExpression: `${INVOICE_LINE_TABLE}.created_at`,
+        titleExpression: `${INVOICE_LINE_TABLE}.description`,
+        snippetExpression: "NULL",
+        // The bill it is on and where that bill stands. A draft has no number yet, and saying
+        // "Draft" is the honest reading of a null rather than an empty cell.
+        secondaryExpression: `COALESCE(${invoiceNumber}, 'Draft') || ' · ' || COALESCE(${invoiceStatus}, 'draft')`,
+        actorExpression: "NULL",
+        conditions: [
+          `(${INVOICE_LINE_TABLE}.description LIKE ? ESCAPE '\\' OR ${invoiceNumber} LIKE ? ESCAPE '\\')`,
+        ],
+        bindings: [term, term],
+      }),
+    ];
+  },
+  project: projectInto("billing", "billing"),
+};
+
 // The registry, in the order the matter's own section strip reads. A group renders in this order, so
 // the answer and the tabs above it never disagree about where things live.
 export const matterSearchSources = new MatterSearchSourceRegistry([
@@ -458,6 +518,7 @@ export const matterSearchSources = new MatterSearchSourceRegistry([
   partiesSource,
   notesSource,
   custodySource,
+  billingSource,
   calendarSource,
   matterAssetsSource,
 ]);

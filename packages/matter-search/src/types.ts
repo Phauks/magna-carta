@@ -24,9 +24,15 @@ export type SourceSkipReason =
   | "engine-unavailable";
 
 // One row of a source's result, as the raw shape its own SELECT produced. Every source projects
-// into the same six columns, which is what lets one builder compose every statement.
+// into the same fixed column set, which is what lets one builder compose every statement.
 export interface MatterSearchRawRow {
   readonly row_id: string;
+  // What a reader OPENS, when that is not the row itself. An invoice line is the row a search
+  // matches and the identity a keyset walks, but the screen it links into is organised by invoice —
+  // so the two are different facts and collapsing them would either break the ordering or land the
+  // reader on a page that cannot resolve the id. NULL wherever the row is its own destination,
+  // which is every other source.
+  readonly link_id?: string | null;
   readonly matter_id: string;
   // The stable order key — a canonical instant for a recency-ordered source, a case-folded name for
   // an alphabetical one. Compared as TEXT, exactly as the federated timeline compares its own.
