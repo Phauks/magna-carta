@@ -88,7 +88,7 @@
   scope: A per-member shelf of what the platform produced — exports, bundles, converted files — held for a short retention window and downloadable again until it expires.
   status: partial
   surface: screen
-  evidence: Built and reachable two ways — the top-bar download tray beside the Time Keeper ($lib/export/download-tray.svelte) and the /downloads page behind it. Exporting GENERATES onto the shelf rather than saving a file, so several can be gathered and taken as one client-zip archive; download_item.requested_format remembers what each was made for. Settings · Downloads carries the per-member save-immediately preference (user-tier scoped setting). Where a file lands is deliberately not offered: the local-disk pickers are Chromium-only and can never apply to a bundle whose bytes bypass the page, so that answer belongs to the desktop app.
+  evidence: Built and reachable two ways — the top-bar download tray beside the Time Keeper ($lib/export/download-tray.svelte) and the /downloads page behind it. Exporting GENERATES onto the shelf rather than saving a file, so several can be gathered and taken as one client-zip archive; download_item.requested_format remembers what each was made for. Settings · Downloads carries the per-member save-immediately preference (user-tier scoped setting) and, where the browser has a folder picker, a chosen download folder held in IndexedDB and written through the File System Access API ($lib/export/save-target.ts is the one seam every save goes through, falling back to the browser's own download for Firefox and Safari). What stays with the desktop app is a folder that applies to a bundle whose bytes never touch the page.
 
 - id: reports.custom-builder
   name: Custom report builder
