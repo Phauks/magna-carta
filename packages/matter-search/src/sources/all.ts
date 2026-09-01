@@ -21,6 +21,10 @@ const CUSTODY_PACKET_TABLE = "custody_packet";
 const MATTER_PARTY_TABLE = "matter_party";
 const DIRECTORY_PERSON_TABLE = "directory_person";
 const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
+const TIME_ENTRY_TABLE = "time_entry";
+const COST_ENTRY_TABLE = "cost_entry";
+const MATTER_EVENT_TABLE = "matter_event";
+const MATTER_ASSET_TABLE = "matter_asset";
 
 // A source that reads a REVIEW SET table cannot be declared here, and the fitness test in
 // test/corpus-isolation.test.ts proves it over every registered statement rather than trusting this
@@ -277,11 +281,183 @@ const partiesSource: MatterSearchSource = {
   project: projectInto("parties", "parties"),
 };
 
+// ---- time ------------------------------------------------------------------------------------
+
+// The narratives recorded against this matter — what a timekeeper wrote about the work, which is
+// the only free text on a time entry and the thing somebody is looking for when they ask what was
+// done about a subject.
+//
+// The narrative IS the snippet: unlike a file or a packet, a time entry has no name, so its title is
+// the day the work was done and the words are the excerpt. That makes this the second source after
+// notes where the snippet decision is load-bearing, and it lands the same way for the same reason —
+// a reader holding time:read is already shown these narratives in full on the Time tab this hit
+// links into.
+const timeSource: MatterSearchSource = {
+  key: "time",
+  sectionSlug: "time",
+  permission: assertPermission("time:track"),
+  answerShape: "listing",
+  matchedFields: ["time narratives"],
+  declaresSnippet: true,
+  minimumQueryLength: 2,
+  // A voided entry keeps its row and stays part of the matter's record, so there is no deleted set
+  // distinct from what the search already returns.
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from: TIME_ENTRY_TABLE,
+        idColumn: `${TIME_ENTRY_TABLE}.id`,
+        matterExpression: `${TIME_ENTRY_TABLE}.matter_id`,
+        // The day the work was done, not the day it was typed — the order the Time tab reads in.
+        sortExpression: `${TIME_ENTRY_TABLE}.work_date`,
+        titleExpression: `${TIME_ENTRY_TABLE}.work_date`,
+        snippetExpression: `${TIME_ENTRY_TABLE}.narrative`,
+        secondaryExpression: `${TIME_ENTRY_TABLE}.status`,
+        actorExpression: `${TIME_ENTRY_TABLE}.timekeeper_user_id`,
+        conditions: [`${TIME_ENTRY_TABLE}.narrative LIKE ? ESCAPE '\\'`],
+        bindings: [likeContainsTerm(request.query.trim())],
+      }),
+    ];
+  },
+  project: projectInto("time", "time"),
+};
+
+// ---- costs -----------------------------------------------------------------------------------
+
+// Costs advanced and expenses incurred on this matter, matched on what the firm wrote the cost was
+// for. The description is the whole point of a cost row to a person searching — "the filing fee",
+// "the process server" — so it is both what matches and what is shown.
+const costsSource: MatterSearchSource = {
+  key: "costs",
+  sectionSlug: "costs",
+  permission: assertPermission("costs:track"),
+  answerShape: "listing",
+  matchedFields: ["cost descriptions"],
+  declaresSnippet: true,
+  minimumQueryLength: 2,
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from: COST_ENTRY_TABLE,
+        idColumn: `${COST_ENTRY_TABLE}.id`,
+        matterExpression: `${COST_ENTRY_TABLE}.matter_id`,
+        sortExpression: `${COST_ENTRY_TABLE}.incurred_date`,
+        titleExpression: `${COST_ENTRY_TABLE}.description`,
+        // The description is already the title, so an excerpt would be the same string twice.
+        snippetExpression: "NULL",
+        secondaryExpression: `${COST_ENTRY_TABLE}.status`,
+        actorExpression: "NULL",
+        conditions: [`${COST_ENTRY_TABLE}.description LIKE ? ESCAPE '\\'`],
+        bindings: [likeContainsTerm(request.query.trim())],
+      }),
+    ];
+  },
+  project: projectInto("costs", "costs"),
+};
+
+// ---- calendar --------------------------------------------------------------------------------
+
+// The dates this matter is held to, matched on what a person called the event and what they wrote
+// about it.
+//
+// NOTE THE ASYMMETRY WITH THE FEDERATED TIMELINE, which is deliberate and worth stating because the
+// two reads sit over the same rows. The calendar's timeline spans every matter, so it refuses to
+// project an event's title at all — free text a person wrote about a proceeding can name the people
+// it concerns, and putting it on a firm-wide read would be a leak. This search is inside ONE matter,
+// behind that matter's own calendar:read, on a screen that shows those titles in full. Same column,
+// different reach, different answer.
+const calendarSource: MatterSearchSource = {
+  key: "calendar",
+  sectionSlug: "calendar",
+  permission: assertPermission("calendar:read"),
+  answerShape: "listing",
+  matchedFields: ["event titles", "event descriptions"],
+  declaresSnippet: true,
+  minimumQueryLength: 2,
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    const term = likeContainsTerm(request.query.trim());
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from: MATTER_EVENT_TABLE,
+        idColumn: `${MATTER_EVENT_TABLE}.id`,
+        matterExpression: `${MATTER_EVENT_TABLE}.matter_id`,
+        sortExpression: `${MATTER_EVENT_TABLE}.starts_on`,
+        titleExpression: `${MATTER_EVENT_TABLE}.title`,
+        snippetExpression: `${MATTER_EVENT_TABLE}.description`,
+        // Whether it is still standing. A cancelled hearing is findable and must never look live.
+        secondaryExpression: `${MATTER_EVENT_TABLE}.status`,
+        actorExpression: `${MATTER_EVENT_TABLE}.recorded_by`,
+        conditions: [
+          `(${MATTER_EVENT_TABLE}.title LIKE ? ESCAPE '\\' OR ${MATTER_EVENT_TABLE}.description LIKE ? ESCAPE '\\')`,
+        ],
+        bindings: [term, term],
+      }),
+    ];
+  },
+  project: projectInto("calendar", "calendar"),
+};
+
+// ---- matter assets ---------------------------------------------------------------------------
+
+// The register of what the client or the estate owns, matched on the firm's own description of each
+// asset.
+//
+// IT MATCHES THE DESCRIPTION AND NOTHING ELSE, and that is a confidentiality decision rather than an
+// omission. The register also holds typed identifiers — account, policy, certificate and tax numbers
+// — and those are protected() columns sealed with only the last four characters readable. A search
+// that matched them would be a decryption oracle: a member could confirm a full account number by
+// typing it and seeing whether a row came back, without ever holding the capability to read one. The
+// plaintext public-record identifiers (a parcel number, a vehicle identification number) are
+// deliberately searchable by design, and joining them is a later, deliberate step — not something to
+// widen into by accident.
+const matterAssetsSource: MatterSearchSource = {
+  key: "matterAssets",
+  sectionSlug: "other",
+  permission: assertPermission("matterAssets:read"),
+  answerShape: "listing",
+  matchedFields: ["asset descriptions"],
+  declaresSnippet: false,
+  minimumQueryLength: 2,
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from: MATTER_ASSET_TABLE,
+        idColumn: `${MATTER_ASSET_TABLE}.id`,
+        matterExpression: `${MATTER_ASSET_TABLE}.matter_id`,
+        sortExpression: `${MATTER_ASSET_TABLE}.created_at`,
+        titleExpression: `${MATTER_ASSET_TABLE}.description`,
+        snippetExpression: "NULL",
+        secondaryExpression: `${MATTER_ASSET_TABLE}.class`,
+        actorExpression: "NULL",
+        conditions: [`${MATTER_ASSET_TABLE}.description LIKE ? ESCAPE '\\'`],
+        bindings: [likeContainsTerm(request.query.trim())],
+      }),
+    ];
+  },
+  project: projectInto("matterAssets", "other"),
+};
+
 // The registry, in the order the matter's own section strip reads. A group renders in this order, so
 // the answer and the tabs above it never disagree about where things live.
 export const matterSearchSources = new MatterSearchSourceRegistry([
   filesSource,
+  timeSource,
+  costsSource,
   partiesSource,
   notesSource,
   custodySource,
+  calendarSource,
+  matterAssetsSource,
 ]);

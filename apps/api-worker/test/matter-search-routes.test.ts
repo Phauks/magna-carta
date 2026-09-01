@@ -220,11 +220,18 @@ beforeAll(async () => {
 describe("one query, answered from every section the member may read", () => {
   it("returns a group per source with the matter's own section slugs", async () => {
     const answer = await search("easement");
+    // The whole registry answers, in its own order. Listed rather than derived here on purpose:
+    // this is the WIRE contract seen from outside the worker, and a client reading these keys is
+    // entitled to have a change in them show up as a test edit rather than pass silently.
     expect(answer.groups.map((entry) => entry.source)).toEqual([
       "files",
+      "time",
+      "costs",
       "parties",
       "notes",
       "custody",
+      "calendar",
+      "matterAssets",
     ]);
     expect(group(answer, "notes").section).toBe("notes");
     expect(group(answer, "custody").section).toBe("custodian");

@@ -40,12 +40,11 @@ function titles(groups: readonly MatterSearchGroup[], key: string): string[] {
 describe("a matter search answers from every section at once", () => {
   it("returns a group per source, in the section strip's order", async () => {
     const answer = await search("easement");
-    expect(answer.groups.map((entry) => entry.source)).toEqual([
-      "files",
-      "parties",
-      "notes",
-      "custody",
-    ]);
+    // Registry order, derived rather than listed — the assertion is that the ANSWER reads in the
+    // same order as the matter's own section strip, not that the registry holds four things.
+    expect(answer.groups.map((entry) => entry.source)).toEqual(
+      matterSearchSources.all().map((source) => source.key),
+    );
   });
 
   it("finds the record across four different subsystems from one query", async () => {
@@ -131,12 +130,12 @@ describe("the reader's scope narrows the registry, not the results", () => {
 
   it("treats an absent scope as every source the reader may read", async () => {
     const answer = await search("easement", { sourceKeys: undefined });
-    expect(answer.groups).toHaveLength(4);
+    expect(answer.groups).toHaveLength(matterSearchSources.all().length);
   });
 
   it("treats an empty scope the same way, rather than as nothing", async () => {
     const answer = await search("easement", { sourceKeys: [] });
-    expect(answer.groups).toHaveLength(4);
+    expect(answer.groups).toHaveLength(matterSearchSources.all().length);
   });
 });
 

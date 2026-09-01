@@ -14,6 +14,10 @@ import Users from "@lucide/svelte/icons/users";
 import NotebookPen from "@lucide/svelte/icons/notebook-pen";
 import Vault from "@lucide/svelte/icons/vault";
 import Search from "@lucide/svelte/icons/search";
+import Clock from "@lucide/svelte/icons/clock";
+import ReceiptText from "@lucide/svelte/icons/receipt-text";
+import CalendarDays from "@lucide/svelte/icons/calendar-days";
+import Landmark from "@lucide/svelte/icons/landmark";
 
 export interface SourcePresentation {
   /** The group heading, in the reader's vocabulary — matching the section tab's own label. */
@@ -33,6 +37,12 @@ const PRESENTATION: Readonly<Record<string, SourcePresentation>> = {
   // the words. That is why titleKind exists at all rather than every source rendering a string.
   notes: { heading: "Notes", icon: NotebookPen, titleKind: "instant" },
   custody: { heading: "Custodian", icon: Vault, titleKind: "text" },
+  // A time entry has no name either — what a reader recognizes it by is the day the work was done,
+  // and the narrative is the excerpt beneath it.
+  time: { heading: "Time", icon: Clock, titleKind: "instant" },
+  costs: { heading: "Costs", icon: ReceiptText, titleKind: "text" },
+  calendar: { heading: "Calendar", icon: CalendarDays, titleKind: "text" },
+  matterAssets: { heading: "Assets", icon: Landmark, titleKind: "text" },
 };
 
 /** Never undefined: an unknown source renders under its own key rather than disappearing. */

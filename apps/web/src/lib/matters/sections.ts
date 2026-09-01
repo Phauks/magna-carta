@@ -66,8 +66,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Time captured on this matter — timers, manual entries, and the weekly grid all land " +
       "here, billable or not.",
-    searchSource: null,
-    searchWaitingOn: "Searching time narratives lands with the time source",
+    searchSource: "time",
   },
   {
     slug: "costs",
@@ -77,8 +76,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Costs advanced and expenses incurred for this matter — filing fees, service, experts — " +
       "with their recoverable and billable treatment.",
-    searchSource: null,
-    searchWaitingOn: "Searching cost descriptions lands with the costs source",
+    searchSource: "costs",
   },
   {
     slug: "fees",
@@ -168,8 +166,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
       "person, read in its own time zone, and reports when it has passed.",
-    searchSource: null,
-    searchWaitingOn: "Searching event titles lands with the calendar source",
+    searchSource: "calendar",
   },
   {
     slug: "other",
@@ -179,8 +176,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Everything else the matter accumulates — research, tasks, and tool output — finds its " +
       "home here.",
-    searchSource: null,
-    searchWaitingOn: "The Other section itself is not built yet",
+    searchSource: "matterAssets",
   },
 ];
 

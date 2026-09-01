@@ -23,16 +23,28 @@ does not cover.
 
 ## What answers today
 
-| Section       | What is searched                        |
-| ------------- | --------------------------------------- |
-| **Files**     | File names                              |
-| **Parties**   | Names, and the capacity a party acts in |
-| **Notes**     | What each note says now                 |
-| **Custodian** | Packet names and custody numbers        |
+| Section       | What is searched                         |
+| ------------- | ---------------------------------------- |
+| **Files**     | File names                               |
+| **Time**      | What the timekeeper wrote about the work |
+| **Costs**     | What the cost was for                    |
+| **Parties**   | Names, and the capacity a party acts in  |
+| **Notes**     | What each note says                      |
+| **Custodian** | Packet names and custody numbers         |
+| **Calendar**  | Event titles and descriptions            |
+| **Assets**    | Asset descriptions                       |
+
+**Assets are searched by description only.** An asset's account, policy and certificate numbers are
+sealed, and searching them would let somebody confirm a full number by typing it and seeing whether a
+row came back. Its plain public-record identifiers — a parcel number, a vehicle identification number
+— are not searched yet either.
 
 **Files are searched by name, not by content.** Searching inside your documents is built and waiting
 on the search service being switched on; until it is, the results say so rather than leaving you to
 assume the search read your PDFs.
+
+Six sections do not answer yet — Fees, Billing, Trust, Messaging, Emails and Overview — and each says
+so in the dropdown rather than being left out.
 
 ## Reading the results
 

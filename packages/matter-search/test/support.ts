@@ -1,6 +1,7 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
-import { assertPermission, type Permission } from "@magna-carta/access-control/registry";
+import type { Permission } from "@magna-carta/access-control/registry";
+import { matterSearchSources } from "../src/sources/all.ts";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 
 // A migrated in-memory per-firm database with one matter's record filled in across all four
@@ -19,10 +20,15 @@ export const HOLDING_MATTER = "matter_searchHolding00000000000000" as MatterId;
 
 export const visibility = visibleMatterPredicate();
 
-export const ALL_PERMISSIONS: ReadonlySet<Permission> = new Set([
-  assertPermission("notes:read"),
-  assertPermission("custody:read"),
-]);
+// Every capability any registered source gates on, derived from the registry rather than listed —
+// so a source added with a new permission is exercised by the existing tests instead of silently
+// reporting itself withheld in all of them.
+export const ALL_PERMISSIONS: ReadonlySet<Permission> = new Set(
+  matterSearchSources
+    .all()
+    .map((source) => source.permission)
+    .filter((permission): permission is Permission => permission !== null),
+);
 
 export const NO_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>();
 

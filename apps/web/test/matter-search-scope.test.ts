@@ -18,9 +18,14 @@ describe("the search opens scoped to the section the reader is standing on", () 
   });
 
   it("falls back to the whole matter rather than opening on an option that cannot answer", () => {
-    // Time has no source yet. Opening the control there on a disabled scope would put the reader in
-    // a state where typing does nothing and the control does not say why.
-    expect(defaultScope(sectionNamed("time"))).toBe(EVERYTHING_SCOPE);
+    // Trust has no source and will not have one until the section itself is built. Opening the
+    // control there on a disabled scope would put the reader in a state where typing does nothing
+    // and the control does not say why. Named from the registry rather than hardcoded, so this
+    // keeps testing the fallback as sections become searchable instead of testing a stale example.
+    const unsearchable = matterSections.find((section) => section.searchSource === null);
+    if (unsearchable === undefined)
+      throw new Error("every section is searchable — retire this test");
+    expect(defaultScope(unsearchable)).toBe(EVERYTHING_SCOPE);
     expect(defaultScope(undefined)).toBe(EVERYTHING_SCOPE);
   });
 
@@ -70,8 +75,8 @@ describe("a section that cannot be searched is offered and disabled, never omitt
   const options = scopeOptions(sectionNamed("files"));
 
   it("keeps the unsearchable sections in the list", () => {
-    for (const slug of ["time", "costs", "billing", "calendar", "trust"]) {
-      expect(options.some((option) => option.value === slug)).toBe(true);
+    for (const section of matterSections.filter((entry) => entry.searchSource === null)) {
+      expect(options.some((option) => option.value === section.slug)).toBe(true);
     }
   });
 

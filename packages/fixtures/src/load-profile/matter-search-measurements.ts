@@ -90,3 +90,34 @@ export function matterSearchHotPathPlans(input: MatterSearchPlanInput): LabeledP
 // exists to refuse. An entry here would need to say which table, why the matter cannot narrow it
 // first, and what bounds the read instead.
 export const MATTER_SEARCH_PLAN_SCAN_ALLOWLIST: readonly string[] = [];
+
+// The sources that materialise their sort, as a REGISTER rather than a pass mark. Every one of these
+// is acceptable, and the rule that makes it acceptable is the same for all of them: the rows being
+// sorted are rows the substring scan has ALREADY read, bounded by one matter, so the sort adds a log
+// factor to work already done rather than a new dependency on the size of the firm. A source that
+// sorted rows it had not already narrowed would fail the scan assertion above first, which is why
+// that one is a bar and this one is a list.
+//
+// It is a list rather than a blanket allowance so that a NEW source materialising a sort has to be
+// added deliberately, with somebody looking at whether it could cheaply have been avoided:
+//
+//   costs        — sorts on incurred_date; the matter index leads (matter_id, status).
+//   matterAssets — sorts on created_at; the matter index leads (matter_id, class, created_at, id),
+//                  and `class` sits between, so the order cannot be walked.
+//   notes        — sorts on COALESCE(occurred_on, date(created_at)), which is computed; the Notes
+//                  tab's own list orders by the same expression and materialises the same sort.
+//   parties      — sorts on the case-folded display name, resolved per row by subquery.
+//   time         — sorts on work_date; the matter index leads (matter_id, status).
+//
+// THE FIX IF IT EVER MATTERS, named here so nobody has to re-derive it: a covering index leading
+// (matter_id, <sort column>) would let SQLite walk in order, filter as it goes, and stop at the
+// limit rather than reading every match and sorting them. That is a real win on a matter with
+// thousands of time entries — and it is a write cost on every insert, taken for a read that has no
+// measured problem. Golden rule 10: it is recorded, not pre-emptively bought.
+export const MATTER_SEARCH_MATERIALISED_SORTS: readonly string[] = [
+  "matter-search.costs",
+  "matter-search.matterAssets",
+  "matter-search.notes",
+  "matter-search.parties",
+  "matter-search.time",
+];

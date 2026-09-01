@@ -13,7 +13,7 @@ The shared statement builder is where the guarantees live rather than in anyone'
 
 `ScreenSearch` gains its first production consumer for the `scope` seam it shipped with, unchanged. The control renders from the matter **layout**, so every section inherits it and none can mount a second one; `sections.ts` now carries a required `searchSource` — a key, or `null` with the line saying what it waits on — and `pnpm run lint:matter-search-coverage` refuses a section that answers neither way, which is what makes the growth mechanical rather than remembered.
 
-Four sources ship (files by name, parties, notes, custody); ten sections decline with a reason. Notes composes `packages/notes`'s own model rather than restating it — one row, edited in place, ordered by the day the note is ABOUT rather than the day it was typed, so a hit sits where the Notes tab itself would put it. Two incidental fixes: the transport seam takes an `AbortSignal`, and the api-worker conformance suite was already red on this branch's base — the notes routes had landed without their six operation ids or a `notes` namespace binding.
+Eight sources ship — files by name, time narratives, cost descriptions, parties, notes, custody, calendar titles and asset descriptions — and six sections decline with a reason. Notes composes `packages/notes`'s own model rather than restating it — one row, edited in place, ordered by the day the note is ABOUT rather than the day it was typed, so a hit sits where the Notes tab itself would put it. Two incidental fixes: the transport seam takes an `AbortSignal`, and the api-worker conformance suite was already red on this branch's base — the notes routes had landed without their six operation ids or a `notes` namespace binding.
 
 ## Public
 
@@ -23,10 +23,12 @@ Remembering "there was something about the easement" used to mean guessing which
 
 The search sits at the top right of every matter screen. It opens scoped to the section you are standing on, because that is usually the question, and one click widens it to the whole matter. It never goes wider than that: searching the whole application is what the box in the top bar is for, and a search that sometimes answered with a settings page when you asked about a case would be worth trusting for neither job.
 
-Four parts of a matter answer today — files by name, parties, notes, and the originals the firm holds in custody — and every result says which section it came from and what it matched on, so a hit is never a guess. The ten sections that cannot answer yet are still listed, each greyed out with the line saying what it is waiting for; a section that simply vanished would teach you nothing. Results are grouped by section rather than shuffled into one ranked list, because there is no honest way to rank a file name against a note.
+Eight parts of a matter answer today — files by name, time narratives, costs, parties, notes, the originals held in custody, calendar entries and the asset register — and every result says which section it came from and what it matched on, so a hit is never a guess. The six sections that cannot answer yet are still listed, each greyed out with the line saying what it is waiting for; a section that simply vanished would teach you nothing. Results are grouped by section rather than shuffled into one ranked list, because there is no honest way to rank a file name against a note.
 
 A section you do not have access to says so rather than coming back empty. That distinction matters more than it looks: a search that answered "nothing found" for a section you cannot see would tell you the matter holds nothing when it may hold a great deal.
 
 Top results appear under the field; **Open full results** gives the whole answer its own page, and the search lives in the address — so a reload keeps it, and a colleague can be handed the link.
+
+Assets are matched on their description alone: an asset's account and policy numbers are sealed, and searching them would let somebody confirm a full number by typing it.
 
 Two things it deliberately will not do. It does not look inside your files yet, only at their names, and it says so rather than implying otherwise. And it can never reach material another party produced to you in discovery: that lives in its own sealed index, which is exactly why an ordinary matter search cannot name it.

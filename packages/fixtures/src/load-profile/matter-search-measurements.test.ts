@@ -6,11 +6,12 @@ import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { runMatterSearch } from "@magna-carta/matter-search/run";
 import { matterSearchSources } from "@magna-carta/matter-search/sources";
-import { assertPermission, type Permission } from "@magna-carta/access-control/registry";
+import type { Permission } from "@magna-carta/access-control/registry";
 import { fixtureContext, type FixtureContext } from "../context.ts";
 import { createLocalPerFirmDatabase, type LocalDatabase } from "../local-database.ts";
 import { findFullScans, findTempBtreeSorts } from "./runner.ts";
 import {
+  MATTER_SEARCH_MATERIALISED_SORTS,
   MATTER_SEARCH_PLAN_SCAN_ALLOWLIST,
   matterSearchHotPathPlans,
 } from "./matter-search-measurements.ts";
@@ -36,11 +37,15 @@ const NOTES_ON_MATTER = 400;
 const FILES_ON_MATTER = 1_500;
 const PACKETS_ON_MATTER = 60;
 const PARTIES_ON_MATTER = 40;
+// Time is the highest-volume text on a long-running case, and the source whose scan the gate was
+// built to worry about, so it is seeded at volume rather than left to the plan assertion alone.
+const TIME_ENTRIES_ON_MATTER = 3_000;
 
 // The firm's other matters. Every one of them holds rows carrying the search term, so a plan that
 // fails to narrow by matter returns them and fails the correctness assertion as well as the plan one.
 const OTHER_MATTERS = 40;
 const NOTES_PER_OTHER_MATTER = 40;
+const TIME_ENTRIES_PER_OTHER_MATTER = 200;
 const FILES_PER_OTHER_MATTER = 120;
 
 const TERM = "easement";
@@ -48,10 +53,14 @@ const TERM = "easement";
 // assertion below runs for both — half the background matters carry a party with the same name.
 const NAME_TERM = "Easton";
 
-const PERMISSIONS: ReadonlySet<Permission> = new Set([
-  assertPermission("notes:read"),
-  assertPermission("custody:read"),
-]);
+// Every capability any registered source gates on, derived from the registry — so a source added
+// with a new permission is measured rather than reporting itself withheld.
+const PERMISSIONS: ReadonlySet<Permission> = new Set(
+  matterSearchSources
+    .all()
+    .map((source) => source.permission)
+    .filter((permission): permission is Permission => permission !== null),
+);
 
 let local: LocalDatabase | undefined;
 
@@ -94,6 +103,38 @@ function bodyFor(index: number): string {
   return index % 2 === 0
     ? `Attendance note ${index}: the ${TERM} along the eastern boundary was discussed.`
     : `Attendance note ${index}: routine correspondence with the client about scheduling.`;
+}
+
+function narrativeFor(index: number): string {
+  return index % 2 === 0
+    ? `Attend on client regarding the ${TERM} and the boundary wall.`
+    : `Review correspondence and update the file.`;
+}
+
+function insertTimeEntry(
+  raw: LocalDatabase["raw"],
+  context: FixtureContext,
+  matterId: string,
+  timekeeperUserId: UserId,
+  index: number,
+  now: string,
+): void {
+  raw
+    .prepare(
+      `INSERT INTO time_entry (id, matter_id, timekeeper_user_id, work_date, duration_minutes, ` +
+        `raw_duration_minutes, narrative, billable, currency, status, source, created_at, updated_at) ` +
+        `VALUES (?, ?, ?, ?, 30, 30, ?, 1, 'USD', 'draft', 'manual', ?, ?)`,
+    )
+    .run(
+      newIdentifier("timeEntry", context.randomSource),
+      matterId,
+      timekeeperUserId,
+      // Spread across days so the sort has something to order rather than one repeated value.
+      `2026-0${(index % 9) + 1}-${String((index % 28) + 1).padStart(2, "0")}`,
+      narrativeFor(index),
+      now,
+      now,
+    );
 }
 
 function fileNameFor(index: number): string {
@@ -140,6 +181,9 @@ async function seedVolume(
           `VALUES (?, ?, NULL, ?, 'idle', NULL, ?, ?)`,
       )
       .run(newIdentifier("file", context.randomSource), matterId, fileNameFor(index), now, now);
+  }
+  for (let index = 0; index < TIME_ENTRIES_ON_MATTER; index += 1) {
+    insertTimeEntry(raw, context, matterId, actorUserId, index, now);
   }
   for (let index = 0; index < PACKETS_ON_MATTER; index += 1) {
     raw
@@ -209,6 +253,9 @@ async function seedVolume(
         )
         .run(newIdentifier("file", context.randomSource), otherId, fileNameFor(index), now, now);
     }
+    for (let index = 0; index < TIME_ENTRIES_PER_OTHER_MATTER; index += 1) {
+      insertTimeEntry(raw, context, otherId, actorUserId, index, now);
+    }
     // A background party carrying the SAME name, so the parties isolation assertion is about the
     // matter filter rather than about the firm happening to hold one Easton.
     const backgroundEntityId = newIdentifier("directoryPerson", context.randomSource);
@@ -266,20 +313,13 @@ describe("a matter search narrows by matter before it scans", () => {
       query: TERM,
     });
 
-    // Two sources DO materialise a sort, and both are recorded here rather than waved through.
-    //
-    // Notes order by COALESCE(occurred_on, date(created_at)) — the day the note is ABOUT, which is
-    // the expression the Notes tab itself orders by, and no index can serve a computed one. Parties
-    // order by the case-folded display name, which is resolved per row by subquery.
-    //
-    // Both are acceptable HERE and would not be on a firm-wide read, and the difference is the whole
-    // reason this assertion is scoped rather than absolute: the rows being sorted are the rows the
-    // substring scan has ALREADY read, bounded by one matter. The sort adds a log factor over work
-    // already done; it does not add a new dependency on the size of the firm. A source that
-    // materialised a sort over rows it had not already narrowed would fail the scan assertion above
-    // first.
+    // The register, not a pass mark. Every entry is acceptable for the same reason — the rows being
+    // sorted are rows the scan has already read, bounded by one matter — and the list exists so that
+    // a NEW source materialising a sort has to be added deliberately, by somebody who looked at
+    // whether it could cheaply have been avoided. The reasoning per source, and the index that would
+    // remove each one if it ever mattered, is in matter-search-measurements.ts.
     const sorts = findTempBtreeSorts(plans);
-    expect(sorts.toSorted()).toEqual(["matter-search.notes", "matter-search.parties"]);
+    expect(sorts.toSorted()).toEqual(MATTER_SEARCH_MATERIALISED_SORTS.toSorted());
   });
 
   it("returns only the searched matter's rows out of the firm's whole corpus", async () => {
@@ -308,9 +348,14 @@ describe("a matter search narrows by matter before it scans", () => {
       limit: 50,
       includeDeleted: false,
     });
+    // The sources this fixture lays down rows for. The other three (costs, calendar, matterAssets)
+    // are covered by the plan assertions above, which need no rows — and their isolation is a
+    // property of the SHARED BUILDER, proven per source over every registered statement in
+    // packages/matter-search/test/source-fitness.test.ts rather than per fixture here.
+    const seeded = new Set(["files", "notes", "custody", "time"]);
     for (const group of answer.groups) {
       expect(group.skipped).toBeNull();
-      if (group.source === "parties") continue; // answered under its own term below
+      if (!seeded.has(group.source)) continue;
       expect(group.hits.length, `${group.source} answered nothing at volume`).toBeGreaterThan(0);
     }
 
