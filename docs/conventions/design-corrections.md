@@ -114,6 +114,36 @@ is usually the fastest way to understand the rule.
 
 ### Controls and patterns
 
+- **Only a surface nobody can open yet wears a maturity mark.** A screen a member can reach does
+  not announce how finished it is: "Alpha" beside a working tab is a fact about the build, not
+  about the matter, and once eight of fourteen tabs carry one the navigation reads as a release
+  plan instead of the sections of a file. The labelled pill also cost each tab about as much width
+  as its own label, which is what pushed most of a section strip into an overflow menu. `soon` is
+  the one stage that still marks, because it states something a reader must know before they click
+  — there is nothing behind this yet — and it is the same device the standing "designed-but-unwired
+  ships visible and marked Soon" rule depends on. The stages themselves survive and still decide
+  whether a destination is a live link or a stub; reaching one just stopped being something the
+  product says out loud. Enforced in the model: `alpha` and `beta` present as null in
+  `apps/web/src/lib/maturity/maturity.ts`, exactly as `ready` does. _(matter section strip,
+  2026-08-31)_
+- **A vertical navigation rail belongs to the app shell, and there is only one.** A page that needs
+  more room does not answer it by standing a second rail inside the work canvas beside the shell's
+  own: two vertical navigations on one screen make the member ask which one they are in. Module
+  navigation stays in the page's own chrome, horizontal, however tight that gets. The section rail
+  proposed for matters was rejected on exactly this ground: it oversteps what the main shell does.
+  _(matter chrome arrangements, 2026-08-31)_
+- **The inline-end half of a masthead is a column, not a slot.** Where a page's chrome would
+  otherwise spend a whole row on navigation beneath the masthead, that navigation moves into the
+  empty half beside the title: actions on the title's row, the strip beneath them, packed to the
+  end and flush against the band's bottom rule so the active mark still lands on a rule. One band
+  instead of two. _(matter chrome, 2026-08-31)_
+- **A chrome band holds one height at every canvas width.** A band whose contents can wrap is a
+  band that grows as the window narrows, and an arrangement adopted to RECOVER vertical space that
+  grows past the one it replaced has done the opposite of its job. Whatever shares the row with
+  navigation truncates instead: the title and the citation each take an ellipsis, with the full
+  text on the element's `title`. Measure it at the narrow canvas before believing it — this one was
+  only visible at 1024 and cost 27px there while saving 42px at desk width. _(matter chrome,
+  2026-08-31)_
 - **A reveal toggle is the Lucide eye / eye-off icon, centered in a square hit target** — never a
   text toggle. _(auth flow, 2026-08-07)_
 - **Every non-initial step of a multi-step flow carries the same Back control**, from one component,
@@ -298,6 +328,32 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-08-31 — the matter chrome, section-navigation round
+
+The owner asked what could be done with the empty inline-end half of the matter masthead, which
+carried one overflow control while the section strip spent a whole row of its own below. Four
+arrangements were built from the shipping design system and measured against today's chrome; the
+generalizable parts are promoted above. What was decided:
+
+- **Arrangement B ships:** the actions on the title's row and the section strip beneath them, both
+  packed to the inline end, in one band with one rule. Chosen because it "retains most of what we
+  have" — the masthead keeps the serif title at masthead scale, the ledger line and the citation,
+  and the strip keeps its comfortable density and the gold bar. 152px of chrome becomes 111px.
+- **The section rail was rejected** for overstepping the main shell. Promoted above.
+- **The Alpha pillboxes come off everywhere**, so the navigation reads as the firm's actual usage
+  rather than as a build status. Promoted above.
+
+Engineering that the round produced rather than the owner:
+
+- The strip's fold arithmetic moved to `section-overflow.svelte.ts`, so the live nav and the
+  candidates could not fold their tabs by two different rules. It stayed after the candidates went.
+- An even split of the band was measured against a capped identity block, and both against a
+  wrapping one. Wrapping cost 27px at a 1024 canvas — a net loss. Capping the identity block
+  starved the strip to a single tab. The even split with a truncating title and a truncating
+  citation is what holds 111px at every width, and it is why the citation is now one joined string:
+  a flex row of separate entries cannot ellipsis, and truncating each entry to its share gives four
+  stubs and no citation.
 
 ### 2026-08-31 — the Build Versions panel
 

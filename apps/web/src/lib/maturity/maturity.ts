@@ -23,9 +23,19 @@
  *
  * TO RESTYLE A STAGE: change its row here. The badge variant and the dot colour move together.
  *
- * The progression climbs from muted grey (nothing yet) through blue (under way) to green (nearly
- * there), then to nothing at "ready" — a finished surface wears neither badge nor dot, so the
- * mark disappears the moment a surface graduates. Presentation is null there for that reason.
+ * ONLY "soon" WEARS A MARK. The owner's ruling (2026-08-31, issued against the matter section
+ * strip): a surface a member can actually open does not announce how finished it is. An "Alpha"
+ * pill beside a working tab is a fact about the build, not about the matter, and once eight of
+ * fourteen tabs carry one the navigation reads as a release plan instead of the sections of a
+ * file — it also cost each tab about as much width as its own label, which is what pushed most
+ * of the strip into an overflow menu. So `alpha` and `beta` present as null, exactly as `ready`
+ * does, and the marks live on only where they carry a fact a reader must have: "soon" means
+ * there is nothing behind this yet.
+ *
+ * The stages themselves are NOT collapsed. `hasSurface` still turns on them, the registries still
+ * declare them, and they still decide whether a destination is a live link or a stub — the change
+ * is that reaching a stage stopped being something the product says out loud. Giving `alpha` a
+ * presentation again is a one-line change here if the firm ever wants the ladder visible.
  */
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
 
@@ -42,16 +52,8 @@ export interface MaturityPresentation {
 
 export const MATURITY_PRESENTATION: Record<MaturityStage, MaturityPresentation | null> = {
   soon: { label: "Soon", badgeVariant: "neutral", dotColor: "var(--mc-text-muted)" },
-  alpha: {
-    label: "Alpha",
-    badgeVariant: "info",
-    dotColor: "var(--mc-status-info-subtle-foreground)",
-  },
-  beta: {
-    label: "Beta",
-    badgeVariant: "success",
-    dotColor: "var(--mc-status-success-subtle-foreground)",
-  },
+  alpha: null,
+  beta: null,
   ready: null,
 };
 
