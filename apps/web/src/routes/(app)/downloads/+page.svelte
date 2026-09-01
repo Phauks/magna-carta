@@ -18,6 +18,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Checkbox from "@magna-carta/design-system/checkbox";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -33,14 +34,29 @@
     type StoredExportDocument,
   } from "$lib/export/download-shelf.ts";
   import { markShelfChanged } from "$lib/export/download-shelf-signal.svelte.ts";
-  import { renderCsvExport } from "$lib/export/render-csv.ts";
-  import { renderRemoteExport } from "$lib/export/render-remote.ts";
-  import { renderTextExport } from "$lib/export/render-text.ts";
-  import { renderXlsxExport } from "$lib/export/render-xlsx.ts";
+  import {
+    bulkArchiveFilename,
+    bulkDownload,
+    BULK_CONTENT_TYPES,
+    renderStoredExport,
+  } from "$lib/export/bulk-download.ts";
   import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
 
   let items = $state<ShelfItem[] | null>(null);
   let failure = $state<StatedFailure | null>(null);
+  // Selection is the reason exporting generates rather than downloads: several items gathered over a
+  // morning are taken in one act. Held as ids so a refresh that drops a row drops it from the
+  // selection too, rather than leaving a phantom selected item nothing can act on.
+  let selectedIds = $state<string[]>([]);
+  let gathering = $state(false);
+
+  const selectedItems = $derived((items ?? []).filter((item) => selectedIds.includes(item.id)));
+
+  function toggleSelected(id: string): void {
+    selectedIds = selectedIds.includes(id)
+      ? selectedIds.filter((entry) => entry !== id)
+      : [...selectedIds, id];
+  }
 
   // The formats a stored export can be taken as. The same set the export menu offers, because the
   // stored document is the same document — a shelf that offered fewer would make keeping a copy
@@ -54,20 +70,13 @@
     { label: "Plain Text (.txt)", extension: "txt" },
   ] as const;
 
-  const CONTENT_TYPES: Record<string, string> = {
-    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "xlsx-single": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    pdf: "application/pdf",
-    csv: "text/csv;charset=utf-8",
-    txt: "text/plain;charset=utf-8",
-  };
-
   async function load(): Promise<void> {
     failure = null;
     const outcome = await readShelf(fetch);
     if (outcome.kind === "ok") {
       items = [...outcome.value.items];
+      const present = new Set(items.map((item) => item.id));
+      selectedIds = selectedIds.filter((id) => present.has(id));
     } else {
       items = null;
       failure = stated(outcome.failure, "Your downloads could not be read.");
@@ -80,21 +89,10 @@
 
   async function renderStored(stored: StoredExportDocument, extension: string): Promise<void> {
     const exportDocument = exportFromStored(stored);
-    const fileExtension = extension === "xlsx-single" ? "xlsx" : extension;
-    const rendered =
-      extension === "xlsx"
-        ? await renderXlsxExport(exportDocument, "worksheet-per-section")
-        : extension === "xlsx-single"
-          ? await renderXlsxExport(exportDocument, "single-worksheet")
-          : extension === "csv"
-            ? renderCsvExport(exportDocument)
-            : extension === "txt"
-              ? renderTextExport(exportDocument)
-              : await renderRemoteExport(exportDocument, extension === "pdf" ? "pdf" : "docx");
     saveExport(
-      rendered,
-      exportFilename(exportDocument, fileExtension),
-      CONTENT_TYPES[extension] ?? "application/octet-stream",
+      await renderStoredExport(exportDocument, extension),
+      exportFilename(exportDocument, extension === "xlsx-single" ? "xlsx" : extension),
+      BULK_CONTENT_TYPES[extension] ?? "application/octet-stream",
     );
   }
 
@@ -119,6 +117,42 @@
       void load();
     } catch {
       toast.error("That download could not be produced. Try again shortly.");
+    }
+  }
+
+  /*
+   * Take everything selected in one act. Snapshots render and travel in a single archive; artifacts
+   * cannot join it — their bytes reach the member over a presigned URL the browser downloads
+   * directly — so each is opened on its own after. A partial result is always reported as partial.
+   */
+  async function takeSelected(): Promise<void> {
+    if (selectedItems.length === 0 || gathering) return;
+    gathering = true;
+    try {
+      const result = await bulkDownload(fetch, selectedItems);
+      if (result.archive !== null) {
+        saveExport(result.archive, bulkArchiveFilename(new Date()), "application/zip");
+      }
+      const unreachable: ShelfItem[] = [];
+      for (const artifact of result.artifacts) {
+        const outcome = await fetchShelfItem(fetch, artifact.id, "file");
+        if (outcome.kind === "ok" && outcome.value.url !== undefined) {
+          globalThis.open(outcome.value.url, "_blank");
+        } else {
+          unreachable.push(artifact);
+        }
+      }
+      const short = result.failed.length + unreachable.length;
+      if (short > 0) {
+        toast.error(
+          `${String(short)} of ${String(selectedItems.length)} could not be produced. The rest downloaded.`,
+        );
+      }
+      selectedIds = [];
+      void load();
+      markShelfChanged();
+    } finally {
+      gathering = false;
     }
   }
 
@@ -182,17 +216,33 @@
   </div>
 {:else if items.length === 0}
   <EmptyState title="Nothing here yet">
-    Reports and files the platform makes for you gather here for a week, so you can take them again
-    without running them a second time. Download something from any screen and it will appear.
+    Reports and files the platform makes for you gather here for a week. Export something from any
+    screen and it appears here, ready to download whenever you want it — on its own, or together
+    with everything else you have gathered.
   </EmptyState>
 {:else}
+  {#if selectedItems.length > 0}
+    <!-- Present only while a selection is in play: its absence is itself the answer to whether
+         anything is selected. -->
+    <div class="mb-16 flex items-center gap-8">
+      <Button onclick={() => void takeSelected()} disabled={gathering}>
+        <Download class="size-16" aria-hidden="true" />
+        {gathering ? "Gathering" : `Download ${String(selectedItems.length)} Selected`}
+      </Button>
+      <Button variant="ghost" onclick={() => (selectedIds = [])} disabled={gathering}>
+        Clear selection
+      </Button>
+    </div>
+  {/if}
   <DataTable.Root>
     <DataTable.Caption class="sr-only">Your downloads</DataTable.Caption>
     <DataTable.Header>
       <DataTable.Row>
+        <DataTable.Head><span class="sr-only">Select</span></DataTable.Head>
         <DataTable.Head>Name</DataTable.Head>
         <DataTable.Head>Source</DataTable.Head>
-        <DataTable.Head>Taken As</DataTable.Head>
+        <DataTable.Head>Format</DataTable.Head>
+        <DataTable.Head>Downloaded</DataTable.Head>
         <DataTable.Head>Created</DataTable.Head>
         <DataTable.Head>Available Until</DataTable.Head>
         <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
@@ -201,8 +251,18 @@
     <DataTable.Body>
       {#each items as item (item.id)}
         <DataTable.Row>
+          <DataTable.Cell>
+            <Checkbox
+              checked={selectedIds.includes(item.id)}
+              onCheckedChange={() => toggleSelected(item.id)}
+              aria-label={`Select ${item.title}`}
+            />
+          </DataTable.Cell>
           <DataTable.Cell>{item.title}</DataTable.Cell>
           <DataTable.Cell>{PRODUCER_LABELS[item.producer] ?? item.producer}</DataTable.Cell>
+          <DataTable.Cell>
+            {item.requestedFormat === null ? "" : item.requestedFormat.toUpperCase()}
+          </DataTable.Cell>
           <DataTable.Cell>{formatTaken(item.downloadedFormats)}</DataTable.Cell>
           <DataTable.Cell>{formatStamp(item.createdAt)}</DataTable.Cell>
           <DataTable.Cell>{formatStamp(item.expiresAt)}</DataTable.Cell>

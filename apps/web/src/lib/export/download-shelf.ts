@@ -26,6 +26,8 @@ export interface ShelfItem {
   readonly kind: ShelfItemKind;
   readonly producer: ShelfItemProducer;
   readonly byteSize: number | null;
+  /** The format it was made for; null on rows written before exports recorded one. */
+  readonly requestedFormat: string | null;
   readonly downloadedFormats: readonly string[];
   readonly createdAt: string;
   readonly expiresAt: string;
@@ -77,10 +79,37 @@ export function keepExportOnShelf(
   fetchImpl: typeof fetch,
   exportDocument: TabularExportDocument,
   format: string,
+  /** True only when a file was actually saved in the same act — the download-immediately path. */
+  taken = false,
 ): Promise<ApiOutcome<{ id: string }>> {
   return requestJson<{ id: string }>(fetchImpl, "/api/v1/downloads/snapshots", {
     method: "POST",
-    body: { title: exportDocument.title, format, document: storedFromExport(exportDocument) },
+    body: {
+      title: exportDocument.title,
+      format,
+      taken,
+      document: storedFromExport(exportDocument),
+    },
+  });
+}
+
+export interface DownloadPreferences {
+  readonly saveImmediately: boolean;
+}
+
+export function readDownloadPreferences(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<DownloadPreferences>> {
+  return requestJson<DownloadPreferences>(fetchImpl, "/api/v1/downloads/preferences");
+}
+
+export function writeDownloadPreferences(
+  fetchImpl: typeof fetch,
+  preferences: DownloadPreferences,
+): Promise<ApiOutcome<DownloadPreferences>> {
+  return requestJson<DownloadPreferences>(fetchImpl, "/api/v1/downloads/preferences", {
+    method: "PUT",
+    body: preferences,
   });
 }
 

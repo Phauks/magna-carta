@@ -51,6 +51,8 @@ export interface RecordSnapshotInput {
   readonly memberId: string;
   readonly title: string;
   readonly document: StoredTabularDocument;
+  /** The format the member chose on the export control — what a later download defaults to. */
+  readonly requestedFormat: string;
   readonly now: Date;
 }
 
@@ -79,6 +81,7 @@ export async function recordExportSnapshot(input: RecordSnapshotInput): Promise<
       objectKey,
       // A snapshot's size is a property of a rendering nobody has asked for yet, not of the row.
       byteSize: null,
+      requestedFormat: input.requestedFormat,
       createdAt: input.now.toISOString(),
       expiresAt: shelfExpiry(input.now),
       state: "ready",
@@ -133,6 +136,8 @@ export function artifactShelfStatement(
     producer: row.producer,
     objectKey: row.objectKey,
     byteSize: row.byteSize,
+    // An artifact is bytes in one shape already; nobody chose a format for it.
+    requestedFormat: null,
     createdAt: row.now.toISOString(),
     expiresAt: shelfExpiry(row.now),
     state: "ready",

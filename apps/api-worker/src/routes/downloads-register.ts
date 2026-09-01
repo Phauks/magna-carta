@@ -41,6 +41,8 @@ const DownloadItemView = z
     kind: z.enum(["artifact", "snapshot"]),
     producer: z.enum(["export", "bundle", "conversion"]),
     byteSize: z.number().nullable(),
+    // What it was made for, distinct from what has been taken.
+    requestedFormat: z.string().nullable(),
     // Which formats this member has already taken. Empty means built and never fetched, which is a
     // real state the shelf shows rather than hides.
     downloadedFormats: z.array(z.string()),
@@ -78,9 +80,14 @@ const FetchRequest = z
 const SnapshotRequest = z
   .object({
     title: z.string().min(1).max(200),
-    // The format the member took it as right now. The document itself is format-free, so this is
-    // what the row starts its taken-list with.
+    // The format the member CHOSE on the export control. The document itself is format-free, so
+    // this is what a later download defaults to.
     format: z.string().min(1).max(16),
+    // Whether that format has actually been downloaded. Exporting GENERATES onto the shelf by
+    // default and produces no file, so the format asked for is not yet a format taken; only the
+    // member's download-immediately setting makes it both at once. Recording an untaken format as
+    // taken would tell them they already have a file that was never made.
+    taken: z.boolean().default(false),
     document: storedTabularDocumentSchema,
   })
   .openapi("DownloadSnapshotRequest");
@@ -274,7 +281,7 @@ export function registerDownloadRegisterRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const { title, format, document } = c.req.valid("json");
+      const { title, format, taken, document } = c.req.valid("json");
       const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
       const now = new Date();
       const id = await recordExportSnapshot({
@@ -283,21 +290,24 @@ export function registerDownloadRegisterRoutes(
         memberId: userId,
         title,
         document,
+        requestedFormat: format,
         now,
       });
-      // The format the member just took, and the audit row for the export itself — the first record
-      // of it anywhere, since the printer that rendered it stores nothing.
+      // The audit row for the export itself — the first record of it anywhere, since the printer
+      // that rendered it stores nothing — plus the taken-format only when a file really was produced.
       await commitEffectBatch(
         firm.firmDatabase,
         {
           statements: [
-            recordDownloadedFormatStatement(firm.firmDatabase, userId, id, format),
+            ...(taken
+              ? [recordDownloadedFormatStatement(firm.firmDatabase, userId, id, format)]
+              : []),
             insertAuditLogStatement(firm.firmDatabase, {
               id: newIdentifier("auditLog"),
               event: "downloads.exportKept",
               actorUserId: userId,
               subjectId: id,
-              metadata: { title, format, sections: document.sections.length },
+              metadata: { title, format, taken, sections: document.sections.length },
               now: now.toISOString(),
             }),
           ],
@@ -323,6 +333,7 @@ export function registerDownloadRegisterRoutes(
             kind: row.kind,
             producer: row.producer,
             byteSize: row.byteSize,
+            requestedFormat: row.requestedFormat,
             downloadedFormats: [...row.downloadedFormats],
             createdAt: row.createdAt,
             expiresAt: row.expiresAt,
