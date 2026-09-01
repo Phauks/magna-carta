@@ -208,17 +208,17 @@ So snippets are permitted, with two constraints that keep the permission honest:
 ## 4. The API: one route
 
 ```
-GET /api/v1/matters/{matterId}/search?q=&in=&limit=&cursor=
+GET /api/v1/matters/{matterId}/search?q=&in=&limit=&includeDeleted=
 ```
 
 ### 4.1 Parameters
 
-| Name     | Meaning                                                                                                                                                                                             |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `q`      | The query. 2–200 characters; a source with a higher `minimumQueryLength` reports itself skipped rather than answering emptily.                                                                      |
-| `in`     | Repeatable source key. **Absent means every source the member may read** — there is no magic "everything" value, because the vocabulary must never grow a word that means "wider than this matter". |
-| `limit`  | Per-source cap. Defaults to the panel's need; the results page asks for more.                                                                                                                       |
-| `cursor` | Per-group continuation, on the platform's shipped keyset encoding.                                                                                                                                  |
+| Name             | Meaning                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `q`              | The query. 2–200 characters; a source with a higher `minimumQueryLength` reports itself skipped rather than answering emptily.                                                                                                                                                                                                                                        |
+| `in`             | Repeatable source key. **Absent means every source the member may read** — there is no magic "everything" value, because the vocabulary must never grow a word that means "wider than this matter".                                                                                                                                                                   |
+| `limit`          | Per-source cap. Defaults to the panel's need; the results page asks for more.                                                                                                                                                                                                                                                                                         |
+| `includeDeleted` | Whether records the firm deleted join the answer. Honored only by the sources that DECLARE they can honor it. **Not built: a per-group cursor.** A group reports `hasMore` and the results page raises the limit rather than walking; paging one group without the others is a shape the surface has no use for yet, and the keyset it would need differs per source. |
 
 `in` **narrows the registry before any statement is built** — the calendar's `select()` precedent. A
 Files-only search issues one statement, not fourteen. This is what makes the default scope cheap:
