@@ -8,8 +8,12 @@
  * ledger derives from. Nothing here invents a synonym, softens a word, or collapses two of them:
  * `superseded` is not `released`, `lost` is a first-class recordable state and not an absence, and
  * a register that renamed either would be describing something the record does not say. Rendering
- * `out` as "Checked out" is not an exception to that: it is the same state under the ledger's own
- * word for the movement that causes it, which is the one form of it a reader can act on.
+ * `out` as "On loan" is not an exception to that: it is the same state under the ledger's own noun
+ * for the person who has it, and the pair it belongs to is what had to be legible. `out` and
+ * `released` are the two states in which property is off the shelf, and they are opposites — a loan
+ * is the firm's to get back, a release has ended the firm's custody — so a label that left them
+ * reading as the same event was the defect. The ACT is still "Checked out", in the movement labels
+ * below, because a history is read as a sentence about what somebody did.
  *
  * WHERE THE STATUSES LIVE. Not here. A status word's label, tone and meaning belong to the design
  * system's status register, whose whole point is that a word carries the same tone wherever it

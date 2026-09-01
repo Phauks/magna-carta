@@ -357,11 +357,14 @@ surface, which is most of the product.
   filter set and a print sheet over records nobody can add is a reader for somebody else's data. The
   entry path ships with the surface, and where the backend already serves it, its absence is the
   defect rather than the roadmap. _(Custodian register, 2026-09-01)_
-- **A status word says what it means without a legend.** Where the one-word form of a state leaves a
-  reader asking what it is — "Out" beside a packet — the label takes the domain's own longer word for
-  the act that produces it ("Checked out"). This is not renaming the state and never licenses a
-  synonym: the enum, the ledger and the filter are unchanged, and the word chosen is one the domain
-  already writes. _(Custodian register, 2026-09-01)_
+- **A status word is legible against the others in its set, not on its own.** Where a state leaves a
+  reader asking what it is, the label takes a word the domain already writes for it — but the test
+  it has to pass is the PAIR: custody's "Out" became "Checked out" and was then read as the same
+  event as "Released", because both merely say the property left the building. "On loan" carries the
+  return, which is the one thing that distinguishes it from a release. Fixing a word in isolation
+  and shipping it beside the word it collides with is half the correction. This never licenses a
+  synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
+  own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
 
 ### Spacing and rhythm
 
@@ -411,10 +414,17 @@ What is local to this surface:
   is never blocked by what the firm holds. That is true, and it is a fact about the close path, so
   it is stated where closing happens rather than on a screen that is not closing anything.
 - **The primary action is "New".** The register creates one kind of thing, so it needs no menu.
-- **"Out" now reads "Checked out".** The owner reported not knowing what Out meant, and listed the
-  statuses they believed real: Held, Released, Destroyed, Lost. Out is real — it is what the ledger
-  derives from a `checked_out` movement, and a checked-out packet has nowhere else to render — so it
-  was relabelled rather than removed. Promoted above.
+- **"Out" now reads "On loan", after a first pass at "Checked out" was rejected.** The owner
+  reported not knowing what Out meant, and listed the statuses they believed real: Held, Released,
+  Destroyed, Lost. Out is real — it is what the ledger derives from a `checked_out` movement, it
+  carries the borrower and the due-back date the overdue report is built from, and a checked-out
+  packet has nowhere else to render — so it was relabelled rather than removed. "Checked out" did
+  not survive contact: the owner's answer was that checked out and released are the same thing, and
+  read as labels alone they are, since both only say the property is not on the shelf. The pair has
+  to separate itself without a legend, so the state is "On loan" (the firm's to get back) against
+  "Released" (the firm's custody has ended), and both hovers now state the ending or the return
+  rather than only the handover. The ACT stays "Checked out" in the history, where it is read as a
+  sentence about what somebody did. Promoted above.
 - **The empty register was running off the right-hand edge**, and it was never this screen's defect:
   the grid's cells are `white-space: nowrap` for the sake of aligned columns, the placeholder cell
   inherited it, and a wordy empty state therefore widened the table past its own frame. Fixed in the

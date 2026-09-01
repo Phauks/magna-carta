@@ -91,6 +91,11 @@ Give it a **due-back date**. This is the one field that does the most work in th
 overdue list is built from it, and it is the reason you find out that a deed has been in someone's
 office for five weeks.
 
+While it is out the packet reads **On loan**, which is deliberately not the same word as
+**Released**. A loan is still yours and has a date against it; a release has ended your custody for
+good and is the one step you cannot undo. They are the two states in which something is not on the
+shelf, and they are opposites.
+
 Checking it back in records where it went back to. You can also move a packet between locations, take
 a single item out of a packet, give an original back to its owner for good (see below — that one
 takes more), or record that something is **lost** — recording a loss honestly is far better than a
