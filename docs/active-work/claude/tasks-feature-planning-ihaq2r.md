@@ -1,8 +1,8 @@
 ---
 worktree: (remote session — no local worktree path)
-area: Tasks — scope study only, no code. Reads across calendar, timekeeping, notifications, notes, custom-fields.
-status: designing
-touches: docs/specs/2026-09-01-tasks-scope-study.md
+area: Tasks — the scope study, then the build: @magna-carta/tasks, the schema, the routes, the two screens.
+status: review
+touches: packages/tasks, packages/database, packages/notifications, packages/calendar/src/sources, packages/access-control, packages/identifiers, packages/data-access/src/pii-registry.ts, apps/api-worker, apps/web, roadmap.d/tasks.md, status.d, ROADMAP.md
 ---
 
 # claude/tasks-feature-planning-ihaq2r
@@ -18,8 +18,17 @@ This stream does not rewrite it. It reads the brief against that design, records
 design already settles, what it deliberately refuses, and what the brief adds that the design
 never considered — and it re-verifies the design's claims against `main`, which has moved.
 
-**Writes one file**
-([`../../specs/2026-09-01-tasks-scope-study.md`](../../specs/2026-09-01-tasks-scope-study.md))
-and touches nothing else. No schema, no package, no route, no ledger status move — a design
-nobody has accepted has not advanced a capability, which is the precedent
-`roadmap.d/tasks.md` already follows.
+The study landed first
+([`../../specs/2026-09-01-tasks-scope-study.md`](../../specs/2026-09-01-tasks-scope-study.md)).
+The owner then answered its four gating questions — nullable matter, a platform priority enum, both
+cancel and delete, and a first slice carrying both screens — and the build follows those answers.
+
+**What is in flight.** The task record and its two screens, tracked as slice 6·3. Concurrent streams
+should know this touches four shared things: `packages/notifications` gains an audience and a
+payload key on the type (three recipient-resolution call sites change with it),
+`packages/calendar/src/sources/all.ts` gains one source entry, `packages/database`'s per-firm schema
+gains two tables and widens three CHECKs (two table rebuilds), and `apps/web`'s matter section map
+and sidebar destinations each gain one entry.
+
+**Not in flight, and not this stream's:** matter plans and their templates, the time-entry link, and
+the board view. Each is gated on an owner answer named in the scope study.

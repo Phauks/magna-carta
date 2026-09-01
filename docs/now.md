@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 273 | 43% |
-| Part-built | partial, in-build | 114 | 18% |
-| Ahead | designed, planned, researching, not-started | 210 | 33% |
+| Done | shipped | 274 | 43% |
+| Part-built | partial, in-build | 115 | 18% |
+| Ahead | designed, planned, researching, not-started | 208 | 33% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **638** | **100%** |
 
@@ -40,20 +40,20 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 273 | 43% |
-| `partial` | 113 | 18% |
+| `shipped` | 274 | 43% |
+| `partial` | 114 | 18% |
 | `in-build` | 1 | 0% |
-| `designed` | 45 | 7% |
-| `planned` | 16 | 2% |
+| `designed` | 46 | 7% |
+| `planned` | 16 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 144 | 23% |
+| `not-started` | 141 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
 | **All statuses** | **638** | **100%** |
 
 ### What a roll-up is not
 
-**137 of the 775 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**137 of the 775 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 273 of 638 (43%). Shipped plus partial is 386 (61%).**
+**Shipped alone is 274 of 638 (43%). Shipped plus partial is 388 (61%).**
 
-The 113 units between those two numbers are work that is engineered and paid for and is not
+The 114 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**387 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**389 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 32 | 8% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 47% |
+| A person can open it today (`screen`) | 34 | 9% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
 | No user surface by nature (`internal`) | 175 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **387** | **100%** |
+| **Everything with something built** | **389** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -124,9 +124,9 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
-| Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
+| Tasks and Workflows / Matter Plans | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 3 | 33% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **273** | **113** | **1** | **45** | **16** | **5** | **144** | **38** | **3** | **638** | **43%** |
+| **All areas** | **274** | **114** | **1** | **46** | **16** | **5** | **141** | **38** | **3** | **638** | **43%** |
 
 ## Where we have been
 
@@ -356,7 +356,7 @@ in this one.
 - **Payments** (`payments`) — **A group of capabilities.** The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
 - **Trust-compliance reports** (`reports.trust-compliance`) — **Built; no screen yet.** What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
 - **Entitlement model** (`self-serve.entitlements`) — **A group of capabilities.** Whether a withheld capability can be metered rather than locked. The container-backed tools — recognition, conversion, repair, unlocking — cost real compute per invocation, and a handful of runs demonstrates the tool while a locked button demonstrates nothing. Metering is a third enforcement shape, a counter with a period beside the mask and the quota ceilings, and it is real work; the alternative is to lock them for the first version and say so plainly in the catalog. Self-serve provisioning design flag F6.
-- **Tasks and workflows** (`tasks`) — **A group of capabilities.** Two calls decide the shape of the first slice. Whether tasks wait for the note primitive or ship independently of it — they are separable in schema but not in surface, and tasks built first would be the subsystem tempted to invent an activity stream of its own. And whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Tasks and matter plans design flags W7 and W8.
+- **Tasks and workflows** (`tasks`) — **A group of capabilities.** W7 is answered by event — the note primitive shipped first, and tasks were built on the activity stream it settled. What remains is W8, whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Four calls raised by the 2026-09-01 scope study are open and shape the remainder rather than the record: T2 (whether a time entry's task link is one-to-one or many-to-many), T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).
 - **Human-attested certification** (`translation.certification`) — **Parked.** Whether the platform offers human-attested certification at all. It is the difference between a reading aid and something a firm can file — under the governing federal standard a competent person may run an engine, review the output line by line and then sign, at which point the certificate is true — and it is also the part with the most ways to go wrong, so the recommendation is yes but only once the artifacts it would certify exist. A no means the product ships permanently as an explicitly non-certifying reading aid, which changes nothing else in this area. Translation design flag T3.
 
 Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.
@@ -429,6 +429,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `self-serve.free-tier` · **Free evaluation tier** — What a free workspace withholds and why — the capabilities withheld because an unverified firm should not do them, and the ones withheld because they spend real money or a scarce account resource per use.
 - `self-serve.verification` · **Firm verification** — A second axis beside the tier — evidence that a real practice exists — unlocking the capabilities withheld for integrity rather than for cost.
 - `self-serve.upgrade-seam` · **Upgrade and lapse seam** — The single writer that moves a firm's tier, what a future payments integration must supply to call it, and what happens to a paid firm whose subscription lapses.
+- `tasks.matter-plans` · **Matter plans** — Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.
 - `translation` · **Translation services** — Machine translation of pasted text and of matter documents, aligned side-by-side and target-only renditions, and a provenance record of how each translation was produced.
 - `translation.pasted-text` · **Pasted-text translation** — A member pastes a passage, names a language pair, and reads the result aligned beside the original on the matter-free tool surface.
 - `translation.documents` · **Document translation** — Translating an uploaded or already-filed document end to end — conversion where needed, per-page native or recognized text extraction, segmentation into aligned units, and where the translation lands in the matter.
@@ -1354,12 +1355,12 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Tasks and Workflows / Matter Plans
 
-[`roadmap.d/tasks.md`](../roadmap.d/tasks.md) — 3 units of work, 0% shipped. 0 done, 0 part-built, 3 ahead, 0 parked.
+[`roadmap.d/tasks.md`](../roadmap.d/tasks.md) — 3 units of work, 33% shipped. 1 done, 1 part-built, 1 ahead, 0 parked.
 
-- `tasks` · `not-started` · **Tasks and workflows** — Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.
-  - `tasks.task-lists` · `not-started` · **Task lists** — Tasks with assignments and due dates on matters.
-  - `tasks.matter-plans` · `not-started` · **Matter plans** — Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.
-  - `tasks.workflow-model` · `not-started` · **Workflow model** — Template authoring, task dependencies/sequencing, assignment and reassignment, due-date derivation (including from docketing), notification/escalation, completion tracking.
+- `tasks` · `partial` · **Tasks and workflows** — Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.
+  - `tasks.task-lists` · `shipped` · **Task lists** — Tasks with assignments and due dates, on a matter or on none.
+  - `tasks.matter-plans` · `designed` · **Matter plans** — Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.
+  - `tasks.workflow-model` · `partial` · **Workflow model** — Template authoring, task dependencies/sequencing, assignment and reassignment, due-date derivation (including from docketing), notification/escalation, completion tracking.
 
 ### Translation Services
 
