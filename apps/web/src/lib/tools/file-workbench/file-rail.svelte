@@ -15,8 +15,9 @@
    *
    * DRAGGING FILES ONTO IT. The whole region is the drop target; there is no dashed box. A box
    * would either cover the rows or sit under them taking space, and the thing a person actually
-   * drags onto is the list. The behaviour is DropTarget, which draws nothing — the region lights up
-   * through its own border while a drag is over it.
+   * drags onto is the list. The behaviour is DropTarget, which draws nothing — the region tints and
+   * takes an INSET ring while a drag is over it, so the affordance costs no layout at rest and the
+   * rows stay flush against the edge this pane shares with the readings.
    *
    * ONE MENU, TWO GESTURES. Each row's triple-dot button and a right-click on the row open the same
    * decided list (row-menu.ts). Discarding a file is that file's own verb and lives only there:
@@ -30,6 +31,7 @@
   import { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
   import Upload from "@lucide/svelte/icons/upload";
   import { scanStatus } from "./capabilities/malware-scan.ts";
@@ -41,6 +43,7 @@
   let {
     grid,
     files,
+    activeId,
     onFiles,
     onDiscard,
     onRowAction,
@@ -49,6 +52,8 @@
     /** The grid, created by the screen because the screen reads and drives its selection. */
     grid: DataTable.DataTableGridState<WorkbenchFile>;
     files: readonly WorkbenchFile[];
+    /** The file the readings are about, marked in its row. Null before anything is chosen. */
+    activeId: string | null;
     onFiles: (dropped: File[]) => void;
     onDiscard: (ids: readonly string[]) => void;
     onRowAction: (item: RowMenuItem, file: WorkbenchFile) => void;
@@ -81,6 +86,16 @@
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<WorkbenchFile>)}
   {#if column.id === RAIL_COLUMNS.name}
     <span class="flex min-w-0 items-center gap-8">
+      <!-- Which row the readings are about. A selection tints every row it holds, and a bulk
+           conversion holds many, so the tint cannot also say which single file the panel on the
+           right is reading. The marker keeps its width whether or not it is drawn, so marking a
+           row never shifts the names beside it. -->
+      <span class="flex w-8 shrink-0 justify-center">
+        {#if row.id === activeId}
+          <ChevronRight class="size-12 text-accent-default" aria-hidden="true" />
+          <span class="sr-only">Being read</span>
+        {/if}
+      </span>
       <FileIcon fileName={row.name} contentType={row.declaredMediaType} size="sm" />
       <span class="block truncate" title={row.name}>{row.name}</span>
     </span>
@@ -123,12 +138,16 @@
 {/snippet}
 
 <div class="flex h-full min-h-0 flex-col">
-  <!-- The drop region is the list itself. The border is the only thing that changes under a drag,
-       so no row moves and nothing is covered. -->
+  <!-- The drop region is the list itself, and it takes NO layout to say so: an inset ring drawn on
+       the drag rather than a transparent border held at rest, which would inset every row from the
+       divider this pane is supposed to touch. Nothing moves when a drag arrives and nothing is
+       covered. The ring is the matter file list's, for the same gesture on the same kind of pane. -->
   <div
-    class="flex min-h-0 flex-1 flex-col rounded-md border-2 border-transparent"
-    class:border-accent-default={dropTarget.over}
+    class="flex min-h-0 flex-1 flex-col"
     class:bg-accent-subtle={dropTarget.over}
+    style={dropTarget.over
+      ? "box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0) var(--mc-focus-ring-width) var(--mc-accent-strong)"
+      : undefined}
     {...dropTarget.handlers}
   >
     <ContextMenu.Root>
@@ -176,5 +195,8 @@
     </ContextMenu.Root>
   </div>
 
-  <DataTable.GridFooter {grid} />
+  <!-- The list's own footer, seated on the list's bottom edge: the count, the selection and the
+       gestures that change it all read where the rows they describe end. The rule is what makes it
+       the list's footer rather than a line under the whole frame. -->
+  <DataTable.GridFooter {grid} selectAllToggle class="border-t border-border-default" />
 </div>

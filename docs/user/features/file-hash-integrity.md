@@ -46,6 +46,7 @@ All five are produced from a single read of the file, so asking for every finger
    - **Match** — the file is byte-for-byte identical to what was taken in. It has not been altered or corrupted.
    - **Mismatch** — the file differs from what was recorded at intake. Treat this as a red flag and investigate (see below).
    - **No baseline** — no fingerprint was recorded for this file at intake, so there is nothing to compare against. The current fingerprints are still shown.
+4. All five fingerprints are listed whichever result you get. Click one to copy it.
 4. Download the **receipt** — a record of the file, its fingerprints, the result, and the time of the check.
 
 ## Tips and edge cases

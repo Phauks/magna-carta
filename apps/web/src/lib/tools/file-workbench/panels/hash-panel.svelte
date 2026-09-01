@@ -2,25 +2,23 @@
   /*
    * The file's digests, and the field for checking one against a digest someone sent you.
    *
-   * These are computed here, in this browser, over the bytes you handed the page. That is the right
-   * figure for a workbench where nothing is filed, and it is not the figure that would go into a
-   * record: a digest in a record is computed by the server over the bytes the server received. The
-   * panel says so rather than letting the two be taken for the same thing.
+   * The digests themselves are DigestList, the design system's one recipe for showing them — the
+   * same component the matter file's inspector shows its five in. Two surfaces drawing the same
+   * reading two ways is how they drift, and this one had already grown its own spacing, its own
+   * pending state and a copy button in a different place.
+   *
+   * WHERE THESE CAME FROM IS NOT A ROW HERE. It used to be: a "Computed by — This browser" row
+   * under the digests. The masthead already says nothing leaves this browser, which covers every
+   * reading on the screen, and repeating it per panel says the same thing five times over.
    */
+  import DigestList, { type DigestEntry } from "@magna-carta/design-system/digest-list";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
-  import Copy from "@lucide/svelte/icons/copy";
-  import FactTable, { type Fact } from "../parts/fact-table.svelte";
   import Absence from "../parts/absence.svelte";
   import SectionHeading from "../parts/section-heading.svelte";
-  import {
-    BROWSER_DIGEST_ALGORITHMS,
-    digestMatches,
-    type BrowserDigests,
-  } from "../digest.ts";
-  import { formatExactBytes, outcomeFor, type WorkbenchFile } from "../workbench-file.ts";
+  import { BROWSER_DIGEST_ALGORITHMS, digestMatches, type BrowserDigests } from "../digest.ts";
+  import { outcomeFor, type WorkbenchFile } from "../workbench-file.ts";
   import type { CapabilityPanelProps } from "../capability.ts";
 
   let { file }: CapabilityPanelProps = $props();
@@ -28,6 +26,12 @@
   const HASH_CAPABILITY = "hash";
   const outcome = $derived(outcomeFor<BrowserDigests>(file, HASH_CAPABILITY));
   const digests = $derived(outcome.kind === "result" ? outcome.value : null);
+
+  const entries = $derived(
+    BROWSER_DIGEST_ALGORITHMS.map(
+      (algorithm): DigestEntry => ({ algorithm, value: digests?.[algorithm] ?? null }),
+    ),
+  );
 
   let pasted = $state("");
   // Cleared when the file in focus changes: a comparison left standing from the previous file is
@@ -46,25 +50,8 @@
     return matched ?? false;
   });
 
-  const facts = $derived.by((): Fact[] => {
-    if (!digests) return [];
-    return [
-      ...BROWSER_DIGEST_ALGORITHMS.map((algorithm) => ({
-        label: algorithm,
-        value: digests[algorithm],
-        mono: true,
-      })),
-      { label: "Over", value: formatExactBytes(file.sizeBytes) },
-      {
-        label: "Computed by",
-        value: "This browser",
-        note: "A digest that goes into a record is computed by the server over the bytes it received.",
-      },
-    ];
-  });
-
-  async function copyDigest(): Promise<void> {
-    if (digests) await navigator.clipboard.writeText(digests["SHA-256"]);
+  async function copy(entry: DigestEntry): Promise<void> {
+    if (entry.value !== null) await navigator.clipboard.writeText(entry.value);
   }
 
   const describe = (target: WorkbenchFile): string => target.name;
@@ -72,7 +59,10 @@
 
 {#if digests}
   <div class="flex flex-col gap-24">
-    <FactTable title="Fingerprints" {facts} />
+    <div class="flex flex-col gap-8">
+      <SectionHeading>Fingerprints</SectionHeading>
+      <DigestList digests={entries} onCopy={(entry) => void copy(entry)} />
+    </div>
 
     <div class="flex flex-col gap-8">
       <SectionHeading>Confirm It Has Not Changed</SectionHeading>
@@ -95,16 +85,14 @@
         <Badge variant="success">Matches the {comparison} digest</Badge>
       {/if}
     </div>
-
-    <div class="flex gap-8">
-      <Button variant="secondary" size="sm" onclick={copyDigest}>
-        <Copy class="size-16" aria-hidden="true" />
-        Copy SHA-256
-      </Button>
-    </div>
   </div>
 {:else if outcome.kind === "failed"}
-  <Absence kind="failed" reason={outcome.errorId === undefined ? outcome.message : `${outcome.message} Error ID ${outcome.errorId}.`} />
+  <Absence
+    kind="failed"
+    reason={outcome.errorId === undefined
+      ? outcome.message
+      : `${outcome.message} Error ID ${outcome.errorId}.`}
+  />
 {:else}
   <Absence kind="not-run" reason="This file has not been read yet." />
 {/if}

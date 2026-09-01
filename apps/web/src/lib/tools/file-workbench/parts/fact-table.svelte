@@ -1,11 +1,18 @@
 <script lang="ts">
   /*
-   * A panel's findings, in a table with its own heading and its own edges.
+   * A panel's findings, in a table under its own heading.
    *
    * Readings used to sit as a bare label-and-value list, which left every panel looking like text
    * poured onto the page: nothing said where one set of findings ended and the next began, and a
-   * long value ran into the heading under it. A table has edges, and the edges are the point — the
-   * heading belongs to the rows beneath it, and the block is a thing rather than a region.
+   * long value ran into the heading under it. A table fixes that — the heading belongs to the rows
+   * beneath it, and the columns hold.
+   *
+   * NO FRAME OF ITS OWN. The readings panel is already a contained thing, so a table drawing its
+   * own rounded border inside it is a box in a box, and three of them stacked read as three
+   * unrelated objects that happen to share a pane. The heading rule is what separates one set of
+   * findings from the next; the panel's edge is the only edge. This is the matter file list's
+   * reasoning too, where the grid drops its card frame because the toolbar and footer already
+   * frame it.
    *
    * The design system's table primitives, so a findings table is drawn by the same recipe as the
    * matter's ledgers.
@@ -38,7 +45,7 @@
   };
 </script>
 
-<DataTable.Root class="w-full">
+<DataTable.Root class="w-full rounded-none border-0">
   <DataTable.Header>
     <DataTable.Row>
       <DataTable.Head colspan={2} style="letter-spacing: var(--mc-tracking-caps)">

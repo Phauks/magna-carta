@@ -22,6 +22,7 @@
   import { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
+  import DigestList, { type DigestEntry } from "@magna-carta/design-system/digest-list";
   import Separator from "@magna-carta/design-system/separator";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { formatInstant } from "@magna-carta/design-system/formatters";
@@ -49,6 +50,20 @@
     type MatterFileVersion,
   } from "./matter-file-api.ts";
   import { INSPECTOR_TABS, type InspectorTab } from "./file-manager-state.svelte.ts";
+
+  /*
+   * The algorithms as the standards name them, against the lowercase keys the record uses. The two
+   * vocabularies both have a reason to exist — a JSON field is not a heading — so the mapping is
+   * stated once here rather than being approximated by upper-casing the key, which would print
+   * "SHA256" and "MD-5".
+   */
+  const DIGEST_LABEL: Record<(typeof HASH_ALGORITHMS)[number], string> = {
+    sha256: "SHA-256",
+    sha512: "SHA-512",
+    sha384: "SHA-384",
+    sha1: "SHA-1",
+    md5: "MD5",
+  };
 
   let {
     row,
@@ -112,6 +127,21 @@
     }
     return "The document renders here once the preview surface is wired to this panel.";
   });
+
+  // Order is the record's: the primary digest first, the legacy-interop pair last. The list holds
+  // every row whether or not its value has landed, so nothing below it moves as they arrive.
+  const digestEntries = $derived(
+    HASH_ALGORITHMS.map(
+      (algorithm): DigestEntry => ({
+        algorithm: DIGEST_LABEL[algorithm],
+        value: integrity === null ? null : integrity.algorithms[algorithm],
+      }),
+    ),
+  );
+
+  async function copyDigest(entry: DigestEntry): Promise<void> {
+    if (entry.value !== null) await navigator.clipboard.writeText(entry.value);
+  }
 </script>
 
 <!-- The raised surface sets the panel apart from the list beside it — a sidebar the same white as
@@ -370,23 +400,13 @@
               </p>
             {:else}
               <!-- Every algorithm row is here before a value is: the reader is told what is coming
-                   rather than surprised by it arriving. -->
-              <dl class="flex flex-col gap-8 text-xs">
-                {#each HASH_ALGORITHMS as algorithm (algorithm)}
-                  <div class="flex items-baseline gap-16">
-                    <dt class="w-48 shrink-0 font-semibold uppercase">{algorithm}</dt>
-                    <dd class="font-mono break-all">
-                      {#if integrity !== null}
-                        {integrity.algorithms[algorithm]}
-                      {:else if integrityRunning}
-                        <Skeleton class="h-16 w-full" />
-                      {:else}
-                        <span class="text-text-subtle">Not computed yet</span>
-                      {/if}
-                    </dd>
-                  </div>
-                {/each}
-              </dl>
+                   rather than surprised by it arriving. DigestList holds that promise for both
+                   surfaces that show digests, so neither drifts from the other. -->
+              <DigestList
+                digests={digestEntries}
+                pending={integrityRunning}
+                onCopy={(entry) => void copyDigest(entry)}
+              />
 
               {#if integrity !== null && integrity.comparison === "mismatch"}
                 <!-- A difference between what intake recorded and what the bytes digest to now is

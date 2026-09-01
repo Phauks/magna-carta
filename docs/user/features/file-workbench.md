@@ -15,14 +15,14 @@ Nothing here is filed. A file on the workbench does not belong to a matter, does
 Some of this is read the moment a file lands, without being asked, because it is quick and changes nothing:
 
 - **Type** — what the file actually is, read from its own first bytes rather than from its name, and whether the name agrees. A file called `invoice.pdf` whose contents are a Windows program is named on this tab, in those words.
-- **Hash** — the file's fingerprints, and a box to paste in a fingerprint somebody sent you so you can see at a glance whether they match.
+- **Hash** — the file's fingerprints, and a box to paste in a fingerprint somebody sent you so you can see at a glance whether they match. Click a fingerprint to copy it.
 - **Malware Scan** — what the scanner made of it.
 - **Metadata** — the properties a document carries that nobody typed on purpose: the author, the firm, the revision count, a scanner's model number.
 - **Email** — for a saved message, its headers, the route it took, and what it carried.
 
 The rest wait until you ask, because each one either writes a new file, costs money, or sends something outside the firm:
 
-- **Convert** — turn the file into another format. The original is never replaced.
+- **Convert** — turn the file into another format. The original is never replaced. It offers file types, not variations on one: anything Magna Carta produces already carries as much of the original as it can, so there is no richer version of a format to pick separately. A PDF has nothing to convert to for that reason — to get selectable text out of one, use **Text Recognition**.
 - **Repair** — read what can still be read out of a damaged file, working on a copy.
 - **Text Recognition** — get selectable text out of a scan or a photograph of a page.
 - **Unlock** — open a protected document you have the password for.
@@ -45,13 +45,13 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 **Confirm a file matches a hash you were given**
 
 1. Drop the file on the workbench and open the **Hash** tab.
-2. Paste the fingerprint you were sent into **Paste a digest to compare**.
+2. Paste the fingerprint you were sent into **Paste a digest to compare**. Either fingerprint on the tab will match; you do not have to know which kind you were sent.
 3. It tells you whether it matches. Upper or lower case and stray spaces make no difference.
 
 **Convert several files at once**
 
 1. Drop all of them on the workbench.
-2. Select them: click the first, then shift-click the last for a run of files, or hold Ctrl (Cmd on a Mac) and click to pick out individual ones. The bar under the list says how many files there are and how many are selected.
+2. Select them: click the first, then shift-click the last for a run of files, or hold Ctrl (Cmd on a Mac) and click to pick out individual ones. The bar at the foot of the list says how many files there are and how many are selected, and offers **Select all** and **Select none**. The arrow in the list marks the one file the tabs on the right are reading.
 3. Open the **Convert** tab. It offers only the formats **every** selected file can become, so a conversion cannot fail halfway through. If a format you expected is missing, one of the files in the selection cannot reach it; narrow the selection and it comes back.
 
 **Sort and narrow the list**

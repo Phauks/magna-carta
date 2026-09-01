@@ -7,14 +7,17 @@
    * readings and on which side. A route that held those would have to reach into the list's grid
    * to do it.
    *
-   * TWO CONTAINERS, SIDE BY SIDE. The list has edges and so do the readings: the right side is one
-   * panel with the file's name across its top, its capability tabs beneath that, and the findings
-   * inside. Tabs floating over open page do not read as tabs; tabs on the top edge of the thing
-   * they switch do.
+   * ONE CONTAINER, DIVIDED. The list, the file and its readings are parts of a single instrument,
+   * so they share one frame and touch across the hairline each resizable edge already draws. They
+   * were two floating cards with a gap between them, which read as two tools that happened to be
+   * open beside each other rather than as one workbench.
    *
-   * THE TABS GOVERN THE FINDINGS AND NOTHING ELSE. They belong to that panel: a strip spanning the
-   * full width reads as though it switched the whole screen, when what it actually switches is
-   * which reading of this one file is on show. The file list does not change when a tab does.
+   * THE TABS GOVERN THE FINDINGS AND NOTHING ELSE. They sit on the readings' top edge, spanning
+   * that side only: a strip spanning the whole frame reads as though it switched the whole screen,
+   * when what it switches is which reading of this one file is on show. The file list does not
+   * change when a tab does. Under the strip, the file's own line names the subject every tab
+   * shares — inside the readings because that is what they are readings OF, above the scroll so it
+   * does not leave with the findings.
    *
    * THE PREVIEW IS THE READER'S. Whether the file is drawn at all, and which side of the readings
    * it sits on, are both theirs and both remembered. Neither is tied to which capability is open:
@@ -140,17 +143,9 @@
 </script>
 
 {#snippet readings()}
-  <!-- The readings have edges, the same as the list does. The tabs sit on this panel's top edge
-       rather than over open page, which is what makes them read as tabs on the thing they switch. -->
-  <div
-    class="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border-default bg-surface-default"
-  >
-    {#if activeFile !== null}
-      <div class="border-b border-border-default px-16 py-12">
-        <FileHeader file={activeFile} />
-      </div>
-    {/if}
-
+  <!-- No frame of its own: the surrounding container is the frame, and the resizable edge beside
+       this pane is the only line that belongs between the two. -->
+  <div class="flex h-full min-h-0 flex-col">
     <Tabs.Root bind:value={capabilityId} class="min-h-0 flex-1 gap-0">
       <Tabs.List class="flex-wrap bg-surface-raised px-8">
         {#each tabs as capability (capability.id)}
@@ -164,6 +159,12 @@
           </Tabs.Trigger>
         {/each}
       </Tabs.List>
+
+      {#if activeFile !== null}
+        <div class="border-b border-border-default px-16 py-12">
+          <FileHeader file={activeFile} />
+        </div>
+      {/if}
 
       <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto p-16">
         {#if activeFile === null}
@@ -191,9 +192,7 @@
 
 {#snippet filePane()}
   <Resizable.Pane defaultSize={26} minSize={16}>
-    <div
-      class="mx-8 flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border-default bg-surface-default"
-    >
+    <div class="flex h-full min-h-0 flex-col">
       <FilePreview preview={activeFile!.preview} name={activeFile!.name} />
     </div>
   </Resizable.Pane>
@@ -266,34 +265,44 @@
     </Masthead.Actions>
   </Masthead.Root>
 
-  <!-- The handles carry no grip. The edge between two panes is already the affordance, and a grip
-       drawn on it is furniture on a work surface. -->
-  <Resizable.PaneGroup direction="horizontal" autoSaveId="file-workbench-panes" class="min-h-0 flex-1">
-    <Resizable.Pane defaultSize={34} minSize={20} maxSize={52}>
-      <FileRail
-        {grid}
-        files={source.files}
-        onFiles={(dropped) => void source.add(dropped)}
-        onDiscard={(ids) => source.discard(ids)}
-        onRowAction={(item, file) => void runRowAction(item, file)}
-        onAddFiles={() => picker?.click()}
-      />
-    </Resizable.Pane>
+  <!-- The one frame. Everything below is inside it and touches across the resizable edges, which
+       are the only lines drawn between the parts — the handles carry no grip, because the edge is
+       already the affordance and a grip drawn on it is furniture on a work surface. -->
+  <div
+    class="flex min-h-0 flex-1 overflow-hidden rounded-md border border-border-default bg-surface-default"
+  >
+    <Resizable.PaneGroup
+      direction="horizontal"
+      autoSaveId="file-workbench-panes"
+      class="min-h-0 flex-1"
+    >
+      <Resizable.Pane defaultSize={34} minSize={20} maxSize={52}>
+        <FileRail
+          {grid}
+          files={source.files}
+          activeId={activeFile?.id ?? null}
+          onFiles={(dropped) => void source.add(dropped)}
+          onDiscard={(ids) => source.discard(ids)}
+          onRowAction={(item, file) => void runRowAction(item, file)}
+          onAddFiles={() => picker?.click()}
+        />
+      </Resizable.Pane>
 
-    <Resizable.Handle />
-
-    {#if previewShown && preferences.previewSide === "left"}
-      {@render filePane()}
       <Resizable.Handle />
-    {/if}
 
-    <Resizable.Pane defaultSize={40} minSize={26}>
-      {@render readings()}
-    </Resizable.Pane>
+      {#if previewShown && preferences.previewSide === "left"}
+        {@render filePane()}
+        <Resizable.Handle />
+      {/if}
 
-    {#if previewShown && preferences.previewSide === "right"}
-      <Resizable.Handle />
-      {@render filePane()}
-    {/if}
-  </Resizable.PaneGroup>
+      <Resizable.Pane defaultSize={40} minSize={26}>
+        {@render readings()}
+      </Resizable.Pane>
+
+      {#if previewShown && preferences.previewSide === "right"}
+        <Resizable.Handle />
+        {@render filePane()}
+      {/if}
+    </Resizable.PaneGroup>
+  </div>
 </div>

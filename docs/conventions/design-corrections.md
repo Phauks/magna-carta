@@ -114,6 +114,16 @@ is usually the fastest way to understand the rule.
   press. Absence is still the signal; presence is still unmistakable. _(every list surface,
   2026-08-31)_
 
+- **A list's tally and its selection gestures are the LIST's footer, seated on the list's own bottom
+  edge.** The count, "n selected", Select all and Select none describe the rows, so they end where
+  the rows end. Floated free of the list — in a masthead, or under a whole multi-pane frame — they
+  read as facts about the screen, and on a screen holding more than one thing that is wrong.
+  _(file workbench, 2026-09-01)_
+- **A master list says WHICH row the detail pane is showing.** The selection tint cannot carry it:
+  a bulk selection tints many rows while the detail reads exactly one, so the row being read takes
+  a mark of its own. The mark holds its width whether or not it is drawn, so marking a row never
+  shifts the content beside it. _(file workbench, 2026-09-01)_
+
 ### Data entry
 
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
@@ -275,6 +285,31 @@ is usually the fastest way to understand the rule.
   filler when it has nothing to report, so height never depends on wording. _(Build Versions panel,
   second round, 2026-08-31)_
 
+- **Parts of one instrument share one frame and touch.** A list and the panel that reads its
+  selection are two halves of a single tool, so they sit inside one border and are divided by the
+  edge between them — which a resizable handle already draws. Two rounded cards with a gap between
+  them read as two tools that happen to be open beside each other. _(file workbench, 2026-09-01)_
+- **Inside a framed panel, a table drops its own frame.** The panel is already the contained thing;
+  a table drawing a second rounded border within it is a box in a box, and three stacked read as
+  three unrelated objects sharing a pane. The heading rule separates one block of findings from the
+  next. _(file workbench, 2026-09-01; the matter file list's grid does the same)_
+- **A surface says where its work happens ONCE.** "Read by — this browser", "Computed by — this
+  browser" repeated under every panel is one fact restated per panel. It belongs in the masthead,
+  where it covers the whole screen and there is a single line to change when it stops being true.
+  _(file workbench, 2026-09-01)_
+- **A control does not restate what it plainly does.** A Convert panel that opens by naming the
+  file it is about to convert and explaining that a conversion produces a new file has told the
+  reader nothing they did not have. Say the part they cannot work out — here, which formats this
+  file can actually reach. _(file workbench, 2026-09-01)_
+- **A choice is offered between file types, never between treatments of one.** Where the machinery
+  models a richer and a poorer version of the same output, the reader is not asked to pick: we
+  produce the richest one we can and offer the type. A "searchable PDF" beside a "PDF" asks
+  somebody to choose how much of their own document survives. _(file workbench, 2026-09-01)_
+- **One reading, one component.** The second surface to show a reading the product already shows
+  adopts the first one's component, or both move to a shared one — it never draws its own. Two
+  renderings of one thing drift in spacing, in their pending and absent states, and in which of
+  them got the copy affordance. _(file workbench digests, 2026-09-01)_
+
 ### List screens
 
 Issued against the matters list and re-issued against the directory. They bind every List/Index
@@ -368,6 +403,26 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-01 — the File Workbench, fifth round
+
+Nine corrections from the owner against the deployed screen. The full ledger, with the earlier
+rounds they refine, is [`file-workbench-rulings.md`](file-workbench-rulings.md); the generalizable
+parts are promoted above.
+
+- The screen's **two sides became one frame**. They are parts of the same component, so a gap
+  between two cards was saying otherwise.
+- The list's **count, selection and Select all / none** became the list's own footer.
+- The readings **stopped nesting bordered tables** inside their own panel.
+- The **tabs moved to the readings' top edge**, above the file's line rather than below it.
+- The list now **marks which file the readings are about**, which a selection tint cannot say.
+- **"Read by" and "Computed by" came out.** The masthead already says where the work happens.
+- **Digests became one component** — the matter file's inspector had one and the workbench had
+  built a second. Both now draw `DigestList` from the design system.
+- The Convert tab's **"This Conversion / Converting / Produces"** block came out whole.
+- **Conversion targets became file types.** There is no searchable-versus-plain PDF to choose
+  between; a PDF now offers nothing to convert to, which is the true answer — a text layer is Text
+  Recognition's work, not a conversion.
 
 ### 2026-09-01 — the matter chrome, identity-block round
 

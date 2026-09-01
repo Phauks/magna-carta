@@ -1,0 +1,87 @@
+@layer components {
+  /*
+   * DigestList — a file's fingerprints, one algorithm per row.
+   *
+   * The algorithm column is a fixed measure so rows of wildly different value lengths still read as
+   * a column; the value wraps inside its own cell rather than truncating, because a digest is
+   * checked character by character against one somebody sent you.
+   *
+   * Every value form — the plain digest, the copy control, the absence — carries the same inline
+   * padding, so the column starts in one place whether or not a row has a value and whether or not
+   * the surface made its values copyable.
+   */
+  .mc-digest-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    margin: var(--mc-space-0);
+  }
+  .mc-digest-list-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--mc-space-12);
+  }
+  /* Wide enough for the longest name shown ("SHA-256"), so no row's value starts at its own inset.
+     Tabular figures keep the digits in the names from shifting the column. */
+  .mc-digest-list-algorithm {
+    flex: none;
+    inline-size: var(--mc-space-64);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+  /* The recipe owns the look; the value's full width is a `w-full` utility on the elements inside
+     it, because `100%` is not tokenizable and the purity gate rejects it. */
+  .mc-digest-list-value {
+    flex: auto;
+    min-inline-size: var(--mc-space-0);
+    margin: var(--mc-space-0);
+  }
+  .mc-digest-list-digest,
+  .mc-digest-list-copy,
+  .mc-digest-list-absent {
+    padding-block: var(--mc-space-2);
+    padding-inline: var(--mc-space-4);
+    font-size: var(--mc-font-size-xs);
+    text-align: start;
+  }
+  .mc-digest-list-digest,
+  .mc-digest-list-copy {
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-mono);
+    font-variant-numeric: tabular-nums;
+    /* A digest has no spaces to break at, so the break has to be permitted inside the word. */
+    overflow-wrap: anywhere;
+  }
+  /* The value as its own copy control: a plain target that gains a ground on hover, so the digest
+     still reads as a value rather than as a button sitting in the row. */
+  .mc-digest-list-copy {
+    border: none;
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    cursor: pointer;
+  }
+  .mc-digest-list-copy:hover {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-digest-list-copy:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* Copied: the control fills, and it fills BEYOND its own hover — whoever just pressed it is by
+     definition hovering it, so a confirmation painted in the hover colour confirms nothing. The
+     width never changes, which is why this is a fill and not a glyph appearing beside the value. */
+  .mc-digest-list-copy.mc-digest-list-copied,
+  .mc-digest-list-copy.mc-digest-list-copied:hover {
+    background-color: var(--mc-action-secondary-hover);
+  }
+  .mc-digest-list-absent {
+    color: var(--mc-text-subtle);
+    font-family: var(--mc-font-sans);
+  }
+  .mc-digest-list-pending {
+    block-size: var(--mc-space-16);
+  }
+}

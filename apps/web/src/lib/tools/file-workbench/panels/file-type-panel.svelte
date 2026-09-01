@@ -2,9 +2,10 @@
   /*
    * What the file actually is, against what its name claims.
    *
-   * The reading on screen today is the browser's prefix scan (identify.ts), which is why the panel
-   * states where its answer came from. The content service reads the whole file and reports a
-   * confidence; both produce a FileTypeReport, so this panel does not change when the source does.
+   * The reading on screen today is the browser's prefix scan (identify.ts). The content service
+   * reads the whole file and reports a confidence; both produce a FileTypeReport, so this panel
+   * does not change when the source does — which is also why it carries no row saying which of the
+   * two answered. The masthead says where the work happens, once, for the whole screen.
    */
   import Badge from "@magna-carta/design-system/badge";
   import type { ExtensionMatch } from "@magna-carta/file-type";
@@ -37,11 +38,6 @@
       },
       { label: "Leading bytes", value: magicBytes, mono: true },
       { label: "Family", value: report.group },
-      {
-        label: "Read by",
-        value: "This browser, from the first 4 KB",
-        note: "The content service reads the whole file and reports a confidence. That reading replaces this one.",
-      },
     ];
   });
 </script>

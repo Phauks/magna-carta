@@ -24,13 +24,59 @@ export function formatIdForLabel(label: string | null): FormatId | null {
   return getFormat(candidate) === undefined ? null : candidate;
 }
 
-/** Every format this file could become, as the graph's own Format records, alphabetical by label. */
+/**
+ * A file type, as the graph identifies one: its media type and the extensions it is written with.
+ * Two nodes that agree on both ARE the same file type however differently they are labelled.
+ */
+function fileTypeKey(format: Format): string {
+  return `${format.mediaType} ${[...format.extensions].sort().join(",")}`;
+}
+
+/**
+ * The node that names a file type plainly, out of several that produce it.
+ *
+ * The graph carries processing variants as their own nodes — a PDF carrying a recognized text layer
+ * is `searchable-pdf`, with PDF's media type and PDF's extension — because pathfinding needs a
+ * target that differs from its source. That is a fact about the graph, not about the file: what
+ * comes out is a PDF, and a conversion offers file types. So the variants collapse into the node
+ * whose id is one of its own extensions, which is the one named for the type rather than for the
+ * treatment. Where no candidate is named that way, registry order decides and nothing is invented.
+ *
+ * Richness is not the reader's choice to make: every PDF the converter produces should carry as
+ * much recovered data as it can, so "with a text layer" is how PDFs are produced rather than a
+ * second button beside PDF. The recognition engine is reached from Text Recognition, which is where
+ * a person asks for a text layer over a file they already have.
+ */
+function plainestOf(candidates: readonly Format[]): Format {
+  return candidates.find((format) => format.extensions.includes(format.id)) ?? candidates[0]!;
+}
+
+/**
+ * Every file type this file could become, as the graph's own Format records, alphabetical.
+ *
+ * A target that is the SAME file type as the source is not a conversion and is dropped: a PDF that
+ * gained a recognized text layer is still a PDF, so offering it here would be offering to convert a
+ * file into itself. That work is Text Recognition, which is its own capability over a file somebody
+ * already has. This is why a scanned PDF offers nothing to convert to — correctly, because there is
+ * nothing else the graph can make of one.
+ */
 export function conversionTargetsFor(label: string | null): readonly Format[] {
   const from = formatIdForLabel(label);
-  if (from === null) return [];
-  return availableConversions(from)
-    .map((id) => getFormat(id))
-    .filter((format): format is Format => format !== undefined)
+  const source = from === null ? undefined : getFormat(from);
+  if (from === null || source === undefined) return [];
+  const sourceType = fileTypeKey(source);
+
+  const byFileType = new Map<string, Format[]>();
+  for (const id of availableConversions(from)) {
+    const format = getFormat(id);
+    if (format === undefined) continue;
+    const key = fileTypeKey(format);
+    if (key === sourceType) continue;
+    byFileType.set(key, [...(byFileType.get(key) ?? []), format]);
+  }
+
+  return [...byFileType.values()]
+    .map((candidates) => plainestOf(candidates))
     .sort((left, right) => left.label.localeCompare(right.label));
 }
 

@@ -27,6 +27,7 @@
     "./folder-tree": "./src/lib/components/folder-tree/index.ts",
     "./form": "./src/lib/components/form/index.ts",
     "./formatters": "./src/lib/formatters/index.ts",
+    "./digest-list": "./src/lib/components/digest-list/index.ts",
     "./dropdown-menu": "./src/lib/components/dropdown-menu/index.ts",
     "./dropzone": "./src/lib/components/dropzone/index.ts",
     "./empty-state": "./src/lib/components/empty-state/index.ts",

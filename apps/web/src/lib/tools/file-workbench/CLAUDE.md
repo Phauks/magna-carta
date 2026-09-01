@@ -18,6 +18,7 @@
 - `ephemeral-source.svelte.ts` — where files come from in this host. The seam a matter host replaces.
 - `rail-columns.ts` — what the file list is sorted and filtered by. `row-menu.ts` — what one row's triple-dot menu offers, and when each verb is refused.
 - `identify.ts` · `digest.ts` · `conversion-targets.ts` · `drop-target.svelte.ts` — DOM-free logic, each with its own test.
+- The digests themselves are **`DigestList`** from the design system, shared with the matter file's inspector. Do not draw digests here any other way: two surfaces rendering one reading two ways is how they drift, which is exactly what happened before it existed.
 - `file-rail.svelte` — the file list, as `DataTable.Grid`. `workbench.svelte` — the masthead, the grid, the panes and the tab strip. The route is thin: it supplies the source and the permissions and nothing else.
 - `workbench-preferences.svelte.ts` — whether the file is drawn, and on which side. Persisted, and held across capability tabs.
 
@@ -28,7 +29,7 @@
 - **Never put a component on a capability module.** A panel reaches bits-ui through the design system, and golden rule 2 confines bits-ui to `packages/design-system/src` strictly enough that even naming it in a test config fails the gate. A module carrying a panel makes the whole registry unloadable from a test, which is how the panel map came to exist. `pnpm test apps/web` catches it; the failure reads `Unknown file extension ".svelte"` and points at bits-ui, not at you.
 - **The Overview is never edited to add a capability.** A module contributes its row through `summary`. If the Overview needs a row the registry cannot supply, that row is about the file itself, not about a capability, and belongs in `overview-panel.svelte`'s identity block.
 - **Absence is typed.** `not-run`, `not-applicable` and `failed` are three different silences and render differently. Never a blank, never `null`.
-- **Readings go in a `FactTable`**, which has a heading and edges. Never a bare label-and-value list: the owner's standing ruling is that values are encapsulated, not floating.
+- **Readings go in a `FactTable`**, which has a heading and tabular alignment but NO frame of its own. Never a bare label-and-value list (values are encapsulated, not floating) and never a bordered card either — the readings panel is already the frame, so a table drawing its own inside it is a box in a box. `DataTable.Root` gets `rounded-none border-0`, which is the matter file list's reasoning too.
 - **The file list is the platform grid.** Sorting, filters, show/hide, selection and the footer counts are `DataTable.Grid`'s. This surface declares columns and cells and decides none of that behaviour — there is deliberately no selection module here any more.
 - **Copy is title case in headings, and carries no em dashes** (`docs/conventions/design-corrections.md`). Panels state findings; they do not explain the product to the reader.
 
@@ -36,7 +37,7 @@
 
 - **A scan verdict is a fact about the file, never a gate on the screen.** No capability's `applies` may consult it. `test/file-workbench-capabilities.test.ts` evaluates every capability against the same file under each verdict and fails if any answer differs. A file somebody does not trust is the reason this surface exists.
 - **Ephemeral by construction.** This host wires in no history source and no version source, so a record of an unfiled file cannot exist. Do not add one here; a history belongs to the matter host, where it hangs off a record that already exists.
-- **A browser digest is feedback, not evidence** (`digest.ts`). Anything going into a record is computed by the server over the bytes the server received. The Hash panel says which it is showing; keep that saying so.
+- **A browser digest is feedback, not evidence** (`digest.ts`). Anything going into a record is computed by the server over the bytes the server received. That fact is carried ONCE, by the masthead's line about nothing leaving this browser — not by a "Computed by" row in the Hash panel, which said the same thing again and was removed. If the masthead line ever stops being true, it is the one line to change.
 - **Never a false mismatch** (`identify.ts`). A prefix reading that only establishes "this is text" contradicts no extension. The warning is worth something only while it is rare.
 - **Golden rule 2** — Tailwind plus `@magna-carta/design-system` only. Every pane here is design-system components.
 

@@ -35,6 +35,37 @@ describe("what one file can become", () => {
   it("offers nothing from a file the graph cannot convert", () => {
     expect(conversionTargetsFor("pe")).toEqual([]);
   });
+
+  /*
+   * A target is a FILE TYPE, not a treatment of one. The graph carries a text-layered PDF as its
+   * own node because pathfinding needs a target that differs from its source, but what comes out
+   * is a PDF either way — and offering both asks a reader to choose how much of their document
+   * survives, when the answer is always "as much as possible".
+   */
+  it("offers one PDF, not a PDF and a variant of a PDF", () => {
+    const pdfLike = conversionTargetsFor("docx").filter(
+      (format) => format.mediaType === "application/pdf",
+    );
+    expect(pdfLike.map((format) => format.label)).toEqual(["PDF"]);
+  });
+
+  it("does not offer to convert a file into its own file type", () => {
+    // A PDF with a recognized text layer is still a PDF, so the graph's only edge out of `pdf`
+    // is not a conversion. Text Recognition is where a text layer is asked for.
+    expect(conversionTargetsFor("pdf")).toEqual([]);
+  });
+
+  it("keeps the node named for the type over the one named for the treatment", () => {
+    // The collapse is by media type and extension, so it holds for any variant node added later.
+    for (const label of ["docx", "png", "eml"]) {
+      const seen = new Set(
+        conversionTargetsFor(label).map(
+          (format) => `${format.mediaType} ${[...format.extensions].sort().join(",")}`,
+        ),
+      );
+      expect(seen.size).toBe(conversionTargetsFor(label).length);
+    }
+  });
 });
 
 describe("what a whole selection can become", () => {
