@@ -88,6 +88,15 @@ export const matterSections: readonly MatterSection[] = [
     description: "Matter notes and memoranda — dated, attributed, and searchable.",
   },
   {
+    slug: "tasks",
+    label: "Tasks",
+    core: false,
+    stage: "alpha",
+    description:
+      "What the firm still owes on this matter — each piece of work with somebody's name on it, " +
+      "when it is due, and whether it is done.",
+  },
+  {
     slug: "trust",
     label: "Trust",
     core: false,
@@ -135,7 +144,7 @@ export const matterSections: readonly MatterSection[] = [
     core: false,
     stage: "soon",
     description:
-      "Everything else the matter accumulates — research, tasks, and tool output — finds its " +
+      "Everything else the matter accumulates — research and tool output — finds its " +
       "home here.",
   },
 ];

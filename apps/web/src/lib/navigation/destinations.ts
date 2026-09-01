@@ -47,6 +47,7 @@ import Wrench from "@lucide/svelte/icons/wrench";
 import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import Sparkles from "@lucide/svelte/icons/sparkles";
+import ListChecks from "@lucide/svelte/icons/list-checks";
 
 export type DestinationGroup = "top" | "money" | "firm";
 
@@ -153,6 +154,21 @@ export const DESTINATIONS: readonly Destination[] = [
     href: "/notifications",
     icon: Bell,
     description: "Alerts, mentions, and updates across your matters.",
+    group: "top",
+    shipped: true,
+    stage: "alpha",
+    defaultStarred: true,
+  },
+  {
+    // The member's own work, across every matter they can see plus their own tasks on no matter.
+    // It sits in the workspace group beside Notifications rather than under a matter, because "what
+    // is on my plate" is a question about the person and not about any one case — and a task list
+    // somebody has to go looking for inside each matter is a task list nobody looks at.
+    id: "my-work",
+    label: "My Work",
+    href: "/tasks",
+    icon: ListChecks,
+    description: "Every task with your name on it, across your matters and the firm's own work.",
     group: "top",
     shipped: true,
     stage: "alpha",
