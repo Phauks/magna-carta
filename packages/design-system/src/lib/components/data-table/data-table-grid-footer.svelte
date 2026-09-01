@@ -39,8 +39,17 @@
 
   const noun = $derived(grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural);
   const selectedCount = $derived(grid.selectedKeys.length);
-  const allSelected = $derived(
-    grid.rowsInViewCount > 0 && selectedCount >= grid.rowsInViewCount,
+  /*
+   * The turn is taken on ANY selection, not on a complete one. Offering "Select all" while rows are
+   * selected leaves a partial selection with no way to let go of it from the footer at all — the
+   * reader would have to select everything first just to release it. So: something selected offers
+   * the way back, nothing selected offers the way to all of it.
+   */
+  const hasSelection = $derived(selectedCount > 0);
+  const releaseTitle = $derived(
+    selectedCount === 1
+      ? `Let go of the selected ${grid.itemNoun.singular}`
+      : `Let go of all ${String(selectedCount)} selected ${grid.itemNoun.plural}`,
   );
 </script>
 
@@ -76,22 +85,26 @@
     ONE control in ONE place, never two. Select all and Select none are the two ends of a single
     choice, so they take turns in the same spot rather than standing side by side: two controls
     that both act on the selection, both present, made the reader work out which one they wanted.
-    Everything selected offers the way back; anything less offers the way to all of it.
+    Anything selected offers the way back; nothing selected offers the way to all of it.
+
+    The two ends are reached on different terms, which is why this is not one flag. LETTING GO is
+    offered wherever a selection exists, on every grid — it undoes something the reader just did,
+    and a selection with no way out is a trap. SELECTING ALL is an act of its own, useful only on a
+    surface that does something with a whole selection, so it stays opt-in behind selectAllToggle.
+    Gating both on the flag is what broke this: grids that never opted in lost their way back.
   -->
-  {#if selectAllToggle && grid.rowsInViewCount > 0}
+  {#if hasSelection || (selectAllToggle && grid.rowsInViewCount > 0)}
     <button
       type="button"
       class="mc-table-grid-footer-link"
-      title={allSelected
-        ? `Let go of all ${String(selectedCount)} selected ${
-            selectedCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural
-          }`
+      title={hasSelection
+        ? releaseTitle
         : `Select all ${String(grid.rowsInViewCount)} ${
             grid.rowsInViewCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural
           } in view`}
-      onclick={() => (allSelected ? grid.clearSelection() : grid.selectAll())}
+      onclick={() => (hasSelection ? grid.clearSelection() : grid.selectAll())}
     >
-      {allSelected ? "Select none" : "Select all"}
+      {hasSelection ? "Select none" : "Select all"}
     </button>
   {/if}
   {#if end}
