@@ -768,6 +768,10 @@
             "minLength": 1,
             "maxLength": 16
           },
+          "taken": {
+            "type": "boolean",
+            "default": false
+          },
           "document": {
             "type": "object",
             "properties": {
@@ -911,6 +915,12 @@
               "null"
             ]
           },
+          "requestedFormat": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "downloadedFormats": {
             "type": "array",
             "items": {
@@ -939,6 +949,7 @@
           "kind",
           "producer",
           "byteSize",
+          "requestedFormat",
           "downloadedFormats",
           "createdAt",
           "expiresAt",
@@ -975,6 +986,17 @@
         },
         "required": [
           "format"
+        ]
+      },
+      "DownloadPreferences": {
+        "type": "object",
+        "properties": {
+          "saveImmediately": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "saveImmediately"
         ]
       },
       "ToolsConnectionResponse": {
@@ -29469,6 +29491,142 @@
           },
           "404": {
             "description": "No such item on this member's shelf",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/downloads/preferences": {
+      "get": {
+        "description": "The session member's own download preferences: whether an export also saves a file at the moment it is taken, or only generates the item onto their shelf.",
+        "operationId": "downloadPreferences.get",
+        "tags": [
+          "downloadPreferences"
+        ],
+        "x-mc-operationId": "downloadPreferences.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "downloads:shelf",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "downloadPreferences"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadPreferences"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks downloads:shelf",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Set whether the session member's exports also save a file immediately. Writes the member's own tier and nothing else.",
+        "operationId": "downloadPreferences.update",
+        "tags": [
+          "downloadPreferences"
+        ],
+        "x-mc-operationId": "downloadPreferences.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "downloads:shelf",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "downloadPreferences"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadPreferences"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The preferences as they now stand",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadPreferences"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks downloads:shelf",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -85127,6 +85285,9 @@
     },
     {
       "name": "documents"
+    },
+    {
+      "name": "downloadPreferences"
     },
     {
       "name": "downloads"

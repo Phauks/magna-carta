@@ -174,7 +174,7 @@ export function registerMeRoute(
     return c.json(
       {
         user: { id: userId, name: userRow.name, email: userRow.email },
-        firm: { id: firmId, name: firmContext.firmName },
+        firm: { id: firmId, name: await firmContext.readFirmName() },
         // Sorted for a deterministic wire shape (a Set has insertion order, not a contract).
         permissions: [...permissions].sort(),
         channel,

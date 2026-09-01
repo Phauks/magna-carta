@@ -316,7 +316,7 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
 
       const receipt = buildReceipt({
         tool: { name: "File Hash & Integrity", version: "1" },
-        firmName: firm.firmName,
+        firmName: await firm.readFirmName(),
         file: { name: null, fileId, versionId: version.id },
         hashes,
         verification: {

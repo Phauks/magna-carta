@@ -19,6 +19,8 @@ export interface ShelfItem {
   readonly kind: ShelfItemKind;
   readonly producer: ShelfItemProducer;
   readonly byteSize: number | null;
+  /** The format it was made for; null on rows written before exports recorded one. */
+  readonly requestedFormat: string | null;
   readonly downloadedFormats: readonly string[];
   readonly createdAt: string;
   readonly expiresAt: string;
@@ -71,20 +73,49 @@ export async function removeShelfItem(
 }
 
 /**
- * Keep an export the member has just taken. Resolves to the new item's id, or undefined when the
- * shelf could not take it — a failure here must never cost the member the download they already
- * have, so every caller treats it as advisory rather than as an error to raise.
+ * Keep an export the member has just taken.
+ *
+ * Returns the OUTCOME rather than swallowing it. A failure here must not cost the member the
+ * download they already have — so it is never thrown — but it must not be invisible either: this
+ * was silent to begin with, and a document the register refused looked exactly like a download that
+ * simply never reached the shelf, with nothing for anyone to act on.
  */
-export async function keepExportOnShelf(
+export function keepExportOnShelf(
   fetchImpl: typeof fetch,
   exportDocument: TabularExportDocument,
   format: string,
-): Promise<string | undefined> {
-  const outcome = await requestJson<{ id: string }>(fetchImpl, "/api/v1/downloads/snapshots", {
+  /** True only when a file was actually saved in the same act — the download-immediately path. */
+  taken = false,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson<{ id: string }>(fetchImpl, "/api/v1/downloads/snapshots", {
     method: "POST",
-    body: { title: exportDocument.title, format, document: storedFromExport(exportDocument) },
+    body: {
+      title: exportDocument.title,
+      format,
+      taken,
+      document: storedFromExport(exportDocument),
+    },
   });
-  return outcome.kind === "ok" ? outcome.value.id : undefined;
+}
+
+export interface DownloadPreferences {
+  readonly saveImmediately: boolean;
+}
+
+export function readDownloadPreferences(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<DownloadPreferences>> {
+  return requestJson<DownloadPreferences>(fetchImpl, "/api/v1/downloads/preferences");
+}
+
+export function writeDownloadPreferences(
+  fetchImpl: typeof fetch,
+  preferences: DownloadPreferences,
+): Promise<ApiOutcome<DownloadPreferences>> {
+  return requestJson<DownloadPreferences>(fetchImpl, "/api/v1/downloads/preferences", {
+    method: "PUT",
+    body: preferences,
+  });
 }
 
 /** The stored shape: what the screen built, cells keeping their number face where they have one. */
@@ -99,6 +130,18 @@ export interface StoredExportDocument {
   }[];
 }
 
+/*
+ * A cell keeps its number face only when that number is REAL. The register's schema requires a
+ * finite number on a two-faced cell and rejects the whole document otherwise, so one unmeasured
+ * figure would cost the member the entire shelf item — the same failure the spreadsheet renderer
+ * already guards against in `cellPlan`, arriving one layer along. The printed text is always
+ * truthful on its own, so falling back to it loses nothing a reader can see.
+ */
+function storedCell(cell: TabularExportCell): TabularExportCell {
+  if (typeof cell === "string") return cell;
+  return Number.isFinite(cell.number) ? cell : cell.text;
+}
+
 export function storedFromExport(exportDocument: TabularExportDocument): StoredExportDocument {
   return {
     title: exportDocument.title,
@@ -106,7 +149,7 @@ export function storedFromExport(exportDocument: TabularExportDocument): StoredE
     sections: exportDocument.sections.map((section) => ({
       title: section.title,
       headers: section.headers,
-      rows: section.rows,
+      rows: section.rows.map((row) => row.map(storedCell)),
       ...(section.endAlignedColumns !== undefined && {
         endAlignedColumns: section.endAlignedColumns,
       }),
