@@ -105,6 +105,7 @@ describe("problem-type URI registry", () => {
         "billing-exceeds-unpaid-balance",
         "billing-replenishment-already-open",
         "matter-close-refused",
+        "note-retracted",
         "calendar-window-too-wide",
         "calendar-deadline-catalog-unavailable",
         "calendar-deadline-settled",

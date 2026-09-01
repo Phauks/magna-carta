@@ -47,7 +47,7 @@ describe("dev seed route", () => {
     expect(first.matterId).toMatch(/^matter_/);
     expect(first.credentials.email).toContain("@");
     expect(first.credentials.password.length).toBeGreaterThan(0);
-    expect(first.fileCount).toBe(5);
+    expect(first.fileCount).toBe(6);
 
     // A second call resumes the same tenant rather than duplicating it.
     const second = await seed();
