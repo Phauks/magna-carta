@@ -833,6 +833,14 @@ export const NO_PII_TABLES: readonly string[] = [
   "utbms_code",
   "non_billable_category",
   "narrative_template",
+  // The entry-numbering pair is a sequence: a scope key (the matter id), a counter, and which
+  // entry consumed which value. Nothing about any person (the matter_number_counter precedent).
+  "time_entry_number_counter",
+  "time_entry_number_allocation",
+  // Which of the matter's files a time entry points at, with firm-member provenance (created_by) —
+  // the custody_hold / custody_scan line. The person the underlying document concerns resolves
+  // through the `file` entry, never through a column here.
+  "time_entry_attachment",
   // Discovery search-index catalog — index metadata only (split object key, document/byte counts,
   // schema generation, timestamps, and the matter id). The searchable text and any personal data it
   // contains live in the split object in R2 and are erased by re-indexing the source, not by a row

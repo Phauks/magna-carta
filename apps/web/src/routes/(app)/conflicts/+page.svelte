@@ -80,11 +80,14 @@
   const permissions = $derived(session?.permissions ?? null);
   const mayRun = $derived(permissions === null || permissions.includes(RUN_CHECK_PERMISSION));
 
-  /** How a matter reads in the picker and back on the form: its number where it has one. */
+  /**
+   * How a matter reads in the picker and back on the form: its number where it has one. A
+   * consultation's tentative number counts — running a check against one is the whole point of
+   * taking the consultation, and the number is what the result will be filed under.
+   */
   function matterLine(matter: MatterSummary): string {
-    return matter.matterNumber === null
-      ? matter.title
-      : `${matter.matterNumber} · ${matter.title}`;
+    const number = matter.matterNumber ?? matter.consultationNumber;
+    return number === null ? matter.title : `${number} · ${matter.title}`;
   }
 
   function chooseMatter(value: string | string[]): void {

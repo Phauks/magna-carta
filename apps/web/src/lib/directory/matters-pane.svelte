@@ -13,6 +13,8 @@
    * asserted.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -27,7 +29,7 @@
 
   let parties = $state<readonly DirectoryEntityMatterParty[] | null>(null);
   let nextCursor = $state<string | null>(null);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let loadingMore = $state(false);
 
   $effect(() => {
@@ -45,10 +47,7 @@
         return;
       }
       parties = [];
-      failure =
-        outcome.kind === "transport"
-          ? "Nothing answered. The matters this record is on could not be read."
-          : (outcome.problem.detail ?? "The matters this record is on could not be read.");
+      failure = stated(outcome.failure, "The matters this record is on could not be read.");
     })();
     return () => {
       cancelled = true;
@@ -71,10 +70,12 @@
   <h3 class="text-sm font-semibold">Matters</h3>
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Matters Could Not Be Read</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="The Matters Could Not Be Read"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {:else if parties === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the matters this record is on">
       <Skeleton class="h-32 w-full" />

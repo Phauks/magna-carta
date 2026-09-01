@@ -119,10 +119,12 @@ export function restoreFile(
 /** One audited act on the matter's files, resolved for reading: names now, not names then. */
 export interface FileHistoryEntry {
   at: string;
-  /** The audit event, e.g. "file.renamed" — the label is derived client-side. */
+  /** The audit event, e.g. "file.renamed" or "folder.created" — the label is derived client-side. */
   event: string;
-  fileId: string;
-  fileName: string;
+  /** Whether the act was done to a file or a folder: the trail carries both. */
+  subjectKind: "file" | "folder";
+  subjectId: string;
+  subjectName: string;
   versionNumber: number | null;
   actorUserId: string | null;
   actorName: string | null;

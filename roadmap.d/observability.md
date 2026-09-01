@@ -41,37 +41,40 @@
 - id: observability.client-reporter
   name: In-house client capture
   scope: Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
-  status: partial
-  evidence: Error pages carry build identity and a copyable trace block (apps/web/src/routes/+error.svelte over apps/web/src/lib/components/error-details.svelte); the breadcrumb library and the crash-surface send are not built, and no client module anywhere posts to the incidents ingest endpoint.
+  status: shipped
+  evidence: apps/web/src/hooks.client.ts mints a client-side Error ID for a crash the platform never saw and installs the onerror/unhandledrejection handlers; apps/web/src/lib/diagnostics/breadcrumbs.ts is the ring buffer; apps/web/src/lib/diagnostics/report.ts posts to the incidents route from the crash screen and from the always-available help-menu dialog.
   audience: public
   public-name: Reporting a problem
   public-summary: Report a problem from inside the app and get a reference you can quote to us, without sending us the contents of your file.
 
 - id: observability.client-reporter.error-boundary
   name: Error pages with trace identity
-  scope: Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block.
+  scope: Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block, and a client boundary catches what never reached a route.
   status: shipped
   surface: screen
-  evidence: apps/web/src/routes/+error.svelte rendering apps/web/src/lib/components/error-details.svelte, every line a key-value pair so one paste carries the whole trace.
+  evidence: apps/web/src/hooks.client.ts is the SvelteKit client boundary; both error routes render apps/web/src/lib/diagnostics/failure-screen.svelte over the design system's failure-state, and the trace is assembled by apps/web/src/lib/diagnostics/failure-trace.ts — every line a key-value pair, absent facts stated rather than dropped, so one paste carries the whole report.
 
 - id: observability.client-reporter.breadcrumbs
   name: Client breadcrumb ring buffer
   scope: Client-side ring of recent actions/IDs (never field content) attached to reports.
-  status: not-started
-  evidence: apps/api-worker/src/routes/incidents.ts accepts a breadcrumbs array but notes the client library enforces content rules "when it ships".
+  status: shipped
+  surface: internal
+  evidence: apps/web/src/lib/diagnostics/breadcrumbs.ts — a fixed-capacity in-memory ring whose entries are already the shape apps/api-worker/src/routes/incidents.ts accepts, with no slot for a payload, email addresses replaced and every field capped at the route's own limits. apps/web/test/failure-trace.test.ts pins the redaction.
 
 - id: observability.client-reporter.report-a-problem
   name: Report a problem affordance
   scope: Always-available help-menu reporting usable without a crash.
-  status: partial
+  status: shipped
   surface: screen
-  evidence: apps/web/src/lib/components/bug-report-dialog.svelte assembles a paste-ready trace-grade report — build identity, time, path and browser, and deliberately no error id, since this is a report without a crash — reachable from the profile menu and from the command palette. In-app submission is not wired: the dialog produces text for a person to paste, and no client module calls the incidents route.
+  evidence: apps/web/src/lib/components/bug-report-dialog.svelte files through apps/web/src/lib/diagnostics/report.ts to the incidents route, carrying the breadcrumb ring and the same trace the failure screens copy; reachable from the profile menu and the command palette on every screen. Copy remains beside Submit for a member whose browser refuses the clipboard.
+  notes: The optional in-office recipients and the email-me-a-copy flag stay Soon-marked — the incident route carries no recipients, and transactional email does not exist yet.
 
 - id: observability.client-reporter.send-to-developer
   name: Send-to-developer on crash
   scope: Error screen/toast showing the Error ID with a prominent send button.
-  status: not-started
-  evidence: No crash-surface send flow in apps/web.
+  status: shipped
+  surface: screen
+  evidence: Both error routes and every failure surface render Report a problem beside the Error ID, opening apps/web/src/lib/diagnostics/report-dialog.svelte. Nothing files automatically: a crash mints a handle and offers the report, holding the diagnostics setting's Off/strict default.
 
 - id: observability.incidents
   name: Incident reports

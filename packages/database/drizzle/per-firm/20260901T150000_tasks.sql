@@ -1,4 +1,4 @@
--- THE TASK, and the files a task points at.
+-- THE TASK, the files a task points at, and the notification vocabulary that carries one.
 --
 -- A task is one piece of work with somebody's name on it and a state that says whether the firm
 -- still owes it. It is neither of the two dated records this schema already holds: a matter_event is
@@ -11,7 +11,7 @@
 -- calendar scope, and the departure is deliberate. Read both table comments in
 -- packages/database/src/per-firm-schema.ts before copying either. The short version: the calendar
 -- split its tables because a firm event and a matter event are read on two different surfaces, and
--- tasks have one surface either way — "what is on my plate" spans a member's client work and their
+-- tasks have one surface either way -- "what is on my plate" spans a member's client work and their
 -- firm work in one list, and two tables would mean unioning them back together on the read every
 -- member makes most often. magnus_conversation is the precedent: an optional matter link on a record
 -- whose tenancy root is the firm. The does-not-apply branch the calendar warned about is real and is
@@ -22,6 +22,19 @@
 -- most numerous table in the product, to maintain a flag that is stale in exactly the window where
 -- it matters, is the machinery this platform declines to build for deadlines and declines harder for
 -- tasks.
+--
+-- THE SECOND HALF OF THIS FILE REBUILDS TWO TABLES, on the pattern
+-- 20260807T050000_trust-authorization-policy.sql established. `tasks` joins the notification
+-- category vocabulary and `matterTask` its subject kinds, and both are SQLite CHECKs, which cannot
+-- be widened in place. `notification_event` is the growing one and the reason this is not free; it
+-- is bounded by the firm's retention window (a thirty-day floor, swept nightly), so the copy is over
+-- a window's worth of rows rather than the firm's whole history.
+--
+-- `tasks` is a category of its own and deliberately not folded into `deadlines`. A deadline is what
+-- a court or a rule requires of the firm, and its whole value is that a missing entry is a
+-- malpractice event; putting "call the client back" in that category is how a member stops reading
+-- it. A member sets preferences per category, so the split is also what lets somebody silence their
+-- own task bell without silencing the one that says a filing is due.
 --
 -- Column comments live beside the Drizzle definitions in packages/database/src/per-firm-schema.ts.
 CREATE TABLE `matter_task` (
@@ -84,10 +97,52 @@ CREATE TABLE `matter_task_document` (
 CREATE INDEX `matter_task_document_task_index` ON `matter_task_document` (`task_id`);--> statement-breakpoint
 CREATE INDEX `matter_task_document_file_index` ON `matter_task_document` (`file_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `matter_task_document_task_file_unique_index` ON `matter_task_document` (`task_id`,`file_id`);--> statement-breakpoint
+PRAGMA foreign_keys=OFF;--> statement-breakpoint
+CREATE TABLE `__new_notification_event` (
+	`id` text PRIMARY KEY NOT NULL,
+	`kind` text NOT NULL,
+	`category` text NOT NULL,
+	`severity` text NOT NULL,
+	`subject_kind` text NOT NULL,
+	`subject_id` text NOT NULL,
+	`matter_id` text,
+	`occurred_at` text NOT NULL,
+	`facts` text,
+	`dedupe_key` text NOT NULL,
+	`created_at` text NOT NULL,
+	FOREIGN KEY (`matter_id`) REFERENCES `matter`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "notification_event_category_check" CHECK("__new_notification_event"."category" IN ('deadlines', 'calendar', 'tasks', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')),
+	CONSTRAINT "notification_event_severity_check" CHECK("__new_notification_event"."severity" IN ('informational', 'attention', 'critical')),
+	CONSTRAINT "notification_event_subject_kind_check" CHECK("__new_notification_event"."subject_kind" IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member', 'matterTask'))
+);
+--> statement-breakpoint
+INSERT INTO `__new_notification_event`("id", "kind", "category", "severity", "subject_kind", "subject_id", "matter_id", "occurred_at", "facts", "dedupe_key", "created_at") SELECT "id", "kind", "category", "severity", "subject_kind", "subject_id", "matter_id", "occurred_at", "facts", "dedupe_key", "created_at" FROM `notification_event`;--> statement-breakpoint
+DROP TABLE `notification_event`;--> statement-breakpoint
+ALTER TABLE `__new_notification_event` RENAME TO `notification_event`;--> statement-breakpoint
+PRAGMA foreign_keys=ON;--> statement-breakpoint
+CREATE UNIQUE INDEX `notification_event_dedupe_key_unique_index` ON `notification_event` (`dedupe_key`);--> statement-breakpoint
+CREATE INDEX `notification_event_matter_id_index` ON `notification_event` (`matter_id`);--> statement-breakpoint
+CREATE INDEX `notification_event_occurred_at_index` ON `notification_event` (`occurred_at`,`id`);--> statement-breakpoint
+CREATE TABLE `__new_notification_in_app_suppression` (
+	`recipient_user_id` text NOT NULL,
+	`category` text NOT NULL,
+	`civil_date` text NOT NULL,
+	`suppressed_count` integer DEFAULT 0 NOT NULL,
+	`reason` text NOT NULL,
+	`last_suppressed_at` text NOT NULL,
+	PRIMARY KEY(`recipient_user_id`, `category`, `civil_date`, `reason`),
+	CONSTRAINT "notification_in_app_suppression_count_nonnegative_check" CHECK("__new_notification_in_app_suppression"."suppressed_count" >= 0),
+	CONSTRAINT "notification_in_app_suppression_category_check" CHECK("__new_notification_in_app_suppression"."category" IN ('deadlines', 'calendar', 'tasks', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')),
+	CONSTRAINT "notification_in_app_suppression_reason_check" CHECK("__new_notification_in_app_suppression"."reason" IN ('member-preference', 'firm-policy'))
+);
+--> statement-breakpoint
+INSERT INTO `__new_notification_in_app_suppression`("recipient_user_id", "category", "civil_date", "suppressed_count", "reason", "last_suppressed_at") SELECT "recipient_user_id", "category", "civil_date", "suppressed_count", "reason", "last_suppressed_at" FROM `notification_in_app_suppression`;--> statement-breakpoint
+DROP TABLE `notification_in_app_suppression`;--> statement-breakpoint
+ALTER TABLE `__new_notification_in_app_suppression` RENAME TO `notification_in_app_suppression`;--> statement-breakpoint
 
 -- The three task permissions, seeded onto the default roles.
 --
--- tasks:read and tasks:write reach every seat that does firm work — Owner/Admin, Attorney, Paralegal
+-- tasks:read and tasks:write reach every seat that does firm work -- Owner/Admin, Attorney, Paralegal
 -- AND Billing. Billing is the difference from the notes seeds, and it is the point: "chase the
 -- Henderson retainer replenishment" is a billing clerk's own work, and a task list that cannot hold
 -- it sends them to a spreadsheet. Read-only gets neither, because that seat is frequently an outside

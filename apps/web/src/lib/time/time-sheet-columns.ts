@@ -34,7 +34,6 @@ export const TIME_SHEET_COLUMN_IDENTIFIERS = {
   workDate: "workDate",
   matter: "matter",
   dateEntered: "dateEntered",
-  description: "description",
   worked: "worked",
   hours: "hours",
   rate: "rate",
@@ -125,12 +124,11 @@ export function timeSheetColumns(
       value: () => null,
       text: () => "",
     },
-    {
-      id: TIME_SHEET_COLUMN_IDENTIFIERS.description,
-      label: "Description",
-      type: "text",
-      value: (row) => row.description,
-    },
+    /*
+     * The description is deliberately NOT a column: it is prose, usually the longest thing on the
+     * row, so it renders as the row's own second line under every other fact — full width, wrapped,
+     * never clipped. Search still reads it.
+     */
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.worked,
       label: "Worked",
@@ -207,7 +205,9 @@ export function timeSheetColumns(
     /*
      * The row's own verbs, at rest on every row rather than revealed on hover: a row that grows
      * controls under the pointer is a row that reflows under the pointer, and the reader loses the
-     * cell they were aiming at.
+     * cell they were aiming at. Pinned to the trailing edge, because the sheet scrolls sideways
+     * once every column is shown and a control you have to scroll to reach is a control you do
+     * not have.
      */
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.actions,
@@ -216,6 +216,7 @@ export function timeSheetColumns(
       filter: "none",
       align: "end",
       fitExtra: 96,
+      pinnedEnd: true,
       value: () => null,
       text: () => "",
     },

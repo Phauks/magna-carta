@@ -79,6 +79,9 @@ const MatterSummary = z
     responsibleMemberId: z.string(),
     clientDisplayName: z.string().nullable(),
     matterNumber: z.string().nullable(),
+    // The tentative number a consultation wears until (and after) it is opened. Carried beside the
+    // matter number, never folded into it: which of the two a reader has changes what it means.
+    consultationNumber: z.string().nullable(),
     createdAt: z.string(),
   })
   .openapi("MatterSummary");
@@ -92,6 +95,8 @@ const ConsultationItemSchema = z
     id: z.string(),
     title: z.string(),
     matterNumber: z.string().nullable(),
+    // A consultation's own number — on this view, the only number there is.
+    consultationNumber: z.string().nullable(),
     createdAt: z.string(),
     isStale: z.boolean(),
   })
@@ -113,6 +118,7 @@ const MatterDetail = z
     clientDisplayName: z.string().nullable(),
     clientCode: z.string().nullable(),
     matterNumber: z.string().nullable(),
+    consultationNumber: z.string().nullable(),
     eBilling: z.boolean(),
     openedAt: z.string().nullable(),
     closedAt: z.string().nullable(),
@@ -132,7 +138,13 @@ const MatterDetail = z
 // from the stored body — is byte-identical to the fresh response. That is why these carry matterId,
 // not a remapped id: the handler returns the service value verbatim.
 const CreateMatterResponse = z
-  .object({ matterId: z.string(), matterNumber: z.string().nullable() })
+  .object({
+    matterId: z.string(),
+    matterNumber: z.string().nullable(),
+    // Filled for a consultation, which is numbered the moment it is created; null for a matter
+    // created straight to open, which never was one.
+    consultationNumber: z.string().nullable(),
+  })
   .openapi("CreateMatterResponse");
 
 const PatchMatterRequest = z
@@ -693,6 +705,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           {
             matterId: result.matterId,
             matterNumber: result.matterNumber,
+            consultationNumber: result.consultationNumber,
           } as z.infer<typeof CreateMatterResponse>,
           201,
         );
@@ -774,6 +787,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         client_display_name: string | null;
         client_code: string | null;
         matter_number: string | null;
+        consultation_number: string | null;
         e_billing: number;
         opened_at: string | null;
         closed_at: string | null;
@@ -803,6 +817,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           clientDisplayName: row.client_display_name,
           clientCode: row.client_code,
           matterNumber: row.matter_number,
+          consultationNumber: row.consultation_number,
           eBilling: row.e_billing !== 0,
           openedAt: row.opened_at,
           closedAt: row.closed_at,

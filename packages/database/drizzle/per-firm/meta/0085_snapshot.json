@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b5692e35-2b0b-49ff-979f-04ad6fad2bd5",
-  "prevId": "96cb72c9-d901-445f-9e18-4b22fd76812d",
+  "id": "4f4a0527-7fde-48e3-98be-33e2c197646d",
+  "prevId": "45567813-b786-4d86-8353-ca6752fc4e34",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -12071,6 +12071,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "consultation_number": {
+          "name": "consultation_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "system_key": {
           "name": "system_key",
           "type": "text",
@@ -12115,6 +12122,14 @@
           ],
           "isUnique": true,
           "where": "\"matter\".\"matter_number\" IS NOT NULL"
+        },
+        "matter_consultation_number_unique_index": {
+          "name": "matter_consultation_number_unique_index",
+          "columns": [
+            "consultation_number"
+          ],
+          "isUnique": true,
+          "where": "\"matter\".\"consultation_number\" IS NOT NULL"
         },
         "matter_system_key_unique_index": {
           "name": "matter_system_key_unique_index",
@@ -16848,7 +16863,7 @@
       "checkConstraints": {
         "notification_event_category_check": {
           "name": "notification_event_category_check",
-          "value": "\"notification_event\".\"category\" IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
+          "value": "\"notification_event\".\"category\" IN ('deadlines', 'calendar', 'tasks', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
         },
         "notification_event_severity_check": {
           "name": "notification_event_severity_check",
@@ -16856,7 +16871,7 @@
         },
         "notification_event_subject_kind_check": {
           "name": "notification_event_subject_kind_check",
-          "value": "\"notification_event\".\"subject_kind\" IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member')"
+          "value": "\"notification_event\".\"subject_kind\" IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member', 'matterTask')"
         }
       }
     },
@@ -16928,7 +16943,7 @@
         },
         "notification_in_app_suppression_category_check": {
           "name": "notification_in_app_suppression_category_check",
-          "value": "\"notification_in_app_suppression\".\"category\" IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
+          "value": "\"notification_in_app_suppression\".\"category\" IN ('deadlines', 'calendar', 'tasks', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
         },
         "notification_in_app_suppression_reason_check": {
           "name": "notification_in_app_suppression_reason_check",
@@ -17111,6 +17126,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'matter'"
         },
         "active": {
           "name": "active",
@@ -19986,6 +20009,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "memo": {
+          "name": "memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "entry_number": {
+          "name": "entry_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -20009,6 +20046,14 @@
         }
       },
       "indexes": {
+        "time_entry_entry_number_unique_index": {
+          "name": "time_entry_entry_number_unique_index",
+          "columns": [
+            "entry_number"
+          ],
+          "isUnique": true,
+          "where": "\"time_entry\".\"entry_number\" IS NOT NULL"
+        },
         "time_entry_timekeeper_work_date_index": {
           "name": "time_entry_timekeeper_work_date_index",
           "columns": [
@@ -20150,6 +20195,179 @@
           "value": "(\"time_entry\".\"amount_minor\" IS NULL) = (\"time_entry\".\"rate_e4\" IS NULL)"
         }
       }
+    },
+    "time_entry_attachment": {
+      "name": "time_entry_attachment",
+      "columns": {
+        "time_entry_id": {
+          "name": "time_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "time_entry_attachment_file_id_index": {
+          "name": "time_entry_attachment_file_id_index",
+          "columns": [
+            "file_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "time_entry_attachment_time_entry_id_time_entry_id_fk": {
+          "name": "time_entry_attachment_time_entry_id_time_entry_id_fk",
+          "tableFrom": "time_entry_attachment",
+          "tableTo": "time_entry",
+          "columnsFrom": [
+            "time_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "time_entry_attachment_file_id_file_id_fk": {
+          "name": "time_entry_attachment_file_id_file_id_fk",
+          "tableFrom": "time_entry_attachment",
+          "tableTo": "file",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "time_entry_attachment_time_entry_id_file_id_pk": {
+          "columns": [
+            "time_entry_id",
+            "file_id"
+          ],
+          "name": "time_entry_attachment_time_entry_id_file_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "time_entry_number_allocation": {
+      "name": "time_entry_number_allocation",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drawn_value": {
+          "name": "drawn_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "time_entry_id": {
+          "name": "time_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "allocated_at": {
+          "name": "allocated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "time_entry_number_allocation_time_entry_id_index": {
+          "name": "time_entry_number_allocation_time_entry_id_index",
+          "columns": [
+            "time_entry_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "time_entry_number_allocation_time_entry_id_time_entry_id_fk": {
+          "name": "time_entry_number_allocation_time_entry_id_time_entry_id_fk",
+          "tableFrom": "time_entry_number_allocation",
+          "tableTo": "time_entry",
+          "columnsFrom": [
+            "time_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "time_entry_number_allocation_scope_key_drawn_value_pk": {
+          "columns": [
+            "scope_key",
+            "drawn_value"
+          ],
+          "name": "time_entry_number_allocation_scope_key_drawn_value_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "time_entry_number_counter": {
+      "name": "time_entry_number_counter",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "next_value": {
+          "name": "next_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "token_usage_meter": {
       "name": "token_usage_meter",

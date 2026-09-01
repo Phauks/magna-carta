@@ -41,6 +41,13 @@
     caption: string;
     /** Renders each body cell; omit to render the column model's typed text. */
     cell?: Snippet<[GridCellContext<TRow>]>;
+    /**
+     * Renders a record's second line: a full-width row under the primary one, spanning every
+     * scrolling column. The pair reads as ONE row of two lines — the hairline moves to the
+     * second line, and hover, selection, and the stripe cover both. With a trailing-pinned
+     * column the second line keeps an empty pinned cell so that column's hairline runs unbroken.
+     */
+    rowDetail?: Snippet<[TRow]>;
     /** The unfiltered empty state — the surface owns its own empty-state composition. */
     empty?: Snippet;
     /** Skeleton rows stand in for data until it arrives. */
@@ -62,6 +69,7 @@
     grid,
     caption,
     cell,
+    rowDetail,
     empty,
     loading = false,
     skeletonRowCount = 8,
@@ -91,11 +99,21 @@
   const stickyColumnIds = $derived.by((): readonly string[] => {
     if (!pinningActive) return [];
     return grid.visibleColumns
-      .filter((column) => column.anchored || grid.pinnedColumnIds.has(column.id))
+      .filter(
+        (column) =>
+          column.pinnedEnd !== true && (column.anchored || grid.pinnedColumnIds.has(column.id)),
+      )
       .map((column) => column.id);
   });
   const stickyEdgeColumnId = $derived(stickyColumnIds.at(-1));
+  // The trailing-pinned block is declared by the column model, not toggled: stuck to the end of
+  // the scroll viewport, its FIRST member carrying the hairline that says "pinned, not floating".
+  const pinnedEndColumns = $derived(
+    grid.visibleColumns.filter((column) => column.pinnedEnd === true),
+  );
+  const pinnedEndEdgeColumnId = $derived(pinnedEndColumns[0]?.id);
   let pinnedOffsets = $state<Readonly<Record<string, number>>>({});
+  let pinnedEndOffsets = $state<Readonly<Record<string, number>>>({});
   $effect(() => {
     // Track everything that can move a header cell, then measure the rendered header.
     void grid.visibleColumns;
@@ -109,10 +127,31 @@
       offset += headerCells[id]?.getBoundingClientRect().width ?? 0;
     }
     if (JSON.stringify(next) !== JSON.stringify(pinnedOffsets)) pinnedOffsets = next;
+    // Trailing offsets accumulate from the END edge inward (the last column sits flush at 0).
+    const endNext: Record<string, number> = {};
+    let endOffset = 0;
+    for (const column of pinnedEndColumns.toReversed()) {
+      endNext[column.id] = endOffset;
+      endOffset += headerCells[column.id]?.getBoundingClientRect().width ?? 0;
+    }
+    if (JSON.stringify(endNext) !== JSON.stringify(pinnedEndOffsets)) pinnedEndOffsets = endNext;
   });
   const pinnedAttributes = (
     columnId: string,
-  ): { "data-pinned"?: "true"; "data-pinned-edge"?: "true"; style?: string } => {
+  ): {
+    "data-pinned"?: "true";
+    "data-pinned-edge"?: "true";
+    "data-pinned-end"?: "true";
+    "data-pinned-end-edge"?: "true";
+    style?: string;
+  } => {
+    if (pinnedEndOffsets[columnId] !== undefined) {
+      return {
+        "data-pinned-end": "true",
+        ...(columnId === pinnedEndEdgeColumnId ? { "data-pinned-end-edge": "true" as const } : {}),
+        style: `inset-inline-end: ${pinnedEndOffsets[columnId]}px`,
+      };
+    }
     if (!pinningActive || pinnedOffsets[columnId] === undefined) return {};
     return {
       "data-pinned": "true",
@@ -125,7 +164,13 @@
   let draggingColumnId = $state<string | null>(null);
   let dropTarget = $state<{ columnId: string; after: boolean } | null>(null);
   function headDragOver(event: DragEvent, column: GridColumn<TRow>): void {
-    if (draggingColumnId === null || draggingColumnId === column.id || column.anchored) return;
+    if (
+      draggingColumnId === null ||
+      draggingColumnId === column.id ||
+      column.anchored ||
+      column.pinnedEnd === true
+    )
+      return;
     event.preventDefault();
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     dropTarget = { columnId: column.id, after: event.clientX >= rect.left + rect.width / 2 };
@@ -204,6 +249,14 @@
     grid.snapshotColumnWidths(measuredWidths());
     grid.setColumnWidth(column.id, fittedWidth(column));
   }
+
+  // ---- the second line's pair hover -----------------------------------------------------------
+  // With a rowDetail the record is TWO <tr>s, and CSS :hover only knows one — so the grid tracks
+  // which pair the pointer is in and stamps data-pair-hover on both lines, keeping the pair one
+  // hover unit.
+  let hoveredPairKey = $state<string | null>(null);
+  const pairHoverOf = (key: string): "true" | undefined =>
+    rowDetail !== undefined && hoveredPairKey === key ? "true" : undefined;
 
   // ---- selection gestures ---------------------------------------------------------------------
   function rowClick(event: MouseEvent, key: string): void {
@@ -292,6 +345,7 @@
     data-zebra={grid.zebra ? "on" : undefined}
     data-fixed-columns={grid.columnWidthsFixed ? "on" : undefined}
     data-row-density={density}
+    data-row-detail={rowDetail ? "on" : undefined}
   >
     <caption class="sr-only">{caption}</caption>
     <thead class="mc-table-header">
@@ -323,6 +377,8 @@
                   data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
                   data-pinned={pinned["data-pinned"]}
                   data-pinned-edge={pinned["data-pinned-edge"]}
+                  data-pinned-end={pinned["data-pinned-end"]}
+                  data-pinned-end-edge={pinned["data-pinned-end-edge"]}
                   data-dragging={draggingColumnId === column.id ? "true" : undefined}
                   data-drop={dropTarget?.columnId === column.id
                     ? dropTarget.after
@@ -330,9 +386,9 @@
                       : "before"
                     : undefined}
                   aria-sort={ariaSortOf(column.id)}
-                  draggable={column.anchored ? undefined : true}
+                  draggable={column.anchored || column.pinnedEnd === true ? undefined : true}
                   ondragstart={(event) => {
-                    if (column.anchored) return;
+                    if (column.anchored || column.pinnedEnd === true) return;
                     draggingColumnId = column.id;
                     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
                   }}
@@ -403,8 +459,14 @@
         {#each Array.from({ length: skeletonRowCount }, (_, index) => index) as skeletonRow (skeletonRow)}
           <tr class="mc-table-row">
             {#each grid.visibleColumns as column (column.id)}
-              <td class="mc-table-cell mc-table-grid-cell"
-                ><Skeleton class="mc-table-skeleton w-full" /></td
+              {@const pinned = pinnedAttributes(column.id)}
+              <td
+                class="mc-table-cell mc-table-grid-cell"
+                data-pinned={pinned["data-pinned"]}
+                data-pinned-edge={pinned["data-pinned-edge"]}
+                data-pinned-end={pinned["data-pinned-end"]}
+                data-pinned-end-edge={pinned["data-pinned-end-edge"]}
+                style={pinned.style}><Skeleton class="mc-table-skeleton w-full" /></td
               >
             {/each}
           </tr>
@@ -442,6 +504,7 @@
         {#each grid.rowsInView as row, rowIndex (rowKeyOf(row))}
           {@const key = rowKeyOf(row)}
           {@const mark = grid.markFor(row)}
+          {@const stripe = rowIndex % 2 === 1 ? ("even" as const) : undefined}
           {#if grid.pinnedRowCount > 0 && rowIndex === grid.pinnedRowCount}
             <!-- The rule that separates the pinned block from the list: pinned items sit above
                  EVERYTHING, not above their own kind, and the rule is what says so. -->
@@ -453,10 +516,14 @@
             class="mc-table-row"
             data-grid-row={key}
             data-state={grid.isSelected(key) ? "selected" : undefined}
+            data-stripe={stripe}
+            data-pair-hover={pairHoverOf(key)}
             {...gridRowMarkAttributes(mark)}
             onclick={(event) => rowClick(event, key)}
             ondblclick={() => rowDoubleClick(key)}
             oncontextmenu={(event) => rowContextMenu(event, row)}
+            onpointerenter={rowDetail ? () => (hoveredPairKey = key) : undefined}
+            onpointerleave={rowDetail ? () => (hoveredPairKey = null) : undefined}
           >
             {#each grid.visibleColumns as column, columnIndex (column.id)}
               {@const pinned = pinnedAttributes(column.id)}
@@ -466,6 +533,8 @@
                 data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
                 data-pinned={pinned["data-pinned"]}
                 data-pinned-edge={pinned["data-pinned-edge"]}
+                data-pinned-end={pinned["data-pinned-end"]}
+                data-pinned-end-edge={pinned["data-pinned-end-edge"]}
                 style={pinned.style}
               >
                 {#if columnIndex === 0 && mark?.pinned === true}
@@ -483,6 +552,39 @@
               </td>
             {/each}
           </tr>
+          {#if rowDetail}
+            <!-- The record's second line: one cell across the scrolling columns, carrying the
+                 hairline the primary line gave up — the pair reads as one row of two lines. -->
+            <tr
+              class="mc-table-grid-detail-row"
+              data-grid-detail-row={key}
+              data-state={grid.isSelected(key) ? "selected" : undefined}
+              data-stripe={stripe}
+              data-pair-hover={pairHoverOf(key)}
+              {...gridRowMarkAttributes(mark)}
+              onclick={(event) => rowClick(event, key)}
+              ondblclick={() => rowDoubleClick(key)}
+              oncontextmenu={(event) => rowContextMenu(event, row)}
+              onpointerenter={() => (hoveredPairKey = key)}
+              onpointerleave={() => (hoveredPairKey = null)}
+            >
+              <td
+                class="mc-table-cell mc-table-grid-cell mc-table-grid-detail-cell"
+                colspan={grid.visibleColumns.length - pinnedEndColumns.length}
+              >
+                {@render rowDetail(row)}
+              </td>
+              {#if pinnedEndColumns.length > 0}
+                <!-- An empty pinned cell keeps the trailing column's hairline continuous. -->
+                <td
+                  class="mc-table-cell mc-table-grid-cell mc-table-grid-detail-pinned-cell"
+                  colspan={pinnedEndColumns.length}
+                  data-pinned-end="true"
+                  data-pinned-end-edge="true"
+                ></td>
+              {/if}
+            </tr>
+          {/if}
         {/each}
       {/if}
     </tbody>
@@ -495,6 +597,8 @@
               class="mc-table-grid-total-cell"
               data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
               data-pinned={pinned["data-pinned"]}
+              data-pinned-end={pinned["data-pinned-end"]}
+              data-pinned-end-edge={pinned["data-pinned-end-edge"]}
               style={pinned.style}
             >
               {#if columnIndex === 0}

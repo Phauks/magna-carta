@@ -1,16 +1,22 @@
 <script lang="ts">
   /*
-   * The BARE error surface — only for failures outside the (app) shell (in-app errors render
-   * inside the chrome via routes/(app)/+error.svelte). Same archetype pattern: a recoverable
-   * message, Retry, and the copyable diagnostics block (golden rule 4's user-facing Error ID
-   * rides in it).
+   * The BARE error surface — only for failures outside the (app) shell (in-app errors render inside
+   * the chrome via routes/(app)/+error.svelte). Same archetype pattern as every other failure in the
+   * product: what happened, the diagnostics a report needs, and the controls that move a person on.
+   *
+   * A 404 is not a failure and does not pretend to be one: nothing broke, there is nothing to
+   * report, and no Error ID exists to quote — so it keeps the empty state it always had.
    */
   import { page } from "$app/state";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import ErrorDetails from "$lib/components/error-details.svelte";
+  import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
+  import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
+  import { routeFailure } from "$lib/diagnostics/route-failure.ts";
 
   const notFound = $derived(page.status === 404);
+  const failure = $derived(routeFailure(page));
+  let reportOpen = $state(false);
 </script>
 
 <svelte:head>
@@ -27,13 +33,23 @@
       {/snippet}
     </EmptyState>
   {:else}
-    <EmptyState title="Something went wrong">
-      The error has been noted. Retry, and if it persists, copy the details below into a report.
-      {#snippet actions()}
-        <Button variant="primary" onclick={() => location.reload()}>Retry</Button>
-        <Button variant="secondary" href="/home">Go home</Button>
-      {/snippet}
-    </EmptyState>
+    <FailureScreen
+      {failure}
+      scale="screen"
+      subject="This page"
+      fallback={page.error?.message}
+      steps={[
+        "Reload: a brief interruption usually clears on the next attempt.",
+        "Go home, and open the screen again from the navigation.",
+        "If it keeps happening, report it with the Error ID above.",
+      ]}
+      onRetry={() => location.reload()}
+      onReport={() => (reportOpen = true)}
+    />
+    <ReportDialog
+      bind:open={reportOpen}
+      errorId={failure.problem?.errorId ?? null}
+      route={failure.request}
+    />
   {/if}
-  <ErrorDetails />
 </div>

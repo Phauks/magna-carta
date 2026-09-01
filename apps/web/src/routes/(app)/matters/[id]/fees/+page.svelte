@@ -10,8 +10,8 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import { readSession } from "$lib/matters/matters-api.ts";
-  import BillingErrorState from "$lib/billing/billing-error-state.svelte";
-  import BillingProblemReportDialog from "$lib/billing/billing-problem-report-dialog.svelte";
+  import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
+  import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import FeeLedger from "$lib/billing/fee-ledger.svelte";
   import { MatterBilling } from "$lib/billing/matter-billing.svelte.ts";
   import type { FeeRecord } from "$lib/billing/fee-record.ts";
@@ -67,20 +67,20 @@
 </svelte:head>
 
 {#if failure !== null}
-  <BillingErrorState
-    title="Fees Could Not Be Read"
-    detail={failure.detail}
-    request={failure.request}
-    status={failure.status}
-    errorId={failure.errorId}
-    failedAt={failure.failedAt}
+  <FailureScreen
+    failure={failure.failure}
+    scale="screen"
+    subject="The fees"
+    fallback={failure.whenSilent}
+    reassurance="The record itself is unaffected: nothing was changed by this failure, and the
+      agreement and every recorded fee are still on the firm's record."
     onRetry={() => (reloadToken += 1)}
     onReport={() => (reportOpen = true)}
   />
-  <BillingProblemReportDialog
+  <ReportDialog
     bind:open={reportOpen}
-    errorId={failure.errorId}
-    route={failure.request}
+    errorId={failure.failure.problem?.errorId ?? null}
+    route={failure.failure.request}
   />
 {:else if isSample}
   <section class="flex flex-col gap-16">

@@ -30,30 +30,30 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 274 | 43% |
-| Part-built | partial, in-build | 115 | 18% |
-| Ahead | designed, planned, researching, not-started | 208 | 33% |
-| Parked | deferred, cut | 41 | 6% |
+| Done | shipped | 277 | 43% |
+| Part-built | partial, in-build | 114 | 18% |
+| Ahead | designed, planned, researching, not-started | 206 | 32% |
+| Parked | deferred, cut | 41 | 7% |
 | **All units of work** | | **638** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 274 | 43% |
-| `partial` | 114 | 18% |
+| `shipped` | 277 | 43% |
+| `partial` | 113 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 141 | 22% |
+| `not-started` | 139 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
 | **All statuses** | **638** | **100%** |
 
 ### What a roll-up is not
 
-**137 of the 775 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**137 of the 775 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 274 of 638 (43%). Shipped plus partial is 388 (61%).**
+**Shipped alone is 277 of 638 (43%). Shipped plus partial is 390 (61%).**
 
-The 114 units between those two numbers are work that is engineered and paid for and is not
+The 113 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**389 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**391 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 34 | 9% |
+| A person can open it today (`screen`) | 35 | 9% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
-| No user surface by nature (`internal`) | 175 | 45% |
+| No user surface by nature (`internal`) | 176 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **389** | **100%** |
+| **Everything with something built** | **391** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -114,7 +114,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 6 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 11 | 55% |
 | Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
-| Observability & Diagnostics | 11 | 1 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 20 | 55% |
+| Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
 | Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 6 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 66 | 47% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 3 | 33% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **274** | **114** | **1** | **46** | **16** | **5** | **141** | **38** | **3** | **638** | **43%** |
+| **All areas** | **277** | **113** | **1** | **46** | **16** | **5** | **139** | **38** | **3** | **638** | **43%** |
 
 ## Where we have been
 
@@ -625,7 +625,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
   - `matters.lifecycle` · `partial` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: Backend shipped; lifecycle UI not built._
-    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
+    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
     - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
     - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
   - `matters.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop. _Note: The Files UI has landed since this said it was queued. What it does not yet offer is folder navigation, document-type assignment or drag-and-drop, which is the rest of this node's scope; the backend for all three is built._
@@ -1097,17 +1097,17 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Observability & Diagnostics
 
-[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 55% shipped. 11 done, 1 part-built, 6 ahead, 2 parked.
+[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 70% shipped. 14 done, 0 part-built, 4 ahead, 2 parked.
 
 - `observability` · `partial` · **Observability & diagnostics** — Diagnose without exfiltrating privileged content: redacted operational telemetry, user-initiated incidents, correlation IDs, usage analytics, status page; no third-party error SaaS, no session replay.
   - `observability.redaction-model` · `shipped` · **Redact-by-default event model** — Three data classes (metadata / opaque identifiers / content-never); allowlist event assembly with a boundary scrubbing pass.
   - `observability.correlation` · `shipped` · **Correlation & Error IDs** — Per-request correlation ID on every event and problem response; Error ID minted at capture joining a user-visible failure to its server trace.
   - `observability.operational-telemetry` · `shipped` · **Always-on operational telemetry** — Redacted structured server logs and counters (Workers logger + Analytics Engine), firm-scoped, keyed by correlation/Error ID. _Note: Logpush-to-R2 archival is account configuration, not verified in-repo._
-  - `observability.client-reporter` · `partial` · **In-house client capture** — Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
-    - `observability.client-reporter.error-boundary` · `shipped` · **Error pages with trace identity** — Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block.
-    - `observability.client-reporter.breadcrumbs` · `not-started` · **Client breadcrumb ring buffer** — Client-side ring of recent actions/IDs (never field content) attached to reports.
-    - `observability.client-reporter.report-a-problem` · `partial` · **Report a problem affordance** — Always-available help-menu reporting usable without a crash.
-    - `observability.client-reporter.send-to-developer` · `not-started` · **Send-to-developer on crash** — Error screen/toast showing the Error ID with a prominent send button.
+  - `observability.client-reporter` · `shipped` · **In-house client capture** — Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
+    - `observability.client-reporter.error-boundary` · `shipped` · **Error pages with trace identity** — Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block, and a client boundary catches what never reached a route.
+    - `observability.client-reporter.breadcrumbs` · `shipped` · **Client breadcrumb ring buffer** — Client-side ring of recent actions/IDs (never field content) attached to reports.
+    - `observability.client-reporter.report-a-problem` · `shipped` · **Report a problem affordance** — Always-available help-menu reporting usable without a crash. _Note: The optional in-office recipients and the email-me-a-copy flag stay Soon-marked — the incident route carries no recipients, and transactional email does not exist yet._
+    - `observability.client-reporter.send-to-developer` · `shipped` · **Send-to-developer on crash** — Error screen/toast showing the Error ID with a prominent send button.
   - `observability.incidents` · `partial` · **Incident reports** — User-initiated firm-scoped incident rows: Error IDs, redacted breadcrumbs, free-text description, context metadata; access-gated and audited.
     - `observability.incidents.ingest` · `shipped` · **Incident ingest endpoint** — POST incidents route writing a bounded, redacted-by-construction firm-scoped row; description sealed under the firm key with an audited decrypt permission.
     - `observability.incidents.screenshot` · `not-started` · **Opt-in redactable screenshot** — User-redactable screenshot attached to a report, stored in R2.

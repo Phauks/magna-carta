@@ -76,7 +76,11 @@
   let searchOpen = $state(false);
   let searchField = $state<HTMLInputElement | null>(null);
   let dialogOpen = $state(false);
-  let lastCreated = $state<{ matterId: string; matterNumber: string | null } | null>(null);
+  let lastCreated = $state<{
+    matterId: string;
+    matterNumber: string | null;
+    consultationNumber: string | null;
+  } | null>(null);
 
   // The typed query settles before it is sent: a docket read per keystroke is a request per
   // keystroke, and the server's search is the authoritative one over title, number and client.
@@ -194,7 +198,11 @@
     grid.clearAllFilters();
   }
 
-  function onCreated(created: { matterId: string; matterNumber: string | null }): void {
+  function onCreated(created: {
+    matterId: string;
+    matterNumber: string | null;
+    consultationNumber: string | null;
+  }): void {
     lastCreated = created;
     reread();
   }
@@ -296,8 +304,10 @@
         {lastCreated.matterNumber === null ? "The Consultation Is Recorded" : "The Matter Is Open"}
       </Alert.Title>
       <Alert.Description>
+        <!-- The link says the number the thing was given, whichever sequence gave it: a
+             consultation now leaves this window with a number of its own to quote. -->
         <a class="underline underline-offset-2" href="/matters/{lastCreated.matterId}">
-          {lastCreated.matterNumber ?? "Open the consultation"}
+          {lastCreated.matterNumber ?? lastCreated.consultationNumber ?? "Open the consultation"}
         </a>
       </Alert.Description>
     </Alert.Root>

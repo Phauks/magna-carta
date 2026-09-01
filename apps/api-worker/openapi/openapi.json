@@ -3841,11 +3841,18 @@
               "string",
               "null"
             ]
+          },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "matterId",
-          "matterNumber"
+          "matterNumber",
+          "consultationNumber"
         ]
       },
       "CreateMatterRequest": {
@@ -3970,6 +3977,12 @@
               "null"
             ]
           },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           }
@@ -3983,6 +3996,7 @@
           "responsibleMemberId",
           "clientDisplayName",
           "matterNumber",
+          "consultationNumber",
           "createdAt"
         ]
       },
@@ -4022,6 +4036,12 @@
               "null"
             ]
           },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -4033,6 +4053,7 @@
           "id",
           "title",
           "matterNumber",
+          "consultationNumber",
           "createdAt",
           "isStale"
         ]
@@ -4093,6 +4114,12 @@
               "null"
             ]
           },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "eBilling": {
             "type": "boolean"
           },
@@ -4141,6 +4168,7 @@
           "clientDisplayName",
           "clientCode",
           "matterNumber",
+          "consultationNumber",
           "eBilling",
           "openedAt",
           "closedAt",
@@ -5569,10 +5597,22 @@
             "items": {
               "$ref": "#/components/schemas/NumberSegment"
             }
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "consultation"
+            ]
+          },
+          "usingDefault": {
+            "type": "boolean"
           }
         },
         "required": [
-          "segments"
+          "segments",
+          "purpose",
+          "usingDefault"
         ]
       },
       "NumberSegment": {
@@ -5765,6 +5805,14 @@
             "items": {
               "$ref": "#/components/schemas/NumberSegment"
             }
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "consultation"
+            ],
+            "default": "matter"
           }
         },
         "required": [
@@ -6394,10 +6442,17 @@
           "event": {
             "type": "string"
           },
-          "fileId": {
+          "subjectKind": {
+            "type": "string",
+            "enum": [
+              "file",
+              "folder"
+            ]
+          },
+          "subjectId": {
             "type": "string"
           },
-          "fileName": {
+          "subjectName": {
             "type": "string"
           },
           "versionNumber": {
@@ -6435,8 +6490,9 @@
         "required": [
           "at",
           "event",
-          "fileId",
-          "fileName",
+          "subjectKind",
+          "subjectId",
+          "subjectName",
           "versionNumber",
           "actorUserId",
           "actorName",
@@ -25556,6 +25612,9 @@
         "properties": {
           "timeEntryId": {
             "type": "string"
+          },
+          "entryNumber": {
+            "type": "string"
           }
         },
         "required": [
@@ -25631,6 +25690,13 @@
               "null"
             ],
             "exclusiveMinimum": 0
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The firm's own note about the entry. Internal only: it never appears on a bill, a print sheet, or the client portal, and the audit trail records that it changed, never what it says."
           }
         },
         "required": [
@@ -25676,6 +25742,12 @@
           "timekeeperUserId": {
             "type": "string"
           },
+          "timekeeperName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "workDate": {
             "type": "string"
           },
@@ -25700,6 +25772,69 @@
           "currency": {
             "type": "string"
           },
+          "rateE4": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "rateSource": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "override",
+              "matter",
+              "client",
+              "timekeeper",
+              "role",
+              "card_default",
+              null
+            ]
+          },
+          "rateCardId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "utbmsTaskCodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "utbmsTaskCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "utbmsTaskLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "utbmsActivityCodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "utbmsActivityCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "utbmsActivityLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -25710,17 +25845,59 @@
               "void"
             ]
           },
-          "timekeeperName": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "timer",
+              "manual",
+              "quick_add",
+              "grid",
+              "offline_sync",
+              "calendar"
+            ]
+          },
+          "invoiceId": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entryNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attachmentCount": {
+            "type": "integer"
           }
         },
         "required": [
           "id",
           "matterId",
           "timekeeperUserId",
+          "timekeeperName",
           "workDate",
           "durationMinutes",
           "rawDurationMinutes",
@@ -25728,7 +25905,164 @@
           "billable",
           "amountMinor",
           "currency",
-          "status"
+          "rateE4",
+          "rateSource",
+          "rateCardId",
+          "utbmsTaskCodeId",
+          "utbmsTaskCode",
+          "utbmsTaskLabel",
+          "utbmsActivityCodeId",
+          "utbmsActivityCode",
+          "utbmsActivityLabel",
+          "status",
+          "source",
+          "invoiceId",
+          "memo",
+          "entryNumber",
+          "createdAt",
+          "createdByUserId",
+          "createdByName",
+          "attachmentCount"
+        ]
+      },
+      "TimeEntryEventsResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeEntryEventItem"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "TimeEntryEventItem": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string"
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {}
+        },
+        "required": [
+          "at",
+          "event",
+          "actorUserId",
+          "actorName"
+        ]
+      },
+      "TimeEntryAttachmentListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeEntryAttachmentItem"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "TimeEntryAttachmentItem": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "fileId",
+          "fileName",
+          "createdAt",
+          "createdByUserId",
+          "createdByName"
+        ]
+      },
+      "TimeEntryAttachmentAck": {
+        "type": "object",
+        "properties": {
+          "timeEntryId": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "timeEntryId",
+          "fileId"
+        ]
+      },
+      "AttachTimeEntryFileRequest": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "fileId"
+        ]
+      },
+      "DetachTimeEntryFileRequest": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "fileId"
         ]
       },
       "PatchTimeEntryRequest": {
@@ -25759,6 +26093,13 @@
               "null"
             ],
             "pattern": "^utbmsCode_[A-Za-z0-9_-]{21}$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The firm-internal note. Null clears it; absent leaves it unchanged."
           }
         }
       },
@@ -25823,6 +26164,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "entryNumbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -25856,6 +26203,33 @@
         "required": [
           "reason"
         ]
+      },
+      "ConvertToCostAck": {
+        "type": "object",
+        "properties": {
+          "costEntryId": {
+            "type": "string"
+          },
+          "timeEntryId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "costEntryId",
+          "timeEntryId"
+        ]
+      },
+      "ConvertToCostRequest": {
+        "type": "object",
+        "properties": {
+          "utbmsExpenseCodeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^utbmsCode_[A-Za-z0-9_-]{21}$"
+          }
+        }
       },
       "TimerStartAck": {
         "type": "object",
@@ -25999,6 +26373,9 @@
         "type": "object",
         "properties": {
           "timeEntryId": {
+            "type": "string"
+          },
+          "entryNumber": {
             "type": "string"
           }
         },
@@ -41957,7 +42334,7 @@
     },
     "/api/v1/numbering-scheme": {
       "get": {
-        "description": "Returns the firm's active matter-numbering scheme (the ordered segment template), or null segments when none is configured yet.",
+        "description": "Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry. Returns null segments when none is configured and no default applies; usingDefault marks the built-in consultation sequence that renders until the firm sets its own.",
         "operationId": "numbering.get",
         "tags": [
           "numbering"
@@ -41975,6 +42352,21 @@
           "numbering"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "matter",
+                "consultation"
+              ],
+              "default": "matter"
+            },
+            "required": false,
+            "name": "purpose",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The active scheme's segments, or null",
@@ -42029,7 +42421,7 @@
         }
       },
       "put": {
-        "description": "Replaces the firm's active matter-numbering scheme. The prior scheme is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.",
+        "description": "Replaces the firm's active numbering scheme for one purpose (matter numbers, or the consultation sequence). The prior scheme of that purpose is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.",
         "operationId": "numbering.set",
         "tags": [
           "numbering"
@@ -80040,6 +80432,450 @@
         }
       }
     },
+    "/api/v1/time-entries/{id}/events": {
+      "get": {
+        "description": "Lists the entry's recorded audit events, OLDEST first — the order a history rail reads in: captured, updated, submitted, approved, kicked back, voided, files attached and detached, conversions. Each event carries its instant, its actor (id and resolved name), and the redacted detail the write recorded — older writes recorded less, and those render as honest blanks rather than guesses. CURSOR-PAGED: an entry worked over a week records an event per edit, so the history grows with the work rather than with the lifecycle.",
+        "operationId": "timeEntries.events",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.events",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^timeEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The entry's events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryEventsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/time-entries/{id}/attachments": {
+      "get": {
+        "description": "Lists the files attached to the entry — references to documents in the entry's own matter, oldest link first, with the attacher resolved.",
+        "operationId": "timeEntries.listAttachments",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.listAttachments",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^timeEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The entry's attachments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryAttachmentListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Attaches one of the matter's own files to the entry, by reference — no bytes move. A file on another matter (or a deleted one) is refused: an entry can never point outside its own matter's record.",
+        "operationId": "timeEntries.attachFile",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.attachFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^timeEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachTimeEntryFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The file was attached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryAttachmentAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/time-entries/{id}/attachments/detach": {
+      "post": {
+        "description": "Detaches a file from the entry. Detaching is not deleting: the link goes, the file stays in the matter, and both acts stay on the entry's audit trail.",
+        "operationId": "timeEntries.detachFile",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.detachFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^timeEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetachTimeEntryFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The file was detached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryAttachmentAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/time-entries/quick-add-preview": {
       "post": {
         "description": "Parses a one-line quick-add string into a duration, a matter hint, and a narrative, returning matching matters for the timekeeper to confirm. Writes nothing.",
@@ -80678,6 +81514,140 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TimeEntryAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/time-entries/{id}/convert-to-cost": {
+      "post": {
+        "description": "Converts the entry into a cost: one act creates the cost entry carrying the entry's matter, narrative and amount, and voids the time entry, so the value is never counted twice. Both records' audit trails name each other. Refused for an entry that is billed, claimed by a draft invoice, already void, or carrying no amount.",
+        "operationId": "timeEntries.convertToCost",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.convertToCost",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^timeEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertToCostRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The cost entry was created and the time entry voided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConvertToCostAck"
                 }
               }
             }

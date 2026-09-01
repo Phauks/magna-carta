@@ -208,7 +208,13 @@ describe("conversionQueue", () => {
 
     const state = await stub.status();
     expect(state.status).toBe("failed");
-    expect(state.reason).toMatch(/not the R2 bucket bound to this Worker/);
+    // The refusal names BOTH buckets — the one the firm is recorded against and the one this
+    // deployment reads through — because the member who sees it forwards it to the operator who can
+    // fix it, and neither name alone says what to change.
+    expect(state.reason).toMatch(/a-bucket-this-worker-does-not-read-through/);
+    expect(state.reason).toMatch(/magna-carta-production-platform-files/);
+    // And it says the work did not happen, so nobody goes looking for a half-written result.
+    expect(state.reason).toMatch(/nothing was uploaded and the matter is unchanged/i);
     // Nothing was written: the seam refused before any conversion ran.
     expect(await env.R2.get(resultKey)).toBeNull();
     expect(retries).toEqual(["msg-1"]);

@@ -9,6 +9,14 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import { resolveScopedSetting } from "@magna-carta/data-access/scoped-setting-statements";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { captureTimeEntry } from "@magna-carta/timekeeping/time-entry-service";
+import {
+  entryNumberAllocationStatement,
+  entryNumberBlockOpenStatements,
+  isEntryNumberConflict,
+  planEntryNumberBlock,
+  TIME_ENTRY_NUMBERING_TABLES,
+} from "@magna-carta/timekeeping/entry-numbering";
+import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
 import { resolveRate } from "@magna-carta/timekeeping/rate-resolution";
 import { roundDuration, computeAmountMinor } from "@magna-carta/timekeeping/rounding";
 import {
@@ -74,7 +82,13 @@ const TimerStateResponse = z
   })
   .openapi("TimerStateResponse");
 
-const StopCommitAck = z.object({ timeEntryId: z.string() }).openapi("TimerStopCommitAck");
+const StopCommitAck = z
+  .object({
+    timeEntryId: z.string(),
+    // The matter-scoped entry number drawn for the committed entry.
+    entryNumber: z.string().optional(),
+  })
+  .openapi("TimerStopCommitAck");
 const TimerAck = z.object({ ok: z.boolean() }).openapi("TimerAck");
 
 const authErrors = {
@@ -594,38 +608,76 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
 
       const currency = "noRate" in captureRate ? "USD" : captureRate.currency;
 
-      const result = await runIdempotentEffect({
-        database: firm.firmDatabase,
-        key: `timer-stop:${liveRunId}`,
-        fingerprint: liveRunId,
-        now,
-        effect: async () => {
-          const captured = await captureTimeEntry(
-            firm.firmDatabase,
-            {
-              id: timeEntryId,
-              matterId,
-              timekeeperUserId: userId,
-              workDate,
-              rawDurationMinutes: rawElapsed,
-              durationMinutes,
-              narrative,
-              billable: true,
-              source: "timer",
-              liveRunId,
-              utbmsTaskCodeId,
-              currency,
-              rate: captureRate,
-            },
-            { clock: { now }, actorUserId: userId },
-          );
-          return {
-            write: captured.effect,
-            responseCode: 201,
-            responseBody: canonicalJsonStringify({ timeEntryId: captured.timeEntryId }),
-          };
+      // The entry-number draw wraps the idempotent effect (the time-entries capture arrangement):
+      // the plan is read INSIDE the effect so a replayed commit never draws, and a losing
+      // concurrent draw aborts on the allocation primary key and retries with a fresh number.
+      const result = await drawWithBoundedRetry(
+        firm.firmDatabase,
+        TIME_ENTRY_NUMBERING_TABLES,
+        {
+          sequenceLabel: "time-entry number",
+          alsoRetryable: isEntryNumberConflict,
+          nonConvergenceError: ({ message }) => new Error(message),
         },
-      });
+        async (observe) =>
+          await runIdempotentEffect({
+            database: firm.firmDatabase,
+            key: `timer-stop:${liveRunId}`,
+            fingerprint: liveRunId,
+            now,
+            effect: async () => {
+              const plan = await planEntryNumberBlock(firm.firmDatabase, matterId, 1);
+              observe({
+                scopeKey: plan.scopeKey,
+                observedValue: plan.observedValue,
+                startValue: plan.startValue,
+              });
+              const entryNumber = plan.numbers[0];
+              const captured = await captureTimeEntry(
+                firm.firmDatabase,
+                {
+                  id: timeEntryId,
+                  matterId,
+                  timekeeperUserId: userId,
+                  workDate,
+                  rawDurationMinutes: rawElapsed,
+                  durationMinutes,
+                  narrative,
+                  billable: true,
+                  source: "timer",
+                  liveRunId,
+                  utbmsTaskCodeId,
+                  entryNumber,
+                  currency,
+                  rate: captureRate,
+                },
+                { clock: { now }, actorUserId: userId },
+              );
+              return {
+                write: {
+                  statements: [
+                    ...entryNumberBlockOpenStatements(firm.firmDatabase, plan),
+                    ...captured.effect.statements,
+                    // Last: time_entry_id is a foreign key, so the entry row must exist first.
+                    entryNumberAllocationStatement(
+                      firm.firmDatabase,
+                      plan,
+                      0,
+                      captured.timeEntryId,
+                      now(),
+                    ),
+                  ],
+                  outboxMessages: captured.effect.outboxMessages,
+                },
+                responseCode: 201,
+                responseBody: canonicalJsonStringify({
+                  timeEntryId: captured.timeEntryId,
+                  ...(entryNumber === undefined ? {} : { entryNumber }),
+                }),
+              };
+            },
+          }),
+      );
 
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
         return problemResponseForIdempotencyConflict(c, result);

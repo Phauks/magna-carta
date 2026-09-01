@@ -80,6 +80,11 @@ export interface CaptureTimeEntryInput {
   readonly utbmsTaskCodeId?: string;
   readonly utbmsActivityCodeId?: string;
   readonly liveRunId?: string;
+  // The firm-internal memo. Optional at capture; the text never rides an audit row.
+  readonly memo?: string;
+  // The matter-scoped entry number the route drew for this capture (see entry-numbering.ts).
+  // Absent = stored null: a caller with no sequence (fixtures) records an honest gap.
+  readonly entryNumber?: string;
   readonly currency: string;
   readonly rate: CaptureRate;
 }
@@ -176,7 +181,21 @@ export async function updateDraftTimeEntry(
     effect: {
       statements: [
         updateDraftStatement(database, timeEntryId, patch, updatedAt),
-        audit(database, options, "time_entry.updated", timeEntryId),
+        // metadata names WHICH fields the patch touched — names only, never a value, so an edited
+        // memo or narrative is audited as the fact of an edit without the text ever reaching the
+        // shared audit log.
+        domainAuditStatement(database, {
+          event: "time_entry.updated",
+          subjectId: timeEntryId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: {
+            fields: Object.entries(patch)
+              .filter(([, value]) => value !== undefined)
+              .map(([field]) => field),
+          },
+        }),
       ],
       outboxMessages: [],
     },
@@ -333,10 +352,21 @@ export async function captureTimeEntry(
           utbmsActivityCodeId: input.utbmsActivityCodeId ?? null,
           source: input.source,
           liveRunId: input.liveRunId ?? null,
+          memo: input.memo ?? null,
+          entryNumber: input.entryNumber ?? null,
           createdAt,
           createdBy: options.actorUserId,
         }),
-        audit(database, options, "time_entry.captured", timeEntryId),
+        // metadata carries the capture source only — an identifier-free, non-privileged fact the
+        // history read renders ("entered from the timer" vs "typed by hand").
+        domainAuditStatement(database, {
+          event: "time_entry.captured",
+          subjectId: timeEntryId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { source: input.source },
+        }),
       ],
       outboxMessages: [],
     },

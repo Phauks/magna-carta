@@ -15,6 +15,8 @@
    * the control opens unanswered and the act is refused until somebody answers it.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Button from "@magna-carta/design-system/button";
@@ -22,7 +24,7 @@
   import Label from "@magna-carta/design-system/label";
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import {
-    billingFailureText,
+    billingFailure,
     setArrangement,
     type ArrangementKind,
     type ArrangementRecord,
@@ -82,7 +84,7 @@
   let retainerTargetText = $state("");
   let retainerFloorText = $state("");
   let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const inForce = $derived(arrangement?.inForce ?? null);
   const nextVersion = $derived((inForce?.version ?? 0) + 1);
@@ -164,7 +166,7 @@
       onRecorded(outcome.value);
       return;
     }
-    failure = billingFailureText(outcome, "The agreement is unchanged.");
+    failure = billingFailure(outcome, "The agreement is unchanged.");
   }
 </script>
 
@@ -178,10 +180,11 @@
     </Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Recorded</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Recorded"
+        fallback={failure.fallback}
+      />
     {/if}
 
     <div class="flex flex-col gap-16">

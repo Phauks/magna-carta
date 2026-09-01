@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "88b35709-41c3-4d99-80d2-dedccd12ba80",
-  "prevId": "b5692e35-2b0b-49ff-979f-04ad6fad2bd5",
+  "id": "45567813-b786-4d86-8353-ca6752fc4e34",
+  "prevId": "96cb72c9-d901-445f-9e18-4b22fd76812d",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -12071,6 +12071,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "consultation_number": {
+          "name": "consultation_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "system_key": {
           "name": "system_key",
           "type": "text",
@@ -12115,6 +12122,14 @@
           ],
           "isUnique": true,
           "where": "\"matter\".\"matter_number\" IS NOT NULL"
+        },
+        "matter_consultation_number_unique_index": {
+          "name": "matter_consultation_number_unique_index",
+          "columns": [
+            "consultation_number"
+          ],
+          "isUnique": true,
+          "where": "\"matter\".\"consultation_number\" IS NOT NULL"
         },
         "matter_system_key_unique_index": {
           "name": "matter_system_key_unique_index",
@@ -15580,387 +15595,6 @@
         }
       }
     },
-    "matter_task": {
-      "name": "matter_task",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "assignee_user_id": {
-          "name": "assignee_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "priority": {
-          "name": "priority",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'normal'"
-        },
-        "due_on": {
-          "name": "due_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "due_at_time": {
-          "name": "due_at_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "time_zone": {
-          "name": "time_zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "state": {
-          "name": "state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'open'"
-        },
-        "completed_at": {
-          "name": "completed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "completed_by": {
-          "name": "completed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cancelled_at": {
-          "name": "cancelled_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cancelled_by": {
-          "name": "cancelled_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cancellation_reason": {
-          "name": "cancellation_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "blocked_by_task_id": {
-          "name": "blocked_by_task_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "trigger_event_id": {
-          "name": "trigger_event_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "deadline_id": {
-          "name": "deadline_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_task_assignee_state_due_on_index": {
-          "name": "matter_task_assignee_state_due_on_index",
-          "columns": [
-            "assignee_user_id",
-            "state",
-            "due_on"
-          ],
-          "isUnique": false
-        },
-        "matter_task_matter_due_on_id_index": {
-          "name": "matter_task_matter_due_on_id_index",
-          "columns": [
-            "matter_id",
-            "due_on",
-            "id"
-          ],
-          "isUnique": false
-        },
-        "matter_task_matter_created_at_id_index": {
-          "name": "matter_task_matter_created_at_id_index",
-          "columns": [
-            "matter_id",
-            "created_at",
-            "id"
-          ],
-          "isUnique": false
-        },
-        "matter_task_created_by_index": {
-          "name": "matter_task_created_by_index",
-          "columns": [
-            "created_by",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "matter_task_blocked_by_index": {
-          "name": "matter_task_blocked_by_index",
-          "columns": [
-            "blocked_by_task_id"
-          ],
-          "isUnique": false
-        },
-        "matter_task_deadline_index": {
-          "name": "matter_task_deadline_index",
-          "columns": [
-            "deadline_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "matter_task_matter_id_matter_id_fk": {
-          "name": "matter_task_matter_id_matter_id_fk",
-          "tableFrom": "matter_task",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_task_trigger_event_id_matter_event_id_fk": {
-          "name": "matter_task_trigger_event_id_matter_event_id_fk",
-          "tableFrom": "matter_task",
-          "tableTo": "matter_event",
-          "columnsFrom": [
-            "trigger_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_task_deadline_id_matter_deadline_id_fk": {
-          "name": "matter_task_deadline_id_matter_deadline_id_fk",
-          "tableFrom": "matter_task",
-          "tableTo": "matter_deadline",
-          "columnsFrom": [
-            "deadline_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_task_title_check": {
-          "name": "matter_task_title_check",
-          "value": "length(\"matter_task\".\"title\") > 0"
-        },
-        "matter_task_priority_check": {
-          "name": "matter_task_priority_check",
-          "value": "\"matter_task\".\"priority\" IN ('low', 'normal', 'high', 'urgent')"
-        },
-        "matter_task_state_check": {
-          "name": "matter_task_state_check",
-          "value": "\"matter_task\".\"state\" IN ('open', 'done', 'cancelled')"
-        },
-        "matter_task_due_on_shape_check": {
-          "name": "matter_task_due_on_shape_check",
-          "value": "\"matter_task\".\"due_on\" IS NULL OR \"matter_task\".\"due_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        },
-        "matter_task_due_at_time_shape_check": {
-          "name": "matter_task_due_at_time_shape_check",
-          "value": "\"matter_task\".\"due_at_time\" IS NULL OR \"matter_task\".\"due_at_time\" GLOB '[0-2][0-9]:[0-5][0-9]'"
-        },
-        "matter_task_due_shape_check": {
-          "name": "matter_task_due_shape_check",
-          "value": "(\"matter_task\".\"due_at_time\" IS NULL OR \"matter_task\".\"due_on\" IS NOT NULL)\n        AND (\"matter_task\".\"due_on\" IS NULL) = (\"matter_task\".\"time_zone\" IS NULL)"
-        },
-        "matter_task_completion_shape_check": {
-          "name": "matter_task_completion_shape_check",
-          "value": "(\"matter_task\".\"state\" = 'done' AND \"matter_task\".\"completed_at\" IS NOT NULL AND \"matter_task\".\"completed_by\" IS NOT NULL)\n        OR (\"matter_task\".\"state\" != 'done' AND \"matter_task\".\"completed_at\" IS NULL AND \"matter_task\".\"completed_by\" IS NULL)"
-        },
-        "matter_task_cancellation_shape_check": {
-          "name": "matter_task_cancellation_shape_check",
-          "value": "(\"matter_task\".\"state\" = 'cancelled' AND \"matter_task\".\"cancelled_at\" IS NOT NULL AND \"matter_task\".\"cancelled_by\" IS NOT NULL\n          AND \"matter_task\".\"cancellation_reason\" IS NOT NULL AND length(\"matter_task\".\"cancellation_reason\") > 0)\n        OR (\"matter_task\".\"state\" != 'cancelled' AND \"matter_task\".\"cancelled_at\" IS NULL AND \"matter_task\".\"cancelled_by\" IS NULL\n          AND \"matter_task\".\"cancellation_reason\" IS NULL)"
-        },
-        "matter_task_blocked_by_self_check": {
-          "name": "matter_task_blocked_by_self_check",
-          "value": "\"matter_task\".\"blocked_by_task_id\" != \"matter_task\".\"id\""
-        }
-      }
-    },
-    "matter_task_document": {
-      "name": "matter_task_document",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "task_id": {
-          "name": "task_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_id": {
-          "name": "file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "linked_at": {
-          "name": "linked_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "linked_by": {
-          "name": "linked_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_task_document_task_index": {
-          "name": "matter_task_document_task_index",
-          "columns": [
-            "task_id"
-          ],
-          "isUnique": false
-        },
-        "matter_task_document_file_index": {
-          "name": "matter_task_document_file_index",
-          "columns": [
-            "file_id"
-          ],
-          "isUnique": false
-        },
-        "matter_task_document_task_file_unique_index": {
-          "name": "matter_task_document_task_file_unique_index",
-          "columns": [
-            "task_id",
-            "file_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "matter_task_document_task_id_matter_task_id_fk": {
-          "name": "matter_task_document_task_id_matter_task_id_fk",
-          "tableFrom": "matter_task_document",
-          "tableTo": "matter_task",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_task_document_file_id_file_id_fk": {
-          "name": "matter_task_document_file_id_file_id_fk",
-          "tableFrom": "matter_task_document",
-          "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "matter_type": {
       "name": "matter_type",
       "columns": {
@@ -16848,7 +16482,7 @@
       "checkConstraints": {
         "notification_event_category_check": {
           "name": "notification_event_category_check",
-          "value": "\"notification_event\".\"category\" IN ('deadlines', 'calendar', 'tasks', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
+          "value": "\"notification_event\".\"category\" IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
         },
         "notification_event_severity_check": {
           "name": "notification_event_severity_check",
@@ -16856,7 +16490,7 @@
         },
         "notification_event_subject_kind_check": {
           "name": "notification_event_subject_kind_check",
-          "value": "\"notification_event\".\"subject_kind\" IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member', 'matterTask')"
+          "value": "\"notification_event\".\"subject_kind\" IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member')"
         }
       }
     },
@@ -16928,7 +16562,7 @@
         },
         "notification_in_app_suppression_category_check": {
           "name": "notification_in_app_suppression_category_check",
-          "value": "\"notification_in_app_suppression\".\"category\" IN ('deadlines', 'calendar', 'tasks', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
+          "value": "\"notification_in_app_suppression\".\"category\" IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
         },
         "notification_in_app_suppression_reason_check": {
           "name": "notification_in_app_suppression_reason_check",
@@ -17111,6 +16745,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'matter'"
         },
         "active": {
           "name": "active",
@@ -19986,6 +19628,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "memo": {
+          "name": "memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "entry_number": {
+          "name": "entry_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -20009,6 +19665,14 @@
         }
       },
       "indexes": {
+        "time_entry_entry_number_unique_index": {
+          "name": "time_entry_entry_number_unique_index",
+          "columns": [
+            "entry_number"
+          ],
+          "isUnique": true,
+          "where": "\"time_entry\".\"entry_number\" IS NOT NULL"
+        },
         "time_entry_timekeeper_work_date_index": {
           "name": "time_entry_timekeeper_work_date_index",
           "columns": [
@@ -20150,6 +19814,179 @@
           "value": "(\"time_entry\".\"amount_minor\" IS NULL) = (\"time_entry\".\"rate_e4\" IS NULL)"
         }
       }
+    },
+    "time_entry_attachment": {
+      "name": "time_entry_attachment",
+      "columns": {
+        "time_entry_id": {
+          "name": "time_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "time_entry_attachment_file_id_index": {
+          "name": "time_entry_attachment_file_id_index",
+          "columns": [
+            "file_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "time_entry_attachment_time_entry_id_time_entry_id_fk": {
+          "name": "time_entry_attachment_time_entry_id_time_entry_id_fk",
+          "tableFrom": "time_entry_attachment",
+          "tableTo": "time_entry",
+          "columnsFrom": [
+            "time_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "time_entry_attachment_file_id_file_id_fk": {
+          "name": "time_entry_attachment_file_id_file_id_fk",
+          "tableFrom": "time_entry_attachment",
+          "tableTo": "file",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "time_entry_attachment_time_entry_id_file_id_pk": {
+          "columns": [
+            "time_entry_id",
+            "file_id"
+          ],
+          "name": "time_entry_attachment_time_entry_id_file_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "time_entry_number_allocation": {
+      "name": "time_entry_number_allocation",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drawn_value": {
+          "name": "drawn_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "time_entry_id": {
+          "name": "time_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "allocated_at": {
+          "name": "allocated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "time_entry_number_allocation_time_entry_id_index": {
+          "name": "time_entry_number_allocation_time_entry_id_index",
+          "columns": [
+            "time_entry_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "time_entry_number_allocation_time_entry_id_time_entry_id_fk": {
+          "name": "time_entry_number_allocation_time_entry_id_time_entry_id_fk",
+          "tableFrom": "time_entry_number_allocation",
+          "tableTo": "time_entry",
+          "columnsFrom": [
+            "time_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "time_entry_number_allocation_scope_key_drawn_value_pk": {
+          "columns": [
+            "scope_key",
+            "drawn_value"
+          ],
+          "name": "time_entry_number_allocation_scope_key_drawn_value_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "time_entry_number_counter": {
+      "name": "time_entry_number_counter",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "next_value": {
+          "name": "next_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "token_usage_meter": {
       "name": "token_usage_meter",

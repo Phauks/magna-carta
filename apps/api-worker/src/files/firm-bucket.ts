@@ -1,4 +1,5 @@
 import type { Bindings } from "../app.ts";
+import { firmBucketNotBound } from "./firm-bucket-fault.ts";
 import { realR2Credentials } from "./presigner-wiring.ts";
 import { requireBucket } from "./require-bucket.ts";
 
@@ -35,17 +36,15 @@ export function resolveFirmBucket(env: Bindings, firmBucketName: string | null):
   // routing label and the pair is consistent by construction.
   if (realR2Credentials(env) !== null) {
     const boundBucketName = env.R2_BUCKET_NAME;
+    // Both refusals are NAMED faults rather than bare throws. They are the two ways a deployment can
+    // be configured such that no upload can work at all, and each one used to reach the reader as
+    // "an unexpected error occurred" with an Error ID — which told a member trying to file a
+    // document nothing about what had actually gone wrong, or that it was not their file.
     if (boundBucketName === undefined || boundBucketName === "") {
-      throw new Error(
-        "R2_BUCKET_NAME is unset — a presigned URL cannot be reconciled against the bound R2 bucket",
-      );
+      throw firmBucketNotBound(bucketName, null);
     }
     if (boundBucketName !== bucketName) {
-      throw new Error(
-        `firm bucket ${bucketName} is not the R2 bucket bound to this Worker (${boundBucketName}) — ` +
-          "presigned writes would land where no read path can reach them; bind the firm's bucket to " +
-          "this Worker, or provision the firm against the bound bucket",
-      );
+      throw firmBucketNotBound(bucketName, boundBucketName);
     }
   }
   return { bucketName, bucket: env.R2 };

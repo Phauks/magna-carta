@@ -7,10 +7,11 @@
    * pressing: the text is gone and cannot be recovered, and the documents the note pointed at are
    * not — deleting a note has never been a way to delete a document.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as AlertDialog from "@magna-carta/design-system/alert-dialog";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import { formatInstant } from "@magna-carta/design-system/formatters";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { deleteMatterNote, newWriteKey, type MatterNote } from "./notes-api.ts";
 
   let {
@@ -26,7 +27,7 @@
   } = $props();
 
   let sending = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   $effect(() => {
     const subject = note?.id ?? null;
@@ -48,12 +49,11 @@
       onDeleted();
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The note was not deleted and is unchanged."
-        : `${outcome.problem.detail ?? "The note was not deleted."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The note was not deleted.",
+      "Nothing answered. The note was not deleted and is unchanged.",
+    );
   }
 </script>
 
@@ -63,10 +63,12 @@
     <AlertDialog.Description>{identity}</AlertDialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Changed</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Changed"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
     {/if}
 
     <p class="text-sm">

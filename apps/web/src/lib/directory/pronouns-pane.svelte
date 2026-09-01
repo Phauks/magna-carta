@@ -16,6 +16,8 @@
    * refuse a partly filled one while naming what is still missing.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Select from "@magna-carta/design-system/select";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
@@ -56,7 +58,7 @@
    */
   let edited = $state<PronounDraft | null>(null);
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let shownFor = $state<string | null>(null);
 
   const draft = $derived(edited ?? pronounDraftFrom(person.pronouns));
@@ -106,10 +108,11 @@
       onRecorded();
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The set on file is unchanged."
-        : (outcome.problem.detail ?? "The pronouns could not be recorded.");
+    failure = stated(
+      outcome.failure,
+      "The pronouns could not be recorded.",
+      "The set on file is unchanged.",
+    );
   }
 </script>
 
@@ -164,9 +167,12 @@
   </div>
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="The Pronouns Could Not Be Recorded"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {/if}
 
   <div class="flex items-center justify-end gap-16">

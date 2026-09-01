@@ -16,6 +16,8 @@
    * never happened.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
@@ -47,7 +49,7 @@
 
   let carried = $state<readonly DirectoryCategory[] | null>(null);
   let vocabulary = $state<readonly DirectoryCategory[]>([]);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
 
   $effect(() => {
@@ -68,10 +70,7 @@
         return;
       }
       carried = [];
-      failure =
-        assigned.kind === "transport"
-          ? "Nothing answered. This record's categories could not be read."
-          : (assigned.problem.detail ?? "This record's categories could not be read.");
+      failure = stated(assigned.failure, "This record's categories could not be read.");
     })();
     return () => {
       cancelled = true;
@@ -95,7 +94,7 @@
   let open = $state(false);
   let chosen = $state<string>("");
   let submitting = $state(false);
-  let assignFailure = $state<string | null>(null);
+  let assignFailure = $state<StatedFailure | null>(null);
 
   async function submit(): Promise<void> {
     if (chosen === "" || submitting) return;
@@ -113,10 +112,11 @@
       reloadToken += 1;
       return;
     }
-    assignFailure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The category was not assigned."
-        : (outcome.problem.detail ?? "The category could not be assigned.");
+    assignFailure = stated(
+      outcome.failure,
+      "The category could not be assigned.",
+      "The category was not assigned.",
+    );
   }
 </script>
 
@@ -141,10 +141,12 @@
   </div>
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Categories Could Not Be Read</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="The Categories Could Not Be Read"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {:else if carried === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading this record's categories">
       <Skeleton class="h-32 w-full" />
@@ -212,9 +214,12 @@
       </div>
 
       {#if assignFailure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{assignFailure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={assignFailure.failure}
+          title="The Category Was Not Assigned"
+          fallback={assignFailure.fallback}
+          whenSilent={assignFailure.whenSilent}
+        />
       {/if}
 
       <div class="flex justify-end gap-8">
