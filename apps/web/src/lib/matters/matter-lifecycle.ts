@@ -18,7 +18,6 @@
  * movements that clear it.
  */
 import type { ApiProblem } from "$lib/api/request.ts";
-import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
 import type { MatterStatus } from "./matter-status.ts";
 import {
   CLOSE_MATTER_PERMISSION,
@@ -241,9 +240,13 @@ export function matterCloseRefusals(problem: ApiProblem): readonly MatterCloseBl
  * from. The custody register is explicit that it runs no timer at all — an original is destroyed on
  * a written basis, by two people, never because a date arrived.
  *
- * So every row renders and says what it is waiting for, which is the standing rule for anything
- * designed ahead of what serves it. A date invented here would be a date somebody destroys a
- * client's file on.
+ * So every row renders, holding nothing, marked Soon. That is the standing rule for anything
+ * designed ahead of what serves it: the shape of the answer, never an invented one. A date made up
+ * here would be a date somebody destroys a client's file on.
+ *
+ * The rows carry no sentence naming the dependency (owner ruling): a row that says "Not recorded"
+ * beside the Soon mark has already said it is not built, and a paragraph repeating that under three
+ * rows was the loudest copy on a window whose whole point is to be short.
  */
 export interface MatterPhysicalFileFact {
   readonly key: string;
@@ -265,25 +268,6 @@ export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
   { key: "container", label: "Held In" },
   { key: "destroy-after", label: "Destroy After" },
 ];
-
-/**
- * What the panel is waiting for, once, rather than the same sentence under all three rows.
- *
- * Two capabilities, and they are named separately because a firm could get one without the other:
- * knowing where a file is kept is a register, and knowing when it may be destroyed is a policy.
- */
-export const MATTER_PHYSICAL_FILE_WAITING_ON = soonDependencySentence(
-  "a register of the firm's own physical files and what holds them, and a firm file-retention policy for the destruction date",
-);
-
-/**
- * The one thing this panel has to say that its rows cannot.
- *
- * Where the file is kept is the sort of fact a status window invites somebody to read as a
- * consequence of the status. It is not one — a folder sits in its box at its store whatever the
- * matter's status is — and the panel says so rather than letting the layout imply it.
- */
-export const MATTER_PHYSICAL_FILE_NOTE = "Closing the matter does not move the file.";
 
 // ---- what stops the step being taken from this screen ---------------------------------------------
 

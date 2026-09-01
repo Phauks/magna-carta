@@ -299,6 +299,27 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-01 — the matter status window
+
+Five corrections against the window behind the matter's status seal, all from the owner. What is
+local to this surface:
+
+- The seal itself is the control. The lifecycle action left the masthead's overflow menu, which held
+  nothing else and went with it: the status was read in one corner and changed in another.
+- The requirements to close are not checkboxes. A checkbox asks a person to work through what the
+  program already decides, so the window lists the requirements and the program marks each met or
+  unmet from its own reading of the firm's rules.
+- The word is **status**, not standing. The page is called Matter Status.
+- Two sides, and the physical file is the right one. It is a standing fact rather than a consequence
+  of closing: a firm keeps a matter's folder in a box, a cabinet, a safe or on a shelf, commonly with
+  other matters' folders and commonly at a remote store, and closing the matter moves none of that.
+  Nor may the row name a medium, because firms do not agree on one.
+- The Soon rows carry no dependency sentence and no note about the close. A row reading "Not
+  recorded" beside the Soon mark has already said it is not built; the paragraphs repeating it were
+  the loudest copy on a window whose point is to be short. Recorded here rather than promoted: the
+  standing Soon rule still holds for a CONTROL, where the sentence is the only thing that explains a
+  disabled affordance.
+
 ### 2026-08-31 — the Build Versions panel
 
 Five corrections against the version overlay, all from the owner, all promoted above:

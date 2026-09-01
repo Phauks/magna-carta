@@ -20,8 +20,6 @@ import {
   CLOSE_REFUSED_PROBLEM_TYPE,
   MATTER_LIFECYCLE_STEPS,
   MATTER_PHYSICAL_FILE_FACTS,
-  MATTER_PHYSICAL_FILE_NOTE,
-  MATTER_PHYSICAL_FILE_WAITING_ON,
 } from "../src/lib/matters/matter-lifecycle.ts";
 import { MATTER_STATUSES } from "../src/lib/matters/matter-status.ts";
 
@@ -172,28 +170,12 @@ describe("the physical file", () => {
     }
   });
 
-  it("says what it waits on once, in the sentence every unserved capability uses", () => {
-    expect(MATTER_PHYSICAL_FILE_WAITING_ON.startsWith("Not built yet. Waiting on ")).toBe(true);
-  });
-
-  it("waits on the firm's OWN file register, never on the custody register", () => {
-    // The two get confused, and the confusion would put a client's will where a firm's paper file
-    // belongs: Custodian holds client property left with the firm to guard, which outlives the
-    // matter that brought it in. What this panel waits on is a different register that does not
-    // exist.
-    expect(MATTER_PHYSICAL_FILE_WAITING_ON).toContain("the firm's own physical files");
-    expect(MATTER_PHYSICAL_FILE_WAITING_ON).not.toContain("custody");
-  });
-
-  it("invents no destruction date", () => {
-    expect(MATTER_PHYSICAL_FILE_WAITING_ON).toContain("retention policy");
-    expect(MATTER_PHYSICAL_FILE_WAITING_ON).not.toMatch(/\d{4}-\d{2}-\d{2}/);
-  });
-
-  it("says the status does not move the file, because the layout would imply it does", () => {
-    // A firm keeps a matter's folder in a box with other matters' folders at a remote store, and
-    // closing the matter changes none of that.
-    expect(MATTER_PHYSICAL_FILE_NOTE).toContain("does not move the file");
+  it("is labels and nothing else, so no row can grow prose again", () => {
+    // The rows carried a sentence naming what they wait on and a note about the close; the owner
+    // removed both. A row states its name, and the value beside it states that it holds nothing.
+    for (const fact of MATTER_PHYSICAL_FILE_FACTS) {
+      expect(Object.keys(fact).toSorted()).toEqual(["key", "label"]);
+    }
   });
 });
 

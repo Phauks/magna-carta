@@ -143,16 +143,16 @@ firm.
 
 The right-hand side of the window is your firm's own paper file for the matter: what it is **held in**,
 the **location** that is kept at, and the date the file may be **destroyed after**. None of the three
-is recorded in Magna Carta yet, and the window says so rather than leaving the questions off the
-screen that ought to answer them.
+is recorded in Magna Carta yet, so each reads "Not recorded" and carries the Soon mark rather than
+being left off the screen that ought to answer for them.
 
 **Held in** does not assume a box. Firms keep files in boxes, in cabinet drawers, in safes, on
 shelves; what holds a file will be a record in its own right, carrying what kind of thing it is, and
 a matter will point at it. That is also why it is not simply part of the location: one container
 holds several matters' folders at once.
 
-The panel sits beside the status rather than under the close on purpose: closing a matter does not
-move its file. A folder stays where it is whatever the matter's status is.
+The panel sits beside the status rather than under the close because closing a matter does not move
+its file. A folder stays where it is whatever the matter's status is.
 
 This is deliberately not the safe-custody register, which is a different thing: **Custodian** holds a
 client's own property left with the firm to guard, and it stays there for as long as the client's

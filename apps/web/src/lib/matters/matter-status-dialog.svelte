@@ -53,8 +53,6 @@
     matterLifecycleStep,
     MATTER_LIFECYCLE_TRANSPORT_FAILURE,
     MATTER_PHYSICAL_FILE_FACTS,
-    MATTER_PHYSICAL_FILE_NOTE,
-    MATTER_PHYSICAL_FILE_WAITING_ON,
     type MatterCloseRequirementState,
     type MatterLifecycleStep,
   } from "./matter-lifecycle.ts";
@@ -330,8 +328,11 @@
         <div class="flex flex-1 flex-col gap-8">
           <h3 class="text-xs text-text-subtle uppercase">Physical File</h3>
           <!-- The firm's own paper file, which is not the custody register: that one holds client
-               property left with the firm to guard. Nothing here is served yet, so each row says
-               what it waits on rather than being left off the window that ought to answer it. -->
+               property left with the firm to guard. Nothing here is served yet, and the rows say so
+               the way a row says it — "Not recorded" beside the Soon mark. There is deliberately no
+               sentence under them naming the dependency: a row that already states it holds nothing
+               and wears the Soon mark has said it, and a paragraph repeating it was the loudest copy
+               on the window (owner ruling). The reasoning lives in matter-lifecycle.ts. -->
           <dl class="flex flex-col gap-8 text-sm">
             {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
               <div class="grid grid-cols-2 items-baseline gap-16">
@@ -343,10 +344,6 @@
               </div>
             {/each}
           </dl>
-          <!-- Said once for the panel rather than three times under three rows: they wait on the
-               same two things, and the repetition was the loudest copy on the window. -->
-          <p class="text-xs text-text-subtle">{MATTER_PHYSICAL_FILE_WAITING_ON}</p>
-          <p class="text-xs text-text-subtle">{MATTER_PHYSICAL_FILE_NOTE}</p>
         </div>
       </div>
 
