@@ -31,8 +31,8 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 274 | 43% |
-| Part-built | partial, in-build | 114 | 18% |
-| Ahead | designed, planned, researching, not-started | 212 | 33% |
+| Part-built | partial, in-build | 115 | 18% |
+| Ahead | designed, planned, researching, not-started | 211 | 33% |
 | Parked | deferred, cut | 40 | 6% |
 | **All units of work** | | **640** | **100%** |
 
@@ -41,9 +41,9 @@ not](#what-a-roll-up-is-not).
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 274 | 43% |
-| `partial` | 113 | 18% |
+| `partial` | 114 | 18% |
 | `in-build` | 1 | 0% |
-| `designed` | 47 | 7% |
+| `designed` | 46 | 7% |
 | `planned` | 16 | 3% |
 | `researching` | 5 | 1% |
 | `not-started` | 144 | 22% |
@@ -53,7 +53,7 @@ not](#what-a-roll-up-is-not).
 
 ### What a roll-up is not
 
-**138 of the 778 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**138 of the 778 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 274 of 640 (43%). Shipped plus partial is 387 (60%).**
+**Shipped alone is 274 of 640 (43%). Shipped plus partial is 388 (61%).**
 
-The 113 units between those two numbers are work that is engineered and paid for and is not
+The 114 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**388 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**389 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 31 | 8% |
+| A person can open it today (`screen`) | 32 | 8% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
 | No user surface by nature (`internal`) | 177 | 46% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **388** | **100%** |
+| **Everything with something built** | **389** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -101,7 +101,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
-| Core Domain — Directory, Matters & Locations | 32 | 20 | 0 | 2 | 2 | 0 | 3 | 1 | 0 | 60 | 53% |
+| Core Domain — Directory, Matters & Locations | 32 | 21 | 0 | 1 | 2 | 0 | 3 | 1 | 0 | 60 | 53% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **274** | **113** | **1** | **47** | **16** | **5** | **144** | **38** | **2** | **640** | **43%** |
+| **All areas** | **274** | **114** | **1** | **46** | **16** | **5** | **144** | **38** | **2** | **640** | **43%** |
 
 ## Where we have been
 
@@ -334,7 +334,7 @@ in this one.
 - **Pronouns on a person** (`directory.pronouns`) — **Built; no screen yet.** Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
 - **Matters** (`matters`) — **A group of capabilities.** The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
 - **Consultations (prospective matters)** (`matters.lifecycle.consultations`) — **Built; no screen yet.** May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
-- **Consolidated matter search** (`matters.search`) — **A group of capabilities.** M1, M2 and M4 are settled (header placement supersedes the "next to the status chip" ruling; one results surface, with the Files group drawn by the file manager's own row machinery; the query rides in the address). Four carry a standing recommendation the build proceeds under, each reversible — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty.
+- **Consolidated matter search** (`matters.search`) — **A group of capabilities.** Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
 - **Retention and destruction dates** (`custodian.retention-destruction`) — **Built; no screen yet.** Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.
 - **Search** (`discovery.search`) — **A group of capabilities.** Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
 - **Review workflow** (`discovery.review`) — **A group of capabilities.** Three, and the first two gate the next sub-slice outright. P1 — does privilege coding require its own permission tier, separate from ordinary coding? P3 — what is the default when a privilege designation splits a document family, produce the rest or withhold the family? Both decide what reaches opposing counsel and where waiver risk sits, and 5·2·2 privilege review cannot start until they are answered. (P2 and P4 are production-side and gate 5·2·3, not this slice.) Third, and separate: the per-review-set access list can be emptied and there is NO WAY BACK. The grant route is itself behind the wall (apps/api-worker/src/routes/discovery-coding.ts checks memberHasReviewSetAccess before grantReviewSetAccess) and the list is seeded once at creation with the creating member alone, so if the last listed member leaves the firm or is revoked the review set is permanently unreachable — nobody can read it, nobody can close it, nobody can grant access back, and there is no Owner bypass and no operator override. On a corpus under a protective order that is material a firm may be obliged to produce and cannot open. It is deliberately an owner question rather than a fix, because every escape hatch weakens the exact property the design chose — that no role sees through the wall. The narrowest option is probably refusing to revoke the LAST member on a list, which keeps the wall intact and only forbids emptying it; it is not built.
@@ -378,8 +378,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `community.changelog-sync` · **Shipped-items changelog sync** — Requests marked shipped sync to the changelog; popular requests inform the roadmap.
 - `community.agent-status-posts` · **Agent status posts** — Maintenance/diagnostics agents post public status on known issues, propose-only, never exposing privileged detail.
 - `community.moderation` · **Moderation and abuse handling** — Permanent moderation, spam/abuse, and security operation of a public board, owned in-house.
-- `matters.search` · **Consolidated matter search** — One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter.
-- `matters.search.sources` · **Declared search sources** — One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet.
 - `matters.search.file-contents` · **File contents in a matter search** — The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match.
 - `matter-assets.schedule-template` · **A supplied asset-schedule template** — A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm.
 - `matter-assets.carry-forward` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
@@ -599,7 +597,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 60 units of work, 53% shipped. 32 done, 20 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 60 units of work, 53% shipped. 32 done, 21 part-built, 6 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete on main; UI deferred until the design-system app shell lands._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md)._
@@ -643,8 +641,8 @@ to change a line here, edit the node in its area file and re-run the build.
       - `matters.file-manager.untrusted-pipeline.cdr` · `not-started` · **CDR disarmed renditions** — Optional disarmed copy of document types while the original is preserved byte-for-byte for evidence. _Note: Named optional in the pipeline design; engine choice deferred._
       - `matters.file-manager.untrusted-pipeline.safe-delivery` · `shipped` · **Safe delivery (structural)** — Separate cookieless sandbox origin, CSP, iframe sandbox, safe-rendition preview defeating stored-XSS uploads. _Note: Player/preview UI queued behind the app shell._
       - `matters.file-manager.untrusted-pipeline.rescan` · `partial` · **Continuous re-scan** — Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits. _Note: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it._
-  - `matters.search` · `designed` · **Consolidated matter search** — One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. _Note: The read layer is a registry of declared sources on the federated-timeline pattern, so a fourteenth searchable section is one source module rather than a change to the route, the control and the results page._
-    - `matters.search.sources` · `designed` · **Declared search sources** — One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet. _Note: Four sources exist to build against today (notes, custody, matter parties, file names); the other nine sections render a declared Soon naming what they wait on. Review-set sources are structurally refused — a review set is its own corpus._
+  - `matters.search` · `partial` · **Consolidated matter search** — One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. _Note: PARTIAL because four of the fourteen sections answer; the other ten decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page._
+    - `matters.search.sources` · `partial` · **Declared search sources** — One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet. _Note: PARTIAL because ten sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Review-set sources are structurally refused — a review set is its own corpus._
     - `matters.search.file-contents` · `designed` · **File contents in a matter search** — The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match. _Note: The engine, write pipeline and compaction are built; SearchIndexPort answers engine-not-implemented until the search Container is deployed in the order docs/deploy-queue.md names._
 - `locations` · `partial` · **Locations (offices)** — First-class per-firm entity for physical offices; a dimension within the firm tenancy boundary, referenced by matters, trust accounts, Custodian roots, users, and generated documents. _Note: Backend shipped; administration UI not built._
   - `locations.fields` · `partial` · **Location fields** — Name/label, active/closed status, physical addresses + contact info, jurisdiction, letterhead and branding assets (logo, address block, footer, remit-to), optional matter-number prefix/segment. _Note: Core fields shipped; branding assets (logo, address block, footer) beyond remit-to were not found — they land with document automation consumers._

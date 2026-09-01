@@ -1,8 +1,9 @@
 # Matter consolidated search — design
 
 **Date:** 2026-08-31
-**Status:** Proposed. Seven owner flags (M1–M7, section 11) decide the build; the rest of this
-document is settled against existing rulings and existing code.
+**Status:** Slice 1 is built. M1, M2 and M4 are settled by the owner; M3, M5, M6 and M7 carry
+standing recommendations the build proceeded under, each reversible and each recording in section 11
+what would have to change if it is corrected.
 **Scope:** Searching **within one matter** — the control in the matter header, the scope vocabulary,
 the source registry the whole thing is built from, the one API route, the results surface, and the
 order the sources arrive in.
@@ -341,7 +342,7 @@ Checked against `apps/api-worker/src/routes/` and the domain packages, not assum
 | Emails, Messaging, Other | no                | sections are stage `soon`                                                                                                                                                                                                                                 |
 | Discovery review sets    | **never**         | corpus isolation, section 3.3                                                                                                                                                                                                                             |
 
-Slice 1 therefore ships **four sources and nine declared Soons.** That ratio is the point: the
+Slice 1 therefore ships **four sources and ten declared Soons.** That ratio is the point: the
 surface is honest on day one and the ledger of what is missing is on screen rather than in a
 backlog.
 
@@ -361,13 +362,13 @@ backlog.
 
 ## 10. Build order
 
-| Slice | Contents                                                                                                                                                                                                                                        | Gated on                                                                                  |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 1     | The package + registry + bounded builder, the route, `search:matter` and its seed, the control in the matter layout, the results page, four sources (Notes, Custodian, Parties, Files-by-name), nine declared Soons, the coverage fitness check | M1–M7                                                                                     |
-| 2     | The sources whose text is already in D1: Time narratives, Costs descriptions, Fees, Calendar titles, Matter assets, invoice numbers and memos — with the load-profile measurement in front of them                                              | slice 1                                                                                   |
-| 3     | File **contents**: the Files source gains a second half over `SearchIndexPort` for the matter corpus, fused with the name match                                                                                                                 | the search Container deploy, already queued in [`../deploy-queue.md`](../deploy-queue.md) |
-| 4     | The seams `ScreenSearch` already ships: `matchSummary` in-field count, and the `shortcut` chord once the palette gains records                                                                                                                  | slice 1                                                                                   |
-| never | Review sets. A scope that says "everywhere".                                                                                                                                                                                                    | —                                                                                         |
+| Slice | Contents                                                                                                                                                                                                                                                         | Gated on                                                                                  |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1     | **Built.** The package + registry + bounded builder, the route, `search:matter` and its seed, the control in the matter layout, the results page, four sources (Files-by-name, Parties, Notes, Custodian), ten declared Soons, and `lint:matter-search-coverage` | —                                                                                         |
+| 2     | The sources whose text is already in D1: Time narratives, Costs descriptions, Fees, Calendar titles, Matter assets, invoice numbers and memos — with the load-profile measurement in front of them                                                               | slice 1                                                                                   |
+| 3     | File **contents**: the Files source gains a second half over `SearchIndexPort` for the matter corpus, fused with the name match                                                                                                                                  | the search Container deploy, already queued in [`../deploy-queue.md`](../deploy-queue.md) |
+| 4     | The seams `ScreenSearch` already ships: `matchSummary` in-field count, and the `shortcut` chord once the palette gains records                                                                                                                                   | slice 1                                                                                   |
+| never | Review sets. A scope that says "everywhere".                                                                                                                                                                                                                     | —                                                                                         |
 
 ## 11. Owner flags
 

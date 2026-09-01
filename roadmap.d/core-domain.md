@@ -389,20 +389,22 @@
 - id: matters.search
   name: Consolidated matter search
   scope: One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter.
-  status: designed
+  status: partial
   spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
   audience: public
   public-name: Search a matter
-  public-summary: Search everything on a matter from one box — notes, files, parties and the rest — starting with the screen you are already on.
-  awaiting-owner: M1, M2 and M4 are settled (header placement supersedes the "next to the status chip" ruling; one results surface, with the Files group drawn by the file manager's own row machinery; the query rides in the address). Four carry a standing recommendation the build proceeds under, each reversible — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty.
-  notes: The read layer is a registry of declared sources on the federated-timeline pattern, so a fourteenth searchable section is one source module rather than a change to the route, the control and the results page.
+  public-summary: Search everything on a matter from one box — notes, files, parties and what the firm holds in custody — starting with the screen you are already on.
+  awaiting-owner: Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
+  notes: PARTIAL because four of the fourteen sections answer; the other ten decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page.
 
 - id: matters.search.sources
   name: Declared search sources
   scope: One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet.
-  status: designed
+  status: partial
+  surface: screen
   spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
-  notes: Four sources exist to build against today (notes, custody, matter parties, file names); the other nine sections render a declared Soon naming what they wait on. Review-set sources are structurally refused — a review set is its own corpus.
+  evidence: packages/matter-search/src/sources/all.ts registers four sources (files, parties, notes, custody) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds
+  notes: PARTIAL because ten sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Review-set sources are structurally refused — a review set is its own corpus.
 
 - id: matters.search.file-contents
   name: File contents in a matter search

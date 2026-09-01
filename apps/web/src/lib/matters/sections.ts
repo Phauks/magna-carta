@@ -3,6 +3,13 @@
  * section carries a maturity stage (maturity.ts): the nav shows its badge, and a "soon" section
  * lands on an honest stub describing what will live there. The stage climbs (soon → alpha → beta
  * → ready) as the section's real surface is built out.
+ *
+ * Each section also declares whether the matter's consolidated search can answer from it — a
+ * source key, or `null` with the one line naming what a source there waits on. It is REQUIRED
+ * either way, and `pnpm run lint:matter-search-coverage` fails a section that declares neither.
+ * That is what makes the search's growth impossible to forget rather than merely unlikely: adding
+ * a fifteenth section forces somebody to answer the question, and the scope dropdown renders the
+ * unanswerable ones disabled with their reason instead of quietly omitting them.
  */
 import type { MaturityStage } from "$lib/maturity/maturity.ts";
 
@@ -16,6 +23,16 @@ export interface MatterSection {
   stage: MaturityStage;
   /** One paragraph, product voice: what lives here once the section is real. */
   description: string;
+  /**
+   * The matter-search source key that answers for this section, or null when none does yet.
+   * The key must match a source registered in @magna-carta/matter-search.
+   */
+  searchSource: string | null;
+  /**
+   * Required when `searchSource` is null: the one honest line the disabled scope option carries.
+   * Names what a source here waits on, in the reader's words.
+   */
+  searchWaitingOn?: string;
 }
 
 export const matterSections: readonly MatterSection[] = [
@@ -25,6 +42,11 @@ export const matterSections: readonly MatterSection[] = [
     core: true,
     stage: "alpha",
     description: "The matter at a glance — its facts, status, and what has accrued against it.",
+    // Deliberately never a source rather than one that is merely unbuilt: the overview holds no
+    // record of its own, it summarises what the other sections hold. A source here would answer
+    // the same query twice and put a reader on a summary when they asked for the thing itself.
+    searchSource: null,
+    searchWaitingOn: "Overview summarises the other sections; searching it would answer twice",
   },
   {
     slug: "files",
@@ -34,6 +56,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "The matter's versioned file record — every document the firm holds for this matter, " +
       "organized in folders, each version kept and each byte's integrity hash recorded.",
+    searchSource: "files",
   },
   {
     slug: "time",
@@ -43,6 +66,8 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Time captured on this matter — timers, manual entries, and the weekly grid all land " +
       "here, billable or not.",
+    searchSource: null,
+    searchWaitingOn: "Searching time narratives lands with the time source",
   },
   {
     slug: "costs",
@@ -52,6 +77,8 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Costs advanced and expenses incurred for this matter — filing fees, service, experts — " +
       "with their recoverable and billable treatment.",
+    searchSource: null,
+    searchWaitingOn: "Searching cost descriptions lands with the costs source",
   },
   {
     slug: "fees",
@@ -61,6 +88,8 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Flat charges for professional services recorded on this matter — the fee agreement and " +
       "the work-in-progress fee ledger, waiting to be claimed by a bill.",
+    searchSource: null,
+    searchWaitingOn: "Searching fee descriptions lands with the fees source",
   },
   {
     slug: "billing",
@@ -70,6 +99,8 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Invoices, payments, and the matter's billing arrangement — hourly, flat fee, or " +
       "contingency — with the full accounting of what has been billed and collected.",
+    searchSource: null,
+    searchWaitingOn: "Searching invoice numbers and memos lands with the billing source",
   },
   {
     slug: "parties",
@@ -79,6 +110,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Every person and organization connected to this matter — clients, opposing parties, " +
       "counsel, courts — linked from the firm Directory with conflict-aware roles.",
+    searchSource: "parties",
   },
   {
     slug: "notes",
@@ -86,6 +118,7 @@ export const matterSections: readonly MatterSection[] = [
     core: false,
     stage: "alpha",
     description: "Matter notes and memoranda — dated, attributed, and searchable.",
+    searchSource: "notes",
   },
   {
     slug: "trust",
@@ -95,6 +128,8 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "The matter's trust ledger — client funds held, disbursed, and reconciled under the " +
       "governing jurisdiction's rules. Fees never touch trust until earned.",
+    searchSource: null,
+    searchWaitingOn: "The Trust section itself is not built yet",
   },
   {
     slug: "custodian",
@@ -104,6 +139,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Physical items in the firm's custody for this matter — original wills, deeds, media — " +
       "tracked to a location, safe, and box.",
+    searchSource: "custody",
   },
   {
     slug: "messaging",
@@ -112,6 +148,8 @@ export const matterSections: readonly MatterSection[] = [
     stage: "soon",
     description:
       "Secure messages exchanged with the client through the portal, kept on the matter record.",
+    searchSource: null,
+    searchWaitingOn: "The Messaging section itself is not built yet",
   },
   {
     slug: "emails",
@@ -119,6 +157,8 @@ export const matterSections: readonly MatterSection[] = [
     core: false,
     stage: "soon",
     description: "Email correspondence filed to this matter, threaded and searchable.",
+    searchSource: null,
+    searchWaitingOn: "The Emails section itself is not built yet",
   },
   {
     slug: "calendar",
@@ -128,6 +168,8 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
       "person, read in its own time zone, and reports when it has passed.",
+    searchSource: null,
+    searchWaitingOn: "Searching event titles lands with the calendar source",
   },
   {
     slug: "other",
@@ -137,5 +179,19 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Everything else the matter accumulates — research, tasks, and tool output — finds its " +
       "home here.",
+    searchSource: null,
+    searchWaitingOn: "The Other section itself is not built yet",
   },
 ];
+
+/** The section a matter route is on, resolved from the address. Undefined off a section path. */
+export function sectionForPathname(matterId: string, pathname: string): MatterSection | undefined {
+  const root = `/matters/${matterId}`;
+  if (pathname === root || pathname === `${root}/`) {
+    return matterSections.find((section) => section.slug === "overview");
+  }
+  return matterSections.find(
+    (section) =>
+      pathname === `${root}/${section.slug}` || pathname.startsWith(`${root}/${section.slug}/`),
+  );
+}

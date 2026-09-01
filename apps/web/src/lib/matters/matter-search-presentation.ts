@@ -1,0 +1,59 @@
+/*
+ * How each matter-search source LOOKS. The server's registry decides which sources exist, which
+ * ones a reader may use and in what order they answer; this decides the icon and the heading each
+ * one wears, and how a hit's title should be read.
+ *
+ * THIS IS THE ONLY FILE ON THE CLIENT A NEW SOURCE TOUCHES. The control, the panel, the scope
+ * dropdown, the results page and the transport are all generic over whatever the server sends — a
+ * source with no entry here still renders, under its own key and a neutral icon, rather than
+ * vanishing from a surface that is supposed to be honest about what it searched.
+ */
+import type { Component } from "svelte";
+import FileText from "@lucide/svelte/icons/file-text";
+import Users from "@lucide/svelte/icons/users";
+import NotebookPen from "@lucide/svelte/icons/notebook-pen";
+import Vault from "@lucide/svelte/icons/vault";
+import Search from "@lucide/svelte/icons/search";
+
+export interface SourcePresentation {
+  /** The group heading, in the reader's vocabulary — matching the section tab's own label. */
+  readonly heading: string;
+  readonly icon: Component;
+  /**
+   * How to read a hit's title. "text" is a name to render as it stands; "instant" is a canonical
+   * UTC instant the row should render as a date, because the record has no name of its own.
+   */
+  readonly titleKind: "text" | "instant";
+}
+
+const PRESENTATION: Readonly<Record<string, SourcePresentation>> = {
+  files: { heading: "Files", icon: FileText, titleKind: "text" },
+  parties: { heading: "Parties", icon: Users, titleKind: "text" },
+  // A note has no name — the reader recognizes it by when it was written, and the snippet carries
+  // the words. That is why titleKind exists at all rather than every source rendering a string.
+  notes: { heading: "Notes", icon: NotebookPen, titleKind: "instant" },
+  custody: { heading: "Custodian", icon: Vault, titleKind: "text" },
+};
+
+/** Never undefined: an unknown source renders under its own key rather than disappearing. */
+export function presentationFor(sourceKey: string): SourcePresentation {
+  return PRESENTATION[sourceKey] ?? { heading: sourceKey, icon: Search, titleKind: "text" };
+}
+
+/** What a group with no hits should say, given why it has none. */
+export function emptyGroupLine(
+  skipped: "permission" | "query-too-short" | "engine-unavailable" | null,
+): string {
+  switch (skipped) {
+    case "permission":
+      // Never "no matches". A reader who cannot see a section must be told that is why, or they
+      // learn the matter holds nothing when it may hold a great deal.
+      return "You do not have access to this section";
+    case "query-too-short":
+      return "Type a little more to search here";
+    case "engine-unavailable":
+      return "This section could not be searched just now";
+    case null:
+      return "No matches";
+  }
+}

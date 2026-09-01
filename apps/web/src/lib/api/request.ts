@@ -62,6 +62,13 @@ interface JsonRequest {
    * second document, and the server rejects the call outright when the header is absent.
    */
   readonly idempotencyKey?: string;
+  /**
+   * Abandons a request whose answer is no longer wanted — a search the reader has typed past, a
+   * surface left before it settled. An aborted call resolves as `transport`, like any other fetch
+   * that produced no response: a caller that abandons a request is already ignoring its outcome, so
+   * a fourth outcome would be a case every existing caller must handle to say nothing about.
+   */
+  readonly signal?: AbortSignal;
 }
 
 /** The one place a `/api/v1` call is made. Never throws; a dead transport is its own outcome. */
@@ -80,6 +87,7 @@ export async function requestJson<T>(
       method: request.method ?? "GET",
       headers,
       body: request.body === undefined ? undefined : JSON.stringify(request.body),
+      signal: request.signal,
     });
   } catch {
     return { kind: "transport" };

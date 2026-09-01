@@ -21,6 +21,7 @@
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import MatterSearchControl from "$lib/matters/matter-search-control.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
 
@@ -86,6 +87,12 @@
   </Masthead.Heading>
   <Masthead.Actions>
     {@const LifecycleIcon = lifecycle.icon}
+    <!-- The search sits to the INLINE START of the overflow, and the order is load-bearing:
+         ScreenSearch always grows toward the inline start, so a field placed after the overflow
+         would shove it sideways on the first keystroke. Rendering it here — in the header, from the
+         matter layout — is what puts one search on every section and stops a section growing its
+         own. -->
+    <MatterSearchControl matterId={matter.id} />
     <DropdownMenu.Root>
       <!-- The overflow (⋯) carries a token border so it reads as a control at rest, not just on
            hover — the quiet ghost was too easy to miss. The lifecycle action lives inside it,
