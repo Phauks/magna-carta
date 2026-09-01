@@ -234,6 +234,10 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
   // carries), so its routes carry the matter resource.
   documents: "matter",
+  // notes:* governs the matter's own note trail — every note route is addressed under a matter
+  // (or under a note that belongs to one), so the matter is its nearest tenancy root, the same
+  // binding documents:* and time:* carry.
+  notes: "matter",
   // time:* governs time entries and the rate engine, all scoped to matters; the matter resource
   // is the nearest tenancy root for every time-entry mutation and read.
   time: "matter",
@@ -1134,6 +1138,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "nonBillableCategories.create",
       "nonBillableCategories.list",
       "nonBillableCategories.update",
+      "notes.createNote",
+      "notes.listNotes",
+      "notes.readNote",
+      "notes.readNoteHistory",
+      "notes.retractNote",
+      "notes.reviseNote",
       "notificationPreferences.get",
       "notificationPreferences.getTrustComplianceRecipients",
       "notificationPreferences.setTrustComplianceRecipients",
