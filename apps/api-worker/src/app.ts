@@ -42,6 +42,7 @@ import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
+import { registerTasksRoutes } from "./routes/tasks.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
 import { registerMatterAssetRoutes } from "./routes/matter-assets.ts";
@@ -780,6 +781,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // appending a revision, withdrawn by retraction, and never deleted — there is no delete route here
   // because there is no delete path anywhere in the subsystem.
   registerNotesRoutes(app, chokepoint);
+  registerTasksRoutes(app, chokepoint);
   // Custodian — the register of physical client originals the firm holds in safekeeping: the
   // container tree, packets and their items, Directory ownership, the append-only movement ledger,
   // holds, and scanned copies bound over ordinary File Manager files.

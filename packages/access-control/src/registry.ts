@@ -190,6 +190,22 @@ export const PERMISSIONS = [
   // resource: "matter" — a note IS one matter's record and cannot exist without one.
   "notes:read", // read a matter's notes and the files linked to them
   "notes:write", // write a note, edit one, delete one, and link or unlink the matter's files
+  // Tasks — one piece of work with somebody's name on it. Three keys rather than the usual pair,
+  // because assigning work to another member is a different act from recording your own: a task with
+  // somebody else's name on it is an obligation placed on a colleague, and a firm may reasonably let
+  // everyone keep their own list while reserving who may put work on other people. tasks:write covers
+  // creating, editing, completing, reopening, cancelling and deleting one's own or an unassigned
+  // task, plus linking the matter's files; tasks:assign is the one that names another member.
+  //
+  // Both bind resource: "firm" and NOT "matter", which is the difference from notes:* and the reason
+  // to read this comment before copying that pattern. A task's matter is nullable — renewing the
+  // malpractice policy is real firm work on no client file — so a matter cannot be the tenancy root
+  // for a record that need not have one. The matter-scoped reads still compose the visible-matter
+  // predicate; the binding is about which root the chokepoint resolves, not about what a read
+  // returns.
+  "tasks:read", // read tasks on a matter, one's own task list, and the files linked to them
+  "tasks:write", // create, edit, complete, reopen, cancel and delete a task; link and unlink the matter's files
+  "tasks:assign", // put a task in another member's name, or move one out of theirs
   // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
   // because the register concentrates a matter's financially sensitive facts (what the estate owns,
   // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a

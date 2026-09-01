@@ -1,0 +1,1012 @@
+import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { decodeCursor, encodeCursor } from "@magna-carta/data-access/cursor-pagination";
+import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import type {
+  FileId,
+  MatterDeadlineId,
+  MatterEventId,
+  MatterId,
+  MatterTaskDocumentId,
+  MatterTaskId,
+  UserId,
+} from "@magna-carta/identifiers/types";
+import {
+  attachFileToMatterTask,
+  cancelMatterTask,
+  completeMatterTask,
+  createMatterTask,
+  deleteMatterTask,
+  detachFileFromMatterTask,
+  editMatterTask,
+  reassignMatterTask,
+  reopenMatterTask,
+} from "@magna-carta/tasks/task-service";
+import {
+  decodeTaskCursor,
+  encodeTaskSortKey,
+  readMatterTaskDocuments,
+  selectMatterTasksStatement,
+  selectMyTasksStatement,
+  type MatterTaskDocumentRow,
+  type MatterTaskRow,
+} from "@magna-carta/tasks/task-statements";
+import {
+  MAX_CANCELLATION_REASON_LENGTH,
+  MAX_TASK_BODY_LENGTH,
+  MAX_TASK_PAGE_SIZE,
+  MAX_TASK_TITLE_LENGTH,
+  TASK_PRIORITIES,
+  TASK_STATES,
+} from "@magna-carta/tasks/types";
+import { TaskValidationError } from "@magna-carta/tasks/validation";
+import type { Context } from "hono";
+import type { Permission } from "@magna-carta/access-control/registry";
+import type { Bindings } from "../app.ts";
+import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointIdempotency,
+  requireChokepointPermissions,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
+import type { AppVariables } from "../chokepoint/ports.ts";
+import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
+import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+
+// The task's HTTP surface over @magna-carta/tasks.
+//
+// A task is one piece of work with somebody's name on it. It may sit on a matter or on none — firm
+// work like renewing the malpractice policy belongs to no client file — and the two are one record
+// with one set of routes, because "what is on my plate" spans both and nobody wants two lists.
+//
+// WHO MAY SEE WHAT is decided in the domain, by one predicate every read composes: a task on a
+// matter is visible to whoever can see that matter, and a task on none is private to its assignee
+// and whoever created it. No route re-states that rule.
+//
+// Assignment is its own route with its own permission. Putting work in a colleague's name is a
+// different act from fixing a due date, and a firm may reserve it without reserving the rest.
+
+const READ = "tasks:read" as const;
+const WRITE = "tasks:write" as const;
+const ASSIGN = "tasks:assign" as const;
+
+const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const WALL_CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// ---- request/response contracts ----
+
+// When a task is due, as a caller supplies it. All three are optional together — a task with no due
+// date is ordinary — and the shape rules are enforced in the domain rather than here: a time needs a
+// date, and a date needs the zone it is read in, because a task due "Friday" falls at two different
+// moments in Reno and Boston.
+const dueFields = {
+  dueOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+  dueAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+  timeZone: z.string().min(1).max(120).nullable().optional(),
+};
+
+const taskContentFields = {
+  title: z.string().min(1).max(MAX_TASK_TITLE_LENGTH),
+  body: z.string().max(MAX_TASK_BODY_LENGTH).nullable().optional(),
+  priority: z.enum(TASK_PRIORITIES).nullable().optional(),
+  blockedByTaskId: identifierField("matterTask").nullable().optional(),
+  triggerEventId: identifierField("matterEvent").nullable().optional(),
+  deadlineId: identifierField("matterDeadline").nullable().optional(),
+  ...dueFields,
+};
+
+const CreateTaskRequest = z
+  .object({
+    // Explicitly nullable rather than omitted: a task on no matter is a decision the caller makes,
+    // not a field they forgot.
+    matterId: identifierField("matter").nullable(),
+    assigneeUserId: identifierField("user").nullable().optional(),
+    ...taskContentFields,
+  })
+  .openapi("CreateMatterTaskRequest");
+
+const EditTaskRequest = z.object(taskContentFields).openapi("EditMatterTaskRequest");
+
+const ReassignTaskRequest = z
+  .object({ assigneeUserId: identifierField("user").nullable() })
+  .openapi("ReassignMatterTaskRequest");
+
+const CancelTaskRequest = z
+  .object({ reason: z.string().min(1).max(MAX_CANCELLATION_REASON_LENGTH) })
+  .openapi("CancelMatterTaskRequest");
+
+const AttachDocumentRequest = z
+  .object({ fileId: identifierField("file") })
+  .openapi("AttachMatterTaskDocumentRequest");
+
+const TaskDocument = z
+  .object({
+    id: z.string(),
+    fileId: z.string(),
+    fileName: z.string(),
+    contentType: z.string().nullable(),
+    linkedAt: z.string(),
+    linkedBy: z.string().nullable(),
+  })
+  .openapi("MatterTaskDocument");
+
+const TaskDetail = z
+  .object({
+    id: z.string(),
+    // Null on a task that belongs to no client file.
+    matterId: z.string().nullable(),
+    title: z.string(),
+    body: z.string().nullable(),
+    // Null on a task nobody has picked up, which is a real state rather than a defect.
+    assigneeUserId: z.string().nullable(),
+    createdBy: z.string(),
+    priority: z.enum(TASK_PRIORITIES),
+    dueOn: z.string().nullable(),
+    dueAtTime: z.string().nullable(),
+    timeZone: z.string().nullable(),
+    state: z.enum(TASK_STATES),
+    completedAt: z.string().nullable(),
+    completedBy: z.string().nullable(),
+    cancelledAt: z.string().nullable(),
+    cancelledBy: z.string().nullable(),
+    cancellationReason: z.string().nullable(),
+    // The one task this one waits on, where there is one. It GATES NOTHING: a blocked task may still
+    // be completed, because a firm's real sequence has exceptions constantly.
+    blockedByTaskId: z.string().nullable(),
+    triggerEventId: z.string().nullable(),
+    deadlineId: z.string().nullable(),
+    documents: z.array(TaskDocument),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .openapi("MatterTaskDetail");
+
+const TaskPage = paginated(TaskDetail).openapi("MatterTaskPage");
+const CreatedResponse = z.object({ id: z.string() }).openapi("CreatedMatterTask");
+const AcknowledgedResponse = z.object({ ok: z.literal(true) }).openapi("MatterTaskAcknowledged");
+
+const matterIdParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
+const taskIdParam = z.object({ taskId: identifierPathParam("matterTask", "taskId") });
+const attachmentIdParam = z.object({
+  attachmentId: identifierPathParam("matterTaskDocument", "attachmentId"),
+});
+
+// The filters both lists take. Repeated values arrive as a comma-separated list rather than repeated
+// query parameters, so a cursor and its filters round-trip as one stable string.
+const listTasksQuery = cursorQuery.extend({
+  state: z
+    .string()
+    .optional()
+    .openapi({ description: "Comma-separated states to include: open, done, cancelled." }),
+  priority: z
+    .string()
+    .optional()
+    .openapi({ description: "Comma-separated priorities to include: low, normal, high, urgent." }),
+  assigneeUserId: z.string().optional(),
+  dueFrom: z.string().regex(CIVIL_DATE).optional(),
+  dueTo: z.string().regex(CIVIL_DATE).optional(),
+  search: z.string().min(1).max(200).optional(),
+});
+
+const myTasksQuery = listTasksQuery.extend({
+  includeClosedMatters: z
+    .enum(["true", "false"])
+    .optional()
+    .openapi({
+      description:
+        "Include tasks on matters the firm has closed. Off by default: closing a matter changes " +
+        "no task, so its open tasks are filtered from this list rather than cancelled, and " +
+        "reopening the matter brings them back with no backfill.",
+    }),
+});
+
+const authErrors = {
+  400: {
+    description: "Missing Idempotency-Key (this operation requires one)",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  401: {
+    description: "No valid session",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  403: {
+    description: "The session member lacks the required permission",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  404: {
+    description: "The firm is unreachable, the member is deactivated, or the task is unknown",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  409: {
+    description: "A request with this Idempotency-Key is still in progress",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  422: {
+    description: "The request body is not a shape this operation accepts",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  429: {
+    description: "Rate limited",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+} as const;
+
+// ---- error mapping ----
+
+function taskErrorResponse(
+  c: Context,
+  caught: TaskValidationError,
+): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
+  switch (caught.code) {
+    case "task-unknown":
+    case "task-unknown-file":
+    case "task-unknown-predecessor":
+    // 404 and not 403: which matter a task or a document belongs to is itself a fact about the
+    // firm's work, and a distinguishable refusal would let a caller probe for either.
+    case "task-matter-mismatch":
+    case "task-file-matter-mismatch":
+    case "task-predecessor-matter-mismatch":
+      return problemJson(c, {
+        type: "not-found",
+        title: "Not found",
+        status: 404,
+        detail: caught.message,
+      });
+    // The state the task is in is not the state this move applies to. A conflict rather than a
+    // validation failure: the request was well-formed and the record moved under it, which is what
+    // a second person completing the same task looks like.
+    case "task-not-open":
+    case "task-not-done":
+    case "task-already-cancelled":
+      return problemJson(c, {
+        type: "conflict",
+        title: "That task is not in a state this change applies to",
+        status: 409,
+        detail: caught.message,
+      });
+    default:
+      return problemJson(c, {
+        type: "validation",
+        title: "Task request invalid",
+        status: 422,
+        detail: caught.message,
+      });
+  }
+}
+
+// ---- route metas ----
+
+// Every task route binds resource: "firm" rather than "matter", including the matter-scoped list.
+// A task's matter is nullable, so a matter cannot be the tenancy root of a record that need not have
+// one — the firm is. What the matter-scoped list narrows by is a filter, and the visible-matter
+// predicate still decides what it may return.
+function readMeta(action: string): RouteMeta {
+  return {
+    operationId: `tasks.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission: READ,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+}
+
+function writeMeta(action: string, permission: typeof WRITE | typeof ASSIGN = WRITE): RouteMeta {
+  return {
+    operationId: `tasks.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission,
+    resource: "firm",
+    audited: true,
+    // Required. A retried create must not put a second copy of the same task on somebody's list,
+    // and a duplicate task is worse than a duplicate read: two identical obligations, one of which
+    // somebody will complete and the other of which will sit there looking undone.
+    idempotency: "required",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  };
+}
+
+// ---- routes ----
+
+const listMatterTasksRoute = defineOpenAPIRoute(readMeta("listMatterTasks"), {
+  method: "get",
+  path: "/api/v1/matters/{matterId}/tasks",
+  description:
+    "The matter's tasks. Ordered by due date with the undated last, then by priority, so the list " +
+    "reads as what is due next. Each carries the documents it points at. Whether a task is overdue " +
+    "is a comparison against now, made where it is read; no field here states it.",
+  request: { params: matterIdParam, query: listTasksQuery },
+  responses: {
+    200: {
+      description: "One page of tasks",
+      content: { "application/json": { schema: TaskPage } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const listMyTasksRoute = defineOpenAPIRoute(readMeta("listMyTasks"), {
+  method: "get",
+  path: "/api/v1/tasks",
+  description:
+    "Every task this member can reach, across the matters they can see and their own work on no " +
+    "matter. Filter by assignee to get one person's list. Tasks on closed matters are left out " +
+    "unless asked for: closing a matter changes no task, so this is a filter and reopening the " +
+    "matter brings them back.",
+  request: { query: myTasksQuery },
+  responses: {
+    200: {
+      description: "One page of tasks",
+      content: { "application/json": { schema: TaskPage } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const createTaskRoute = defineOpenAPIRoute(writeMeta("createTask"), {
+  method: "post",
+  path: "/api/v1/tasks",
+  description:
+    "Creates a task. Give a matter to put it on a case, or null for the firm's own work — renewing " +
+    "a policy, interviewing a candidate — which is visible to you and whoever you assign it to. " +
+    "Assigning it to somebody else at creation requires the assign permission as well.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CreateTaskRequest } }, required: true },
+  },
+  responses: {
+    201: { description: "The task", content: { "application/json": { schema: CreatedResponse } } },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const editTaskRoute = defineOpenAPIRoute(writeMeta("editTask"), {
+  method: "patch",
+  path: "/api/v1/tasks/{taskId}",
+  description:
+    "Changes a task's title, body, priority, due date and links. The task is edited in place and " +
+    "the previous values are not kept — a task says what to do now. Who it is assigned to is not " +
+    "changed here; that is its own operation.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: { content: { "application/json": { schema: EditTaskRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The task was changed",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const reassignTaskRoute = defineOpenAPIRoute(writeMeta("reassignTask", ASSIGN), {
+  method: "put",
+  path: "/api/v1/tasks/{taskId}/assignee",
+  description:
+    "Puts the task in a member's name, or takes it out of everybody's with null. The member must " +
+    "be able to see the task's matter: a task somebody cannot open is a hole in their list. Moving " +
+    "a task does not move its due date, even across offices in different time zones.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: { content: { "application/json": { schema: ReassignTaskRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The task was reassigned",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const completeTaskRoute = defineOpenAPIRoute(writeMeta("completeTask"), {
+  method: "post",
+  path: "/api/v1/tasks/{taskId}/completion",
+  description:
+    "Marks the task done, recording who did it and when. A task that waits on another may be " +
+    "completed out of order: the sequence is guidance, not a gate.",
+  request: { headers: idempotencyKeyHeader, params: taskIdParam },
+  responses: {
+    200: {
+      description: "The task was completed",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const reopenTaskRoute = defineOpenAPIRoute(writeMeta("reopenTask"), {
+  method: "delete",
+  path: "/api/v1/tasks/{taskId}/completion",
+  description:
+    "Puts a completed or cancelled task back on the list. The completion and cancellation details " +
+    "are cleared from the task, and that it was closed and reopened stays in the firm's audit log.",
+  request: { headers: idempotencyKeyHeader, params: taskIdParam },
+  responses: {
+    200: {
+      description: "The task was reopened",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const cancelTaskRoute = defineOpenAPIRoute(writeMeta("cancelTask"), {
+  method: "post",
+  path: "/api/v1/tasks/{taskId}/cancellation",
+  description:
+    "Records that the firm decided not to do the work, with the reason why. Different from " +
+    "deleting: a cancelled task stays on the matter as a decision that was taken. Delete the task " +
+    "instead where it should never have existed.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: { content: { "application/json": { schema: CancelTaskRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The task was cancelled",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const deleteTaskRoute = defineOpenAPIRoute(writeMeta("deleteTask"), {
+  method: "delete",
+  path: "/api/v1/tasks/{taskId}",
+  description:
+    "Deletes a task outright, for one that should not exist: a typo, a duplicate, a line somebody " +
+    "abandoned. Anything waiting on it stops waiting. Documents it pointed at are untouched and " +
+    "stay in the matter's files. Where the firm decided not to do real work, cancel it instead.",
+  request: { headers: idempotencyKeyHeader, params: taskIdParam },
+  responses: {
+    200: {
+      description: "The task was deleted",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const attachDocumentRoute = defineOpenAPIRoute(writeMeta("attachTaskDocument"), {
+  method: "post",
+  path: "/api/v1/tasks/{taskId}/documents",
+  description:
+    "Points the task at one of its matter's documents. The document is not moved or copied — it " +
+    "stays in the matter's files with its versions and holds intact. A task on no matter cannot " +
+    "point at a document, because every document in the firm belongs to a matter.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: { content: { "application/json": { schema: AttachDocumentRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The link",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const detachDocumentRoute = defineOpenAPIRoute(writeMeta("detachTaskDocument"), {
+  method: "delete",
+  path: "/api/v1/task-documents/{attachmentId}",
+  description:
+    "Ends the association between a task and a document. The document is untouched and stays in " +
+    "the matter's files.",
+  request: { headers: idempotencyKeyHeader, params: attachmentIdParam },
+  responses: {
+    200: {
+      description: "The link was removed",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+// ---- shared handler plumbing ----
+
+function serviceOptions(userId: UserId) {
+  return {
+    clock: { now: () => new Date().toISOString() },
+    actorUserId: userId,
+    randomSource: cryptoRandomSource,
+    visibility: visibleMatterPredicate(),
+  };
+}
+
+function taskDetail(
+  row: MatterTaskRow,
+  documents: readonly MatterTaskDocumentRow[],
+): z.infer<typeof TaskDetail> {
+  return {
+    id: row.id,
+    matterId: row.matter_id,
+    title: row.title,
+    body: row.body,
+    assigneeUserId: row.assignee_user_id,
+    createdBy: row.created_by,
+    priority: row.priority,
+    dueOn: row.due_on,
+    dueAtTime: row.due_at_time,
+    timeZone: row.time_zone,
+    state: row.state,
+    completedAt: row.completed_at,
+    completedBy: row.completed_by,
+    cancelledAt: row.cancelled_at,
+    cancelledBy: row.cancelled_by,
+    cancellationReason: row.cancellation_reason,
+    blockedByTaskId: row.blocked_by_task_id,
+    triggerEventId: row.trigger_event_id,
+    deadlineId: row.deadline_id,
+    documents: documents
+      .filter((document) => document.task_id === row.id)
+      .map((document) => ({
+        id: document.id,
+        fileId: document.file_id,
+        fileName: document.file_name,
+        contentType: document.content_type,
+        linkedAt: document.linked_at,
+        linkedBy: document.linked_by,
+      })),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// A comma-separated query value narrowed to a closed vocabulary. Anything the vocabulary does not
+// contain is dropped rather than refused: a filter is a narrowing, and a caller that names a state
+// this platform does not have gets the states it does rather than a 422 about a query string.
+function closedList<T extends string>(
+  raw: string | undefined,
+  vocabulary: readonly T[],
+): readonly T[] | undefined {
+  if (raw === undefined) return undefined;
+  const chosen = raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value): value is T => (vocabulary as readonly string[]).includes(value));
+  return chosen.length === 0 ? undefined : chosen;
+}
+
+function filtersFrom(query: z.infer<typeof listTasksQuery>) {
+  return {
+    states: closedList(query.state, TASK_STATES),
+    priorities: closedList(query.priority, TASK_PRIORITIES),
+    assigneeUserId: query.assigneeUserId as UserId | undefined,
+    dueFrom: query.dueFrom,
+    dueTo: query.dueTo,
+    search: query.search,
+  };
+}
+
+type TaskListRow = MatterTaskRow & { priority_rank: number };
+
+async function pageFrom(
+  database: SqlDatabase,
+  viewerUserId: UserId,
+  results: TaskListRow[],
+): Promise<{ data: z.infer<typeof TaskDetail>[]; nextCursor: string | null }> {
+  const hasMore = results.length > MAX_TASK_PAGE_SIZE;
+  const rows = hasMore ? results.slice(0, MAX_TASK_PAGE_SIZE) : results;
+  const last = rows.at(-1);
+  // The page's attachments in ONE bounded read keyed by the tasks on it, never one read per task.
+  const documents = await readMatterTaskDocuments(
+    database,
+    rows.map((row) => row.id),
+    visibleMatterPredicate(),
+    viewerUserId,
+  );
+  return {
+    data: rows.map((row) => taskDetail(row, documents)),
+    // Keyed on the same composite the list is ordered by, so the walk cannot skip or repeat.
+    nextCursor:
+      hasMore && last !== undefined ? encodeCursor(encodeTaskSortKey(last), last.id) : null,
+  };
+}
+
+function cursorFrom(cursor: string | undefined) {
+  const decoded = decodeCursor(cursor);
+  return decoded === undefined ? undefined : decodeTaskCursor(decoded.createdAt, decoded.id);
+}
+
+type TaskEffectOutcome =
+  | { ok: true; id: string; replayed: boolean }
+  | { ok: false; problem: ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> };
+
+async function commitTaskEffect(
+  c: Context,
+  database: BatchDatabase,
+  idempotency: { key: string | undefined; fingerprint: string },
+  responseCode: number,
+  call: () => Promise<{ id: string; effect: EffectWrite }>,
+): Promise<TaskEffectOutcome> {
+  const now = () => new Date().toISOString();
+  let result;
+  try {
+    result = await runIdempotentEffect({
+      database,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => {
+        const { id, effect } = await call();
+        return {
+          write: effect,
+          responseCode,
+          // The stored body IS the wire body: the idempotency gate replays it verbatim.
+          responseBody: canonicalJsonStringify({ id }),
+        };
+      },
+    });
+  } catch (caught) {
+    if (caught instanceof TaskValidationError) {
+      return { ok: false, problem: taskErrorResponse(c, caught) };
+    }
+    throw caught;
+  }
+  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+    return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
+  }
+  const stored = JSON.parse(result.responseBody ?? "{}") as { id: string };
+  return { ok: true, id: stored.id, replayed: result.kind === "replayed" };
+}
+
+export function registerTasksRoutes(
+  app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
+  chokepoint: Chokepoint,
+): void {
+  // GET /api/v1/matters/{matterId}/tasks
+  app.openapi(
+    { ...listMatterTasksRoute, middleware: chokepointMiddleware(chokepoint, listMatterTasksRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { matterId } = c.req.valid("param");
+      const query = c.req.valid("query");
+      const { results } = await selectMatterTasksStatement(
+        firm.firmDatabase,
+        matterId as MatterId,
+        {
+          cursor: cursorFrom(query.cursor),
+          limit: MAX_TASK_PAGE_SIZE + 1,
+          visibility: visibleMatterPredicate(),
+          viewerUserId: userId,
+          filters: filtersFrom(query),
+        },
+      ).all<TaskListRow>();
+      return c.json(await pageFrom(firm.firmDatabase, userId, results), 200);
+    },
+  );
+
+  // GET /api/v1/tasks
+  app.openapi(
+    { ...listMyTasksRoute, middleware: chokepointMiddleware(chokepoint, listMyTasksRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const query = c.req.valid("query");
+      const { results } = await selectMyTasksStatement(firm.firmDatabase, {
+        cursor: cursorFrom(query.cursor),
+        limit: MAX_TASK_PAGE_SIZE + 1,
+        visibility: visibleMatterPredicate(),
+        viewerUserId: userId,
+        filters: filtersFrom(query),
+        includeClosedMatters: query.includeClosedMatters === "true",
+      }).all<TaskListRow>();
+      return c.json(await pageFrom(firm.firmDatabase, userId, results), 200);
+    },
+  );
+
+  // POST /api/v1/tasks
+  app.openapi(
+    { ...createTaskRoute, middleware: chokepointMiddleware(chokepoint, createTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      // Assigning work to somebody else needs the assign permission, and this route carries the
+      // write one. Checked here rather than by splitting the route, because "create a task" and
+      // "create a task for Sarah" are one act with one shape and two authorizations.
+      const assigneeUserId = (request.assigneeUserId ?? null) as UserId | null;
+      if (
+        assigneeUserId !== null &&
+        assigneeUserId !== userId &&
+        !requireChokepointPermissions(c).has(ASSIGN as unknown as Permission)
+      ) {
+        return problemJson(c, {
+          type: "permission-denied",
+          title: "Forbidden",
+          status: 403,
+          detail: "Putting a task in another member's name needs the assign permission.",
+        });
+      }
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+        const created = await createMatterTask(
+          firm.firmDatabase,
+          {
+            ...request,
+            matterId: request.matterId as MatterId | null,
+            assigneeUserId,
+            blockedByTaskId: (request.blockedByTaskId ?? null) as MatterTaskId | null,
+            triggerEventId: (request.triggerEventId ?? null) as MatterEventId | null,
+            deadlineId: (request.deadlineId ?? null) as MatterDeadlineId | null,
+          },
+          serviceOptions(userId),
+        );
+        return { id: created.taskId, effect: created.effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // PATCH /api/v1/tasks/{taskId}
+  app.openapi(
+    { ...editTaskRoute, middleware: chokepointMiddleware(chokepoint, editTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await editMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          {
+            ...request,
+            blockedByTaskId: (request.blockedByTaskId ?? null) as MatterTaskId | null,
+            triggerEventId: (request.triggerEventId ?? null) as MatterEventId | null,
+            deadlineId: (request.deadlineId ?? null) as MatterDeadlineId | null,
+          },
+          serviceOptions(userId),
+        );
+        return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // PUT /api/v1/tasks/{taskId}/assignee
+  app.openapi(
+    { ...reassignTaskRoute, middleware: chokepointMiddleware(chokepoint, reassignTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await reassignMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          (request.assigneeUserId ?? null) as UserId | null,
+          serviceOptions(userId),
+        );
+        return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/tasks/{taskId}/completion
+  app.openapi(
+    { ...completeTaskRoute, middleware: chokepointMiddleware(chokepoint, completeTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await completeMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          serviceOptions(userId),
+        );
+        return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // DELETE /api/v1/tasks/{taskId}/completion
+  app.openapi(
+    { ...reopenTaskRoute, middleware: chokepointMiddleware(chokepoint, reopenTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await reopenMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          serviceOptions(userId),
+        );
+        return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/tasks/{taskId}/cancellation
+  app.openapi(
+    { ...cancelTaskRoute, middleware: chokepointMiddleware(chokepoint, cancelTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await cancelMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          request.reason,
+          serviceOptions(userId),
+        );
+        return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // DELETE /api/v1/tasks/{taskId}
+  app.openapi(
+    { ...deleteTaskRoute, middleware: chokepointMiddleware(chokepoint, deleteTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await deleteMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          serviceOptions(userId),
+        );
+        return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/tasks/{taskId}/documents
+  app.openapi(
+    { ...attachDocumentRoute, middleware: chokepointMiddleware(chokepoint, attachDocumentRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+        const attached = await attachFileToMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          request.fileId as FileId,
+          serviceOptions(userId),
+        );
+        return { id: attached.linkId, effect: attached.effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // DELETE /api/v1/task-documents/{attachmentId}
+  app.openapi(
+    { ...detachDocumentRoute, middleware: chokepointMiddleware(chokepoint, detachDocumentRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { attachmentId } = c.req.valid("param");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await detachFileFromMatterTask(
+          firm.firmDatabase,
+          attachmentId as MatterTaskDocumentId,
+          serviceOptions(userId),
+        );
+        return { id: attachmentId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+}

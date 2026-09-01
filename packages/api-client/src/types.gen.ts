@@ -2888,30 +2888,23 @@ export type MatterNoteDetail = {
     id: string;
     matterId: string;
     authorUserId: string;
-    state: 'active' | 'retracted';
-    body: string | null;
-    revisionCount: number;
-    currentRevisionAuthorUserId: string | null;
-    currentRevisionCreatedAt: string | null;
-    retractedAt: string | null;
-    retractedBy: string | null;
-    retractionReason: string | null;
+    body: string;
+    lastEditedBy: string | null;
+    occurredOn: string | null;
+    occurredAtTime: string | null;
+    timeZone: string | null;
+    documents: Array<MatterNoteDocument>;
     createdAt: string;
     updatedAt: string;
 };
 
-export type MatterNoteRevisionList = {
-    data: Array<MatterNoteRevision>;
-    capped: boolean;
-};
-
-export type MatterNoteRevision = {
+export type MatterNoteDocument = {
     id: string;
-    noteId: string;
-    body: string;
-    authorUserId: string;
-    ordinal: number;
-    createdAt: string;
+    fileId: string;
+    fileName: string;
+    contentType: string | null;
+    linkedAt: string;
+    linkedBy: string | null;
 };
 
 export type CreatedMatterNote = {
@@ -2920,18 +2913,109 @@ export type CreatedMatterNote = {
 
 export type CreateMatterNoteRequest = {
     body: string;
+    occurredOn?: string | null;
+    occurredAtTime?: string | null;
+    timeZone?: string | null;
 };
 
 export type MatterNoteAcknowledged = {
     ok: true;
 };
 
-export type ReviseMatterNoteRequest = {
+export type EditMatterNoteRequest = {
     body: string;
+    occurredOn?: string | null;
+    occurredAtTime?: string | null;
+    timeZone?: string | null;
 };
 
-export type RetractMatterNoteRequest = {
+export type AttachMatterNoteDocumentRequest = {
+    fileId: string;
+};
+
+export type MatterTaskPage = {
+    data: Array<MatterTaskDetail>;
+    nextCursor: string | null;
+};
+
+export type MatterTaskDetail = {
+    id: string;
+    matterId: string | null;
+    title: string;
+    body: string | null;
+    assigneeUserId: string | null;
+    createdBy: string;
+    priority: 'low' | 'normal' | 'high' | 'urgent';
+    dueOn: string | null;
+    dueAtTime: string | null;
+    timeZone: string | null;
+    state: 'open' | 'done' | 'cancelled';
+    completedAt: string | null;
+    completedBy: string | null;
+    cancelledAt: string | null;
+    cancelledBy: string | null;
+    cancellationReason: string | null;
+    blockedByTaskId: string | null;
+    triggerEventId: string | null;
+    deadlineId: string | null;
+    documents: Array<MatterTaskDocument>;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type MatterTaskDocument = {
+    id: string;
+    fileId: string;
+    fileName: string;
+    contentType: string | null;
+    linkedAt: string;
+    linkedBy: string | null;
+};
+
+export type CreatedMatterTask = {
+    id: string;
+};
+
+export type CreateMatterTaskRequest = {
+    matterId: string | null;
+    assigneeUserId?: string | null;
+    title: string;
+    body?: string | null;
+    priority?: 'low' | 'normal' | 'high' | 'urgent' | null;
+    blockedByTaskId?: string | null;
+    triggerEventId?: string | null;
+    deadlineId?: string | null;
+    dueOn?: string | null;
+    dueAtTime?: string | null;
+    timeZone?: string | null;
+};
+
+export type MatterTaskAcknowledged = {
+    ok: true;
+};
+
+export type EditMatterTaskRequest = {
+    title: string;
+    body?: string | null;
+    priority?: 'low' | 'normal' | 'high' | 'urgent' | null;
+    blockedByTaskId?: string | null;
+    triggerEventId?: string | null;
+    deadlineId?: string | null;
+    dueOn?: string | null;
+    dueAtTime?: string | null;
+    timeZone?: string | null;
+};
+
+export type ReassignMatterTaskRequest = {
+    assigneeUserId: string | null;
+};
+
+export type CancelMatterTaskRequest = {
     reason: string;
+};
+
+export type AttachMatterTaskDocumentRequest = {
+    fileId: string;
 };
 
 export type CustodyLocation = {
@@ -6041,7 +6125,7 @@ export type NotificationPage = {
 export type NotificationItem = {
     id: string;
     kind: string;
-    category: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+    category: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
     severity: 'informational' | 'attention' | 'critical';
     state: 'unread' | 'read' | 'dismissed';
     subjectKind: string;
@@ -6084,7 +6168,7 @@ export type NotificationPreferencesResponse = {
 };
 
 export type NotificationResolvedCategoryPreference = {
-    category: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+    category: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
     inApp: 'on' | 'off';
     email: 'off' | 'daily' | 'weekly';
     inAppLockedBy: 'mandatory' | 'firm-policy' | null;
@@ -6098,7 +6182,7 @@ export type NotificationCategoryChoice = {
 } | null;
 
 export type NotificationSuppressionTally = {
-    category: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+    category: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
     reason: 'member-preference' | 'firm-policy';
     count: number;
     lastSuppressedAt: string;
@@ -6111,6 +6195,10 @@ export type PatchNotificationPreferencesRequest = {
             email?: 'off' | 'daily' | 'weekly' | null;
         };
         calendar?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        tasks?: {
             inApp?: 'on' | 'off' | null;
             email?: 'off' | 'daily' | 'weekly' | null;
         };
@@ -6168,7 +6256,7 @@ export type FirmNotificationPolicyResponse = {
 };
 
 export type FirmNotificationCategoryPolicy = {
-    category: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+    category: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
     inApp: 'on' | 'off' | null;
     email: 'off' | 'daily' | 'weekly' | null;
 };
@@ -6180,6 +6268,10 @@ export type PatchFirmNotificationPolicyRequest = {
             email?: 'off' | 'daily' | 'weekly' | null;
         };
         calendar?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        tasks?: {
             inApp?: 'on' | 'off' | null;
             email?: 'off' | 'daily' | 'weekly' | null;
         };
@@ -17065,7 +17157,7 @@ export type NotesCreateNoteErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     * A request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -17089,8 +17181,11 @@ export type NotesCreateNoteResponses = {
 
 export type NotesCreateNoteResponse = NotesCreateNoteResponses[keyof NotesCreateNoteResponses];
 
-export type NotesReadNoteData = {
+export type NotesDeleteNoteData = {
     body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
     path: {
         noteId: string;
     };
@@ -17098,7 +17193,11 @@ export type NotesReadNoteData = {
     url: '/api/v1/notes/{noteId}';
 };
 
-export type NotesReadNoteErrors = {
+export type NotesDeleteNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
     /**
      * No valid session
      */
@@ -17112,32 +17211,216 @@ export type NotesReadNoteErrors = {
      */
     404: Problem;
     /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
      * Rate limited
      */
     429: Problem;
 };
 
-export type NotesReadNoteError = NotesReadNoteErrors[keyof NotesReadNoteErrors];
+export type NotesDeleteNoteError = NotesDeleteNoteErrors[keyof NotesDeleteNoteErrors];
 
-export type NotesReadNoteResponses = {
+export type NotesDeleteNoteResponses = {
     /**
-     * The note
+     * The note was deleted
      */
-    200: MatterNoteDetail;
+    200: MatterNoteAcknowledged;
 };
 
-export type NotesReadNoteResponse = NotesReadNoteResponses[keyof NotesReadNoteResponses];
+export type NotesDeleteNoteResponse = NotesDeleteNoteResponses[keyof NotesDeleteNoteResponses];
 
-export type NotesReadNoteHistoryData = {
+export type NotesEditNoteData = {
+    body: EditMatterNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}';
+};
+
+export type NotesEditNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesEditNoteError = NotesEditNoteErrors[keyof NotesEditNoteErrors];
+
+export type NotesEditNoteResponses = {
+    /**
+     * The note was changed
+     */
+    200: MatterNoteAcknowledged;
+};
+
+export type NotesEditNoteResponse = NotesEditNoteResponses[keyof NotesEditNoteResponses];
+
+export type NotesAttachNoteDocumentData = {
+    body: AttachMatterNoteDocumentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}/documents';
+};
+
+export type NotesAttachNoteDocumentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesAttachNoteDocumentError = NotesAttachNoteDocumentErrors[keyof NotesAttachNoteDocumentErrors];
+
+export type NotesAttachNoteDocumentResponses = {
+    /**
+     * The document was attached
+     */
+    201: CreatedMatterNote;
+};
+
+export type NotesAttachNoteDocumentResponse = NotesAttachNoteDocumentResponses[keyof NotesAttachNoteDocumentResponses];
+
+export type NotesDetachNoteDocumentData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        attachmentId: string;
+    };
+    query?: never;
+    url: '/api/v1/note-documents/{attachmentId}';
+};
+
+export type NotesDetachNoteDocumentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesDetachNoteDocumentError = NotesDetachNoteDocumentErrors[keyof NotesDetachNoteDocumentErrors];
+
+export type NotesDetachNoteDocumentResponses = {
+    /**
+     * The document was detached
+     */
+    200: MatterNoteAcknowledged;
+};
+
+export type NotesDetachNoteDocumentResponse = NotesDetachNoteDocumentResponses[keyof NotesDetachNoteDocumentResponses];
+
+export type TasksListMatterTasksData = {
     body?: never;
     path: {
-        noteId: string;
+        matterId: string;
     };
-    query?: never;
-    url: '/api/v1/notes/{noteId}/revisions';
+    query?: {
+        cursor?: string;
+        /**
+         * Comma-separated states to include: open, done, cancelled.
+         */
+        state?: string;
+        /**
+         * Comma-separated priorities to include: low, normal, high, urgent.
+         */
+        priority?: string;
+        assigneeUserId?: string;
+        dueFrom?: string;
+        dueTo?: string;
+        search?: string;
+    };
+    url: '/api/v1/matters/{matterId}/tasks';
 };
 
-export type NotesReadNoteHistoryErrors = {
+export type TasksListMatterTasksErrors = {
     /**
      * No valid session
      */
@@ -17147,43 +17430,92 @@ export type NotesReadNoteHistoryErrors = {
      */
     403: Problem;
     /**
-     * The firm is unreachable, the member is deactivated, or the note is unknown
+     * The firm is unreachable, the member is deactivated, or the task is unknown
      */
     404: Problem;
-    /**
-     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
-     */
-    409: Problem;
     /**
      * Rate limited
      */
     429: Problem;
 };
 
-export type NotesReadNoteHistoryError = NotesReadNoteHistoryErrors[keyof NotesReadNoteHistoryErrors];
+export type TasksListMatterTasksError = TasksListMatterTasksErrors[keyof TasksListMatterTasksErrors];
 
-export type NotesReadNoteHistoryResponses = {
+export type TasksListMatterTasksResponses = {
     /**
-     * The note's revisions
+     * One page of tasks
      */
-    200: MatterNoteRevisionList;
+    200: MatterTaskPage;
 };
 
-export type NotesReadNoteHistoryResponse = NotesReadNoteHistoryResponses[keyof NotesReadNoteHistoryResponses];
+export type TasksListMatterTasksResponse = TasksListMatterTasksResponses[keyof TasksListMatterTasksResponses];
 
-export type NotesReviseNoteData = {
-    body: ReviseMatterNoteRequest;
+export type TasksListMyTasksData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        /**
+         * Comma-separated states to include: open, done, cancelled.
+         */
+        state?: string;
+        /**
+         * Comma-separated priorities to include: low, normal, high, urgent.
+         */
+        priority?: string;
+        assigneeUserId?: string;
+        dueFrom?: string;
+        dueTo?: string;
+        search?: string;
+        /**
+         * Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than cancelled, and reopening the matter brings them back with no backfill.
+         */
+        includeClosedMatters?: 'true' | 'false';
+    };
+    url: '/api/v1/tasks';
+};
+
+export type TasksListMyTasksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksListMyTasksError = TasksListMyTasksErrors[keyof TasksListMyTasksErrors];
+
+export type TasksListMyTasksResponses = {
+    /**
+     * One page of tasks
+     */
+    200: MatterTaskPage;
+};
+
+export type TasksListMyTasksResponse = TasksListMyTasksResponses[keyof TasksListMyTasksResponses];
+
+export type TasksCreateTaskData = {
+    body: CreateMatterTaskRequest;
     headers: {
         'idempotency-key': string;
     };
-    path: {
-        noteId: string;
-    };
+    path?: never;
     query?: never;
-    url: '/api/v1/notes/{noteId}/revisions';
+    url: '/api/v1/tasks';
 };
 
-export type NotesReviseNoteErrors = {
+export type TasksCreateTaskErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -17197,11 +17529,11 @@ export type NotesReviseNoteErrors = {
      */
     403: Problem;
     /**
-     * The firm is unreachable, the member is deactivated, or the note is unknown
+     * The firm is unreachable, the member is deactivated, or the task is unknown
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     * A request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -17214,30 +17546,30 @@ export type NotesReviseNoteErrors = {
     429: Problem;
 };
 
-export type NotesReviseNoteError = NotesReviseNoteErrors[keyof NotesReviseNoteErrors];
+export type TasksCreateTaskError = TasksCreateTaskErrors[keyof TasksCreateTaskErrors];
 
-export type NotesReviseNoteResponses = {
+export type TasksCreateTaskResponses = {
     /**
-     * The note was revised
+     * The task
      */
-    200: MatterNoteAcknowledged;
+    201: CreatedMatterTask;
 };
 
-export type NotesReviseNoteResponse = NotesReviseNoteResponses[keyof NotesReviseNoteResponses];
+export type TasksCreateTaskResponse = TasksCreateTaskResponses[keyof TasksCreateTaskResponses];
 
-export type NotesRetractNoteData = {
-    body: RetractMatterNoteRequest;
+export type TasksDeleteTaskData = {
+    body?: never;
     headers: {
         'idempotency-key': string;
     };
     path: {
-        noteId: string;
+        taskId: string;
     };
     query?: never;
-    url: '/api/v1/notes/{noteId}/retract';
+    url: '/api/v1/tasks/{taskId}';
 };
 
-export type NotesRetractNoteErrors = {
+export type TasksDeleteTaskErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -17251,11 +17583,11 @@ export type NotesRetractNoteErrors = {
      */
     403: Problem;
     /**
-     * The firm is unreachable, the member is deactivated, or the note is unknown
+     * The firm is unreachable, the member is deactivated, or the task is unknown
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is still in progress, or the note is withdrawn
+     * A request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -17268,16 +17600,394 @@ export type NotesRetractNoteErrors = {
     429: Problem;
 };
 
-export type NotesRetractNoteError = NotesRetractNoteErrors[keyof NotesRetractNoteErrors];
+export type TasksDeleteTaskError = TasksDeleteTaskErrors[keyof TasksDeleteTaskErrors];
 
-export type NotesRetractNoteResponses = {
+export type TasksDeleteTaskResponses = {
     /**
-     * The note was withdrawn
+     * The task was deleted
      */
-    200: MatterNoteAcknowledged;
+    200: MatterTaskAcknowledged;
 };
 
-export type NotesRetractNoteResponse = NotesRetractNoteResponses[keyof NotesRetractNoteResponses];
+export type TasksDeleteTaskResponse = TasksDeleteTaskResponses[keyof TasksDeleteTaskResponses];
+
+export type TasksEditTaskData = {
+    body: EditMatterTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}';
+};
+
+export type TasksEditTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksEditTaskError = TasksEditTaskErrors[keyof TasksEditTaskErrors];
+
+export type TasksEditTaskResponses = {
+    /**
+     * The task was changed
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksEditTaskResponse = TasksEditTaskResponses[keyof TasksEditTaskResponses];
+
+export type TasksReassignTaskData = {
+    body: ReassignMatterTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/assignee';
+};
+
+export type TasksReassignTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksReassignTaskError = TasksReassignTaskErrors[keyof TasksReassignTaskErrors];
+
+export type TasksReassignTaskResponses = {
+    /**
+     * The task was reassigned
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksReassignTaskResponse = TasksReassignTaskResponses[keyof TasksReassignTaskResponses];
+
+export type TasksReopenTaskData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/completion';
+};
+
+export type TasksReopenTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksReopenTaskError = TasksReopenTaskErrors[keyof TasksReopenTaskErrors];
+
+export type TasksReopenTaskResponses = {
+    /**
+     * The task was reopened
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksReopenTaskResponse = TasksReopenTaskResponses[keyof TasksReopenTaskResponses];
+
+export type TasksCompleteTaskData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/completion';
+};
+
+export type TasksCompleteTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksCompleteTaskError = TasksCompleteTaskErrors[keyof TasksCompleteTaskErrors];
+
+export type TasksCompleteTaskResponses = {
+    /**
+     * The task was completed
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksCompleteTaskResponse = TasksCompleteTaskResponses[keyof TasksCompleteTaskResponses];
+
+export type TasksCancelTaskData = {
+    body: CancelMatterTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/cancellation';
+};
+
+export type TasksCancelTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksCancelTaskError = TasksCancelTaskErrors[keyof TasksCancelTaskErrors];
+
+export type TasksCancelTaskResponses = {
+    /**
+     * The task was cancelled
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksCancelTaskResponse = TasksCancelTaskResponses[keyof TasksCancelTaskResponses];
+
+export type TasksAttachTaskDocumentData = {
+    body: AttachMatterTaskDocumentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/documents';
+};
+
+export type TasksAttachTaskDocumentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksAttachTaskDocumentError = TasksAttachTaskDocumentErrors[keyof TasksAttachTaskDocumentErrors];
+
+export type TasksAttachTaskDocumentResponses = {
+    /**
+     * The link
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksAttachTaskDocumentResponse = TasksAttachTaskDocumentResponses[keyof TasksAttachTaskDocumentResponses];
+
+export type TasksDetachTaskDocumentData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        attachmentId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-documents/{attachmentId}';
+};
+
+export type TasksDetachTaskDocumentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksDetachTaskDocumentError = TasksDetachTaskDocumentErrors[keyof TasksDetachTaskDocumentErrors];
+
+export type TasksDetachTaskDocumentResponses = {
+    /**
+     * The link was removed
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksDetachTaskDocumentResponse = TasksDetachTaskDocumentResponses[keyof TasksDetachTaskDocumentResponses];
 
 export type CustodyListLocationsData = {
     body?: never;
@@ -28562,7 +29272,7 @@ export type NotificationsListData = {
     path?: never;
     query?: {
         cursor?: string;
-        category?: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+        category?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
         state?: 'unread' | 'read' | 'dismissed';
         pageSize?: number;
     };
