@@ -298,17 +298,24 @@
     editDueAtTime = task.dueAtTime ?? "";
   }
 
-  async function saveEdit(taskId: string): Promise<void> {
+  // The edit replaces the task's content fields, so EVERY one it should keep has to travel — an
+  // omitted link is a cleared link, not an unchanged one. The form does not offer the three link
+  // fields, so they are carried through from the task rather than left out, which would silently
+  // drop a "waiting on" the person editing a title never touched.
+  async function saveEdit(task: MatterTask): Promise<void> {
     if (editTitle.trim().length === 0) return;
     await runWrite(
       () =>
         editTask(
           fetch,
-          taskId,
+          task.id,
           {
             title: editTitle.trim(),
             body: editBody.trim().length === 0 ? null : editBody.trim(),
             priority: editPriority,
+            blockedByTaskId: task.blockedByTaskId,
+            triggerEventId: task.triggerEventId,
+            deadlineId: task.deadlineId,
             ...dueOf(editDueOn, editDueAtTime),
           },
           newWriteKey(),
@@ -564,7 +571,7 @@
               <Button variant="secondary" disabled={saving} onclick={() => (editingTaskId = null)}>
                 Cancel
               </Button>
-              <Button disabled={saving || editTitle.trim().length === 0} onclick={() => saveEdit(task.id)}>
+              <Button disabled={saving || editTitle.trim().length === 0} onclick={() => saveEdit(task)}>
                 Save
               </Button>
             </div>

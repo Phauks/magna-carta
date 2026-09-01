@@ -297,6 +297,46 @@ describe("sequencing", () => {
     expect(task?.state).toBe("done");
   });
 
+  it("clears the link when an edit omits it, which is what makes a caller responsible for it", async () => {
+    // An edit REPLACES the content fields. An omitted link is a cleared link, not an unchanged one,
+    // and that is the shape a caller has to know about: the task list's edit form does not offer the
+    // link fields, so it carries them through from the task rather than leaving them out. Held here
+    // because the failure is silent — somebody fixes a title and a "waiting on" quietly disappears.
+    const { database, taskId: first } = await writeTask();
+    const second = await createMatterTask(
+      database,
+      { matterId: MATTER, title: "Second", blockedByTaskId: first },
+      options,
+    );
+    await commit(database, second.effect);
+    expect(
+      (await readMatterTask(database, second.taskId, visibility, ACTOR))?.blocked_by_task_id,
+    ).toBe(first);
+    await commit(
+      database,
+      (await editMatterTask(database, second.taskId, { title: "Second, retitled" }, options))
+        .effect,
+    );
+    expect(
+      (await readMatterTask(database, second.taskId, visibility, ACTOR))?.blocked_by_task_id,
+    ).toBeNull();
+    // And carrying it through keeps it, which is what the surface does.
+    await commit(
+      database,
+      (
+        await editMatterTask(
+          database,
+          second.taskId,
+          { title: "Second, again", blockedByTaskId: first },
+          options,
+        )
+      ).effect,
+    );
+    expect(
+      (await readMatterTask(database, second.taskId, visibility, ACTOR))?.blocked_by_task_id,
+    ).toBe(first);
+  });
+
   it("stops anything waiting on a task that is deleted", async () => {
     const { database, taskId: first } = await writeTask();
     const second = await createMatterTask(

@@ -67,11 +67,18 @@ export interface TaskDueInput {
   timeZone?: string | null;
 }
 
+/**
+ * The task's content, as an edit REPLACES it. Every field a caller wants kept has to travel: an
+ * omitted link is a cleared link rather than an unchanged one, which is what makes an edit form that
+ * does not offer the link fields responsible for carrying them through.
+ */
 export interface TaskContentInput extends TaskDueInput {
   title: string;
   body?: string | null;
   priority?: TaskPriority | null;
   blockedByTaskId?: string | null;
+  triggerEventId?: string | null;
+  deadlineId?: string | null;
 }
 
 export interface TaskListFilters {
