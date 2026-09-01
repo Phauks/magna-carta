@@ -171,8 +171,11 @@
 
 <Dialog.Root bind:open>
   <!-- The seal is a real button around the chip, never a chip pretending to be one: a Badge labels
-       and does not act. The border the recipe already reserves is what lights up under the pointer,
-       so the affordance costs no layout. -->
+       and does not act. The affordance rides the hairline the badge recipe already reserves and
+       leaves transparent, so it costs no layout: the pill is outlined at rest (a control has to
+       read as one before it is hovered, which is what the overflow button beside it had to learn)
+       and the edge strengthens under the pointer. It matters most in dark mode, where the neutral
+       Closed chip's tint is all but the page's own ground and the word alone would read as text. -->
   <Dialog.Trigger
     class="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
     aria-label="Matter status: {seal.label}"
