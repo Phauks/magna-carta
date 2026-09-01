@@ -40,19 +40,12 @@
     text-wrap: balance;
   }
   /*
-   * The density steps (variants.ts). A masthead that shares its band with navigation cannot spend
-   * a full display line on the title, so the step comes down and the stack tightens with it — the
-   * eyebrow and meta hold their own steps, because shrinking those costs legibility without
-   * buying a meaningful number of pixels back. Only the title and the rhythm move.
+   * The compact density (variants.ts). A masthead that shares its band with navigation cannot
+   * spend a full display line on the title. Only the title moves: the eyebrow and the meta hold
+   * their own steps, because shrinking those costs legibility without buying meaningful height.
    */
   .mc-masthead-compact .mc-masthead-title {
     font-size: var(--mc-font-size-2xl);
-  }
-  .mc-masthead-dense .mc-masthead-title {
-    font-size: var(--mc-font-size-xl);
-  }
-  .mc-masthead-dense .mc-masthead-heading {
-    gap: var(--mc-space-0);
   }
   .mc-masthead-meta {
     display: flex;
