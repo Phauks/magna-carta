@@ -280,10 +280,10 @@
 
 - id: matters.physical-file
   name: Physical file register and retention
-  scope: The firm's OWN paper file for a matter - where it sits once the matter closes, and the date it may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard.
+  scope: The firm's OWN paper file for a matter - the box it is filed in (which holds other matters' folders too), where that box is kept, and the date the file may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard.
   status: not-started
   evidence: Nothing in the tree models it. Custodian is client property (packages/custodian), the close stamps closed_at as the instant retention would run from (packages/matters/src/matter-service.ts), and no retention policy or destruction date exists anywhere to run from it - the custody register is explicit that it runs no timer at all and destroys an original only on a written basis by two people.
-  notes: Surfaced rather than hidden - the matter status window renders both rows, marked Soon, naming what each waits on, because a window that answers "what becomes of the file" while silently omitting the question is worse than one that says it cannot answer yet. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks.
+  notes: Surfaced rather than hidden - the matter status window gives it a panel of its own, marked Soon, naming what it waits on, because a window that answers "where is the file" while silently omitting the question is worse than one that says it cannot answer yet. It sits beside the status rather than under the close because the file is a standing fact: a folder sits in its box at its store whatever the matter's status is, and the panel says so. A box is a record in its own right, not a field on a matter, because one box holds several matters' folders. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks.
 
 - id: matters.file-manager
   name: File Manager

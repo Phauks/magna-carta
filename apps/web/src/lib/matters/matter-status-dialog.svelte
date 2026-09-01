@@ -9,10 +9,17 @@
    * changed it in another, three gestures away.
    *
    * WHAT THE WINDOW IS AND IS NOT. It is a short answer to three questions and nothing else: what
-   * the status is, what closing requires and whether each requirement is met, and what becomes of
-   * the paper file. It is NOT a description of what closing does, NOT a checklist for a person to
-   * work through, and NOT a summary of the matter — everything else about the matter is on the
+   * the status is, what closing requires and whether each requirement is met, and where the firm's
+   * paper file is kept. It is NOT a description of what closing does, NOT a checklist for a person
+   * to work through, and NOT a summary of the matter — everything else about the matter is on the
    * sections that own it.
+   *
+   * TWO SIDES, AND THE DIVISION IS THE POINT. The left is the matter's status and the step it
+   * offers; the right is the paper file. They are apart because the paper file is a STANDING fact
+   * and not a consequence of the step: a firm keeps a matter's folder in a box, commonly with other
+   * matters' folders and commonly at a remote store, and closing the matter moves none of that. Laid
+   * out under the requirements it would read as what closing does to the file, which is the one
+   * thing it must not say.
    *
    * THE PROGRAM ANSWERS THE REQUIREMENTS. The close-readiness route runs the firm's own registered
    * rules read-only, so each requirement arrives already answered rather than being discovered by
@@ -29,11 +36,12 @@
   import Button from "@magna-carta/design-system/button";
   import Archive from "@lucide/svelte/icons/archive";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
-  import CircleCheck from "@lucide/svelte/icons/circle-check";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import CircleDot from "@lucide/svelte/icons/circle-dot";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Separator from "@magna-carta/design-system/separator";
+  import StatusMark from "@magna-carta/design-system/status-mark";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
@@ -45,6 +53,8 @@
     matterLifecycleStep,
     MATTER_LIFECYCLE_TRANSPORT_FAILURE,
     MATTER_PHYSICAL_FILE_FACTS,
+    MATTER_PHYSICAL_FILE_NOTE,
+    MATTER_PHYSICAL_FILE_WAITING_ON,
     type MatterCloseRequirementState,
     type MatterLifecycleStep,
   } from "./matter-lifecycle.ts";
@@ -69,12 +79,12 @@
   // The lifecycle glyph per step. Closing wears Archive rather than a destructive glyph: the record
   // stays additive after a close, and a bin would say the file was destroyed.
   const STEP_ICON = { open: FolderOpen, close: Archive, reopen: RotateCcw };
-  // Met, unmet, and the two kinds of no-answer-yet. Checking and unknown wear the quiet register on
-  // purpose: neither is a finding, and a grey mark reads as "nothing said" where a red one would
-  // read as "no".
-  const REQUIREMENT_ICON: Record<MatterCloseRequirementState, typeof CircleCheck> = {
+  // A met requirement wears the product's one affirmative mark (StatusMark, the filled disc), so a
+  // requirement that is satisfied looks exactly like a file that is clean. The other three are
+  // outline glyphs: unmet is a finding, and the two kinds of no-answer wear the quiet register on
+  // purpose, because a grey mark reads as "nothing said" where a red one would read as "no".
+  const UNMET_ICON: Record<Exclude<MatterCloseRequirementState, "met">, typeof CircleAlert> = {
     checking: CircleDashed,
-    met: CircleCheck,
     unmet: CircleAlert,
     unknown: CircleDot,
   };
@@ -108,9 +118,6 @@
   const isSample = $derived(matter.source === "sample");
   const requirements = $derived(matterCloseRequirements(readiness, readinessFailed));
   const canClose = $derived(matterCanClose(readiness));
-  // The paper file belongs to a matter the firm has taken on. A consultation has not drawn a number
-  // and has no place in a file room, so the rows are not drawn rather than drawn empty.
-  const hasPhysicalFile = $derived(matter.matterNumber !== null);
   const block = $derived(matterLifecycleBlock({ step, isSample, sessionSettled, permissions }));
   // A control does not offer a press whose refusal is already on the screen. An unanswered question
   // is NOT a refusal and never disables it: nothing has been predicted there, and the close is the
@@ -240,7 +247,7 @@
     </Badge>
   </Dialog.Trigger>
 
-  <Dialog.Content showClose={false} class="max-w-lg">
+  <Dialog.Content showClose={false} class="max-w-2xl">
     <Dialog.Title>Matter Status</Dialog.Title>
     <Dialog.Description>
       {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`} ·
@@ -248,73 +255,93 @@
     </Dialog.Description>
 
     {#if taken === null}
-      <dl class="flex flex-col gap-8 text-sm">
-        <div class="flex items-baseline justify-between gap-16">
-          <dt class="text-text-muted">Status</dt>
-          <dd>
-            <Badge
-              variant={seal.variant}
-              class="uppercase"
-              style="letter-spacing: var(--mc-tracking-caps)"
-            >
-              {seal.label}
-            </Badge>
-          </dd>
-        </div>
-      </dl>
-
-      {#if step.action === "close" && !isSample}
-        <!-- What closing requires, each one already answered by the rules themselves. Not a
-             checklist: nothing here is a person's to tick, and the mark states what the program
-             found rather than what anybody is being asked to confirm. -->
-        <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">Requirements To Close</h3>
-          <ul class="flex flex-col gap-8 text-sm">
-            {#each requirements as requirement (requirement.key)}
-              {@const RequirementIcon = REQUIREMENT_ICON[requirement.state]}
-              <li class="flex items-start gap-8">
-                <RequirementIcon
-                  class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE[requirement.state]}"
-                  aria-hidden="true"
-                />
-                <span class="flex flex-col gap-4">
-                  <span class={requirement.state === "met" ? "text-text-muted" : "text-text-default"}
-                    >{requirement.label}</span
-                  >
-                  {#if requirement.detail !== null}
-                    <span class="text-status-danger-subtle-foreground">{requirement.detail}</span>
-                  {/if}
-                </span>
-              </li>
-            {/each}
-          </ul>
-          {#if readinessFailed}
-            <!-- Unanswered is not unmet, and the difference is the whole reason this line exists. -->
-            <p class="text-xs text-text-subtle">
-              These could not be checked, so the close will check them.
-            </p>
-          {/if}
-        </div>
-      {/if}
-
-      {#if hasPhysicalFile}
-        <!-- The firm's own paper file, which is not the custody register: that one holds client
-             property left with the firm to guard. Neither row is served yet, so each says what it
-             waits on rather than being left off the window that ought to answer it. A consultation
-             has no place in a file room, so the list is not drawn at all rather than drawn empty. -->
-        <dl class="flex flex-col gap-8 text-sm">
-          {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
+      <!-- Left: the matter's status and the step it offers. Right: the paper file, which the step
+           does not touch. The two sides stack on a narrow viewport, status first, because the file
+           is a reference fact and the status is what somebody came here to change. -->
+      <div class="flex flex-col gap-24 sm:flex-row">
+        <div class="flex flex-1 flex-col gap-16">
+          <dl class="flex flex-col gap-8 text-sm">
             <div class="flex items-baseline justify-between gap-16">
-              <dt class="text-text-muted">{fact.label}</dt>
-              <dd class="flex items-center gap-8 text-right text-text-subtle">
-                Not recorded
-                <MaturityBadge stage="soon" />
+              <dt class="text-text-muted">Status</dt>
+              <dd>
+                <Badge
+                  variant={seal.variant}
+                  class="uppercase"
+                  style="letter-spacing: var(--mc-tracking-caps)"
+                >
+                  {seal.label}
+                </Badge>
               </dd>
             </div>
-            <p class="-mt-4 text-xs text-text-subtle">{fact.waitingOn}</p>
-          {/each}
-        </dl>
-      {/if}
+          </dl>
+
+          {#if step.action === "close" && !isSample}
+            <!-- What closing requires, each one already answered by the rules themselves. Not a
+                 checklist: nothing here is a person's to tick, and the mark states what the program
+                 found rather than what anybody is being asked to confirm. -->
+            <div class="flex flex-col gap-8">
+              <h3 class="text-xs text-text-subtle uppercase">Requirements To Close</h3>
+              <ul class="flex flex-col gap-8 text-sm">
+                {#each requirements as requirement (requirement.key)}
+                  <li class="flex items-start gap-8">
+                    {#if requirement.state === "met"}
+                      <!-- The word beside it says the same thing, so the mark is decoration here. -->
+                      <StatusMark decorative class="mt-2 size-16" />
+                    {:else}
+                      {@const RequirementIcon = UNMET_ICON[requirement.state]}
+                      <RequirementIcon
+                        class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE[requirement.state]}"
+                        aria-hidden="true"
+                      />
+                    {/if}
+                    <span class="flex flex-col gap-4">
+                      <span
+                        class={requirement.state === "met" ? "text-text-muted" : "text-text-default"}
+                        >{requirement.label}</span
+                      >
+                      {#if requirement.detail !== null}
+                        <span class="text-status-danger-subtle-foreground"
+                          >{requirement.detail}</span
+                        >
+                      {/if}
+                    </span>
+                  </li>
+                {/each}
+              </ul>
+              {#if readinessFailed}
+                <!-- Unanswered is not unmet, and the difference is the whole reason for this line. -->
+                <p class="text-xs text-text-subtle">
+                  These could not be checked, so the close will check them.
+                </p>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        <Separator orientation="vertical" class="hidden sm:block" />
+
+        <div class="flex flex-1 flex-col gap-8">
+          <h3 class="text-xs text-text-subtle uppercase">Physical File</h3>
+          <!-- The firm's own paper file, which is not the custody register: that one holds client
+               property left with the firm to guard. Nothing here is served yet, so each row says
+               what it waits on rather than being left off the window that ought to answer it. -->
+          <dl class="flex flex-col gap-8 text-sm">
+            {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
+              <div class="flex items-baseline justify-between gap-16">
+                <dt class="text-text-muted">{fact.label}</dt>
+                <dd class="flex items-center gap-8 text-right text-text-subtle">
+                  Not recorded
+                  <MaturityBadge stage="soon" />
+                </dd>
+              </div>
+            {/each}
+          </dl>
+          <!-- Said once for the panel rather than three times under three rows: they wait on the
+               same two things, and the repetition was the loudest copy on the window. -->
+          <p class="text-xs text-text-subtle">{MATTER_PHYSICAL_FILE_WAITING_ON}</p>
+          <p class="text-xs text-text-subtle">{MATTER_PHYSICAL_FILE_NOTE}</p>
+        </div>
+      </div>
 
       {#if failure !== null}
         <Alert.Root variant="danger">

@@ -222,42 +222,62 @@ export function matterCloseRefusals(problem: ApiProblem): readonly MatterCloseBl
   );
 }
 
-// ---- the physical file ---------------------------------------------------------------------------
+// ---- the physical file ------------------------------------------------------------------------
 
 /**
- * Where the firm's own paper file for this matter sits, and the date it may be destroyed.
+ * The firm's own paper file for this matter: where it is kept, and when it may be destroyed.
+ *
+ * IT IS A STANDING FACT, NOT A CONSEQUENCE OF CLOSING. A firm keeps a matter's folder in a box,
+ * commonly with other matters' folders, commonly at a remote store, and closing the matter moves
+ * none of that. So this is not the "and then what happens" half of a close; it is what is true
+ * about the file whatever the matter's status is, which is why it sits beside the status rather
+ * than under the step.
  *
  * NEITHER IS MODELLED, AND NEITHER IS THE CUSTODY REGISTER. Custodian holds CLIENT property left
  * with the firm to guard — an original will, a deed, a passport — which stays in the register for as
  * long as the client's affairs need it, long after the matter that brought it in has closed. The
- * firm's own file for a matter is a different object with a different life, and the platform does
- * not carry it: no register, no location, and no retention clock anywhere to derive a destruction
- * date from. The custody register is explicit that it runs no timer at all — an original is
- * destroyed on a written basis, by two people, never because a date arrived.
+ * firm's own file is a different object with a different life, and the platform does not carry it:
+ * no register, no location, no box, and no retention clock anywhere to derive a destruction date
+ * from. The custody register is explicit that it runs no timer at all — an original is destroyed on
+ * a written basis, by two people, never because a date arrived.
  *
- * So both rows render and say what they are waiting for, which is the standing rule for anything
+ * So every row renders and says what it is waiting for, which is the standing rule for anything
  * designed ahead of what serves it. A date invented here would be a date somebody destroys a
  * client's file on.
  */
 export interface MatterPhysicalFileFact {
   readonly key: string;
   readonly label: string;
-  /** The one honest sentence the row owes about what it is waiting for. */
-  readonly waitingOn: string;
 }
 
+/**
+ * The rows. Box is its own row rather than part of Location because a box holds the folders of
+ * several matters at once: it is a record in its own right, and a matter points at it.
+ */
 export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
-  {
-    key: "location",
-    label: "Physical File",
-    waitingOn: soonDependencySentence("a register of the firm's own physical files"),
-  },
-  {
-    key: "destroy-after",
-    label: "Destroy After",
-    waitingOn: soonDependencySentence("a firm file-retention policy"),
-  },
+  { key: "location", label: "Location" },
+  { key: "container", label: "Box" },
+  { key: "destroy-after", label: "Destroy After" },
 ];
+
+/**
+ * What the panel is waiting for, once, rather than the same sentence under all three rows.
+ *
+ * Two capabilities, and they are named separately because a firm could get one without the other:
+ * knowing where a file is kept is a register, and knowing when it may be destroyed is a policy.
+ */
+export const MATTER_PHYSICAL_FILE_WAITING_ON = soonDependencySentence(
+  "a register of the firm's own physical files, and a firm file-retention policy for the destruction date",
+);
+
+/**
+ * The one thing this panel has to say that its rows cannot.
+ *
+ * Where the file is kept is the sort of fact a status window invites somebody to read as a
+ * consequence of the status. It is not one — a folder sits in its box at its store whatever the
+ * matter's status is — and the panel says so rather than letting the layout imply it.
+ */
+export const MATTER_PHYSICAL_FILE_NOTE = "Closing the matter does not move the file.";
 
 // ---- what stops the step being taken from this screen ---------------------------------------------
 

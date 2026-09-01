@@ -97,9 +97,10 @@ would not be real.
 A matter's status is the badge at the top left of its own page, beside the matter number: **Active**,
 **Prospective** or **Closed**. Press the badge to change it.
 
-The window is short on purpose. It states the matter's status, what closing requires and whether
-each requirement is met, and what becomes of the paper file, and it offers the one step the current
-status allows: a consultation opens, an active matter closes, a closed matter reopens. There is no list of statuses to pick from,
+The window is short on purpose, and it has two sides. On the left, the matter's status, what
+closing requires and whether each requirement is met, and the one step the current status allows: a
+consultation opens, an active matter closes, a closed matter reopens. On the right, the firm's own
+physical file for the matter. There is no list of statuses to pick from,
 because a matter reaches a status by being opened, closed or reopened, not by being set to one.
 
 **Requirements to close** lists what has to be true, each one already answered. Magna Carta runs
@@ -140,13 +141,18 @@ firm.
 
 ### The physical file
 
-**Physical file** and **Destroy after** are on the window and are not filled in yet. They are about
-your firm's own paper file for the matter: where it sits once the matter is closed, and the date it
-may be destroyed. Neither is recorded anywhere in Magna Carta today, and the window says so rather
-than leaving the questions off the screen that ought to answer them.
+The right-hand side of the window is your firm's own paper file for the matter: the **box** it is
+filed in, the **location** that box is kept at, and the date the file may be **destroyed after**.
+None of the three is recorded in Magna Carta yet, and the window says so rather than leaving the
+questions off the screen that ought to answer them.
 
-They are deliberately not the safe-custody register, which is a different thing: **Custodian** holds
-a client's own property left with the firm to guard, and it stays there for as long as the client's
+It sits beside the status rather than under the close on purpose: closing a matter does not move its
+file. A folder stays in its box at its store whatever the matter's status is, and a box holds
+several matters' folders at once, which is why a box will be a record in its own right rather than a
+line on one matter.
+
+This is deliberately not the safe-custody register, which is a different thing: **Custodian** holds a
+client's own property left with the firm to guard, and it stays there for as long as the client's
 affairs need it, long after the matter that brought it in has closed.
 
 ## If a matter will not open

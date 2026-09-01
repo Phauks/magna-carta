@@ -76,7 +76,7 @@
 @import "../components/print-sheet/print-sheet.css";
 /* The status register's one recipe (the clean file's filled circle-check) and the record chain,
    which reads its step labels out of that same register. */
-@import "../status-register/status-register.css";
+@import "../components/status-mark/status-mark.css";
 @import "../components/record-chain/record-chain.css";
 /* The attachments tab dresses rows inside a record window's context pane and hosts a Popover with a
    Command listbox in it, so it follows all three: at equal specificity the later rule wins. */
