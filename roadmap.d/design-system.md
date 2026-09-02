@@ -92,6 +92,15 @@
   evidence: packages/design-system/src/lib/components/action-dialog (the shell, its kind table and its six stories), src/lib/internal/close-guard.svelte.ts + discard-question.svelte (the guard both shells share), tooling/lint-one-ui rules `hand-composed-modal` and `footer-set`
   notes: The shell, the shared guard and the two rules are built and the shells are declared in tooling/lint-one-ui/registry.json. Thirty-seven existing panels are carried as printed allowances and migrate family by family; twenty-six of them are in scope, the other eight are named and excluded in the spec.
 
+- id: design-system.directory-linking
+  name: Directory-linking family
+  scope: One mark (EntityIdentity), one field (EntityPicker, which takes a search and never fetches) and one tab (RecordParties) for every surface that names, picks or links a person or an organization.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-09-02-directory-linking-design.md
+  evidence: packages/design-system/src/lib/components/{entity-identity,entity-picker,record-parties}; the matter's Parties page is the first caller; tooling/lint-one-ui/registry.json refuses a second implementation
+  notes: Built against the matter's parties. The conflicts, custodian and cost pickers still carry their own combobox over the directory search and fold onto EntityPicker in a later slice; quick-create from the picker waits on the owner.
+
 - id: design-system.enforcement.off-token-lint
   name: Off-token value gates
   scope: Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.

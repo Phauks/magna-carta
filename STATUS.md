@@ -63,7 +63,7 @@ browser-side gate recorded nowhere. |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- |
 | 1·1 — Matters + Locations + File Manager | [x] | [x] | [~] | [x] Opus 4.8\* | [ ] | [x] Opus 4.8 | [ ] | Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. |
 | 1·2 — `protected()` crypto module | [x] | [x] | [x] | [x] Opus 4.8\* | [-] | [x] Opus 4.8 | [ ] | Envelope AES-KW + HKDF key hierarchy, blind index, data-access chokepoint + worker wiring. |
-| 1·3 — Directory | [x] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8\* | [ ] | [x] Opus 4.8 | [x] Opus 4.8\* | Person/Org graph, phonetic + FTS search, protected identifiers, non-destructive merge; on main. |
+| 1·3 — Directory | [x] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8\* | [~] Fable 5.1 | [x] Opus 4.8 | [x] Opus 4.8\* | Person/Org graph, phonetic + FTS search, protected identifiers, non-destructive merge; on main. |
 | 1·4 — Custom-fields engine | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8\* | [ ] | [x] Opus 4.8 | [ ] | Typed-EAV, temporal history, non-destructive Convert, archive/gated-purge; migration 0013. Practice-area templates deferred (before first client). |
 
 ## Phase 2 — Documents & file management

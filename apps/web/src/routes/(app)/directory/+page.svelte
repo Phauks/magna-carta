@@ -78,7 +78,7 @@
     entityRecordHref,
     searchHitKindLabel,
   } from "$lib/directory/entity-presentation.ts";
-  import EntityIdentity from "$lib/directory/entity-identity.svelte";
+  import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import NewEntityDialog from "$lib/directory/new-entity-dialog.svelte";
 
   // ---- who is asking ---------------------------------------------------------------------------

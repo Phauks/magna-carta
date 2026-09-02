@@ -11,28 +11,28 @@
   slices: 1-3-directory
   adrs: ADR-0006, ADR-0085
   spec: docs/specs/2026-06-12-slice-1-3-directory-design.md
-  evidence: packages/directory on main; status.d/1-3-directory.md built+tested done, ui todo
+  evidence: packages/directory on main; the Directory list and record at apps/web/src/routes/(app)/directory; the linking family at packages/design-system/src/lib/components/{entity-identity,entity-picker,record-parties}
   audience: public
   public-name: One record for every person and organization
   public-summary: Clients, opposing parties, courts, experts and vendors in one place, with the relationships between them held as facts rather than notes.
-  notes: Backend complete on main; UI deferred until the design-system app shell lands.
+  notes: Backend complete; the list, the record screen and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md).
 
 - id: directory.entities
   name: Person and Organization entities
   scope: Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role.
   status: partial
   slices: 1-3-directory
-  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts
-  notes: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md).
+  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts; apps/web/src/routes/(app)/directory/[id]/+page.svelte with the Names, Contact, Pronouns, Dates, Identifiers, Duplicates, Relationships, Matters and Categories panes
+  notes: Backend shipped; the record screen is built. The organization stays thin by the owner's ruling.
 
 - id: directory.entities.categories
   name: Entity categories
   scope: Per-firm classification labels (attorney, judge, court, expert, vendor, client) that are not schema variants.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-3-directory
-  evidence: packages/directory/src/categories.ts; category repointing handled in merge.ts
-  notes: Backend shipped; category management UI not built.
+  evidence: packages/directory/src/categories.ts; apps/web/src/lib/directory/categories-pane.svelte assigns; category repointing handled in merge.ts
+  notes: Backend shipped; assignment is on the record screen; category management (creating and archiving categories) is not built.
 
 - id: directory.entities.category-fields
   name: Category-specific custom fields
@@ -48,20 +48,20 @@
   name: Structured names and name history
   scope: Structured person names (prefix/first/middle/last/suffix), aliases/AKAs, maiden and former names, preferred/display name; org legal name, DBAs/trade names, former names; retained name-change history.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-3-directory
-  evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts
-  notes: Backend shipped including phonetic codes on every name row; UI not built.
+  evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts; apps/web/src/lib/directory/names-pane.svelte
+  notes: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. display_text and the legal/preferred roles remain.
 
 - id: directory.pronouns
   name: Pronouns on a person
   scope: Optional, owner-entered pronouns on a Directory person — the whole declension plus verb agreement — feeding the document-assembly pronoun helpers; never inferred from a name, a title, or a gender attribute.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-3-directory, 2-6-document-automation
-  evidence: six columns on directory_person with an all-or-nothing table CHECK, packages/directory/src/pronouns.ts, PUT /api/v1/directory/persons/{id}/pronouns, and the pronoun()/pronounVerb() helpers in packages/document-assembly/src/expression
+  evidence: apps/web/src/lib/directory/pronouns-pane.svelte; six columns on directory_person with an all-or-nothing table CHECK, packages/directory/src/pronouns.ts, PUT /api/v1/directory/persons/{id}/pronouns, and the pronoun()/pronounVerb() helpers in packages/document-assembly/src/expression
   awaiting-owner: Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
-  notes: Backend shipped; the entry surface (common-set presets plus free-form entry) is deferred to the owner with the rest of the Directory UI. A separate gender field is deliberately not built and is flagged for the owner.
+  notes: Backend shipped and the Pronouns pane on the record screen enters them. A separate gender field is deliberately not built and is flagged for the owner.
 
 - id: directory.edges
   name: Typed edges
@@ -102,10 +102,10 @@
   name: Matter role assignments
   scope: Entity-to-matter role links with the role on the link, not the entity; one entity can hold multiple roles in one matter.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-3-directory, 1-1-matters-locations-file-manager
-  evidence: packages/directory/src/party.ts (matter_party rows, one per role, no uniqueness on (matter, entity))
-  notes: Backend shipped; party management UI not built.
+  evidence: packages/directory/src/party.ts (matter_party rows, one per role, no uniqueness on (matter, entity)); apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte on the RecordParties tab
+  notes: Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client as a party row is the next slice.
 
 - id: directory.identifiers
   name: Typed identifiers

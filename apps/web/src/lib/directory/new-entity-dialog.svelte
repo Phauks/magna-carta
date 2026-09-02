@@ -31,7 +31,7 @@
     type DirectoryEntityKind,
   } from "./directory-api.ts";
   import { directoryEntityName, entityRecordHref } from "./entity-presentation.ts";
-  import EntityIdentity from "./entity-identity.svelte";
+  import EntityIdentity from "@magna-carta/design-system/entity-identity";
 
   let {
     open = $bindable(false),

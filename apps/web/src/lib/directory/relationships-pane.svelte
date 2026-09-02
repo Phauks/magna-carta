@@ -24,7 +24,7 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { readDirectoryEdges, type DirectoryEdgeEntry } from "./directory-api.ts";
   import { edgeTypeLabel } from "./directory-vocabulary.ts";
-  import EntityIdentity from "./entity-identity.svelte";
+  import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import { entityRecordHref } from "./entity-presentation.ts";
 
   let { entityId }: { entityId: string } = $props();

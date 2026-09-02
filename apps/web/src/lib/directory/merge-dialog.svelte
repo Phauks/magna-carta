@@ -29,7 +29,7 @@
   import ArrowLeftRight from "@lucide/svelte/icons/arrow-left-right";
   import Merge from "@lucide/svelte/icons/merge";
   import { mergeDirectoryEntities, type DirectoryEntityDetail } from "./directory-api.ts";
-  import EntityIdentity from "./entity-identity.svelte";
+  import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import {
     defaultMergeChoices,
     mergePlan,
