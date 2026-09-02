@@ -17,6 +17,13 @@
  * A GROUP HOLDS AT LEAST TWO SECTIONS. One item behind a menu is the mistake the header's overflow
  * control made — a glyph a member has to open to learn there was nothing in it worth the trip. The
  * builder below refuses it, so the rule cannot be broken by an edit to this file.
+ *
+ * EVERY SECTION ALSO ANSWERS FOR SEARCH. Each one declares whether the matter's consolidated search
+ * can reach it — a source key, or `null` with the one line naming what a source there waits on. It
+ * is REQUIRED either way, and `pnpm run lint:matter-search-coverage` fails a section that declares
+ * neither. That is what makes the search's growth impossible to forget rather than merely unlikely:
+ * adding a fifteenth section forces somebody to answer the question, and the scope dropdown renders
+ * the unanswerable ones disabled with their reason instead of quietly omitting them.
  */
 import type { MaturityStage } from "$lib/maturity/maturity.ts";
 
@@ -28,6 +35,16 @@ export interface MatterSection {
   stage: MaturityStage;
   /** One paragraph, product voice: what lives here once the section is real. */
   description: string;
+  /**
+   * The matter-search source key that answers for this section, or null when none does yet.
+   * The key must match a source registered in @magna-carta/matter-search.
+   */
+  searchSource: string | null;
+  /**
+   * Required when `searchSource` is null: the one honest line the disabled scope option carries.
+   * Names what a source here waits on, in the reader's words.
+   */
+  searchWaitingOn?: string;
 }
 
 /** Every section a matter has, in the order the strip reads them. */
@@ -37,6 +54,11 @@ export const matterSections: readonly MatterSection[] = [
     label: "Overview",
     stage: "alpha",
     description: "The matter at a glance — its facts, status, and what has accrued against it.",
+    // Deliberately never a source rather than one that is merely unbuilt: the overview holds no
+    // record of its own, it summarises what the other sections hold. A source here would answer
+    // the same query twice and put a reader on a summary when they asked for the thing itself.
+    searchSource: null,
+    searchWaitingOn: "Overview summarises the other sections; searching it would answer twice",
   },
   {
     slug: "files",
@@ -45,6 +67,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "The matter's versioned file record — every document the firm holds for this matter, " +
       "organized in folders, each version kept and each byte's integrity hash recorded.",
+    searchSource: "files",
   },
   {
     slug: "time",
@@ -53,6 +76,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Time captured on this matter — timers, manual entries, and the weekly grid all land " +
       "here, billable or not.",
+    searchSource: "time",
   },
   {
     slug: "fees",
@@ -61,6 +85,14 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Flat charges for professional services recorded on this matter — the fee agreement and " +
       "the work-in-progress fee ledger, waiting to be claimed by a bill.",
+    searchSource: null,
+    // Three different things are called a fee, and none of them is searchable text on this
+    // section. The fee AGREEMENT (matter_billing_arrangement) carries amounts, enums and dates and
+    // no free text at all. A billed fee is an invoice line, and the billing source already finds
+    // it. What the Fees tab is designed around — a fee as its own dated work-in-progress record,
+    // with a description — has no table and no route; the screen's own gap register says so.
+    searchWaitingOn:
+      "Fees you have billed are under Billing; an unbilled fee record does not exist yet",
   },
   {
     slug: "costs",
@@ -69,6 +101,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Costs advanced and expenses incurred for this matter — filing fees, service, experts — " +
       "with their recoverable and billable treatment.",
+    searchSource: "costs",
   },
   {
     slug: "billing",
@@ -77,6 +110,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Invoices, payments, and the matter's billing arrangement — hourly, flat fee, or " +
       "contingency — with the full accounting of what has been billed and collected.",
+    searchSource: "billing",
   },
   {
     slug: "trust",
@@ -85,18 +119,23 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "The matter's trust ledger — client funds held, disbursed, and reconciled under the " +
       "governing jurisdiction's rules. Fees never touch trust until earned.",
+    searchSource: null,
+    searchWaitingOn: "The Trust section itself is not built yet",
   },
   {
     slug: "notes",
     label: "Notes",
     stage: "alpha",
     description: "Matter notes and memoranda — dated, attributed, and searchable.",
+    searchSource: "notes",
   },
   {
     slug: "emails",
     label: "Emails",
     stage: "soon",
     description: "Email correspondence filed to this matter, threaded and searchable.",
+    searchSource: null,
+    searchWaitingOn: "The Emails section itself is not built yet",
   },
   {
     slug: "messaging",
@@ -104,6 +143,8 @@ export const matterSections: readonly MatterSection[] = [
     stage: "soon",
     description:
       "Secure messages exchanged with the client through the portal, kept on the matter record.",
+    searchSource: null,
+    searchWaitingOn: "The Messaging section itself is not built yet",
   },
   {
     slug: "custodian",
@@ -112,6 +153,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Physical items in the firm's custody for this matter — original wills, deeds, media — " +
       "tracked to a location, safe, and box.",
+    searchSource: "custody",
   },
   {
     slug: "parties",
@@ -120,6 +162,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Every person and organization connected to this matter — clients, opposing parties, " +
       "counsel, courts — linked from the firm Directory with conflict-aware roles.",
+    searchSource: "parties",
   },
   {
     slug: "calendar",
@@ -128,6 +171,7 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
       "person, read in its own time zone, and reports when it has passed.",
+    searchSource: "calendar",
   },
   {
     slug: "magnus",
@@ -136,6 +180,12 @@ export const matterSections: readonly MatterSection[] = [
     description:
       "Ask Magnus about this matter. The assistant answers in plain language from what you " +
       "attach to the conversation, and every exchange is kept on the matter record.",
+    searchSource: null,
+    // Magnus is a way to ASK about the matter, not a record the matter keeps. Even once it is
+    // built, what a conversation holds is the reader's own questions and the assistant's answers —
+    // a transcript search is its own feature with its own retention question, not a scope option
+    // that quietly makes past conversations findable alongside the firm's records.
+    searchWaitingOn: "The Magnus section itself is not built yet",
   },
 ];
 
@@ -214,3 +264,15 @@ function buildStrip(): readonly MatterStripEntry[] {
 
 /** The strip's top level, in order. Validated at module load against the section registry. */
 export const matterStrip: readonly MatterStripEntry[] = buildStrip();
+
+/** The section a matter route is on, resolved from the address. Undefined off a section path. */
+export function sectionForPathname(matterId: string, pathname: string): MatterSection | undefined {
+  const root = `/matters/${matterId}`;
+  if (pathname === root || pathname === `${root}/`) {
+    return matterSections.find((section) => section.slug === "overview");
+  }
+  return matterSections.find(
+    (section) =>
+      pathname === `${root}/${section.slug}` || pathname.startsWith(`${root}/${section.slug}/`),
+  );
+}

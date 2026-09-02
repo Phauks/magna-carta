@@ -3,15 +3,17 @@
    * The matter's header band — the ceremonial edge and the section navigation, in ONE band.
    *
    * The arrangement (owner's selections, 2026-08-31 through 2026-09-01): the identity block on the
-   * reading edge, the section strip alone in the column at the inline end, flush against the
-   * band's bottom rule. 152px of chrome became 111px when the strip moved off its own row, and
-   * 76px when the identity block stopped spending three rows on itself.
+   * reading edge, the matter's search and the section strip stacked in the column at the inline
+   * end, the strip flush against the band's bottom rule. 152px of chrome became 111px when the
+   * strip moved off its own row, and 76px when the identity block stopped spending three rows on
+   * itself; the search takes the space the strip's row left behind rather than a row of its own.
    *
-   * THE BAND CARRIES NO ACTIONS. It held one overflow (...) control whose only item was the
-   * status's lifecycle action, shipped disabled and marked Soon. The owner removed it on
-   * 2026-09-01: a menu that has to be opened to find out it holds nothing pressable is chrome that
-   * costs a control's width and returns nothing. When the lifecycle action is wired it comes back
-   * as a named button, on the row and legible at rest, not behind a glyph.
+   * THE BAND CARRIES NO ACTIONS — the search is a way IN to the matter, not something done to it.
+   * The band held one overflow (...) control whose only item was the status's lifecycle action,
+   * shipped disabled and marked Soon. The owner removed it on 2026-09-01: a menu that has to be
+   * opened to find out it holds nothing pressable is chrome that costs a control's width and
+   * returns nothing. When the lifecycle action is wired it comes back as a named button, on the row
+   * and legible at rest, not behind a glyph.
    *
    * THE LEDGER LINE HAS NO ROW OF ITS OWN. The matter number and its status seal lead the citation
    * beneath the title, where they still read first, instead of costing a full line above it. That
@@ -30,13 +32,15 @@
    *
    * The Masthead recipe is the one door to the display serif, so the identity block still composes
    * Masthead.Heading and takes its step from the recipe's own `density` rather than a type utility
-   * on the Title. The Actions slot is left unused: the inline-end column belongs to the strip.
+   * on the Title. The Actions slot is left unused: the inline-end column belongs to the search and
+   * the strip, which need to share a column rather than a slot.
    *
    * Status never gates or varies the screen flow — it changes only what this header showcases: the
    * seal and the number-or-Consultation line.
    */
   import Badge from "@magna-carta/design-system/badge";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import MatterSearchControl from "$lib/matters/matter-search-control.svelte";
   import MatterSectionNav from "$lib/matters/matter-section-nav.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
@@ -111,11 +115,21 @@
     </Masthead.Meta>
   </Masthead.Heading>
 
-  <!-- The inline-end column is the strip and nothing else. It stays a flex column with items-end
+  <!-- The inline-end column holds the search over the strip. It stays a flex column with items-end
        so the strip sits on the band's bottom rule (the Masthead's own items-stretch would
        otherwise hold it at the top of a full-height cell), and min-w-0 so the strip's measured
-       fold has a width it can actually shrink to. -->
-  <div class="flex min-w-0 flex-1 items-end">
+       fold has a width it can actually shrink to. justify-between is what pins the two to the
+       band's two edges rather than letting them bunch.
+
+       THE SEARCH SITS ABOVE THE STRIP, NOT ON ITS ROW, and that is measured rather than aesthetic:
+       the field grows toward the inline start as it opens, so sharing the row would shove the tabs
+       sideways on the first keystroke — and the strip's own fold would then re-measure mid-typing.
+       Rendering it in the HEADER, which the matter layout draws over every section, is what puts
+       one search on every screen and stops a section growing its own. -->
+  <div class="flex min-w-0 flex-1 flex-col items-end justify-between gap-8">
+    <div class="flex flex-none items-center pt-4">
+      <MatterSearchControl matterId={matter.id} />
+    </div>
     <MatterSectionNav matterId={matter.id} />
   </div>
 </Masthead.Root>

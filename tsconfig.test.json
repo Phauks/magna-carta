@@ -155,6 +155,9 @@
       "path": "packages/matter-assets/tsconfig.test.json"
     },
     {
+      "path": "packages/matter-search/tsconfig.test.json"
+    },
+    {
       "path": "packages/matters/tsconfig.test.json"
     },
     {
