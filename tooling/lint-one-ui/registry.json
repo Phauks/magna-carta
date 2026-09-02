@@ -12,6 +12,10 @@
   ],
   "components": [
     {
+      "name": "ActionDialog",
+      "home": "packages/design-system/src/lib/components/action-dialog"
+    },
+    {
       "name": "RecordWindow",
       "home": "packages/design-system/src/lib/components/record-window"
     },
@@ -49,6 +53,38 @@
     }
   ],
 
+  "modalShellsComment": [
+    "The homes allowed to compose a modal panel out of the Dialog / AlertDialog / Sheet parts.",
+    "Everywhere else, a modal surface is one of the shells — RecordWindow for reading and changing a",
+    "record, ActionDialog for an act asked of a reader — and the `hand-composed-modal` rule says so.",
+    "",
+    "This list is deliberately NOT 'every registered component'. Being registered means a component",
+    "is built once; it does not mean anything inside it is exempt. A registered component can hold a",
+    "confirmation that should be an ActionDialog, and RecordAttachments does — which is why it",
+    "carries an allowance below rather than an entry here.",
+    "",
+    "Adding a home here is the reviewed act of declaring a NEW modal surface. Do not add one to make",
+    "a screen pass; a screen is not a shell."
+  ],
+  "modalShells": [
+    {
+      "home": "packages/design-system/src/lib/components/action-dialog",
+      "reason": "the shell an act is asked for in."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/record-window",
+      "reason": "the shell a record is read and changed in."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/print-sheet",
+      "reason": "the print preview, which layers ABOVE a record window rather than replacing it and undoes the panel's centring and cap for the printed page. A third surface, deliberately: it is not an act asked of a reader and shoehorning it into ActionDialog would put print rules inside the shell every other panel shares."
+    },
+    {
+      "home": "packages/design-system/src/lib/internal",
+      "reason": "the shared unsaved-work question both shells ask, which is an AlertDialog by construction."
+    }
+  ],
+
   "allowancesComment": [
     "Pre-existing debt, declared out loud. Every entry here is a REAL violation that predates the",
     "rule catching it: the status register and the placeholder ruling both landed after the code",
@@ -67,6 +103,136 @@
     "file itself, which is where an argument about one field's wording belongs."
   ],
   "allowances": [
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/billing/apply-trust-funds-dialog.svelte",
+      "reason": "NOT read-only, and not debt: an act whose commit is not served yet. Its control is wrapped in SoonAffordance \u2014 the product's own primitive for a designed-but-unbuilt capability (disabled control, Soon badge, the dependency as the accessible description) \u2014 and that primitive lives in the app, so the design-system shell cannot carry it. It becomes a plain ActionDialog the day a route hands out a trust account."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/billing/arrangement-dialog.svelte",
+      "reason": "Belongs to the OTHER shell. It reads a record \u2014 the fee arrangement in force, its terms, and its version history \u2014 and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/components/bug-report-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/components/command-palette.svelte",
+      "reason": "not an act asked of a reader \u2014 a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/conflicts/disposition-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/costs/cost-review-window.svelte",
+      "reason": "a screen presented over the app rather than an act asked of a reader. It belongs to the full-screen presentation question, which is a separate design and deliberately not folded into this one."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/diagnostics/report-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog, and takes its failure as a bare string today so it gains the notice slot in the same pass."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/directory/categories-pane.svelte",
+      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/directory/contact-pane.svelte",
+      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/directory/identifiers-pane.svelte",
+      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/directory/merge-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog with the directory family."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/directory/names-pane.svelte",
+      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/directory/new-entity-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog with the directory family."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/documents/new-document-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/file-manager/folder-delete-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog, and takes its failure as a bare string today so it gains the notice slot in the same pass."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/file-manager/restore-file-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog with the file-manager family."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/file-manager/upload-destination-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog with the file-manager family."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/matters/note-delete-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog as kind=destructive."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/records/reclassify-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/settings/components/request-change-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/settings/components/settings-commit-footer.svelte",
+      "reason": "predates ActionDialog; the commit confirmation migrates to ActionDialog as kind=confirm."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/settings/components/settings-ledger.svelte",
+      "reason": "a Sheet, and an edge panel holding a change history is context rather than an act. It stays; the allowance records that a Sheet was considered and left alone."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/time/time-sheet.svelte",
+      "reason": "a screen presented over the app rather than an act asked of a reader \u2014 same full-screen family as cost-review-window, same separate design."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/tools/safe-browse/website-shell.svelte",
+      "reason": "a screen presented over the app rather than an act asked of a reader \u2014 same full-screen family, same separate design."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte",
+      "reason": "predates ActionDialog; the party-removal confirmation migrates to ActionDialog as kind=destructive."
+    },
+    {
+      "rule": "hand-composed-modal",
+      "file": "packages/design-system/src/lib/components/record-attachments/record-attachments.svelte",
+      "reason": "predates ActionDialog. Being a registered component does not exempt what is inside it: the detach confirmation is an act asked of a reader and becomes an ActionDialog with kind=destructive. It is listed here rather than in modalShells for exactly that reason."
+    },
     {
       "rule": "status-tone",
       "file": "apps/web/src/routes/developer-console/table-states/+page.svelte",

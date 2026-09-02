@@ -19,9 +19,9 @@
    * inventing it. A figure of record invented by a screen is worse than an absent one; the field
    * belongs to whatever surface records an appraisal, which knows what the appraisal was in.
    */
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
@@ -52,7 +52,6 @@
 
   let draft = $state<ItemDraft>({ ...EMPTY_ITEM_DRAFT });
   let itemTypes = $state<readonly CustodyItemType[]>([]);
-  let submitting = $state(false);
   let failure = $state<StatedFailure | null>(null);
   let catalogRead = false;
 
@@ -69,7 +68,22 @@
 
   const typeItems = $derived(itemTypes.map((type) => ({ value: type.id, label: type.name })));
   const shortfalls = $derived(itemDraftShortfalls(draft));
-  const ready = $derived(itemDraftReady(draft) && packetId !== null);
+
+  /*
+   * Why the commit is unavailable, or undefined when it is available. The window shows this beside
+   * the control it refuses rather than hiding the control, so a reader is told what is missing
+   * instead of hunting for what is absent.
+   */
+  const refusal = $derived.by((): string | undefined => {
+    if (packetId === null) return "No packet is open.";
+    if (!itemDraftReady(draft)) return shortfalls[0];
+    return undefined;
+  });
+
+  /** Whether anything has been typed. A blank form has nothing to lose, so leaving it never asks. */
+  const started = $derived(
+    draft.description.trim() !== "" || draft.itemTypeId !== null || draft.instrumentDate !== null,
+  );
 
   /** The instrument date as a calendar date, or undefined while it is empty or half-entered. */
   const instrumentDateValue = $derived.by(() => {
@@ -102,9 +116,8 @@
     failure = null;
   }
 
-  async function submit(): Promise<void> {
-    if (!ready || submitting || packetId === null) return;
-    submitting = true;
+  async function submit(): Promise<ActionOutcome> {
+    if (packetId === null) return "refused";
     failure = null;
     // A retried submit must not describe the same instrument twice, so every attempt carries its
     // own key and the server answers the repeat with the first result.
@@ -114,34 +127,50 @@
       itemDraftRequest(draft),
       crypto.randomUUID(),
     );
-    submitting = false;
     if (outcome.kind === "ok") {
       onAdded();
-      reset();
-      open = false;
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
       "The item could not be described.",
       "Nothing answered. Nothing was recorded against this packet.",
     );
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-xl">
+<ActionDialog
+  bind:open
+  heading="Describe An Item"
+  commitLabel="Record Item"
+  commitBusyLabel="Recording"
+  commitRefusal={refusal}
+  width="wide"
+  unsavedChanges={started}
+  onOpen={reset}
+  onCommit={submit}
+>
+  {#snippet subtitle()}
+    One thing inside this packet. A packet holding a will and two codicils is three items.
+  {/snippet}
+
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="The Item Was Not Recorded"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Dialog.Title>Describe An Item</Dialog.Title>
-        <Dialog.Description>
-          One thing inside this packet. A packet holding a will and two codicils is three items.
-        </Dialog.Description>
-      </div>
-
-      <div class="flex flex-col gap-8">
         <Label for="new-item-description">Description</Label>
-        <Textarea id="new-item-description" rows={2} bind:value={draft.description} />
+        <Textarea id="new-item-description" rows={2} disabled={busy} bind:value={draft.description} />
       </div>
 
       <div class="grid gap-16 sm:grid-cols-2">
@@ -153,7 +182,7 @@
             value={draft.itemTypeId ?? ""}
             onValueChange={chooseType}
             allowDeselect={false}
-            disabled={typeItems.length === 0}
+            disabled={busy || typeItems.length === 0}
           >
             <Select.Trigger aria-labelledby="new-item-type-label">
               <Select.Value placeholder={placeholderOf("Type")} />
@@ -176,7 +205,7 @@
       </div>
 
       <label class="flex items-start gap-8">
-        <Checkbox bind:checked={draft.intrinsicValue} />
+        <Checkbox disabled={busy} bind:checked={draft.intrinsicValue} />
         <span class="flex flex-col gap-4">
           <span>An irreplaceable original</span>
           <span class="text-xs text-text-muted">
@@ -184,30 +213,6 @@
           </span>
         </span>
       </label>
-
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Item Was Not Recorded"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex items-center justify-end gap-8">
-        {#if shortfalls[0] !== undefined}
-          <span class="me-auto text-xs text-text-muted">{shortfalls[0]}</span>
-        {/if}
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button variant="primary" disabled={!ready || submitting} onclick={submit}>
-          {submitting ? "Recording" : "Record Item"}
-        </Button>
-      </div>
     </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

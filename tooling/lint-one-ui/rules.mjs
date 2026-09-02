@@ -52,8 +52,12 @@ export const HEADER_ACTIONS = ["menu", "edit", "print", "expand", "close"];
 /** The marker each header control carries, which is also the harness's hook for finding it. */
 export const HEADER_ACTION_ATTRIBUTE = "data-record-window-action";
 
-/** The class that opens the header's action group. The controls sit between it and its `</div>`. */
-const HEADER_ACTIONS_CLASS = 'class="mc-record-window-header-actions"';
+/**
+ * The class that opens the header's action group. The controls sit between it and its `</div>`.
+ * A class TOKEN rather than the whole attribute, so the element may carry the modal frame's class
+ * beside its own — the frame supplies the group's geometry, this name is the rule's hook.
+ */
+const HEADER_ACTIONS_CLASS = "mc-record-window-header-actions";
 
 /**
  * Tags that are a control. `<button>` covers the shell's own; the dialog's Close part and the
@@ -118,6 +122,91 @@ export function findHeaderSetProblems(filePath, source) {
       detail:
         `the header's action group holds ${controlCount} control(s) but ${found.length} carry ` +
         `${HEADER_ACTION_ATTRIBUTE} — every control there declares which of the four it is, so a ` +
+        "new one cannot slip in unnamed",
+    });
+  }
+  return problems;
+}
+
+// --- rule: the action dialog's footer set ------------------------------------------------------
+
+/**
+ * The action bar's two controls, in the one order a reader learns: the dismissal at the weak hand,
+ * the commit last at the strong hand. Its sibling is HEADER_ACTIONS above, and it exists for the
+ * same reason — the promise a shell makes is only worth what stops it being quietly rearranged.
+ */
+export const FOOTER_ACTIONS = ["dismiss", "commit"];
+
+/** The marker each footer control carries, which is also a harness's hook for finding it. */
+export const FOOTER_ACTION_ATTRIBUTE = "data-action-dialog-action";
+
+/** The class that opens the action bar. The controls sit between it and its `</div>`. */
+const FOOTER_ACTIONS_CLASS = "mc-action-dialog-actions";
+
+/** Tags that are a control in the bar. The shell renders both through the design system's Button. */
+const FOOTER_CONTROL_PATTERN = /<(Button|button)\b/g;
+
+const FOOTER_MARKER_PATTERN = new RegExp(`${FOOTER_ACTION_ATTRIBUTE}="([a-z-]*)"`, "g");
+
+/**
+ * Problems with the action dialog's footer set, given the shell's source.
+ *
+ * The whole value of one modal shell is that its action bar is the same bar everywhere — a reader
+ * who has learned where the commit sits has learned it in every panel in the product. A third
+ * control added here, or the two swapped, un-learns that silently and in one edit. So the set is
+ * asserted at the source, exactly as the record window's header set is.
+ *
+ * The bar is delimited by its own class and the first `</div>` after it. A restructure that breaks
+ * that assumption fails loudly rather than passing vacuously, which is why the missing-region and
+ * unterminated-region cases are their own problems.
+ */
+export function findFooterSetProblems(filePath, source) {
+  const problems = [];
+  const start = source.indexOf(FOOTER_ACTIONS_CLASS);
+  if (start === -1) {
+    problems.push({
+      rule: "footer-set",
+      file: filePath,
+      detail:
+        `no element carries \`${FOOTER_ACTIONS_CLASS}\` — the action bar is where the dismissal ` +
+        "and the commit live, and without it this rule cannot see them at all",
+    });
+    return problems;
+  }
+  const end = source.indexOf("</div>", start);
+  if (end === -1) {
+    problems.push({
+      rule: "footer-set",
+      file: filePath,
+      detail:
+        "the action bar is never closed by a `</div>` — the rule reads the bar as the text between " +
+        "its class and that tag, so it cannot check an unterminated one",
+    });
+    return problems;
+  }
+
+  const region = source.slice(start, end);
+  const found = [...region.matchAll(FOOTER_MARKER_PATTERN)].map((match) => match[1]);
+  const controlCount = [...region.matchAll(FOOTER_CONTROL_PATTERN)].length;
+
+  if (found.join(" ") !== FOOTER_ACTIONS.join(" ")) {
+    problems.push({
+      rule: "footer-set",
+      file: filePath,
+      detail:
+        `the action bar carries [${found.join(", ")}] — it must carry exactly ` +
+        `[${FOOTER_ACTIONS.join(", ")}], in that order. A reader who has learned where the commit ` +
+        "sits has learned it in every panel in the product; a third control, or the two swapped, " +
+        "un-learns that everywhere at once",
+    });
+  }
+  if (controlCount !== found.length) {
+    problems.push({
+      rule: "footer-set",
+      file: filePath,
+      detail:
+        `the action bar holds ${controlCount} control(s) but ${found.length} carry ` +
+        `${FOOTER_ACTION_ATTRIBUTE} — every control there declares which of the two it is, so a ` +
         "new one cannot slip in unnamed",
     });
   }
@@ -444,6 +533,106 @@ export function findHandBuiltDialogs(filePath, source) {
         "pins a `position: fixed` element to every edge — that is a scrim, and a scrim is the " +
         "visible half of an overlay whose other half is focus trapping, dismissal and scroll " +
         "locking. Use the design system's `Dialog`, `AlertDialog` or `Sheet`, which bring all four",
+    });
+  }
+
+  return problems.toSorted((first, second) => first.line - second.line);
+}
+
+// --- rule: no modal built outside the shells --------------------------------------------------
+
+/**
+ * The design system's own modal parts, composed. `Sheet` is in the list because an edge panel is a
+ * modal surface with a different entrance, not a different set of answers about focus and dismissal.
+ */
+const COMPOSED_PANEL = /<(Dialog|AlertDialog|Sheet)\.Content\b/g;
+
+/**
+ * A scrim written as Tailwind utilities rather than as CSS.
+ *
+ * The `<style>`-block half of `findHandBuiltDialogs` cannot see this one, and this is the shape
+ * this repository actually writes: `class="fixed inset-0 …"`. Both orders are matched because a
+ * class list is unordered, and `z-modal`/`z-overlay` is required alongside so an ordinary pinned
+ * background (a page-level decorative layer) is not called an overlay — a scrim is the thing that
+ * sits at the modal layer AND covers the viewport.
+ */
+const UTILITY_SCRIM =
+  /class=(?:"|')(?=[^"']*\bfixed\b)(?=[^"']*\binset-0\b)(?=[^"']*\bz-(?:modal|overlay)\b)[^"']*(?:"|')/g;
+
+/** Opening a modal by reaching for the platform directly, which no source scan sees as markup. */
+const IMPERATIVE_MODAL = /\.showModal\s*\(|HTMLDialogElement/g;
+
+/**
+ * A modal panel assembled outside the two shells.
+ *
+ * This is the rule that keeps the shells from being optional. `findHandBuiltDialogs` already
+ * catches the crude shapes — a raw `<dialog>`, a scrim written in a `<style>` block — but the
+ * expensive shape is subtler and passes every other gate: a screen imports the design system's own
+ * `Dialog.Root` and `Dialog.Content`, composes a title, a body and a footer by hand, and ships. It
+ * renders correctly, it typechecks, it lints, and it reads fine in review. What it does not do is
+ * share the answers the shells settle — the dismissal verb, whether the corner dismiss shows, which
+ * primitive a question deserves, and above all whether a close gesture asks before discarding. Every
+ * hand-composed panel in this repository answered that last one the same way: it did not ask.
+ *
+ * Three signals, because a modal built outside the system arrives as any of them:
+ *
+ *   1. A composed `Dialog`/`AlertDialog`/`Sheet` `.Content` outside the shells' own homes.
+ *   2. A scrim written as utilities — `fixed inset-0` at the modal or overlay layer.
+ *   3. A reach for the platform's own modal (`showModal`, `HTMLDialogElement`).
+ *
+ * WHAT THIS DOES NOT CATCH, stated plainly: a panel whose parts are aliased on import
+ * (`import { Content as Panel }`), a `.Content` chosen at runtime from a variable, and any modal a
+ * third-party component renders inside itself. Those are why the shells also stamp
+ * `data-modal-shell` on the panel they render — a marker a rendered-DOM check can require of
+ * anything carrying the `dialog` or `alertdialog` role, which is the half of this that reads
+ * behaviour rather than source.
+ */
+export function findHandComposedModals(filePath, source, shellHomes) {
+  // The homes allowed to compose a modal panel are DECLARED, in registry.json beside the component
+  // register, rather than listed here — adding a shell is then a reviewed edit to the file that
+  // already answers "what is in the system", and this rule has no opinion nobody can see. Being a
+  // registered component is NOT enough on its own: a registered component may perfectly well
+  // contain a confirmation that should be an ActionDialog, and one does.
+  if (shellHomes.some((home) => filePath === home || filePath.startsWith(`${home}/`))) return [];
+
+  const text = stripComments(source);
+  const problems = [];
+
+  for (const match of text.matchAll(COMPOSED_PANEL)) {
+    problems.push({
+      rule: "hand-composed-modal",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        `composes \`${match[1]}.Content\` into a panel of its own. Every modal surface in this ` +
+        "product is one of two shells — `RecordWindow` for reading and changing a record, " +
+        "`ActionDialog` for an act asked of a reader — and a hand-composed panel re-answers what " +
+        "they settle: the dismissal verb, whether the corner dismiss shows, which primitive a " +
+        "question deserves, and whether a close gesture asks before discarding the reader's typing",
+    });
+  }
+
+  for (const match of text.matchAll(UTILITY_SCRIM)) {
+    problems.push({
+      rule: "hand-composed-modal",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        "pins an element to every edge at the modal layer with utilities — that is a scrim, and a " +
+        "scrim is the visible half of an overlay whose other half is focus trapping, dismissal and " +
+        "scroll locking. Reach for `ActionDialog` or `RecordWindow`, which bring all of it",
+    });
+  }
+
+  for (const match of text.matchAll(IMPERATIVE_MODAL)) {
+    problems.push({
+      rule: "hand-composed-modal",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        "opens a modal through the platform directly. The product's modals are `ActionDialog` and " +
+        "`RecordWindow`; the native element answers nothing the way the rest of the product does, " +
+        "and nothing downstream can recognize it as a modal of ours",
     });
   }
 

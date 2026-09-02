@@ -225,6 +225,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "notes:read",
         "notes:write",
         "notifications:read",
+        // Consolidated matter search reaches every seat, and it discloses nothing by doing
+        // so: each source behind it is checked against the reader's own capabilities before a
+        // statement is built, so a seat without notes:read gets no note back from it.
+        "search:matter",
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",
@@ -278,6 +282,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:reportIncident",
         "firm:scanFile",
         "notifications:read",
+        "search:matter",
         "support:request",
         "trust:manage",
         "trust:read",
@@ -322,6 +327,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // people, where a notification feed is the member's own, scoped to their own user id and
         // filtered by matter visibility before it returns a row.
         "notifications:read",
+        "search:matter",
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",
