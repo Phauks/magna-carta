@@ -25,9 +25,13 @@ on:
   # days; a pull request's restore counts as use, so a repository with any traffic never evicts it).
   workflow_dispatch:
 
+# Never cancel a seed in progress. A merge to `main` is followed within minutes by the docs-assembly
+# auto-merge, and cancelling the first run's seven-minute build for the second — which then restores
+# nothing and starts the same build over — is how the cache stayed cold for two pushes running. Let
+# the build finish and save; the queued run then restores in seconds.
 concurrency:
   group: seed-caches
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
