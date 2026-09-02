@@ -87,7 +87,13 @@ export const matterSections: readonly MatterSection[] = [
       "Flat charges for professional services recorded on this matter — the fee agreement and " +
       "the work-in-progress fee ledger, waiting to be claimed by a bill.",
     searchSource: null,
-    searchWaitingOn: "A fee has no store yet — nothing on the wire carries the record to search",
+    // Three different things are called a fee, and none of them is searchable text on this
+    // section. The fee AGREEMENT (matter_billing_arrangement) carries amounts, enums and dates and
+    // no free text at all. A billed fee is an invoice line, and the billing source already finds
+    // it. What the Fees tab is designed around — a fee as its own dated work-in-progress record,
+    // with a description — has no table and no route; the screen's own gap register says so.
+    searchWaitingOn:
+      "Fees you have billed are under Billing; an unbilled fee record does not exist yet",
   },
   {
     slug: "billing",

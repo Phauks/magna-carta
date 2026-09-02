@@ -44,9 +44,13 @@ on the search service being switched on; until it is, the results say so rather 
 assume the search read your PDFs.
 
 Five sections do not answer yet — Fees, Trust, Messaging, Emails and Overview — and each says so in the
-dropdown rather than being left out. Fees is the one worth explaining: a fee is meant to be its own
-record and the server does not keep one yet, so there is nothing there to search rather than a search
-that has not been written.
+dropdown rather than being left out.
+
+Fees is the one worth explaining, because a fee you have already billed **is** findable — under
+**Billing**, as the line on the invoice that charged it. What is not searchable is an unbilled fee:
+the Fees tab is designed around a fee as its own dated record with a description, and the server does
+not keep one yet. The fee agreement itself holds only amounts and dates, with no words in it to
+match.
 
 ## Reading the results
 
