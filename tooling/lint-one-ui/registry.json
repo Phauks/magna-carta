@@ -107,11 +107,6 @@
   "allowances": [
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/apply-trust-funds-dialog.svelte",
-      "reason": "NOT read-only, and not debt: an act whose commit is not served yet. Its control is wrapped in SoonAffordance — the product's own primitive for a designed-but-unbuilt capability (disabled control, Soon badge, the dependency as the accessible description) — and that primitive lives in the app, so the design-system shell cannot carry it. It becomes a plain ActionDialog the day a route hands out a trust account."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/billing/arrangement-dialog.svelte",
       "reason": "Belongs to the OTHER shell. It reads a record — the fee arrangement in force, its terms, and its version history — and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
     },
@@ -144,11 +139,6 @@
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/directory/names-pane.svelte",
       "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/documents/new-document-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
     },
     {
       "rule": "hand-composed-modal",
