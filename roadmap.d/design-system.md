@@ -90,7 +90,7 @@
   surface: internal
   spec: docs/specs/2026-09-01-consolidated-modal-architecture-design.md
   evidence: packages/design-system/src/lib/components/action-dialog (the shell, its kind table and its six stories), src/lib/internal/close-guard.svelte.ts + discard-question.svelte (the guard both shells share), tooling/lint-one-ui rules `hand-composed-modal` and `footer-set`
-  notes: The shell, the shared guard and the two rules are built and the shells are declared in tooling/lint-one-ui/registry.json. Thirty-seven existing panels are carried as printed allowances and migrate family by family; twenty-six of them are in scope, the other eight are named and excluded in the spec.
+  notes: The shell, the shared guard and the two rules are built and the shells are declared in tooling/lint-one-ui/registry.json. Two families have migrated — the custodian's three panels and ten across billing and costs — leaving twenty-eight printed allowances, of which thirteen are named exclusions with the shell or the dependency each belongs to.
 
 - id: design-system.enforcement.off-token-lint
   name: Off-token value gates

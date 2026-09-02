@@ -2,18 +2,16 @@
   /*
    * The matter's header band — the ceremonial edge and the section navigation, in ONE band.
    *
-   * The arrangement (owner's selections, 2026-08-31 and 2026-09-01): the identity block on the
-   * reading edge, the section strip and the overflow control sharing ONE row at the inline end,
-   * flush against the band's bottom rule. 152px of chrome became 111px when the strip moved off
-   * its own row, and 76px when the identity block stopped spending three rows on itself.
+   * The arrangement (owner's selections, 2026-08-31 through 2026-09-01): the identity block on the
+   * reading edge, the section strip alone in the column at the inline end, flush against the
+   * band's bottom rule. 152px of chrome became 111px when the strip moved off its own row, and
+   * 76px when the identity block stopped spending three rows on itself.
    *
-   * WHY THE OVERFLOW CONTROL IS ON THE STRIP'S ROW, AND NOT ABOVE IT. Stacked, that column is the
-   * control (40px) over the strip (41px) with a gap between them — 89px, which floored the whole
-   * band at 90px however short the identity block got. Three quite different identity treatments
-   * were measured at exactly 90px because of it. One row at the inline end is 41px, and the
-   * identity block sets the height again. The control carries `pb-8` so it sits ABOVE the rule
-   * rather than on it: the rule belongs to the sections, whose gold active bar draws on it, and a
-   * bordered button sitting on it reads as part of the strip.
+   * THE BAND CARRIES NO ACTIONS. It held one overflow (...) control whose only item was the
+   * status's lifecycle action, shipped disabled and marked Soon. The owner removed it on
+   * 2026-09-01: a menu that has to be opened to find out it holds nothing pressable is chrome that
+   * costs a control's width and returns nothing. When the lifecycle action is wired it comes back
+   * as a named button, on the row and legible at rest, not behind a glyph.
    *
    * THE LEDGER LINE HAS NO ROW OF ITS OWN. The matter number and its status seal lead the citation
    * beneath the title, where they still read first, instead of costing a full line above it. That
@@ -32,47 +30,22 @@
    *
    * The Masthead recipe is the one door to the display serif, so the identity block still composes
    * Masthead.Heading and takes its step from the recipe's own `density` rather than a type utility
-   * on the Title. The Actions slot is left unused: this action belongs to the strip's row, not to
-   * the title's inline end.
+   * on the Title. The Actions slot is left unused: the inline-end column belongs to the strip.
    *
-   * Status never gates or varies the screen flow — it changes only what this header showcases:
-   * the seal, the number-or-Consultation line, and which lifecycle action label is offered.
-   *
-   * Actions collapse into one toggleable overflow (⋯) menu — the menu opens for real, and its
-   * items (the status's lifecycle action) are honest seams: designed-but-unwired ships visible and
-   * disabled, marked "Soon", never omitted and never fake-live. They go live with the wired
-   * matters surface.
+   * Status never gates or varies the screen flow — it changes only what this header showcases: the
+   * seal and the number-or-Consultation line.
    */
   import Badge from "@magna-carta/design-system/badge";
-  import { buttonClasses } from "@magna-carta/design-system/button";
-  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import Archive from "@lucide/svelte/icons/archive";
-  import Ellipsis from "@lucide/svelte/icons/ellipsis";
-  import FolderOpen from "@lucide/svelte/icons/folder-open";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import MatterSectionNav from "$lib/matters/matter-section-nav.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
 
   let { matter }: { matter: MatterRecord } = $props();
 
-  // One lifecycle action per status: the single next step the matter's life offers. Closing
-  // archives (Archive, not a destructive glyph — the record stays additive after close).
-  const LIFECYCLE_ACTION: Record<
-    MatterRecord["status"],
-    { label: string; icon: typeof Archive }
-  > = {
-    prospective: { label: "Open matter", icon: FolderOpen },
-    open: { label: "Close matter", icon: Archive },
-    closed: { label: "Reopen", icon: RotateCcw },
-  };
-
   // The status seal comes from the one matter-status register, so the header and the docket's
   // status column can never disagree about what "Closed" looks like.
   const seal = $derived(matterStatusPresentation(matter.status));
-  const lifecycle = $derived(LIFECYCLE_ACTION[matter.status]);
-  const LifecycleIcon = $derived(lifecycle.icon);
 
   // The citation line's entries in reading order, nulls dropped — a consultation simply has a
   // shorter citation, never an empty slot.
@@ -138,29 +111,11 @@
     </Masthead.Meta>
   </Masthead.Heading>
 
-  <div class="flex min-w-0 flex-1 items-end justify-end gap-8">
-    <div class="min-w-0 flex-1">
-      <MatterSectionNav matterId={matter.id} />
-    </div>
-    <div class="flex flex-none items-center pb-8">
-      <DropdownMenu.Root>
-        <!-- The overflow (⋯) carries a token border so it reads as a control at rest, not just on
-             hover — the quiet ghost was too easy to miss. The lifecycle action lives inside it,
-             disabled and marked Soon until the wired matters surface makes it live. -->
-        <DropdownMenu.Trigger
-          class="{buttonClasses({ variant: 'ghost', size: 'icon' })} border border-border-default"
-          aria-label="Matter actions"
-        >
-          <Ellipsis class="size-16" aria-hidden="true" />
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-          <DropdownMenu.Item disabled>
-            <LifecycleIcon class="size-16" aria-hidden="true" />
-            {lifecycle.label}
-            <Badge variant="neutral" class="ms-auto">Soon</Badge>
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
-    </div>
+  <!-- The inline-end column is the strip and nothing else. It stays a flex column with items-end
+       so the strip sits on the band's bottom rule (the Masthead's own items-stretch would
+       otherwise hold it at the top of a full-height cell), and min-w-0 so the strip's measured
+       fold has a width it can actually shrink to. -->
+  <div class="flex min-w-0 flex-1 items-end">
+    <MatterSectionNav matterId={matter.id} />
   </div>
 </Masthead.Root>

@@ -1,9 +1,9 @@
 # Consolidated modal architecture — analysis and design
 
 **Date:** 2026-09-01
-**Status:** Accepted 2026-09-02. Steps 1-3 and 5 of section 8 are **built** — the shared close
-guard, the shell, its catalog, and both fitness rules. The migration (steps 4, 6-8) is open, and the
-four questions in section 10 are still the owner's.
+**Status:** Accepted 2026-09-02, and steps 1-6 of section 8 are **built** — the shared close guard,
+the shell, its catalog, both fitness rules, and two migrated families (the custodian's three panels
+and ten across billing and costs). Steps 7-8 are open. The four questions in section 10 are answered.
 **Scope:** Every modal panel in `apps/web` that is not a record window — thirty-four files, thirty
 composing `Dialog.Content` by hand and four composing `AlertDialog.Content` — and the one shell they
 should be composed from instead.
@@ -293,6 +293,18 @@ growing into one:
   already counted elsewhere as a `RecordWindow` caller). They belong to a full-screen presentation
   question this design does not answer, and question 4 in section 10 asks whether it should be.
 - **`directory/*-pane.svelte`** (four files) — panes inside a surface, not modals of their own.
+- **`arrangement-dialog.svelte`** — it READS a record: the fee arrangement in force, its terms, and
+  its version history, with one act (Amend) that opens a different panel. That is `RecordWindow`'s
+  shape. Found during the billing migration, and it is the clearest answer to a question worth
+  recording: **should a read-only panel be a fourth `kind` of `ActionDialog`?** No. A read-only kind
+  would be a second answer to "read a thing", competing with the shell that already answers it, and
+  it would make `commitLabel` and `onCommit` optional — weakening the type for every panel that does
+  commit, and with it the rule that the commit owns the close.
+- **`apply-trust-funds-dialog.svelte`** — not read-only either, on inspection: an act whose commit is
+  not served yet. Its control is wrapped in `SoonAffordance`, the app's own primitive for a
+  designed-but-unbuilt capability (disabled control, Soon badge, the dependency as the accessible
+  description). That primitive lives in the app, so the design-system shell cannot carry it; the
+  panel becomes a plain `ActionDialog` the day a route hands out a trust account.
 - **`new-matter-dialog.svelte`** (647 lines, already reaching for `max-w-record-window` by hand) —
   it is a record being created, and its right answer is `RecordWindow` opened with `editing` raised,
   which that component already supports. Migrating it into `ActionDialog` would be the wrong shell,
@@ -397,7 +409,7 @@ section 4 is why.
 |   3 | Build the shell on that guard: catalog, tests. No adopters                                                | **Built.** No recipe of its own — it composes what Dialog already decides                                            |
 |   4 | Adopt in `claude/custodian-refinements-19iycw` (3 panels) and `claude/matter-status-modal-wjzv1v` (1)     | New files — a rewrite, not a migration. Proves the contract before it binds                                          |
 |   5 | Add the `hand-composed-modal` rule with all thirty-seven allowed                                          | **Built**, with `footer-set` beside it. Thirty-seven, not thirty-four: the rule reaches shapes the hand count missed |
-|   6 | Migrate the eleven billing and costs panels, deleting their allowances                                    | The largest and most uniform family; sets the pattern for the rest                                                   |
+|   6 | **Built.** Ten billing and costs panels migrated, their allowances deleted                                | Two of the twelve turned out to belong to the other shell or to a deferred capability — see 5.5                      |
 |   7 | Migrate the remaining fifteen, deleting their allowances                                                  | The four `AlertDialog` confirmations are the cheapest and should go first                                            |
 |   8 | Move `new-matter-dialog.svelte` onto `RecordWindow` with `editing` raised                                 | The wrong shell today, and 647 lines. Owner question 3                                                               |
 

@@ -19,15 +19,14 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
-  import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
-  import Undo2 from "@lucide/svelte/icons/undo-2";
   import { billingFailure, issueCreditNote, type CreditNoteLineRequest } from "./billing-api.ts";
   import { readAmountMinor } from "./amount-entry.ts";
   import { billUnpaidMinor, civilToday, type InvoiceRow } from "./invoice-standing.ts";
@@ -56,17 +55,15 @@
   let amountText = $state("");
   let creditedLineId = $state<string>(GENERAL_CREDIT);
   let effectiveDate = $state(civilToday());
-  let working = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
-  $effect(() => {
-    if (!open) return;
+  function reset(): void {
     reason = "";
     amountText = "";
     creditedLineId = GENERAL_CREDIT;
     effectiveDate = civilToday();
     failure = null;
-  });
+  }
 
   /** Only this matter's charges: a credit note issued here corrects this matter's own lines. */
   const creditableLines = $derived(
@@ -86,16 +83,16 @@
   const comesOffBalance = $derived(Math.min(amountMinor, Math.max(unpaid, 0)));
   const becomesClientCredit = $derived(amountMinor - comesOffBalance);
 
-  const refusal = $derived.by((): string | null => {
+  const refusal = $derived.by((): string | undefined => {
     if (reason.trim() === "") return "A reason is required. It is read years later.";
     if (reading.kind === "empty") return "Say how much is being credited.";
     if (reading.kind === "refused") return reading.reason;
     if (amountMinor <= 0) return "A credit of nothing credits nothing.";
-    return null;
+    return undefined;
   });
 
-  async function issue(): Promise<void> {
-    if (row === null || working || refusal !== null) return;
+  async function issue(): Promise<ActionOutcome> {
+    if (row === null) return "refused";
     const attributed = creditableLines.find((line) => line.id === creditedLineId) ?? null;
     const line: CreditNoteLineRequest = {
       matterId,
@@ -110,7 +107,6 @@
       amountMinor,
       creditsInvoiceLineId: attributed === null ? null : attributed.id,
     };
-    working = true;
     failure = null;
     const outcome = await issueCreditNote(
       fetch,
@@ -118,13 +114,13 @@
       { reason: reason.trim(), effectiveDate, lines: [line] },
       crypto.randomUUID(),
     );
-    working = false;
     if (outcome.kind === "ok") {
-      open = false;
+
       onIssued(outcome.value.clientCreditMinor);
-      return;
+      return "committed";
     }
     failure = billingFailure(outcome, "No credit note was issued and the bill is unchanged.");
+    return "refused";
   }
 
   /** The credit-note kinds the contract accepts; anything else is recorded as an adjustment. */
@@ -143,14 +139,22 @@
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Issue a Credit Note</Dialog.Title>
-    <Dialog.Description>
-      Against {row?.summary.invoiceNumber ?? "this bill"} — a second permanent record standing beside
-      it
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  heading="Issue a Credit Note"
+  commitLabel="Issue Credit Note"
+  commitBusyLabel="Issuing"
+  commitRefusal={refusal}
+  unsavedChanges={reason.trim() !== "" || amountText !== ""}
+  onOpen={reset}
+  onCommit={issue}
+>
+  {#snippet subtitle()}
+    Against {row?.summary.invoiceNumber ?? "this bill"} — a second permanent record standing beside
+    it
+  {/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
@@ -158,16 +162,13 @@
         fallback={failure.fallback}
       />
     {/if}
+  {/snippet}
 
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
         <Label for="{fieldPrefix}-reason">Reason</Label>
-        <Textarea
-          id="{fieldPrefix}-reason"
-          rows={3}
-          disabled={working}
-          bind:value={reason}
-        />
+        <Textarea id="{fieldPrefix}-reason" rows={3} disabled={busy} bind:value={reason} />
         <p class="text-xs text-text-muted">
           In your own words: what was charged that should not have been, and why. It is read years
           later.
@@ -177,14 +178,14 @@
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
           <Label for="{fieldPrefix}-amount">Amount</Label>
-          <Input id="{fieldPrefix}-amount" disabled={working} bind:value={amountText} />
+          <Input id="{fieldPrefix}-amount" disabled={busy} bind:value={amountText} />
         </div>
         <div class="flex flex-col gap-8">
           <Label for="{fieldPrefix}-effective">Effective Date</Label>
           <Input
             id="{fieldPrefix}-effective"
             type="date"
-            disabled={working}
+            disabled={busy}
             bind:value={effectiveDate}
           />
         </div>
@@ -197,7 +198,7 @@
           items={lineItems}
           bind:value={creditedLineId}
           allowDeselect={false}
-          disabled={working}
+          disabled={busy}
         >
           <Select.Trigger aria-labelledby="{fieldPrefix}-line-label">
             <Select.Value />
@@ -235,23 +236,10 @@
       </p>
       <p class="flex items-start gap-8 text-sm text-status-warning-subtle-foreground">
         <Lock class="mt-4 size-16 shrink-0" aria-hidden="true" />
-        <span>A credit note cannot be edited or withdrawn once issued. If one is wrong, issue another.</span>
+        <span>
+          A credit note cannot be edited or withdrawn once issued. If one is wrong, issue another.
+        </span>
       </p>
     </div>
-
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        disabled={working || refusal !== null}
-        title={refusal ?? "Issue this credit note"}
-        onclick={() => void issue()}
-      >
-        <Undo2 class="size-16" aria-hidden="true" />
-        {working ? "Issuing" : "Issue Credit Note"}
-      </Button>
-    </div>
-    {#if refusal !== null}
-      <p class="text-right text-xs text-text-muted">{refusal}</p>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>
