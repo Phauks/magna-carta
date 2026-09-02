@@ -179,8 +179,10 @@ export const DESTINATIONS: readonly Destination[] = [
     icon: CalendarDays,
     description: "Deadlines, hearings, and appointments across the firm.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The firm calendar reads and records; the room grid, kind narrowing and the member picker
+    // beyond Mine/Everyone are still to come.
+    stage: "alpha",
     defaultStarred: true,
   },
   {
