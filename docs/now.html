@@ -872,7 +872,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Entity categories</span>
 <code>directory.entities.categories</code>
 <p>Per-firm classification labels (attorney, judge, court, expert, vendor, client) that are not schema variants.</p>
-<p class="note">Backend shipped; assignment is on the record screen; category management (creating and archiving categories) is not built.</p>
+<p class="note">Backend shipped; assignment and creation are on the record screen. Archiving a category has no route yet.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Category-specific custom fields</span>
@@ -897,19 +897,19 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Typed edges</span>
 <code>directory.edges</code>
 <p>First-class typed, dated edges between entities (affiliations, relationships, representation, role assignments) with valid-from/valid-to.</p>
-<p class="note">Backend shipped; edge management UI not built.</p>
+<p class="note">Backend and the record screen shipped. The tighter constituent class for the conflicts traversal waits for the conflicts pass; every constituent type is classed control meanwhile.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Affiliations (person-org)</span>
 <code>directory.edges.affiliations</code>
 <p>Typed, dated person-to-organization links (officer, employee, partner, member, registered agent, attorney-at-firm) with per-contact flags (primary, billing, do-not-contact).</p>
-<p class="note">Typed/dated edges shipped; the promised contact flags (primary/billing/do-not-contact) were not found in the schema or package.</p>
+<p class="note">The membership family is built and offered; affiliation stays for the rows already recorded. The promised per-contact flags (primary/billing/do-not-contact) are not built; contact permission and preference live on the contact points instead, and do-not-contact is a per-matter derivation by the entity-model design.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Relationships (person-person, org-org)</span>
 <code>directory.edges.relationships</code>
 <p>Typed relationship edges — spouse/family, guardian/ward, trustee, beneficiary, business partner; corporate parent/subsidiary/successor/affiliate — feeding conflicts, estate planning, corporate work.</p>
-<p class="note">Backend shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing — and edge management UI is not built.</p>
+<p class="note">Backend and the record screen shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Representation edges</span>

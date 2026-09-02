@@ -31,8 +31,8 @@
   status: partial
   surface: screen
   slices: 1-3-directory
-  evidence: packages/directory/src/categories.ts; apps/web/src/lib/directory/categories-pane.svelte assigns; category repointing handled in merge.ts
-  notes: Backend shipped; assignment is on the record screen; category management (creating and archiving categories) is not built.
+  evidence: packages/directory/src/categories.ts; apps/web/src/lib/directory/categories-pane.svelte assigns, and creates a category the firm has not named yet through the add row; category repointing handled in merge.ts
+  notes: Backend shipped; assignment and creation are on the record screen. Archiving a category has no route yet.
 
 - id: directory.entities.category-fields
   name: Category-specific custom fields
@@ -68,8 +68,8 @@
   scope: First-class typed, dated edges between entities (affiliations, relationships, representation, role assignments) with valid-from/valid-to.
   status: partial
   slices: 1-3-directory
-  evidence: packages/directory/src/edges.ts; EDGE_TYPES catalog in types.ts
-  notes: Backend shipped; edge management UI not built.
+  evidence: packages/directory/src/edges.ts; EDGE_TYPES catalog in types.ts with the membership family; apps/web/src/lib/directory/edges-pane.svelte records an edge from either record through EntityPicker, the direction decided by the type (edge-draft.ts)
+  notes: Backend and the record screen shipped. The tighter constituent class for the conflicts traversal waits for the conflicts pass; every constituent type is classed control meanwhile.
 
 - id: directory.edges.affiliations
   name: Affiliations (person-org)
@@ -77,8 +77,8 @@
   status: partial
   surface: awaiting-screen
   slices: 1-3-directory
-  evidence: edge_type "affiliation" with role qualifier + valid_from/valid_to in edges.ts
-  notes: Typed/dated edges shipped; the promised contact flags (primary/billing/do-not-contact) were not found in the schema or package.
+  evidence: EDGE_TYPES officer_of, director_of, partner_of, trustee_of, personal_representative_of, agent_of, employment, member_of, shareholder_of, point_of_contact_for beside the legacy affiliation; an organization's People pane and a person's Organizations pane in apps/web/src/lib/directory/edges-pane.svelte
+  notes: The membership family is built and offered; affiliation stays for the rows already recorded. The promised per-contact flags (primary/billing/do-not-contact) are not built; contact permission and preference live on the contact points instead, and do-not-contact is a per-matter derivation by the entity-model design.
 
 - id: directory.edges.relationships
   name: Relationships (person-person, org-org)
@@ -86,8 +86,8 @@
   status: partial
   surface: awaiting-screen
   slices: 1-3-directory
-  evidence: EDGE_TYPES includes relationship, corporate_parent, corporate_subsidiary, corporate_successor; conflict-oriented read-all-current query in edges.ts
-  notes: Backend shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing — and edge management UI is not built.
+  evidence: EDGE_TYPES includes relationship, guardian_of, beneficiary_of, corporate_parent, corporate_subsidiary, corporate_successor; conflict-oriented read-all-current query in edges.ts; recorded from the Relationships pane
+  notes: Backend and the record screen shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing.
 
 - id: directory.edges.representation
   name: Representation edges

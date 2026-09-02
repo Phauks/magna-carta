@@ -257,7 +257,7 @@ entries so a hand-built directory combobox fails the gate. This slice waits on t
 refinements stream (`docs/active-work/claude/custodian-refinements-19iycw.md`, in review) landing,
 because it owns `apps/web/src/lib/custodian`.
 
-**Slice 4 — the directory record finishes.** Relationships pane gains create (with Phase G's edge
+**Slice 4 — the directory record finishes. IN BUILD on the branch, 2026-09-02; the edge catalog's fifth `constituent` class is deferred to the owner's conflicts pass, and the new membership types are classed `control` meanwhile, the over-inclusive direction.** Relationships pane gains create (with Phase G's edge
 catalog and its `edge-classes.ts` classifications in the same change, since the coverage test requires
 it); an organization record gains a People pane and a person record an Organizations pane, both read
 from edges; category management; `merge-dialog.svelte` and `new-entity-dialog.svelte` on

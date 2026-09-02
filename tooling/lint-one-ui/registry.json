@@ -154,11 +154,6 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/categories-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/directory/contact-pane.svelte",
       "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
     },
@@ -169,18 +164,8 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/merge-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the directory family."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/directory/names-pane.svelte",
       "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/new-entity-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the directory family."
     },
     {
       "rule": "hand-composed-modal",

@@ -6,7 +6,7 @@ research: done
 spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
 built: done by="Opus 4.8" gap
-ui: in-progress by="Fable 5.1"
+ui: done by="Fable 5.1"
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8" gap
 branch: main

@@ -96,7 +96,22 @@ Review it on the deployed site after merge (the matter's Parties tab, and `/dire
    and delete the allowance entry in the gate test — the test fails on its own if the copy is gone
    and the entry is not. The owner's direction of 2026-09-02: the conflicts UI is not built yet and
    will be aligned with intake later; where this work needs conflicts, build seams, not features.
-3. Slices 4 and 5 per the spec.
+3. **Slice 4 is built** (commit after `dc324837`): the membership edge family in `EDGE_TYPES`,
+   classed `control` in `packages/conflicts/src/edge-classes.ts` (the fifth `constituent` class is
+   deferred to the owner's conflicts pass — see the constituent decision fragment's build status);
+   `edges-pane.svelte` (one pane, three registrations: Relationships, People, Organizations) records
+   an edge through `EntityPicker` with the direction decided by the type (`edge-draft.ts`, 23 tests);
+   `new-entity-dialog`, `merge-dialog` (kind `form`: folding takes nothing away) and the categories
+   assign panel are on `ActionDialog` with their allowances gone; a category is created through the
+   add row; `docs/user/features/directory.md` is the guide; `status.d/1-3-directory.md` `ui:` done.
+   Two design reviews' must-fix items were fixed before the commit; nothing was rendered in a browser.
+   Open for the owner from those reviews: whether the duplicate-candidates alert in the new-entity
+   dialog should stay mounted (it resizes the panel while typing); whether the modal kind table wants
+   a "form with an irreversible commit" for the merge; the merge dialog opens at record width with no
+   context pane.
+4. **Slice 5** per the spec: calendar participants on `RecordParties` (the calendar page says it
+   waits on "the participant picker"); time and notes when those streams are in the area; the
+   custodian fold when its stream lands (see 2).
 
 ## Environment notes for a fresh container
 

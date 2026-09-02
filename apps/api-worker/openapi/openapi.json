@@ -7987,7 +7987,19 @@
               "corporate_subsidiary",
               "corporate_successor",
               "representation",
-              "role_assignment"
+              "role_assignment",
+              "officer_of",
+              "director_of",
+              "partner_of",
+              "trustee_of",
+              "personal_representative_of",
+              "agent_of",
+              "employment",
+              "member_of",
+              "shareholder_of",
+              "beneficiary_of",
+              "guardian_of",
+              "point_of_contact_for"
             ]
           },
           "role": {
