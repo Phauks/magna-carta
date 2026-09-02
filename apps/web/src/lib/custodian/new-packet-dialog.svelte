@@ -181,6 +181,7 @@
 <ActionDialog
   bind:open
   heading="New Packet"
+  subtitle="The physical thing the firm is taking into safekeeping. What is inside it is described afterwards, item by item."
   commitLabel="Log Packet"
   commitBusyLabel="Logging"
   commitRefusal={refusal}
@@ -189,10 +190,6 @@
   onOpen={reset}
   onCommit={submit}
 >
-  {#snippet subtitle()}
-    The physical thing the firm is taking into safekeeping. What is inside it is described
-    afterwards, item by item.
-  {/snippet}
 
   {#snippet notice()}
     {#if failure !== null}

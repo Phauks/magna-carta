@@ -13,6 +13,7 @@
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import FeeLedger from "$lib/billing/fee-ledger.svelte";
+  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import { MatterBilling } from "$lib/billing/matter-billing.svelte.ts";
   import type { FeeRecord } from "$lib/billing/fee-record.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -94,7 +95,7 @@
     </Alert.Root>
   </section>
 {:else}
-  <div class="flex min-h-0 flex-1 flex-col">
+  <FullHeightSection>
     <FeeLedger
       {fees}
       arrangement={billing.arrangement}
@@ -106,5 +107,5 @@
       {permissions}
       onAmended={() => (reloadToken += 1)}
     />
-  </div>
+  </FullHeightSection>
 {/if}

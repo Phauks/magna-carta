@@ -68,6 +68,7 @@
 @import "../components/date-range-picker/date-range-picker.css";
 @import "./recipes/scrollbar.css";
 @import "../components/form/form.css";
+@import "../components/labelled-field/labelled-field.css";
 @import "../components/data-table/data-table.css";
 @import "../components/sidebar/sidebar.css";
 @import "../components/resizable/resizable.css";

@@ -41,8 +41,7 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import { gapCellTitle, gapReason, REVIEW_GATE_ENABLED } from "./fee-gaps.ts";
   import { feeEntrySheet } from "./fee-print-sheet.ts";
   import {

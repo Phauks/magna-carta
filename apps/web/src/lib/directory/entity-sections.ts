@@ -11,7 +11,7 @@
  * than being left out. Nothing needs it today, and an eighth question that arrives ahead of its
  * read will.
  */
-import type { MaturityStage } from "$lib/maturity/maturity.ts";
+import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import type { DirectoryEntityKind } from "./directory-api.ts";
 
 export interface EntitySection {

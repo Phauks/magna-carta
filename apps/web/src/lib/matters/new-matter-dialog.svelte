@@ -59,9 +59,7 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import ScanSearch from "@lucide/svelte/icons/scan-search";
   import X from "@lucide/svelte/icons/x";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
-  import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, SoonAffordance, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { entityRecordHref } from "$lib/directory/entity-presentation.ts";

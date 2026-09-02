@@ -27,8 +27,7 @@
   import CheckRunner from "$lib/conflicts/check-runner.svelte";
   import { gapReason } from "$lib/conflicts/conflicts-gaps.ts";
   import { RUN_CHECK_PERMISSION } from "$lib/conflicts/conflicts-api.ts";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
   import {
     listMatters,
     readSession,
