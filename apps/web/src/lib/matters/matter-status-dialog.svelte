@@ -56,7 +56,7 @@
   import StatusMark from "@magna-carta/design-system/status-mark";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
   import {

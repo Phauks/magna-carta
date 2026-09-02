@@ -23,7 +23,7 @@
   import Check from "@lucide/svelte/icons/check";
   import Info from "@lucide/svelte/icons/info";
   import X from "@lucide/svelte/icons/x";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import {
     LEDGER_KINDS,
     LEDGER_NAME,

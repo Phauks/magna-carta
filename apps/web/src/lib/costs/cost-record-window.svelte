@@ -37,7 +37,7 @@
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
   import SquarePen from "@lucide/svelte/icons/square-pen";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
   import CostPayeePicker from "./cost-payee-picker.svelte";

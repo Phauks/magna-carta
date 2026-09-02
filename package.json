@@ -27,6 +27,7 @@
     "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:failure-surface": "node tooling/lint-failure-surface/index.mjs",
     "lint:changelog-fragments": "node tooling/lint-changelog-fragments.mjs",
+    "lint:cache-keys": "node tooling/lint-cache-keys/index.mjs",
     "lint:list-pagination": "node tooling/lint-list-pagination/index.mjs",
     "lint:one-ui": "node tooling/lint-one-ui/index.mjs",
     "lint:matter-search-coverage": "node tooling/lint-matter-search-coverage/index.mjs",

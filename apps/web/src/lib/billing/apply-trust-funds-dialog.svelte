@@ -26,7 +26,7 @@
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import Info from "@lucide/svelte/icons/info";
   import Shield from "@lucide/svelte/icons/shield";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { amountFieldText } from "./amount-entry.ts";
   import { matterUnpaidMinor, type InvoiceRow } from "./invoice-standing.ts";
 

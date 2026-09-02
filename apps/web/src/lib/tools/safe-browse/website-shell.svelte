@@ -66,7 +66,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
+  import { soonControlProperties } from "@magna-carta/design-system/maturity";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Check from "@lucide/svelte/icons/check";

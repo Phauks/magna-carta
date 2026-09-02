@@ -50,7 +50,7 @@
   import X from "@lucide/svelte/icons/x";
   import Lock from "@lucide/svelte/icons/lock";
   import SquarePen from "@lucide/svelte/icons/square-pen";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
   import MatterPicker from "./matter-picker.svelte";

@@ -33,7 +33,7 @@
     TemplateFieldManifest,
     TemplateVersionSummary,
   } from "@magna-carta/merge-field-catalog-contract/types";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import AssemblyInputArea from "$lib/document-assembly/assembly-input-area.svelte";
   import { buildAssemblyInputPlan } from "$lib/document-assembly/assembly-input-model.ts";
   import { catalogPickerOptions, reviewItems } from "$lib/document-assembly/catalog-adapters.ts";

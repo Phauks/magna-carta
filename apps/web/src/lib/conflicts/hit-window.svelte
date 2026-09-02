@@ -33,8 +33,7 @@
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Gavel from "@lucide/svelte/icons/gavel";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
   import { gapCellTitle, gapReason } from "./conflicts-gaps.ts";
   import { hitSheet } from "./conflicts-report.ts";
   import type { HitDetail } from "./conflicts-api.ts";

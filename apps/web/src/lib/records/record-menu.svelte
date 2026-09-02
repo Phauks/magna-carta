@@ -29,8 +29,7 @@
   import type { Snippet } from "svelte";
   import * as ContextMenu from "@magna-carta/design-system/context-menu";
   import Keyboard from "@magna-carta/design-system/keyboard";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
   import {
     shortcutKeycaps,
     type RecordMenuAction,
