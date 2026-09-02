@@ -1108,6 +1108,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matterTypes.list",
       "matterTypes.update",
       "matters.close",
+      "matters.closeReadiness",
       "matters.courtCase",
       "matters.create",
       "matters.createAssignment",
