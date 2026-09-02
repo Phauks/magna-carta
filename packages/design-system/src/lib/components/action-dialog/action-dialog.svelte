@@ -56,12 +56,27 @@
    * would be inviting the reader to leave. So the panel hands focus to the first focusable thing
    * in its primary pane, and only where there is none — a question with no fields — does the
    * primitive's own default (the dismissal) stand.
+   *
+   * ENTER COMMITS, BECAUSE THE PANE IS A FORM. The primary pane is a real <form> and the commit is
+   * its submit button (associated by id, since the bar sits outside the pane), so the platform's
+   * own implicit submission does the work: Enter in a field commits, a disabled commit stops it,
+   * and a caller wires nothing. Ctrl+Enter or Cmd+Enter commits from a textarea, where Enter
+   * itself must go on meaning a new line. Measured before it was built: none of the fifteen panels
+   * on this shell had wired Enter, because each would have had to.
+   *
+   * A COMMIT THAT IS NOT SERVED YET STILL RENDERS. `commitSoon` names what the act waits on and the
+   * shell wraps its own commit in the Soon affordance — disabled, badged, the dependency as its
+   * accessible description — so a not-yet-built act reads in a panel exactly as it reads in a menu.
+   * The panels that needed this before it existed each composed the affordance around a commit of
+   * their own, which is what an allowance was recording.
    */
   import type { Snippet } from "svelte";
   import X from "@lucide/svelte/icons/x";
   import * as Dialog from "../dialog/index.ts";
   import * as AlertDialog from "../alert-dialog/index.ts";
   import Button from "../button/index.ts";
+  import SoonAffordance from "../maturity/soon-affordance.svelte";
+  import type { SoonControlProperties } from "../maturity/soon-affordance.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { CloseGuard } from "../../internal/close-guard.svelte.ts";
   import DiscardQuestion from "../../internal/discard-question.svelte";
@@ -86,9 +101,10 @@
     heading: string;
     /**
      * What is being acted on, named once. A record's own reference belongs here and only here;
-     * repeating it in the body makes a reader check whether the two agree.
+     * repeating it in the body makes a reader check whether the two agree. A string where it is
+     * plain text — twelve of the first fourteen were — and a snippet where it carries markup.
      */
-    subtitle?: Snippet;
+    subtitle?: string | Snippet;
     /**
      * The failure band's PLACE, which is the shell's; its CONTENT, which is the caller's. The
      * design system cannot know what a failure reads like — that lives in the app, over the app's
@@ -151,6 +167,13 @@
      * "refused" leaves it standing with whatever the caller has put in the notice slot.
      */
     onCommit: () => Promise<ActionOutcome>;
+    /**
+     * The act is designed but not served yet: `reason` is what it waits on, as a noun phrase ("a
+     * trust account being served"). The commit renders disabled inside the Soon affordance, with
+     * the badge beside it and the dependency as its accessible description, and cannot be pressed
+     * or submitted. The panel is still worth opening: its fields show the shape of what is coming.
+     */
+    commitSoon?: { reason: string };
   };
 
   type Reading = Shared & {
@@ -159,6 +182,7 @@
     commitLabel?: never;
     commitBusyLabel?: never;
     commitRefusal?: never;
+    commitSoon?: never;
     onCommit?: never;
   };
 
@@ -173,6 +197,7 @@
     commitLabel,
     commitBusyLabel,
     commitRefusal,
+    commitSoon,
     onCommit,
     onOpen,
     onDismiss,
@@ -237,7 +262,9 @@
   }
 
   async function commit(): Promise<void> {
-    if (busy || commitRefusal !== undefined || onCommit === undefined) return;
+    if (busy || commitRefusal !== undefined || commitSoon !== undefined || onCommit === undefined) {
+      return;
+    }
     busy = true;
     try {
       const outcome = await onCommit();
@@ -249,8 +276,31 @@
     }
   }
 
+  /**
+   * The primary pane is a form, and the commit in the bar is its submit button by id. That is what
+   * makes Enter commit: the platform's implicit submission fires the form's default button, and
+   * only while that button is enabled — so a refused commit refuses Enter too, for free.
+   */
+  const formIdentifier = $props.id();
+
   /** The primary pane, so focus can be sent to its first field on open. */
-  let pane = $state<HTMLElement | null>(null);
+  let pane = $state<HTMLFormElement | null>(null);
+
+  function submit(event: SubmitEvent): void {
+    event.preventDefault();
+    void commit();
+  }
+
+  /**
+   * Ctrl+Enter or Cmd+Enter commits from anywhere in the pane. Enter alone already does, except in
+   * a textarea, where it must go on meaning a new line — this is the one gesture that reaches the
+   * commit from there without the reader leaving the field.
+   */
+  function commitOnModifiedEnter(event: KeyboardEvent): void {
+    if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    void commit();
+  }
 
   const FOCUSABLE =
     "input:not([disabled]), textarea:not([disabled]), select:not([disabled]), " +
@@ -264,6 +314,8 @@
   }
 
   const commitText = $derived(busy ? (commitBusyLabel ?? commitLabel ?? "") : (commitLabel ?? ""));
+  /* The trait is null only for a reading kind, whose bar renders no commit at all. */
+  const commitVariant = $derived(traits.commitVariant ?? "primary");
   const commitTitle = $derived(commitRefusal ?? commitText);
   const commitAccessibleName = $derived(
     commitRefusal === undefined ? commitText : `${commitLabel ?? ""}: ${commitRefusal}`,
@@ -300,13 +352,33 @@
   {/if}
 {/snippet}
 
+{#snippet subtitleContent()}
+  {#if typeof subtitle === "string"}
+    {subtitle}
+  {:else if subtitle}
+    {@render subtitle()}
+  {/if}
+{/snippet}
+
 {#snippet body()}
   <div class="mc-modal-frame-body">
-    <div bind:this={pane} class="mc-modal-frame-pane mc-action-dialog-fields">
+    <!-- A form, so that Enter commits (see the head of this file). `novalidate` because a refusal
+         is the shell's — stated beside the commit, never a browser bubble over a field. The keydown
+         listener does not make the form interactive: it hears a shortcut from a field that already
+         has focus, and does nothing for a reader who is not in one. -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <form
+      id={formIdentifier}
+      bind:this={pane}
+      class="mc-modal-frame-pane mc-action-dialog-fields"
+      novalidate
+      onsubmit={submit}
+      onkeydown={commitOnModifiedEnter}
+    >
       {#if fields}
         {@render fields({ busy })}
       {/if}
-    </div>
+    </form>
     {#if context}
       <div class="mc-modal-frame-context mc-action-dialog-context">
         <div class="mc-modal-frame-context-body mc-scrollbar">
@@ -356,18 +428,33 @@
       {reading ? LEAVE_LABEL : DISMISS_LABEL}
     </Button>
     <!-- A reading panel asks for nothing, so its bar ends at the way out. The commit's marker is
-         still the last thing in this source, which is the order the footer-set rule reads. -->
+         still the last thing in this source, which is the order the footer-set rule reads.
+
+         The commit is the pane's submit button — `form` ties it to the form it sits outside of —
+         which is what lets Enter in a field press it. It is one snippet rendered one of two ways
+         so the bar holds exactly one commit in this source whether or not the act is served yet:
+         the Soon affordance takes the same control and hands it the attributes that disable it
+         and say why. -->
     {#if traits.commitVariant !== null}
-      <Button
-        data-action-dialog-action="commit"
-        variant={traits.commitVariant}
-        disabled={busy || commitRefusal !== undefined}
-        title={commitTitle}
-        aria-label={commitAccessibleName}
-        onclick={commit}
-      >
-        {commitText}
-      </Button>
+      {#snippet commitControl(soon?: SoonControlProperties)}
+        <Button
+          data-action-dialog-action="commit"
+          type="submit"
+          form={formIdentifier}
+          variant={commitVariant}
+          disabled={busy || commitRefusal !== undefined}
+          title={commitTitle}
+          aria-label={commitAccessibleName}
+          {...soon ?? {}}
+        >
+          {commitText}
+        </Button>
+      {/snippet}
+      {#if commitSoon === undefined}
+        {@render commitControl()}
+      {:else}
+        <SoonAffordance reason={commitSoon.reason} control={commitControl} />
+      {/if}
     {/if}
   </div>
 {/snippet}
@@ -399,7 +486,7 @@
           <AlertDialog.Title class="mc-modal-frame-heading">{heading}</AlertDialog.Title>
           {#if subtitle}
             <AlertDialog.Description class="mc-modal-frame-subtitle">
-              {@render subtitle()}
+              {@render subtitleContent()}
             </AlertDialog.Description>
           {/if}
         </div>
@@ -435,7 +522,7 @@
           <Dialog.Title class="mc-modal-frame-heading">{heading}</Dialog.Title>
           {#if subtitle}
             <Dialog.Description class="mc-modal-frame-subtitle">
-              {@render subtitle()}
+              {@render subtitleContent()}
             </Dialog.Description>
           {/if}
         </div>

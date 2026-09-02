@@ -37,7 +37,7 @@ import { toolsByGroup, type GroupedTools } from "@magna-carta/tools/select";
 import type { SubjectGroup, ToolManifest } from "@magna-carta/tools/types";
 import { grantedPermissions } from "./tool-permissions.ts";
 // Type-only: elided at build, so the plugin-less test config never resolves the $lib alias.
-import type { MaturityStage } from "$lib/maturity/maturity.ts";
+import type { MaturityStage } from "@magna-carta/design-system/maturity";
 
 export interface ToolPresentation {
   /** One line, plain language, what the tool does — no marketing voice. */

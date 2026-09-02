@@ -86,7 +86,7 @@
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import X from "@lucide/svelte/icons/x";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { autoSizeTextarea } from "./auto-size-textarea.ts";
   import { FirmMatters } from "./firm-matters.svelte.ts";
   import MatterPicker from "./matter-picker.svelte";

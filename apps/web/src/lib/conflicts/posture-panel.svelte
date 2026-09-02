@@ -25,8 +25,7 @@
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import type { Snippet } from "svelte";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
   import ScopeInForce from "./scope-in-force.svelte";
   import { gapReason } from "./conflicts-gaps.ts";
   import type { MatterConflictsPosture } from "./conflicts-api.ts";

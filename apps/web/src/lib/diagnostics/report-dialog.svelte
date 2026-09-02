@@ -20,7 +20,7 @@
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { isReportableErrorId, reportProblem } from "./report.ts";
   import { breadcrumbs } from "./breadcrumbs.ts";
 

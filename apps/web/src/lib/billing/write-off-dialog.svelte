@@ -87,6 +87,7 @@
 <ActionDialog
   bind:open
   heading="Write Off a Balance"
+  subtitle={`${row?.summary.invoiceNumber ?? "This bill"} · this matter still owes ${money(ceiling)}`}
   commitLabel="Write Off"
   commitBusyLabel="Writing Off"
   commitRefusal={refusal}
@@ -94,9 +95,6 @@
   onOpen={reset}
   onCommit={writeOff}
 >
-  {#snippet subtitle()}
-    {row?.summary.invoiceNumber ?? "This bill"} · this matter still owes {money(ceiling)}
-  {/snippet}
 
   {#snippet notice()}
     {#if failure !== null}

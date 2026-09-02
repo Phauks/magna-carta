@@ -21,7 +21,7 @@
  * resolved. It is the same constraint that keeps tool-presentation.ts's $lib import type-only.
  */
 import { CATALOG } from "@magna-carta/tools/catalog";
-import { hasSurface } from "../maturity/maturity.ts";
+import { hasSurface } from "@magna-carta/design-system/maturity";
 import { SUBJECT_GROUP_LABELS, toolPresentation } from "../tools/tool-presentation.ts";
 
 export interface ToolDestination {

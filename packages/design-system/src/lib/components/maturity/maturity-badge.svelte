@@ -4,7 +4,7 @@
    * row). Reads the shared model (maturity.ts), so "Alpha" reads the same wherever it appears.
    * Renders nothing at "ready": a finished surface wears no mark.
    */
-  import Badge from "@magna-carta/design-system/badge";
+  import Badge from "../badge/index.ts";
   import { MATURITY_PRESENTATION, type MaturityStage } from "./maturity.ts";
 
   let { stage, class: className }: { stage: MaturityStage; class?: string } = $props();

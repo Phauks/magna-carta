@@ -163,7 +163,7 @@ is usually the fastest way to understand the rule.
   ships visible and marked Soon" rule depends on. The stages themselves survive and still decide
   whether a destination is a live link or a stub; reaching one just stopped being something the
   product says out loud. Enforced in the model: `alpha` and `beta` present as null in
-  `apps/web/src/lib/maturity/maturity.ts`, exactly as `ready` does. _(matter section strip,
+  `packages/design-system/src/lib/components/maturity/maturity.ts`, exactly as `ready` does. _(matter section strip,
   2026-08-31)_
 - **Find which column sets a band's height before you spend design shrinking one.** Where two
   columns share a band, the taller one owns the height and work on the other is invisible. The
