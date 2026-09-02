@@ -259,6 +259,7 @@ describe("permission registry", () => {
       "reports:productivity",
       "reports:operational",
       "reports:produce",
+      "reports:export",
     ]);
   });
 

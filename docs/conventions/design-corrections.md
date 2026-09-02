@@ -473,6 +473,7 @@ What generalizes, and is promoted above:
 - A resizable divider carries no grip handle.
 - A placeholder's content centres in the frame, not in the table.
 - Controls sitting in one band wear one chrome.
+
 ### 2026-09-01 — the matter status window
 
 Six corrections against the window behind the matter's status seal, all from the owner. What is
