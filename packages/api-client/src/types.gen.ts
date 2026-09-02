@@ -2106,11 +2106,6 @@ export type UnlinkMatterPartyResponse = {
     unlinked: boolean;
 };
 
-export type BackfillMatterClientsResponse = {
-    linked: number;
-    skipped: number;
-};
-
 export type DirectoryContactPointsResponse = {
     emails: Array<DirectoryEmailEntry>;
     phones: Array<DirectoryPhoneEntry>;
@@ -14636,58 +14631,6 @@ export type DirectoryUnlinkMatterPartyResponses = {
 };
 
 export type DirectoryUnlinkMatterPartyResponse = DirectoryUnlinkMatterPartyResponses[keyof DirectoryUnlinkMatterPartyResponses];
-
-export type DirectoryBackfillMatterClientsData = {
-    body?: never;
-    headers: {
-        'idempotency-key': string;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/directory/matter-clients/backfill';
-};
-
-export type DirectoryBackfillMatterClientsErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the entity is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is still in progress, or a merge conflict
-     */
-    409: Problem;
-    /**
-     * The request is invalid, or the Idempotency-Key was reused with a different payload
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type DirectoryBackfillMatterClientsError = DirectoryBackfillMatterClientsErrors[keyof DirectoryBackfillMatterClientsErrors];
-
-export type DirectoryBackfillMatterClientsResponses = {
-    /**
-     * How many matters gained a client link, and how many already had one
-     */
-    200: BackfillMatterClientsResponse;
-};
-
-export type DirectoryBackfillMatterClientsResponse = DirectoryBackfillMatterClientsResponses[keyof DirectoryBackfillMatterClientsResponses];
 
 export type DirectoryContactPointsData = {
     body?: never;

@@ -926,7 +926,6 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "directory.addName",
       "directory.addPhone",
       "directory.assignCategory",
-      "directory.backfillMatterClients",
       "directory.changeName",
       "directory.contactPoints",
       "directory.createCategory",

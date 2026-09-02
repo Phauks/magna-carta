@@ -24,7 +24,6 @@
     "./search": "./src/search.ts",
     "./merge": "./src/merge.ts",
     "./party": "./src/party.ts",
-    "./client-migration": "./src/client-migration.ts",
     "./contact-email": "./src/contact-email.ts",
     "./contact-phone": "./src/contact-phone.ts",
     "./contact-address": "./src/contact-address.ts",

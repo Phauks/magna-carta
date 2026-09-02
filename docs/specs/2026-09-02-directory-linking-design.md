@@ -64,8 +64,9 @@ And nothing in the web app can write one:
   the Directory link lands"; `apps/web/src/lib/matters/client-picker.svelte` is a combobox over the
   distinct client strings already on the docket and calls no directory API at all; `matter-intake.ts`
   says outright that the intake conflict check cannot run because a typed name is not an entity.
-- `packages/directory/src/client-migration.ts` — the backfill that turns those strings into entities
-  plus a `client` party — exists and has **no production caller**.
+- `packages/directory/src/client-migration.ts` — a backfill that would have turned those strings into
+  entities plus a `client` party — existed with **no production caller**. Deleted in slice 2 on the
+  owner's ruling that with no real users there is nothing to back fill.
 
 So today a firm can open a matter, bill it, and hold trust for it, and at no point is the client a
 record the directory knows. Every downstream reader that derives the client from `matter_party`
@@ -212,8 +213,8 @@ area. `matter_party` already has this shape; nothing about it changes.
    Q-4), and creating the matter — `open` or `prospective` alike, because a prospective matter's
    conflict check needs a person — writes the `client` party row in the same request. `client_display_name`
    keeps being written as the denormalized display until the contract step; readers switch to the
-   party. `migrateClientDisplayFields` gets its production caller — an idempotent per-firm backfill
-   run once — so existing matters gain their client party and billing and trust stop reading nothing.
+   party. The backfill that would have linked existing matters is deleted rather than given a caller: with no
+   real users there is nothing to back fill, and a matter that predates the link is re-created.
    The intake's conflict control becomes usable, because the client is now an entity.
 3. **The matter's Overview** names the client as an `EntityIdentity` linking to the directory
    record. Not the header: its citation line is ruled to be ONE string that ellipsizes, never a row
@@ -246,7 +247,7 @@ doc for adding a party; changelog fragment; `roadmap.d/core-domain.md` corrected
 status and evidence are stale today).
 
 **Slice 2 — the client is a party. BUILT on the branch, 2026-09-02.** Intake picker with quick-create; the `client` party written at
-open; the backfill's production caller; header chip; intake conflict check enabled; `party-api.ts`
+open; the never-called backfill deleted; the client mark on the overview; intake conflict check enabled; `party-api.ts`
 and `matter-intake.ts` updated; migration notes in `packages/database` if any column is touched (none
 is expected — this slice is writes into an existing table).
 
@@ -331,7 +332,7 @@ two, and the matter header's client mark (§3 item 3) lands in slice 2 after tha
   refused, selected, multiple); axe on every story; pure rules (`unlinkedCandidates`, the tab key,
   the settle and abort behaviour) unit-tested; the CSS cascade position pinned.
 - App: the parties page adds and removes a party against the Miniflare worker; the intake writes the
-  `client` party and the header reads it back; the backfill is idempotent on a second run; a failed
+  `client` party and the overview reads it back; a failed
   search never renders as an empty directory (the sentence every copy carried, now asserted once).
 - Gates: `lint:one-ui` registry entries for the three components; `lint:process-refs` clean; the
   parties page and both directory dialogs drop out of the allowance list in the same commits that

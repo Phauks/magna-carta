@@ -37,7 +37,6 @@
 - `src/contact-preference.ts` — the permission/preference/verification block the three tables share, and `resolveContactFields`, which folds a caller's input over the row's current values
 - `src/phone-number.ts` — `structurePhoneNumber`: the E.164 assignment rule, not a metadata library
 - `src/postal-address.ts` — the address field set, and `normalizedAddressKey` (a DUPLICATE key, deliberately not a canonical postal form)
-- `src/client-migration.ts` — idempotent 1·1 `client_display_name`/`client_code` → Directory entity + `matter_party` migration
 - `src/audit.ts` — `directoryAuditStatement` (shared write-options type, audit-row builder used by all write paths)
 - `src/run-directory-effect.ts` — `runDirectoryEffect` top-level executor (threads the idempotency context + crypto context + actor for routes)
 - `src/fitness.ts` — `assertDirectoryFitness` + the per-invariant probe queries it runs (`findDanglingToSubordinate`, `assertNoDanglingToSubordinate`, `findNamesMissingPhonetics`, `findEdgesToDeletedEntities`)
