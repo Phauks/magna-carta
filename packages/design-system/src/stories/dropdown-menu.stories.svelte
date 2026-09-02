@@ -1,15 +1,19 @@
 <script module lang="ts">
   /*
-   * DropdownMenu — Tier 3 (Bits UI), floating + portal. A click-triggered menu of actions anchored
-   * to its trigger; Bits handles the portal, Floating UI positioning, the two-level wrapper, full
-   * keyboard interaction (roving highlight, typeahead, Escape), outside-click dismissal, and focus
-   * return. Styling is ours (the mc-dropdown-menu-* recipes + the floating presence). Catalog: one
-   * realistic matter "Actions" menu — a Group + heading of plain Items (one disabled), a Separator,
-   * a CheckboxItem, a RadioGroup of sort options, and a nested Sub menu. Behaviour rides the play
-   * function (open, arrow highlight, disabled skip, stateful toggles keep the menu open, a plain
-   * item closes it, Escape with focus return). `open` is bindable — Bits owns it after mount — so it
-   * is the initial state, not a control; Bits' prop types explode into hundreds of attribute
-   * controls, so the whitelist is empty. svelte-csf v5.
+   * DropdownMenu — Tier 3 (Bits UI), floating + portal. A menu of actions anchored to its trigger,
+   * opened by a press, a key, a tap, or a mouse pointer resting on the trigger; Bits handles the
+   * portal, Floating UI positioning, the two-level wrapper, full keyboard interaction (roving
+   * highlight, typeahead, Escape), outside-click dismissal, and focus return, and Root's hover
+   * controller (hover-open.ts) adds the pointer. Styling is ours (the mc-dropdown-menu-* recipes +
+   * the floating presence). Catalog: one realistic matter "Actions" menu — a Group + heading of
+   * plain Items (one disabled), a Separator, a CheckboxItem, a RadioGroup of sort options, and a
+   * nested Sub menu. Behaviour rides the play functions: Default covers the pressed menu (open,
+   * arrow highlight, disabled skip, stateful toggles keep the menu open, a plain item closes it,
+   * Escape with focus return); Opens on hover covers the pointed one (a rest opens it without
+   * moving focus, it follows the pointer into the panel, a press on its trigger keeps it, leaving
+   * closes it). `open` is bindable — Bits owns it after mount — so it is the initial state, not a
+   * control; Bits' prop types explode into hundreds of attribute controls, so the whitelist is
+   * empty. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -134,6 +138,54 @@
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
       await expect(trigger).toHaveFocus();
+    });
+  }}
+/>
+
+<Story
+  name="Opens on hover"
+  {template}
+  play={async ({ canvas, step }) => {
+    const trigger = canvas.getByRole("button", { name: "Actions" });
+    const body = within(document.body);
+    // Long enough for the hover controller's close linger to have fired if it were going to.
+    const pastTheLinger = () => new Promise((resolve) => setTimeout(resolve, 400));
+
+    await step("A pointer resting on the trigger opens the menu without moving focus", async () => {
+      await userEvent.hover(trigger);
+      const menu = await body.findByRole("menu");
+      await waitFor(() => expect(menu).toBeVisible());
+      expect(menu.contains(document.activeElement)).toBe(false);
+      await expect(trigger).not.toHaveFocus();
+    });
+
+    await step("Moving from the trigger into the panel keeps it open", async () => {
+      await userEvent.hover(body.getByRole("menuitem", { name: "Duplicate" }));
+      await pastTheLinger();
+      await expect(body.getByRole("menu")).toBeVisible();
+    });
+
+    await step("A press on the trigger keeps a hover-opened menu open rather than toggling it", async () => {
+      await userEvent.click(trigger);
+      await pastTheLinger();
+      await expect(body.getByRole("menu")).toBeVisible();
+    });
+
+    await step("Leaving the trigger and the panel closes the menu after a linger", async () => {
+      await userEvent.unhover(trigger);
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
+    });
+
+    await step("A menu opened from the keyboard is not hover's to close", async () => {
+      trigger.focus();
+      await userEvent.keyboard("{Enter}");
+      await body.findByRole("menu");
+      await userEvent.hover(trigger);
+      await userEvent.unhover(trigger);
+      await pastTheLinger();
+      await expect(body.getByRole("menu")).toBeVisible();
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
     });
   }}
 />
