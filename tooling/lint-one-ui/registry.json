@@ -193,11 +193,6 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/matters/matter-status-dialog.svelte",
-      "reason": "Landed the same day as the rule, from a branch that was open when the rule was written (#473 beside #466), so the collision surfaced on the first pull request to run the merged tree. Belongs to the OTHER shell, on the same reading as arrangement-dialog: it reads a record (the status, what closing requires and whether each requirement is met, where the paper file is kept) and seats its one act beside the fact it changes, which is RecordWindow's shape, not ActionDialog's. The migration is owed to the stream that owns the screen and its design rationale, not to a dependency fix; this entry fails the day it lands."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/records/reclassify-dialog.svelte",
       "reason": "predates ActionDialog; migrates to ActionDialog."
     },

@@ -17,6 +17,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import { readSession } from "$lib/matters/matters-api.ts";
   import BillRegister from "$lib/billing/bill-register.svelte";
+  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import { MatterBilling } from "$lib/billing/matter-billing.svelte.ts";
@@ -100,7 +101,7 @@
     </Alert.Root>
   </section>
 {:else}
-  <div class="flex min-h-0 flex-1 flex-col gap-12">
+  <FullHeightSection class="gap-12">
     {#if billing.clientEntityId === null && rows !== null}
       <Alert.Root variant="warning">
         <Alert.Title>This Matter Names No Client</Alert.Title>
@@ -130,11 +131,11 @@
     />
 
     {#if billing.nextCursor !== null}
-      <p class="text-xs text-text-muted">
+      <p class="flex-none pb-24 text-xs text-text-muted">
         This client has more bills than are read here: the register is showing the {(rows ?? []).length}
         most recent, and the figures beneath it cover only those. Reading the whole history is a
         further page this section does not ask for yet.
       </p>
     {/if}
-  </div>
+  </FullHeightSection>
 {/if}
