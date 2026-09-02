@@ -11,6 +11,8 @@
    * drafts and one bill.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
@@ -18,7 +20,7 @@
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import Info from "@lucide/svelte/icons/info";
   import Ban from "@lucide/svelte/icons/ban";
-  import { billingFailureText, voidInvoiceDraft } from "./billing-api.ts";
+  import { billingFailure, voidInvoiceDraft } from "./billing-api.ts";
   import type { InvoiceRow } from "./invoice-standing.ts";
 
   let {
@@ -35,7 +37,7 @@
 
   let reason = $state("");
   let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   $effect(() => {
     if (!open) return;
@@ -59,7 +61,7 @@
       onVoided();
       return;
     }
-    failure = billingFailureText(outcome, "The draft is unchanged.");
+    failure = billingFailure(outcome, "The draft is unchanged.");
   }
 </script>
 
@@ -71,10 +73,11 @@
     </Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Voided</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Voided"
+        fallback={failure.fallback}
+      />
     {/if}
 
     <div class="flex flex-col gap-16">

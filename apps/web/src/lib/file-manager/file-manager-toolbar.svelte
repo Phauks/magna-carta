@@ -14,11 +14,11 @@
    * control visible and disabled with the reason, so the toolbar never changes shape under the
    * pointer.
    */
-  import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Button from "@magna-carta/design-system/button";
+  import Input from "@magna-carta/design-system/input";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { buttonClasses } from "@magna-carta/design-system/button";
-  import Checkbox from "@magna-carta/design-system/checkbox";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
@@ -30,15 +30,14 @@
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import Plus from "@lucide/svelte/icons/plus";
+  import Search from "@lucide/svelte/icons/search";
+  import Settings2 from "@lucide/svelte/icons/settings-2";
   import Upload from "@lucide/svelte/icons/upload";
   import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
-  import type { DataTableGridState } from "@magna-carta/design-system/data-table";
-  import type { FileManagerRow } from "./file-rows.ts";
   import type { FileManagerState } from "./file-manager-state.svelte.ts";
 
   let {
     manager,
-    grid,
     /** Home first, then each ancestor, ending here. Empty past Home means the reader is at the root. */
     trail,
     viewTitle = null,
@@ -47,9 +46,9 @@
     onNewFolder,
     onNewDocument,
     onUpload,
+    onSearch,
   }: {
     manager: FileManagerState;
-    grid: DataTableGridState<FileManagerRow>;
     trail: readonly { id: string; label: string }[];
     /**
      * A view that is not a place in the folder tree TITLES the breadcrumb rather than adding a
@@ -61,10 +60,17 @@
     onNewFolder: () => void;
     onNewDocument: () => void;
     onUpload: () => void;
+    /** What the reader typed. Searching opens the results view; emptying it goes back. */
+    onSearch: (query: string) => void;
   } = $props();
+
+  let searchOpen = $state(false);
 
   const HomeIcon = FOLDER_TREE_HOME_ICON;
 
+
+  /** The icon view is the one place with no table header to carry the display settings. */
+  const iconView = $derived(manager.listMode === "icons" && manager.view === "browse");
 
   /** Creating needs a current folder; the views that show rows from many folders have none. */
   const noDestinationReason = $derived(
@@ -73,24 +79,6 @@
       : "This view has no current folder to create into. Open a folder first.",
   );
 </script>
-
-{#snippet displaySettings()}
-  <!-- The surface's own display settings ride the columns menu, beside the columns they change. -->
-  <label class="flex cursor-pointer items-center gap-8 rounded-sm px-8 py-4 text-sm">
-    <Checkbox
-      bind:checked={() => manager.hideExtensions, (next) => manager.setHideExtensions(next)}
-      aria-label="Hide file extensions"
-    />
-    <span>Hide file extensions</span>
-  </label>
-  <label class="flex cursor-pointer items-center gap-8 rounded-sm px-8 py-4 text-sm">
-    <Checkbox
-      bind:checked={() => manager.showSidebarCounts, (next) => manager.setShowSidebarCounts(next)}
-      aria-label="Show file counts in the sidebar"
-    />
-    <span>Show file counts in the sidebar</span>
-  </label>
-{/snippet}
 
 <div class="flex items-center gap-4 border-b border-border-default px-8 py-4">
   <Button
@@ -157,6 +145,41 @@
   </nav>
 
   <div class="ms-auto flex items-center gap-4">
+    <!--
+      SEARCH LIVES AT THE TOP, with the surface's other controls, not in a strip over the table.
+      As a strip it sat between the breadcrumb and the column headers, so the table's own titles
+      started in a different place in that view than in every other one. Here it opens as an
+      overlay across the breadcrumb's slack: nothing on the row moves when it opens, and searching
+      is reachable from any view rather than only from the one named after it.
+    -->
+    <span class="relative inline-flex">
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-pressed={manager.searchQuery !== ""}
+        aria-expanded={searchOpen}
+        title="Search this matter's files"
+        aria-label="Search"
+        onclick={() => (searchOpen = true)}
+      >
+        <Search class="size-16" aria-hidden="true" />
+      </Button>
+      {#if searchOpen}
+        <div class="absolute end-0 top-0 z-dropdown" style="inline-size: var(--mc-size-record-context)">
+          <Input
+            class="w-full"
+            value={manager.searchQuery}
+            placeholder={placeholderOf("Search")}
+            aria-label="Search this matter's files"
+            oninput={(event) => onSearch(event.currentTarget.value)}
+            onblur={() => {
+              if (manager.searchQuery === "") searchOpen = false;
+            }}
+            {@attach (field: HTMLInputElement) => field.focus()}
+          />
+        </div>
+      {/if}
+    </span>
     <Button
       variant="ghost"
       size="icon"
@@ -171,7 +194,34 @@
         <LayoutGrid class="size-16" aria-hidden="true" />
       {/if}
     </Button>
-    <DataTable.GridColumnsMenu {grid} iconOnly settings={displaySettings} />
+    {#if iconView}
+      <!-- The two display settings ride the table header's Columns menu everywhere there IS a
+           header. The icon view has no table at all, so it carries them here instead — not a
+           second home for them, the only one this view has. -->
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          class={buttonClasses({ variant: "ghost", size: "icon" })}
+          title="Display settings"
+          aria-label="Display settings"
+        >
+          <Settings2 class="size-16" aria-hidden="true" />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+          <DropdownMenu.CheckboxItem
+            bind:checked={() => manager.hideExtensions, (next) => manager.setHideExtensions(next)}
+          >
+            Hide file extensions
+          </DropdownMenu.CheckboxItem>
+          <DropdownMenu.CheckboxItem
+            bind:checked={
+              () => manager.showSidebarCounts, (next) => manager.setShowSidebarCounts(next)
+            }
+          >
+            Show file counts in the sidebar
+          </DropdownMenu.CheckboxItem>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+    {/if}
     <!-- An active pane toggle reads through its glyph and hairline, never a dark fill. -->
     <Button
       variant="ghost"

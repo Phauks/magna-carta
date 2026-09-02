@@ -403,7 +403,7 @@ if (unexcused.length > 0) {
 }
 
 console.log(
-  `lint:one-ui: the record window's header set is exactly Edit, Print, expand, close; nothing in ` +
+  `lint:one-ui: the record window's header set is exactly the kind's menu, Edit, Print, expand, close; nothing in ` +
     `its shell names a kind of record; ${entries.length} registered component(s) each have one ` +
     "home; no app screen rolls its own select, dialog, scrim or glyph; and the ported surfaces " +
     "reach for no node by id, selector or markup string." +

@@ -1,12 +1,12 @@
 <script lang="ts">
   /*
-   * The matter detail chrome: one header (the ceremonial edge) and one section strip over every
-   * page under /matters/[id]. The pages render below through children. The chrome is identical
-   * for every matter status — status shapes only what the header showcases, never which sections
-   * exist or where they lead.
+   * The matter detail chrome: ONE header band (the ceremonial edge on the reading edge, the
+   * actions and the section strip in the column at its inline end) over every page under
+   * /matters/[id]. The pages render below through children. The chrome is identical for every
+   * matter status — status shapes only what the header showcases, never which sections exist or
+   * where they lead.
    */
   import MatterHeader from "$lib/matters/matter-header.svelte";
-  import MatterSectionNav from "$lib/matters/matter-section-nav.svelte";
   import type { LayoutProps } from "./$types";
 
   let { data, children }: LayoutProps = $props();
@@ -20,9 +20,8 @@
      exactly the remaining viewport height and pin its own footer to the bottom of the screen.
      Sections that scroll normally are unaffected: min-h-full lets content grow past the fold. -->
 <div class="flex min-h-full flex-col">
-  <div class="mb-24 flex flex-none flex-col gap-16">
+  <div class="mb-24 flex-none">
     <MatterHeader matter={data.matter} />
-    <MatterSectionNav matterId={data.matter.id} />
   </div>
 
   {@render children()}

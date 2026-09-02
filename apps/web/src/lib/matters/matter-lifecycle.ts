@@ -17,7 +17,7 @@
  * unmet requirement is in the rule's own words, which name the amount, where it sits, and the
  * movements that clear it.
  */
-import type { ApiProblem } from "$lib/api/request.ts";
+import type { Problem } from "$lib/api/request.ts";
 import type { MatterStatus } from "./matter-status.ts";
 import {
   CLOSE_MATTER_PERMISSION,
@@ -212,13 +212,11 @@ export const CLOSE_REFUSED_PROBLEM_TYPE = "matter-close-refused";
  * it re-answers the requirements already on screen rather than arriving as a second kind of message.
  * That is not a coincidence to be relied on quietly: it is why both read the rules' own failures.
  */
-export function matterCloseRefusals(problem: ApiProblem): readonly MatterCloseBlocker[] {
+export function matterCloseRefusals(problem: Problem): readonly MatterCloseBlocker[] {
   if (problem.type !== CLOSE_REFUSED_PROBLEM_TYPE) return [];
-  return (problem.errors ?? []).flatMap((reason) =>
-    reason.detail === undefined || reason.detail === ""
-      ? []
-      : [{ code: reason.code ?? "", message: reason.detail }],
-  );
+  // The transport already drops an entry missing any of path, code or detail, so what arrives here
+  // is whole. A refusal names all three: the rules write to "$", the request as a whole.
+  return (problem.errors ?? []).map((reason) => ({ code: reason.code, message: reason.detail }));
 }
 
 // ---- the physical file ------------------------------------------------------------------------

@@ -63,7 +63,7 @@ export function railColumns(): GridColumn<WorkbenchFile>[] {
       // Sortable and filterable, and not shown until asked for. The rail is a narrow pane beside
       // the file and its readings, and four data columns in it means the name scrolls away — which
       // costs more than the arrival time is worth on a bench holding a handful of files. The
-      // columns menu at the top of the rail shows it, and the grid remembers that.
+      // heading's right-click menu shows it under Columns, and the grid remembers that.
       hidden: true,
       value: (file) => file.receivedAt,
     },
@@ -73,8 +73,8 @@ export function railColumns(): GridColumn<WorkbenchFile>[] {
       type: "text",
       filter: "set",
       // Hidden until it says something. With no scanner wired every row reads "Not scanned", and a
-      // column whose every cell is the same word is width taken from the name. The columns menu
-      // shows it on demand, and it earns its place the moment verdicts differ.
+      // column whose every cell is the same word is width taken from the name. A heading's
+      // Columns submenu shows it on demand, and it earns its place the moment verdicts differ.
       hidden: true,
       value: (file) => scanStatus(scanVerdictOf(file)).label,
     },

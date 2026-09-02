@@ -48,6 +48,8 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Separator from "@magna-carta/design-system/separator";
   import StatusMark from "@magna-carta/design-system/status-mark";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
@@ -104,8 +106,8 @@
   /** The step that was taken, held so the result reads about it and not about the next one. */
   let taken = $state<MatterLifecycleStep | null>(null);
   let notices = $state<readonly MatterCloseNotice[]>([]);
-  let failure = $state<string | null>(null);
-  let errorId = $state<string | null>(null);
+  /** The whole failure record, not a sentence squeezed out of it: the Error ID rides with it. */
+  let failure = $state<StatedFailure | null>(null);
 
   /** What the program says about closing. Null until the read comes back. */
   let readiness = $state<MatterCloseReadiness | null>(null);
@@ -160,30 +162,27 @@
     taken = null;
     notices = [];
     failure = null;
-    errorId = null;
   });
 
   function report(outcome: Exclude<ApiOutcome<unknown>, { kind: "ok" }>): void {
-    if (outcome.kind === "transport") {
-      failure = MATTER_LIFECYCLE_TRANSPORT_FAILURE;
-      return;
-    }
-    errorId = outcome.problem.errorId ?? null;
     // A close refused at the last moment is the same answer the requirements already hold, arriving
     // later: it re-answers them rather than sitting beside them, so the window never shows two
-    // accounts of what closing requires at once.
-    const refused = matterCloseRefusals(outcome.problem);
-    if (refused.length > 0) {
-      readiness = {
-        matterId: matter.id,
-        status: matter.status,
-        closable: false,
-        blockers: [...refused],
-      };
-      readinessFailed = false;
-      return;
+    // accounts of what closing requires at once. Anything else is a failure, and it travels whole —
+    // the Error ID and the remedy come with the record rather than being squeezed into a sentence.
+    if (outcome.kind === "problem") {
+      const refused = matterCloseRefusals(outcome.problem);
+      if (refused.length > 0) {
+        readiness = {
+          matterId: matter.id,
+          status: matter.status,
+          closable: false,
+          blockers: [...refused],
+        };
+        readinessFailed = false;
+        return;
+      }
     }
-    failure = outcome.problem.detail ?? step.failureSentence;
+    failure = stated(outcome.failure, step.failureSentence, MATTER_LIFECYCLE_TRANSPORT_FAILURE);
   }
 
   // The matter behind the chrome is re-read rather than guessed at: reopen restores open OR
@@ -202,7 +201,6 @@
     const completed = step;
     working = true;
     failure = null;
-    errorId = null;
     // A double-press must not draw a second matter number or stamp a second close date, so every
     // attempt carries its own key and the server answers a repeat with the first result.
     const idempotencyKey = crypto.randomUUID();
@@ -377,12 +375,12 @@
       </div>
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Title>{step.failureSentence}</Alert.Title>
-          <Alert.Description>
-            {failure}{errorId === null ? "" : ` Error ID ${errorId}.`}
-          </Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Matter Is Unchanged"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
     {:else}
       <Alert.Root variant="success">

@@ -54,6 +54,8 @@
 
   /** What has been typed. Meaningful only while the field is being searched. */
   let query = $state("");
+  /** The list is a controlled open: arriving in the field shows everything, typing narrows. */
+  let listOpen = $state(false);
   /**
    * Whether the reader is searching rather than reading the row's matter.
    *
@@ -90,8 +92,10 @@
   ]}
   value={value ?? ""}
   inputValue={searching ? query : selectedText}
+  open={listOpen}
   onValueChange={pick}
   onOpenChange={(open) => {
+    listOpen = open;
     if (!open) settle();
   }}
 >
@@ -102,15 +106,19 @@
     autocomplete="off"
     spellcheck={false}
     onfocus={() => {
-      // Arriving in the field is asking to search, so the whole record is on offer again rather
-      // than the one matter whose name happens to be sitting in it.
+      // Arriving in the field is asking to search, so the whole record is on offer at once rather
+      // than the one matter whose name happens to be sitting in it — the list opens before a
+      // letter is typed, and typing narrows it.
       searching = true;
       query = "";
+      listOpen = true;
     }}
+    onclick={() => (listOpen = true)}
     onblur={settle}
     oninput={(event) => {
       searching = true;
       query = event.currentTarget.value;
+      listOpen = true;
     }}
   />
   <Combobox.Content>

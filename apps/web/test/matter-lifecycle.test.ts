@@ -141,14 +141,11 @@ describe("matterCloseRefusals", () => {
     ).toEqual([]);
   });
 
-  it("drops an entry that carries no words rather than rendering an empty row", () => {
-    expect(
-      matterCloseRefusals({
-        status: 409,
-        type: CLOSE_REFUSED_PROBLEM_TYPE,
-        errors: [{ code: "trust-balance-not-zero" }, { code: "x", detail: "" }],
-      }),
-    ).toEqual([]);
+  it("reads nothing where the refusal named no rules at all", () => {
+    // An entry missing any of path, code or detail never reaches here: the transport's own reader
+    // (lib/api/problem.ts) drops it, so this surface is not a second place that decides what a
+    // half-written problem document means.
+    expect(matterCloseRefusals({ status: 409, type: CLOSE_REFUSED_PROBLEM_TYPE })).toEqual([]);
   });
 });
 

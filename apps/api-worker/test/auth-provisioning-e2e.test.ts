@@ -298,6 +298,10 @@ describe("end-to-end", () => {
         "documents:edit",
         "documents:forceReleaseLock",
         "documents:reconcile",
+        // Reading and clearing one's OWN download shelf, so it seeds to every role that can be
+        // handed a generated file at all — the same reasoning notifications:read carries
+        // (20260831T230001_seed-download-register-permission.sql).
+        "downloads:shelf",
         "emails:file",
         // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
         // file mail are different grants. Owner/Admin and Attorney carry it by seed; Paralegal gets
@@ -350,6 +354,13 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        // The three matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
+        // Attorney and Paralegal — and to neither Billing nor Read-only. notes:retract is its own
+        // key so a firm can narrow withdrawal without narrowing authorship
+        // (20260901T010000_matter-notes.sql).
+        "notes:read",
+        "notes:retract",
+        "notes:write",
         // Seeded onto every default role, Read-only included — the deliberate contrast with
         // trust:read below (20260807T020000_notifications-delivery). A member's feed is their own,
         // scoped to their own user id and filtered by matter visibility before it returns a row.
@@ -358,6 +369,10 @@ describe("end-to-end", () => {
         // grants more widely, because an aggregate across every matter and client is a different
         // exposure from a per-matter read. reports:productivity is narrower still in kind: a report
         // about people rather than about money.
+        // Exporting a report's rows, seeded wherever a report can be read at all: the export is the
+        // same figures the reader already has, in a file
+        // (20260831T210000_seed-report-export-permission.sql).
+        "reports:export",
         "reports:financial",
         "reports:operational",
         "reports:produce",
@@ -575,6 +590,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // document — no firm-database write, nothing to audit (the conversions.upload precedent).
       "templates.upload",
       "safeBrowse.post",
+      // The streaming twin of safeBrowse.post — the same pure read delivered as newline-delimited
+      // stage lines; nothing is written and the target URL is deliberately never logged (redaction).
+      "safeBrowse.stream",
       // Pure-compute POSTs — inspect/scrub operate over the request body only; nothing is stored.
       "metadata.inspect",
       "metadata.scrub",
@@ -605,6 +623,10 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it.
       // Nothing is stored; the separate, audited import route is what records anything.
       "trust.previewStatementImport",
+      // A printer, not a data source: pure composition of the tabular document the caller already
+      // holds into a Word or PDF file, returned as bytes. Nothing is stored; filing a produced
+      // export would be a separate route riding reports:produce.
+      "reports.exportRender",
       // A member settling their OWN notification feed row. These write, on the aiDetection.detect
       // reasoning rather than the pure-computation one: the write records nothing about the firm's
       // conduct, only that one member cleared one badge, and auditing every clear would flood

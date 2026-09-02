@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readTimelinePage } from "@magna-carta/calendar/timeline";
 import { timelineSourceRegistry } from "@magna-carta/calendar/sources/all";
-import { createMatterNote, retractMatterNote, reviseMatterNote } from "../src/note-service.ts";
+import { createMatterNote, deleteMatterNote, editMatterNote } from "../src/note-service.ts";
 import {
   MATTER,
   commit,
@@ -30,10 +30,13 @@ async function timelineFor(database: Parameters<typeof readTimelinePage>[0]["dat
   });
 }
 
-async function seededNote(body = "Counsel's theory is that the indemnity survives termination.") {
+async function seededNote(
+  body = "Counsel's theory is that the indemnity survives termination.",
+  occurredOn?: string,
+) {
   const { database, raw } = migratedDatabase();
   seedFirm(raw);
-  const created = createMatterNote(database, { matterId: MATTER, body }, options);
+  const created = createMatterNote(database, { matterId: MATTER, body, occurredOn }, options);
   await commit(database, created.effect);
   return { database, raw, noteId: created.noteId };
 }
@@ -41,59 +44,72 @@ async function seededNote(body = "Counsel's theory is that the indemnity survive
 describe("a note on the matter timeline", () => {
   it("appears as one entry, carrying its actor and no words", async () => {
     const { database } = await seededNote();
-    const page = await timelineFor(database);
-    const entries = page.entries.filter((entry) => entry.sourceKey === "matterNote");
+    const entries = (await timelineFor(database)).entries.filter(
+      (entry) => entry.sourceKey === "matterNote",
+    );
     expect(entries).toHaveLength(1);
     // The label is the disclosure this source refuses. A note body's first eight words are
     // frequently the whole disclosure, and the timeline spans every matter.
     expect(entries[0]?.label).toBeNull();
     expect(entries[0]?.actorUserId).toBe(options.actorUserId);
     expect(entries[0]?.link).toContain("/notes");
-    // Nothing on the entry carries the text, under any key.
     expect(JSON.stringify(entries[0])).not.toContain("indemnity");
   });
 
-  it("stays ONE entry after the note is corrected, and does not move up the history", async () => {
-    const { database, noteId } = await seededNote("The first account.");
-    const before = await timelineFor(database);
-    const original = before.entries.find((entry) => entry.sourceKey === "matterNote");
-
-    const clock = tickingClock();
-    for (const body of ["The second account.", "The third account."]) {
-      const { effect } = await reviseMatterNote(database, noteId, { body }, { ...options, clock });
-      await commit(database, effect);
-    }
-
-    const after = await timelineFor(database);
-    const entries = after.entries.filter((entry) => entry.sourceKey === "matterNote");
-    // A source over the revision table would put a fresh entry on the timeline every time somebody
-    // fixed a typo, each claiming to be a thing that happened.
-    expect(entries).toHaveLength(1);
-    // And the sort key is the note's own created instant, so a contemporaneous record stays at the
-    // moment it was written rather than jumping to the top when it is corrected.
-    expect(entries[0]?.sortKey).toBe(original?.sortKey);
+  it("sits on the day it happened, not the day it was typed", async () => {
+    const { database } = await seededNote("Call with the client.", "2026-08-25");
+    const entries = (await timelineFor(database)).entries.filter(
+      (entry) => entry.sourceKey === "matterNote",
+    );
+    // The sort key is the occurrence, so the note lands beside whatever else happened that day
+    // rather than beside the moment somebody wrote it down.
+    expect(entries[0]?.sortKey).toBe("2026-08-25");
   });
 
-  it("leaves the timeline entirely once withdrawn", async () => {
-    const { database, noteId } = await seededNote();
-    expect((await timelineFor(database)).entries.some((e) => e.sourceKey === "matterNote")).toBe(
-      true,
+  it("falls back to the written day when the note names no occurrence", async () => {
+    const { database } = await seededNote("No date on this one.");
+    const entries = (await timelineFor(database)).entries.filter(
+      (entry) => entry.sourceKey === "matterNote",
     );
+    // A civil date cut from the created instant, never the instant itself: one column, one shape.
+    expect(entries[0]?.sortKey).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
+  });
 
-    const { effect } = await retractMatterNote(
+  it("stays ONE entry after an edit, and moves when the edit moves the occurrence", async () => {
+    const { database, noteId } = await seededNote("The first account.", "2026-08-10");
+    const { effect } = await editMatterNote(
       database,
       noteId,
-      { reason: "Wrong matter." },
+      { body: "A corrected account.", occurredOn: "2026-08-11" },
       { ...options, clock: tickingClock() },
     );
     await commit(database, effect);
 
-    // Excluded rather than tombstoned here, deliberately: the matter's own notes surface is where a
-    // withdrawal is visible and actionable, while an entry on a read spanning every matter would be
-    // an unexplained gap at best and a pointer at the withdrawal at worst.
-    expect((await timelineFor(database)).entries.some((e) => e.sourceKey === "matterNote")).toBe(
-      false,
+    const entries = (await timelineFor(database)).entries.filter(
+      (entry) => entry.sourceKey === "matterNote",
     );
+    expect(entries).toHaveLength(1);
+    // Correcting the day the call happened corrects where it sits, which is the point of recording
+    // the occurrence separately at all.
+    expect(entries[0]?.sortKey).toBe("2026-08-11");
+  });
+
+  it("leaves the timeline when the note is deleted", async () => {
+    const { database, noteId } = await seededNote();
+    expect(
+      (await timelineFor(database)).entries.some((entry) => entry.sourceKey === "matterNote"),
+    ).toBe(true);
+
+    const { effect } = await deleteMatterNote(database, noteId, {
+      ...options,
+      clock: tickingClock(),
+    });
+    await commit(database, effect);
+
+    // Nothing filters it out: the row is gone, so the source has nothing to read.
+    expect(
+      (await timelineFor(database)).entries.some((entry) => entry.sourceKey === "matterNote"),
+    ).toBe(false);
   });
 
   it("costs the page exactly one statement, however many notes the matter has", async () => {
@@ -103,10 +119,11 @@ describe("a note on the matter timeline", () => {
       const created = createMatterNote(database, { matterId: MATTER, body }, { ...options, clock });
       await commit(database, created.effect);
     }
-
     const registry = timelineSourceRegistry();
-    const everySourceKey = registry.all().map((source) => source.key);
-    const withoutNotes = everySourceKey.filter((key) => key !== "matterNote");
+    const withoutNotes = registry
+      .all()
+      .map((source) => source.key)
+      .filter((key) => key !== "matterNote");
 
     const all = await readTimelinePage({
       database,
@@ -135,7 +152,7 @@ describe("a note on the matter timeline", () => {
 
   it("is a read-side declaration only: no note write touches the calendar's tables", async () => {
     const { database, raw, noteId } = await seededNote();
-    const { effect } = await reviseMatterNote(
+    const { effect } = await editMatterNote(
       database,
       noteId,
       { body: "Corrected." },
@@ -143,8 +160,6 @@ describe("a note on the matter timeline", () => {
     );
     await commit(database, effect);
 
-    // A source is never a write-side obligation on the subsystem that owns the rows. Writing a note
-    // records a note and an audit row, and nothing anywhere else.
     for (const table of ["matter_event", "matter_deadline", "firm_event", "calendar_event_link"]) {
       const row = raw.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number };
       expect(row.count, table).toBe(0);

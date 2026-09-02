@@ -32,8 +32,10 @@ export interface MatterRecord {
   title: string;
   description: string | null;
   status: "prospective" | "open" | "closed";
-  /** Null until open draws it; frozen thereafter. A consultation is unnumbered by design. */
+  /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
+  /** The consultation's own tentative number, kept after opening rather than replaced by it. */
+  consultationNumber: string | null;
   matterTypeName: string | null;
   locationName: string | null;
   /** Null on a live matter: the name is a directory join the matter read does not carry. */
@@ -62,6 +64,7 @@ interface MatterReadPayload {
   description: string | null;
   status: "prospective" | "open" | "closed";
   matterNumber: string | null;
+  consultationNumber?: string | null;
   clientDisplayName: string | null;
   clientCode: string | null;
   // Optional on the wire, not in the contract. The contract requires all seven; a Worker deployed
@@ -88,6 +91,7 @@ export function matterRecordFromRead(payload: MatterReadPayload): MatterRecord {
     description: payload.description,
     status: payload.status,
     matterNumber: payload.matterNumber,
+    consultationNumber: payload.consultationNumber ?? null,
     matterTypeName: payload.matterTypeName ?? null,
     locationName: payload.locationName ?? null,
     responsibleAttorneyName: payload.responsibleMemberName ?? null,

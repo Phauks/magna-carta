@@ -28,6 +28,11 @@ export default defineConfig({
       "**/tsconfig.test.json",
       "packages/design-tokens/generated/**",
       "packages/design-tokens/test/golden/**",
+      // Emitted by drizzle-kit and re-derived byte-exact by the snapshot check
+      // (packages/database/scripts/refresh-snapshot.mjs --check, wired into the database package's
+      // `check-snapshots`). Same case as every artifact above: the generator owns the bytes, so a
+      // formatter reflow both fights the generator and is undone the next time a migration is added.
+      "packages/database/drizzle/**",
       // Assembled build outputs, not hand-authored: CHANGELOG.md is folded from changelog.d/* by
       // tooling/doc-fragments/build-changelog.mjs, and docs/Decision-Log.md is the register emitted by
       // build-decisions.mjs. Formatter reflow would fight those assemblers (same case as docs/decisions/**).

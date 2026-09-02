@@ -252,6 +252,19 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     editPermissionArea: "documents",
     shipped: true,
   },
+  {
+    // How a member takes the files the platform makes them. A MEMBER section, not a firm one:
+    // exporting generates onto that person's own shelf and only they decide whether a file is also
+    // saved as it is made. Where a file lands is deliberately not here — that is the browser's own
+    // setting, and the platform-side answer belongs to the desktop app.
+    id: "downloads",
+    label: "Downloads",
+    href: "/settings/downloads",
+    group: "documents",
+    scope: "user",
+    commitMode: "instant",
+    shipped: true,
+  },
   // Data & Platform
   {
     // The firm's stance toward pre-release features (release channel + beta opt-in). Draft

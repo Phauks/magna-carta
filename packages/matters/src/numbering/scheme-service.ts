@@ -9,9 +9,10 @@ import {
   selectActiveSchemeSegmentsStatement,
 } from "./scheme-statements.ts";
 import { numberingSchemeSchema, type NumberSegment } from "./segments.ts";
+import type { NumberingPurpose } from "../matter-statements.ts";
 
 // The numbering-scheme configuration service. setActiveNumberingScheme is the one write path the
-// "exactly one active scheme" invariant flows through; it validates the segments through
+// "exactly one active scheme per purpose" invariant flows through; it validates the segments through
 // numberingSchemeSchema (the single home for the exactly-one-counter and URL-safe-literal rules), so
 // a scheme that reaches the matter draw is always renderable. A number, once drawn, is frozen — a new
 // scheme changes only matters numbered after it.
@@ -22,8 +23,9 @@ export type SchemeServiceOptions = AuditContext;
 // error rather than a malformed render at draw time.
 export async function readActiveScheme(
   database: SqlDatabase,
+  purpose: NumberingPurpose = "matter",
 ): Promise<readonly NumberSegment[] | undefined> {
-  const { results } = await selectActiveSchemeSegmentsStatement(database).all<{
+  const { results } = await selectActiveSchemeSegmentsStatement(database, purpose).all<{
     segments: string;
   }>();
   const row = results[0];
@@ -42,6 +44,7 @@ export function setActiveNumberingScheme(
   database: SqlDatabase,
   segments: readonly NumberSegment[],
   options: SchemeServiceOptions,
+  purpose: NumberingPurpose = "matter",
 ): SetSchemeResult {
   const validated = numberingSchemeSchema.parse(segments);
   const schemeId = newIdentifier("numberingScheme", options.randomSource);
@@ -50,10 +53,11 @@ export function setActiveNumberingScheme(
     schemeId,
     effect: {
       statements: [
-        deactivateActiveSchemeStatement(database, now),
+        deactivateActiveSchemeStatement(database, purpose, now),
         insertNumberingSchemeStatement(database, {
           id: schemeId,
           segments: JSON.stringify(validated),
+          purpose,
           createdAt: now,
         }),
         matterAuditStatement(database, options, "numberingScheme.updated", schemeId),

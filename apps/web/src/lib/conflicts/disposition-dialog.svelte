@@ -29,6 +29,8 @@
    *      pressed, so nobody records an unevidenced waiver believing it complete.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import Button from "@magna-carta/design-system/button";
@@ -87,7 +89,7 @@
   let kind = $state<DispositionKind>("cleared");
   let rationale = $state("");
   let recording = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   // The waiver's own record. `confirmedInWriting` starts unanswered on purpose: it is a fact in its
   // own right and a reviewer has to state it, so there is no default for the control to imply.
@@ -189,12 +191,11 @@
       onRecorded();
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "The answer could not be sent. Nothing was recorded."
-        : `${outcome.problem.detail ?? "The answer was refused."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The answer was refused.",
+      "The answer could not be sent. Nothing was recorded.",
+    );
   }
 </script>
 
@@ -211,10 +212,12 @@
     </Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>The Answer Was Not Recorded</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="The Answer Was Not Recorded"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
     {/if}
 
     <div class="flex flex-col gap-16">

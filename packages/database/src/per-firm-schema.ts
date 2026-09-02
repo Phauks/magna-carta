@@ -99,8 +99,8 @@ import type {
   MatterAssignmentId,
   MatterCourtCaseId,
   MatterDeadlineId,
+  MatterNoteDocumentId,
   MatterNoteId,
-  MatterNoteRevisionId,
   MatterEstateId,
   MatterEventId,
   MatterEventParticipantId,
@@ -553,13 +553,28 @@ export const documentType = sqliteTable(
 // The matter-number template: an ordered array of segments stored as validated JSON. One active
 // scheme per firm is enforced in the write path; superseded schemes are retained so a historical
 // number still explains how it was rendered.
-export const numberingScheme = sqliteTable("numbering_scheme", {
-  id: text("id").primaryKey().$type<NumberingSchemeId>(), // numberingScheme_ handle
-  segments: text("segments").notNull(), // JSON; shape validated by numberingSchemeSchema
-  active: integer("active").notNull().default(1),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+export const numberingScheme = sqliteTable(
+  "numbering_scheme",
+  {
+    id: text("id").primaryKey().$type<NumberingSchemeId>(), // numberingScheme_ handle
+    segments: text("segments").notNull(), // JSON; shape validated by numberingSchemeSchema
+    // Which sequence this template renders. A firm numbers two different things and must be able to
+    // shape them independently: the permanent matter number, and the tentative number a consultation
+    // carries before anyone knows whether it will become a matter. One active scheme per purpose; a
+    // firm that has configured no consultation scheme falls back to the built-in default, so a
+    // consultation is never unnumbered while somebody gets round to the settings screen.
+    purpose: text("purpose", { enum: ["matter", "consultation"] })
+      .notNull()
+      .default("matter"),
+    active: integer("active").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  // No CHECK on purpose: adding one to a table that already exists costs SQLite a full table
+  // rebuild, which is destructive DDL for a two-value column the write path is the only producer of.
+  // The enum on the column carries the constraint where it is actually enforced.
+  () => [],
+);
 
 // The matter-number counter, one row per {firm, scope_key}. The primary key is the natural scope key,
 // NOT an identifier handle — like the migration tracker, this is a counter keyed by what it counts
@@ -606,6 +621,15 @@ export const matter = sqliteTable(
     naturalLanguageIndexExcluded: integer("natural_language_index_excluded").notNull().default(0),
     matterNumber: text("matter_number"), // null until open draws it; frozen thereafter
     numberedAt: text("numbered_at"),
+    // The tentative number a consultation carries from the moment it is created, drawn from the
+    // firm's consultation sequence. A prospective matter is a real thing a firm has to be able to
+    // name — on an intake sheet, a conflicts check, a bill for the consultation itself — and
+    // "Consultation" is not a name. It is drawn once and frozen: opening the matter draws the
+    // permanent matter_number alongside it rather than replacing it, so a document filed under the
+    // tentative number still resolves. Null only on matters created straight to open (which never
+    // were a consultation) and on prospectives created before the sequence existed. The draw instant
+    // is created_at by construction — the number is allocated in the insert's own batch.
+    consultationNumber: text("consultation_number"),
     // Names a platform-owned matter that exists to satisfy a structural requirement rather than to
     // hold a client engagement — today only the custody holding matter, which is where a scan of an
     // original held for someone with no matter is filed. Null on every real matter. Marked rather
@@ -622,6 +646,12 @@ export const matter = sqliteTable(
     uniqueIndex("matter_matter_number_unique_index")
       .on(table.matterNumber)
       .where(sql`${table.matterNumber} IS NOT NULL`),
+    // Same shape as the matter-number index and for the same reason: the tentative number is a name
+    // people quote, so two consultations must never wear one. Partial, so the matters that carry no
+    // consultation number are unconstrained.
+    uniqueIndex("matter_consultation_number_unique_index")
+      .on(table.consultationNumber)
+      .where(sql`${table.consultationNumber} IS NOT NULL`),
     // At most one matter per firm per system key — the find-or-insert guard that collapses two
     // concurrent first-use creations onto one row.
     uniqueIndex("matter_system_key_unique_index")
@@ -2173,11 +2203,26 @@ export const timeEntry = sqliteTable(
     // (not audit_log.metadata) so it inherits the entry's tenancy, RBAC, and retention, and
     // can be read back by the timekeeper without a privileged audit-log read.
     kickBackReason: text("kick_back_reason"),
+    // The firm's own note about the entry — one audience, the firm. It never reaches a bill, a
+    // print sheet, the client portal, or audit_log.metadata (an audit row records THAT the memo
+    // changed, never what it says). Nullable: most entries carry none.
+    memo: text("memo"),
+    // The matter-scoped human reference, e.g. "2026-0147.0042" — the matter's number, a dot, and a
+    // zero-padded per-matter sequence drawn at capture. Immutable once assigned and never reused (a
+    // void keeps its number). Null on every entry captured before the sequence existed: an honest
+    // gap, never a backfilled guess.
+    entryNumber: text("entry_number"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"), // actor user handle (not an FK)
   },
   (table) => [
+    // Rendered-string backstop, mirroring matter_number: the allocation primary key catches the
+    // counter race; this catches a rendered collision the counter cannot see. Partial, so the
+    // pre-sequence null rows stay unconstrained.
+    uniqueIndex("time_entry_entry_number_unique_index")
+      .on(table.entryNumber)
+      .where(sql`${table.entryNumber} IS NOT NULL`),
     index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
     index("time_entry_matter_status_index").on(table.matterId, table.status),
     index("time_entry_status_work_date_index").on(table.status, table.workDate),
@@ -2204,6 +2249,55 @@ export const timeEntry = sqliteTable(
       "time_entry_amount_paired_null_check",
       sql`(${table.amountMinor} IS NULL) = (${table.rateE4} IS NULL)`,
     ),
+  ],
+);
+
+// The per-matter entry-number sequence (scope_key = the matter id). Same two-table draw as the
+// matter and invoice numbers, through @magna-carta/sequence-numbering: the counter row is what a
+// drawer reads, the allocation primary key is what aborts a losing draw's whole batch.
+export const timeEntryNumberCounter = sqliteTable("time_entry_number_counter", {
+  scopeKey: text("scope_key").primaryKey(), // the matter id — one sequence per matter
+  nextValue: integer("next_value").notNull(),
+});
+
+export const timeEntryNumberAllocation = sqliteTable(
+  "time_entry_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(), // the time_entry_number_counter row this value came from
+    drawnValue: integer("drawn_value").notNull(), // the counter value this draw consumed
+    timeEntryId: text("time_entry_id")
+      .notNull()
+      .$type<TimeEntryId>()
+      .references(() => timeEntry.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("time_entry_number_allocation_time_entry_id_index").on(table.timeEntryId),
+  ],
+);
+
+// A time entry's attached files — references to documents already in the entry's matter, many per
+// entry. Detaching deletes THIS row only; the file stays in the matter (the audit trail keeps the
+// attach/detach history). The attach path refuses a file on another matter, so an entry can never
+// point outside its own matter's record.
+export const timeEntryAttachment = sqliteTable(
+  "time_entry_attachment",
+  {
+    timeEntryId: text("time_entry_id")
+      .notNull()
+      .$type<TimeEntryId>()
+      .references(() => timeEntry.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"), // actor user handle (not an FK); null for system writes
+  },
+  (table) => [
+    primaryKey({ columns: [table.timeEntryId, table.fileId] }),
+    index("time_entry_attachment_file_id_index").on(table.fileId),
   ],
 );
 
@@ -6136,16 +6230,19 @@ export const matterDeadline = sqliteTable(
   ],
 );
 
-// A note on a matter: what the firm wrote down about a case that no other record holds. Two tables,
-// because a note is an IDENTITY that persists and a BODY that gets corrected, and those have
-// different lifetimes — the identity carries the matter, who first wrote it, when, and whether it
-// still stands; each revision carries one body, its own author, and its own instant.
+// A note on a matter: what the firm wrote down about a case that no other record holds.
+//
+// ONE ROW, edited in place and deleted outright. The first cut of this table held an identity row
+// and a chain of revisions, so a correction appended and nothing was ever removed. The owner's
+// direction on 2026-09-01 replaced it: a note is edited and deleted like any other record, because
+// replacing a note with another note every time somebody fixes a word accumulates without end and
+// the chain was never what a firm asked for. What that costs is stated where it belongs, in the
+// package's own CLAUDE.md, rather than argued here.
 //
 // The attachment is a real foreign key to `matter` and not a `subject_kind`/`subject_id` pair. The
 // cost of the polymorphic shape is already measured in this schema: `audit_log.subject_id` is
 // untyped, holds whatever the writer thought the subject was, and the timeline's read of it needs a
-// prefix scan to confine itself to rows whose subject really is a matter. A note is a first-class
-// record read on a hot surface, so it gets a real key, a real index, and a real cascade story.
+// prefix scan to confine itself to rows whose subject really is a matter.
 export const matterNote = sqliteTable(
   "matter_note",
   {
@@ -6154,93 +6251,94 @@ export const matterNote = sqliteTable(
       .notNull()
       .$type<MatterId>()
       .references(() => matter.id),
-    // Who wrote it FIRST, and it never nulls, never repoints, and is not anonymized when they leave.
-    // An unattributed contemporaneous record is worth a fraction of an attributed one — the whole
-    // value of "I spoke to her on Tuesday" is that a specific person wrote it on a specific day. That
-    // a former member wrote it is a JOIN on member.status at read time, never a column here: a fact
-    // that is a join cannot drift from the row it joins.
+    // Who wrote it first, and it never nulls, never repoints, and is not anonymized when they leave.
+    // An unattributed record is worth a fraction of an attributed one. That a former member wrote it
+    // is a JOIN on member.status at read time, never a column here: a fact that is a join cannot
+    // drift from the row it joins.
     authorUserId: text("author_user_id").notNull().$type<UserId>(),
-    // The chain's live head, as the ordinal of the revision that currently renders. A POINTER on the
-    // identity row rather than a flag on each revision, because the revision table is append-only by
-    // trigger and moving a flag there would be an UPDATE it refuses. Moving the head is an UPDATE
-    // here, which carries no trigger, and the unique index on (note_id, ordinal) below is what makes
-    // "exactly one head" a schema fact rather than a convention.
-    headOrdinal: integer("head_ordinal").notNull().default(1),
-    // A retracted note stops rendering its body everywhere and leaves the federated timeline
-    // entirely; the row, its revisions, its author and its instants all remain. This is the answer to
-    // "this should never have been written", and it is deliberately visible — the firm can see that a
-    // note was withdrawn and by whom, which is what makes it a correction mechanism rather than a
-    // quiet erasure. There is no third state and no delete.
-    state: text("state", { enum: ["active", "retracted"] })
-      .notNull()
-      .default("active"),
-    retractedAt: text("retracted_at"), // UTC instant
-    retractedBy: text("retracted_by").$type<UserId>(),
-    // Required on retraction. "Why did this stop rendering" is the question somebody asks later, and
-    // the only bad answer is silence — the same reasoning that makes a vacated deadline's reason
-    // required.
-    retractionReason: text("retraction_reason"),
+    body: text("body").notNull(),
+    // Who last changed the words, where anybody has. Null on a note nobody has edited, which is why
+    // it is not simply the author repeated: "nobody has touched this since it was written" and "the
+    // author edited their own note" are different facts and the column can say which.
+    lastEditedBy: text("last_edited_by").$type<UserId>(),
+    // WHEN THE THING HAPPENED, which is not when the note was typed. A note written on Thursday about
+    // a call on Tuesday carries both: created_at is the typing, and this is the call. Optional,
+    // because plenty of notes record no single moment ("do not call this client before 10am").
+    //
+    // A civil date and a separate optional wall-clock time, on the calendar's model and for its
+    // reasons: "that afternoon, we don't know when" is a real and common answer, and no column
+    // stores midnight-local-as-UTC, which is the daylight-saving off-by-one that moves a record by a
+    // day when the clocks change.
+    occurredOn: text("occurred_on"), // civil date, YYYY-MM-DD
+    occurredAtTime: text("occurred_at_time"), // wall clock, HH:MM
+    // The zone the wall-clock time above is read in. Required whenever there IS one and meaningless
+    // without one — a bare "3pm" on a record somebody reads in another state is not a time.
+    timeZone: text("time_zone"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    // The matter's own note list and the federated timeline's read of it.
+    // The matter's own note list and the federated timeline's read of it. The timeline sorts by when
+    // the thing HAPPENED where the note says, falling back to the day it was written, so the index
+    // leads with the matter and the fallback date is computed in the read.
     index("matter_note_matter_created_at_id_index").on(table.matterId, table.createdAt, table.id),
+    index("matter_note_matter_occurred_on_id_index").on(table.matterId, table.occurredOn, table.id),
     // The firm-wide timeline window, which bounds by date across every matter.
     index("matter_note_created_at_id_index").on(table.createdAt, table.id),
     index("matter_note_author_index").on(table.authorUserId),
-    check("matter_note_state_check", sql`${table.state} IN ('active', 'retracted')`),
-    check("matter_note_head_ordinal_check", sql`${table.headOrdinal} > 0`),
-    // A retracted note names who withdrew it, when, and why; an active one claims none of the three.
-    // Both directions, so neither a retraction missing its record nor a live note carrying one is
-    // expressible.
+    check("matter_note_body_check", sql`length(${table.body}) > 0`),
     check(
-      "matter_note_retraction_shape_check",
-      sql`(${table.state} = 'retracted' AND ${table.retractedAt} IS NOT NULL AND ${table.retractedBy} IS NOT NULL AND ${table.retractionReason} IS NOT NULL AND length(${table.retractionReason}) > 0)
-        OR (${table.state} = 'active' AND ${table.retractedAt} IS NULL AND ${table.retractedBy} IS NULL AND ${table.retractionReason} IS NULL)`,
+      "matter_note_occurred_on_shape_check",
+      sql`${table.occurredOn} IS NULL OR ${table.occurredOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_note_occurred_at_time_shape_check",
+      sql`${table.occurredAtTime} IS NULL OR ${table.occurredAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    // A time with no date is not a moment anybody can place, and a wall clock with no zone is not a
+    // time. Both directions of the second one: a zone on a note that names no time says nothing.
+    check(
+      "matter_note_occurrence_shape_check",
+      sql`(${table.occurredAtTime} IS NULL OR ${table.occurredOn} IS NOT NULL)
+        AND (${table.occurredAtTime} IS NULL) = (${table.timeZone} IS NULL)`,
     ),
   ],
 );
 
-// One body of one note, with its own author and its own instant. APPEND-ONLY, enforced by three
-// triggers in the migration rather than by application code: an edit appends a revision and moves the
-// note's head, and every prior body stays readable from the note's own surface.
+// A file on the matter, linked to a note. Modelled on matter_asset_document, and the reasoning
+// carries over unchanged.
 //
-// The reasoning is that a note is neither the ledger nor the calendar. The ledger is append-only
-// because a third party relies on it; no rule of conduct demands that of a note. The calendar edits
-// in place because it records a PLAN, and a firm made to file a compensating row to fix a typo stops
-// recording. But a note is a contemporaneous record whose evidentiary weight comes from having been
-// written then, by that person, saying that — and editing it in place destroys the one property that
-// makes it worth keeping.
-export const matterNoteRevision = sqliteTable(
-  "matter_note_revision",
+// BYTES NEVER REACH A NOTE ROUTE. Upload is the File Manager's presigned-upload and quarantine
+// chokepoint, and this row links the resulting handle. A letter attached to a note is still in the
+// matter's file list, still previewable, still convertible, still under any legal hold, still in
+// discovery — it gained an association and lost nothing.
+//
+// MANY-TO-MANY in both directions. One letter is discussed in the note about the call that preceded
+// it and the note about the call that followed; one note about a document review names every file it
+// covered. Requiring a file to belong to one note would make a firm choose which note to attach it
+// to, which is how a link stops being used.
+export const matterNoteDocument = sqliteTable(
+  "matter_note_document",
   {
-    id: text("id").primaryKey().$type<MatterNoteRevisionId>(), // matterNoteRevision_ handle
+    id: text("id").primaryKey().$type<MatterNoteDocumentId>(), // matterNoteDocument_ handle
     noteId: text("note_id")
       .notNull()
       .$type<MatterNoteId>()
       .references(() => matterNote.id),
-    // The words. The most privileged free-text column this schema has after a time entry's narrative:
-    // it is registered report-manual in the PII registry, it is never projected onto the federated
-    // timeline, and no merge field may resolve to it (a fitness function in packages/notes holds
-    // that last one, because a catalog entry that did would put work product into a letter under the
-    // firm's letterhead and the PDF metadata scrub is structurally blind to page content).
-    body: text("body").notNull(),
-    // Whoever wrote THIS body, which is not always whoever started the note: a colleague correcting a
-    // partner's note is a real and ordinary thing, and the correction is theirs.
-    authorUserId: text("author_user_id").notNull().$type<UserId>(),
-    // Its place in the chain, from 1. The unique index below makes two revisions racing for the same
-    // ordinal a collision that aborts the whole batch — which is the right outcome and the reason the
-    // head pointer needs no separate guard: two members revising at once, one loses, and neither
-    // silently overwrites the other's words.
-    ordinal: integer("ordinal").notNull(),
-    createdAt: text("created_at").notNull(),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    linkedAt: text("linked_at").notNull(),
+    linkedBy: text("linked_by").$type<UserId>(),
   },
   (table) => [
-    uniqueIndex("matter_note_revision_note_ordinal_unique_index").on(table.noteId, table.ordinal),
-    index("matter_note_revision_author_index").on(table.authorUserId),
-    check("matter_note_revision_body_check", sql`length(${table.body}) > 0`),
-    check("matter_note_revision_ordinal_check", sql`${table.ordinal} > 0`),
+    index("matter_note_document_note_index").on(table.noteId),
+    // The reverse read: which notes discuss this document. Not unique — see the table comment.
+    index("matter_note_document_file_index").on(table.fileId),
+    // One document rides one note once. A second identical link is a duplicate row a person reads as
+    // the same file twice, and detaching one would leave the other behind.
+    uniqueIndex("matter_note_document_note_file_unique_index").on(table.noteId, table.fileId),
   ],
 );
 
@@ -8844,6 +8942,11 @@ export const downloadItem = sqliteTable(
     // plain list does not answer: a member who can see they already took the Word copy is looking at
     // a shelf, and one who cannot is looking at a pile. Empty means built and never fetched, which is
     // a real and visible state.
+    // The format this item was MADE for, distinct from the formats it has been taken in: exporting
+    // generates onto the shelf rather than downloading, so the member's choice at the export control
+    // has to survive until they come back for it. Null on every row written before the column
+    // existed, where the format asked for WAS the format taken.
+    requestedFormat: text("requested_format"),
     downloadedFormatsJson: text("downloaded_formats_json").notNull().default("[]"),
     createdAt: text("created_at").notNull(),
     // When the shelf lets go, written by the producer from one constant so a row and the lifecycle

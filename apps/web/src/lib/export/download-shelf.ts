@@ -6,7 +6,14 @@
  * call from rendering: the render route is a stateless printer, and the three browser-rendered
  * formats never reach it at all, so the shelf would otherwise only ever hold half the exports.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import {
+  problemOutcome,
+  readProblem,
+  requestJson,
+  requestLine,
+  transportOutcome,
+  type ApiOutcome,
+} from "$lib/api/request.ts";
 import type { TabularExportCell, TabularExportDocument } from "./tabular-export.ts";
 
 export type ShelfItemKind = "artifact" | "snapshot";
@@ -19,6 +26,8 @@ export interface ShelfItem {
   readonly kind: ShelfItemKind;
   readonly producer: ShelfItemProducer;
   readonly byteSize: number | null;
+  /** The format it was made for; null on rows written before exports recorded one. */
+  readonly requestedFormat: string | null;
   readonly downloadedFormats: readonly string[];
   readonly createdAt: string;
   readonly expiresAt: string;
@@ -44,30 +53,18 @@ export async function removeShelfItem(
   fetchImpl: typeof fetch,
   id: string,
 ): Promise<ApiOutcome<undefined>> {
+  const path = `/api/v1/downloads/${encodeURIComponent(id)}`;
+  const line = requestLine("DELETE", path);
   let response: Response;
   try {
-    response = await fetchImpl(`/api/v1/downloads/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      headers: { accept: "application/json" },
-    });
+    response = await fetchImpl(path, { method: "DELETE", headers: { accept: "application/json" } });
   } catch {
-    return { kind: "transport" };
+    return transportOutcome(line);
   }
   if (response.ok) return { kind: "ok", value: undefined };
-  try {
-    const body = (await response.json()) as Record<string, unknown>;
-    return {
-      kind: "problem",
-      problem: {
-        status: response.status,
-        ...(typeof body["type"] === "string" && { type: body["type"] }),
-        ...(typeof body["detail"] === "string" && { detail: body["detail"] }),
-        ...(typeof body["errorId"] === "string" && { errorId: body["errorId"] }),
-      },
-    };
-  } catch {
-    return { kind: "problem", problem: { status: response.status } };
-  }
+  // The shared reader, rather than a local one: it takes every field the contract sends, so a
+  // failure here carries the same handle and the same remedy as any other.
+  return problemOutcome(await readProblem(response), line);
 }
 
 /**
@@ -82,10 +79,37 @@ export function keepExportOnShelf(
   fetchImpl: typeof fetch,
   exportDocument: TabularExportDocument,
   format: string,
+  /** True only when a file was actually saved in the same act — the download-immediately path. */
+  taken = false,
 ): Promise<ApiOutcome<{ id: string }>> {
   return requestJson<{ id: string }>(fetchImpl, "/api/v1/downloads/snapshots", {
     method: "POST",
-    body: { title: exportDocument.title, format, document: storedFromExport(exportDocument) },
+    body: {
+      title: exportDocument.title,
+      format,
+      taken,
+      document: storedFromExport(exportDocument),
+    },
+  });
+}
+
+export interface DownloadPreferences {
+  readonly saveImmediately: boolean;
+}
+
+export function readDownloadPreferences(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<DownloadPreferences>> {
+  return requestJson<DownloadPreferences>(fetchImpl, "/api/v1/downloads/preferences");
+}
+
+export function writeDownloadPreferences(
+  fetchImpl: typeof fetch,
+  preferences: DownloadPreferences,
+): Promise<ApiOutcome<DownloadPreferences>> {
+  return requestJson<DownloadPreferences>(fetchImpl, "/api/v1/downloads/preferences", {
+    method: "PUT",
+    body: preferences,
   });
 }
 

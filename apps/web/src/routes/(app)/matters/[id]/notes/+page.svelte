@@ -2,19 +2,21 @@
   /*
    * The matter's notes: what the firm wrote down about this case that no other record holds.
    *
-   * A note is a chain rather than a field, and the whole screen follows from that. Correcting one
-   * adds a version and keeps the earlier one, so a corrected note says how many versions it has and
-   * offers them; nothing here overwrites anything, and there is no delete control because the server
-   * has no delete route.
+   * A note is edited in place and deleted outright. There is no version history and no withdrawal
+   * tombstone: an edit replaces the words, and a delete removes the note.
    *
-   * Withdrawing is the one consequential act, and it is the answer to text that should never have
-   * been typed. A withdrawn note keeps its place in the list as a tombstone carrying who wrote it,
-   * who withdrew it, and why: the firm can see that something came down and by whose hand, which is
-   * what makes withdrawal a correction rather than a quiet erasure. Its body never arrives at this
-   * screen at all, because the server nulls it rather than trusting the client to hide it.
+   * TWO TIMES, KEPT APART. `createdAt` is when somebody typed the note. The occurrence is when the
+   * thing it describes happened, which is frequently an earlier day, and it is what the list and the
+   * matter's activity history order by. A note about Tuesday's call belongs beside Tuesday.
    *
-   * Attribution is resolved against the firm roster, and a note whose author has left says so. A
-   * colleague reading a name needs to know they cannot go and ask that person.
+   * THE COMPOSER SHOWS EVERYTHING THE NOTE WILL CARRY, generated fields included: which matter it
+   * lands on, whose name goes on it, and the instant it will be stamped with. A person writing a
+   * record that may be read years later should not have to guess what is being stored alongside
+   * their words.
+   *
+   * Attaching a document points at a file the matter already holds. Nothing is uploaded here and
+   * nothing is copied: the document stays in the matter's files with everything that follows from
+   * being there, and detaching ends the association without touching it.
    *
    * A SAMPLE matter (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no
    * firm behind it and therefore nothing to read; it says so rather than showing an empty list.
@@ -23,26 +25,34 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import Input from "@magna-carta/design-system/input";
+  import Label from "@magna-carta/design-system/label";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Textarea from "@magna-carta/design-system/textarea";
-  import Input from "@magna-carta/design-system/input";
+  import * as Select from "@magna-carta/design-system/select";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
+  import { formatDate } from "@magna-carta/design-system/data-table";
   import Plus from "@lucide/svelte/icons/plus";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
-  import History from "@lucide/svelte/icons/history";
-  import Ban from "@lucide/svelte/icons/ban";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Paperclip from "@lucide/svelte/icons/paperclip";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
-  import NoteRetractDialog from "$lib/matters/note-retract-dialog.svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import NoteDeleteDialog from "$lib/matters/note-delete-dialog.svelte";
   import {
+    attachNoteDocument,
     createMatterNote,
+    detachNoteDocument,
+    editMatterNote,
     listMatterNotes,
-    listNoteRevisions,
     newWriteKey,
-    reviseMatterNote,
+    viewerTimeZone,
     type MatterNote,
-    type MatterNoteRevision,
   } from "$lib/matters/notes-api.ts";
+  import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -58,30 +68,196 @@
   const notes = $derived(noteList.items);
   const failure = $derived(noteList.failure);
 
-  // Composing a new note. The composer exists only while it is in use: its absence is what the
-  // primary action is for.
+  // The matter's documents, for the attach picker. Read once when the section opens.
+  let matterFiles = $state<MatterFile[] | null>(null);
+  // Who is writing. The composer names them because the note will, and a person should not have to
+  // guess whose name is going on a record that may be read years from now.
+  let session = $state<SessionBootstrap | null>(null);
+
+  // Composing. The composer exists only while it is in use: its absence is what the primary action
+  // is for.
   let composing = $state(false);
   let draft = $state("");
+  let draftOccurredOn = $state("");
+  let draftOccurredAtTime = $state("");
   let saving = $state(false);
-  let writeFailure = $state<string | null>(null);
+  let writeFailure = $state<StatedFailure | null>(null);
+  // The instant the note will be stamped with, shown live so the composer is not describing a
+  // moment that has already passed by the time somebody presses Save.
+  let composerNow = $state(new Date().toISOString());
 
-  // Correcting an existing one, keyed by note so only the note being corrected turns into a field.
-  let revisingNoteId = $state<string | null>(null);
-  let revisionDraft = $state("");
+  $effect(() => {
+    if (!composing) return;
+    const tick = setInterval(() => {
+      composerNow = new Date().toISOString();
+    }, 1000);
+    return () => {
+      clearInterval(tick);
+    };
+  });
 
-  // Expanded histories, and the revisions read for them. A history is fetched once per note.
-  let openHistory = $state<string | null>(null);
-  let revisions = $state<Record<string, { entries: MatterNoteRevision[]; capped: boolean }>>({});
-  let historyFailure = $state<string | null>(null);
+  // Editing an existing note, keyed by note so only the one being edited turns into a field.
+  let editingNoteId = $state<string | null>(null);
+  let editDraft = $state("");
+  let editOccurredOn = $state("");
+  let editOccurredAtTime = $state("");
 
-  let retracting = $state<MatterNote | null>(null);
-  let retractOpen = $state(false);
+  let deleting = $state<MatterNote | null>(null);
+  let deleteOpen = $state(false);
 
-  // Finding a note again on this matter. The term is applied by the server against the notes'
-  // current text; it is held here so the list can be re-read when it settles.
+  // Which note's attach picker is open, and what it has selected.
+  let attachingNoteId = $state<string | null>(null);
+
+  // Finding a note again on this matter.
   let searchTerm = $state("");
   let appliedSearch = $state("");
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+  $effect(() => {
+    const matterId = matter.id;
+    if (noteList.showing(matterId)) return;
+    noteList.reset(matterId);
+    composing = false;
+    draft = "";
+    draftOccurredOn = "";
+    draftOccurredAtTime = "";
+    editingNoteId = null;
+    attachingNoteId = null;
+    searchTerm = "";
+    appliedSearch = "";
+    writeFailure = null;
+    matterFiles = null;
+    if (isSample) {
+      noteList.settleEmpty();
+      matterFiles = [];
+      return;
+    }
+    void readSession(fetch).then((outcome) => {
+      session = outcome.kind === "ok" ? outcome.value : null;
+    });
+    void noteList.load((cursor) => listMatterNotes(fetch, matterId, cursor));
+    void roster.load(fetch);
+    void listMatterFiles(fetch, matterId).then((outcome) => {
+      // A failed file read never fails the screen: notes still read, and the attach control says
+      // what it cannot offer rather than disappearing.
+      matterFiles = outcome.kind === "ok" ? outcome.value.data : [];
+    });
+  });
+
+  function nameOf(userId: string | null): string {
+    if (userId === null) return "Not recorded";
+    const member = (roster.members ?? []).find((candidate) => candidate.userId === userId);
+    return member?.displayName ?? "Not recorded";
+  }
+
+  function hasLeft(userId: string | null): boolean {
+    if (userId === null) return false;
+    const member = (roster.members ?? []).find((candidate) => candidate.userId === userId);
+    return member?.status === "deactivated";
+  }
+
+  // The name that will go on the note, as the note will carry it. Falls back to a plain word rather
+  // than an account handle while the read is in flight: a handle is not a name and never reads as one.
+  const myName = $derived(session?.user.name ?? "You");
+  // Writing, editing, deleting and attaching are one permission. A member without it still reads the
+  // matter's notes, so the controls are absent rather than present-and-refusing.
+  const canWrite = $derived(session === null || session.permissions.includes("notes:write"));
+
+  function refresh(): void {
+    const matterId = matter.id;
+    const term = appliedSearch;
+    noteList.reset(matterId);
+    void noteList.load((cursor) => listMatterNotes(fetch, matterId, cursor, term));
+  }
+
+  // The occurrence as the server takes it: all three together or none at all. A time with no date is
+  // refused server-side, so the composer simply does not send one.
+  function occurrenceOf(
+    occurredOn: string,
+    occurredAtTime: string,
+  ): { occurredOn: string | null; occurredAtTime: string | null; timeZone: string | null } {
+    if (occurredOn.trim().length === 0) return { occurredOn: null, occurredAtTime: null, timeZone: null };
+    if (occurredAtTime.trim().length === 0) {
+      return { occurredOn: occurredOn, occurredAtTime: null, timeZone: null };
+    }
+    return { occurredOn, occurredAtTime, timeZone: viewerTimeZone() };
+  }
+
+  async function saveNote(): Promise<void> {
+    if (draft.trim().length === 0 || saving) return;
+    saving = true;
+    writeFailure = null;
+    const outcome = await createMatterNote(
+      fetch,
+      matter.id,
+      { body: draft.trim(), ...occurrenceOf(draftOccurredOn, draftOccurredAtTime) },
+      newWriteKey(),
+    );
+    saving = false;
+    if (outcome.kind === "ok") {
+      draft = "";
+      draftOccurredOn = "";
+      draftOccurredAtTime = "";
+      composing = false;
+      refresh();
+      return;
+    }
+    writeFailure = stated(outcome.failure, "The note was not written.");
+  }
+
+  async function saveEdit(noteId: string): Promise<void> {
+    if (editDraft.trim().length === 0 || saving) return;
+    saving = true;
+    writeFailure = null;
+    const outcome = await editMatterNote(
+      fetch,
+      noteId,
+      { body: editDraft.trim(), ...occurrenceOf(editOccurredOn, editOccurredAtTime) },
+      newWriteKey(),
+    );
+    saving = false;
+    if (outcome.kind === "ok") {
+      editingNoteId = null;
+      refresh();
+      return;
+    }
+    writeFailure = stated(outcome.failure, "The note was not changed.");
+  }
+
+  function beginEdit(note: MatterNote): void {
+    editingNoteId = note.id;
+    editDraft = note.body;
+    editOccurredOn = note.occurredOn ?? "";
+    editOccurredAtTime = note.occurredAtTime ?? "";
+    writeFailure = null;
+  }
+
+  async function attach(noteId: string, fileId: string): Promise<void> {
+    if (saving) return;
+    saving = true;
+    writeFailure = null;
+    const outcome = await attachNoteDocument(fetch, noteId, fileId, newWriteKey());
+    saving = false;
+    attachingNoteId = null;
+    if (outcome.kind === "ok") {
+      refresh();
+      return;
+    }
+    writeFailure = stated(outcome.failure, "The document was not attached.");
+  }
+
+  async function detach(attachmentId: string): Promise<void> {
+    if (saving) return;
+    saving = true;
+    writeFailure = null;
+    const outcome = await detachNoteDocument(fetch, attachmentId, newWriteKey());
+    saving = false;
+    if (outcome.kind === "ok") {
+      refresh();
+      return;
+    }
+    writeFailure = stated(outcome.failure, "The document was not detached.");
+  }
 
   function applySearch(term: string): void {
     appliedSearch = term;
@@ -105,117 +281,19 @@
     applySearch("");
   }
 
-  $effect(() => {
-    const matterId = matter.id;
-    if (noteList.showing(matterId)) return;
-    noteList.reset(matterId);
-    composing = false;
-    draft = "";
-    searchTerm = "";
-    appliedSearch = "";
-    revisingNoteId = null;
-    openHistory = null;
-    revisions = {};
-    writeFailure = null;
-    if (isSample) {
-      noteList.settleEmpty();
-      return;
-    }
-    void noteList.load((cursor) => listMatterNotes(fetch, matterId, cursor));
-    void roster.load(fetch);
-  });
-
-  function nameOf(userId: string | null): string {
-    if (userId === null) return "Not recorded";
-    const member = (roster.members ?? []).find((candidate) => candidate.userId === userId);
-    return member?.displayName ?? "Not recorded";
+  // What the attach picker may offer: the matter's files, minus the ones this note already carries.
+  function attachableFor(note: MatterNote): MatterFile[] {
+    const already = new Set(note.documents.map((document) => document.fileId));
+    return (matterFiles ?? []).filter((file) => !already.has(file.id));
   }
 
-  function hasLeft(userId: string | null): boolean {
-    if (userId === null) return false;
-    const member = (roster.members ?? []).find((candidate) => candidate.userId === userId);
-    return member?.status === "deactivated";
-  }
-
-  function refresh(): void {
-    const matterId = matter.id;
-    const term = appliedSearch;
-    noteList.reset(matterId);
-    void noteList.load((cursor) => listMatterNotes(fetch, matterId, cursor, term));
-  }
-
-  function refusalText(
-    outcome: { kind: "transport" } | { kind: "problem"; problem: { detail?: string; errorId?: string } },
-    whenSilent: string,
-  ): string {
-    if (outcome.kind === "transport") return `Nothing answered. ${whenSilent}`;
-    return `${outcome.problem.detail ?? whenSilent}${
-      outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
+  // When the thing happened, as one line. Null where the note names no moment.
+  function occurrenceText(note: MatterNote): string | null {
+    if (note.occurredOn === null) return null;
+    if (note.occurredAtTime === null) return formatDate(note.occurredOn);
+    return `${formatDate(note.occurredOn)}, ${note.occurredAtTime}${
+      note.timeZone === null ? "" : ` (${note.timeZone})`
     }`;
-  }
-
-  async function saveNote(): Promise<void> {
-    if (draft.trim().length === 0 || saving) return;
-    saving = true;
-    writeFailure = null;
-    const outcome = await createMatterNote(fetch, matter.id, draft.trim(), newWriteKey());
-    saving = false;
-    if (outcome.kind === "ok") {
-      draft = "";
-      composing = false;
-      refresh();
-      return;
-    }
-    writeFailure = refusalText(outcome, "The note was not written.");
-  }
-
-  async function saveRevision(noteId: string): Promise<void> {
-    if (revisionDraft.trim().length === 0 || saving) return;
-    saving = true;
-    writeFailure = null;
-    const outcome = await reviseMatterNote(fetch, noteId, revisionDraft.trim(), newWriteKey());
-    saving = false;
-    if (outcome.kind === "ok") {
-      revisingNoteId = null;
-      revisionDraft = "";
-      // The chain moved, so a history already on screen is stale.
-      revisions = Object.fromEntries(
-        Object.entries(revisions).filter(([key]) => key !== noteId),
-      );
-      refresh();
-      return;
-    }
-    writeFailure = refusalText(outcome, "The note was not revised and is unchanged.");
-  }
-
-  async function toggleHistory(noteId: string): Promise<void> {
-    if (openHistory === noteId) {
-      openHistory = null;
-      return;
-    }
-    openHistory = noteId;
-    historyFailure = null;
-    if (revisions[noteId] !== undefined) return;
-    const outcome = await listNoteRevisions(fetch, noteId);
-    if (outcome.kind === "ok") {
-      revisions = {
-        ...revisions,
-        [noteId]: { entries: outcome.value.data, capped: outcome.value.capped },
-      };
-      return;
-    }
-    historyFailure = refusalText(outcome, "The earlier versions could not be read.");
-  }
-
-  function beginRevision(note: MatterNote): void {
-    revisingNoteId = note.id;
-    revisionDraft = note.body ?? "";
-    writeFailure = null;
-  }
-
-  function beginRetraction(note: MatterNote): void {
-    retracting = note;
-    retractOpen = true;
   }
 </script>
 
@@ -248,11 +326,27 @@
       </div>
     </div>
     {#if composing}
-      <Button variant="secondary" disabled={saving} onclick={() => { composing = false; draft = ""; }}>
+      <Button
+        variant="secondary"
+        disabled={saving}
+        onclick={() => {
+          composing = false;
+          draft = "";
+          draftOccurredOn = "";
+          draftOccurredAtTime = "";
+        }}
+      >
         Cancel
       </Button>
     {:else}
-      <Button variant="secondary" disabled={isSample} onclick={() => { composing = true; }}>
+      <Button
+        variant="secondary"
+        disabled={isSample || !canWrite}
+        onclick={() => {
+          composerNow = new Date().toISOString();
+          composing = true;
+        }}
+      >
         <Plus aria-hidden="true" />
         Write Note
       </Button>
@@ -260,15 +354,65 @@
   </div>
 
   {#if writeFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Nothing Changed</Alert.Title>
-      <Alert.Description>{writeFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={writeFailure.failure}
+      title="Nothing Changed"
+      fallback={writeFailure.fallback}
+    />
   {/if}
 
   {#if composing}
-    <div class="flex flex-col gap-8">
-      <Textarea bind:value={draft} rows={5} disabled={saving} aria-label="Note" />
+    <!-- Everything the note will carry, generated fields included, so nothing is stored that the
+         writer was not shown. -->
+    <div class="flex flex-col gap-12 rounded-md border border-border-strong p-16">
+      <dl class="flex flex-wrap gap-x-24 gap-y-4 text-xs">
+        <div class="flex gap-4">
+          <dt class="text-text-muted">Matter</dt>
+          <dd>{matter.title}</dd>
+        </div>
+        <div class="flex gap-4">
+          <dt class="text-text-muted">Written by</dt>
+          <dd>{myName}</dd>
+        </div>
+        <div class="flex gap-4">
+          <dt class="text-text-muted">Written</dt>
+          <dd>
+            <time datetime={instantAttribute(composerNow)}>{formatInstant(composerNow)}</time>
+          </dd>
+        </div>
+      </dl>
+
+      <div class="flex flex-col gap-4">
+        <Label for="note-body">Note</Label>
+        <Textarea id="note-body" bind:value={draft} rows={5} disabled={saving} />
+      </div>
+
+      <div class="flex flex-wrap items-end gap-16">
+        <div class="flex flex-col gap-4">
+          <Label for="note-occurred-on">When It Happened</Label>
+          <Input
+            id="note-occurred-on"
+            type="date"
+            bind:value={draftOccurredOn}
+            disabled={saving}
+            class="w-160"
+          />
+        </div>
+        <div class="flex flex-col gap-4">
+          <Label for="note-occurred-at">Time</Label>
+          <Input
+            id="note-occurred-at"
+            type="time"
+            bind:value={draftOccurredAtTime}
+            disabled={saving || draftOccurredOn.trim().length === 0}
+            class="w-128"
+          />
+        </div>
+        {#if draftOccurredAtTime.trim().length > 0}
+          <p class="text-xs text-text-muted">Read in {viewerTimeZone()}.</p>
+        {/if}
+      </div>
+
       <div class="flex justify-end">
         <Button
           variant="primary"
@@ -282,10 +426,12 @@
   {/if}
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Notes Unavailable</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      {failure}
+      title="Notes Unavailable"
+      fallback="The notes on this matter could not be read."
+      onRetry={refresh}
+    />
   {/if}
 
   <div class="flex min-h-0 flex-1 flex-col gap-8">
@@ -301,6 +447,7 @@
       <EmptyState title="No notes on this matter yet." />
     {:else}
       {#each notes as note (note.id)}
+        {@const happened = occurrenceText(note)}
         <article class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
           <div class="flex flex-wrap items-center justify-between gap-8">
             <div class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
@@ -308,104 +455,136 @@
               {#if hasLeft(note.authorUserId)}
                 <Badge variant="neutral">No Longer With The Firm</Badge>
               {/if}
-              <time datetime={instantAttribute(note.createdAt)}>{formatInstant(note.createdAt)}</time>
-              {#if note.state === "active" && note.revisionCount > 1}
-                <span>Version {note.revisionCount}</span>
+              {#if happened !== null}
+                <span class="text-text-default">{happened}</span>
+                <span>written <time datetime={instantAttribute(note.createdAt)}>{formatInstant(note.createdAt)}</time></span>
+              {:else}
+                <time datetime={instantAttribute(note.createdAt)}>{formatInstant(note.createdAt)}</time>
               {/if}
             </div>
 
-            {#if note.state === "active"}
-              <div class="flex items-center gap-8">
-                {#if note.revisionCount > 1}
-                  <Button variant="ghost" onclick={() => void toggleHistory(note.id)}>
-                    <History aria-hidden="true" />
-                    {openHistory === note.id ? "Hide History" : "History"}
-                  </Button>
-                {/if}
-                <Button variant="ghost" disabled={saving} onclick={() => beginRevision(note)}>
-                  <PencilLine aria-hidden="true" />
-                  Correct
-                </Button>
-                <Button variant="ghost" onclick={() => beginRetraction(note)}>
-                  <Ban aria-hidden="true" />
-                  Withdraw
-                </Button>
-              </div>
+            {#if canWrite}
+            <div class="flex items-center gap-8">
+              <Button
+                variant="ghost"
+                disabled={saving || attachableFor(note).length === 0}
+                onclick={() => {
+                  attachingNoteId = attachingNoteId === note.id ? null : note.id;
+                }}
+              >
+                <Paperclip aria-hidden="true" />
+                Attach
+              </Button>
+              <Button variant="ghost" disabled={saving} onclick={() => beginEdit(note)}>
+                <PencilLine aria-hidden="true" />
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                onclick={() => {
+                  deleting = note;
+                  deleteOpen = true;
+                }}
+              >
+                <Trash2 aria-hidden="true" />
+                Delete
+              </Button>
+            </div>
             {/if}
           </div>
 
-          {#if note.state === "retracted"}
-            <div class="flex flex-col gap-4 text-sm">
-              <p class="text-text-muted">
-                Withdrawn by {nameOf(note.retractedBy)}{note.retractedAt === null
-                  ? ""
-                  : `, ${formatInstant(note.retractedAt)}`}.
-              </p>
-              {#if note.retractionReason !== null}
-                <p>{note.retractionReason}</p>
-              {/if}
-            </div>
-          {:else if revisingNoteId === note.id}
-            <div class="flex flex-col gap-8">
-              <Textarea bind:value={revisionDraft} rows={5} disabled={saving} aria-label="Note" />
+          {#if editingNoteId === note.id}
+            <div class="flex flex-col gap-12">
+              <Textarea bind:value={editDraft} rows={5} disabled={saving} aria-label="Note" />
+              <div class="flex flex-wrap items-end gap-16">
+                <div class="flex flex-col gap-4">
+                  <Label for="note-edit-occurred-on">When It Happened</Label>
+                  <Input
+                    id="note-edit-occurred-on"
+                    type="date"
+                    bind:value={editOccurredOn}
+                    disabled={saving}
+                    class="w-160"
+                  />
+                </div>
+                <div class="flex flex-col gap-4">
+                  <Label for="note-edit-occurred-at">Time</Label>
+                  <Input
+                    id="note-edit-occurred-at"
+                    type="time"
+                    bind:value={editOccurredAtTime}
+                    disabled={saving || editOccurredOn.trim().length === 0}
+                    class="w-128"
+                  />
+                </div>
+              </div>
               <div class="flex justify-end gap-8">
                 <Button
                   variant="secondary"
                   disabled={saving}
-                  onclick={() => { revisingNoteId = null; revisionDraft = ""; }}
+                  onclick={() => {
+                    editingNoteId = null;
+                  }}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="primary"
-                  disabled={revisionDraft.trim().length === 0 || saving}
-                  onclick={() => void saveRevision(note.id)}
+                  disabled={editDraft.trim().length === 0 || saving}
+                  onclick={() => void saveEdit(note.id)}
                 >
-                  Save Correction
+                  Save Changes
                 </Button>
               </div>
             </div>
           {:else}
             <p class="text-sm whitespace-pre-wrap">{note.body}</p>
-            {#if note.currentRevisionAuthorUserId !== null && note.currentRevisionAuthorUserId !== note.authorUserId}
+            {#if note.lastEditedBy !== null}
               <p class="text-xs text-text-muted">
-                Last corrected by {nameOf(note.currentRevisionAuthorUserId)}{note.currentRevisionCreatedAt ===
-                null
-                  ? ""
-                  : `, ${formatInstant(note.currentRevisionCreatedAt)}`}.
+                Edited by {nameOf(note.lastEditedBy)},
+                <time datetime={instantAttribute(note.updatedAt)}>{formatInstant(note.updatedAt)}</time>.
               </p>
             {/if}
           {/if}
 
-          {#if openHistory === note.id && note.state === "active"}
-            {@const history = revisions[note.id]}
-            {#if historyFailure !== null}
-              <Alert.Root variant="danger">
-                <Alert.Title>History Unavailable</Alert.Title>
-                <Alert.Description>{historyFailure}</Alert.Description>
-              </Alert.Root>
-            {:else if history === undefined}
-              <Skeleton class="h-16 w-full" />
-            {:else}
-              <ol class="flex flex-col gap-8 border-t border-border-strong pt-8">
-                {#if history.capped}
-                  <li class="text-xs text-text-muted">
-                    This note has more versions than are shown here.
-                  </li>
-                {/if}
-                {#each history.entries as revision (revision.id)}
-                  <li class="flex flex-col gap-4">
-                    <p class="text-xs text-text-muted">
-                      Version {revision.ordinal}, {nameOf(revision.authorUserId)},
-                      <time datetime={instantAttribute(revision.createdAt)}>
-                        {formatInstant(revision.createdAt)}
-                      </time>
-                    </p>
-                    <p class="text-sm whitespace-pre-wrap">{revision.body}</p>
-                  </li>
-                {/each}
-              </ol>
-            {/if}
+          {#if note.documents.length > 0}
+            <ul class="flex flex-wrap gap-8 border-t border-border-strong pt-8">
+              {#each note.documents as document (document.id)}
+                <li class="flex items-center gap-4 text-xs">
+                  <Paperclip aria-hidden="true" class="size-12 text-text-muted" />
+                  <span>{document.fileName}</span>
+                  <Button
+                    variant="ghost"
+                    disabled={saving}
+                    title="Stop this note pointing at {document.fileName}"
+                    onclick={() => void detach(document.id)}
+                  >
+                    <X aria-hidden="true" />
+                  </Button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+
+          {#if attachingNoteId === note.id}
+            <div class="flex flex-col gap-4 border-t border-border-strong pt-8">
+              <Label for="note-attach-{note.id}">Attach A Document</Label>
+              <Select.Root
+                type="single"
+                onValueChange={(value) => {
+                  if (value !== undefined) void attach(note.id, value);
+                }}
+              >
+                <Select.Trigger id="note-attach-{note.id}" class="w-320">
+                  Choose a document on this matter
+                </Select.Trigger>
+                <Select.Content>
+                  {#each attachableFor(note) as file (file.id)}
+                    <Select.Item value={file.id} label={file.name}>{file.name}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
           {/if}
         </article>
       {/each}
@@ -428,9 +607,9 @@
   </div>
 </section>
 
-<NoteRetractDialog
-  bind:open={retractOpen}
-  note={retracting}
-  authorName={retracting === null ? "" : nameOf(retracting.authorUserId)}
-  onRetracted={refresh}
+<NoteDeleteDialog
+  bind:open={deleteOpen}
+  note={deleting}
+  authorName={deleting === null ? "" : nameOf(deleting.authorUserId)}
+  onDeleted={refresh}
 />

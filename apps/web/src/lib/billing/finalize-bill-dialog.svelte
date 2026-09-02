@@ -16,6 +16,8 @@
    * drawn, and the acknowledgement afterwards says which one it was.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Card from "@magna-carta/design-system/card";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
@@ -24,7 +26,7 @@
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
   import Stamp from "@lucide/svelte/icons/stamp";
-  import { billingFailureText, finalizeInvoice } from "./billing-api.ts";
+  import { billingFailure, finalizeInvoice } from "./billing-api.ts";
   import { civilDatePlusDays, civilToday, draftTotalMinor, type InvoiceRow } from "./invoice-standing.ts";
 
   let {
@@ -46,7 +48,7 @@
   let issueDate = $state(civilToday());
   let dueDate = $state(civilDatePlusDays(civilToday(), 30));
   let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const total = $derived(row === null ? 0 : draftTotalMinor(row.detail));
 
@@ -82,7 +84,7 @@
       onFinalized(outcome.value.invoiceNumber);
       return;
     }
-    failure = billingFailureText(outcome, "The bill is still a draft and nothing was locked.");
+    failure = billingFailure(outcome, "The bill is still a draft and nothing was locked.");
   }
 </script>
 
@@ -94,10 +96,11 @@
     </Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Finalized</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Finalized"
+        fallback={failure.fallback}
+      />
     {/if}
 
     <div class="flex flex-col gap-16">

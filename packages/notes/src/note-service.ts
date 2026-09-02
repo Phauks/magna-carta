@@ -4,26 +4,35 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
-import type { MatterId, MatterNoteId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  FileId,
+  MatterId,
+  MatterNoteDocumentId,
+  MatterNoteId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import {
-  advanceMatterNoteHeadStatement,
-  insertMatterNoteRevisionStatement,
+  countMatterNoteDocuments,
+  deleteMatterNoteDocumentStatement,
+  deleteMatterNoteDocumentsStatement,
+  deleteMatterNoteStatement,
+  fileIsOnMatter,
+  insertMatterNoteDocumentStatement,
   insertMatterNoteStatement,
   readMatterNote,
-  retractMatterNoteStatement,
+  readMatterNoteDocument,
+  updateMatterNoteStatement,
 } from "./note-statements.ts";
-import { NoteValidationError, normalizeNoteBody, normalizeRetractionReason } from "./validation.ts";
+import { MAX_NOTE_DOCUMENT_COUNT } from "./types.ts";
+import { NoteValidationError, normalizeNoteBody, normalizeOccurrence } from "./validation.ts";
 
-// The matter note's three write paths, and there are exactly three.
+// The matter note's write paths: create, edit, delete, and the two that attach and detach a file.
 //
-// CREATE writes an identity and its first revision in one batch. REVISE appends a revision and moves
-// the head in one batch. RETRACT moves a state. There is no fourth, and in particular there is no
-// delete: no route mints one, no capability names one, and the two tables' own triggers refuse the
-// statements that would implement one. The single case where bytes genuinely must leave the database
-// is a legal one — an erasure obligation, or another person's protected data typed into a note by
-// mistake — and that routes through the PII registry's report-manual action, which surfaces the note
-// in the residue report for a person to decide about. The platform neither silently erases a note
-// nor silently refuses to.
+// A note is edited in place and deleted outright. The first cut of this package kept a revision chain
+// and made withdrawal a state; the owner's direction on 2026-09-01 replaced it, because replacing a
+// note with another note every time somebody fixes a word accumulates without end. What that costs —
+// no record of what a note said before, and nothing left behind when one is deleted — is stated in
+// the package's CLAUDE.md rather than argued at each call site.
 //
 // Nothing here reads a clock, holds a database binding, or calls anything external: the clock, the
 // actor and the random source arrive as options, which is what lets a fixture mint a byte-identical
@@ -38,7 +47,13 @@ export interface NoteServiceOptions {
   readonly visibility: VisibleMatterPredicate;
 }
 
-export interface CreateMatterNoteInput {
+export interface NoteOccurrenceInput {
+  readonly occurredOn?: string | null;
+  readonly occurredAtTime?: string | null;
+  readonly timeZone?: string | null;
+}
+
+export interface CreateMatterNoteInput extends NoteOccurrenceInput {
   readonly matterId: MatterId;
   readonly body: string;
 }
@@ -49,9 +64,9 @@ export function createMatterNote(
   options: NoteServiceOptions,
 ): { noteId: MatterNoteId; effect: EffectWrite } {
   const body = normalizeNoteBody(input.body);
+  const occurrence = normalizeOccurrence(input);
   const now = options.clock.now();
   const noteId = newIdentifier("matterNote", options.randomSource);
-  const revisionId = newIdentifier("matterNoteRevision", options.randomSource);
   return {
     noteId,
     effect: {
@@ -60,14 +75,8 @@ export function createMatterNote(
           id: noteId,
           matterId: input.matterId,
           authorUserId: options.actorUserId,
-          now,
-        }),
-        insertMatterNoteRevisionStatement(database, {
-          id: revisionId,
-          noteId,
           body,
-          authorUserId: options.actorUserId,
-          ordinal: 1,
+          occurrence,
           now,
         }),
         domainAuditStatement(database, {
@@ -76,10 +85,11 @@ export function createMatterNote(
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          // Identifiers only. Not the body, not its first words, not its length — a note body is the
-          // most privileged free text the firm writes, and the audit log is a compliance record with
-          // its own retention and its own readers.
-          metadata: { matterId: input.matterId },
+          // Identifiers and the occurrence date only. Not the body, not its first words, not its
+          // length — a note body is the most privileged free text the firm writes, and the audit log
+          // is a compliance record with its own retention and its own readers. The date the note
+          // describes is a date, which discloses nothing on its own.
+          metadata: { matterId: input.matterId, occurredOn: occurrence.occurredOn },
         }),
       ],
       outboxMessages: [],
@@ -87,65 +97,45 @@ export function createMatterNote(
   };
 }
 
-export interface ReviseMatterNoteInput {
+export interface EditMatterNoteInput extends NoteOccurrenceInput {
   readonly body: string;
 }
 
-// Correcting a note. The prior body is not replaced — it stays as its own row, with its own author
-// and its own instant, and the head moves onto the new one.
-//
-// The author of a revision is whoever is revising, which is not always whoever started the note: a
-// colleague correcting a partner's note is ordinary, and the correction belongs to the person who
-// made it.
-export async function reviseMatterNote(
+// Editing a note. The words are replaced and the previous ones are gone: there is no version to fall
+// back to, which is the model the owner chose and the reason the audit row below records that an edit
+// happened at all.
+export async function editMatterNote(
   database: SqlDatabase,
   noteId: MatterNoteId,
-  input: ReviseMatterNoteInput,
+  input: EditMatterNoteInput,
   options: NoteServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const body = normalizeNoteBody(input.body);
+  const occurrence = normalizeOccurrence(input);
   const note = await readMatterNote(database, noteId, options.visibility);
   if (note === undefined) {
     throw new NoteValidationError("note-unknown", "that note is not a note in this firm");
   }
-  if (note.state === "retracted") {
-    throw new NoteValidationError(
-      "note-retracted",
-      "that note was withdrawn; a withdrawn note is not revised, because nothing would render the new words",
-    );
-  }
   const now = options.clock.now();
-  const revisionId = newIdentifier("matterNoteRevision", options.randomSource);
-  const nextOrdinal = note.head_ordinal + 1;
   return {
     effect: {
       statements: [
-        // The revision insert leads. Two members revising at once both compute this same ordinal, and
-        // the unique index on (note_id, ordinal) makes the second one abort the whole batch — head
-        // move and audit row included. One writer loses cleanly; neither overwrites the other.
-        insertMatterNoteRevisionStatement(database, {
-          id: revisionId,
-          noteId,
-          body,
-          authorUserId: options.actorUserId,
-          ordinal: nextOrdinal,
-          now,
-        }),
-        advanceMatterNoteHeadStatement(database, {
+        updateMatterNoteStatement(database, {
           id: noteId,
-          fromOrdinal: note.head_ordinal,
-          toOrdinal: nextOrdinal,
+          body,
+          occurrence,
+          editedBy: options.actorUserId,
           now,
         }),
         domainAuditStatement(database, {
-          event: "notes.note.revised",
+          event: "notes.note.edited",
           subjectId: noteId,
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          // The ordinal says the note now has an nth version. It says nothing about what changed,
-          // which is the part that would be privileged.
-          metadata: { matterId: note.matter_id, ordinal: nextOrdinal },
+          // That the note changed, and when it now says the thing happened. Never the words, in
+          // either direction: the log records neither what it said nor what it says.
+          metadata: { matterId: note.matter_id, occurredOn: occurrence.occurredOn },
         }),
       ],
       outboxMessages: [],
@@ -153,55 +143,125 @@ export async function reviseMatterNote(
   };
 }
 
-export interface RetractMatterNoteInput {
-  readonly reason: string;
-}
-
-// Withdrawing a note. The body stops rendering everywhere — the matter surface shows a tombstone, the
-// federated timeline drops the entry, the history read refuses — while the row, its revisions, its
-// author and its instants all remain.
+// Deleting a note. The row goes and its words go with it — this is a real delete, not a state.
 //
-// This is the answer to "this should never have been written", and it is deliberately VISIBLE. A
-// firm can see that a note was retracted and by whom, which is what makes retraction usable as a
-// correction rather than a quiet erasure — and it is why the reason is required rather than optional.
-export async function retractMatterNote(
+// The audit row is the only thing that survives, and it carries identifiers rather than text, so
+// afterwards the firm can see that a note existed on this matter and who removed it, and cannot see
+// what it said. That is the shape the owner chose over a tombstone.
+//
+// The links go first and the documents do not: detaching leaves every attached file exactly where it
+// lives in the matter's file record. Deleting a note has never been a way to delete a document.
+export async function deleteMatterNote(
   database: SqlDatabase,
   noteId: MatterNoteId,
-  input: RetractMatterNoteInput,
   options: NoteServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const reason = normalizeRetractionReason(input.reason);
   const note = await readMatterNote(database, noteId, options.visibility);
   if (note === undefined) {
     throw new NoteValidationError("note-unknown", "that note is not a note in this firm");
   }
-  if (note.state === "retracted") {
+  const now = options.clock.now();
+  return {
+    effect: {
+      statements: [
+        deleteMatterNoteDocumentsStatement(database, noteId),
+        deleteMatterNoteStatement(database, noteId),
+        domainAuditStatement(database, {
+          event: "notes.note.deleted",
+          subjectId: noteId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { matterId: note.matter_id, createdAt: note.created_at },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Linking one of the matter's files to a note.
+//
+// The file must already be a live file on this note's own matter. A link across matters would be a
+// disclosure wearing an association, and refusing it here is why the note surface can offer the
+// matter's file list without a second visibility argument.
+export async function attachFileToMatterNote(
+  database: SqlDatabase,
+  noteId: MatterNoteId,
+  fileId: FileId,
+  options: NoteServiceOptions,
+): Promise<{ linkId: MatterNoteDocumentId; effect: EffectWrite }> {
+  const note = await readMatterNote(database, noteId, options.visibility);
+  if (note === undefined) {
+    throw new NoteValidationError("note-unknown", "that note is not a note in this firm");
+  }
+  if (!(await fileIsOnMatter(database, fileId, note.matter_id))) {
     throw new NoteValidationError(
-      "note-retracted",
-      "that note was already withdrawn; the first withdrawal's actor, instant and reason are the record and are not rewritten",
+      "note-file-matter-mismatch",
+      "a note points only at documents on its own matter",
+    );
+  }
+  if ((await countMatterNoteDocuments(database, noteId)) >= MAX_NOTE_DOCUMENT_COUNT) {
+    throw new NoteValidationError(
+      "note-too-many-files",
+      `a note points at at most ${String(MAX_NOTE_DOCUMENT_COUNT)} documents`,
+    );
+  }
+  const now = options.clock.now();
+  const linkId = newIdentifier("matterNoteDocument", options.randomSource);
+  return {
+    linkId,
+    effect: {
+      statements: [
+        // A second identical link collides on the (note_id, file_id) unique index and aborts the
+        // batch, which is the right outcome: one document rides one note once, and two rows a person
+        // reads as the same file twice would detach separately.
+        insertMatterNoteDocumentStatement(database, {
+          id: linkId,
+          noteId,
+          fileId,
+          linkedBy: options.actorUserId,
+          now,
+        }),
+        domainAuditStatement(database, {
+          event: "notes.note.documentAttached",
+          subjectId: noteId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { matterId: note.matter_id, fileId },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Unlinking. The association ends; the document stays in the matter's files, untouched.
+export async function detachFileFromMatterNote(
+  database: SqlDatabase,
+  linkId: MatterNoteDocumentId,
+  options: NoteServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const link = await readMatterNoteDocument(database, linkId, options.visibility);
+  if (link === undefined) {
+    throw new NoteValidationError(
+      "note-unknown-file",
+      "that attachment is not on a note in this firm",
     );
   }
   const now = options.clock.now();
   return {
     effect: {
       statements: [
-        retractMatterNoteStatement(database, {
-          id: noteId,
-          retractedBy: options.actorUserId,
-          reason,
-          now,
-        }),
+        deleteMatterNoteDocumentStatement(database, linkId),
         domainAuditStatement(database, {
-          event: "notes.note.retracted",
-          subjectId: noteId,
+          event: "notes.note.documentDetached",
+          subjectId: link.note_id,
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          // The reason is deliberately NOT carried here. It is a sentence a person wrote about a note
-          // whose whole point is that its content should stop circulating, and the audit log is read
-          // by people and processes that the note itself is screened from. The reason lives on the
-          // note row, behind the same permission as the note.
-          metadata: { matterId: note.matter_id },
+          metadata: { linkId },
         }),
       ],
       outboxMessages: [],

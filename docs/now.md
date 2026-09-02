@@ -30,30 +30,30 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 274 | 43% |
-| Part-built | partial, in-build | 114 | 18% |
-| Ahead | designed, planned, researching, not-started | 211 | 33% |
-| Parked | deferred, cut | 40 | 6% |
+| Done | shipped | 276 | 43% |
+| Part-built | partial, in-build | 113 | 18% |
+| Ahead | designed, planned, researching, not-started | 209 | 33% |
+| Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **639** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 274 | 43% |
-| `partial` | 113 | 18% |
+| `shipped` | 276 | 43% |
+| `partial` | 112 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 45 | 7% |
-| `planned` | 16 | 2% |
+| `planned` | 16 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 145 | 23% |
+| `not-started` | 143 | 22% |
 | `deferred` | 38 | 6% |
-| `cut` | 2 | 0% |
+| `cut` | 3 | 0% |
 | **All statuses** | **639** | **100%** |
 
 ### What a roll-up is not
 
-**137 of the 776 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
+**137 of the 776 nodes are parents, and 106 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 274 of 639 (43%). Shipped plus partial is 387 (61%).**
+**Shipped alone is 276 of 639 (43%). Shipped plus partial is 388 (61%).**
 
-The 113 units between those two numbers are work that is engineered and paid for and is not
+The 112 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**388 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**389 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 31 | 8% |
+| A person can open it today (`screen`) | 33 | 9% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
-| No user surface by nature (`internal`) | 177 | 46% |
+| No user surface by nature (`internal`) | 176 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **388** | **100%** |
+| **Everything with something built** | **389** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,9 +112,9 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 6 | 0% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
-| Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 0 | 11 | 64% |
+| Matter Notes and Activity | 6 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 11 | 55% |
 | Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
-| Observability & Diagnostics | 11 | 1 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 20 | 55% |
+| Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
 | Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 6 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 66 | 47% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **274** | **113** | **1** | **45** | **16** | **5** | **145** | **38** | **2** | **639** | **43%** |
+| **All areas** | **276** | **112** | **1** | **45** | **16** | **5** | **143** | **38** | **3** | **639** | **43%** |
 
 ## Where we have been
 
@@ -624,7 +624,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
   - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the status, what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
-    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
+    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
     - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
     - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
   - `matters.physical-file` · `not-started` · **Physical file register and retention** — The firm's OWN paper file for a matter - what holds it, where that is kept, and the date the file may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard. _Note: NEEDS ITS OWN DESIGN WORK, and the owner has said so: what holds a file is not one shape. A box at a remote store, a drawer in a cabinet, a safe, a shelf, a crate - the medium is a firm's own choice and a model that hardcodes any one of them is wrong for most firms, so the container is a record carrying its own kind rather than a field spelling "box". A container is a record in its own right for a second reason too: one holds the folders of several matters, so a matter points at it. Surfaced rather than hidden meanwhile - the matter status window gives it a panel of its own, marked Soon, naming what it waits on, because a window that answers "where is the file" while silently omitting the question is worse than one that says it cannot answer yet. It sits beside the status rather than under the close because the file is a standing fact: a folder sits where it sits whatever the matter's status is, and the panel says so. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks._
@@ -1055,14 +1055,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Matter Notes and Activity
 
-[`roadmap.d/notes.md`](../roadmap.d/notes.md) — 11 units of work, 64% shipped. 7 done, 0 part-built, 4 ahead, 0 parked.
+[`roadmap.d/notes.md`](../roadmap.d/notes.md) — 11 units of work, 55% shipped. 6 done, 0 part-built, 4 ahead, 1 parked.
 
 - `notes` · `partial` · **Matter notes and activity** — The note primitive — a dated, attributed record on a matter, corrected by appended revision and withdrawn rather than deleted — and its entry on the federated activity read.
   - `notes.matter-note` · `shipped` · **The matter note** — An identity row carrying the matter, the original author, the created instant and the state, with the body held as revisions beside it.
-    - `notes.matter-note.revisions` · `shipped` · **Correction by appended revision** — An edit appends a revision and moves the head; every prior body is retained with its own author and instant, and is readable from the note's own history.
-    - `notes.matter-note.append-only-enforcement` · `shipped` · **Append-only revisions, enforced by the database** — Three RAISE(ABORT) triggers refuse UPDATE, DELETE and INSERT OR REPLACE on the revision table; none guards the note head, whose state must move for withdrawal. _Note: Honouring a court-ordered destruction is therefore a reviewed migration rather than a query, which was the accepted cost._
-    - `notes.matter-note.retraction` · `shipped` · **Withdrawal** — A state with its own actor, instant and required reason. The body stops rendering everywhere and the note leaves the federated read; the row and every revision remain.
-    - `notes.matter-note.no-delete` · `shipped` · **No delete path** — No route, no capability, and no statement in the package deletes a note. The one case where bytes must genuinely leave routes through the erasure residue report and a person.
+    - `notes.matter-note.edit-and-delete` · `shipped` · **Edit and delete** — An edit replaces a note's text and records who changed it; a delete removes the row and its words, leaving an audit entry that names no content. _Note: Replaced correction-by-revision and withdrawal on the owner's direction, 2026-09-01. Nothing records what a note said before an edit, and a deletion leaves only an audit row naming no content; the superseded reasoning is kept in docs/decisions/pending/ rather than deleted._
+    - `notes.matter-note.append-only-enforcement` · `cut` · **Append-only revisions, enforced by the database** — Three RAISE(ABORT) triggers that refused UPDATE, DELETE and INSERT OR REPLACE on the revision table. _Note: CUT on the owner's direction, 2026-09-01, hours after it shipped. A note is edited in place and deleted outright, so there is no append-only body left to guard._
+    - `notes.matter-note.occurrence` · `shipped` · **When the thing happened** — A civil date, an optional wall-clock time and its zone, recording when what the note describes took place, separately from when the note was typed. _Note: Nothing infers one — no default to today, no invented midnight, no assumed zone. Every read orders by it, falling back to the day the note was written._
+    - `notes.matter-note.documents` · `shipped` · **Documents on a note** — A note points at the matter's own files, many-to-many, linking a handle rather than moving bytes. _Note: Upload stays the File Manager's chokepoint, so an attached document keeps its versions, holds and discovery reachability. Deleting a note detaches its documents and deletes none of them._
   - `notes.activity` · `shipped` · **The note on the matter's activity history** — One declared source on the calendar's federated read — keyed matterNote, matter-anchored, declaring no label — reading the note table in place. _Note: No second activity stream was built; a note joins the register that already exists, which is why nothing projects or backfills._
     - `notes.activity.no-label` · `shipped` · **No privileged text on the federated read** — The source projects NULL AS label, so an entry says a note was written, on this matter, then, by them, and never a word of it.
     - `notes.confidentiality.no-merge-field` · `shipped` · **No merge field reaches a note** — A source scan and a catalogue scan refuse any merge-field entry, subject or batched read that resolves to a note table. _Note: The PDF metadata scrub is structurally blind to this route, because merge-filled text is page content rather than a document-level surface._
@@ -1097,17 +1097,17 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Observability & Diagnostics
 
-[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 55% shipped. 11 done, 1 part-built, 6 ahead, 2 parked.
+[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 70% shipped. 14 done, 0 part-built, 4 ahead, 2 parked.
 
 - `observability` · `partial` · **Observability & diagnostics** — Diagnose without exfiltrating privileged content: redacted operational telemetry, user-initiated incidents, correlation IDs, usage analytics, status page; no third-party error SaaS, no session replay.
   - `observability.redaction-model` · `shipped` · **Redact-by-default event model** — Three data classes (metadata / opaque identifiers / content-never); allowlist event assembly with a boundary scrubbing pass.
   - `observability.correlation` · `shipped` · **Correlation & Error IDs** — Per-request correlation ID on every event and problem response; Error ID minted at capture joining a user-visible failure to its server trace.
   - `observability.operational-telemetry` · `shipped` · **Always-on operational telemetry** — Redacted structured server logs and counters (Workers logger + Analytics Engine), firm-scoped, keyed by correlation/Error ID. _Note: Logpush-to-R2 archival is account configuration, not verified in-repo._
-  - `observability.client-reporter` · `partial` · **In-house client capture** — Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
-    - `observability.client-reporter.error-boundary` · `shipped` · **Error pages with trace identity** — Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block.
-    - `observability.client-reporter.breadcrumbs` · `not-started` · **Client breadcrumb ring buffer** — Client-side ring of recent actions/IDs (never field content) attached to reports.
-    - `observability.client-reporter.report-a-problem` · `partial` · **Report a problem affordance** — Always-available help-menu reporting usable without a crash.
-    - `observability.client-reporter.send-to-developer` · `not-started` · **Send-to-developer on crash** — Error screen/toast showing the Error ID with a prominent send button.
+  - `observability.client-reporter` · `shipped` · **In-house client capture** — Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
+    - `observability.client-reporter.error-boundary` · `shipped` · **Error pages with trace identity** — Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block, and a client boundary catches what never reached a route.
+    - `observability.client-reporter.breadcrumbs` · `shipped` · **Client breadcrumb ring buffer** — Client-side ring of recent actions/IDs (never field content) attached to reports.
+    - `observability.client-reporter.report-a-problem` · `shipped` · **Report a problem affordance** — Always-available help-menu reporting usable without a crash. _Note: The optional in-office recipients and the email-me-a-copy flag stay Soon-marked — the incident route carries no recipients, and transactional email does not exist yet._
+    - `observability.client-reporter.send-to-developer` · `shipped` · **Send-to-developer on crash** — Error screen/toast showing the Error ID with a prominent send button.
   - `observability.incidents` · `partial` · **Incident reports** — User-initiated firm-scoped incident rows: Error IDs, redacted breadcrumbs, free-text description, context metadata; access-gated and audited.
     - `observability.incidents.ingest` · `shipped` · **Incident ingest endpoint** — POST incidents route writing a bounded, redacted-by-construction firm-scoped row; description sealed under the firm key with an audited decrypt permission.
     - `observability.incidents.screenshot` · `not-started` · **Opt-in redactable screenshot** — User-redactable screenshot attached to a report, stored in R2.

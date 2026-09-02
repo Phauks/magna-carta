@@ -52,6 +52,34 @@ describe("chokepoint firm-absence gate (real resolver)", () => {
     const session: ResolvedSession = { userId: newIdentifier("user"), firmId };
     const result = await resolveFirmContext()(contextWithEnv(), session);
     expect(result).not.toBeNull();
-    expect(result?.firmName).toBe("Firm Absence Present Firm");
+    expect(await result?.readFirmName()).toBe("Firm Absence Present Firm");
+  });
+
+  // A FIRM CAN BE RENAMED, and the row read behind the firm context is cached per isolate — so the
+  // name is deliberately NOT part of what that cache answers for. This drives the resolver twice
+  // through one cached minute, renaming the firm in between: the second read must report the new
+  // name. Cache the name and this test reports the old one, which is exactly the bug it exists for.
+  it("reports a renamed firm's new name within the row cache's window", async () => {
+    const firmId = (await seedFirm({ name: "Chambers Before The Rename" })).firmId;
+    // The row cache only ever stores a PROVISIONED row, so a firm with no bucket would miss the
+    // cache on both reads below and the test would pass whether or not the name were cached —
+    // vacuous. Giving it a bucket is what puts the second read on the cached path this is about.
+    await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
+      .bind(firmId)
+      .run();
+    const session: ResolvedSession = { userId: newIdentifier("user"), firmId };
+    // The same resolver instance across both reads — a fresh one would carry an empty cache and
+    // could pass while the cached path stayed broken.
+    const resolver = resolveFirmContext();
+
+    const before = await resolver(contextWithEnv(), session);
+    expect(await before?.readFirmName()).toBe("Chambers Before The Rename");
+
+    await env.DB_CONTROL.prepare("UPDATE firm SET display_name = ?2 WHERE id = ?1")
+      .bind(firmId, "Chambers After The Rename")
+      .run();
+
+    const after = await resolver(contextWithEnv(), session);
+    expect(await after?.readFirmName()).toBe("Chambers After The Rename");
   });
 });

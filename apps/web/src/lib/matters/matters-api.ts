@@ -29,8 +29,14 @@ export interface MatterSummary {
   locationId: string | null;
   responsibleMemberId: string;
   clientDisplayName: string | null;
-  /** Null until open draws it; frozen thereafter. A consultation is unnumbered by design. */
+  /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
+  /**
+   * The tentative number a consultation is created with, from the firm's consultation sequence. It
+   * survives opening rather than being replaced by the matter number, so a file quoted under it
+   * still resolves. Null on a matter opened outright, which never was a consultation.
+   */
+  consultationNumber: string | null;
   createdAt: string;
 }
 
@@ -186,8 +192,10 @@ export interface CreateMatterRequest {
 /** What the server answers: the matter, and the number it drew if the matter was opened. */
 export interface CreateMatterResponse {
   matterId: string;
-  /** Null for a prospective consultation — unnumbered by design, not a failure to number. */
+  /** Null for a prospective consultation: its number is the consultation number below. */
   matterNumber: string | null;
+  /** The tentative number a consultation is created with; null on a matter opened outright. */
+  consultationNumber: string | null;
 }
 
 /**

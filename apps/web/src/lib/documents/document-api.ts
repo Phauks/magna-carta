@@ -1,6 +1,12 @@
-import { requestJson, type ApiOutcome, type ApiProblem } from "$lib/api/request.ts";
+import {
+  problemOutcome,
+  requestJson,
+  transportOutcome,
+  type ApiOutcome,
+  type Problem,
+} from "$lib/api/request.ts";
 
-export { requestJson, type ApiOutcome, type ApiProblem };
+export { requestJson, type ApiOutcome, type Problem };
 
 /*
  * The Documents surface's response shapes — every call this screen makes into the API, in one place,
@@ -222,12 +228,15 @@ export async function putUploadBytes(
   headers: Record<string, string>,
   body: Blob,
 ): Promise<ApiOutcome<null>> {
+  // The signed URL is never the request line: it carries the signature, an expiry and the object
+  // key as query parameters, and this line is built to be copied into a report.
+  const line = "PUT (presigned object storage)";
   let response: Response;
   try {
     response = await fetchImpl(url, { method: "PUT", headers, body });
   } catch {
-    return { kind: "transport" };
+    return transportOutcome(line);
   }
-  if (!response.ok) return { kind: "problem", problem: { status: response.status } };
+  if (!response.ok) return problemOutcome({ status: response.status }, line);
   return { kind: "ok", value: null };
 }

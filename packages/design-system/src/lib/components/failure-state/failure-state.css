@@ -1,0 +1,35 @@
+@layer components {
+  /*
+   * FailureState — the failure that owns its space, composed over EmptyState. The recipe owns only
+   * what EmptyState does not: the stack that holds the diagnostics and the remedy under it, and the
+   * two blocks' shared prose measure so the numbered steps line up with the description above them.
+   */
+  .mc-failure-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .mc-failure-state-note {
+    margin: var(--mc-space-0);
+    padding-block-end: var(--mc-space-16);
+    max-inline-size: var(--mc-size-prose);
+    text-align: center;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+  }
+  .mc-failure-state-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    margin-block: var(--mc-space-24);
+    margin-inline: auto;
+    max-inline-size: var(--mc-size-prose);
+    padding-inline-start: var(--mc-space-16);
+    list-style-type: decimal;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+}

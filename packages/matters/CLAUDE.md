@@ -15,7 +15,8 @@ list/consultations queries. Validates in memory and composes statements into @ma
 - `src/numbering/segments.ts` — `NumberSegment` types + the zod scheme schema (exactly one counter)
 - `src/numbering/render.ts` — `renderMatterNumber` + `deriveScopeKey` (pure; dates/codes arrive as strings)
 - `src/numbering/counter-statements.ts` — ensure-row + guarded-increment + allocation builders
-- `src/numbering/scheme-service.ts` / `scheme-statements.ts` — the one-active-scheme write path
+- `src/numbering/scheme-service.ts` / `scheme-statements.ts` — the one-active-scheme-PER-PURPOSE write path
+- `src/numbering/consultation-scheme.ts` — the built-in consultation sequence + its scope prefix
 - `src/matter-service.ts` — `createMatter`/`openMatter`/`closeMatter`/`reopenMatter`/`renumberMatter`/`updateMatter`
 - `src/close-preconditions.ts` — the close-precondition hook: a `check` plus an optional in-batch `commitGuard`
 - `src/close-advisories.ts` — the close-ADVISORY hook: a `notice` and nothing else. Deliberately a
@@ -37,8 +38,15 @@ list/consultations queries. Validates in memory and composes statements into @ma
 
 ## Invariants that apply here
 
-- **The number is drawn at open, frozen at assignment.** A prospective consultation carries no number;
-  `openMatter` draws it. Once assigned, a matter number never changes except by deliberate `renumberMatter`.
+- **Two sequences, drawn at different moments, both frozen at assignment.** A prospective
+  consultation draws a CONSULTATION number the moment it is created, from its own sequence
+  (`numbering_scheme.purpose = 'consultation'`, falling back to `DEFAULT_CONSULTATION_SCHEME` when
+  the firm has configured none — a consultation is never unnumbered). `openMatter` then draws the
+  MATTER number and leaves the consultation number standing: opening ADDS a number, it never rewrites
+  one, so a file quoted under the tentative number still resolves. Once assigned, a matter number
+  never changes except by deliberate `renumberMatter`. The two runs never share a counter — a
+  consultation that never becomes a matter must consume no matter number, because a gap in that run
+  reads as a lost file.
 - **Counter idiom (atomic, race-proof).** Read `next_value` → render → compose [ensure-row INSERT,
   **guarded** `UPDATE … WHERE scope_key = ? AND next_value = ?`, matter write, **allocation INSERT**].
   A zero-row guarded UPDATE is not an error, so the guard alone aborts nothing: the backstop is the
@@ -48,7 +56,10 @@ list/consultations queries. Validates in memory and composes statements into @ma
   court/legacy number. It cannot catch the general race — a scheme may render a variable segment that is
   not marked scoping, so two draws in one scope produce different strings from the same value.
 - **Scope key = scoping segment values in template order, `:`-joined** (rendered values are URL-safe, so
-  `:` cannot collide); empty string = firm-wide. Manual numbers touch no counter and get no allocation row.
+  `:` cannot collide); empty string = firm-wide. A consultation draw prefixes its scope key with
+  `CONSULTATION_SCOPE_PREFIX` (`consultation/`) so the two sequences count separately in the SAME
+  counter and allocation tables — `/` is outside the URL-safe set, so no matter scope key can forge
+  one. Manual numbers touch no counter and get no allocation row.
 - **Lifecycle transitions are guarded in the batch, not only pre-read.** D1 has no interactive
   transaction, so every read-then-write precondition needs its predicate on the UPDATE too: `openMatter`
   writes `AND status = 'prospective'` and confirms after the commit that the row carries the number it

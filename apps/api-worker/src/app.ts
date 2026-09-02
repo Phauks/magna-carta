@@ -71,6 +71,7 @@ import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMatterRecordsRoutes } from "./routes/matter-records.ts";
 import { registerMemberProfilesRoutes } from "./routes/member-profiles.ts";
+import { registerDownloadPreferenceRoutes } from "./routes/download-preferences.ts";
 import { registerDownloadRegisterRoutes } from "./routes/downloads-register.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerReportExportRoutes } from "./routes/report-exports.ts";
@@ -623,6 +624,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFirmUsageRoute(app, chokepoint);
   registerReportExportRoutes(app, chokepoint);
   registerDownloadRegisterRoutes(app, chokepoint);
+  registerDownloadPreferenceRoutes(app, chokepoint);
   registerToolsConnectionRoute(app, chokepoint);
   registerToolsTurnCredentialsRoute(app, chokepoint);
 

@@ -7,26 +7,26 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import { decodeTimelineCursor } from "@magna-carta/calendar/merge";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { MatterId, MatterNoteId } from "@magna-carta/identifiers/types";
+import type {
+  FileId,
+  MatterId,
+  MatterNoteDocumentId,
+  MatterNoteId,
+} from "@magna-carta/identifiers/types";
 import {
+  attachFileToMatterNote,
   createMatterNote,
-  retractMatterNote,
-  reviseMatterNote,
+  deleteMatterNote,
+  detachFileFromMatterNote,
+  editMatterNote,
 } from "@magna-carta/notes/note-service";
 import {
-  readMatterNote,
-  readMatterNoteDetail,
-  readMatterNoteRevisions,
+  readMatterNoteDocuments,
   selectMatterNotesStatement,
-  type MatterNoteDisplayRow,
+  type MatterNoteDocumentRow,
+  type MatterNoteRow,
 } from "@magna-carta/notes/note-statements";
-import {
-  MATTER_NOTE_STATES,
-  MAX_NOTE_BODY_LENGTH,
-  MAX_NOTE_PAGE_SIZE,
-  MAX_NOTE_REVISION_PAGE_SIZE,
-  MAX_RETRACTION_REASON_LENGTH,
-} from "@magna-carta/notes/types";
+import { MAX_NOTE_BODY_LENGTH, MAX_NOTE_PAGE_SIZE } from "@magna-carta/notes/types";
 import { NoteValidationError } from "@magna-carta/notes/validation";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -38,107 +38,104 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
-import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
-import { capped, cursorQuery, paginated } from "../contracts/pagination.ts";
+import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 
-// The matter note's HTTP surface over @magna-carta/notes: writing down what the firm knows about a
-// case that no other record holds, correcting it, and withdrawing it.
+// The matter note's HTTP surface over @magna-carta/notes.
 //
-// Three things this surface never does. It has NO DELETE — not a route, not a verb, not a bulk
-// action — because a note is corrected by appending a revision and withdrawn by retraction, and the
-// one case where bytes must genuinely leave routes through the erasure residue report and a person.
-// It never returns a retracted note's body, on any read, including the history read. And it never
-// puts a note's words anywhere a firm-wide surface would render them: the federated timeline carries
-// no label for a note, and the note's text is behind this surface's own permission.
+// A note is edited in place and deleted outright, on the owner's direction: replacing a note with
+// another note every time somebody fixes a word accumulates without end. So an edit overwrites, and
+// a delete removes the row and its words, leaving an audit entry that says a note existed here and
+// never what it said.
+//
+// The one thing this surface still refuses is putting a note's words where a firm-wide surface would
+// render them: the federated timeline carries no label for a note, and the text is behind this
+// surface's own permission.
+//
+// Attaching a file links a handle the File Manager already quarantined and stored. Bytes never reach
+// a note route, and detaching ends the association without touching the document.
 
 const READ = "notes:read" as const;
 const WRITE = "notes:write" as const;
-const RETRACT = "notes:retract" as const;
+
+const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const WALL_CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // ---- request/response contracts ----
 
+// What a note says about when the thing it describes happened, as a caller supplies it. All three
+// are optional together, and the shape rules are enforced in the domain rather than here: a time
+// needs a date, and a wall-clock time needs the zone it is read in.
+const occurrenceFields = {
+  occurredOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+  occurredAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+  timeZone: z.string().min(1).max(120).nullable().optional(),
+};
+
 const CreateNoteRequest = z
-  .object({
-    body: z.string().min(1).max(MAX_NOTE_BODY_LENGTH),
-  })
+  .object({ body: z.string().min(1).max(MAX_NOTE_BODY_LENGTH), ...occurrenceFields })
   .openapi("CreateMatterNoteRequest");
 
-const ReviseNoteRequest = z
-  .object({
-    body: z.string().min(1).max(MAX_NOTE_BODY_LENGTH),
-  })
-  .openapi("ReviseMatterNoteRequest");
+const EditNoteRequest = z
+  .object({ body: z.string().min(1).max(MAX_NOTE_BODY_LENGTH), ...occurrenceFields })
+  .openapi("EditMatterNoteRequest");
 
-const RetractNoteRequest = z
+const AttachDocumentRequest = z
+  .object({ fileId: identifierField("file") })
+  .openapi("AttachMatterNoteDocumentRequest");
+
+const NoteDocument = z
   .object({
-    // Required, and the API says so rather than accepting an empty string and refusing later.
-    reason: z.string().min(1).max(MAX_RETRACTION_REASON_LENGTH),
+    id: z.string(),
+    fileId: z.string(),
+    // Resolved from the matter's own file record, so a surface names a document the way the File
+    // Manager names it rather than keeping a second copy of the name that could drift.
+    fileName: z.string(),
+    contentType: z.string().nullable(),
+    linkedAt: z.string(),
+    linkedBy: z.string().nullable(),
   })
-  .openapi("RetractMatterNoteRequest");
+  .openapi("MatterNoteDocument");
 
 const NoteDetail = z
   .object({
     id: z.string(),
     matterId: z.string(),
-    // Who wrote the note first. It does not null when they leave the firm — an unattributed
-    // contemporaneous record is worth a fraction of an attributed one — so a surface rendering this
-    // resolves the name and whether that member is still active from the member read.
+    // Who wrote it. It does not null when they leave the firm, so a surface rendering this resolves
+    // the name and whether that member is still active from the member read.
     authorUserId: z.string(),
-    state: z.enum(MATTER_NOTE_STATES),
-    // Null on a retracted note, always. The read itself nulls it rather than trusting each caller to
-    // check the state, so a surface that forgets gets nothing to render rather than something it
-    // should not have.
-    body: z.string().nullable(),
-    // How many bodies this note has had. One means it has never been corrected; more is what a
-    // surface badges to offer the history.
-    revisionCount: z.number().int().positive(),
-    // Whoever wrote the body currently showing, which is not always the note's original author.
-    currentRevisionAuthorUserId: z.string().nullable(),
-    currentRevisionCreatedAt: z.string().nullable(),
-    retractedAt: z.string().nullable(),
-    retractedBy: z.string().nullable(),
-    // Why the words came down. Carried on a retracted note deliberately: retraction is visible, and
-    // the reason is what stays in place of the body.
-    retractionReason: z.string().nullable(),
+    body: z.string(),
+    // Who last changed the words, where anybody has. Null on a note nobody has edited, which is a
+    // different fact from the author having edited their own note.
+    lastEditedBy: z.string().nullable(),
+    // When the thing the note describes happened, which is not when the note was typed. Null where
+    // the note records no single moment.
+    occurredOn: z.string().nullable(),
+    occurredAtTime: z.string().nullable(),
+    timeZone: z.string().nullable(),
+    // The matter's files this note points at. Empty where it points at none.
+    documents: z.array(NoteDocument),
     createdAt: z.string(),
     updatedAt: z.string(),
   })
   .openapi("MatterNoteDetail");
 
-const NoteRevision = z
-  .object({
-    id: z.string(),
-    noteId: z.string(),
-    body: z.string(),
-    authorUserId: z.string(),
-    ordinal: z.number().int().positive(),
-    createdAt: z.string(),
-  })
-  .openapi("MatterNoteRevision");
-
 const NotePage = paginated(NoteDetail).openapi("MatterNotePage");
-// A CAPPED answer rather than a paged one: the chain of one note, bounded by
-// MAX_NOTE_REVISION_PAGE_SIZE, with `capped` saying when the note has more versions than were
-// returned. A chain that long is a corrupted note or an automated writer rather than a lawyer
-// fixing typos, but "we stopped counting" and "that is all" must not be the same answer.
-const NoteRevisionList = capped(NoteRevision).openapi("MatterNoteRevisionList");
-
 const CreatedResponse = z.object({ id: z.string() }).openapi("CreatedMatterNote");
 const AcknowledgedResponse = z.object({ ok: z.literal(true) }).openapi("MatterNoteAcknowledged");
 
 const matterIdParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
 const noteIdParam = z.object({ noteId: identifierPathParam("matterNote", "noteId") });
-
-// Finding a note again on a matter. Scoped to the one matter the path names and matched against the
-// notes' CURRENT text only, so a note corrected to remove a name stops being findable by it. No
-// snippet is emitted and none is needed: every row this can return is a note whose body the same
-// reader is already shown on the same screen.
-const listNotesQuery = cursorQuery.extend({
-  search: z.string().min(1).max(200).optional(),
+const attachmentIdParam = z.object({
+  attachmentId: identifierPathParam("matterNoteDocument", "attachmentId"),
 });
+
+// Finding a note again on this matter, matched against its current text. No snippet is emitted and
+// none is needed: every row this returns is a note whose body the same reader is already shown.
+const listNotesQuery = cursorQuery.extend({ search: z.string().min(1).max(200).optional() });
 
 const authErrors = {
   400: {
@@ -158,8 +155,7 @@ const authErrors = {
     content: { "application/problem+json": { schema: Problem } },
   },
   409: {
-    description:
-      "A request with this Idempotency-Key is still in progress, or the note is withdrawn",
+    description: "A request with this Idempotency-Key is still in progress",
     content: { "application/problem+json": { schema: Problem } },
   },
   422: {
@@ -177,29 +173,18 @@ const authErrors = {
 function noteErrorResponse(
   c: Context,
   caught: NoteValidationError,
-): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
+): ProblemResponse<404> | ProblemResponse<422> {
   switch (caught.code) {
     case "note-unknown":
-      return problemJson(c, {
-        type: "not-found",
-        title: "Not found",
-        status: 404,
-        detail: caught.message,
-      });
+    case "note-unknown-file":
+    // 404 and not 403: which matter a note or a document belongs to is itself a fact about the
+    // firm's work, and a distinguishable refusal would let a caller probe for either.
     case "note-matter-mismatch":
-      // 404 and not 403: which matter a note belongs to is itself a fact about the firm's work, and
-      // a distinguishable refusal would let a caller probe for notes on matters they cannot see.
+    case "note-file-matter-mismatch":
       return problemJson(c, {
         type: "not-found",
         title: "Not found",
         status: 404,
-        detail: caught.message,
-      });
-    case "note-retracted":
-      return problemJson(c, {
-        type: "note-retracted",
-        title: "Note withdrawn",
-        status: 409,
         detail: caught.message,
       });
     default:
@@ -227,12 +212,12 @@ function readMeta(action: string): RouteMeta {
   };
 }
 
-function writeMeta(action: string, permission: typeof WRITE | typeof RETRACT): RouteMeta {
+function writeMeta(action: string): RouteMeta {
   return {
     operationId: `notes.${action}`,
     surface: "app",
     authenticated: true,
-    permission,
+    permission: WRITE,
     resource: "matter",
     audited: true,
     // Required. A retried create must not put a second copy of the same note on the matter, and a
@@ -250,11 +235,10 @@ const listNotesRoute = defineOpenAPIRoute(readMeta("listNotes"), {
   method: "get",
   path: "/api/v1/matters/{matterId}/notes",
   description:
-    "The matter's notes, newest first. A withdrawn note is returned as a tombstone: its author, " +
-    "its instants, who withdrew it and why, and never its body, which the read itself nulls " +
-    "rather than leaving to the caller to hide. Pass a search term to narrow to the notes whose " +
-    "current text contains it; earlier versions are deliberately not matched, so a note corrected " +
-    "to take out a name stops being findable by that name.",
+    "The matter's notes, most recent first. Ordered by when the thing each note describes " +
+    "happened, falling back to the day it was written, so a note about Tuesday's call sits beside " +
+    "Tuesday. Each carries the documents it points at. Pass a search term to narrow to the notes " +
+    "whose text contains it.",
   request: { params: matterIdParam, query: listNotesQuery },
   responses: {
     200: {
@@ -268,50 +252,13 @@ const listNotesRoute = defineOpenAPIRoute(readMeta("listNotes"), {
   },
 });
 
-const readNoteRoute = defineOpenAPIRoute(readMeta("readNote"), {
-  method: "get",
-  path: "/api/v1/notes/{noteId}",
-  description: "One note, as it currently stands.",
-  request: { params: noteIdParam },
-  responses: {
-    200: { description: "The note", content: { "application/json": { schema: NoteDetail } } },
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    429: authErrors[429],
-  },
-});
-
-const readNoteHistoryRoute = defineOpenAPIRoute(readMeta("readNoteHistory"), {
-  method: "get",
-  path: "/api/v1/notes/{noteId}/revisions",
-  description:
-    "Every body this note has had, oldest first, each with its own author and instant. This is " +
-    "what makes correcting a note an addition rather than an overwrite: the earlier words are not " +
-    "merely retained, they are readable. A withdrawn note has no readable history: the tombstone " +
-    "is not a door around itself. `capped` is true when the note has more versions than were " +
-    "returned.",
-  request: { params: noteIdParam },
-  responses: {
-    200: {
-      description: "The note's revisions",
-      content: { "application/json": { schema: NoteRevisionList } },
-    },
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    429: authErrors[429],
-  },
-});
-
-const createNoteRoute = defineOpenAPIRoute(writeMeta("createNote", WRITE), {
+const createNoteRoute = defineOpenAPIRoute(writeMeta("createNote"), {
   method: "post",
   path: "/api/v1/matters/{matterId}/notes",
   description:
-    "Writes a note on the matter. The note records who wrote it and when, and those do not change " +
-    "afterwards — a correction appends a new version rather than replacing this one, because what " +
-    "makes a note worth having is that it was written then, by that person, saying that.",
+    "Writes a note on the matter. The note records who wrote it and when. Say separately when the " +
+    "thing it describes happened where there is such a moment: a note typed on Thursday about a " +
+    "call on Tuesday carries both, and the matter's history places it on the Tuesday.",
   request: {
     headers: idempotencyKeyHeader,
     params: matterIdParam,
@@ -329,21 +276,20 @@ const createNoteRoute = defineOpenAPIRoute(writeMeta("createNote", WRITE), {
   },
 });
 
-const reviseNoteRoute = defineOpenAPIRoute(writeMeta("reviseNote", WRITE), {
-  method: "post",
-  path: "/api/v1/notes/{noteId}/revisions",
+const editNoteRoute = defineOpenAPIRoute(writeMeta("editNote"), {
+  method: "patch",
+  path: "/api/v1/notes/{noteId}",
   description:
-    "Corrects a note by adding a new version of its text. The previous version is kept and stays " +
-    "readable; the new one becomes what the note shows. A revision is attributed to whoever made " +
-    "it, which is not always the note's original author.",
+    "Changes a note's text, and when it says the thing happened. The previous text is replaced and " +
+    "is not kept: what the note said before is gone. Who made the change is recorded.",
   request: {
     headers: idempotencyKeyHeader,
     params: noteIdParam,
-    body: { content: { "application/json": { schema: ReviseNoteRequest } }, required: true },
+    body: { content: { "application/json": { schema: EditNoteRequest } }, required: true },
   },
   responses: {
     200: {
-      description: "The note was revised",
+      description: "The note was changed",
       content: { "application/json": { schema: AcknowledgedResponse } },
     },
     400: authErrors[400],
@@ -356,23 +302,65 @@ const reviseNoteRoute = defineOpenAPIRoute(writeMeta("reviseNote", WRITE), {
   },
 });
 
-const retractNoteRoute = defineOpenAPIRoute(writeMeta("retractNote", RETRACT), {
-  method: "post",
-  path: "/api/v1/notes/{noteId}/retract",
+const deleteNoteRoute = defineOpenAPIRoute(writeMeta("deleteNote"), {
+  method: "delete",
+  path: "/api/v1/notes/{noteId}",
   description:
-    "Withdraws a note: its text stops being shown anywhere and it leaves the matter's activity " +
-    "history, while the record that it existed, who wrote it, and who withdrew it remains. This is " +
-    "the answer to text that should never have been written down — another client's privileged " +
-    "material, or somebody's medical information typed in by mistake. Nothing is deleted, and the " +
-    "reason is required, because a withdrawal a firm cannot explain later is worse than the note.",
+    "Deletes a note. The note and its text are removed and cannot be recovered. Documents the note " +
+    "pointed at are untouched and stay in the matter's files: deleting a note has never been a way " +
+    "to delete a document.",
+  request: { headers: idempotencyKeyHeader, params: noteIdParam },
+  responses: {
+    200: {
+      description: "The note was deleted",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const attachDocumentRoute = defineOpenAPIRoute(writeMeta("attachNoteDocument"), {
+  method: "post",
+  path: "/api/v1/notes/{noteId}/documents",
+  description:
+    "Points a note at one of the matter's documents. The document is not copied or moved: it stays " +
+    "in the matter's files with everything that follows from being there. Only a document on the " +
+    "note's own matter can be attached.",
   request: {
     headers: idempotencyKeyHeader,
     params: noteIdParam,
-    body: { content: { "application/json": { schema: RetractNoteRequest } }, required: true },
+    body: { content: { "application/json": { schema: AttachDocumentRequest } }, required: true },
   },
   responses: {
+    201: {
+      description: "The document was attached",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const detachDocumentRoute = defineOpenAPIRoute(writeMeta("detachNoteDocument"), {
+  method: "delete",
+  path: "/api/v1/note-documents/{attachmentId}",
+  description:
+    "Stops a note pointing at a document. The document is untouched and stays in the matter's files.",
+  request: { headers: idempotencyKeyHeader, params: attachmentIdParam },
+  responses: {
     200: {
-      description: "The note was withdrawn",
+      description: "The document was detached",
       content: { "application/json": { schema: AcknowledgedResponse } },
     },
     400: authErrors[400],
@@ -398,19 +386,29 @@ function serviceOptions(userId: string) {
   };
 }
 
-function noteDetail(row: MatterNoteDisplayRow): z.infer<typeof NoteDetail> {
+function noteDetail(
+  row: MatterNoteRow,
+  documents: readonly MatterNoteDocumentRow[],
+): z.infer<typeof NoteDetail> {
   return {
     id: row.id,
     matterId: row.matter_id,
     authorUserId: row.author_user_id,
-    state: row.state,
     body: row.body,
-    revisionCount: row.head_ordinal,
-    currentRevisionAuthorUserId: row.revision_author_user_id,
-    currentRevisionCreatedAt: row.revision_created_at,
-    retractedAt: row.retracted_at,
-    retractedBy: row.retracted_by,
-    retractionReason: row.retraction_reason,
+    lastEditedBy: row.last_edited_by,
+    occurredOn: row.occurred_on,
+    occurredAtTime: row.occurred_at_time,
+    timeZone: row.time_zone,
+    documents: documents
+      .filter((document) => document.note_id === row.id)
+      .map((document) => ({
+        id: document.id,
+        fileId: document.file_id,
+        fileName: document.file_name,
+        contentType: document.content_type,
+        linkedAt: document.linked_at,
+        linkedBy: document.linked_by,
+      })),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -428,15 +426,20 @@ async function readNotesPage(
     limit: MAX_NOTE_PAGE_SIZE + 1,
     visibility: visibleMatterPredicate(),
     search,
-  }).all<MatterNoteDisplayRow>();
+  }).all<MatterNoteRow & { ordering_date: string }>();
   const hasMore = results.length > MAX_NOTE_PAGE_SIZE;
   const rows = hasMore ? results.slice(0, MAX_NOTE_PAGE_SIZE) : results;
   const last = rows.at(-1);
+  // The page's attachments in ONE bounded read keyed by the notes on it, never one read per note.
+  const documents = await readMatterNoteDocuments(
+    database,
+    rows.map((row) => row.id),
+    visibleMatterPredicate(),
+  );
   return {
-    data: rows.map(noteDetail),
-    // The platform's cursor encoding, imported rather than re-spelled — this surface mints no wire
-    // contract of its own.
-    nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
+    data: rows.map((row) => noteDetail(row, documents)),
+    // Keyed on the same expression the list is ordered by, so the walk cannot skip or repeat.
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.ordering_date, last.id) : null,
   };
 }
 
@@ -497,81 +500,6 @@ export function registerNotesRoutes(
     },
   );
 
-  // GET /api/v1/notes/{noteId}
-  app.openapi(
-    { ...readNoteRoute, middleware: chokepointMiddleware(chokepoint, readNoteRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const { noteId } = c.req.valid("param");
-      const row = await readMatterNoteDetail(
-        firm.firmDatabase,
-        noteId as MatterNoteId,
-        visibleMatterPredicate(),
-      );
-      if (row === undefined) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Not found",
-          status: 404,
-          detail: "that note is not a note in this firm",
-        });
-      }
-      return c.json(noteDetail(row), 200);
-    },
-  );
-
-  // GET /api/v1/notes/{noteId}/revisions
-  app.openapi(
-    { ...readNoteHistoryRoute, middleware: chokepointMiddleware(chokepoint, readNoteHistoryRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const { noteId } = c.req.valid("param");
-      const note = await readMatterNote(
-        firm.firmDatabase,
-        noteId as MatterNoteId,
-        visibleMatterPredicate(),
-      );
-      if (note === undefined) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Not found",
-          status: 404,
-          detail: "that note is not a note in this firm",
-        });
-      }
-      if (note.state === "retracted") {
-        // Refused rather than emptied. Withdrawal stops the body rendering EVERYWHERE, and a history
-        // read that still served every superseded body would be a way around the tombstone rather
-        // than an exception to it.
-        return problemJson(c, {
-          type: "note-retracted",
-          title: "Note withdrawn",
-          status: 409,
-          detail:
-            "that note was withdrawn; its earlier versions are not readable, which is what withdrawing it did",
-        });
-      }
-      const chain = await readMatterNoteRevisions(firm.firmDatabase, noteId as MatterNoteId, {
-        limit: MAX_NOTE_REVISION_PAGE_SIZE,
-        visibility: visibleMatterPredicate(),
-      });
-      return c.json(
-        {
-          data: chain.revisions.map((revision) => ({
-            id: revision.id,
-            noteId: revision.note_id,
-            body: revision.body,
-            authorUserId: revision.author_user_id,
-            ordinal: revision.ordinal,
-            createdAt: revision.created_at,
-          })),
-          capped: chain.capped,
-        },
-        200,
-      );
-    },
-  );
-
   // POST /api/v1/matters/{matterId}/notes
   app.openapi(
     { ...createNoteRoute, middleware: chokepointMiddleware(chokepoint, createNoteRoute) },
@@ -584,7 +512,7 @@ export function registerNotesRoutes(
       const outcome = await commitNoteEffect(c, firm.firmDatabase, idempotency, 201, () => {
         const created = createMatterNote(
           firm.firmDatabase,
-          { matterId, body: request.body },
+          { matterId, ...request },
           serviceOptions(userId),
         );
         return Promise.resolve({ id: created.noteId, effect: created.effect });
@@ -595,9 +523,9 @@ export function registerNotesRoutes(
     },
   );
 
-  // POST /api/v1/notes/{noteId}/revisions
+  // PATCH /api/v1/notes/{noteId}
   app.openapi(
-    { ...reviseNoteRoute, middleware: chokepointMiddleware(chokepoint, reviseNoteRoute) },
+    { ...editNoteRoute, middleware: chokepointMiddleware(chokepoint, editNoteRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
@@ -605,10 +533,10 @@ export function registerNotesRoutes(
       const { noteId } = c.req.valid("param");
       const request = c.req.valid("json");
       const outcome = await commitNoteEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-        const { effect } = await reviseMatterNote(
+        const { effect } = await editMatterNote(
           firm.firmDatabase,
           noteId as MatterNoteId,
-          { body: request.body },
+          request,
           serviceOptions(userId),
         );
         return { id: noteId, effect };
@@ -619,23 +547,67 @@ export function registerNotesRoutes(
     },
   );
 
-  // POST /api/v1/notes/{noteId}/retract
+  // DELETE /api/v1/notes/{noteId}
   app.openapi(
-    { ...retractNoteRoute, middleware: chokepointMiddleware(chokepoint, retractNoteRoute) },
+    { ...deleteNoteRoute, middleware: chokepointMiddleware(chokepoint, deleteNoteRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { noteId } = c.req.valid("param");
+      const outcome = await commitNoteEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await deleteMatterNote(
+          firm.firmDatabase,
+          noteId as MatterNoteId,
+          serviceOptions(userId),
+        );
+        return { id: noteId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/notes/{noteId}/documents
+  app.openapi(
+    { ...attachDocumentRoute, middleware: chokepointMiddleware(chokepoint, attachDocumentRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const { noteId } = c.req.valid("param");
       const request = c.req.valid("json");
-      const outcome = await commitNoteEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-        const { effect } = await retractMatterNote(
+      const outcome = await commitNoteEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+        const attached = await attachFileToMatterNote(
           firm.firmDatabase,
           noteId as MatterNoteId,
-          { reason: request.reason },
+          request.fileId as FileId,
           serviceOptions(userId),
         );
-        return { id: noteId, effect };
+        return { id: attached.linkId, effect: attached.effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // DELETE /api/v1/note-documents/{attachmentId}
+  app.openapi(
+    { ...detachDocumentRoute, middleware: chokepointMiddleware(chokepoint, detachDocumentRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { attachmentId } = c.req.valid("param");
+      const outcome = await commitNoteEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await detachFileFromMatterNote(
+          firm.firmDatabase,
+          attachmentId as MatterNoteDocumentId,
+          serviceOptions(userId),
+        );
+        return { id: attachmentId, effect };
       });
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");

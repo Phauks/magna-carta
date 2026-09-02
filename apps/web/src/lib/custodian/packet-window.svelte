@@ -23,6 +23,8 @@
    * door they came through.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -81,7 +83,7 @@
 
   let packet = $state<CustodyPacketDetail | null>(null);
   let movements = $state<readonly CustodyMovement[] | null>(null);
-  let loadFailure = $state<string | null>(null);
+  let loadFailure = $state<StatedFailure | null>(null);
   let printOpen = $state(false);
   let shownPacketId: string | null = null;
 
@@ -126,10 +128,7 @@
         ];
         void directory.resolve(fetch, handles);
       } else {
-        loadFailure =
-          detail.kind === "transport"
-            ? "Nothing answered. This packet could not be read."
-            : (detail.problem.detail ?? "This packet could not be read.");
+        loadFailure = stated(detail.failure, "This packet could not be read.");
       }
       // A ledger that failed leaves the packet readable: where the property is and whom it is held
       // for are still true, and the history says its own absence rather than failing the window.
@@ -174,10 +173,12 @@
 
 {#snippet record()}
   {#if loadFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>This Packet Could Not Be Read</Alert.Title>
-      <Alert.Description>{loadFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={loadFailure.failure}
+      title="This Packet Could Not Be Read"
+      fallback={loadFailure.fallback}
+      whenSilent={loadFailure.whenSilent}
+    />
   {:else if packet === null}
     <div class="flex flex-col gap-12" aria-busy="true" aria-label="Reading this packet">
       <Skeleton class="h-32 w-full" />

@@ -215,11 +215,15 @@ const FileHistoryItem = z
   .object({
     at: z.string(),
     // The raw audit event string (e.g. "file.renamed", "file.version_committed",
-    // "document.checkin_committed").
+    // "folder.created", "document.checkin_committed").
     event: z.string(),
-    fileId: z.string(),
-    // The file's CURRENT name, resolved at read time — a rename updates every past row's display.
-    fileName: z.string(),
+    // Whether the act was done to a file or to a folder. Making, renaming, moving and deleting a
+    // folder are acts on the matter's files as much as any other, so the trail carries both.
+    subjectKind: z.enum(["file", "folder"]),
+    subjectId: z.string(),
+    // Its CURRENT name, resolved at read time — a rename updates every past row's display. A
+    // deleted folder's row is gone, so its own deletion event says so instead of naming it.
+    subjectName: z.string(),
     // Present for version-subject events (uploads, commits, downloads); null for file-subject ones.
     versionNumber: z.number().int().nullable(),
     actorUserId: z.string().nullable(),
@@ -1470,8 +1474,9 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             return {
               at: row.at,
               event: row.event,
-              fileId: row.fileId,
-              fileName: row.fileName,
+              subjectKind: row.subjectKind,
+              subjectId: row.subjectId,
+              subjectName: row.subjectName,
               versionNumber: row.versionNumber,
               actorUserId: row.actorUserId,
               actorName: row.actorName,

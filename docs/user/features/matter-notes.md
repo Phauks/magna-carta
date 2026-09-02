@@ -3,70 +3,73 @@
 Notes are where you write down what happened on a case that nothing else records: the phone call, the
 standing instruction, the reasoning behind a decision. Find them on a matter under **Notes**.
 
-A note is dated and attributed the moment you write it, and those never change. Correcting one adds a
-new version and keeps the old one. Nothing here is ever deleted.
-
 ## Writing a Note
 
-Press **Write Note**, type, and press **Save Note**. The note records who wrote it and when.
+Press **Write Note**. Before you type anything the composer shows you what the note will carry: which
+matter it lands on, whose name goes on it, and the moment it will be stamped with. Nothing is stored
+that you were not shown.
+
+Write the note, and where there is a moment it describes, say when that was under **When It
+Happened**. This is not the same as when you are typing. A note written on Thursday about a call on
+Tuesday should say Tuesday, and the matter's history will place it there, beside whatever else
+happened that day. Add a time if you know it; the zone is your own and is shown beside the field.
+
+Plenty of notes describe no single moment, such as a standing instruction about how to work the
+matter. Leave the date empty for those.
 
 Write what you would want a colleague to find in two years, and assume it will be read by somebody
 who was not there. A note is part of the firm's record of the matter and may be read in litigation.
 
-## Correcting a Note
+## Editing a Note
 
-Press **Correct** on a note, edit the text, and press **Save Correction**.
+Press **Edit**, change the text or the date, and press **Save Changes**.
 
-The earlier version is kept. A corrected note shows which version it is on and offers **History**,
-which lists every version the note has had, oldest first, each with its own author and date. A
-correction is attributed to whoever made it, so a colleague fixing your note is recorded as having
-fixed it rather than as having written it.
+An edit replaces what was there. **The previous text is not kept and cannot be recovered.** The note
+records who last changed it and when, so a colleague can see it was edited, but not what it said
+before.
 
-This is deliberate: what makes a note worth having is that it was written then, by that person,
-saying that. Editing the text in place would destroy exactly that.
+## Deleting a Note
 
-## Withdrawing a Note
+Press **Delete** and confirm.
 
-Press **Withdraw** on a note, give a reason, and confirm.
+The note and its text are removed and cannot be recovered by anyone, including your administrator.
+What remains is an entry in the firm's audit log saying a note existed on this matter and who deleted
+it, never what it said.
 
-Use this when something was written that should not have been: another client's privileged material,
-somebody's medical information, a note filed against the wrong matter.
+Documents the note pointed at are **not** deleted. They stay in the matter's files exactly where they
+were: deleting a note has never been a way to delete a document.
 
-What happens:
+## Attaching Documents
 
-- The text stops being shown. It disappears from the note, from the matter's activity history, and
-  from search.
-- The record stays. The note keeps its place in the list showing who wrote it, when, who withdrew it,
-  when, and why.
-- Earlier versions stop being readable. **History** is not a way back to the withdrawn text.
-- Nothing is deleted.
+Press **Attach** on a note and choose a document from the matter's files.
 
-The reason is required and it is what stands where the text used to be, so say why the note came
-down rather than restating what it said.
+The document is not copied, moved, or uploaded again. The note points at the file the matter already
+holds, so it keeps its versions, its history, and everything else that follows from living in the
+matter's file record. One document can be attached to several notes, which is what you want when two
+calls both concerned the same letter.
 
-Withdrawing is visible on purpose. Your firm can see that something was withdrawn and by whom, which
-is what makes it a correction anybody can rely on rather than a quiet erasure.
+Only documents on the same matter can be attached. Press the **X** beside an attachment to stop the
+note pointing at it; the document itself is untouched.
 
-If a note genuinely has to be destroyed rather than withdrawn, that is a legal question and not a
-button. Raise it with your administrator: notes appear in the platform's data-erasure report so a
-person decides, case by case.
+If the **Attach** control is unavailable, the matter has no documents the note is not already
+pointing at.
 
 ## Finding a Note
 
-The search box above the list narrows to the notes on this matter whose current text contains what
-you type. Clear it with the **X** beside it.
+The search box above the list narrows to the notes on this matter whose text contains what you type.
+Clear it with the **X** beside it.
 
-Search matches the current version only. If a note was corrected to take out a name, searching for
-that name will not find it, which is usually the point of the correction. The earlier text is still
-in that note's **History**.
+Search matches the text as it stands now. If a note was edited to take out a name, searching for that
+name will not find it.
 
 Search covers the matter you are on. There is no search across every matter's notes yet.
 
 ## Who Can See Notes
 
-Notes are internal. Reading them is a separate permission from working the matter, and by default it
-goes to Owner, Admin, Attorney and Paralegal seats and not to Billing or Read-only seats. Writing a
-note and withdrawing one are separate permissions again, so your firm can decide who does each.
+Notes are internal. Reading them is a separate permission from writing them, and by default both go
+to Owner, Admin, Attorney and Paralegal seats and not to Billing or Read-only seats. Writing, editing,
+deleting and attaching are all the same permission: a member who can write the firm's record of a
+case can also correct and remove what should not be in it.
 
 Clients never see notes. A note is not a message to your client, and there is no setting that makes
 one visible to them. If you want the client to have something a note says, send it as a message: that

@@ -33,6 +33,10 @@
 @import "../components/tree/tree.css";
 @import "../components/skeleton/skeleton.css";
 @import "../components/alert/alert.css";
+/* The failure family composes EmptyState and Alert, so its recipes follow both of theirs. */
+@import "../components/failure-details/failure-details.css";
+@import "../components/failure-state/failure-state.css";
+@import "../components/failure-band/failure-band.css";
 @import "../components/keyboard/keyboard.css";
 @import "../components/tabs/tabs.css";
 @import "../components/switch/switch.css";

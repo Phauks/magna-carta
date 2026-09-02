@@ -32,11 +32,16 @@ async function shelfCookie(email: string, name: string): Promise<string> {
   return await signInForSessionCookie(email);
 }
 
-async function keepSnapshot(cookie: string, title: string, format = "docx"): Promise<string> {
+async function keepSnapshot(
+  cookie: string,
+  title: string,
+  format = "docx",
+  taken = true,
+): Promise<string> {
   const response = await SELF.fetch("https://example.com/api/v1/downloads/snapshots", {
     method: "POST",
     headers: { cookie, "content-type": "application/json" },
-    body: JSON.stringify({ title, format, document }),
+    body: JSON.stringify({ title, format, taken, document }),
   });
   expect(response.status).toBe(201);
   const created = (await response.json()) as { id: string };
@@ -47,6 +52,7 @@ interface ShelfItem {
   readonly id: string;
   readonly title: string;
   readonly kind: string;
+  readonly requestedFormat: string | null;
   readonly downloadedFormats: string[];
   readonly state: string;
 }
@@ -89,6 +95,17 @@ describe("the download register", () => {
     // has been downloaded", not only "what exists".
     expect(items[0]?.downloadedFormats).toEqual(["docx"]);
     expect(items[0]?.state).toBe("ready");
+  });
+
+  it("generates without marking a format taken, which is the default export path", async () => {
+    // Exporting no longer saves a file: the item is generated onto the shelf so several can be
+    // taken together. The format asked for is remembered, and nothing is claimed as downloaded.
+    const cookie = await shelfCookie("shelf-generate@example.com", "Shelf Generate");
+    await keepSnapshot(cookie, "Generated Only", "xlsx", false);
+
+    const items = await readShelf(cookie);
+    expect(items[0]?.requestedFormat).toBe("xlsx");
+    expect(items[0]?.downloadedFormats).toEqual([]);
   });
 
   it("hands a snapshot back as the stored document and records the second format", async () => {

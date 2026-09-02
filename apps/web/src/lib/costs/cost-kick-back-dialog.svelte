@@ -10,6 +10,8 @@
    * The cost returns to draft and becomes editable again. Nothing about it is removed.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
@@ -38,7 +40,7 @@
 
   let reason = $state("");
   let sending = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   // A fresh subject is a fresh reason: reopening on another cost must never carry the last one's.
   $effect(() => {
@@ -69,12 +71,11 @@
       onKickedBack();
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The cost was not returned and is unchanged."
-        : `${outcome.problem.detail ?? "The cost was not returned."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The cost was not returned.",
+      "The cost was not returned and is unchanged.",
+    );
   }
 </script>
 
@@ -84,10 +85,12 @@
     <Dialog.Description>{identity}</Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Changed</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Changed"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
     {/if}
 
     <div class="flex flex-col gap-8">

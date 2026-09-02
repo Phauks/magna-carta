@@ -10,6 +10,7 @@
     "./numbering/counter-statements": "./src/numbering/counter-statements.ts",
     "./numbering/scheme-statements": "./src/numbering/scheme-statements.ts",
     "./numbering/scheme-service": "./src/numbering/scheme-service.ts",
+    "./numbering/consultation-scheme": "./src/numbering/consultation-scheme.ts",
     "./matter-statements": "./src/matter-statements.ts",
     "./matter-party": "./src/matter-party.ts",
     "./matter-assignment": "./src/matter-assignment.ts",

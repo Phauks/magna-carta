@@ -18,6 +18,8 @@
    * inventing a capitalization nobody recorded.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
@@ -64,7 +66,7 @@
   // ---- the rail ------------------------------------------------------------------------------
 
   let names = $state<readonly DirectoryNameEntry[] | null>(null);
-  let readFailure = $state<string | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
 
   $effect(() => {
@@ -81,10 +83,7 @@
         return;
       }
       names = [];
-      readFailure =
-        outcome.kind === "transport"
-          ? "Nothing answered. The names on this record could not be read."
-          : (outcome.problem.detail ?? "The names on this record could not be read.");
+      readFailure = stated(outcome.failure, "The names on this record could not be read.");
     })();
     return () => {
       cancelled = true;
@@ -121,7 +120,7 @@
   let suffix = $state("");
   let legalName = $state("");
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const ready = $derived(
     kind === "person" ? given.trim() !== "" && family.trim() !== "" : legalName.trim() !== "",
@@ -182,10 +181,11 @@
       recorded();
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The name was not recorded."
-        : (outcome.problem.detail ?? "The name could not be recorded.");
+    failure = stated(
+      outcome.failure,
+      "The name could not be recorded.",
+      "The name was not recorded.",
+    );
   }
 
   // ---- changing the name on the record ---------------------------------------------------------
@@ -209,10 +209,11 @@
       recorded();
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The name on the record is unchanged."
-        : (outcome.problem.detail ?? "The name could not be changed.");
+    failure = stated(
+      outcome.failure,
+      "The name could not be changed.",
+      "The name on the record is unchanged.",
+    );
   }
 </script>
 
@@ -274,10 +275,12 @@
   </div>
 
   {#if readFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Names Could Not Be Read</Alert.Title>
-      <Alert.Description>{readFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={readFailure.failure}
+      title="The Names Could Not Be Read"
+      fallback={readFailure.fallback}
+      whenSilent={readFailure.whenSilent}
+    />
   {:else if names === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the names on this record">
       <Skeleton class="h-32 w-full" />
@@ -343,9 +346,12 @@
       {/if}
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Name Was Not Recorded"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex justify-end gap-8">
@@ -402,9 +408,12 @@
       {/if}
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Name Was Not Recorded"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex justify-end gap-8">
