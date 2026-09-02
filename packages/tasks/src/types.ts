@@ -76,3 +76,41 @@ export const NO_TASK_DUE: TaskDue = Object.freeze({
   dueAtTime: null,
   timeZone: null,
 });
+
+// ---- the matter plan ----
+
+// A plan's name and the description beside it, as a firm reads them in a settings list.
+export const MAX_PLAN_NAME_LENGTH = 120;
+export const MAX_PLAN_DESCRIPTION_LENGTH = 2_000;
+
+// The most task templates one plan may carry. A ceiling rather than a rule anybody will meet: a plan
+// is a firm's account of how a matter runs, and one with two hundred steps is a document rather than
+// a checklist. It also bounds what one acceptance writes in a single batch.
+export const MAX_PLAN_TASK_TEMPLATES = 100;
+
+// The most plans one firm may hold, and the most a proposal read returns.
+export const MAX_PLAN_TEMPLATE_PAGE_SIZE = 50;
+
+// How far a template's blocking chain is walked before authoring gives up. Same reasoning as the
+// task chain: a cycle is refused where the graph is small and static, and the walk stops somewhere.
+export const MAX_TEMPLATE_CHAIN_DEPTH = 50;
+
+// The furthest a plan may push a task from its anchor, either direction. Five years is far past any
+// honest plan step and well short of the range where plain calendar-day addition starts producing
+// dates nobody meant; a template offering "+36500" is a typo, not a schedule.
+export const MAX_PLAN_OFFSET_DAYS = 1_825;
+
+// WHAT A PLAN'S DUE DATE HANGS OFF, and the vocabulary is deliberately almost empty.
+//
+// `matter_opened` is a fact the matter row already carries. `none` proposes no date at all, which is
+// the ordinary case for a step whose timing depends on something the firm has not recorded yet.
+//
+// There is no `service_date`, no `filing_date` and no trigger-event anchor, because each of those is
+// the FRONT HALF OF A DOCKETING RULE and adding one invites the back half — the engine
+// packages/calendar has spent a subsystem refusing to build, on the reasoning that a computed
+// deadline which is wrong gets trusted precisely because it was computed. Growing this list is a
+// reviewed decision with the calendar's stated position on the other side of it, and the schema holds
+// it as a CHECK so growing it is a migration rather than a commit.
+export const PLAN_DUE_ANCHORS = Object.freeze(["matter_opened", "none"] as const);
+export type PlanDueAnchor = (typeof PLAN_DUE_ANCHORS)[number];
+export const DEFAULT_PLAN_DUE_ANCHOR: PlanDueAnchor = "none";

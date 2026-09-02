@@ -1,10 +1,16 @@
 import {
   CIVIL_DATE_PATTERN,
+  DEFAULT_PLAN_DUE_ANCHOR,
   MAX_CANCELLATION_REASON_LENGTH,
+  MAX_PLAN_DESCRIPTION_LENGTH,
+  MAX_PLAN_NAME_LENGTH,
+  MAX_PLAN_OFFSET_DAYS,
   MAX_TASK_BODY_LENGTH,
   MAX_TASK_TITLE_LENGTH,
+  PLAN_DUE_ANCHORS,
   TASK_PRIORITIES,
   WALL_CLOCK_TIME_PATTERN,
+  type PlanDueAnchor,
   type TaskDue,
   type TaskPriority,
 } from "./types.ts";
@@ -46,7 +52,22 @@ export type TaskValidationCode =
   | "task-unknown-file"
   | "task-file-matter-mismatch"
   | "task-without-matter-has-no-files"
-  | "task-too-many-files";
+  | "task-too-many-files"
+  // The matter plan.
+  | "plan-empty-name"
+  | "plan-name-too-long"
+  | "plan-description-too-long"
+  | "plan-unknown"
+  | "plan-inactive"
+  | "plan-unknown-anchor"
+  | "plan-offset-without-anchor"
+  | "plan-anchor-without-offset"
+  | "plan-offset-out-of-range"
+  | "plan-too-many-task-templates"
+  | "plan-unknown-task-template"
+  | "plan-task-template-mismatch"
+  | "plan-blocking-cycle"
+  | "plan-nothing-accepted";
 
 export class TaskValidationError extends Error {
   constructor(
@@ -195,4 +216,105 @@ export function normalizeTaskDue(input: {
   }
 
   return { dueOn, dueAtTime, timeZone };
+}
+
+// ---- the matter plan ----
+
+export function normalizePlanName(name: string): string {
+  const normalized = name.trim();
+  if (normalized.length === 0)
+    refuse("plan-empty-name", "a plan needs a name a firm will recognize");
+  if (normalized.length > MAX_PLAN_NAME_LENGTH) {
+    refuse(
+      "plan-name-too-long",
+      `a plan name is at most ${String(MAX_PLAN_NAME_LENGTH)} characters`,
+    );
+  }
+  return normalized;
+}
+
+export function normalizePlanDescription(description: string | null | undefined): string | null {
+  if (description === null || description === undefined) return null;
+  const normalized = description.trim();
+  if (normalized.length === 0) return null;
+  if (normalized.length > MAX_PLAN_DESCRIPTION_LENGTH) {
+    refuse(
+      "plan-description-too-long",
+      `a plan description is at most ${String(MAX_PLAN_DESCRIPTION_LENGTH)} characters`,
+    );
+  }
+  return normalized;
+}
+
+// The anchor and its offset, checked together because neither is meaningful alone.
+//
+// An offset with no anchor computes nothing. An anchor with no offset would silently mean "+0", and a
+// template that means the anchor date itself should say so with an explicit zero rather than by
+// omission — the difference between "on the day the matter opens" and "somebody forgot to type a
+// number" is exactly what a reviewer of a plan needs to see.
+export function normalizePlanDue(input: {
+  readonly dueAnchor?: string | null;
+  readonly offsetDays?: number | null;
+}): { anchor: PlanDueAnchor; offsetDays: number | null } {
+  const raw = input.dueAnchor ?? DEFAULT_PLAN_DUE_ANCHOR;
+  if (!(PLAN_DUE_ANCHORS as readonly string[]).includes(raw)) {
+    refuse(
+      "plan-unknown-anchor",
+      `${raw} is not a due-date anchor; the two are ${PLAN_DUE_ANCHORS.join(", ")}. ` +
+        "Anchors beyond these are the front half of a docketing rule and are added by a reviewed migration",
+    );
+  }
+  const anchor = raw as PlanDueAnchor;
+  const offsetDays = input.offsetDays ?? null;
+
+  if (anchor === "none") {
+    if (offsetDays !== null) {
+      refuse(
+        "plan-offset-without-anchor",
+        "an offset with no anchor computes nothing; give the anchor it counts from, or drop the offset",
+      );
+    }
+    return { anchor, offsetDays: null };
+  }
+
+  if (offsetDays === null) {
+    refuse(
+      "plan-anchor-without-offset",
+      "say how many days after the anchor this is due; zero means the anchor day itself and is written as zero",
+    );
+  }
+  if (!Number.isInteger(offsetDays)) {
+    refuse("plan-offset-out-of-range", "an offset is a whole number of days");
+  }
+  if (Math.abs(offsetDays) > MAX_PLAN_OFFSET_DAYS) {
+    refuse(
+      "plan-offset-out-of-range",
+      `an offset is at most ${String(MAX_PLAN_OFFSET_DAYS)} days either way; a larger one is a typo rather than a schedule`,
+    );
+  }
+  return { anchor, offsetDays };
+}
+
+// THE ONE PIECE OF DATE ARITHMETIC IN THIS PACKAGE, and the single named exception in
+// test/no-arithmetic.test.ts.
+//
+// It adds a whole number of CALENDAR days to a civil date and returns a civil date. No business-day
+// rule, no holiday calendar, no service-method offset, no jurisdiction, and no reading of any clock.
+// Adding fourteen days to a date is not the arithmetic packages/calendar forbids; deriving a court
+// deadline from a rule is, and this does not do that.
+//
+// The honest consequence, stated here because it is the reason instantiation asks before it writes:
+// this will happily land a task on a Sunday or on Christmas Day. A person moves that date in a
+// second. A template cannot know to.
+//
+// Computed in UTC deliberately. The inputs and the output are civil dates with no time and no zone,
+// so a UTC round trip is pure day arithmetic — using a named zone here would introduce a daylight-
+// saving transition into a calculation that has no business seeing one.
+export function addCalendarDays(civilDate: string, days: number): string {
+  const [year, month, day] = civilDate.split("-").map(Number) as [number, number, number];
+  const shifted = new Date(Date.UTC(year, month - 1, day + days));
+  const isoYear = String(shifted.getUTCFullYear()).padStart(4, "0");
+  const isoMonth = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const isoDay = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${isoYear}-${isoMonth}-${isoDay}`;
 }

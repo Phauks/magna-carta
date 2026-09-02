@@ -219,6 +219,7 @@ describe("GET /api/v1/me", () => {
         // tasks:write so a firm CAN reserve who puts work in other people's names, and Billing holds
         // read and write but not assign (20260901T150000_tasks.sql).
         "tasks:assign",
+        "tasks:managePlans",
         "tasks:read",
         "tasks:write",
         "templates:manage",

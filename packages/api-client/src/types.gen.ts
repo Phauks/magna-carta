@@ -3026,6 +3026,99 @@ export type AttachMatterTaskDocumentRequest = {
     fileId: string;
 };
 
+export type MatterPlanTemplateList = {
+    data: Array<MatterPlanTemplate>;
+};
+
+export type MatterPlanTemplate = {
+    id: string;
+    name: string;
+    description: string | null;
+    matterTypeId: string | null;
+    active: boolean;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+    tasks?: Array<MatterPlanTaskTemplate>;
+};
+
+export type MatterPlanTaskTemplate = {
+    id: string;
+    title: string;
+    body: string | null;
+    priority: 'low' | 'normal' | 'high' | 'urgent';
+    defaultAssigneeRole: string | null;
+    dueAnchor: 'matter_opened' | 'none';
+    offsetDays: number | null;
+    blockedByTemplateTaskId: string | null;
+    position: number;
+};
+
+export type CreatedMatterPlan = {
+    id: string;
+};
+
+export type MatterPlanTemplateRequest = {
+    name: string;
+    description?: string | null;
+    matterTypeId: string | null;
+};
+
+export type MatterPlanAcknowledged = {
+    ok: true;
+};
+
+export type MatterPlanTaskTemplateRequest = {
+    title: string;
+    body?: string | null;
+    priority?: 'low' | 'normal' | 'high' | 'urgent' | null;
+    defaultAssigneeRole?: string | null;
+    dueAnchor?: 'matter_opened' | 'none' | null;
+    offsetDays?: number | null;
+    blockedByTemplateTaskId?: string | null;
+    position?: number | null;
+};
+
+export type MatterPlanProposal = {
+    templateId: string;
+    templateName: string;
+    matterId: string;
+    tasks: Array<ProposedMatterPlanTask>;
+    anchorUnavailable: boolean;
+};
+
+export type ProposedMatterPlanTask = {
+    taskTemplateId: string;
+    title: string;
+    body: string | null;
+    priority: 'low' | 'normal' | 'high' | 'urgent';
+    dueAnchor: 'matter_opened' | 'none';
+    offsetDays: number | null;
+    dueOn: string | null;
+    timeZone: string | null;
+    defaultAssigneeRole: string | null;
+    assigneeUserId: string | null;
+    blockedByTemplateTaskId: string | null;
+    position: number;
+};
+
+export type AcceptedMatterPlanTasks = {
+    taskIds: Array<string>;
+};
+
+export type AcceptMatterPlanRequest = {
+    accepted: Array<{
+        taskTemplateId: string;
+        title?: string;
+        body?: string | null;
+        priority?: 'low' | 'normal' | 'high' | 'urgent' | null;
+        dueOn?: string | null;
+        dueAtTime?: string | null;
+        timeZone?: string | null;
+        assigneeUserId?: string | null;
+    }>;
+};
+
 export type CustodyLocation = {
     id: string;
     name: string;
@@ -18073,6 +18166,546 @@ export type TasksDetachTaskDocumentResponses = {
 };
 
 export type TasksDetachTaskDocumentResponse = TasksDetachTaskDocumentResponses[keyof TasksDetachTaskDocumentResponses];
+
+export type MatterPlansListPlansData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeInactive?: 'true' | 'false';
+    };
+    url: '/api/v1/matter-plans';
+};
+
+export type MatterPlansListPlansErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansListPlansError = MatterPlansListPlansErrors[keyof MatterPlansListPlansErrors];
+
+export type MatterPlansListPlansResponses = {
+    /**
+     * The firm's plans
+     */
+    200: MatterPlanTemplateList;
+};
+
+export type MatterPlansListPlansResponse = MatterPlansListPlansResponses[keyof MatterPlansListPlansResponses];
+
+export type MatterPlansCreatePlanData = {
+    body: MatterPlanTemplateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/matter-plans';
+};
+
+export type MatterPlansCreatePlanErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansCreatePlanError = MatterPlansCreatePlanErrors[keyof MatterPlansCreatePlanErrors];
+
+export type MatterPlansCreatePlanResponses = {
+    /**
+     * The plan
+     */
+    201: CreatedMatterPlan;
+};
+
+export type MatterPlansCreatePlanResponse = MatterPlansCreatePlanResponses[keyof MatterPlansCreatePlanResponses];
+
+export type MatterPlansReadPlanData = {
+    body?: never;
+    path: {
+        planId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-plans/{planId}';
+};
+
+export type MatterPlansReadPlanErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansReadPlanError = MatterPlansReadPlanErrors[keyof MatterPlansReadPlanErrors];
+
+export type MatterPlansReadPlanResponses = {
+    /**
+     * The plan
+     */
+    200: MatterPlanTemplate;
+};
+
+export type MatterPlansReadPlanResponse = MatterPlansReadPlanResponses[keyof MatterPlansReadPlanResponses];
+
+export type MatterPlansEditPlanData = {
+    body: MatterPlanTemplateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        planId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-plans/{planId}';
+};
+
+export type MatterPlansEditPlanErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansEditPlanError = MatterPlansEditPlanErrors[keyof MatterPlansEditPlanErrors];
+
+export type MatterPlansEditPlanResponses = {
+    /**
+     * The plan was changed
+     */
+    200: MatterPlanAcknowledged;
+};
+
+export type MatterPlansEditPlanResponse = MatterPlansEditPlanResponses[keyof MatterPlansEditPlanResponses];
+
+export type MatterPlansSetPlanActiveData = {
+    body: {
+        active: boolean;
+    };
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        planId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-plans/{planId}/active';
+};
+
+export type MatterPlansSetPlanActiveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansSetPlanActiveError = MatterPlansSetPlanActiveErrors[keyof MatterPlansSetPlanActiveErrors];
+
+export type MatterPlansSetPlanActiveResponses = {
+    /**
+     * The plan's availability was changed
+     */
+    200: MatterPlanAcknowledged;
+};
+
+export type MatterPlansSetPlanActiveResponse = MatterPlansSetPlanActiveResponses[keyof MatterPlansSetPlanActiveResponses];
+
+export type MatterPlansAddPlanStepData = {
+    body: MatterPlanTaskTemplateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        planId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-plans/{planId}/steps';
+};
+
+export type MatterPlansAddPlanStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansAddPlanStepError = MatterPlansAddPlanStepErrors[keyof MatterPlansAddPlanStepErrors];
+
+export type MatterPlansAddPlanStepResponses = {
+    /**
+     * The step
+     */
+    201: CreatedMatterPlan;
+};
+
+export type MatterPlansAddPlanStepResponse = MatterPlansAddPlanStepResponses[keyof MatterPlansAddPlanStepResponses];
+
+export type MatterPlansRemovePlanStepData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-plan-steps/{stepId}';
+};
+
+export type MatterPlansRemovePlanStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansRemovePlanStepError = MatterPlansRemovePlanStepErrors[keyof MatterPlansRemovePlanStepErrors];
+
+export type MatterPlansRemovePlanStepResponses = {
+    /**
+     * The step was removed
+     */
+    200: MatterPlanAcknowledged;
+};
+
+export type MatterPlansRemovePlanStepResponse = MatterPlansRemovePlanStepResponses[keyof MatterPlansRemovePlanStepResponses];
+
+export type MatterPlansEditPlanStepData = {
+    body: MatterPlanTaskTemplateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-plan-steps/{stepId}';
+};
+
+export type MatterPlansEditPlanStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansEditPlanStepError = MatterPlansEditPlanStepErrors[keyof MatterPlansEditPlanStepErrors];
+
+export type MatterPlansEditPlanStepResponses = {
+    /**
+     * The step was changed
+     */
+    200: MatterPlanAcknowledged;
+};
+
+export type MatterPlansEditPlanStepResponse = MatterPlansEditPlanStepResponses[keyof MatterPlansEditPlanStepResponses];
+
+export type MatterPlansListOfferedData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/plans';
+};
+
+export type MatterPlansListOfferedErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansListOfferedError = MatterPlansListOfferedErrors[keyof MatterPlansListOfferedErrors];
+
+export type MatterPlansListOfferedResponses = {
+    /**
+     * The plans offered
+     */
+    200: MatterPlanTemplateList;
+};
+
+export type MatterPlansListOfferedResponse = MatterPlansListOfferedResponses[keyof MatterPlansListOfferedResponses];
+
+export type MatterPlansProposeData = {
+    body?: never;
+    path: {
+        matterId: string;
+        planId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/plans/{planId}/proposal';
+};
+
+export type MatterPlansProposeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansProposeError = MatterPlansProposeErrors[keyof MatterPlansProposeErrors];
+
+export type MatterPlansProposeResponses = {
+    /**
+     * What the plan proposes
+     */
+    200: MatterPlanProposal;
+};
+
+export type MatterPlansProposeResponse = MatterPlansProposeResponses[keyof MatterPlansProposeResponses];
+
+export type MatterPlansAcceptData = {
+    body: AcceptMatterPlanRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        planId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/plans/{planId}/acceptance';
+};
+
+export type MatterPlansAcceptErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the plan is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterPlansAcceptError = MatterPlansAcceptErrors[keyof MatterPlansAcceptErrors];
+
+export type MatterPlansAcceptResponses = {
+    /**
+     * The tasks that were added
+     */
+    201: AcceptedMatterPlanTasks;
+};
+
+export type MatterPlansAcceptResponse = MatterPlansAcceptResponses[keyof MatterPlansAcceptResponses];
 
 export type CustodyListLocationsData = {
     body?: never;

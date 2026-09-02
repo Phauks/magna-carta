@@ -1,7 +1,7 @@
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
-import type { FileId, MatterId, UserId } from "@magna-carta/identifiers/types";
+import type { FileId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 
 // Shared scaffolding for the tasks package tests: a migrated in-memory per-firm database, a fixed
@@ -15,6 +15,8 @@ export const MATTER = "matter_taskTest0000000000000000000" as MatterId;
 export const OTHER_MATTER = "matter_taskOther000000000000000000" as MatterId;
 export const CLOSED_MATTER = "matter_taskClosed00000000000000000" as MatterId;
 export const HOLDING_MATTER = "matter_taskHolding00000000000000000" as MatterId;
+export const MATTER_TYPE = "matterType_taskPlan00000000000" as MatterTypeId;
+export const OTHER_MATTER_TYPE = "matterType_taskOther0000000000" as MatterTypeId;
 
 export const clock = { now: () => "2026-09-01T12:00:00.000Z" };
 export const visibility = visibleMatterPredicate();
@@ -45,20 +47,50 @@ export function seedFirm(raw: ReturnType<typeof migratedDatabase>["raw"]): void 
       `INSERT INTO member (user_id, display_name, status, created_at) VALUES ('${userId}', '${displayName}', '${status}', '2026-08-01T00:00:00.000Z')`,
     );
   }
-  const matterColumns =
-    "id, title, status, responsible_member_id, system_key, opened_at, created_at, updated_at";
-  const matters: readonly [MatterId, string, string, string | null][] = [
-    [MATTER, "Herrera v Alvarez", "open", null],
-    [OTHER_MATTER, "Brown estate", "open", null],
-    [CLOSED_MATTER, "Nakamura sale", "closed", null],
-    [HOLDING_MATTER, "Custody holdings", "open", "custody-holding"],
-  ];
-  for (const [id, title, status, systemKey] of matters) {
-    const key = systemKey === null ? "NULL" : `'${systemKey}'`;
+  // Two matter types, so a plan bound to one is provably not offered on the other.
+  for (const [id, name] of [
+    [MATTER_TYPE, "Personal injury"],
+    [OTHER_MATTER_TYPE, "Estate"],
+  ] as const) {
     raw.exec(
-      `INSERT INTO matter (${matterColumns}) VALUES ('${id}', '${title}', '${status}', '${ACTOR}', ${key}, '2026-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z')`,
+      `INSERT INTO matter_type (id, name, active, created_at, updated_at) VALUES ('${id}', '${name}', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
     );
   }
+  const matterColumns =
+    "id, title, status, matter_type_id, responsible_member_id, system_key, opened_at, created_at, updated_at";
+  // opened_at is deliberately a CIVIL DATE on one matter and an INSTANT on another: the column holds
+  // both shapes in practice, and the anchor read cuts the first ten characters rather than parsing.
+  const matters: readonly [MatterId, string, string, MatterTypeId | null, string | null, string][] =
+    [
+      [MATTER, "Herrera v Alvarez", "open", MATTER_TYPE, null, "2026-06-09"],
+      [OTHER_MATTER, "Brown estate", "open", OTHER_MATTER_TYPE, null, "2026-06-12T00:00:00.000Z"],
+      [CLOSED_MATTER, "Nakamura sale", "closed", MATTER_TYPE, null, "2026-01-05"],
+      [HOLDING_MATTER, "Custody holdings", "open", null, "custody-holding", "2026-01-04"],
+    ];
+  for (const [id, title, status, typeId, systemKey, openedAt] of matters) {
+    const key = systemKey === null ? "NULL" : `'${systemKey}'`;
+    const type = typeId === null ? "NULL" : `'${typeId}'`;
+    raw.exec(
+      `INSERT INTO matter (${matterColumns}) VALUES ('${id}', '${title}', '${status}', ${type}, '${ACTOR}', ${key}, '${openedAt}', '2026-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z')`,
+    );
+  }
+}
+
+// A live assignment, so a plan's role has somebody to resolve to. `validTo` null means current.
+export function seedAssignment(
+  raw: ReturnType<typeof migratedDatabase>["raw"],
+  matterId: MatterId,
+  userId: UserId,
+  role: string,
+): void {
+  const id = `matterAssignment_${role
+    .replace(/[^a-zA-Z0-9]/gu, "")
+    .padEnd(21, "0")
+    .slice(0, 21)}`;
+  raw.exec(
+    `INSERT INTO matter_assignment (id, matter_id, member_user_id, assignment_role, valid_from, valid_to, created_at, updated_at) ` +
+      `VALUES ('${id}', '${matterId}', '${userId}', '${role}', NULL, NULL, '2026-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z')`,
+  );
 }
 
 // A live file on a matter, for the attachment paths. Only the columns the task's read touches are

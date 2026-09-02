@@ -206,6 +206,12 @@ export const PERMISSIONS = [
   "tasks:read", // read tasks on a matter, one's own task list, and the files linked to them
   "tasks:write", // create, edit, complete, reopen, cancel and delete a task; link and unlink the matter's files
   "tasks:assign", // put a task in another member's name, or move one out of theirs
+  // Authoring a matter plan is a different act from doing the work it describes. A plan is the firm's
+  // statement of how a kind of matter is run — closer to the matter-type catalog than to a task — and
+  // a wrong step in one propagates to every matter opened under it, so it is a fourth key rather than
+  // riding tasks:write. Accepting a proposed plan needs no key of its own: it creates tasks, which is
+  // what tasks:write and tasks:assign already govern. Binds resource: "firm" like the rest.
+  "tasks:managePlans", // author, edit and deactivate the firm's matter plans and the tasks they propose
   // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
   // because the register concentrates a matter's financially sensitive facts (what the estate owns,
   // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a

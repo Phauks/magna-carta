@@ -5,6 +5,8 @@ import type {
   MatterDeadlineId,
   MatterEventId,
   MatterId,
+  MatterPlanTaskTemplateId,
+  MatterPlanTemplateId,
   MatterTaskDocumentId,
   MatterTaskId,
   UserId,
@@ -79,6 +81,10 @@ export interface MatterTaskRow {
   readonly blocked_by_task_id: MatterTaskId | null;
   readonly trigger_event_id: MatterEventId | null;
   readonly deadline_id: MatterDeadlineId | null;
+  // Where this task came from, where a plan proposed it. PROVENANCE: no read resolves these, so a
+  // template edit cannot reach a matter that already accepted one.
+  readonly plan_template_id: MatterPlanTemplateId | null;
+  readonly plan_task_template_id: MatterPlanTaskTemplateId | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -115,6 +121,8 @@ const TASK_COLUMNS = [
   "blocked_by_task_id",
   "trigger_event_id",
   "deadline_id",
+  "plan_template_id",
+  "plan_task_template_id",
   "created_at",
   "updated_at",
 ]
@@ -152,6 +160,10 @@ export interface InsertMatterTaskInput {
   readonly blockedByTaskId: MatterTaskId | null;
   readonly triggerEventId: MatterEventId | null;
   readonly deadlineId: MatterDeadlineId | null;
+  // Filled only by a plan acceptance. Every other write path leaves both null, which is what makes
+  // "came off a plan" answerable by the column's presence rather than by a join.
+  readonly planTemplateId?: MatterPlanTemplateId | null;
+  readonly planTaskTemplateId?: MatterPlanTaskTemplateId | null;
   readonly now: string;
 }
 
@@ -164,9 +176,9 @@ export function insertMatterTaskStatement(
       `INSERT INTO ${MATTER_TASK_TABLE} (id, matter_id, title, body, assignee_user_id, created_by, ` +
         `priority, due_on, due_at_time, time_zone, state, completed_at, completed_by, cancelled_at, ` +
         `cancelled_by, cancellation_reason, blocked_by_task_id, trigger_event_id, deadline_id, ` +
-        `created_at, updated_at) ` +
+        `plan_template_id, plan_task_template_id, created_at, updated_at) ` +
         `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'open', NULL, NULL, NULL, NULL, NULL, ` +
-        `?11, ?12, ?13, ?14, ?14)`,
+        `?11, ?12, ?13, ?14, ?15, ?16, ?16)`,
     )
     .bind(
       input.id,
@@ -182,6 +194,8 @@ export function insertMatterTaskStatement(
       input.blockedByTaskId,
       input.triggerEventId,
       input.deadlineId,
+      input.planTemplateId ?? null,
+      input.planTaskTemplateId ?? null,
       input.now,
     );
 }

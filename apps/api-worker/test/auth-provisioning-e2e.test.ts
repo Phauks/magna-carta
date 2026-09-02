@@ -387,6 +387,7 @@ describe("end-to-end", () => {
         // Billing holds read and write and not assign, and Read-only holds none
         // (20260901T150000_tasks.sql).
         "tasks:assign",
+        "tasks:managePlans",
         "tasks:read",
         "tasks:write",
         "templates:manage",

@@ -206,6 +206,9 @@
       "path": "packages/status/tsconfig.test.json"
     },
     {
+      "path": "packages/tasks/tsconfig.test.json"
+    },
+    {
       "path": "packages/telemetry/tsconfig.test.json"
     },
     {

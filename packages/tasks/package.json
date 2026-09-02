@@ -10,7 +10,9 @@
     "./task-statements": "./src/task-statements.ts",
     "./task-service": "./src/task-service.ts",
     "./notifications": "./src/notifications.ts",
-    "./close-advisory": "./src/close-advisory.ts"
+    "./close-advisory": "./src/close-advisory.ts",
+    "./plan-statements": "./src/plan-statements.ts",
+    "./plan-service": "./src/plan-service.ts"
   },
   "scripts": {
     "test": "vp test run"

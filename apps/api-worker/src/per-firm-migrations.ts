@@ -86,6 +86,7 @@ import matterNotesEditAndDeleteSql from "@magna-carta/database/drizzle/per-firm/
 import timeEntryRecordSurfacesSql from "@magna-carta/database/drizzle/per-firm/20260901T130000_time-entry-record-surfaces.sql";
 import consultationNumberSql from "@magna-carta/database/drizzle/per-firm/20260901T130001_consultation-number.sql";
 import tasksSql from "@magna-carta/database/drizzle/per-firm/20260901T150000_tasks.sql";
+import matterPlansSql from "@magna-carta/database/drizzle/per-firm/20260902T120000_matter-plans.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -185,6 +186,7 @@ export function perFirmMigrations(): Migration[] {
     "20260901T130000_time-entry-record-surfaces": timeEntryRecordSurfacesSql,
     "20260901T130001_consultation-number": consultationNumberSql,
     "20260901T150000_tasks": tasksSql,
+    "20260902T120000_matter-plans": matterPlansSql,
   });
 }
 

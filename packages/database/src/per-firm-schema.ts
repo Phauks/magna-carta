@@ -107,6 +107,8 @@ import type {
   MatterEventTypeId,
   MatterId,
   MatterPartyId,
+  MatterPlanTaskTemplateId,
+  MatterPlanTemplateId,
   MatterRecoveryId,
   MatterTaskDocumentId,
   MatterTaskId,
@@ -6450,10 +6452,27 @@ export const matterTask = sqliteTable(
     deadlineId: text("deadline_id")
       .$type<MatterDeadlineId>()
       .references(() => matterDeadline.id),
+    // WHERE THIS TASK CAME FROM, where a matter plan proposed it and somebody accepted. Provenance
+    // and never a live link: nothing resolves these on a read, editing a template does not touch a
+    // task already on a matter, and deactivating one does not either. What they buy is the question
+    // a firm actually asks — which matters came off the old intake plan — answered by matching a
+    // handle rather than by a join that would make a template edit reach into open matters.
+    //
+    // They carry foreign keys for the same reason trigger_event_id above does: a link that is never
+    // an input to a calculation is still a link that should point at something real, and a template
+    // soft-deactivates rather than deleting, so nothing dangles.
+    planTemplateId: text("plan_template_id")
+      .$type<MatterPlanTemplateId>()
+      .references(() => matterPlanTemplate.id),
+    planTaskTemplateId: text("plan_task_template_id")
+      .$type<MatterPlanTaskTemplateId>()
+      .references(() => matterPlanTaskTemplate.id),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
+    // The provenance read: which matters came off this plan.
+    index("matter_task_plan_template_index").on(table.planTemplateId),
     // "What is on my plate", which is the read a member makes most often and the one that decides
     // whether this subsystem gets used. Leads with the assignee and the state so the open ones come
     // off the index without a scan.
@@ -6540,6 +6559,122 @@ export const matterTaskDocument = sqliteTable(
     // One document rides one task once. A second identical link is a row a person reads as the same
     // file twice, and detaching one would leave the other behind.
     uniqueIndex("matter_task_document_task_file_unique_index").on(table.taskId, table.fileId),
+  ],
+);
+
+// THE MATTER PLAN: a firm's own statement of the work a kind of matter takes, as a template that
+// PROPOSES tasks rather than one that writes them.
+//
+// THE PLATFORM SHIPS NONE OF THESE, and that is a competitive decision made against the grain. Every
+// competitor ships plan libraries and a firm evaluating this platform will notice their absence. A
+// plan is a statement about how THIS FIRM practises in THIS jurisdiction, and a platform-shipped plan
+// with a missing step, or a step in the wrong order, or a step that is right in Nevada and wrong in
+// California, is a malpractice vector carrying the platform's name — and it gets trusted precisely
+// because it shipped, which is the calendar's exact argument about computed dates. The migration
+// creates these tables and inserts nothing.
+//
+// A template soft-deactivates and is never deleted, the discipline matter_type and firm_resource
+// already use: instantiated tasks carry the template's handle as provenance, and a firm asking which
+// matters came off the old intake plan needs the row to still be there.
+export const matterPlanTemplate = sqliteTable(
+  "matter_plan_template",
+  {
+    id: text("id").primaryKey().$type<MatterPlanTemplateId>(), // matterPlanTemplate_ handle
+    name: text("name").notNull(),
+    description: text("description"),
+    // Which kind of matter this plan is offered on. NULL means every kind — a firm whose intake steps
+    // are the same whatever the matter is should not have to author the plan once per type.
+    matterTypeId: text("matter_type_id")
+      .$type<MatterTypeId>()
+      .references(() => matterType.id),
+    active: integer("active").notNull().default(1),
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The read that matters: which plans are offered when a matter of this type opens.
+    index("matter_plan_template_matter_type_active_index").on(table.matterTypeId, table.active),
+    uniqueIndex("matter_plan_template_name_unique_index").on(table.name),
+    check("matter_plan_template_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("matter_plan_template_active_check", sql`${table.active} IN (0, 1)`),
+  ],
+);
+
+// One task a plan proposes. It carries a due-date ANCHOR rather than a date, and a ROLE rather than a
+// member, because both of the alternatives are wrong the moment a template is used twice.
+//
+// THE ANCHOR VOCABULARY IS DELIBERATELY ALMOST EMPTY: `matter_opened` and `none`, held by a CHECK so
+// growing it is a migration somebody reviews. There is no `service_date` anchor, no `filing_date`
+// anchor and no trigger-event anchor, because each of those is the FRONT HALF OF A DOCKETING RULE and
+// adding one invites the back half — which is the engine packages/calendar has spent a subsystem
+// refusing to build, on the reasoning that a computed deadline which is wrong gets trusted precisely
+// because it was computed.
+//
+// What keeps the offset honest is that it is PLAIN CALENDAR-DAY ADDITION: no business days, no
+// holiday calendar, no service-method offset. Adding fourteen days to a date is not the arithmetic
+// the calendar forbids; deriving a court deadline from a rule is, and this does not do that. The
+// visible cost is that a template can propose a task due on a Sunday or on Christmas Day, and that
+// cost is exactly why instantiation is propose-and-confirm rather than automatic: a person moves the
+// date in a second, and a template cannot know to.
+export const matterPlanTaskTemplate = sqliteTable(
+  "matter_plan_task_template",
+  {
+    id: text("id").primaryKey().$type<MatterPlanTaskTemplateId>(), // matterPlanTaskTemplate_ handle
+    templateId: text("template_id")
+      .notNull()
+      .$type<MatterPlanTemplateId>()
+      .references(() => matterPlanTemplate.id),
+    title: text("title").notNull(),
+    body: text("body"),
+    priority: text("priority", { enum: ["low", "normal", "high", "urgent"] })
+      .notNull()
+      .default("normal"),
+    // Matched against matter_assignment.assignment_role at instantiation, never against a member. A
+    // template that named Sarah would be wrong the moment Sarah's matters were reassigned. An
+    // unresolved role leaves the proposed task UNASSIGNED and visibly so — never silently given to
+    // the responsible attorney, which would be the platform inventing an obligation for somebody.
+    defaultAssigneeRole: text("default_assignee_role"),
+    dueAnchor: text("due_anchor", { enum: ["matter_opened", "none"] })
+      .notNull()
+      .default("none"),
+    // Days added to the anchor, plain calendar days. Null exactly when the anchor is `none`.
+    offsetDays: integer("offset_days"),
+    // One predecessor within the SAME template. Cycles are refused at authoring time, where the graph
+    // is small and static rather than at instantiation where a firm would meet the refusal.
+    blockedByTemplateTaskId: text("blocked_by_template_task_id").$type<MatterPlanTaskTemplateId>(),
+    // The order the authoring surface lists them in and the proposal presents them in. Not unique:
+    // reordering a list whose positions must stay distinct means rewriting every row after the one
+    // that moved, and the handle is the tiebreak that makes ties harmless.
+    position: integer("position").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("matter_plan_task_template_template_position_index").on(table.templateId, table.position),
+    index("matter_plan_task_template_blocked_by_index").on(table.blockedByTemplateTaskId),
+    check("matter_plan_task_template_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "matter_plan_task_template_priority_check",
+      sql`${table.priority} IN ('low', 'normal', 'high', 'urgent')`,
+    ),
+    // The anchor vocabulary, as a CHECK so a third value is a reviewed migration rather than a commit.
+    check(
+      "matter_plan_task_template_due_anchor_check",
+      sql`${table.dueAnchor} IN ('matter_opened', 'none')`,
+    ),
+    // An offset without an anchor computes nothing; an anchor without an offset is the anchor date
+    // itself and would silently mean "+0" rather than saying so.
+    check(
+      "matter_plan_task_template_offset_shape_check",
+      sql`(${table.dueAnchor} = 'none' AND ${table.offsetDays} IS NULL)
+        OR (${table.dueAnchor} != 'none' AND ${table.offsetDays} IS NOT NULL)`,
+    ),
+    // A template task never waits on itself. Longer chains are walked at the write.
+    check(
+      "matter_plan_task_template_blocked_by_self_check",
+      sql`${table.blockedByTemplateTaskId} != ${table.id}`,
+    ),
   ],
 );
 

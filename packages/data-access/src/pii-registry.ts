@@ -534,6 +534,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "who decided the work would not be done",
   },
+  // The plan itself names one person: whoever authored it. Everything else on the row is firm
+  // procedure — a plan's name and description describe how the firm runs a kind of matter, not
+  // anybody it runs one for.
+  {
+    table: "matter_plan_template",
+    subjectKey: "created_by",
+    action: "pseudonymize-keep",
+    note: "who authored the plan; the reference is replaced at the member tombstone, never dropped",
+  },
   // The firm's own calendar scope. A firm event's participant table takes the same three keys as a
   // matter event's, for the same three shapes — but the retention basis differs: attendance at the
   // all-hands or a training session is the firm's operational record, not a matter's litigation
@@ -1077,6 +1086,12 @@ export const NO_PII_TABLES: readonly string[] = [
   // directly above and for the same reason: whose document it is resolves through the file and the
   // matter, never through a column here.
   "matter_task_document",
+  // A plan's steps. Free text, and deliberately NOT personal data: a step is written once and used
+  // on every matter of its kind, so a step that named a client would be a step that is wrong on
+  // every matter but one. `default_assignee_role` is a role string ("assigned_paralegal") matched
+  // against the matter's team at proposal time, never a member handle — which is the whole reason a
+  // template names a role: one that named Sarah would be wrong the moment Sarah's matters moved.
+  "matter_plan_task_template",
   // The three structured attribute tables that describe an OBJECT and reference no person: a vehicle's
   // make, model, identification number, and plate; a firearm's make, model, calibre, and serial; a
   // digital asset's platform, its public handle, and who holds it. Every identifier on them is public

@@ -271,6 +271,12 @@ export const ENTITY_PREFIXES = {
   // leaves the document where it lives.
   matterTask: "matterTask",
   matterTaskDocument: "matterTaskDocument",
+  // The matter plan: a firm's own statement of the work a kind of matter takes. A
+  // `matterPlanTemplate` is the plan; a `matterPlanTaskTemplate` is one task it PROPOSES, carrying a
+  // due-date anchor rather than a date and a role rather than a member, because both alternatives are
+  // wrong the moment the template is used twice.
+  matterPlanTemplate: "matterPlanTemplate",
+  matterPlanTaskTemplate: "matterPlanTaskTemplate",
   // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
   // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
   // its own table rather than a null where a case should be; a `firmEventParticipant` is one person

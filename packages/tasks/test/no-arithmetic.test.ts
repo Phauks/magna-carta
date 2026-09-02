@@ -27,6 +27,21 @@ function withoutComments(source: string): string {
 }
 
 describe("no code path computes a due date", () => {
+  it("adds calendar days in exactly one named place, and nowhere else", () => {
+    // THE SINGLE REVIEWED EXCEPTION. A matter plan's offset adds a whole number of CALENDAR days to
+    // a civil date — no business days, no holiday calendar, no service-method offset — and that is
+    // not the arithmetic the calendar forbids: deriving a court deadline from a RULE is, and this
+    // does not do that. What makes the exception safe is that it is one function, in one file, that
+    // takes a date and an integer and returns a date, reading no clock and knowing no jurisdiction.
+    //
+    // A second place that shifted a date would be the beginning of the engine this platform declines
+    // to build, so the scan pins the count rather than the absence.
+    const shifters = sourceFiles(SOURCE_DIRECTORY).filter((file) =>
+      /Date\.UTC\([^)]*[+-]/u.test(withoutComments(readFileSync(file, "utf8"))),
+    );
+    expect(shifters.map((file) => file.split("/").at(-1))).toEqual(["validation.ts"]);
+  });
+
   it("carries no business-day, holiday, or service-offset machinery anywhere", () => {
     for (const file of sourceFiles(SOURCE_DIRECTORY)) {
       const code = withoutComments(readFileSync(file, "utf8"));
@@ -35,8 +50,10 @@ describe("no code path computes a due date", () => {
         "businessDays",
         "workingDay",
         "holiday",
-        "addDays",
+        // `addDays` unqualified is forbidden; `addCalendarDays` is the one named exception above and
+        // says in its own name that it is calendar days rather than working ones.
         "addBusinessDays",
+        "addWorkingDays",
         "serviceOffset",
         "mailingDays",
         "recompute",
