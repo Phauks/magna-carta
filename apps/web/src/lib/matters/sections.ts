@@ -27,6 +27,16 @@ export const matterSections: readonly MatterSection[] = [
     description: "The matter at a glance — its facts, status, and what has accrued against it.",
   },
   {
+    slug: "activity",
+    label: "Activity",
+    core: true,
+    stage: "alpha",
+    description:
+      "What has happened on this case, in order, from every part of the platform that records " +
+      "anything \u2014 mail filed, documents, hearings and deadlines, time and costs, client money, " +
+      "items in custody, and the notes the firm wrote about all of it.",
+  },
+  {
     slug: "files",
     label: "Files",
     core: true,

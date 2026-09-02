@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 776 nodes of the feature ledger in
+is the complete register rather than a digest: all 777 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,8 +21,8 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**776 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 137 of them are roll-up parents — a node another node sits beneath — and the totals here
+**777 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 138 of them are roll-up parents — a node another node sits beneath — and the totals here
 count the **639 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
@@ -53,7 +53,7 @@ not](#what-a-roll-up-is-not).
 
 ### What a roll-up is not
 
-**137 of the 776 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**138 of the 777 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -81,8 +81,8 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 33 | 9% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
+| A person can open it today (`screen`) | 34 | 9% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 179 | 46% |
 | No user surface by nature (`internal`) | 175 | 45% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **388** | **100%** |
@@ -526,7 +526,8 @@ to change a line here, edit the node in its area file and re-run the build.
 
 - `calendar` · `partial` · **Calendar and docketing** — Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: The matter's Calendar section reads both records; recording from the screen still waits on the participant picker, so those actions render disabled. The firm-wide calendar screens remain their own slice._
-  - `calendar.timeline` · `shipped` · **Matter timeline (federated)** — One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract. _Note: Backend only — the calendar screens are their own slice._
+  - `calendar.timeline` · `shipped` · **Matter timeline (federated)** — One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract.
+    - `calendar.timeline.activity-section` · `shipped` · **The matter's Activity section** — The federated timeline as a screen — one chronology per matter, cut into days, narrowed by bands of sources, each entry following into the subsystem that owns it. _Note: The screen names no source and switches on none — adding a subsystem to the platform's timeline is one entry in the presentation registry, and the test fails until it exists. Most sources declare no label, so a row states what happened, when and by whom, and the words stay behind the link under the owning subsystem's own access gate._
   - `calendar.firm-events` · `shipped` · **Firm events** — Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events. _Note: Backend only — the calendar screens are their own slice._
   - `calendar.resources` · `shipped` · **Rooms and resources** — Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact. _Note: Backend only. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams._
   - `calendar.links-continuance` · `shipped` · **Event links and continuance** — Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved. _Note: Backend only. Continuance binds matter events; a moved staff meeting stays an edit._

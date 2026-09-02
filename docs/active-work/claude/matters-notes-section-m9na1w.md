@@ -22,8 +22,14 @@ attachable while the note is still a draft. The reported symptom that opened the
 never leaving its skeleton — did not reproduce against a real Worker; the read was rebuilt as an
 effect of its own regardless, so nothing else the screen wants can abort it.
 
-Concurrent streams should not step on: `packages/calendar/src/sources/all.ts` (one new source entry),
-`packages/identifiers/src/registry.ts`, `packages/access-control/src/registry.ts`,
-`packages/data-access/src/pii-registry.ts`, `apps/web/src/lib/matters/sections.ts`, and
+On 2026-09-02 the stream also built the matter's **Activity** section over the federated timeline
+(`GET /api/v1/matters/{matterId}/timeline`), which had been served with no web caller. The screen is
+driven by a presentation registry paired to the calendar package's source declarations by a scanning
+test, so a subsystem joining the timeline reaches the screen with one entry and no other work.
+
+Concurrent streams should not step on: `packages/calendar/src/sources/all.ts` (one new source entry,
+and three deep-link section slugs repaired), `packages/identifiers/src/registry.ts`,
+`packages/access-control/src/registry.ts`, `packages/data-access/src/pii-registry.ts`,
+`apps/web/src/lib/matters/sections.ts` (one new section), and
 `packages/design-system/src/lib/components/record-attachments/record-attachments.svelte` (the upload
 source is now rendered only for a record kind that passes `onAttachUpload`).

@@ -27,10 +27,19 @@
   name: Matter timeline (federated)
   scope: One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract.
   status: shipped
-  surface: awaiting-screen
   adrs: ADR-0051, ADR-0068
-  notes: Backend only — the calendar screens are their own slice.
-  evidence: Fourteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; every source declares its visibility anchor — matter anchors compose the required predicate, firm anchors sit on a reviewed allowlist — proven by a table-driven fitness test.
+  evidence: Fourteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; every source declares its visibility anchor — matter anchors compose the required predicate, firm anchors sit on a reviewed allowlist — proven by a table-driven fitness test. Read by the matter's Activity section since 2026-09-02.
+
+- id: calendar.timeline.activity-section
+  name: The matter's Activity section
+  scope: The federated timeline as a screen — one chronology per matter, cut into days, narrowed by bands of sources, each entry following into the subsystem that owns it.
+  status: shipped
+  slices: 4-4-matter-notes
+  surface: screen
+  audience: public
+  public-summary: See everything that has happened on a case, in order, in one place.
+  evidence: apps/web/src/routes/(app)/matters/[id]/activity/+page.svelte over GET /api/v1/matters/{matterId}/timeline; apps/web/src/lib/matters/activity-presentation.ts pairs one entry to each declared source, asserted against the calendar package's own declarations by apps/web/test/activity-presentation.test.ts; the two-subsystem walk in apps/web/e2e/matter-activity.spec.ts.
+  notes: The screen names no source and switches on none — adding a subsystem to the platform's timeline is one entry in the presentation registry, and the test fails until it exists. Most sources declare no label, so a row states what happened, when and by whom, and the words stay behind the link under the owning subsystem's own access gate.
 
 - id: calendar.firm-events
   name: Firm events

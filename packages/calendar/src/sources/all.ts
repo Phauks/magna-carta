@@ -191,7 +191,7 @@ const emailFiledSource = directInstantSource({
   actorExpression: "email_matter_link.linked_by",
   labelExpression: "NULL",
   declaresLabel: false,
-  section: "email",
+  section: "emails",
 });
 
 // A document assembled onto the matter. The outcome and the count of fields the matter supplied no
@@ -556,7 +556,7 @@ const custodyMovementSource: TimelineSource = {
       }),
     ];
   },
-  project: projectRow("custodyMovement", matterSectionLink("custody")),
+  project: projectRow("custodyMovement", matterSectionLink("custodian")),
 };
 
 // The status predicates the custody register's own reads carry, restated here as named constants so
@@ -646,7 +646,7 @@ const custodyReviewDueSource: TimelineSource = {
       }),
     ];
   },
-  project: projectRow("custodyReviewDue", matterSectionLink("custody")),
+  project: projectRow("custodyReviewDue", matterSectionLink("custodian")),
 };
 
 // When an original that went out is due back.
@@ -711,7 +711,7 @@ const custodyDueBackSource: TimelineSource = {
       }),
     ];
   },
-  project: projectRow("custodyDueBack", matterSectionLink("custody")),
+  project: projectRow("custodyDueBack", matterSectionLink("custodian")),
 };
 
 // Client money on the matter, reached through the matter's trust ledger leaves. The label is the
