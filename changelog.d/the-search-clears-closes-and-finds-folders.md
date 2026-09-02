@@ -35,6 +35,13 @@ search's scope moved out of the `scope` seam and into that panel — the seam se
 the field's leading edge, and "Everything on this matter" spelled out there took most of the field's
 width on a header line.
 
+The results page follows the same arrangement, through the same component. `MatterSearchSettings`
+is the scope, the deleted toggle and a trailing slot, rendered by the header control inside its
+panel and by the results page as the row under its field — two seats, one object. It holds no state:
+both surfaces already keep the scope somewhere authoritative and disagree about where (the control
+on its `MatterSearch`, the page in the address), so a third copy could only be right when neither of
+theirs was.
+
 One fitness rule was widened to allow it, deliberately and narrowly: a percentage on a logical
 `inset-*` property means "this element's own extent", which `styles/animations.css` already
 establishes cannot be a token. Only bare percentages, only on the four inset properties.
@@ -58,7 +65,7 @@ soon as you click the search, so you can change where it looks before you start 
 back with nothing even though the folder was sitting in the matter. Folders now appear under Files
 alongside matching documents, each labelled so you can tell a folder from a file of the same name.
 
-**The search opens in two directions.** The icon opens to the left into the field, which is for
+**The search opens in two directions, and the full results page matches it.** The icon opens to the left into the field, which is for
 writing the query, and downward into a panel, which is for aiming it — the scope, and whether
 deleted records join the answer. The scope used to sit inside the field itself, where spelling out
 "Everything on this matter" took most of the width the field had.

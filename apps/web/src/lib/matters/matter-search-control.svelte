@@ -24,13 +24,11 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import * as Select from "@magna-carta/design-system/select";
-  import Badge from "@magna-carta/design-system/badge";
-  import Checkbox from "@magna-carta/design-system/checkbox";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import MatterSearchResults from "$lib/matters/matter-search-results.svelte";
+  import MatterSearchSettings from "$lib/matters/matter-search-settings.svelte";
   import {
     MatterSearch,
     defaultScope,
@@ -139,70 +137,35 @@
         not part of writing the query, it is part of aiming it, and on the header line it took most
         of the width the field had.
       -->
-      <div class="flex flex-wrap items-center gap-x-12 gap-y-8 px-12 py-8">
-        <div class="flex min-w-0 items-center gap-8">
-          <span class="flex-none text-xs text-text-muted">Search in</span>
-          <!-- The vocabulary names the matter and no wider: searching everything is the top bar's
-               job, not this control's. A section with no source is present and DISABLED with the
-               line saying what it waits on, never omitted. -->
-          <Select.Root
-            type="single"
-            items={options.map((option) => ({ value: option.value, label: option.label }))}
-            allowDeselect={false}
-            bind:value={() => search.scope, (next) => reRunForScope(next as string)}
-          >
-            <Select.Trigger aria-label="Search in">
-              <Select.Value placeholder={placeholderOf("Scope")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each options as option (option.value)}
-                <Select.Item
-                  value={option.value}
-                  label={option.label}
-                  disabled={option.waitingOn !== undefined}
-                >
-                  {option.label}
-                  {#if option.waitingOn !== undefined}
-                    <Badge variant="neutral" class="ms-auto">Soon</Badge>
-                  {/if}
-                </Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-
-        {#if search.deletedOptionApplies}
-          <!-- Off by default, and offered only where a selected source has a deleted set to offer —
-               which the SERVER says, on the answer, rather than this control keeping its own list.
-               A deleted record joins the results marked as deleted; it never comes back looking
-               live, because somebody would act on a document that is no longer in the matter. -->
-          <label class="flex items-center gap-4 text-xs text-text-muted">
-            <Checkbox
-              bind:checked={
-                () => search.includeDeleted,
-                (next) => {
-                  search.includeDeleted = next === true;
-                  if (query.trim() !== "") void run(query);
-                }
-              }
-            />
-            Include deleted
-          </label>
-        {/if}
-
-        <!-- The way out of the panel, on the settings row rather than below the results: a reader
-             may want to act on the whole result set, and this must not scroll away under them. -->
-        <a
-          href={resultsHref}
-          class="{buttonClasses({ variant: 'ghost', size: 'sm' })} ms-auto flex-none"
-          onclick={(event) => {
-            event.preventDefault();
-            openFullResults();
+      <div class="px-12 py-8">
+        <MatterSearchSettings
+          scope={search.scope}
+          {options}
+          onScope={reRunForScope}
+          includeDeleted={search.includeDeleted}
+          deletedApplies={search.deletedOptionApplies}
+          onIncludeDeleted={(next) => {
+            search.includeDeleted = next;
+            if (hasQuery) void run(query);
           }}
         >
-          {hasQuery ? "Open full results" : "Open full search"}
-          <ArrowRight class="size-16" aria-hidden="true" />
-        </a>
+          {#snippet trailing()}
+            <!-- The way out of the panel, on the settings row rather than below the results: a
+                 reader may want to act on the whole result set, and this must not scroll away
+                 under them. -->
+            <a
+              href={resultsHref}
+              class={buttonClasses({ variant: "ghost", size: "sm" })}
+              onclick={(event) => {
+                event.preventDefault();
+                openFullResults();
+              }}
+            >
+              {hasQuery ? "Open full results" : "Open full search"}
+              <ArrowRight class="size-16" aria-hidden="true" />
+            </a>
+          {/snippet}
+        </MatterSearchSettings>
       </div>
 
       {#if hasQuery}
