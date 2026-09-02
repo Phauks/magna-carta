@@ -1,16 +1,14 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/magna-carta-timesheet-ui-uekeer
-area: The time surfaces — the Time Sheet, the matter Time tab, and the chrome the four financial ledgers share with them
+area: Refiling a misfiled time entry onto another matter — service, route and the two surfaces that offer it
 status: building
-touches: apps/web/src/lib/time, apps/web/src/lib/costs, apps/web/src/lib/billing, apps/web/src/lib/records, apps/web/src/lib/components, apps/web/src/routes/(app)/matters/[id], packages/design-system/src/lib/components/data-table, changelog.d/, status.d/
+touches: packages/timekeeping, apps/api-worker/src/routes/time-entries.ts, apps/api-worker/openapi/openapi.json, apps/web/src/lib/time, docs/conventions/time-tab-rulings.md, changelog.d/
 ---
 
-The owner's review round on the time surfaces. The first pass is chrome the four financial ledgers
-(Time, Fees, Costs, Billing) hold in common — the pane toggles, the pane frame, the empty state and
-the page height — so the corrections land in one shared component rather than four times. The second
-is the time surfaces' own: the served listing carries the entry number, both dates and both people,
-the resolved rate, the UTBMS codes, the internal memo, the attachment count and an event history,
-and the screens still render those as gaps.
+Time gets recorded against the wrong matter, and until now the only remedy was to strike the entry
+and type it again — which loses its number, its memo, its codes, its files and its history, and
+leaves a struck row on a matter the work was never really on. This stream adds the move: a
+`POST /time-entries/{id}/refile` that keeps the record and re-resolves the rate and the rounding
+against the destination, plus the Matter field on the sheet and the record window that reach it.
 
-A concurrent stream editing `packages/design-system/src/lib/components/data-table` should know this
-one touches the grid's placeholder row (the empty state's frame) and nothing else in that directory.
+Touches `apps/api-worker/openapi/openapi.json`, which another stream also declares.

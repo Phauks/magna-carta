@@ -2,8 +2,8 @@
  * What a person can actually do to a time entry, and what the server will actually accept.
  *
  * The design gives the ledger a fuller verb set than the contract serves: unsubmit, delete-draft,
- * refile onto another matter, record one member's work under another's. None of those has a route,
- * so none of them is called from here — the surfaces render them where they belong, refused, and
+ * record one member's work under another's. None of those has a route, so none of them is called
+ * from here — the surfaces render them where they belong, refused, and
  * say what each waits on. What IS here is exactly the set the contract serves, so the difference
  * between "designed" and "working" is a difference a reader of this file can see.
  *
@@ -178,6 +178,41 @@ export function kickBackTimeEntry(
   idempotencyKey: string,
 ): Promise<ApiOutcome<unknown>> {
   return transition(fetchImpl, timeEntryId, "kick-back", idempotencyKey, { reason });
+}
+
+/**
+ * Move a misfiled draft onto the matter it belongs to.
+ *
+ * Its own route rather than a field on the update, because it is a cross-matter write: two ledgers
+ * change, and the rate the entry froze was resolved against the matter it is leaving. What the
+ * caller gets back is what the entry now carries — the rate and the rounding are re-asked against
+ * the destination on the entry's own work date, so a screen that assumed nothing moved but the
+ * matter would be showing the wrong money until its next read.
+ *
+ * The entry number does NOT change. A reference that changes is a reference that lies, so anything
+ * that cited it keeps resolving; the consequence is that a moved entry's number names the matter it
+ * was FIRST written on, which is provenance rather than an assertion about where it lives now.
+ */
+export interface RefiledTimeEntry {
+  timeEntryId: string;
+  matterId: string;
+  durationMinutes: number;
+  rateE4: number | null;
+  amountMinor: number | null;
+  currency: string;
+}
+
+export function refileTimeEntry(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<RefiledTimeEntry>> {
+  return requestJson(fetchImpl, `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/refile`, {
+    method: "POST",
+    body: { matterId },
+    idempotencyKey,
+  });
 }
 
 /** Strike an entry. It stays on the ledger, carries no value, and is not removed. */

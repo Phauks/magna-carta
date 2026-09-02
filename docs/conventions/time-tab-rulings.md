@@ -436,6 +436,35 @@ beyond the boolean, the firm's rounding increment, capture of an entry that has 
 duration yet, the non-billable category on the listing, and the invoice's own number and dates
 beside its identifier.
 
+## R10 — round ten: a misfiled entry moves
+
+The owner, on reading that refiling was still listed as a gap: **"you should be able to refile to
+another matter."** L4 settled the design in round six — the RECORD carries a matter field so a
+misfiled entry moves — and it had stayed a registered API gap ever since, because the route it
+needs is a cross-matter write with its own permission rather than a `PATCH` of `matterId`. This
+round builds it.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                | Status  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| L4b | **A misfiled entry MOVES; it is not struck and re-typed.** The remedy keeps the record — its number, its memo, its codes, its files and its history. Striking and re-recording loses all five and leaves a struck row on a matter the work was never really on.                                                     | settled |
+| L4c | **It is its own route, not a field on the update.** `POST /time-entries/{id}/refile`. Two ledgers change, two matters' totals move, and the rate the entry froze was resolved against the matter it is leaving; a patch field would let anything that can edit a narrative move money between matters by accident. | settled |
+| L4d | **The entry number is KEPT** (R3, applied to matters as it was to ledgers). After a move its prefix names the matter the entry was FIRST written on — provenance, not an assertion about where it lives now — and the record says so on its hover.                                                                | settled |
+| L4e | **The rate and the rounding are RE-ASKED against the destination**, on the entry's own work date. Both resolve through the matter, so the answers the old matter gave are answers to a different question. The snapshot invariant is untouched: it forbids a later card edit re-rating a standing entry, not this.  | settled |
+| L4f | **What it refuses:** anything past draft, anything on a bill, anything a draft invoice has claimed, a matter this firm does not have, and the matter it is already on. The last is refused rather than treated as a no-op — a move that moved nothing still reported success.                                       | settled |
+| L4g | **Every move is on the record**, one audit event naming both matters (R5, applied to matters). A move nobody can see is indistinguishable from a misfiling nobody noticed.                                                                                                                                          | settled |
+| L4h | **A written entry cannot be taken OFF a matter.** The record has to be somewhere, so the field offers other matters and refuses the empty choice — the one thing a move cannot do.                                                                                                                                  | settled |
+
+**Notes recorded this round:**
+
+- The Matter field is now settable on every DRAFT, on both surfaces — the sheet's cell and the
+  record window — and states where the entry is and why it stays on anything past draft.
+- Recorded judgement: no undo step is pushed for a move on the Time Sheet. Moving it back is another
+  refile, which the reader can simply do; a stack entry that silently re-ran a cross-matter write on
+  a record two people may be looking at is a different act from putting a typed cell back.
+- Recorded judgement: the entry keeps the rate CARD it resolved on, so a firm with several cards
+  keeps the entry on the one it was captured under; the TIER within that card is what the
+  destination re-answers.
+
 ## API gaps the mockup is honest about
 
 > **Re-asked against the contract, 2026-09-02 (R9).** Eight of the entries below had been CLOSED by
@@ -492,9 +521,11 @@ need:
     contracts must serve, because with it off the submitted and approved statuses must never be
     reachable — the client cannot be the only thing enforcing that. Gap: no firm-level
     `reviewGateEnabled` is served or settable.
-18. **Round six, moving an entry between matters (L4):** no route refiles a draft time entry or
-    fee onto another matter. It is a cross-matter write (both matters' ledgers change), so it
-    needs its own route with its own permission, not a `PATCH` of `matterId`.
+18. **Round six, moving an entry between matters (L4):** **CLOSED FOR TIME** —
+    `POST /time-entries/{id}/refile` exists, on exactly the shape this entry asked for: its own
+    route rather than a `PATCH` of `matterId`, refusing anything past draft, on a bill or claimed,
+    keeping the entry number and re-resolving the rate and rounding against the destination. FEES
+    still want the same route.
 19. **Round six, attachments (M3):** every WIP record type needs a MANY-attachment relation, an
     attach and a DETACH route (detach must not delete the underlying file), and the counts served
     on the listing — the cost half of this is the existing `receiptFileId` gap (13), generalized

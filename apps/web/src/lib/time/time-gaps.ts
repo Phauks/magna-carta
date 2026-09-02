@@ -36,10 +36,6 @@ export const TIME_LEDGER_GAPS = {
     field: "Invoice",
     waitsOn: "the invoice's own number and dates being served beside its identifier",
   },
-  matter: {
-    field: "Matter",
-    waitsOn: "a route that refiles an entry onto another matter",
-  },
   billingDisposition: {
     field: "Billing",
     waitsOn: "a billing disposition on the time record beyond billable or not",
