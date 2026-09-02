@@ -28,16 +28,22 @@ the conversation already scoped to one matter.
 **The strip stopped folding by measurement and started grouping by meaning.** Fourteen sections fit
 no canvas: at 1440 the measured fold left seven on the row and put the other seven behind More, and
 which seven was decided by pixel arithmetic — Trust and Calendar were buried for sitting late in a
-list, not for being less used. The row now carries six entries, four of them sections and two — three,
-counting People — named neighbourhoods that open a menu:
+list, not for being less used. The row now carries seven entries, five of them sections and two
+named neighbourhoods that open a menu:
 
-**Overview · Files · Money ⌄ · Record ⌄ · People ⌄ · Magnus**
+**Overview · Files · Money ⌄ · Parties · Calendar · Record ⌄ · Magnus**
 
-Money is Time, Fees, Costs, Billing and Trust; Record is Notes, Emails, Messaging and Custodian;
-People is Parties and Calendar. Measured after building, the whole strip holds the row down to a
-1360 canvas. The measured fold stays underneath as a backstop for anything narrower, and an entry
-that reaches it folds as a GROUP — its name becomes a menu heading over its own sections, so the two
-routes to one destination never disagree about what it belongs to.
+Money is Time, Fees, Costs, Billing and Trust; Record is Notes, Emails, Messaging and Custodian.
+Only what a member can afford to reach through a menu is grouped: a matter's dates are checked too
+often for that, so Calendar stays on the row and Parties with it. The arrangement's order is also
+the fold order, so the tail is the cheapest thing to reach through a menu — Magnus, then Record,
+then the dates and the people, with Money holding the row longest because all five of its sections
+are live.
+
+Measured after building, all seven hold the row at 1440. The measured fold stays underneath as a
+backstop for anything narrower, and an entry that reaches it folds as a GROUP — its name becomes a
+menu heading over its own sections, so the two routes to one destination never disagree about what
+it belongs to.
 
 `sections.ts` now carries two lists with one home: every section that exists, and the arrangement
 the strip reads them in, declared by slug. A section nobody placed, a slug naming no section, a

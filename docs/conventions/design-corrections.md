@@ -225,9 +225,11 @@ is usually the fastest way to understand the rule.
   pixel arithmetic which half of a member's destinations they can see, and width is not a statement
   about importance: the matter strip put Trust and Calendar behind More because of where they
   happened to sit in a list, while seven others held the row. Name the neighbourhoods instead and
-  put those on the row — the matter's fourteen sections became Overview, Files, Money, Record,
-  People and Magnus, which fit. A measured fold stays underneath as a backstop for a canvas
-  narrower than the arrangement; it is not the arrangement. _(matter section strip, 2026-09-01)_
+  put those on the row — the matter's fourteen sections became Overview, Files, Money, Parties,
+  Calendar, Record and Magnus, which fit. Group only what a member can afford to reach through a
+  menu; a destination checked daily stays on the row even when it would tidy the arrangement to
+  file it away. A measured fold stays underneath as a backstop for a canvas narrower than the
+  arrangement; it is not the arrangement. _(matter section strip, 2026-09-01)_
 - **A folded group keeps its name.** When a group does reach the overflow, it goes in as a heading
   over its own entries, never decanted into a flat list — otherwise the two routes to one
   destination disagree about what it belongs to, and a member who learned "Trust is under Money"
@@ -417,23 +419,29 @@ are promoted above.
   joining a group, because the assistant is not one of the matter's records — it is the way to ask
   about them, and a member reaching for it is not reaching for a neighbourhood.
 - **The strip is grouped.** The owner raised it against the flat strip and chose grouped menus over
-  reordering and over nesting a Financials section. Six top-level entries: **Overview · Files ·
-  Money ⌄ · Record ⌄ · People ⌄ · Magnus**. Money is Time, Fees, Costs, Billing and Trust;
-  Record is Notes, Emails, Messaging and Custodian; People is Parties and Calendar. Overview leads
-  because the bare matter address lands there, Files stands alone because it is the busiest
-  destination and a click on nearly every visit is a real cost, and Magnus stands alone because it
-  is not one of the matter's records but the way to ask about them.
+  reordering and over nesting a Financials section. Seven top-level entries: **Overview · Files ·
+  Money ⌄ · Parties · Calendar · Record ⌄ · Magnus**. Money is Time, Fees, Costs, Billing and
+  Trust; Record is Notes, Emails, Messaging and Custodian. Overview leads because the bare matter
+  address lands there, Files stands alone because it is the busiest destination and a click on
+  nearly every visit is a real cost, and Magnus stands alone because it is not one of the matter's
+  records but the way to ask about them.
+- **Calendar is a top-level tab** — the owner's correction to the first build, which had it in a
+  People group beside Parties. A matter's dates are checked too often to sit behind a menu, and the
+  grouping was wrong on its own terms besides: Parties is people, a hearing date is not. Taking
+  Calendar out left that group holding Parties alone, which the one-item rule above forbids, so
+  Parties came up to the row with it and the group went away. The general lesson is promoted above:
+  group only what a member can afford to reach through a menu.
+- **The arrangement's order is also the fold order**, so the tail is what a member can most afford
+  to reach through a menu — Magnus first (a stub), then Record (three of its four are stubs), then
+  the dates and the people. Money stays on the row longest of the folding candidates because all
+  five of its sections are live working surfaces.
 
-  Measured after building: the whole strip holds the row down to a 1360 canvas, where the flat
-  fourteen had already folded seven away at 1440. Below 1360 the backstop fold takes over and
-  entries fold as groups. It is NOT true at every width that nothing is hidden — at 1024 the band's
-  even split leaves the strip about 384px and three entries fold. Recovering that would mean
-  reopening the even split (the identity block no longer needs half the band now that the strip is
-  bounded at six), which is a separate ruling and was not touched here.
-
-  **One thing to correct if it reads wrong:** _People_ holds Parties and Calendar. Parties is
-  people; a hearing date is not. The group is really "who this matter answers to and when", and no
-  short label for that was better than the one the owner picked, so it ships as People.
+  Measured after building: all seven hold the row at 1440, where the flat fourteen had already
+  folded seven away. Below that the backstop fold takes over and entries fold as groups — at 1360
+  Record and Magnus go, at 1024 four do. It is NOT true at every width that nothing is hidden. The
+  band's even split leaves the strip about 384px at 1024; recovering that would mean reopening the
+  even split (the identity block no longer needs half the band now the strip is bounded), which is
+  a separate ruling and was deliberately not touched here. The owner accepted this on 2026-09-01.
 
 ### 2026-09-01 — the matter chrome, identity-block round
 

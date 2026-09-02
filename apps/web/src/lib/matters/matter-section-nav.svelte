@@ -14,19 +14,20 @@
    * draw a second line a few pixels above the first.
    *
    * THE ROW IS THE STRIP'S TOP LEVEL, NOT ITS SECTION LIST. Fourteen sections fit no canvas, so
-   * the arrangement in sections.ts puts most of them in named groups — Money, Record, People —
-   * and the row carries six entries: four sections and the group triggers. A group whose section
-   * is the current one wears the gold bar itself, so the strip always says where the reader is
-   * even when the destination is a menu away. The reasoning for the grouping lives with the
-   * arrangement, in sections.ts.
+   * the arrangement in sections.ts gathers two neighbourhoods into named groups — Money and
+   * Record — and the row carries seven entries: five sections and the two group triggers. A group
+   * whose section is the current one wears the gold bar itself, so the strip always says where the
+   * reader is even when the destination is a menu away. The reasoning for the grouping, and for
+   * which sections stayed on the row, lives with the arrangement in sections.ts.
    *
    * THE MEASURED FOLD IS NOW A BACKSTOP, NOT THE MECHANISM. It stays because a canvas can always
-   * be narrower than six entries — an invisible mirror of the row reports each entry's width
+   * be narrower than the arrangement — an invisible mirror of the row reports each entry's width
    * (bind:clientWidth), and trailing entries fold into More as the column narrows. At desk width
    * with six entries it does not fire. The arithmetic and the two rules it has to keep live in
    * section-overflow.svelte.ts. A GROUP that folds keeps its name inside More, as a menu group
    * heading over its own sections — a folded group must not decant into a flat list, or the two
-   * ways of reaching a section disagree about what it belongs to.
+   * ways of reaching a section disagree about what it belongs to. The arrangement's order is the
+   * fold order, so what a member can most afford to reach through a menu is what sits at the tail.
    *
    * THE STRIP CARRIES NO MATURITY BADGES. A tab names a place; how far along that place is belongs
    * to the place itself, where a reader is already looking at it. Eleven pillboxes strung across

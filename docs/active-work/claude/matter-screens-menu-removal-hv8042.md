@@ -12,9 +12,10 @@ route tree: a section named for what it is not is not a place anybody navigates 
 round Magnus takes a matter section — a `soon` stub standing alone on the row, so the assistant has
 the matter-scoped home the sidebar destination's own comment already anticipated.
 
-The strip itself is then regrouped (owner's choice between three directions): six top-level entries,
-Overview · Files · Money ⌄ · Record ⌄ · People ⌄ · Magnus, with the measured fold kept underneath as
-a backstop rather than as the mechanism. `sections.ts` gains the arrangement beside the registry and
+The strip itself is then regrouped (owner's choice between three directions): seven top-level
+entries, Overview · Files · Money ⌄ · Parties · Calendar · Record ⌄ · Magnus, with the measured fold
+kept underneath as a backstop rather than as the mechanism. Calendar and Parties are on the row on
+the owner's correction to the first build, which had them in a People group. `sections.ts` gains the arrangement beside the registry and
 loses the `core` flag.
 
 Concurrent streams should not step on: `apps/web/src/lib/matters/sections.ts`,

@@ -9,11 +9,10 @@
  * WHY THE STRIP IS GROUPED (owner's ruling, 2026-09-01). Flat, fourteen sections could not fit any
  * canvas: at 1440 the measured fold left seven on the row and put the other seven behind More, and
  * WHICH seven was decided by pixel arithmetic rather than by meaning — Trust and Calendar were
- * buried because of where they happened to sit in a list. Six top-level entries fit at every width,
- * so nothing is hidden by measurement, and each menu is a neighbourhood a member already thinks in:
- * the money the matter has moved, the record it has accumulated, the people and dates it answers
- * to. The measured fold stays behind them as a backstop for a genuinely narrow canvas; with six
- * entries it should never fire at desk width.
+ * buried because of where they happened to sit in a list. Grouping the two neighbourhoods a member
+ * already thinks in — the money the matter has moved, the rest of what it has accumulated — takes
+ * the row to seven entries, which fits. The measured fold stays behind them as a backstop for a
+ * genuinely narrow canvas, not as the arrangement.
  *
  * A GROUP HOLDS AT LEAST TWO SECTIONS. One item behind a menu is the mistake the header's overflow
  * control made — a glyph a member has to open to learn there was nothing in it worth the trip. The
@@ -152,8 +151,15 @@ export type MatterStripEntry =
  *
  * Overview leads because it is where the bare matter address lands. Files stands alone because it
  * is the section members are in most — putting the busiest destination behind a menu would spend a
- * click on nearly every visit. Magnus stands alone because it is not one of the matter's records;
- * it is the way to ask about them.
+ * click on nearly every visit. Parties and Calendar stand alone on the owner's ruling: a matter's
+ * dates are checked too often to sit behind a menu, and with Calendar on the row the group they
+ * shared would have held Parties by itself, which the rule below forbids. Magnus stands alone
+ * because it is not one of the matter's records; it is the way to ask about them.
+ *
+ * The order is also the fold order — the backstop folds from the tail — so what folds first is what
+ * a member can most afford to reach through a menu: Magnus (a stub), then the Record group (three
+ * of its four are stubs), then the dates and the people. Money stays on the row longest of the
+ * folding candidates, because all five of its sections are live working surfaces.
  */
 const ARRANGEMENT: readonly (
   | string
@@ -162,8 +168,9 @@ const ARRANGEMENT: readonly (
   "overview",
   "files",
   { label: "Money", slugs: ["time", "fees", "costs", "billing", "trust"] },
+  "parties",
+  "calendar",
   { label: "Record", slugs: ["notes", "emails", "messaging", "custodian"] },
-  { label: "People", slugs: ["parties", "calendar"] },
   "magnus",
 ];
 
