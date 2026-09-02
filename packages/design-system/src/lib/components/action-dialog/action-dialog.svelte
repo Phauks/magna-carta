@@ -4,24 +4,34 @@
    *
    * A record is READ and CHANGED in a RecordWindow; an act is ASKED FOR here. Between them they are
    * every modal surface the product has, so a reader learns two panels rather than one per screen.
+   * Both sit on the same frame (styles/recipes/modal-frame.css): the same header band, the same
+   * pane geometry, the same action bar, the same fit-first/cap-second sizing. A reader who has
+   * learned where a record's commit sits has learned where every panel's commit sits.
    *
    * THE SHELL IS DOMAIN-BLIND, ON PURPOSE AND MECHANICALLY. A caller contributes a heading, a
-   * subtitle, a notice, a body and one commit verb, and nothing else — no field, no state machine,
-   * no word of any one kind of act settles here. tooling/lint-one-ui asserts it at the source, the
-   * same way it asserts it for the record window.
+   * subtitle, a notice, a body, an optional context and one commit verb, and nothing else — no
+   * field, no state machine, no word of any one kind of act settles here. tooling/lint-one-ui
+   * asserts it at the source, the same way it asserts it for the record window.
    *
    * WHAT THE SHELL OWNS IS NOT A SET OF DEFAULTS — IT IS THE ABSENCE OF PROPS. The footer's
    * geometry and the order of its two controls, the dismissal's word, the busy state, whether the
    * corner dismiss shows, which primitive renders the panel, and the one close path every exit runs
    * through: none of them can be overridden, which is what makes them true everywhere. What a
-   * caller may differ on is a closed set — the two snippets, `kind`, `width`, and the commit's
-   * outcome. There is deliberately no `class` prop.
+   * caller may differ on is a closed set — the snippets, `kind`, `width`, and the commit's outcome.
+   * There is deliberately no `class` prop.
    *
    * THE KIND CHOOSES THE PRIMITIVE, which is the most valuable line in the contract. A `form` is a
    * Dialog, and keeps the corner dismiss (owner ruling, 2026-09-02); a `confirm` or `destructive`
    * is an AlertDialog, with the `alertdialog` role, no corner dismiss, and no dismissal on a press
-   * outside — a question that can be dismissed by a stray press is not a question. The panels this shell replaces each decided that for themselves and
-   * disagreed: four reached AlertDialog and thirty did not, with no rule behind the split.
+   * outside — a question that can be dismissed by a stray press is not a question. The panels this
+   * shell replaces each decided that for themselves and disagreed: four reached AlertDialog and
+   * thirty did not, with no rule behind the split.
+   *
+   * THE CONTEXT PANE IS THE RECORD WINDOW'S, LENT. A form that needs something beside its fields —
+   * the client a matter is being opened for, the standing that decides whether it may be — hands
+   * it over as `context` and gets the record window's own right pane: the sunken surface, the
+   * hairline, the width that takes whatever the fields do not need. Before the frame existed, the
+   * one panel that needed this rebuilt all of it by hand in 647 lines.
    *
    * A CLOSE GESTURE NEVER DISCARDS SILENTLY. Every way out — the corner dismiss, Escape, a press
    * outside, the footer's own dismissal — runs through one guard, and while there is unsaved work
@@ -34,15 +44,18 @@
    * writes `open` on the way out — that is what keeps the close to one path, and a close path with
    * one entrance is the only kind a guard can actually cover.
    *
-   * FIT FIRST, CAP SECOND. A short panel sizes to its content and does not scroll; a panel that
-   * genuinely exceeds the viewport caps, and then the BODY alone moves while the heading and the
-   * action bar stay put. That is two utilities rather than a recipe — this component dresses
-   * nothing, it composes what the Dialog and AlertDialog recipes already decide.
+   * FOCUS LANDS ON THE FIRST FIELD, not the first control. The header's close is first in the DOM
+   * because the header is first in the frame, and a form that opened with its own dismiss focused
+   * would be inviting the reader to leave. So the panel hands focus to the first focusable thing
+   * in its primary pane, and only where there is none — a question with no fields — does the
+   * primitive's own default (the dismissal) stand.
    */
   import type { Snippet } from "svelte";
+  import X from "@lucide/svelte/icons/x";
   import * as Dialog from "../dialog/index.ts";
   import * as AlertDialog from "../alert-dialog/index.ts";
   import Button from "../button/index.ts";
+  import { mergeClasses } from "../../internal/merge-classes.ts";
   import { CloseGuard } from "../../internal/close-guard.svelte.ts";
   import DiscardQuestion from "../../internal/discard-question.svelte";
   import { DISCARD_SENTENCE, DISMISS_LABEL, traitsOf, widthClass } from "./action-dialog-model.ts";
@@ -55,6 +68,7 @@
     subtitle,
     notice,
     fields,
+    context,
     commitLabel,
     commitBusyLabel,
     commitRefusal,
@@ -78,8 +92,9 @@
     /**
      * The failure band's PLACE, which is the shell's; its CONTENT, which is the caller's. The
      * design system cannot know what a failure reads like — that lives in the app, over the app's
-     * own problem model — so the shell reserves the slot directly beneath the subtitle and renders
-     * whatever arrives in it. Same division as the record window's menu: the place here, the
+     * own problem model — so the shell reserves a band between the body and the action bar, outside
+     * the scroll and under the reader's eye when a commit comes back refused, and renders whatever
+     * arrives in it. Same division as the record window's menu: the place here, the
      * content there. It is what lets the next change to how a failure reads touch one component
      * instead of every panel.
      */
@@ -89,6 +104,13 @@
      * flight — two snippets would be two layouts, and they would disagree within a week.
      */
     fields?: Snippet<[{ busy: boolean }]>;
+    /**
+     * What stands beside the fields, in the record window's own right pane: the thing being acted
+     * on, or the facts that decide whether the act may happen. Given, the panel opens at the record
+     * width whatever `width` says, because two panes have a geometry of their own. Handed `busy`
+     * for the same reason the fields are.
+     */
+    context?: Snippet<[{ busy: boolean }]>;
     /** The commit's own verb — "Write Off a Balance", never "OK", "Submit" or "Confirm". */
     commitLabel: string;
     /**
@@ -99,9 +121,9 @@
      */
     commitBusyLabel?: string;
     /**
-     * Why the commit is unavailable, if it is. The control is DISABLED and titled with this rather
-     * than hidden: an act that vanishes teaches a reader nothing, and a refusal is stated where it
-     * is caused. Undefined means the commit is available.
+     * Why the commit is unavailable, if it is. The control is DISABLED and the reason is rendered
+     * beside it rather than the control being hidden: an act that vanishes teaches a reader
+     * nothing, and a refusal is stated where it is caused. Undefined means the commit is available.
      */
     commitRefusal?: string;
     /**
@@ -124,13 +146,16 @@
      * rather than the silence.
      */
     unsavedChanges?: boolean;
-    /** How wide the panel opens. A closed set, not a class. */
+    /**
+     * How wide the panel opens. A closed set, not a class — and overruled by `context`, which
+     * implies the record width.
+     */
     width?: ActionDialogWidth;
   } = $props();
 
   const traits = $derived(traitsOf(kind));
 
-  /** Raised across the commit, and read by the fields as well as by both footer controls. */
+  /** Raised across the commit, and read by the panes as well as by both footer controls. */
   let busy = $state(false);
 
   /*
@@ -193,6 +218,20 @@
     }
   }
 
+  /** The primary pane, so focus can be sent to its first field on open. */
+  let pane = $state<HTMLElement | null>(null);
+
+  const FOCUSABLE =
+    "input:not([disabled]), textarea:not([disabled]), select:not([disabled]), " +
+    'button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  function focusFirstField(event: Event): void {
+    const first = pane?.querySelector<HTMLElement>(FOCUSABLE);
+    if (first === null || first === undefined) return;
+    event.preventDefault();
+    first.focus();
+  }
+
   const commitText = $derived(busy ? (commitBusyLabel ?? commitLabel) : commitLabel);
   const commitTitle = $derived(commitRefusal ?? commitText);
   const commitAccessibleName = $derived(
@@ -200,28 +239,65 @@
   );
 
   /*
-   * The panel's classes. `overflow-hidden` replaces the recipe's own `overflow-y: auto` so the BODY
-   * scrolls rather than the whole panel — otherwise a long form scrolls its own commit off the
-   * screen. Both are utilities because the panel underneath already carries its width cap as one,
-   * and only a utility can replace a utility.
+   * The panel's classes: the frame, and the width as a utility. Width is a utility because the
+   * panel underneath already carries its default cap as one, and only a utility can replace a
+   * utility. Everything else about the panel's geometry is the frame recipe's.
    */
-  const panelClasses = $derived(`${widthClass(width)} gap-16 overflow-hidden`);
+  const panelClasses = $derived(
+    mergeClasses("mc-modal-frame", widthClass(width, { withContext: context !== undefined })),
+  );
 </script>
 
-{#snippet body()}
-  <!-- The notice sits above the fields and below the subtitle: a failure a reader has to scroll to
-       find has not been reported. Its content is the caller's; only this position is the shell's. -->
-  {#if notice}
-    {@render notice()}
-  {/if}
-  {#if fields}
-    <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
-      {@render fields({ busy })}
+{#snippet headerActions()}
+  <!-- The corner dismiss, inline in the header band rather than pinned over it, so a long heading
+       never runs beneath it and it sits where the record window's own close sits. A plain control
+       rather than the dialog's Close part, so closing runs the unsaved-work guard the other exits
+       run. -->
+  {#if traits.showsCornerDismiss}
+    <div class="mc-modal-frame-header-actions">
+      <button
+        type="button"
+        data-action-dialog-action="close"
+        class="mc-modal-frame-header-action"
+        title="Close"
+        aria-label="Close"
+        onclick={requestClose}
+      >
+        <X class="mc-modal-frame-header-icon" aria-hidden="true" />
+      </button>
     </div>
   {/if}
 {/snippet}
 
-{#snippet footer(dismiss: () => void)}
+{#snippet body()}
+  <div class="mc-modal-frame-body">
+    <div bind:this={pane} class="mc-modal-frame-pane mc-action-dialog-fields">
+      {#if fields}
+        {@render fields({ busy })}
+      {/if}
+    </div>
+    {#if context}
+      <div class="mc-modal-frame-context mc-action-dialog-context">
+        <div class="mc-modal-frame-context-body mc-scrollbar">
+          {@render context({ busy })}
+        </div>
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet noticeBand()}
+  <!-- The notice sits between the body and the action bar, outside the scroll: a refusal comes
+       back from pressing the commit, and that is where the reader is looking when it does. Its
+       content is the caller's; only this position is the shell's. An empty band draws nothing. -->
+  {#if notice}
+    <div class="mc-modal-frame-notice">
+      {@render notice()}
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet footer()}
   <!-- A plain div rather than <footer>: that maps to the contentinfo landmark, which may not sit
        inside a dialog. The classes carry the structure; the role would be wrong.
 
@@ -230,8 +306,8 @@
 
        The two markers are what a scan reads: tooling/lint-one-ui asserts this set and this order
        against this file, the same way it asserts the record window's header set, so the promise
-       cannot be quietly rearranged. The wrapper class is a marker too and carries no recipe. -->
-  <div class="mc-action-dialog-actions flex flex-none items-center justify-end gap-8">
+       cannot be quietly rearranged. -->
+  <div class="mc-modal-frame-actions mc-action-dialog-actions">
     <!-- The refusal, READ ALOUD rather than only hovered. A `title` is not discoverable by anyone
          who is not already hunting for the reason, and the reader who most needs it is the one
          looking at a control that will not press. It sits at the weak end of the bar, so it never
@@ -240,7 +316,12 @@
     {#if commitRefusal !== undefined}
       <span class="me-auto text-xs text-text-muted">{commitRefusal}</span>
     {/if}
-    <Button data-action-dialog-action="dismiss" variant="secondary" disabled={busy} onclick={dismiss}>
+    <Button
+      data-action-dialog-action="dismiss"
+      variant="secondary"
+      disabled={busy}
+      onclick={requestClose}
+    >
       {DISMISS_LABEL}
     </Button>
     <Button
@@ -272,15 +353,26 @@
       }
     }
   >
-    <AlertDialog.Content class={panelClasses} data-modal-shell="action-dialog" data-action-kind={kind}>
-      <div class="flex flex-none flex-col gap-4">
-        <AlertDialog.Title>{heading}</AlertDialog.Title>
-        {#if subtitle}
-          <AlertDialog.Description>{@render subtitle()}</AlertDialog.Description>
-        {/if}
+    <AlertDialog.Content
+      class={panelClasses}
+      data-modal-shell="action-dialog"
+      data-action-kind={kind}
+      onOpenAutoFocus={focusFirstField}
+    >
+      <div class="mc-modal-frame-header">
+        <div class="mc-modal-frame-identity">
+          <AlertDialog.Title class="mc-modal-frame-heading">{heading}</AlertDialog.Title>
+          {#if subtitle}
+            <AlertDialog.Description class="mc-modal-frame-subtitle">
+              {@render subtitle()}
+            </AlertDialog.Description>
+          {/if}
+        </div>
+        {@render headerActions()}
       </div>
       {@render body()}
-      {@render footer(requestClose)}
+      {@render noticeBand()}
+      {@render footer()}
     </AlertDialog.Content>
   </AlertDialog.Root>
 {:else}
@@ -297,19 +389,26 @@
     }
   >
     <Dialog.Content
-      showClose={traits.showsCornerDismiss}
+      showClose={false}
       class={panelClasses}
       data-modal-shell="action-dialog"
       data-action-kind={kind}
+      onOpenAutoFocus={focusFirstField}
     >
-      <div class="flex flex-none flex-col gap-4">
-        <Dialog.Title>{heading}</Dialog.Title>
-        {#if subtitle}
-          <Dialog.Description>{@render subtitle()}</Dialog.Description>
-        {/if}
+      <div class="mc-modal-frame-header">
+        <div class="mc-modal-frame-identity">
+          <Dialog.Title class="mc-modal-frame-heading">{heading}</Dialog.Title>
+          {#if subtitle}
+            <Dialog.Description class="mc-modal-frame-subtitle">
+              {@render subtitle()}
+            </Dialog.Description>
+          {/if}
+        </div>
+        {@render headerActions()}
       </div>
       {@render body()}
-      {@render footer(requestClose)}
+      {@render noticeBand()}
+      {@render footer()}
     </Dialog.Content>
   </Dialog.Root>
 {/if}

@@ -52,8 +52,12 @@ export const HEADER_ACTIONS = ["menu", "edit", "print", "expand", "close"];
 /** The marker each header control carries, which is also the harness's hook for finding it. */
 export const HEADER_ACTION_ATTRIBUTE = "data-record-window-action";
 
-/** The class that opens the header's action group. The controls sit between it and its `</div>`. */
-const HEADER_ACTIONS_CLASS = 'class="mc-record-window-header-actions"';
+/**
+ * The class that opens the header's action group. The controls sit between it and its `</div>`.
+ * A class TOKEN rather than the whole attribute, so the element may carry the modal frame's class
+ * beside its own — the frame supplies the group's geometry, this name is the rule's hook.
+ */
+const HEADER_ACTIONS_CLASS = "mc-record-window-header-actions";
 
 /**
  * Tags that are a control. `<button>` covers the shell's own; the dialog's Close part and the

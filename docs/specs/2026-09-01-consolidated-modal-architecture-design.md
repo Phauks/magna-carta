@@ -1,9 +1,10 @@
 # Consolidated modal architecture — analysis and design
 
 **Date:** 2026-09-01
-**Status:** Accepted 2026-09-02, and steps 1-6 of section 8 are **built** — the shared close guard,
-the shell, its catalog, both fitness rules, and two migrated families (the custodian's three panels
-and ten across billing and costs). Steps 7-8 are open. The four questions in section 10 are answered.
+**Status:** Accepted 2026-09-02. Steps 1-6 and 8 of section 8 are **built** — the shared close
+guard, the shell, its catalog, both fitness rules, two migrated families (the custodian's three
+panels and ten across billing and costs), and the pane system of section 11, with the new-matter
+window as its proof. Step 7 is open. The four questions in section 10 are answered.
 **Scope:** Every modal panel in `apps/web` that is not a record window — thirty-four files, thirty
 composing `Dialog.Content` by hand and four composing `AlertDialog.Content` — and the one shell they
 should be composed from instead.
@@ -411,7 +412,7 @@ section 4 is why.
 |   5 | Add the `hand-composed-modal` rule with all thirty-seven allowed                                          | **Built**, with `footer-set` beside it. Thirty-seven, not thirty-four: the rule reaches shapes the hand count missed |
 |   6 | **Built.** Ten billing and costs panels migrated, their allowances deleted                                | Two of the twelve turned out to belong to the other shell or to a deferred capability — see 5.5                      |
 |   7 | Migrate the remaining fifteen, deleting their allowances                                                  | The four `AlertDialog` confirmations are the cheapest and should go first                                            |
-|   8 | Move `new-matter-dialog.svelte` onto `RecordWindow` with `editing` raised                                 | The wrong shell today, and 647 lines. Owner question 3                                                               |
+|   8 | **Built.** `new-matter-dialog.svelte` opens in `ActionDialog` with a `context` pane                       | Not `RecordWindow` after all — section 11 says why, and it is the frame's proof                                      |
 
 The order had one real dependency and it was step 2 before step 3: building the shell first would
 have meant writing the guard twice and reconciling two copies of a question the product asks in one
@@ -450,13 +451,13 @@ Settled 2026-09-02.
 2. **A form keeps its corner dismiss.** Unchanged from what shipped. A question still has none — it
    is answered, not dismissed.
 
-3. **`new-matter-dialog.svelte` stays as it is for now.** The question was worth asking and is worth
-   restating plainly, because the name alone does not carry it: that file is 647 lines of form for
-   CREATING a matter, and it already reaches for `max-w-record-window` by hand — it is trying to be
-   the window a matter opens in. `RecordWindow` supports exactly that (open it with `editing`
-   raised), so the proposal was to let a matter be created in the same window it is later read in,
-   rather than in a dialog that looks like that window but is not. It is not blocking anything, it
-   is the largest single migration on the list, and it can be taken up on its own.
+3. **`new-matter-dialog.svelte` — answered by section 11, and differently from how it was asked.**
+   The proposal was `RecordWindow` with `editing` raised. Reading the file settled it the other way:
+   it is not a record being read, it is an ACT (open a matter) with context beside its fields (the
+   client, and the clearance the work has to pass) — and its own head comment argues for exactly
+   that shape, "a left side and a right side", before rebuilding the record window's frame by hand
+   to get it. So the frame was extracted, `ActionDialog` gained a `context` pane, and the window
+   moved onto it: 647 lines to 622, the hand-built bands and grid gone, the guard gained.
 
 4. **A full-screen surface is a design choice every time, not a shell.** The time sheet, the cost
    review window and the website shell stay as they are. This is the answer this design wanted: a
@@ -468,3 +469,61 @@ expensive later. That was true of the world this shell replaced and is not true 
 creates: the point of a table in `action-dialog-model.ts` is that a ruling is one edit. Answer 1
 changed a single constant. The genuine cost of deferring is only that migrated panels carry the old
 word until the constant changes, which is a re-render rather than a rewrite.
+
+## 11. The pane system: one frame under both shells
+
+Raised by the owner on 2026-09-02 — "should we be implementing a pane system though? otherwise, we
+have to build it each time?" — and answered by the largest panel in the app before any design was
+written. `new-matter-dialog.svelte` opened with a header band, a `<Separator>`, a body that scrolled
+alone, and a two-pane grid at two-thirds and one-third: the record window's frame, rebuilt from
+utilities in 647 lines, with comments quoting the record window's own doctrine. **A pane system that
+lives in one shell is a pane system every other panel rebuilds**, and that is the answer.
+
+### 11.1 What the frame is
+
+`styles/recipes/modal-frame.css` — an internal recipe, not an exported component — holding what the
+record window used to hold alone: the panel (`p-0 gap-0`, fit-content, capped), the header band and
+its identity block, the quiet header control, the body, the **primary pane** that stops at
+`size.record-pane` beside a **context pane** that takes the rest, a **notice band** between the body
+and the bar, and the **action bar** of fixed geometry. Every rule the record window's CSS used to
+state — fit first then cap, the primary stops and the context continues, width rides a utility
+because a recipe cannot win it — moved with its reasoning intact.
+
+Two rules are new because a second shell needed them. A primary pane with **no context beside it
+fills the frame** (`:only-child`), so a wide single-column form uses its width instead of leaving a
+dead strip where a context pane would have been. And the **notice band sits outside the scroll,
+directly above the action bar** — `new-matter`'s own argument: a refusal comes back from pressing the
+commit, and a band at the top of a long form has scrolled out of sight by then.
+
+### 11.2 What each shell keeps
+
+`RecordWindow` keeps every `mc-record-window-*` class name on every element — they are the hooks the
+catalog's geometry assertions and the header-set rule read — and adds the frame's class beside each.
+Its own recipe shrinks to the tab strip in its context pane, which is the one thing only a record
+window has. `header-set` loosens from an exact attribute match to a class token so the group can
+carry both names.
+
+`ActionDialog` moves onto the frame outright: the corner dismiss becomes an inline header control
+where the record window's close sits, the fields go in the primary pane, the notice in the band,
+the two footer controls in the action bar. It gains a **`context` snippet** — the record window's
+right pane lent to a form — and a context pane **implies the record width** whatever `width` asked
+for, because two panes have a geometry of their own and a caller should not discover that by eye.
+Focus lands on the first field rather than the header's own dismiss.
+
+### 11.3 The proof that nothing moved
+
+The four record-window stories that show the frame — default, editing, fits-without-scrolling,
+caps-and-scrolls-its-body — were screenshotted from the static catalog before the extraction and
+after it, at 1440×900. **All four are byte-identical.** The record window's six stories, including
+the two that assert its sizing as rendered geometry, pass unchanged. That is the standard a shared
+chassis has to meet: the shell it was taken from cannot tell.
+
+### 11.4 Why not a read-only variant instead
+
+The owner also asked whether read-only panels should be a variant of the modal. Working through the
+two that looked read-only settled it: `arrangement-dialog` is a record with history and an action —
+`RecordWindow`'s shape — and `apply-trust-funds` is an act whose commit is not served yet. A
+read-only `kind` would have been a second answer to "read a thing" and would have made
+`commitLabel` and `onCommit` optional, weakening the type for every panel that commits. The gap the
+question pointed at was real; the pane system is what fills it, because it is what those panels
+were rebuilding.

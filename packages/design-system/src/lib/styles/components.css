@@ -52,6 +52,10 @@
 @import "./recipes/presence.css";
 @import "../components/dialog/dialog.css";
 @import "../components/alert-dialog/alert-dialog.css";
+/* The modal frame dresses BOTH the Dialog and the AlertDialog panels (padding, gap, overflow, and the
+   fit-first/cap-second sizing), so it follows both of their recipes: at equal specificity the
+   later declaration is the one that wins. Both modal shells sit on it. */
+@import "./recipes/modal-frame.css";
 @import "../components/sheet/sheet.css";
 @import "../components/popover/popover.css";
 @import "../components/dropdown-menu/dropdown-menu.css";

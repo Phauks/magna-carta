@@ -59,27 +59,55 @@ describe("the recipe's place in the cascade", () => {
     expect(positionOf("record-window")).toBeGreaterThan(positionOf("dialog"));
     expect(positionOf("record-window")).toBeGreaterThan(positionOf("tabs"));
   });
+
+  it("sits on the modal frame, which follows both dialog panels and precedes the window", () => {
+    // The frame overrides the Dialog and AlertDialog panels' padding, gap and overflow at equal
+    // specificity, and the window's tab strip overrides Tabs the same way — so the order is
+    // dialog, alert-dialog, frame, tabs... , record-window, and moving any one of them breaks a
+    // recipe silently.
+    // The frame is an internal recipe under styles/recipes/, not a component directory, so it is
+    // found by its own import path rather than through the component locator.
+    const framePosition = componentsCss.indexOf('@import "./recipes/modal-frame.css"');
+    expect(framePosition).toBeGreaterThan(-1);
+    expect(framePosition).toBeGreaterThan(positionOf("dialog"));
+    expect(framePosition).toBeGreaterThan(positionOf("alert-dialog"));
+    expect(positionOf("record-window")).toBeGreaterThan(framePosition);
+  });
 });
 
 describe("the sizing rules, at the source", () => {
   /*
-   * The rendered geometry is proved in the browser by the stories (a short record that does not
-   * scroll, a long one that caps while its header and action bar hold still). These two assertions
-   * pin the DECLARATIONS those behaviours rest on, because both have been argued more than once and
-   * either is a one-line edit away from silently reverting.
+   * The two rules the whole behaviour rests on are pinned as text because they are what a
+   * well-meaning tidy-up deletes: "the panel is fit-content" reads like an accident next to a
+   * max-height utility, and "the record pane stops but the context pane does not" reads like an
+   * inconsistency. Their source is the modal frame, which is where they moved the day the second
+   * shell needed the same pane system; the record window keeps its class names as hooks and
+   * deliberately restates neither rule, because a rule stated twice drifts.
    */
+  const frame = readFileSync(join(PACKAGE_ROOT, "src/lib/styles/recipes/modal-frame.css"), "utf8");
   const recipe = readFileSync(
     join(PACKAGE_ROOT, "src/lib/components/record-window/record-window.css"),
     "utf8",
   );
 
   it("sizes the panel to its content, which is what lets a record that fits not scroll", () => {
-    expect(recipe).toContain("block-size: fit-content");
+    expect(frame).toContain("block-size: fit-content");
   });
 
-  it("stops the record at its measure and leaves the context pane uncapped", () => {
-    expect(recipe).toContain("max-inline-size: var(--mc-size-record-pane)");
-    expect(recipe).not.toContain("max-inline-size: var(--mc-size-record-context)");
+  it("stops the primary pane at its measure and leaves the context pane uncapped", () => {
+    expect(frame).toContain("max-inline-size: var(--mc-size-record-pane)");
+    expect(frame).not.toContain("max-inline-size: var(--mc-size-record-context)");
+  });
+
+  it("lets a primary pane with no context beside it fill the frame", () => {
+    // A wide single-column form has nowhere to hand its surplus width, so it takes it.
+    expect(frame).toContain(".mc-modal-frame-pane:only-child");
+  });
+
+  it("restates none of the frame's rules in the window's own recipe", () => {
+    expect(recipe).not.toContain("block-size: fit-content");
+    expect(recipe).not.toContain("max-inline-size");
+    expect(recipe).not.toContain(".mc-record-window {");
   });
 });
 
