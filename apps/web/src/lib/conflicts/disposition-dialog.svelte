@@ -40,8 +40,8 @@
   import Separator from "@magna-carta/design-system/separator";
   import { personName } from "@magna-carta/design-system/formatters";
   import { parseDate, type DateValue } from "@internationalized/date";
-  import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
-  import SubjectPartyPicker from "./subject-party-picker.svelte";
+  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import WaiverDocumentPicker from "./waiver-document-picker.svelte";
   import {
     recordConflictsDisposition,
@@ -93,7 +93,8 @@
 
   // The waiver's own record. `confirmedInWriting` starts unanswered on purpose: it is a fact in its
   // own right and a reviewer has to state it, so there is no default for the control to imply.
-  let consentingParty = $state<DirectorySearchHit | null>(null);
+  let consentingParty = $state<PickableEntity | null>(null);
+  const partySearch = directoryPickerSearch(fetch);
   let confirmedInWriting = $state<"yes" | "no" | "">("");
   let documentFileId = $state<string | null>(null);
   let givenOn = $state("");
@@ -175,7 +176,7 @@
         waiver:
           kind === "waiver_obtained" && consentingParty !== null
             ? {
-                givenByEntityId: consentingParty.entityId,
+                givenByEntityId: consentingParty.identifier,
                 confirmedInWriting: confirmedInWriting === "yes",
                 documentFileId,
                 givenOn,
@@ -258,12 +259,13 @@
           <Label for="{fieldPrefix}-waiver-given-by">Waiver Given By</Label>
           <!-- A Directory record, not a typed name: the consenting party has to be somebody a
                reader can look up, which is the difference between a waiver and a claim of one. -->
-          <SubjectPartyPicker
-            selected={consentingParty === null ? [] : [consentingParty]}
-            onAdd={(picked) => (consentingParty = picked)}
-            onRemove={() => (consentingParty = null)}
+          <EntityPicker
+            search={partySearch}
+            bind:value={consentingParty}
+            label="Waiver given by"
             inputId="{fieldPrefix}-waiver-given-by"
             disabled={recording}
+            disabledReason={recording ? "The disposition is being recorded." : undefined}
           />
         </div>
 

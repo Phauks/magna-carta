@@ -251,7 +251,7 @@ open; the never-called backfill deleted; the client mark on the overview; intake
 and `matter-intake.ts` updated; migration notes in `packages/database` if any column is touched (none
 is expected — this slice is writes into an existing table).
 
-**Slice 3 — no second implementation left standing.** Conflicts, custodian and costs pickers replaced
+**Slice 3 — no second implementation left standing. BUILT on the branch for conflicts and costs, 2026-09-02; the custodian's copy folds when its stream lands.** Conflicts, custodian and costs pickers replaced
 and deleted; the name resolver promoted; `entity-identity.svelte` retired; `lint:one-ui` registry
 entries so a hand-built directory combobox fails the gate. This slice waits on the custodian
 refinements stream (`docs/active-work/claude/custodian-refinements-19iycw.md`, in review) landing,

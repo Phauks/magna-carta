@@ -30,7 +30,8 @@
   import Separator from "@magna-carta/design-system/separator";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
-  import SubjectPartyPicker from "./subject-party-picker.svelte";
+  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { gapReason } from "./conflicts-gaps.ts";
   import {
     runConflictsCheck,
@@ -40,7 +41,6 @@
     type SourceClass,
     type Strictness,
   } from "./conflicts-api.ts";
-  import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
   import {
     BUDGETED_EDGE_CLASSES,
     EDGE_CLASS_VOCABULARY,
@@ -78,7 +78,8 @@
   const CONTENT_DEPENDENCY =
     "an index over document text and a wired message-body index, neither of which exists";
 
-  let parties = $state<DirectorySearchHit[]>([]);
+  let parties = $state<PickableEntity[]>([]);
+  const partySearch = directoryPickerSearch(fetch);
   // The opening value only: a consumer sets which trigger the form starts on, and from then on the
   // choice belongs to the person filling it in.
   // svelte-ignore state_referenced_locally
@@ -168,7 +169,7 @@
       {
         trigger,
         ...(matterId === null ? {} : { matterId }),
-        subjectEntityIds: parties.map((party) => party.entityId),
+        subjectEntityIds: parties.map((party) => party.identifier),
         scope: {
           sources: sourcesAsked(),
           strictness,
@@ -208,12 +209,15 @@
 
     <div class="flex flex-col gap-8">
       <Label for="{fieldPrefix}-parties">Subject Parties</Label>
-      <SubjectPartyPicker
+      <!-- A check takes directory entities, never typed names: the one picker, in multiple mode. -->
+      <EntityPicker
+        search={partySearch}
+        multiple
+        bind:values={parties}
+        label="Subject party"
         inputId="{fieldPrefix}-parties"
-        selected={parties}
         disabled={running}
-        onAdd={(hit) => (parties = [...parties, hit])}
-        onRemove={(entityId) => (parties = parties.filter((party) => party.entityId !== entityId))}
+        disabledReason={running ? "The check is running." : undefined}
       />
     </div>
 

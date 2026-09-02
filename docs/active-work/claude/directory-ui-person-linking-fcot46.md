@@ -85,10 +85,17 @@ Review it on the deployed site after merge (the matter's Parties tab, and `/dire
    two links open beside the draft through the one new-tab gate; the conflict check's hit-count
    colouring and quick-create (Q-4) wait for the owner's later, deeper pass over conflict checks and
    intake. Nothing in slice 2 is pending.
-2. **Slice 3 — no second implementation left standing**: fold the three pickers onto
-   `EntityPicker` (multiple mode for conflicts), promote the name resolver to
-   `apps/web/src/lib/directory/entity-names.svelte.ts`, delete the copies. Waits on
-   `custodian-refinements-19iycw` (in review) landing, which owns `apps/web/src/lib/custodian`.
+2. **Slice 3 is built for conflicts and costs** (commit after `d3c1b165`): the check runner
+   (multiple mode), the disposition dialog and the cost record window pick through `EntityPicker`;
+   the two copies are deleted; `apps/web/test/entity-picker-gate.test.ts` refuses any other
+   `searchDirectory` caller outside `$lib/directory`. **Left standing on purpose:** the custodian's
+   `owner-picker.svelte` and its name resolver `directory-names.svelte.ts`, because
+   `custodian-refinements-19iycw` (in review) rewrites both `owner-picker.svelte` and
+   `new-packet-dialog.svelte`. When that stream lands: fold the owner picker (two seats, `excluded`
+   for the owners already chosen), promote the resolver to `$lib/directory/entity-names.svelte.ts`,
+   and delete the allowance entry in the gate test — the test fails on its own if the copy is gone
+   and the entry is not. The owner's direction of 2026-09-02: the conflicts UI is not built yet and
+   will be aligned with intake later; where this work needs conflicts, build seams, not features.
 3. Slices 4 and 5 per the spec.
 
 ## Environment notes for a fresh container
