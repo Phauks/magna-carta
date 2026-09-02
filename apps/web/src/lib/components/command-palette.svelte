@@ -14,6 +14,7 @@
    * owners and silently rots). Matters/directory/actions join as their registries ship.
    */
   import { goto } from "$app/navigation";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import * as Command from "@magna-carta/design-system/command";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Keyboard from "@magna-carta/design-system/keyboard";
@@ -135,7 +136,7 @@
 
   function openEcosystemSite(href: string): void {
     open = false;
-    window.open(href, "_blank", "noopener,noreferrer");
+    openBeside(href, "external");
   }
 </script>
 

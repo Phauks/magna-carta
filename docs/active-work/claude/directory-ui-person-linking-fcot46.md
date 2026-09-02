@@ -86,9 +86,9 @@ Review it on the deployed site after merge (the matter's Parties tab, and `/dire
 
 1. **Slice 2 leftovers.** The backfill has no screen — decide with the owner where a one-time
    administrative act lives (a settings page, or the directory's action row) and add the control.
-   Three owner questions from the slice-2 review: both "Open Client Record" and "Open the report"
-   open a new tab from the intake dialog (a draft would be lost in place); whether a non-zero hit
-   count wears a status colour; and that a walk-in with no directory record forces the receptionist
+   Answered 2026-09-02: a new tab is one gated pattern (`$lib/navigation/open-beside`, a closed
+   set of reasons, a source scan refusing any other `_blank`) — the intake's two links open beside
+   the draft through it. Still open: whether a non-zero hit count wears a status colour; and that a walk-in with no directory record forces the receptionist
    out of the dialog until quick-create (Q-4) is ruled on — the strongest reason to rule on Q-4 soon.
 2. **Slice 3 — no second implementation left standing**: fold the three pickers onto
    `EntityPicker` (multiple mode for conflicts), promote the name resolver to

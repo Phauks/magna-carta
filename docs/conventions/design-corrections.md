@@ -131,6 +131,14 @@ is usually the fastest way to understand the rule.
 
 ### Controls and patterns
 
+- **A destination opens beside the reader's work only through one gate, for a named reason.** A
+  link navigates in place; a new tab is the exception, and an exception each screen decides for
+  itself is how a product ends up with fifteen `target="_blank"`s in three spellings and no rule
+  anybody can state. Every opening beside the reader goes through `$lib/navigation/open-beside`,
+  naming why the destination cannot open in place from a closed set — it leaves the product, it is
+  a file, it is a separate working session, or it is opened from a surface holding unsaved work —
+  and a source scan refuses any other `_blank`. Adding a reason is a reviewed change to that file.
+  _(new matter, 2026-09-02)_
 - **Only a surface nobody can open yet wears a maturity mark.** A screen a member can reach does
   not announce how finished it is: "Alpha" beside a working tab is a fact about the build, not
   about the matter, and once eight of fourteen tabs carry one the navigation reads as a release

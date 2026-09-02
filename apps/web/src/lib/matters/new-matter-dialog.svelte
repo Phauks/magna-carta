@@ -43,6 +43,7 @@
    * handed the same one.
    */
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
@@ -603,8 +604,7 @@
         <Button
           variant="secondary"
           href={client === null ? undefined : entityRecordHref(client.identifier)}
-          target="_blank"
-          rel="noopener"
+          {...opensBeside("unsaved-work")}
           disabled={client === null}
           aria-labelledby="new-matter-client-record-label"
         >
@@ -671,8 +671,7 @@
             <a
               class="underline underline-offset-2"
               href={`/conflicts/checks/${encodeURIComponent(checkForClient.id)}`}
-              target="_blank"
-              rel="noopener"
+              {...opensBeside("unsaved-work")}
             >
               Open the report
             </a>
