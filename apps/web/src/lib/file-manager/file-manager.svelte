@@ -21,6 +21,7 @@
    */
   import * as ContextMenu from "@magna-carta/design-system/context-menu";
   import { openBeside } from "$lib/navigation/open-beside.ts";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -599,7 +600,6 @@
 
   let folderToDelete = $state<FolderSummary | null>(null);
   let folderDeleteOpen = $state(false);
-  let folderDeleteRunning = $state(false);
   let folderDeleteFailure = $state<string | null>(null);
 
   async function deleteRows(targets: readonly FileManagerRow[]): Promise<void> {
@@ -641,10 +641,9 @@
   async function confirmFolderDelete(choice: {
     keepContents: boolean;
     destinationFolderId: string | null;
-  }): Promise<void> {
+  }): Promise<ActionOutcome> {
     const target = folderToDelete;
-    if (target === null) return;
-    folderDeleteRunning = true;
+    if (target === null) return "refused";
     folderDeleteFailure = null;
 
     const descendants = index.descendantFolderIds(target.id);
@@ -689,16 +688,16 @@
       if (outcome.kind !== "ok") trouble = true;
     }
 
-    folderDeleteRunning = false;
     if (trouble) {
       folderDeleteFailure =
         "Part of that did not go through, so the folder was left in place. Nothing was lost.";
       reload();
-      return;
+      return "refused";
     }
-    folderDeleteOpen = false;
-    folderToDelete = null;
+    // The panel closes itself on a committed act; the folder it named stays until the next open,
+    // so the heading does not blank while the panel is still leaving.
     reload();
+    return "committed";
   }
 
   // --- downloading ---------------------------------------------------------------------------------
@@ -1358,7 +1357,6 @@
 
   let restoreTarget = $state<DeletedFileSummary | null>(null);
   let restoreOpen = $state(false);
-  let restoreRunning = $state(false);
   let restoreFailure = $state<string | null>(null);
 
   function beginRestore(row: DeletedFileSummary): void {
@@ -1367,24 +1365,23 @@
     restoreOpen = true;
   }
 
-  async function confirmRestore(destination: { folderId?: string | null }): Promise<void> {
+  async function confirmRestore(destination: {
+    folderId?: string | null;
+  }): Promise<ActionOutcome> {
     const target = restoreTarget;
-    if (target === null) return;
-    restoreRunning = true;
+    if (target === null) return "refused";
     restoreFailure = null;
     const outcome = await restoreFile(fetch, target.id, destination, crypto.randomUUID());
-    restoreRunning = false;
     if (outcome.kind !== "ok") {
       restoreFailure =
         outcome.kind === "problem"
           ? problemGuidance(outcome.problem).message
           : "Nothing answered. The file stays deleted, and nothing else changed.";
-      return;
+      return "refused";
     }
-    restoreOpen = false;
-    restoreTarget = null;
     deletedFiles = deletedFiles.filter((row) => row.id !== target.id);
     reload();
+    return "committed";
   }
 
   // --- browsing inside an archive -------------------------------------------------------------------
@@ -1959,22 +1956,17 @@
   {matterTitle}
   items={uploadItems}
   confirmed={uploadConfirmed}
-  onConfirm={(destinationFolderId) => void confirmUploadDestination(destinationFolderId)}
-  onClose={() => {
-    uploadOpen = false;
-    reload();
-  }}
+  onConfirm={confirmUploadDestination}
+  onDismiss={reload}
 />
 
 <RestoreFileDialog
   bind:open={restoreOpen}
   {index}
   file={restoreTarget}
-  running={restoreRunning}
   failure={restoreFailure}
-  onConfirm={(destination) => void confirmRestore(destination)}
-  onCancel={() => {
-    restoreOpen = false;
+  onConfirm={confirmRestore}
+  onDismiss={() => {
     restoreTarget = null;
   }}
 />
@@ -1983,11 +1975,9 @@
   bind:open={folderDeleteOpen}
   {index}
   folder={folderToDelete}
-  running={folderDeleteRunning}
   failure={folderDeleteFailure}
-  onConfirm={(choice) => void confirmFolderDelete(choice)}
-  onCancel={() => {
-    folderDeleteOpen = false;
+  onConfirm={confirmFolderDelete}
+  onDismiss={() => {
     folderToDelete = null;
   }}
 />

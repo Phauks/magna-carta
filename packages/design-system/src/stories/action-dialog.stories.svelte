@@ -75,6 +75,7 @@
     reading: false,
     soon: false,
     keyboard: false,
+    stays: false,
   });
 
   let amount = $state("");
@@ -95,12 +96,19 @@
     showing.reading = false;
     showing.soon = false;
     showing.keyboard = false;
+    showing.stays = false;
   }
 
   /** A commit that lands. The shell closes the panel; the caller never writes `open`. */
   async function succeed(): Promise<ActionOutcome> {
     committedCount += 1;
     return "committed";
+  }
+
+  /** A commit that lands and has something to show for it. The panel stays, with nothing to ask. */
+  async function succeedAndStay(): Promise<ActionOutcome> {
+    committedCount += 1;
+    return "done";
   }
 
   /** A commit the server turns down. The panel stays, and the notice slot says why. */
@@ -403,6 +411,40 @@
     fields={reasonFields}
     onOpen={resetAmount}
     onCommit={succeed}
+  />
+{/snippet}
+
+{#snippet reportFields({ busy, done }: { busy: boolean; done: boolean })}
+  {#if done}
+    <p class="text-sm">Sent. It was recorded as <span class="font-semibold">REF-2026-0147</span>.</p>
+  {:else}
+    <div class="flex flex-col gap-8">
+      <Label for="action-dialog-story-report">What happened</Label>
+      <Input id="action-dialog-story-report" disabled={busy} bind:value={amount} />
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet staysTemplate(args: ActionDialogProps)}
+  <button
+    type="button"
+    class="mc-button mc-button-secondary mc-button-md"
+    onclick={() => (showing.stays = true)}
+  >
+    Send a report
+  </button>
+  <ActionDialog
+    {...acting(args)}
+    heading="Send a Report"
+    subtitle="Support reads these in the order they arrive"
+    commitLabel="Send the Report"
+    commitBusyLabel="Sending"
+    bind:open={showing.stays}
+    kind="form"
+    unsavedChanges={false}
+    fields={reportFields}
+    onOpen={resetAmount}
+    onCommit={succeedAndStay}
   />
 {/snippet}
 
@@ -817,6 +859,44 @@
       await userEvent.keyboard("{Control>}{Enter}{/Control}");
       await waitFor(() => expect(body.queryByRole("dialog")).not.toBeInTheDocument());
       expect(committedCount).toBe(before + 1);
+    });
+
+    closeEveryPanel();
+  }}
+/>
+
+<Story
+  name="StaysToShowWhatHappened"
+  template={staysTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Send a report" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = await body.findByRole("dialog");
+    await waitFor(() => expect(panel).toBeVisible());
+    const inside = within(panel);
+
+    await step("The commit lands and reports done — the panel stays", async () => {
+      await userEvent.click(inside.getByRole("button", { name: "Send the Report" }));
+      expect(await inside.findByText("REF-2026-0147")).toBeVisible();
+      expect(panel).toBeVisible();
+    });
+
+    await step("With nothing left to ask, the bar ends at Close and the commit is gone", () => {
+      const marked = [...panel.querySelectorAll("[data-action-dialog-action]")].map((control) =>
+        control.getAttribute("data-action-dialog-action"),
+      );
+      expect(marked).not.toContain("commit");
+      expect(panel.querySelector('[data-action-dialog-action="dismiss"]')).toHaveAccessibleName(
+        "Close",
+      );
+    });
+
+    await step("And there is nothing to lose, so Escape leaves at once", async () => {
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(body.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
     closeEveryPanel();
