@@ -16,6 +16,8 @@ import {
   exportsName,
   findDomainLeaks,
   findHandBuiltDialogs,
+  findFooterSetProblems,
+  findHandComposedModals,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHeaderSetProblems,
@@ -48,7 +50,8 @@ ${controls}
 const control = (action, tag = "button") =>
   `    <${tag} data-record-window-action="${action}"></${tag}>`;
 
-const FOUR_IN_ORDER = [
+const FIVE_IN_ORDER = [
+  control("menu", "DropdownMenu.Trigger"),
   control("edit"),
   control("print"),
   control("expand"),
@@ -56,12 +59,12 @@ const FOUR_IN_ORDER = [
 ].join("\n");
 
 describe("the record window's header set", () => {
-  it("passes on exactly Edit, Print, expand and close, in that order", () => {
-    expect(findHeaderSetProblems("shell.svelte", headerSource(FOUR_IN_ORDER))).toEqual([]);
+  it("passes on exactly the kind's menu, Edit, Print, expand and close, in that order", () => {
+    expect(findHeaderSetProblems("shell.svelte", headerSource(FIVE_IN_ORDER))).toEqual([]);
   });
 
   it("bites when a fifth control is added", () => {
-    const source = headerSource(`${FOUR_IN_ORDER}\n${control("duplicate")}`);
+    const source = headerSource(`${FIVE_IN_ORDER}\n${control("duplicate")}`);
     const problems = findHeaderSetProblems("shell.svelte", source);
     expect(problems).toHaveLength(1);
     expect(problems[0].rule).toBe("header-set");
@@ -70,24 +73,33 @@ describe("the record window's header set", () => {
 
   it("bites when the order changes", () => {
     const source = headerSource(
-      [control("print"), control("edit"), control("expand"), control("close", "Dialog.Close")].join(
-        "\n",
-      ),
+      [
+        control("menu", "DropdownMenu.Trigger"),
+        control("print"),
+        control("edit"),
+        control("expand"),
+        control("close", "Dialog.Close"),
+      ].join("\n"),
     );
     expect(findHeaderSetProblems("shell.svelte", source)[0].detail).toContain(
-      "edit, print, expand, close",
+      "menu, print, edit, expand, close",
     );
   });
 
-  it("bites when one of the four is dropped", () => {
+  it("bites when one of the set is dropped", () => {
     const source = headerSource(
-      [control("edit"), control("expand"), control("close", "Dialog.Close")].join("\n"),
+      [
+        control("menu", "DropdownMenu.Trigger"),
+        control("edit"),
+        control("expand"),
+        control("close", "Dialog.Close"),
+      ].join("\n"),
     );
     expect(findHeaderSetProblems("shell.svelte", source)).toHaveLength(1);
   });
 
   it("bites when a control in the group carries no marker at all", () => {
-    const source = headerSource(`${FOUR_IN_ORDER}\n    <button title="Share"></button>`);
+    const source = headerSource(`${FIVE_IN_ORDER}\n    <button title="Share"></button>`);
     const problems = findHeaderSetProblems("shell.svelte", source);
     expect(problems.map((problem) => problem.detail).join(" ")).toContain(
       "data-record-window-action",
@@ -355,6 +367,140 @@ describe("no raw dialog and no hand-built scrim", () => {
    */
 </script>`;
     expect(findHandBuiltDialogs("dialog-content.svelte", source)).toEqual([]);
+  });
+});
+
+describe("the action dialog's footer set", () => {
+  const bar = (controls) => `
+<div class="mc-action-dialog-actions flex items-center justify-end gap-8">
+${controls}
+</div>
+`;
+  const footerControl = (action) =>
+    `    <Button data-action-dialog-action="${action}">Verb</Button>`;
+  const TWO_IN_ORDER = [footerControl("dismiss"), footerControl("commit")].join("\n");
+
+  it("passes on exactly the dismissal then the commit", () => {
+    expect(findFooterSetProblems("shell.svelte", bar(TWO_IN_ORDER))).toEqual([]);
+  });
+
+  it("bites when a third control joins the bar", () => {
+    const problems = findFooterSetProblems(
+      "shell.svelte",
+      bar(`${TWO_IN_ORDER}\n${footerControl("apply")}`),
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toBe("footer-set");
+    expect(problems[0].detail).toContain("apply");
+  });
+
+  it("bites when the two are swapped, which un-learns the bar everywhere at once", () => {
+    const swapped = [footerControl("commit"), footerControl("dismiss")].join("\n");
+    expect(findFooterSetProblems("shell.svelte", bar(swapped))[0].detail).toContain(
+      "commit, dismiss",
+    );
+  });
+
+  it("bites when a control in the bar carries no marker at all", () => {
+    const problems = findFooterSetProblems(
+      "shell.svelte",
+      bar(`${TWO_IN_ORDER}\n    <Button>Apply</Button>`),
+    );
+    expect(details(problems)).toContain("data-action-dialog-action");
+  });
+
+  it("fails loudly rather than vacuously when the bar is gone", () => {
+    const problems = findFooterSetProblems("shell.svelte", "<div>no bar here</div>");
+    expect(problems).toHaveLength(1);
+    expect(problems[0].detail).toContain("mc-action-dialog-actions");
+  });
+});
+
+describe("every modal surface is one of the declared shells", () => {
+  const SHELLS = [
+    "packages/design-system/src/lib/components/action-dialog",
+    "packages/design-system/src/lib/components/record-window",
+  ];
+
+  it("bites on a screen composing a Dialog panel of its own", () => {
+    const source = `<Dialog.Root bind:open>
+  <Dialog.Content>
+    <Dialog.Title>Write Off a Balance</Dialog.Title>
+  </Dialog.Content>
+</Dialog.Root>`;
+    const problems = findHandComposedModals(
+      "apps/web/src/lib/billing/screen.svelte",
+      source,
+      SHELLS,
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toBe("hand-composed-modal");
+    expect(problems[0].detail).toContain("ActionDialog");
+  });
+
+  it("bites on an AlertDialog panel and on a Sheet panel too", () => {
+    for (const part of ["AlertDialog", "Sheet"]) {
+      const problems = findHandComposedModals(
+        "apps/web/src/lib/screen.svelte",
+        `<${part}.Content><p>x</p></${part}.Content>`,
+        SHELLS,
+      );
+      expect(problems).toHaveLength(1);
+      expect(problems[0].detail).toContain(`${part}.Content`);
+    }
+  });
+
+  it("bites on a scrim written as utilities, which the style-block rule cannot see", () => {
+    const source = '<div class="fixed inset-0 z-modal bg-surface-scrim"></div>';
+    const problems = findHandComposedModals("apps/web/src/lib/screen.svelte", source, SHELLS);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].detail).toContain("scrim");
+  });
+
+  it("bites on a reach for the platform's own modal, which no markup scan sees", () => {
+    const problems = findHandComposedModals(
+      "apps/web/src/lib/screen.ts",
+      "panel.showModal();",
+      SHELLS,
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].detail).toContain("through the platform directly");
+  });
+
+  it("does NOT cry wolf inside a declared shell's own home", () => {
+    const source = "<Dialog.Content><Dialog.Title>{heading}</Dialog.Title></Dialog.Content>";
+    const inside = "packages/design-system/src/lib/components/action-dialog/action-dialog.svelte";
+    expect(findHandComposedModals(inside, source, SHELLS)).toEqual([]);
+  });
+
+  it("does NOT cry wolf on a screen that reaches for the shell, which is the answer", () => {
+    const source = `<ActionDialog bind:open heading="Write Off a Balance" commitLabel="Write It Off" {onCommit}>
+  {#snippet fields({ busy })}<Input disabled={busy} />{/snippet}
+</ActionDialog>`;
+    expect(findHandComposedModals("apps/web/src/lib/screen.svelte", source, SHELLS)).toEqual([]);
+  });
+
+  it("does NOT cry wolf on a pinned element that is not at the modal layer", () => {
+    const source = '<div class="fixed inset-0 bg-surface-sunken"></div>';
+    expect(findHandComposedModals("apps/web/src/lib/screen.svelte", source, SHELLS)).toEqual([]);
+  });
+
+  it("does NOT cry wolf on prose describing the shape, which is how a gate gets switched off", () => {
+    const source = `<script lang="ts">
+  /*
+   * This screen used to compose a <Dialog.Content> of its own and pin a \`fixed inset-0 z-modal\`
+   * scrim behind it. It reaches for the shell now.
+   */
+</script>`;
+    expect(findHandComposedModals("apps/web/src/lib/screen.svelte", source, SHELLS)).toEqual([]);
+  });
+
+  it("reads the shell homes it is given rather than a list of its own", () => {
+    // The homes are declared in registry.json so adding a shell is a reviewed edit there. Passing
+    // none is therefore the state the runner refuses outright, and the rule must not paper over it.
+    const source = "<Dialog.Content><p>x</p></Dialog.Content>";
+    const home = "packages/design-system/src/lib/components/action-dialog/action-dialog.svelte";
+    expect(findHandComposedModals(home, source, [])).toHaveLength(1);
   });
 });
 
@@ -627,6 +773,8 @@ describe("the registry's own allowances", () => {
       "registry",
       "native-select",
       "hand-built-dialog",
+      "footer-set",
+      "hand-composed-modal",
       "hand-drawn-glyph",
       "status-tone",
       "placeholder",

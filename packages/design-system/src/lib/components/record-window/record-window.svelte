@@ -62,9 +62,10 @@
   import X from "@lucide/svelte/icons/x";
   import * as Dialog from "../dialog/index.ts";
   import * as DropdownMenu from "../dropdown-menu/index.ts";
-  import * as AlertDialog from "../alert-dialog/index.ts";
-  import Button, { buttonClasses } from "../button/index.ts";
+  import Button from "../button/index.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
+  import { CloseGuard } from "../../internal/close-guard.svelte.ts";
+  import DiscardQuestion from "../../internal/discard-question.svelte";
   import RecordWindowContext from "./record-window-context.svelte";
   import { recordWindowSession } from "./record-window-session.svelte.ts";
   import type { RecordWindowTab } from "./types.ts";
@@ -201,8 +202,17 @@
     saveDisabledReason === undefined ? "Save" : `Save: ${saveDisabledReason}`,
   );
 
-  /** Which gesture is waiting on the reader to say whether the change may be thrown away. */
-  let pendingGesture = $state<"leaveEditing" | "closeWindow" | null>(null);
+  /*
+   * The unsaved-work guard, shared with the modal shell (../../internal/close-guard.svelte.ts).
+   * It was written here first and lived here alone until ActionDialog needed the same question; a
+   * second copy would have been two questions with two wordings, drifting apart the first time one
+   * of them was corrected. The predicate is read at the moment of the gesture rather than held,
+   * because a record goes dirty and clean again while the window is open.
+   *
+   * Only an EDITING window has anything to lose — a record being read has nothing to discard — so
+   * the editing check lives in the predicate rather than at each call site.
+   */
+  const guard = new CloseGuard(() => editing && unsavedChanges);
 
   /*
    * A window that closed while its fields were open must not reopen showing them: a record is read
@@ -228,11 +238,7 @@
 
   /** Leave editing, asking first while there is something to lose. */
   function requestLeaveEditing(): void {
-    if (unsavedChanges) {
-      pendingGesture = "leaveEditing";
-      return;
-    }
-    leaveEditing();
+    if (guard.request("leaveEditing")) leaveEditing();
   }
 
   /*
@@ -241,17 +247,11 @@
    * the question decorative.
    */
   function requestCloseWindow(): void {
-    if (editing && unsavedChanges) {
-      pendingGesture = "closeWindow";
-      return;
-    }
-    closeWindow();
+    if (guard.request("closeSurface")) closeWindow();
   }
 
   function discardAndContinue(): void {
-    const gesture = pendingGesture;
-    pendingGesture = null;
-    if (gesture === "closeWindow") {
+    if (guard.release() === "closeSurface") {
       closeWindow();
       return;
     }
@@ -287,6 +287,7 @@
 >
   <Dialog.Content
     showClose={false}
+    data-modal-shell="record-window"
     data-expanded={isExpanded ? "true" : "false"}
     data-editing={editing ? "true" : "false"}
     class={mergeClasses(
@@ -407,34 +408,13 @@
 </Dialog.Root>
 
 <!--
-  The question a close gesture asks while there is unsaved work. It names what would be lost and
-  offers going back to it first, because the reader who arrives here by pressing Escape meant to
-  dismiss something smaller than their own typing.
+  The question a close gesture asks while there is unsaved work. The question itself, its verbs and
+  its shape are the shared component's; only the sentence naming what would be lost is this
+  window's, because what is at stake in a record being changed is not what is at stake in a form
+  being filled.
 -->
-<AlertDialog.Root
-  bind:open={
-    () => pendingGesture !== null,
-    (showing) => {
-      if (!showing) pendingGesture = null;
-    }
-  }
->
-  <AlertDialog.Content>
-    <AlertDialog.Title>Discard Your Changes?</AlertDialog.Title>
-    <AlertDialog.Description>
-      This record has changes that have not been saved. Leaving now throws them away; the record
-      itself stays exactly as it was.
-    </AlertDialog.Description>
-    <div class="mc-record-window-confirm-actions">
-      <AlertDialog.Cancel class={buttonClasses({ variant: "ghost", size: "default" })}>
-        Keep Editing
-      </AlertDialog.Cancel>
-      <AlertDialog.Action
-        class={buttonClasses({ variant: "secondary", size: "default" })}
-        onclick={discardAndContinue}
-      >
-        Discard Changes
-      </AlertDialog.Action>
-    </div>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+<DiscardQuestion
+  {guard}
+  description="This record has changes that have not been saved. Leaving now throws them away; the record itself stays exactly as it was."
+  onDiscard={discardAndContinue}
+/>
