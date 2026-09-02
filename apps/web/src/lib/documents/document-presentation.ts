@@ -4,7 +4,12 @@
  * drift into three answers for the same question.
  */
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
-import type { ApiProblem, DocumentStatus, DocumentSummary } from "./document-api.ts";
+import type { Problem, DocumentStatus, DocumentSummary } from "./document-api.ts";
+import {
+  guidanceForProblem,
+  isServiceSkew,
+  type ProblemGuidance,
+} from "$lib/diagnostics/guidance.ts";
 
 /** Human-readable size: whole bytes below 1 KB, otherwise one decimal at the natural unit. */
 export function formatDocumentSize(sizeBytes: number | null): string {
@@ -67,22 +72,22 @@ export function hasReadableContent(
   return document.status === "clean" && document.currentVersionId !== null;
 }
 
-export type ProblemTone = "info" | "warning" | "danger";
-
-export interface ProblemGuidance {
-  tone: ProblemTone;
-  title: string;
-  message: string;
-}
+export type { ProblemTone, ProblemGuidance } from "$lib/diagnostics/guidance.ts";
 
 /**
- * Human guidance for a failed call, keyed by HTTP status. The server's own `detail` is preferred
- * where it sent one — it is written for the caller and knows things this table cannot, such as which
- * capability was missing — and this supplies the wording only where it did not.
+ * Human guidance for a failed call on the documents surface. The shared presenter
+ * ($lib/diagnostics/guidance.ts) supplies the floor — the service-skew 404, the step-up and
+ * request-access remedies, the "not a verdict" 429 — and this narrows the wording to documents
+ * where the surface knows more than a shared default can. The server's own `detail` still wins
+ * wherever it sent one: it is written for the caller and knows things no table here can, such as
+ * which capability was missing.
  */
-export function problemGuidance(problem: ApiProblem): ProblemGuidance {
+export function problemGuidance(problem: Problem): ProblemGuidance {
+  const base = guidanceForProblem(problem, "This document");
+
   if (problem.status >= 500) {
     return {
+      ...base,
       tone: "danger",
       title: "Something went wrong on our side",
       message:
@@ -92,36 +97,47 @@ export function problemGuidance(problem: ApiProblem): ProblemGuidance {
   switch (problem.status) {
     case 401:
       return {
+        ...base,
         tone: "info",
         title: "You are not signed in",
         message: "Sign in again to see this matter's documents.",
       };
     case 403:
       return {
+        ...base,
         tone: "warning",
         title: "You do not have permission",
         message: problem.detail ?? "Your account is not allowed to do this on this matter.",
       };
     case 404:
-      return {
-        tone: "warning",
-        title: "Not found",
-        message: problem.detail ?? "This document is no longer on the matter.",
-      };
+      // Only a REAL not-found is reworded. A 404 with no problem document behind it is deploy skew,
+      // and the shared presenter already says so — overriding it here would tell somebody their
+      // document had been deleted because a release was mid-flight.
+      return isServiceSkew(problem)
+        ? base
+        : {
+            ...base,
+            tone: "warning",
+            title: "Not found",
+            message: problem.detail ?? "This document is no longer on the matter.",
+          };
     case 409:
       return {
+        ...base,
         tone: "warning",
         title: "Already in progress",
         message: problem.detail ?? "The same request is already running. Wait for it to finish.",
       };
     case 429:
       return {
+        ...base,
         tone: "warning",
         title: "Too many requests",
         message: "You have done that several times in a short period. Wait a moment, then retry.",
       };
     default:
       return {
+        ...base,
         tone: "warning",
         title: "That did not work",
         message: problem.detail ?? "The request was refused. Check the details and try again.",

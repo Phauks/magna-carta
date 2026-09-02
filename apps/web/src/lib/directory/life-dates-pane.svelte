@@ -14,6 +14,8 @@
    * date rather than derived from whether one was entered. Probate work meets it constantly.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
@@ -44,7 +46,7 @@
   let deceased = $state(false);
   let editingFor = $state<string | null>(null);
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   // A different record's dates are a different record's business: the draft follows the record.
   $effect(() => {
@@ -87,10 +89,11 @@
       onRecorded();
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing was recorded."
-        : (outcome.problem.detail ?? "These dates could not be recorded.");
+    failure = stated(
+      outcome.failure,
+      "These dates could not be recorded.",
+      "Nothing was recorded.",
+    );
   }
 </script>
 
@@ -132,9 +135,12 @@
   </Label>
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="These Dates Could Not Be Recorded"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {/if}
 
   <div class="flex justify-end">

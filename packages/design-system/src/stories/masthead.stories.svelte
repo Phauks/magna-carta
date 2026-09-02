@@ -85,3 +85,51 @@
     </Masthead.Root>
   {/snippet}
 </Story>
+
+<Story
+  name="Compact density"
+  play={async ({ canvas, step }) => {
+    await step("The compact density steps the title down through the recipe", async () => {
+      const heading = canvas.getByRole("heading", { level: 1, name: "Ashcombe v. Delderfield" });
+      // 1.5rem at the catalog's 16px root. The assertion is on the RESOLVED size rather than the
+      // class, because the point of the variant is that the step comes from the recipe.
+      await expect(getComputedStyle(heading).fontSize).toBe("24px");
+    });
+
+    await step("The default density is untouched by it", async () => {
+      const other = canvas.getByRole("heading", { level: 2, name: "Pemberton v. Hale" });
+      await expect(getComputedStyle(other).fontSize).toBe("32px");
+    });
+  }}
+>
+  {#snippet template()}
+    <div class="flex flex-col gap-24">
+      <Masthead.Root density="compact">
+        <Masthead.Heading>
+          <Masthead.Title>Ashcombe v. Delderfield</Masthead.Title>
+          <Masthead.Meta>
+            <span>Matter 2026-0147</span>
+            <Masthead.MetaSeparator />
+            <span>Commercial Litigation</span>
+          </Masthead.Meta>
+        </Masthead.Heading>
+        <Masthead.Actions>
+          <Button variant="secondary">Add time</Button>
+        </Masthead.Actions>
+      </Masthead.Root>
+
+      <!-- The comparison masthead sits inside a labelled section: a page has ONE banner landmark,
+           and a <header> inside a section is that section's header rather than a second banner. -->
+      <section aria-label="Default density, for comparison">
+        <Masthead.Root>
+          <Masthead.Heading>
+            <Masthead.Title level={2}>Pemberton v. Hale</Masthead.Title>
+            <Masthead.Meta>
+              <span>Litigation</span>
+            </Masthead.Meta>
+          </Masthead.Heading>
+        </Masthead.Root>
+      </section>
+    </div>
+  {/snippet}
+</Story>

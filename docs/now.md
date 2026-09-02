@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 777 nodes of the feature ledger in
+is the complete register rather than a digest: all 782 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**777 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 138 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **639 that are units of work**, for the reason set out under [What a roll-up is
+**782 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 139 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **643 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 274 | 43% |
-| Part-built | partial, in-build | 114 | 18% |
+| Done | shipped | 277 | 43% |
+| Part-built | partial, in-build | 115 | 18% |
 | Ahead | designed, planned, researching, not-started | 210 | 33% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **639** | **100%** |
+| **All units of work** | | **643** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 274 | 43% |
-| `partial` | 113 | 18% |
+| `shipped` | 277 | 43% |
+| `partial` | 114 | 18% |
 | `in-build` | 1 | 0% |
-| `designed` | 45 | 7% |
-| `planned` | 16 | 2% |
+| `designed` | 46 | 7% |
+| `planned` | 16 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 144 | 23% |
+| `not-started` | 143 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **639** | **100%** |
+| **All statuses** | **643** | **100%** |
 
 ### What a roll-up is not
 
-**138 of the 777 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**139 of the 782 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 274 of 639 (43%). Shipped plus partial is 387 (61%).**
+**Shipped alone is 277 of 643 (43%). Shipped plus partial is 391 (61%).**
 
-The 113 units between those two numbers are work that is engineered and paid for and is not
+The 114 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**388 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**392 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 34 | 9% |
+| A person can open it today (`screen`) | 36 | 9% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 179 | 46% |
-| No user surface by nature (`internal`) | 175 | 45% |
+| No user surface by nature (`internal`) | 177 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **388** | **100%** |
+| **Everything with something built** | **392** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -101,9 +101,9 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
-| Core Domain — Directory, Matters & Locations | 32 | 20 | 0 | 0 | 2 | 0 | 3 | 1 | 0 | 58 | 55% |
+| Core Domain — Directory, Matters & Locations | 32 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 52% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
-| Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
+| Design System, UI Consistency & Design Quality | 11 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 16 | 69% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
@@ -114,7 +114,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
-| Observability & Diagnostics | 11 | 1 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 20 | 55% |
+| Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
 | Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 6 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 66 | 47% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **274** | **113** | **1** | **45** | **16** | **5** | **144** | **38** | **3** | **639** | **43%** |
+| **All areas** | **277** | **114** | **1** | **46** | **16** | **5** | **143** | **38** | **3** | **643** | **43%** |
 
 ## Where we have been
 
@@ -325,7 +325,7 @@ in this one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**32 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**33 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -334,6 +334,7 @@ in this one.
 - **Pronouns on a person** (`directory.pronouns`) — **Built; no screen yet.** Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
 - **Matters** (`matters`) — **A group of capabilities.** The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
 - **Consultations (prospective matters)** (`matters.lifecycle.consultations`) — **Built; no screen yet.** May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
+- **Consolidated matter search** (`matters.search`) — **A group of capabilities.** Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
 - **Retention and destruction dates** (`custodian.retention-destruction`) — **Built; no screen yet.** Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.
 - **Search** (`discovery.search`) — **A group of capabilities.** Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
 - **Review workflow** (`discovery.review`) — **A group of capabilities.** Three, and the first two gate the next sub-slice outright. P1 — does privilege coding require its own permission tier, separate from ordinary coding? P3 — what is the default when a privilege designation splits a document family, produce the rest or withhold the family? Both decide what reaches opposing counsel and where waiver risk sits, and 5·2·2 privilege review cannot start until they are answered. (P2 and P4 are production-side and gate 5·2·3, not this slice.) Third, and separate: the per-review-set access list can be emptied and there is NO WAY BACK. The grant route is itself behind the wall (apps/api-worker/src/routes/discovery-coding.ts checks memberHasReviewSetAccess before grantReviewSetAccess) and the list is seeded once at creation with the creating member alone, so if the last listed member leaves the firm or is revoked the review set is permanently unreachable — nobody can read it, nobody can close it, nobody can grant access back, and there is no Owner bypass and no operator override. On a corpus under a protective order that is material a firm may be obliged to produce and cannot open. It is deliberately an owner question rather than a fix, because every escape hatch weakens the exact property the design chose — that no role sees through the wall. The narrowest option is probably refusing to revoke the LAST member on a list, which keeps the wall intact and only forbids emptying it; it is not built.
@@ -378,6 +379,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `community.changelog-sync` · **Shipped-items changelog sync** — Requests marked shipped sync to the changelog; popular requests inform the roadmap.
 - `community.agent-status-posts` · **Agent status posts** — Maintenance/diagnostics agents post public status on known issues, propose-only, never exposing privileged detail.
 - `community.moderation` · **Moderation and abuse handling** — Permanent moderation, spam/abuse, and security operation of a public board, owned in-house.
+- `matters.search.file-contents` · **File contents in a matter search** — The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match.
 - `matter-assets.schedule-template` · **A supplied asset-schedule template** — A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm.
 - `matter-assets.carry-forward` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
 - `discovery.search.semantic` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
@@ -597,7 +599,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 58 units of work, 55% shipped. 32 done, 20 part-built, 5 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 61 units of work, 52% shipped. 32 done, 21 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete on main; UI deferred until the design-system app shell lands._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md)._
@@ -625,10 +627,11 @@ to change a line here, edit the node in its area file and re-run the build.
   - `matters.types` · `partial` · **Flexible matter types** — Matter types carrying type-specific fields for mixed practices, via the shared custom-fields engine. _Note: Backend shipped; practice-area templates explicitly deferred (status.d/1-4: "before first client"); UI not built._
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
-  - `matters.lifecycle` · `partial` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: Backend shipped; lifecycle UI not built._
-    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
-    - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
+  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the status, what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
+    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
+    - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
     - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
+  - `matters.physical-file` · `not-started` · **Physical file register and retention** — The firm's OWN paper file for a matter - what holds it, where that is kept, and the date the file may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard. _Note: NEEDS ITS OWN DESIGN WORK, and the owner has said so: what holds a file is not one shape. A box at a remote store, a drawer in a cabinet, a safe, a shelf, a crate - the medium is a firm's own choice and a model that hardcodes any one of them is wrong for most firms, so the container is a record carrying its own kind rather than a field spelling "box". A container is a record in its own right for a second reason too: one holds the folders of several matters, so a matter points at it. Surfaced rather than hidden meanwhile - the matter status window gives it a panel of its own, marked Soon, naming what it waits on, because a window that answers "where is the file" while silently omitting the question is worse than one that says it cannot answer yet. It sits beside the status rather than under the close because the file is a standing fact: a folder sits where it sits whatever the matter's status is, and the panel says so. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks._
   - `matters.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop. _Note: The Files UI has landed since this said it was queued. What it does not yet offer is folder navigation, document-type assignment or drag-and-drop, which is the rest of this node's scope; the backend for all three is built._
     - `matters.file-manager.content-hash` · `shipped` · **Content hash on every stored object** — SHA-256 computed at write time for fixity, delta verification, duplicate detection, upload short-circuit, scan-verdict caching, and no-op version skip. _Note: Cross-matter blob dedup deliberately undecided per the white paper._
     - `matters.file-manager.bulk-download` · `shipped` · **Bulk download (zip)** — Streaming, store-mode, ZIP64 archives of selected files/folders or a whole matter, versions pinned at request time, access-checked and audit-logged; single-file selections download directly. _Note: Client-portal reuse awaits the portal (not built)._
@@ -641,6 +644,9 @@ to change a line here, edit the node in its area file and re-run the build.
       - `matters.file-manager.untrusted-pipeline.cdr` · `not-started` · **CDR disarmed renditions** — Optional disarmed copy of document types while the original is preserved byte-for-byte for evidence. _Note: Named optional in the pipeline design; engine choice deferred._
       - `matters.file-manager.untrusted-pipeline.safe-delivery` · `shipped` · **Safe delivery (structural)** — Separate cookieless sandbox origin, CSP, iframe sandbox, safe-rendition preview defeating stored-XSS uploads. _Note: Player/preview UI queued behind the app shell._
       - `matters.file-manager.untrusted-pipeline.rescan` · `partial` · **Continuous re-scan** — Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits. _Note: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it._
+  - `matters.search` · `partial` · **Consolidated matter search** — One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. _Note: PARTIAL because eight of the fourteen sections answer; the other six decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page._
+    - `matters.search.sources` · `partial` · **Declared search sources** — One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet. _Note: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. The matter-asset register has a query but no screen to land a hit on, so it is deliberately unregistered until the register gets one. Review-set sources are structurally refused: a review set is its own corpus._
+    - `matters.search.file-contents` · `designed` · **File contents in a matter search** — The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match. _Note: The engine, write pipeline and compaction are built; SearchIndexPort answers engine-not-implemented until the search Container is deployed in the order docs/deploy-queue.md names._
 - `locations` · `partial` · **Locations (offices)** — First-class per-firm entity for physical offices; a dimension within the firm tenancy boundary, referenced by matters, trust accounts, Custodian roots, users, and generated documents. _Note: Backend shipped; administration UI not built._
   - `locations.fields` · `partial` · **Location fields** — Name/label, active/closed status, physical addresses + contact info, jurisdiction, letterhead and branding assets (logo, address block, footer, remit-to), optional matter-number prefix/segment. _Note: Core fields shipped; branding assets (logo, address block, footer) beyond remit-to were not found — they land with document automation consumers._
   - `locations.staff-assignment` · `shipped` · **Staff assignment** — Users belong to one or more locations with exactly one designated primary.
@@ -693,7 +699,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Design System, UI Consistency & Design Quality
 
-[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 15 units of work, 73% shipped. 11 done, 3 part-built, 1 ahead, 0 parked.
+[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 16 units of work, 69% shipped. 11 done, 4 part-built, 1 ahead, 0 parked.
 
 - `design-system` · `partial` · **Design system** — UI consistency prevented by construction (tokens, one component source, CI) and design quality set by a human foundation with an enforced review step. _Note: Foundation built and merged; close-out items open (NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass)._
   - `design-system.tokens` · `partial` · **Design tokens** — Every color/spacing/radius/shadow/type/z/motion/breakpoint value a named DTCG token; no raw values elsewhere.
@@ -706,6 +712,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.components.storybook-catalog` · `shipped` · **Component catalog** — Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks. _Note: Histoire dead without Svelte 5 support, as the white paper records._
     - `design-system.components.icons` · `shipped` · **Lucide icons, no emojis** — Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   - `design-system.enforcement` · `partial` · **Machine enforcement** — Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
+  - `design-system.modal-shells` · `partial` · **Two modal shells and never a third** — Every modal surface in the product is one of two shells — RecordWindow for reading and changing a record, ActionDialog for an act asked of a reader — with one shared unsaved-work guard, and a source scan that recognizes a panel built outside them. _Note: The shell, the shared guard, the two rules, and the frame both shells sit on (styles/recipes/modal-frame.css — the record window's pane system, extracted with byte-identical screenshots as proof) are built. Three families have migrated — the custodian's three panels, ten across billing and costs, and the new-matter window as the frame's first context-pane caller — and the matter-status window landed on a fourth kind, `reading`, added as a strict arm of the props union for a panel that states a fact and seats its step beside it. Twenty-six printed allowances remain, of which thirteen are named exclusions with the shell or the dependency each belongs to._
     - `design-system.enforcement.off-token-lint` · `shipped` · **Off-token value gates** — Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.
     - `design-system.enforcement.visual-regression` · `partial` · **Visual regression testing** — Playwright screenshots across every theme and mode over the story matrix; Argos the named upgrade. _Note: Harness and CI job built; first container-rendered baselines still pending; Argos not adopted._
   - `design-system.design-language` · `shipped` · **Design language foundation** — Human-set distinctive, restrained language: type system, palette with intent, legal power-user density, functional motion, signature elements. _Note: Dark design pass named as a remaining close-out item._
@@ -1099,17 +1106,17 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Observability & Diagnostics
 
-[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 55% shipped. 11 done, 1 part-built, 6 ahead, 2 parked.
+[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 70% shipped. 14 done, 0 part-built, 4 ahead, 2 parked.
 
 - `observability` · `partial` · **Observability & diagnostics** — Diagnose without exfiltrating privileged content: redacted operational telemetry, user-initiated incidents, correlation IDs, usage analytics, status page; no third-party error SaaS, no session replay.
   - `observability.redaction-model` · `shipped` · **Redact-by-default event model** — Three data classes (metadata / opaque identifiers / content-never); allowlist event assembly with a boundary scrubbing pass.
   - `observability.correlation` · `shipped` · **Correlation & Error IDs** — Per-request correlation ID on every event and problem response; Error ID minted at capture joining a user-visible failure to its server trace.
   - `observability.operational-telemetry` · `shipped` · **Always-on operational telemetry** — Redacted structured server logs and counters (Workers logger + Analytics Engine), firm-scoped, keyed by correlation/Error ID. _Note: Logpush-to-R2 archival is account configuration, not verified in-repo._
-  - `observability.client-reporter` · `partial` · **In-house client capture** — Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
-    - `observability.client-reporter.error-boundary` · `shipped` · **Error pages with trace identity** — Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block.
-    - `observability.client-reporter.breadcrumbs` · `not-started` · **Client breadcrumb ring buffer** — Client-side ring of recent actions/IDs (never field content) attached to reports.
-    - `observability.client-reporter.report-a-problem` · `partial` · **Report a problem affordance** — Always-available help-menu reporting usable without a crash.
-    - `observability.client-reporter.send-to-developer` · `not-started` · **Send-to-developer on crash** — Error screen/toast showing the Error ID with a prominent send button.
+  - `observability.client-reporter` · `shipped` · **In-house client capture** — Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
+    - `observability.client-reporter.error-boundary` · `shipped` · **Error pages with trace identity** — Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block, and a client boundary catches what never reached a route.
+    - `observability.client-reporter.breadcrumbs` · `shipped` · **Client breadcrumb ring buffer** — Client-side ring of recent actions/IDs (never field content) attached to reports.
+    - `observability.client-reporter.report-a-problem` · `shipped` · **Report a problem affordance** — Always-available help-menu reporting usable without a crash. _Note: The optional in-office recipients and the email-me-a-copy flag stay Soon-marked — the incident route carries no recipients, and transactional email does not exist yet._
+    - `observability.client-reporter.send-to-developer` · `shipped` · **Send-to-developer on crash** — Error screen/toast showing the Error ID with a prominent send button.
   - `observability.incidents` · `partial` · **Incident reports** — User-initiated firm-scoped incident rows: Error IDs, redacted breadcrumbs, free-text description, context metadata; access-gated and audited.
     - `observability.incidents.ingest` · `shipped` · **Incident ingest endpoint** — POST incidents route writing a bounded, redacted-by-construction firm-scoped row; description sealed under the firm key with an audited decrypt permission.
     - `observability.incidents.screenshot` · `not-started` · **Opt-in redactable screenshot** — User-redactable screenshot attached to a report, stored in R2.
@@ -1166,7 +1173,7 @@ to change a line here, edit the node in its area file and re-run the build.
 - `platform` · `partial` · **Platform** — Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions. _Note: Backend foundations largely shipped; web UI shell in build; desktop not started._
   - `platform.workers-api` · `partial` · **Workers REST API** — Cloudflare Workers backend on Hono exposing a REST API documented by OpenAPI 3.1. _Note: First-party same-origin /api surface live; the public token-auth host is reserved, not built._
     - `platform.workers-api.code-as-contract` · `shipped` · **Code-as-contract OpenAPI** — Each endpoint defined once with zod via @hono/zod-openapi, deriving the typed client and the emitted OpenAPI 3.1 spec.
-    - `platform.workers-api.contract-toolchain` · `shipped` · **Spec CI toolchain** — Spectral linting, Prism mock smoke, oasdiff breaking-change detection, and snapshot drift gates over the emitted spec. _Note: Spectral duplicated-entry-in-enum rule disabled (crash on null-valued extensions), recorded as an ADR-0066 amendment._
+    - `platform.workers-api.contract-toolchain` · `shipped` · **Spec CI toolchain** — Spectral linting, oasdiff breaking-change detection, and snapshot drift gates over the emitted spec; the Prism mock server runs on demand rather than as a dependency. _Note: Spectral duplicated-entry-in-enum rule disabled (crash on null-valued extensions), recorded as an ADR-0066 amendment._
     - `platform.workers-api.typed-client` · `shipped` · **Generated typed client** — Committed Hey API plus Svelte Query v6 client generated from the emitted spec, operationId-keyed factories.
     - `platform.workers-api.route-chokepoint` · `shipped` · **Route metadata chokepoint** — Ordered enforcement chain (tenancy, authn, RBAC, idempotency, rate limit) driven by per-route declared metadata, with a conformance fitness suite.
     - `platform.workers-api.public-api-host` · `not-started` · **Public API host** — api.magnacarta.esq token-authenticated third-party/SDK surface, separated from cookie-auth first-party calls by host. _Note: Host reserved by design; only the same-origin first-party surface exists._

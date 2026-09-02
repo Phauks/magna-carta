@@ -17,13 +17,13 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
+  import { personName } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import Printer from "@lucide/svelte/icons/printer";
   import X from "@lucide/svelte/icons/x";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
-  import { chargeAmount, durationParts, timekeeperOf } from "./time-columns.ts";
-  import { gapCellTitle, TIME_LEDGER_GAPS } from "./time-gaps.ts";
+  import { chargeAmount, durationParts, rateAmount, timekeeperOf, utbmsText } from "./time-columns.ts";
   import { matterTimeSummary, selectionSummary } from "./time-figures.ts";
 
   let {
@@ -73,11 +73,8 @@
     <header class="flex items-start gap-8 border-b border-border-default p-12">
       <div class="min-w-0 flex-1">
         <h2 class="text-base leading-tight font-semibold">Time Entry</h2>
-        <p
-          class="text-xs text-text-muted"
-          title={gapCellTitle("entryNumber")}
-        >
-          {TIME_LEDGER_GAPS.entryNumber.field} not yet recorded
+        <p class="text-xs text-text-muted tabular-nums">
+          {sole.entryNumber ?? "No entry number"}
         </p>
       </div>
       <Button
@@ -113,11 +110,29 @@
       </section>
       <dl class="flex flex-col gap-4 border-t border-border-default pt-12 text-sm">
         {@render fact("Work Date", formatDate(sole.workDate))}
+        {#if sole.createdAt !== undefined}
+          {@render fact("Date Entered", formatDate(sole.createdAt.slice(0, 10)))}
+        {/if}
         {@render fact("Timekeeper", timekeeperOf(sole))}
+        <!-- Both people, always: an entry a person recorded for themselves carries the same name
+             twice, and delegation is the case where the two differ. -->
+        {@render fact("Entered By", personName(sole.createdByName))}
+        {#if utbmsText(sole.utbmsTaskCode, sole.utbmsTaskLabel) !== ""}
+          {@render fact("Category", utbmsText(sole.utbmsTaskCode, sole.utbmsTaskLabel))}
+        {/if}
+        {#if utbmsText(sole.utbmsActivityCode, sole.utbmsActivityLabel) !== ""}
+          {@render fact("Activity", utbmsText(sole.utbmsActivityCode, sole.utbmsActivityLabel))}
+        {/if}
         {@render fact("Billed", billed.text)}
         {@render fact("Worked", worked.text)}
+        {#if rateAmount(sole) !== null}
+          {@render fact("Rate", formatMoney(rateAmount(sole) ?? 0, { currency }))}
+        {/if}
         {@render fact("Amount", chargeText(sole))}
-        {@render fact("Attachments", "Not recorded", gapCellTitle("attachments"))}
+        {@render fact(
+          "Attachments",
+          (sole.attachmentCount ?? 0) === 0 ? "None" : String(sole.attachmentCount),
+        )}
       </dl>
     </div>
   {:else if selected.length > 1}

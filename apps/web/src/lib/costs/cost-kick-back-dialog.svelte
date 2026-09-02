@@ -10,8 +10,10 @@
    * The cost returns to draft and becomes editable again. Nothing about it is removed.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Button from "@magna-carta/design-system/button";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -37,16 +39,13 @@
   const fieldPrefix = $props.id();
 
   let reason = $state("");
-  let sending = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
-  // A fresh subject is a fresh reason: reopening on another cost must never carry the last one's.
-  $effect(() => {
-    const subject = cost?.id ?? null;
-    if (subject === null) return;
+  // A fresh opening is a fresh reason: reopening on another cost must never carry the last one's.
+  function reset(): void {
     reason = "";
     failure = null;
-  });
+  }
 
   const identity = $derived(
     cost === null
@@ -54,49 +53,60 @@
       : `${formatDate(cost.incurredDate)} · ${payeeText(cost)} · ${formatMoney(cost.amountMinor / 100, { currency })}`,
   );
 
-  const refusal = $derived(
-    reason.trim() === "" ? "Enter the reason: it is recorded for the recorder to act on" : null,
-  );
+  const refusal = $derived.by((): string | undefined => {
+    if (cost === null) return "No cost is open.";
+    if (reason.trim() === "") return "Enter the reason: it is recorded for the recorder to act on";
+    return undefined;
+  });
 
-  async function send(): Promise<void> {
-    if (cost === null || refusal !== null || sending) return;
-    sending = true;
+  async function send(): Promise<ActionOutcome> {
+    if (cost === null) return "refused";
     failure = null;
     const outcome = await kickBackCost(fetch, cost.id, reason.trim(), writeKey());
-    sending = false;
     if (outcome.kind === "ok") {
-      open = false;
       onKickedBack();
-      return;
+      return "committed";
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The cost was not returned and is unchanged."
-        : `${outcome.problem.detail ?? "The cost was not returned."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The cost was not returned.",
+      "The cost was not returned and is unchanged.",
+    );
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Kick Back Cost</Dialog.Title>
-    <Dialog.Description>{identity}</Dialog.Description>
+<ActionDialog
+  bind:open
+  heading="Kick Back Cost"
+  commitLabel="Kick Back"
+  commitBusyLabel="Returning"
+  commitRefusal={refusal}
+  unsavedChanges={reason.trim() !== ""}
+  onOpen={reset}
+  onCommit={send}
+>
+  {#snippet subtitle()}{identity}{/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Changed</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Changed"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
     {/if}
+  {/snippet}
 
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-8">
       <Label for="{fieldPrefix}-reason">Reason</Label>
       <Textarea
         id="{fieldPrefix}-reason"
         rows={3}
         placeholder={placeholderOf("Reason")}
-        disabled={sending}
+        disabled={busy}
         bind:value={reason}
       />
       <p class="text-xs text-text-muted">
@@ -104,16 +114,5 @@
         who recorded it as a draft, and the reason is recorded on the audit trail.
       </p>
     </div>
-
-    <div class="flex justify-end gap-8">
-      <Button variant="secondary" disabled={sending} onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        disabled={refusal !== null || sending}
-        title={refusal ?? "Return the cost to draft with this reason"}
-        onclick={() => void send()}
-      >
-        Kick Back
-      </Button>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

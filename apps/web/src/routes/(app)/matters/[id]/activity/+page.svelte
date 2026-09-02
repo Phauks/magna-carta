@@ -26,13 +26,13 @@
    * ADDING A SOURCE IS ONE ENTRY IN activity-presentation.ts (and, where it can name its rows, one
    * loader in activity-detail.svelte.ts) — this file names no source and switches on none.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import ArrowUpRight from "@lucide/svelte/icons/arrow-up-right";
   import { goto } from "$app/navigation";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { listMatterActivity, type ActivityEntry } from "$lib/matters/activity-api.ts";
   import {
     ACTIVITY_COLUMN_IDENTIFIERS,
@@ -186,34 +186,30 @@
     <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
       Activity
     </h2>
-    <!-- No columns button: choosing columns is a right-click on the register, which is the gesture
-         this product already teaches everywhere else an act belongs to a list. -->
-    <p class="text-xs text-text-muted">Right-click for columns</p>
+    <!-- No columns button and no hint: a column's controls are summoned from the column heading's
+         own right-click, which the shared grid renders on every register. -->
   </div>
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Activity Unavailable</Alert.Title>
-      <Alert.Description>
-        {failure} The record itself is unaffected: nothing was changed by this failure.
-      </Alert.Description>
-    </Alert.Root>
-    <Button class="self-start" variant="secondary" onclick={() => (reloadToken += 1)}>Retry</Button>
+    <FailureNotice
+      {failure}
+      title="Activity Unavailable"
+      fallback="This matter's activity could not be read."
+      onRetry={() => (reloadToken += 1)}
+    />
   {/if}
 
   {#if isSample}
     <EmptyState title="This is a sample matter, so nothing has happened on it." />
   {:else}
-    <DataTable.GridColumnsContextMenu {grid} class="flex min-h-0 flex-1 flex-col">
-      <DataTable.Grid
-        {grid}
-        {cell}
-        class="max-h-svh"
-        caption="Everything recorded on this matter, newest first"
-        empty={emptyRegister}
-        loading={entries === null}
-      />
-    </DataTable.GridColumnsContextMenu>
+    <DataTable.Grid
+      {grid}
+      {cell}
+      class="max-h-svh"
+      caption="Everything recorded on this matter, newest first"
+      empty={emptyRegister}
+      loading={entries === null}
+    />
     <DataTable.GridFooter {grid} end={footerEnd} />
   {/if}
 </section>

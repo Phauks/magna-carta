@@ -1,7 +1,7 @@
 /*
  * DataTable.Grid state — the runes engine behind the platform's one table. A surface creates this
  * once (createDataTableGrid) and hands it to <DataTable.Grid> plus any companion controls
- * (GridColumnsMenu, GridFooter, a clear-filters button). The state is the contract: sorting,
+ * (GridFooter, a clear-filters button). The state is the contract: sorting,
  * filters, column visibility/order/pins/widths, selection, and the derived views (visible columns,
  * rows in view, totals) all live here, so every control reads and writes the SAME table — the
  * one-table ruling in code.
@@ -51,7 +51,7 @@ export interface DataTableGridOptions<TRow> {
   totalIncludes?: (row: TRow) => boolean;
   /** What a row is called in the footer and the filtered-empty copy ("entry"/"entries"). */
   itemNoun?: GridItemNoun;
-  /** Zebra striping on at first render (the columns menu toggles it). */
+  /** Zebra striping on at first render (the header menu's Columns submenu toggles it). */
   zebra?: boolean;
   /**
    * Row keys pinned to the top, in the member's OWN arranged order — pinning is an act of
@@ -99,7 +99,9 @@ export class DataTableGridState<TRow> {
       columns.filter((column) => column.hidden && !column.anchored).map((column) => column.id),
     );
     this.pinnedColumnIds = new Set(
-      columns.filter((column) => column.pinned).map((column) => column.id),
+      columns
+        .filter((column) => column.pinned && column.pinnedEnd !== true)
+        .map((column) => column.id),
     );
     const initialSortColumn = options.initialSort
       ? columns.find((column) => column.id === options.initialSort?.columnId)
@@ -218,7 +220,7 @@ export class DataTableGridState<TRow> {
     return column ? gridSetFilterCounts(column, this.rows) : new Map();
   }
 
-  // ---- columns menu / layout -----------------------------------------------------------------
+  // ---- column layout -----------------------------------------------------------------
 
   setColumnVisible(columnId: string, visible: boolean): void {
     const column = this.columnById(columnId);
@@ -235,6 +237,8 @@ export class DataTableGridState<TRow> {
   }
 
   togglePinned(columnId: string): void {
+    // A trailing-pinned column is already stuck to its own edge — the leading pin leaves it alone.
+    if (this.columnById(columnId)?.pinnedEnd === true) return;
     const next = new Set(this.pinnedColumnIds);
     if (next.has(columnId)) next.delete(columnId);
     else next.add(columnId);

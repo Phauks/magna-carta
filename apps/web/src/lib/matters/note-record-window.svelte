@@ -24,7 +24,6 @@
    * uploaded and nothing is copied either way — the document stays in the matter's files with
    * everything that follows from being there, and detaching ends the association without touching it.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -41,6 +40,8 @@
   import { formatDate } from "@magna-carta/design-system/data-table";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import {
     isPendingAttachment,
@@ -119,7 +120,7 @@
    */
   let pendingFileIds = $state<string[]>([]);
   let saving = $state(false);
-  let saveFailure = $state<string | null>(null);
+  let saveFailure = $state<StatedFailure | null>(null);
   let printOpen = $state(false);
 
   /*
@@ -252,18 +253,6 @@
     };
   }
 
-  function refusalText(
-    outcome:
-      | { kind: "transport" }
-      | { kind: "problem"; problem: { detail?: string; errorId?: string } },
-    whenSilent: string,
-  ): string {
-    if (outcome.kind === "transport") return `Nothing answered. ${whenSilent}`;
-    return `${outcome.problem.detail ?? whenSilent}${
-      outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-    }`;
-  }
-
   async function save(): Promise<void> {
     if (saveRefusal !== undefined) return;
     saving = true;
@@ -278,7 +267,7 @@
       );
       saving = false;
       if (outcome.kind !== "ok") {
-        saveFailure = refusalText(outcome, "The note was not changed.");
+        saveFailure = stated(outcome.failure, "The note was not changed.");
         return;
       }
       rememberWhatIsInTheFields();
@@ -295,7 +284,7 @@
     );
     if (written.kind !== "ok") {
       saving = false;
-      saveFailure = refusalText(written, "The note was not written.");
+      saveFailure = stated(written.failure, "The note was not written.");
       return;
     }
 
@@ -334,7 +323,7 @@
     const outcome = await attachNoteDocument(fetch, note.id, document.identifier, newWriteKey());
     saving = false;
     if (outcome.kind !== "ok") {
-      saveFailure = refusalText(outcome, "The document was not attached.");
+      saveFailure = stated(outcome.failure, "The document was not attached.");
       return;
     }
     onSaved(note.id);
@@ -354,7 +343,7 @@
     const outcome = await detachNoteDocument(fetch, attachment.identifier, newWriteKey());
     saving = false;
     if (outcome.kind !== "ok") {
-      saveFailure = refusalText(outcome, "The document was not detached.");
+      saveFailure = stated(outcome.failure, "The document was not detached.");
       return;
     }
     if (note !== null) onSaved(note.id);
@@ -373,10 +362,11 @@
 {#snippet record({ editing: fieldsOpen }: { editing: boolean })}
   <div class="@container flex flex-col gap-16">
     {#if saveFailure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>{creating ? "Not Saved" : "Nothing Changed"}</Alert.Title>
-        <Alert.Description>{saveFailure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={saveFailure.failure}
+        title={creating ? "Not Saved" : "Nothing Changed"}
+        fallback={saveFailure.fallback}
+      />
     {/if}
 
     <!--

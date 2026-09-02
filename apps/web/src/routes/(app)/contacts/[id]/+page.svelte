@@ -18,6 +18,8 @@
    * on its own.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
@@ -54,7 +56,7 @@
   let { data }: { data: { entityId: string; kind: "person" | "organization" } } = $props();
 
   let entity = $state<DirectoryEntityDetail | null>(null);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
   let shownFor = $state<string | null>(null);
 
@@ -77,10 +79,7 @@
         failure = null;
         return;
       }
-      failure =
-        outcome.kind === "transport"
-          ? "Nothing answered. This record could not be read."
-          : (outcome.problem.detail ?? "This record could not be read.");
+      failure = stated(outcome.failure, "This record could not be read.");
     })();
     return () => {
       cancelled = true;
@@ -143,16 +142,13 @@
 </svelte:head>
 
 {#if failure !== null}
-  <Alert.Root variant="danger">
-    <Alert.Title>This Record Could Not Be Read</Alert.Title>
-    <Alert.Description>
-      {failure}
-      <Button variant="secondary" class="mt-8" onclick={reread}>
-        <RotateCcw class="size-16" aria-hidden="true" />
-        Try again
-      </Button>
-    </Alert.Description>
-  </Alert.Root>
+  <FailureNotice
+    failure={failure.failure}
+    title="This Record Could Not Be Read"
+    fallback={failure.fallback}
+    whenSilent={failure.whenSilent}
+    onRetry={() => reread()}
+  />
 {:else if entity === null}
   <div class="flex flex-col gap-16" aria-busy="true" aria-label="Reading the directory record">
     <Skeleton class="h-32 w-full max-w-md" />

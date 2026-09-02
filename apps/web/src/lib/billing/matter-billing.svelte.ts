@@ -17,7 +17,7 @@
  * moment and the correlation handle, because those are what a person needs to report it and what
  * support needs to find it. Collapsing them into one sentence throws all of that away.
  */
-import type { ApiOutcome } from "$lib/api/request.ts";
+import type { ApiOutcome, Failure } from "$lib/api/request.ts";
 import { listMatterParties } from "$lib/matters/party-api.ts";
 import { listMatterCosts, type CostSummary } from "$lib/matters/cost-api.ts";
 import { listMatterTimeEntries, type TimeEntrySummary } from "$lib/matters/time-api.ts";
@@ -38,37 +38,21 @@ import type { InvoiceRow } from "./invoice-standing.ts";
 /** How many bills the register reads in detail at once. */
 const DETAIL_PAGE_LIMIT = 50;
 
-/** What went wrong, with the evidence a report needs. */
+/**
+ * What went wrong, with the evidence a report needs, and this section's own words for it.
+ *
+ * The evidence used to be reassembled here field by field — request line, status, handle, moment —
+ * from an outcome that had already thrown most of it away. It now travels ON the outcome, so all
+ * this carries is the sentence to fall back to where the server sent none of its own.
+ */
 export interface BillingReadFailure {
-  readonly detail: string;
-  readonly request: string;
-  readonly status: number | null;
-  readonly errorId: string | null;
-  readonly failedAt: Date;
+  readonly failure: Failure;
+  /** This read's own words, used only where the server offered none. */
+  readonly whenSilent: string;
 }
 
-function failureFrom(
-  outcome: ApiOutcome<unknown>,
-  request: string,
-  whenSilent: string,
-): BillingReadFailure | null {
-  if (outcome.kind === "ok") return null;
-  if (outcome.kind === "transport") {
-    return {
-      detail: `Nothing answered. ${whenSilent}`,
-      request,
-      status: null,
-      errorId: null,
-      failedAt: new Date(),
-    };
-  }
-  return {
-    detail: outcome.problem.detail ?? whenSilent,
-    request,
-    status: outcome.problem.status,
-    errorId: outcome.problem.errorId ?? null,
-    failedAt: new Date(),
-  };
+function failureFrom(outcome: ApiOutcome<unknown>, whenSilent: string): BillingReadFailure | null {
+  return outcome.kind === "ok" ? null : { failure: outcome.failure, whenSilent };
 }
 
 /** Whether a time entry is work a draft bill could still claim. */
@@ -159,7 +143,6 @@ export class MatterBilling {
     // the matter owns, and everything else is a list that can honestly be empty.
     const agreementFailure = failureFrom(
       arrangementOutcome,
-      `GET /api/v1/billing/matters/${matterId}/arrangement`,
       "The matter's fee record did not load.",
     );
     if (agreementFailure !== null) {
@@ -177,11 +160,7 @@ export class MatterBilling {
 
     const invoicesOutcome = await listClientInvoices(fetchImpl, clientEntityId);
     if (!fresh()) return;
-    const invoicesFailure = failureFrom(
-      invoicesOutcome,
-      `GET /api/v1/billing/invoices?clientEntityId=${clientEntityId}`,
-      "The client's bills did not load.",
-    );
+    const invoicesFailure = failureFrom(invoicesOutcome, "The client's bills did not load.");
     if (invoicesFailure !== null || invoicesOutcome.kind !== "ok") {
       this.failure = invoicesFailure;
       this.rows = [];

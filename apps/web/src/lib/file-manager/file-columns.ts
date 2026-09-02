@@ -380,6 +380,11 @@ const HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   "file.document_type_assigned": "Document Type Set",
   "file.quarantined": "Flagged",
   "document.checkin_initiated": "Check-in Started",
+  // Making a folder is an act on the matter's files like any other, and the trail carries it.
+  "folder.created": "Folder Created",
+  "folder.renamed": "Folder Renamed",
+  "folder.moved": "Folder Moved",
+  "folder.deleted": "Folder Deleted",
 };
 
 export function historyActionLabel(event: string): string {
@@ -412,12 +417,25 @@ export function historyColumns(): GridColumn<FileHistoryEntry>[] {
       filter: "set",
       value: (row) => historyActionLabel(row.event),
     },
+    /*
+     * The subject: the file or the folder the act was done to. One column rather than two, because
+     * a reader scanning the trail is asking "what was this done to", and splitting that into a File
+     * column and a Folder column would leave every row half empty.
+     */
     {
-      id: "file",
-      label: "File",
+      id: "subject",
+      label: "File or Folder",
       type: "text",
       filter: "text",
-      value: (row) => row.fileName,
+      value: (row) => row.subjectName,
+    },
+    {
+      id: "subjectKind",
+      label: "Kind",
+      type: "text",
+      filter: "set",
+      hidden: true,
+      value: (row) => (row.subjectKind === "folder" ? "Folder" : "File"),
     },
     {
       id: "from",

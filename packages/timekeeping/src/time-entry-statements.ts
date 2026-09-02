@@ -38,6 +38,11 @@ export interface InsertTimeEntryRow {
   readonly utbmsActivityCodeId: string | null;
   readonly source: TimeEntrySource;
   readonly liveRunId: string | null;
+  // The firm's own note — never client-facing, never copied into audit metadata.
+  readonly memo: string | null;
+  // The matter-scoped reference drawn at capture ("2026-0147.0042"); null where the caller draws
+  // no sequence (fixtures, backfill-free historical writes). Immutable once stored.
+  readonly entryNumber: string | null;
   readonly createdAt: string;
   readonly createdBy: string | null;
 }
@@ -49,7 +54,7 @@ export function insertTimeEntryStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${TIME_ENTRY_TABLE} (id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, non_billable_category_id, currency, rate_e4, rate_card_id, rate_source, amount_minor, utbms_task_code_id, utbms_activity_code_id, status, source, live_run_id, invoice_id, created_at, updated_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 'draft', ?17, ?18, NULL, ?19, ?19, ?20)`,
+      `INSERT INTO ${TIME_ENTRY_TABLE} (id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, non_billable_category_id, currency, rate_e4, rate_card_id, rate_source, amount_minor, utbms_task_code_id, utbms_activity_code_id, status, source, live_run_id, invoice_id, memo, entry_number, created_at, updated_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 'draft', ?17, ?18, NULL, ?19, ?20, ?21, ?21, ?22)`,
     )
     .bind(
       row.id,
@@ -70,6 +75,8 @@ export function insertTimeEntryStatement(
       row.utbmsActivityCodeId,
       row.source,
       row.liveRunId,
+      row.memo,
+      row.entryNumber,
       row.createdAt,
       row.createdBy,
     );
@@ -118,6 +125,9 @@ export interface DraftPatch {
   readonly rateCardId?: string | null;
   readonly rateSource?: string | null;
   readonly amountMinor?: number | null;
+  // The internal memo. Null clears it; the text never reaches audit metadata (the audit row
+  // records only WHICH fields a patch touched).
+  readonly memo?: string | null;
 }
 
 export function updateDraftStatement(
@@ -141,6 +151,7 @@ export function updateDraftStatement(
     rate_card_id: patch.rateCardId,
     rate_source: patch.rateSource,
     amount_minor: patch.amountMinor,
+    memo: patch.memo,
   })) {
     if (value === undefined) continue;
     sets.push(`${column} = ?${index}`);

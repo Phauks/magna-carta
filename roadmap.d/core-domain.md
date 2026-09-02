@@ -243,22 +243,22 @@
 - id: matters.lifecycle
   name: Matter lifecycle
   scope: Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support.
-  status: partial
+  status: shipped
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079, ADR-0080
-  evidence: packages/matters/src/matter-service.ts (prospective/open/closed transitions, reopen restoring prior state, frozen numbers)
-  notes: Backend shipped; lifecycle UI not built.
+  evidence: packages/matters/src/matter-service.ts (prospective/open/closed transitions, reopen restoring prior state, frozen numbers), reached from the matter masthead's status seal in apps/web/src/lib/matters/matter-status-dialog.svelte over the open/close/reopen routes.
+  notes: The UI has landed. Pressing the status seal opens a short status window - the status, what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.
 
 - id: matters.lifecycle.consultations
   name: Consultations (prospective matters)
-  scope: Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake.
+  scope: Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake.
   status: partial
   surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0080
-  evidence: prospective status with no number/counter in matter-service.ts; consultation queries with staleness in queries.ts
+  evidence: prospective status drawing matter.consultation_number from the consultation-purpose scheme in matter-service.ts (numbering/consultation-scheme.ts holds the built-in default); consultation queries with staleness in queries.ts
   awaiting-owner: May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
-  notes: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers.
+  notes: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers.
 
 - id: matters.lifecycle.close-preconditions
   name: Close-precondition hook
@@ -267,7 +267,7 @@
   surface: internal
   slices: 1-1-matters-locations-file-manager
   evidence: packages/matters/src/close-preconditions.ts holds the registry and CLOSE_PRECONDITIONS is empty there by design — the matter shell runs what it is handed and imports no subsystem. The rules are registered in apps/api-worker/src/routes/matters.ts, where the subsystems meet.
-  notes: Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing.
+  notes: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing.
 
 - id: matters.lifecycle.stale-consultations
   name: Stale-consultation policy and bulk close
@@ -277,6 +277,13 @@
   slices: 1-1-matters-locations-file-manager
   evidence: staleAgeDays setting in packages/matters/src/settings.ts; isStale flag in queries.ts
   notes: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found.
+
+- id: matters.physical-file
+  name: Physical file register and retention
+  scope: The firm's OWN paper file for a matter - what holds it, where that is kept, and the date the file may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard.
+  status: not-started
+  evidence: Nothing in the tree models it. Custodian is client property (packages/custodian), the close stamps closed_at as the instant retention would run from (packages/matters/src/matter-service.ts), and no retention policy or destruction date exists anywhere to run from it - the custody register is explicit that it runs no timer at all and destroys an original only on a written basis by two people.
+  notes: NEEDS ITS OWN DESIGN WORK, and the owner has said so: what holds a file is not one shape. A box at a remote store, a drawer in a cabinet, a safe, a shelf, a crate - the medium is a firm's own choice and a model that hardcodes any one of them is wrong for most firms, so the container is a record carrying its own kind rather than a field spelling "box". A container is a record in its own right for a second reason too: one holds the folders of several matters, so a matter points at it. Surfaced rather than hidden meanwhile - the matter status window gives it a panel of its own, marked Soon, naming what it waits on, because a window that answers "where is the file" while silently omitting the question is worse than one that says it cannot answer yet. It sits beside the status rather than under the close because the file is a standing fact: a folder sits where it sits whatever the matter's status is, and the panel says so. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks.
 
 - id: matters.file-manager
   name: File Manager
@@ -385,6 +392,33 @@
   surface: internal
   evidence: access-triggered rescan built — rescanCommittedVersion in apps/api-worker/src/files/ingest-consumer.ts over the scan port (docs/specs/2026-06-22-access-triggered-rescan-design.md and its implementation plan)
   notes: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.
+
+- id: matters.search
+  name: Consolidated matter search
+  scope: One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter.
+  status: partial
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  audience: public
+  public-name: Search a matter
+  public-summary: Search everything on a matter from one box — notes, files, parties and what the firm holds in custody — starting with the screen you are already on.
+  awaiting-owner: Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
+  notes: PARTIAL because eight of the fourteen sections answer; the other six decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page.
+
+- id: matters.search.sources
+  name: Declared search sources
+  scope: One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  evidence: packages/matter-search/src/sources/all.ts registers eight sources (files, time, costs, billing, parties, calendar, notes, custody) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds
+  notes: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. The matter-asset register has a query but no screen to land a hit on, so it is deliberately unregistered until the register gets one. Review-set sources are structurally refused: a review set is its own corpus.
+
+- id: matters.search.file-contents
+  name: File contents in a matter search
+  scope: The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match.
+  status: designed
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  notes: The engine, write pipeline and compaction are built; SearchIndexPort answers engine-not-implemented until the search Container is deployed in the order docs/deploy-queue.md names.
 
 - id: locations
   name: Locations (offices)

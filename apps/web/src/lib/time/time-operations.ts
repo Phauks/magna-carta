@@ -1,11 +1,16 @@
 /*
  * What a person can actually do to a time entry, and what the server will actually accept.
  *
- * The design gives the ledger a fuller verb set than this: unsubmit, delete-draft, move to another
- * ledger, refile onto another matter, attach a file, write a memo. None of those has a route, so
- * none of them is called from here — the surfaces render what they can and say what the rest waits
- * on. What IS here is exactly the set the contract serves, so the difference between "designed" and
- * "working" is a difference a reader of this file can see.
+ * The design gives the ledger a fuller verb set than the contract serves: unsubmit, delete-draft,
+ * refile onto another matter, record one member's work under another's. None of those has a route,
+ * so none of them is called from here — the surfaces render them where they belong, refused, and
+ * say what each waits on. What IS here is exactly the set the contract serves, so the difference
+ * between "designed" and "working" is a difference a reader of this file can see.
+ *
+ * KEEPING THAT LIST HONEST IS THE WHOLE POINT OF IT. Attaching a file, writing the internal memo
+ * and reading an entry's history were all on it while the routes for all three were already
+ * shipping, so three surfaces went on saying "not built yet" about work that was done. A verb
+ * leaves this list when its route lands, not when somebody notices.
  *
  * EVERY WRITE TAKES AN IDEMPOTENCY KEY, BECAUSE THE CONTRACT REQUIRES ONE ON EVERY WRITE. Not just
  * on capture: update, submit, approve, kick-back and void all declare it required, and the header
@@ -57,6 +62,9 @@ export interface DraftTimeEntry {
   readonly rawDurationMinutes: number;
   readonly narrative: string;
   readonly billable: boolean;
+  readonly utbmsTaskCodeId?: string | null;
+  readonly utbmsActivityCodeId?: string | null;
+  readonly memo?: string | null;
 }
 
 /**
@@ -90,11 +98,16 @@ export interface TimeEntryDraftFields {
   readonly timekeeperUserId: string;
 }
 
-/** The parts of an entry the update route accepts. Nothing else on the record is settable yet. */
+/** The parts of an entry the update route accepts. */
 export interface TimeEntryChanges {
   readonly narrative?: string;
   readonly rawDurationMinutes?: number;
   readonly workDate?: string;
+  /** The UTBMS task code — the entry's category. Null clears it; absent leaves it alone. */
+  readonly utbmsTaskCodeId?: string | null;
+  readonly utbmsActivityCodeId?: string | null;
+  /** The firm's internal note. Null clears it; absent leaves it alone. */
+  readonly memo?: string | null;
 }
 
 export function patchTimeEntry(
@@ -174,6 +187,123 @@ export function voidTimeEntry(
   idempotencyKey: string,
 ): Promise<ApiOutcome<unknown>> {
   return transition(fetchImpl, timeEntryId, "void", idempotencyKey);
+}
+
+/*
+ * ---------------------------------------------------------------------------------------------
+ * What an entry carries BESIDE its own row: its history, its attached files, and the catalogues a
+ * reader picks its codes from. Each is its own read, made by the surface that shows it and not
+ * before — an entry's history is a page nobody looks at until they open the record.
+ */
+
+/** One recorded event on an entry, as the history rail reads it. */
+export interface TimeEntryEvent {
+  at: string;
+  /** The audit event's own name, e.g. "time_entry.captured". */
+  event: string;
+  actorUserId: string | null;
+  /** Resolved through the member mirror; null for system events and departed members. */
+  actorName: string | null;
+  /** Whatever redacted detail the write recorded. Null where it recorded none. */
+  detail: unknown;
+}
+
+/**
+ * The entry's recorded events, oldest first — the order a history rail reads in.
+ *
+ * Cursor-paged, because an entry worked over a week records an event per edit: the history grows
+ * with the work rather than with the lifecycle.
+ */
+export function listTimeEntryEvents(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  cursor?: string,
+): Promise<ApiOutcome<Page<TimeEntryEvent>>> {
+  const query = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/events${query}`,
+  );
+}
+
+/** One document an entry points at. */
+export interface TimeEntryAttachment {
+  fileId: string;
+  /** The file's CURRENT name, resolved at read time; null where the file row is gone. */
+  fileName: string | null;
+  createdAt: string;
+  createdByUserId: string | null;
+  createdByName: string | null;
+}
+
+export function listTimeEntryAttachments(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+): Promise<ApiOutcome<{ data: TimeEntryAttachment[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/attachments`,
+  );
+}
+
+/**
+ * Point the entry at one of its matter's documents.
+ *
+ * It REFERENCES the file rather than copying it: the document stays where it is in the matter, and
+ * detaching later removes the link and never the file. A file on another matter is refused, which
+ * is the rule that keeps an entry's evidence inside the matter it was recorded against.
+ */
+export function attachTimeEntryFile(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  fileId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ timeEntryId: string; fileId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/attachments`,
+    { method: "POST", body: { fileId }, idempotencyKey },
+  );
+}
+
+/** Remove the link. The matter keeps the document. */
+export function detachTimeEntryFile(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  fileId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ timeEntryId: string; fileId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/attachments/detach`,
+    { method: "POST", body: { fileId }, idempotencyKey },
+  );
+}
+
+/** One ABA code the firm's catalogue holds. */
+export interface UtbmsCode {
+  id: string;
+  codeSet: string;
+  code: string;
+  label: string;
+  practiceArea: string | null;
+  /** Non-zero where the firm has this code turned on for entry and billing exports. */
+  active: number;
+}
+
+/**
+ * The firm's UTBMS codes for one ABA set.
+ *
+ * The listing is gated on the UTBMS management permission rather than a read permission, so an
+ * account that may record time may still be refused this. The refusal is an outcome the caller
+ * renders, never an empty catalogue: "the firm has no codes" and "you may not read them" are
+ * different facts and they must not look alike.
+ */
+export function listUtbmsCodes(
+  fetchImpl: typeof fetch,
+  codeSet: "task" | "activity",
+): Promise<ApiOutcome<{ data: UtbmsCode[] }>> {
+  return requestJson(fetchImpl, `/api/v1/utbms-codes?codeSet=${codeSet}`);
 }
 
 /** A fresh idempotency key for one write attempt and its retries. */

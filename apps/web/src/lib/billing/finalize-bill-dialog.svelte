@@ -16,15 +16,16 @@
    * drawn, and the acknowledgement afterwards says which one it was.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Card from "@magna-carta/design-system/card";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Button from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
-  import Stamp from "@lucide/svelte/icons/stamp";
-  import { billingFailureText, finalizeInvoice } from "./billing-api.ts";
+  import { billingFailure, finalizeInvoice } from "./billing-api.ts";
   import { civilDatePlusDays, civilToday, draftTotalMinor, type InvoiceRow } from "./invoice-standing.ts";
 
   let {
@@ -45,28 +46,25 @@
 
   let issueDate = $state(civilToday());
   let dueDate = $state(civilDatePlusDays(civilToday(), 30));
-  let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const total = $derived(row === null ? 0 : draftTotalMinor(row.detail));
 
-  $effect(() => {
-    if (!open) return;
+  function reset(): void {
     issueDate = civilToday();
     dueDate = civilDatePlusDays(civilToday(), 30);
     failure = null;
-  });
+  }
 
-  const refusal = $derived.by((): string | null => {
+  const refusal = $derived.by((): string | undefined => {
     if (issueDate === "") return "A bill has to say when it was issued.";
     if (dueDate === "") return "A bill has to say when it falls due.";
     if (dueDate < issueDate) return "A bill cannot fall due before it was issued.";
-    return null;
+    return undefined;
   });
 
-  async function finalize(): Promise<void> {
-    if (row === null || working || refusal !== null) return;
-    working = true;
+  async function finalize(): Promise<ActionOutcome> {
+    if (row === null) return "refused";
     failure = null;
     const outcome = await finalizeInvoice(
       fetch,
@@ -76,30 +74,41 @@
       // give back, so the key is what makes the retry safe.
       crypto.randomUUID(),
     );
-    working = false;
     if (outcome.kind === "ok") {
-      open = false;
+
       onFinalized(outcome.value.invoiceNumber);
-      return;
+      return "committed";
     }
-    failure = billingFailureText(outcome, "The bill is still a draft and nothing was locked.");
+    failure = billingFailure(outcome, "The bill is still a draft and nothing was locked.");
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Finalize This Bill</Dialog.Title>
-    <Dialog.Description>
-      Draft · {money(total)}
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  heading="Finalize This Bill"
+  commitLabel="Finalize"
+  commitBusyLabel="Finalizing"
+  commitRefusal={refusal}
+  unsavedChanges={false}
+  onOpen={reset}
+  onCommit={finalize}
+>
+  {#snippet subtitle()}
+    Draft · {money(total)}
+  {/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Finalized</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Finalized"
+        fallback={failure.fallback}
+      />
     {/if}
+  {/snippet}
 
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <Card.Root class="gap-8 py-12">
         <Card.Header class="px-12">
@@ -122,11 +131,11 @@
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
           <Label for="{fieldPrefix}-issue">Issue Date</Label>
-          <Input id="{fieldPrefix}-issue" type="date" disabled={working} bind:value={issueDate} />
+          <Input id="{fieldPrefix}-issue" type="date" disabled={busy} bind:value={issueDate} />
         </div>
         <div class="flex flex-col gap-8">
           <Label for="{fieldPrefix}-due">Due Date</Label>
-          <Input id="{fieldPrefix}-due" type="date" disabled={working} bind:value={dueDate} />
+          <Input id="{fieldPrefix}-due" type="date" disabled={busy} bind:value={dueDate} />
         </div>
       </div>
 
@@ -144,24 +153,12 @@
           here by name, not posted somewhere plausible.
         </span>
       </p>
-    </div>
 
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <span class="mr-auto max-w-sm text-xs text-text-subtle">
+      <!-- Which permission this needs. It sat in the action bar before the shell owned that bar;
+           it is content rather than a control, so it reads here with the rest. -->
+      <p class="text-xs text-text-subtle">
         Requires the finalize capability: drafting and finalizing are separate permissions.
-      </span>
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        disabled={working || refusal !== null}
-        title={refusal ?? "Draw the number and post the receivable"}
-        onclick={() => void finalize()}
-      >
-        <Stamp class="size-16" aria-hidden="true" />
-        {working ? "Finalizing" : "Finalize"}
-      </Button>
+      </p>
     </div>
-    {#if refusal !== null}
-      <p class="text-right text-xs text-text-muted">{refusal}</p>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

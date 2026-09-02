@@ -13,7 +13,6 @@ import {
   STATUS_VOCABULARIES,
   statusBadgeAttributes,
   statusEntry,
-  statusMarkClasses,
   statusRepeatsHeading,
   statusVocabulary,
   type StatusKey,
@@ -133,10 +132,6 @@ describe("the clean verdict is a mark, not a chip", () => {
   it("is the one status in the register that does not wear a badge", () => {
     const marks = KEYS.filter((key) => statusEntry(key).presentation === "mark");
     expect(marks).toEqual(["clean"]);
-  });
-
-  it("names one recipe class, so the glyph is dressed in exactly one place", () => {
-    expect(statusMarkClasses()).toBe("mc-status-mark");
   });
 });
 

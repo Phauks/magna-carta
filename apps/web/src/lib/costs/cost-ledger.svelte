@@ -23,8 +23,9 @@
    * and nothing else: the link from a cost to its bill belongs on the cost.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Resizable from "@magna-carta/design-system/resizable";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -36,11 +37,16 @@
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import Plus from "@lucide/svelte/icons/plus";
-  import { RecordMenu, type RecordMenuAction, type RecordMenuModel } from "$lib/records/index.ts";
+  import {
+    LedgerPanes,
+    RecordMenu,
+    type RecordMenuAction,
+    type RecordMenuModel,
+  } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
-  import type { ApiOutcome, ApiProblem } from "$lib/api/request.ts";
+  import type { ApiOutcome, Failure } from "$lib/api/request.ts";
   import CostDetailsPanel from "./cost-details-panel.svelte";
   import CostKickBackDialog from "./cost-kick-back-dialog.svelte";
   import CostRecordWindow from "./cost-record-window.svelte";
@@ -125,7 +131,7 @@
   let kickBackOpen = $state(false);
   let voidTarget = $state<CostLedgerEntry | null>(null);
   let voidOpen = $state(false);
-  let actionFailure = $state<string | null>(null);
+  let actionFailure = $state<StatedFailure | null>(null);
   let actionNotice = $state<string | null>(null);
 
   const grid = DataTable.createDataTableGrid<CostLedgerEntry>({
@@ -225,19 +231,10 @@
 
   /** What a refused write says, in the reader's words rather than the transport's. */
   function refusalSentence(
-    outcome: { kind: "problem"; problem: ApiProblem } | { kind: "transport" },
+    outcome: { kind: "problem"; failure: Failure } | { kind: "transport"; failure: Failure },
     what: string,
-  ): string {
-    if (outcome.kind === "transport") return `Nothing answered. ${what} is unchanged.`;
-    // A review verb against a firm that does not run review is refused as a conflict; saying so is
-    // more use to the reader than repeating the number.
-    const gateNote =
-      outcome.problem.status === 409
-        ? " The firm's review setting is not served to this screen, so the server is the authority on whether review runs here."
-        : "";
-    return `${outcome.problem.detail ?? `${what} was refused.`}${gateNote}${
-      outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-    }`;
+  ): StatedFailure {
+    return stated(outcome.failure, `${what} was refused.`, `${what} is unchanged.`);
   }
 
   async function runChainVerb(
@@ -428,7 +425,7 @@
 
 <!-- The list region takes the remaining height and keeps it, so the screen does not reflow as
      rows arrive, as a filter narrows them, or as an empty state replaces them. -->
-<section class="flex h-full min-h-0 flex-col gap-12">
+<section class="flex min-h-0 flex-1 flex-col gap-12">
   <div class="flex flex-wrap items-center justify-end gap-8">
     {#if grid.isFiltered}
       <Button
@@ -453,17 +450,6 @@
         {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
       </Button>
     {/if}
-    <DataTable.GridColumnsMenu {grid} />
-    <Button
-      variant="secondary"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
     <Button
       size="sm"
       title="Record a cost paid or consumed on this matter. It saves as a draft."
@@ -472,13 +458,29 @@
       <Plus class="size-16" aria-hidden="true" />
       Record a Cost
     </Button>
+    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
+         border of its own, and last in the row on every ledger. -->
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-pressed={panelOpen}
+      title="Show or hide the details panel"
+      aria-label="Show or hide the details panel"
+      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
+    >
+      <PanelRight class="size-16" aria-hidden="true" />
+    </Button>
   </div>
 
   {#if actionFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Nothing Changed</Alert.Title>
-      <Alert.Description>{actionFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice failure={actionFailure.failure} title="Nothing Changed" fallback={actionFailure.fallback}>
+      {#if actionFailure.failure.problem?.status === 409}
+        <!-- A review verb against a firm that does not run review is refused as a conflict; saying
+             so is more use to the reader than repeating the number. -->
+        The firm&rsquo;s review setting is not served to this screen, so the server is the authority
+        on whether review runs here.
+      {/if}
+    </FailureNotice>
   {:else if actionNotice !== null}
     <Alert.Root variant="success">
       <Alert.Title>Recorded</Alert.Title>
@@ -493,50 +495,46 @@
     </p>
   {/if}
 
-  <div class="min-h-0 flex-1">
-    <Resizable.PaneGroup direction="horizontal" autoSaveId="matter-costs-panes">
-      <Resizable.Pane defaultSize={panelOpen ? 72 : 100} minSize={40}>
-        <RecordMenu
-          {menu}
-          onAction={runMenuAction}
-          onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-        >
-          <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-               product uses everywhere is still the thing that opens. The role is presentational:
-               this element adds no semantics of its own, it only notices where the pointer was. -->
-          <div role="presentation" oncontextmenu={retargetSelection}>
-            <!-- The list scrolls inside itself once it is taller than the screen, so a long ledger
-                 never pushes its own counts strip out of reach. -->
-            <DataTable.Grid
-              {grid}
-              {cell}
-              class="max-h-svh"
-              caption="Costs recorded on this matter"
-              empty={emptyLedger}
-              {loading}
-            />
-          </div>
-        </RecordMenu>
-      </Resizable.Pane>
-      {#if panelOpen}
-        <Resizable.Handle withHandle />
-        <Resizable.Pane defaultSize={28} minSize={18} maxSize={44}>
-          <CostDetailsPanel
-            {costs}
-            selected={selectedCosts}
-            {currency}
-            expenseCodeLabels={expenseCodes.labelFor}
-            {canApprove}
-            onOpen={(cost) => openRecord(cost, canWorkDraft(cost).allowed)}
-            onPrint={print}
-            onSubmit={submitCosts}
-            onApprove={approveCosts}
-            onLetGo={() => grid.clearSelection()}
+  <LedgerPanes autoSaveId="matter-costs-panes" {panelOpen}>
+    {#snippet list()}
+      <RecordMenu
+        class="flex min-h-0 flex-1 flex-col"
+        {menu}
+        onAction={runMenuAction}
+        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+      >
+        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+             product uses everywhere is still the thing that opens. The role is presentational:
+             this element adds no semantics of its own, it only notices where the pointer was. -->
+        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+          <!-- The list takes the height it is given and scrolls inside itself, so a long ledger
+               never grows the page and never pushes its own counts strip out of reach. -->
+          <DataTable.Grid
+            {grid}
+            {cell}
+            class="min-h-0 flex-1"
+            caption="Costs recorded on this matter"
+            empty={emptyLedger}
+            {loading}
           />
-        </Resizable.Pane>
-      {/if}
-    </Resizable.PaneGroup>
-  </div>
+        </div>
+      </RecordMenu>
+    {/snippet}
+    {#snippet panel()}
+      <CostDetailsPanel
+        {costs}
+        selected={selectedCosts}
+        {currency}
+        expenseCodeLabels={expenseCodes.labelFor}
+        {canApprove}
+        onOpen={(cost) => openRecord(cost, canWorkDraft(cost).allowed)}
+        onPrint={print}
+        onSubmit={submitCosts}
+        onApprove={approveCosts}
+        onLetGo={() => grid.clearSelection()}
+      />
+    {/snippet}
+  </LedgerPanes>
 
   <DataTable.GridFooter {grid} end={footerEnd} />
 </section>

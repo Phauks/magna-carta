@@ -17,6 +17,7 @@ import { MESSAGE_HEAD_LENGTH } from "@magna-carta/telemetry/operation";
 import type { Bindings } from "./app.ts";
 import type { AppVariables } from "./chokepoint/ports.ts";
 import { problemJson } from "./contracts/problem.ts";
+import { FirmBucketUnavailableError } from "./files/firm-bucket-fault.ts";
 
 type TelemetryEnv = { Bindings: Bindings; Variables: AppVariables };
 
@@ -76,6 +77,20 @@ export function telemetryErrorHandler(
         },
       ),
     );
+    // A KNOWN deployment fault is not an unexpected one. The firm's object storage being
+    // unprovisioned or unbound is a configuration state with a named remedy, so it answers as a
+    // retryable 503 saying what is misconfigured — still counted and still carrying an Error ID for
+    // the operator to correlate, but never leaving a member who tried to file a document with an
+    // Error ID and the impression that their file was the problem.
+    if (error instanceof FirmBucketUnavailableError) {
+      return problemJson(c, {
+        type: "storage-unavailable",
+        status: 503,
+        title: "File storage unavailable",
+        detail: error.detail,
+        errorId,
+      });
+    }
     return problemJson(c, {
       type: "internal",
       status: 500,

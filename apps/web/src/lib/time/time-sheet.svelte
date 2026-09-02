@@ -36,17 +36,23 @@
    * because capture takes a matter; so its mark says it is not written and names the matter as one
    * of the things it still needs. Nothing is invented server-side to paper over that.
    *
-   * WHAT IS DESIGNED AND NOT YET SERVED STAYS ON SCREEN. The time code, the entered date and who
-   * entered it, the rate, the attachments and the internal memo are all part of a row; the listing
-   * and the write routes carry none of them. Each is rendered where it belongs, refused, saying
-   * what it waits on, so a reader can see the row's real shape and can never mistake an unserved
-   * field for an empty one.
+   * WHAT IS DESIGNED AND NOT YET SERVED STAYS ON SCREEN, refused, saying what it waits on — so a
+   * reader can see the row's real shape and can never mistake an unserved field for an empty one.
+   * What is left in that state is small and specific: moving a written entry to another matter,
+   * recording one member's work under another's hand, and the firm's rounding increment.
+   *
+   * THE LIST USED TO BE MUCH LONGER, AND WAS WRONG. The entry number, the entered date and its
+   * enterer, the resolved rate, the attachments and the internal memo were all rendered as gaps
+   * against routes that were already serving them. A field is refused here only against the served
+   * contract in $lib/matters/time-api.ts, re-read — never against what this file last believed.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { Failure } from "$lib/api/request.ts";
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -56,6 +62,10 @@
   import { formatMoney } from "@magna-carta/design-system/data-table";
   import { formatDuration } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
+  import { mergeClasses } from "@magna-carta/design-system/internal/merge-classes";
+  import { parseDate } from "@internationalized/date";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
   import Calendar from "@lucide/svelte/icons/calendar";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import CircleCheckBig from "@lucide/svelte/icons/circle-check-big";
@@ -151,7 +161,8 @@
      */
     loading?: boolean;
     /** Why the caller's read failed, when it did. Null while it is fine or still going. */
-    readFailure?: string | null;
+    /** The failed read, whole — the sheet renders the Error ID and the remedy from it. */
+    readFailure?: Failure | null;
     /** Read again. Absent where the caller has nothing to retry. */
     onRetryRead?: () => void;
     /** Something was written; the time wants re-reading. */
@@ -259,7 +270,6 @@
     // truncated to its number is a matter the reader has to go and look up.
     [TIME_SHEET_COLUMN_IDENTIFIERS.matter]: 320,
     [TIME_SHEET_COLUMN_IDENTIFIERS.dateEntered]: 134,
-    [TIME_SHEET_COLUMN_IDENTIFIERS.description]: 300,
     [TIME_SHEET_COLUMN_IDENTIFIERS.worked]: 104,
     [TIME_SHEET_COLUMN_IDENTIFIERS.hours]: 132,
     [TIME_SHEET_COLUMN_IDENTIFIERS.rate]: 96,
@@ -485,7 +495,10 @@
   </span>
 {/snippet}
 
-{#snippet descriptionCell(row: SheetRow)}
+<!-- THE DESCRIPTION IS THE ROW'S SECOND LINE, not a column: it is prose, usually far longer than
+     any other fact on the row, so it gets the row's full width underneath the fields and wraps
+     there. The internal memo is its on-demand twin on a third line. -->
+{#snippet rowDetail(row: SheetRow)}
   {@const refusal = editRefusal(row)}
   <div class="flex w-full flex-col gap-4">
     <div class="flex w-full items-start gap-4">
@@ -514,15 +527,22 @@
         <NotebookPen class="size-16" aria-hidden="true" />
       </Button>
     </div>
-    {#if memoOpened.has(row.key)}
-      <!-- Internal by construction: it is never reachable from a bill, an export or a print sheet. -->
-      <div class="flex w-full items-center gap-8" data-internal-only="true">
+    {#if memoOpened.has(row.key) || row.memo !== ""}
+      <!-- Internal by construction: no client-facing projection selects the column, and the print
+           sheet names every field it prints rather than spreading the entry. -->
+      <div class="flex w-full items-start gap-8" data-internal-only="true">
         <Badge variant="neutral">Internal</Badge>
-        <SoonAffordance class="min-w-0 flex-1" reason={gapReason("memo")}>
-          {#snippet control(soon)}
-            <Textarea class="w-full" rows={1} placeholder="Internal Memo" {...soon} />
-          {/snippet}
-        </SoonAffordance>
+        <Textarea
+          class="min-w-0 flex-1"
+          rows={1}
+          value={row.memo}
+          placeholder="Internal Memo"
+          title={refusal ?? "The firm's own note on this entry. It never reaches a bill or a client."}
+          disabled={refusal !== undefined}
+          spellcheck={true}
+          onchange={(event) => store.setMemo(row.key, event.currentTarget.value)}
+          {@attach autoSizeTextarea(row.memo)}
+        />
       </div>
     {/if}
   </div>
@@ -555,22 +575,34 @@
   {/if}
 {/snippet}
 
+<!--
+  THE CODE A ROW IS KNOWN BY, AND THERE ARE TWO OF THEM. Until the row reaches the firm's record it
+  is held under a provisional code minted here, so a row somebody is typing into has a name to be
+  referred to by; the moment it lands, the firm's own entry number replaces it, and the provisional
+  one is kept on the hover because that is what the row was called meanwhile.
+-->
 {#snippet timeCodeCell(row: SheetRow)}
-  {#if row.entryIdentifier === null && row.provisionalCode !== null}
+  {#if row.entryNumber !== null}
+    <span
+      class="whitespace-nowrap tabular-nums"
+      title="The firm's own entry number. It is drawn once, never reused, and a struck entry keeps it.{row.provisionalCode ===
+      null
+        ? ''
+        : ` It was held on this sheet as ${row.provisionalCode}.`}"
+    >
+      {row.entryNumber}
+    </span>
+  {:else if row.provisionalCode !== null}
     <span
       class="whitespace-nowrap tabular-nums text-text-muted"
-      title="A provisional code, minted on this sheet when the row was created. The firm's own entry number is drawn when the row reaches the record, and {gapReason(
-        'entryNumber',
-      )} is what that waits on."
+      title="A provisional code, minted on this sheet when the row was created. The firm's own entry number is drawn when the row reaches the record."
     >
       {row.provisionalCode}
     </span>
   {:else}
-    <span
-      class="text-text-subtle"
-      title="{gapCellTitle('entryNumber')}{row.provisionalCode === null
-        ? ''
-        : ` It was held on this sheet as ${row.provisionalCode}.`}">&mdash;</span
+    <!-- An entry captured before the sequence existed. Nothing backfills a guess. -->
+    <span class="text-text-subtle" title="This entry was captured before entry numbers existed."
+      >&mdash;</span
     >
   {/if}
 {/snippet}
@@ -679,15 +711,16 @@
   {:else if isUnservedSheetColumn(column.id)}
     {@render unservedCell(column.id)}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.workDate}
-    <Input
-      type="date"
-      value={row.workDate}
-      title={editRefusal(row) ?? "The day the work is for"}
-      disabled={editRefusal(row) !== undefined}
-      onchange={(event) => commitWorkDate(row, event.currentTarget.value)}
-    />
-  {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.description}
-    {@render descriptionCell(row)}
+    <!-- The product's own calendar, not the browser's: one themed picker on every surface. -->
+    <span class="block" title={editRefusal(row) ?? "The day the work is for"}>
+      <DatePicker
+        value={parseDate(row.workDate)}
+        disabled={editRefusal(row) !== undefined}
+        onValueChange={(picked) => {
+          if (picked !== undefined) commitWorkDate(row, picked.toString());
+        }}
+      />
+    </span>
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.worked}
     {@render durationCell(row)}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.hours}
@@ -777,11 +810,15 @@
 {/snippet}
 
 <Dialog.Root bind:open>
+  <!-- The sheet is a WORKING surface, so windowed it still takes nearly the whole screen; filling
+       it entirely drops the rounded corners — a panel with no edge on screen has no corners to
+       round. -->
   <Dialog.Content
     showClose={false}
     class={expanded
-      ? "flex h-screen w-screen max-w-none flex-col gap-0 p-0"
-      : "flex max-h-screen w-full max-w-record-window flex-col gap-0 p-0"}
+      ? "flex h-screen w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0"
+      : "flex max-h-screen w-full max-w-none flex-col gap-0 p-0"}
+    style={expanded ? undefined : "inline-size: 97vw; block-size: 94vh"}
   >
     <div class="flex flex-wrap items-center gap-8 border-b border-border-default px-24 py-16">
       <div class="flex min-w-0 flex-col gap-4">
@@ -818,26 +855,18 @@
               {/each}
             </div>
             <p class="text-xs text-text-subtle">Custom range</p>
-            <div class="flex items-end gap-8">
-              <div class="flex flex-col gap-4">
-                <Label for="time-sheet-range-from">From</Label>
-                <Input
-                  id="time-sheet-range-from"
-                  type="date"
-                  bind:value={customRangeFrom}
-                  onchange={applyCustomRange}
-                />
-              </div>
-              <div class="flex flex-col gap-4">
-                <Label for="time-sheet-range-to">To</Label>
-                <Input
-                  id="time-sheet-range-to"
-                  type="date"
-                  bind:value={customRangeTo}
-                  onchange={applyCustomRange}
-                />
-              </div>
-            </div>
+            <!-- One themed range picker instead of two bare date fields: pick both ends on one
+                 calendar, drag across days, and the range applies as it lands. -->
+            <DateRangePicker
+              value={customRangeFrom === "" || customRangeTo === ""
+                ? undefined
+                : { start: parseDate(customRangeFrom), end: parseDate(customRangeTo) }}
+              onValueChange={(range) => {
+                customRangeFrom = range?.start?.toString() ?? "";
+                customRangeTo = range?.end?.toString() ?? "";
+                if (customRangeFrom !== "" && customRangeTo !== "") applyCustomRange();
+              }}
+            />
             <p class="text-xs text-text-muted">
               {customRangeNote ??
                 "The range applies as you pick it. A preset above returns to a named scope."}
@@ -859,88 +888,112 @@
           New Entry
         </Button>
 
-        {#if searchOpen}
-          <Input
-            class="w-full"
-            value={searchText}
-            placeholder="Search"
-            aria-label="Search rows by description or person"
-            oninput={(event) => (searchText = event.currentTarget.value)}
-            onblur={() => {
-              if (searchText === "") searchOpen = false;
-            }}
-          />
-        {:else}
+        <!-- Opening search must not move a single control: the button keeps its place and the
+             field OVERLAYS leftward across the header's slack instead of inserting itself into
+             the row. -->
+        <span class="relative inline-flex">
           <Button
             variant="secondary"
             size="icon"
             title="Search the rows in view"
             aria-label="Search"
+            aria-expanded={searchOpen}
             onclick={() => (searchOpen = true)}
           >
             <Search class="size-16" aria-hidden="true" />
           </Button>
-        {/if}
+          {#if searchOpen}
+            <div
+              class="absolute end-0 top-0 z-dropdown"
+              style="inline-size: var(--mc-size-record-context)"
+            >
+              <Input
+                class="w-full"
+                value={searchText}
+                placeholder="Search"
+                aria-label="Search rows by description or person"
+                oninput={(event) => (searchText = event.currentTarget.value)}
+                onblur={() => {
+                  if (searchText === "") searchOpen = false;
+                }}
+                {@attach (field) => field.focus()}
+              />
+            </div>
+          {/if}
+        </span>
 
-        <!-- The button does the step; its list says what each step WAS, so several can be walked
-             back at once. What a step was is never printed on the toolbar. -->
-        <Button
-          variant="secondary"
-          size="icon"
-          disabled={!store.history.canUndo}
-          title={store.history.undoTitle}
-          aria-label="Undo"
-          onclick={() => runUndo(1)}
-        >
-          <Undo2 class="size-16" aria-hidden="true" />
-        </Button>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            class={buttonClasses({ variant: "secondary", size: "icon" })}
+        <!-- Undo and redo are SPLIT CONTROLS: the button does the step, the caret fused to its
+             side opens the stack, where each entry says what that step WAS and choosing the Nth
+             walks all N at once. What a step was is never printed on the toolbar itself. -->
+        <span class="inline-flex">
+          <Button
+            variant="secondary"
+            size="icon"
+            class="rounded-e-none"
             disabled={!store.history.canUndo}
-            title={store.history.undoStackTitle}
-            aria-label="Undo history"
+            title={store.history.undoTitle}
+            aria-label="Undo"
+            onclick={() => runUndo(1)}
           >
-            <ChevronDown class="size-16" aria-hidden="true" />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            <DropdownMenu.GroupHeading>Undo, newest change first</DropdownMenu.GroupHeading>
-            {#each store.history.undoLabels as label, index (index)}
-              <DropdownMenu.Item onSelect={() => runUndo(index + 1)}>
-                {index + 1}. {label}
-              </DropdownMenu.Item>
-            {/each}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+            <Undo2 class="size-16" aria-hidden="true" />
+          </Button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              class={mergeClasses(
+                buttonClasses({ variant: "secondary", size: "icon" }),
+                "rounded-s-none border-s-0",
+              )}
+              disabled={!store.history.canUndo}
+              title={store.history.undoStackTitle}
+              aria-label="Undo history"
+            >
+              <ChevronDown class="size-16" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              <DropdownMenu.GroupHeading>Undo, newest change first</DropdownMenu.GroupHeading>
+              {#each store.history.undoLabels as label, index (index)}
+                <DropdownMenu.Item onSelect={() => runUndo(index + 1)}>
+                  {index + 1}. {label}
+                </DropdownMenu.Item>
+              {/each}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </span>
 
-        <Button
-          variant="secondary"
-          size="icon"
-          disabled={!store.history.canRedo}
-          title={store.history.redoTitle}
-          aria-label="Redo"
-          onclick={() => runRedo(1)}
-        >
-          <Redo2 class="size-16" aria-hidden="true" />
-        </Button>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            class={buttonClasses({ variant: "secondary", size: "icon" })}
+        <span class="inline-flex">
+          <Button
+            variant="secondary"
+            size="icon"
+            class="rounded-e-none"
             disabled={!store.history.canRedo}
-            title={store.history.redoStackTitle}
-            aria-label="Redo history"
+            title={store.history.redoTitle}
+            aria-label="Redo"
+            onclick={() => runRedo(1)}
           >
-            <ChevronDown class="size-16" aria-hidden="true" />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            <DropdownMenu.GroupHeading>Redo, next change first</DropdownMenu.GroupHeading>
-            {#each store.history.redoLabels as label, index (index)}
-              <DropdownMenu.Item onSelect={() => runRedo(index + 1)}>
-                {index + 1}. {label}
-              </DropdownMenu.Item>
-            {/each}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+            <Redo2 class="size-16" aria-hidden="true" />
+          </Button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              class={mergeClasses(
+                buttonClasses({ variant: "secondary", size: "icon" }),
+                "rounded-s-none border-s-0",
+              )}
+              disabled={!store.history.canRedo}
+              title={store.history.redoStackTitle}
+              aria-label="Redo history"
+            >
+              <ChevronDown class="size-16" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              <DropdownMenu.GroupHeading>Redo, next change first</DropdownMenu.GroupHeading>
+              {#each store.history.redoLabels as label, index (index)}
+                <DropdownMenu.Item onSelect={() => runRedo(index + 1)}>
+                  {index + 1}. {label}
+                </DropdownMenu.Item>
+              {/each}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </span>
 
         <!-- Absence is the signal: the control exists only while a filter is in play. -->
         {#if grid.isFiltered}
@@ -954,8 +1007,6 @@
             <FunnelX class="size-16" aria-hidden="true" />
           </Button>
         {/if}
-
-        <DataTable.GridColumnsMenu {grid} />
 
         <Button
           variant="secondary"
@@ -993,15 +1044,13 @@
       {#if readFailure !== null}
         <!-- The read failed; the record itself is untouched by that, and the sheet says so rather
              than showing an empty table that reads as a day with no work in it. -->
-        <Alert.Root variant="danger">
-          <Alert.Title>Time Could Not Be Read</Alert.Title>
-          <Alert.Description>
-            {readFailure} The record itself is unaffected: nothing was changed by this failure.
-          </Alert.Description>
-        </Alert.Root>
-        {#if onRetryRead !== undefined}
-          <Button class="self-start" variant="secondary" onclick={onRetryRead}>Retry</Button>
-        {/if}
+        <FailureNotice
+          failure={readFailure}
+          subject="The time entries"
+          fallback="The time on this sheet could not be read. The record itself is unaffected:
+            nothing was changed by this failure."
+          onRetry={onRetryRead}
+        />
       {/if}
       {#if firmMatters.failure !== null}
         <!-- The sheet still opens and still holds what is typed into it; what it cannot do is file
@@ -1025,6 +1074,7 @@
         <DataTable.Grid
           {grid}
           {cell}
+          {rowDetail}
           {loading}
           class="h-full"
           caption={matterTitle === null

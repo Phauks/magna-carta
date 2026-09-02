@@ -12,6 +12,9 @@
  * that generated type when apps/web adopts the client.
  */
 
+import { readProblem, requestLine, type Failure, type Problem } from "$lib/api/problem.ts";
+import { guidanceForProblem, type ProblemGuidance } from "$lib/diagnostics/guidance.ts";
+
 export interface WhoisResult {
   source: "rdap" | "whois-43";
   target: string;
@@ -25,29 +28,20 @@ export interface WhoisResult {
   raw?: string;
 }
 
-// A failed lookup surfaced to the user. `errorId` is the user-facing correlation handle carried on
-// every RFC 9457 problem document — the platform mints one even on a 500 — so a member can quote it
-// to support and it maps to the redacted server trace (the standard error pipeline in
-// docs/conventions/error-logging.md).
-export interface WhoisProblem {
-  status: number;
-  errorId?: string;
-}
+// A failed lookup surfaced to the user, as the shared problem record ($lib/api/problem.ts). This
+// module kept a private two-field copy of that parser until there was one home for it; the local
+// name stays because the guidance below is keyed to this surface's own registry semantics.
+export type WhoisProblem = Problem;
 
 // The distinct states a lookup resolves to. `rdap`/`raw`/`empty` share a body; the component
 // discriminates on the exact kind to pick structured card, raw block, or "nothing found" notice.
+// The two failing kinds carry the failure record every failure surface renders from.
 export type WhoisOutcome =
   | { kind: "rdap" | "raw" | "empty"; result: WhoisResult }
-  | { kind: "problem"; problem: WhoisProblem }
-  | { kind: "transport" };
+  | { kind: "problem"; problem: WhoisProblem; failure: Failure }
+  | { kind: "transport"; failure: Failure };
 
-export type ProblemTone = "info" | "warning" | "danger";
-
-export interface ProblemGuidance {
-  tone: ProblemTone;
-  title: string;
-  message: string;
-}
+export type { ProblemTone, ProblemGuidance } from "$lib/diagnostics/guidance.ts";
 
 const WHOIS_ENDPOINT = "/api/v1/whois";
 
@@ -78,22 +72,37 @@ export function classifyResult(result: WhoisResult): "rdap" | "raw" | "empty" {
 }
 
 /**
- * Human guidance for a failed lookup, keyed by HTTP status. Deliberately never echoes the query or
- * any resolved address: the 400 is generic on purpose — the worker route
- * (apps/api-worker/src/routes/whois.ts) keeps it that way as an SSRF guard, and the UI must not undo
- * that by reflecting the input back. A server fault (>= 500) is the case that carries an Error ID
- * for the member to quote.
+ * Human guidance for a failed lookup. The shared presenter ($lib/diagnostics/guidance.ts) supplies
+ * the floor — the service-skew 404, the "not a verdict" 429, the server-fault band — and this
+ * function overrides only the statuses whose meaning is REGISTRY semantics rather than platform
+ * semantics, which no shared default could know.
+ *
+ * It deliberately never echoes the query or any resolved address: the 400 is generic on purpose —
+ * the worker route (apps/api-worker/src/routes/whois.ts) keeps it that way as an SSRF guard, and the
+ * UI must not undo that by reflecting the input back.
  */
 export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
+  const base = guidanceForProblem(problem, "The lookup");
+
+  // EVERY 404 goes back untouched, because the shared presenter tells the two apart and this
+  // function cannot: one answered by no route at all is deploy skew, one carrying a problem
+  // document is a record that is genuinely gone. Returning early matters — the input-fault default
+  // below would otherwise clobber both and tell the member their domain was malformed because a
+  // release was still rolling out.
+  if (problem.status === 404) return base;
+
   // 501 is checked before the server-fault band it sits in: the registry simply publishes no
   // machine-readable lookup (no RDAP entry, no known port-43 host), which is the ordinary answer
-  // for roughly a sixth of the TLD list. Nothing went wrong, so nothing is worth quoting to support.
+  // for roughly a sixth of the TLD list. Nothing went wrong, so nothing is worth quoting to support,
+  // and there is nothing to retry.
   if (problem.status === 501) {
     return {
+      ...base,
       tone: "info",
       title: "This registry cannot be looked up",
       message:
         "That domain's registry does not publish a lookup service this tool can reach. Check the registry's own WHOIS page directly.",
+      remedy: { kind: "none" },
     };
   }
   // 502 is the registry itself rate-limiting or being away — transient and retryable, so it is
@@ -102,6 +111,7 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
   // record found", which the very next retry contradicted.
   if (problem.status === 502) {
     return {
+      ...base,
       tone: "warning",
       title: "The registry did not answer",
       message:
@@ -110,6 +120,7 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
   }
   if (problem.status >= 500) {
     return {
+      ...base,
       tone: "danger",
       title: "The lookup failed",
       message: "Something went wrong on our side. Quote the Error ID below to support.",
@@ -118,6 +129,7 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
   switch (problem.status) {
     case 401:
       return {
+        ...base,
         tone: "info",
         title: "You are not signed in",
         message:
@@ -125,23 +137,28 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
       };
     case 403:
       return {
+        ...base,
         tone: "warning",
         title: "You do not have permission",
         message: "Your account is not allowed to run WHOIS lookups.",
       };
     case 429:
       return {
+        ...base,
         tone: "warning",
         title: "Too many lookups",
         message: "You have run several lookups in a short time. Wait a moment, then try again.",
       };
     default:
-      // 400 (invalid/blocked target) and 422 (the query failed validation) — both are input faults.
+      // 400 (invalid/blocked target) and 422 (the query failed validation) — both are input faults,
+      // and neither is fixed by pressing anything on this screen.
       return {
+        ...base,
         tone: "warning",
         title: "That is not something this tool can look up",
         message:
           "Enter a domain name (example.com) or an IP address. Private, local, and internal addresses are not accepted.",
+        remedy: { kind: "none" },
       };
   }
 }
@@ -197,7 +214,10 @@ export async function lookupWhoisWithRetries(
   delayImpl: (ms: number) => Promise<void> = (ms) =>
     new Promise((resolve) => setTimeout(resolve, ms)),
 ): Promise<WhoisOutcome> {
-  let outcome: WhoisOutcome = { kind: "transport" };
+  let outcome: WhoisOutcome = {
+    kind: "transport",
+    failure: { problem: null, request: requestLine("GET", WHOIS_ENDPOINT), failedAt: new Date() },
+  };
   for (let attempt = 1; attempt <= LOOKUP_MAX_ATTEMPTS; attempt += 1) {
     onAttempt({ attempt, maxAttempts: LOOKUP_MAX_ATTEMPTS });
     outcome = await lookupWhois(query, fetchImpl);
@@ -207,20 +227,6 @@ export async function lookupWhoisWithRetries(
     }
   }
   return outcome;
-}
-
-// Read the correlation handle off a problem document. Defensive: a body that is not JSON, or is
-// missing the field, still yields a usable problem carrying the HTTP status.
-async function readProblem(response: Response): Promise<WhoisProblem> {
-  try {
-    const body = (await response.json()) as { errorId?: unknown };
-    return {
-      status: response.status,
-      errorId: typeof body.errorId === "string" ? body.errorId : undefined,
-    };
-  } catch {
-    return { status: response.status };
-  }
 }
 
 /**
@@ -234,23 +240,28 @@ export async function lookupWhois(
 ): Promise<WhoisOutcome> {
   const target = query.trim();
   const url = `${WHOIS_ENDPOINT}?query=${encodeURIComponent(target)}`;
+  // The request line never carries the query — requestLine drops it, which on this surface matters
+  // twice over: the worker route keeps its refusals generic as an SSRF guard, and a copyable trace
+  // block is exactly where a reflected target would leak back out.
+  const line = requestLine("GET", WHOIS_ENDPOINT);
 
   let response: Response;
   try {
     response = await fetchImpl(url, { headers: { accept: "application/json" } });
   } catch {
-    return { kind: "transport" };
+    return { kind: "transport", failure: { problem: null, request: line, failedAt: new Date() } };
   }
 
   if (!response.ok) {
-    return { kind: "problem", problem: await readProblem(response) };
+    const problem = await readProblem(response);
+    return { kind: "problem", problem, failure: { problem, request: line, failedAt: new Date() } };
   }
 
   let result: WhoisResult;
   try {
     result = (await response.json()) as WhoisResult;
   } catch {
-    return { kind: "transport" };
+    return { kind: "transport", failure: { problem: null, request: line, failedAt: new Date() } };
   }
 
   return { kind: classifyResult(result), result };

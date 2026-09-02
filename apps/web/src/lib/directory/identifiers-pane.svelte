@@ -24,6 +24,9 @@
    * failure this count exists to prevent.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { guidanceFor } from "$lib/diagnostics/guidance.ts";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as Select from "@magna-carta/design-system/select";
@@ -68,7 +71,7 @@
   // ---- what is held ---------------------------------------------------------------------------
 
   let held = $state<readonly DirectoryIdentifierRecord[] | null>(null);
-  let readFailure = $state<string | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
 
   $effect(() => {
@@ -85,10 +88,7 @@
         return;
       }
       held = [];
-      readFailure =
-        outcome.kind === "transport"
-          ? "Nothing answered. What this record holds could not be read."
-          : (outcome.problem.detail ?? "What this record holds could not be read.");
+      readFailure = stated(outcome.failure, "What this record holds could not be read.");
     })();
     return () => {
       cancelled = true;
@@ -176,10 +176,10 @@
       ...reveals,
       [type]: {
         phase: "refused",
-        message:
-          outcome.kind === "transport"
-            ? "Nothing answered."
-            : (outcome.problem.detail ?? "The value could not be read."),
+        // One row's reveal, refused. It renders as a line in the cell rather than as a failure
+        // surface, so it takes the presenter's sentence and not the whole record: there is nowhere
+        // in a table cell to put a handle and a remedy, and a band per row would bury the table.
+        message: guidanceFor(outcome.failure, "The value").message,
       },
     };
   }
@@ -192,7 +192,7 @@
   let newType = $state<DirectoryIdentifierType>("account");
   let newValue = $state("");
   let submitting = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const typeItems = $derived(
     types.map((entry) => ({ value: entry.type, label: entry.label })),
@@ -218,10 +218,11 @@
       reloadToken += 1;
       return;
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. Nothing was sealed."
-        : (outcome.problem.detail ?? "The identifier could not be recorded.");
+    failure = stated(
+      outcome.failure,
+      "The identifier could not be recorded.",
+      "Nothing was sealed.",
+    );
   }
 </script>
 
@@ -250,10 +251,12 @@
   </p>
 
   {#if readFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>What This Record Holds Could Not Be Read</Alert.Title>
-      <Alert.Description>{readFailure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={readFailure.failure}
+      title="What This Record Holds Could Not Be Read"
+      fallback={readFailure.fallback}
+      whenSilent={readFailure.whenSilent}
+    />
   {:else if held === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading what this record holds">
       <Skeleton class="h-32 w-full" />
@@ -373,9 +376,12 @@
       </div>
 
       {#if failure !== null}
-        <Alert.Root variant="danger">
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
+        <FailureNotice
+          failure={failure.failure}
+          title="The Identifier Was Not Recorded"
+          fallback={failure.fallback}
+          whenSilent={failure.whenSilent}
+        />
       {/if}
 
       <div class="flex justify-end gap-8">

@@ -3,7 +3,7 @@
    * DataTable.Grid — the platform's ONE table (the settled cross-surface ruling: any behavior gap
    * between two tables is a defect by definition). Driven by the declarative column model
    * (grid-columns.ts) through a shared state object (createDataTableGrid), it carries the settled
-   * machinery: type-aware stable sorting, the in-header per-column filters, column show/hide,
+   * machinery: type-aware stable sorting, the per-column filters, column show/hide,
    * drag-reorder (anchored columns lead), pinning at measured sticky offsets, resize grips with
    * double-click fit, the Docket's selection model (click / Ctrl / Shift / Ctrl+A scoped to the
    * table / arrows / click-empty-clears), activation as its own event, the scope-honest totals
@@ -13,20 +13,27 @@
    * Rendering stays the consumer's: the `cell` snippet supplies each cell (status chips and the
    * like are the surface's business); without it, cells render the column model's typed text.
    * Selection is emitted, never presented — this component opens nothing.
+   *
+   * Every column control — filtering included — is summoned from the header itself (GridHeadMenu,
+   * on right-click), never from a button on the surface or in the header cell. The cell shows only
+   * whether a filter is in play; see that component for what the menu carries and why.
    */
   import type { Snippet } from "svelte";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import Funnel from "@lucide/svelte/icons/funnel";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import Pin from "@lucide/svelte/icons/pin";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import Button from "../button/index.ts";
   import Skeleton from "../skeleton/index.ts";
+  import * as ContextMenu from "../context-menu/index.ts";
   import type { GridCellContext, GridColumn } from "./grid-columns.ts";
   import { gridCellText, gridColumnAlign } from "./grid-columns.ts";
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
+  import { gridFilterSummary } from "./grid-filters.ts";
   import { gridRowMarkAttributes } from "./grid-rows.ts";
-  import GridColumnFilter from "./data-table-grid-filter.svelte";
+  import GridHeadMenu from "./data-table-grid-head-menu.svelte";
 
   type Props = {
     grid: DataTableGridState<TRow>;
@@ -34,6 +41,13 @@
     caption: string;
     /** Renders each body cell; omit to render the column model's typed text. */
     cell?: Snippet<[GridCellContext<TRow>]>;
+    /**
+     * Renders a record's second line: a full-width row under the primary one, spanning every
+     * scrolling column. The pair reads as ONE row of two lines — the hairline moves to the
+     * second line, and hover, selection, and the stripe cover both. With a trailing-pinned
+     * column the second line keeps an empty pinned cell so that column's hairline runs unbroken.
+     */
+    rowDetail?: Snippet<[TRow]>;
     /** The unfiltered empty state — the surface owns its own empty-state composition. */
     empty?: Snippet;
     /** Skeleton rows stand in for data until it arrives. */
@@ -45,30 +59,61 @@
      * menu. Rows carry no menu of their own here. */
     onRowContextMenu?: (event: MouseEvent, row: TRow, selectedRows: readonly TRow[]) => void;
     /**
-     * Right-clicking a column header. Given, the header's own context menu is suppressed and this is
-     * called with the column under the pointer — which is how a surface opens the columns control
-     * where the columns are, rather than from a button somewhere else in its chrome.
+     * The surface's own display settings, rendered in the header menu's Columns submenu beneath the
+     * shared ones. ContextMenu.CheckboxItem rows, so the menu keeps one keyboard model throughout.
      */
-    onColumnContextMenu?: (event: MouseEvent, column: GridColumn<TRow>) => void;
+    settings?: Snippet;
     class?: string;
   };
   let {
     grid,
     caption,
     cell,
+    rowDetail,
     empty,
     loading = false,
     skeletonRowCount = 8,
     density = "comfortable",
     onRowContextMenu,
-    onColumnContextMenu,
+    settings,
     class: className,
   }: Props = $props();
 
   let scrollElement = $state<HTMLDivElement | null>(null);
   let headerCells = $state<Record<string, HTMLTableCellElement | null>>({});
 
+  /*
+   * THE FRAME'S OWN WIDTH, PUBLISHED TO CSS.
+   *
+   * A placeholder row spans every column, so its cell is as wide as the TABLE — which is wider than
+   * the frame the moment the columns are. Content centred in that cell centres in a box the reader
+   * cannot see the far side of, so the empty state's watermark and heading sit off to the inline
+   * end with the sentence trailing past them. Centring has to happen in the VISIBLE width, and the
+   * only thing that knows the visible width is the scroll element.
+   *
+   * `clientWidth` rather than a container query: it excludes the scrollbar, and a container query's
+   * `cqi` does not, which would put the empty state a scrollbar's width out and hand a table with
+   * no rows a horizontal scrollbar of its own.
+   */
+  $effect(() => {
+    const frame = scrollElement;
+    if (frame === null) return;
+    const publish = (): void => {
+      frame.style.setProperty("--mc-table-frame-inline-size", `${String(frame.clientWidth)}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  });
+
   const rowKeyOf = (row: TRow): string => grid.options.rowKey(row);
+  /** The filter mark's tooltip, or undefined when no filter is in play and no mark is drawn. */
+  const filterMarkTitle = (column: GridColumn<TRow>): string | undefined => {
+    const filter = grid.filterFor(column.id);
+    if (filter === undefined) return undefined;
+    return `Filtered: ${gridFilterSummary(column, filter)}. Right-click the header to change or clear it`;
+  };
   const ariaSortOf = (columnId: string): "ascending" | "descending" | "none" =>
     grid.sortColumnId === columnId ? grid.sortDirection : "none";
 
@@ -79,11 +124,21 @@
   const stickyColumnIds = $derived.by((): readonly string[] => {
     if (!pinningActive) return [];
     return grid.visibleColumns
-      .filter((column) => column.anchored || grid.pinnedColumnIds.has(column.id))
+      .filter(
+        (column) =>
+          column.pinnedEnd !== true && (column.anchored || grid.pinnedColumnIds.has(column.id)),
+      )
       .map((column) => column.id);
   });
   const stickyEdgeColumnId = $derived(stickyColumnIds.at(-1));
+  // The trailing-pinned block is declared by the column model, not toggled: stuck to the end of
+  // the scroll viewport, its FIRST member carrying the hairline that says "pinned, not floating".
+  const pinnedEndColumns = $derived(
+    grid.visibleColumns.filter((column) => column.pinnedEnd === true),
+  );
+  const pinnedEndEdgeColumnId = $derived(pinnedEndColumns[0]?.id);
   let pinnedOffsets = $state<Readonly<Record<string, number>>>({});
+  let pinnedEndOffsets = $state<Readonly<Record<string, number>>>({});
   $effect(() => {
     // Track everything that can move a header cell, then measure the rendered header.
     void grid.visibleColumns;
@@ -97,10 +152,31 @@
       offset += headerCells[id]?.getBoundingClientRect().width ?? 0;
     }
     if (JSON.stringify(next) !== JSON.stringify(pinnedOffsets)) pinnedOffsets = next;
+    // Trailing offsets accumulate from the END edge inward (the last column sits flush at 0).
+    const endNext: Record<string, number> = {};
+    let endOffset = 0;
+    for (const column of pinnedEndColumns.toReversed()) {
+      endNext[column.id] = endOffset;
+      endOffset += headerCells[column.id]?.getBoundingClientRect().width ?? 0;
+    }
+    if (JSON.stringify(endNext) !== JSON.stringify(pinnedEndOffsets)) pinnedEndOffsets = endNext;
   });
   const pinnedAttributes = (
     columnId: string,
-  ): { "data-pinned"?: "true"; "data-pinned-edge"?: "true"; style?: string } => {
+  ): {
+    "data-pinned"?: "true";
+    "data-pinned-edge"?: "true";
+    "data-pinned-end"?: "true";
+    "data-pinned-end-edge"?: "true";
+    style?: string;
+  } => {
+    if (pinnedEndOffsets[columnId] !== undefined) {
+      return {
+        "data-pinned-end": "true",
+        ...(columnId === pinnedEndEdgeColumnId ? { "data-pinned-end-edge": "true" as const } : {}),
+        style: `inset-inline-end: ${pinnedEndOffsets[columnId]}px`,
+      };
+    }
     if (!pinningActive || pinnedOffsets[columnId] === undefined) return {};
     return {
       "data-pinned": "true",
@@ -113,7 +189,13 @@
   let draggingColumnId = $state<string | null>(null);
   let dropTarget = $state<{ columnId: string; after: boolean } | null>(null);
   function headDragOver(event: DragEvent, column: GridColumn<TRow>): void {
-    if (draggingColumnId === null || draggingColumnId === column.id || column.anchored) return;
+    if (
+      draggingColumnId === null ||
+      draggingColumnId === column.id ||
+      column.anchored ||
+      column.pinnedEnd === true
+    )
+      return;
     event.preventDefault();
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     dropTarget = { columnId: column.id, after: event.clientX >= rect.left + rect.width / 2 };
@@ -164,6 +246,9 @@
   }
 
   function gripPointerDown(event: PointerEvent, column: GridColumn<TRow>): void {
+    // Only the primary button drags: a right-click on the grip is asking for the header's menu,
+    // and starting a resize under an open menu leaves the column following the pointer.
+    if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     grid.snapshotColumnWidths(measuredWidths());
@@ -189,6 +274,14 @@
     grid.snapshotColumnWidths(measuredWidths());
     grid.setColumnWidth(column.id, fittedWidth(column));
   }
+
+  // ---- the second line's pair hover -----------------------------------------------------------
+  // With a rowDetail the record is TWO <tr>s, and CSS :hover only knows one — so the grid tracks
+  // which pair the pointer is in and stamps data-pair-hover on both lines, keeping the pair one
+  // hover unit.
+  let hoveredPairKey = $state<string | null>(null);
+  const pairHoverOf = (key: string): "true" | undefined =>
+    rowDetail !== undefined && hoveredPairKey === key ? "true" : undefined;
 
   // ---- selection gestures ---------------------------------------------------------------------
   function rowClick(event: MouseEvent, key: string): void {
@@ -277,6 +370,7 @@
     data-zebra={grid.zebra ? "on" : undefined}
     data-fixed-columns={grid.columnWidthsFixed ? "on" : undefined}
     data-row-density={density}
+    data-row-detail={rowDetail ? "on" : undefined}
   >
     <caption class="sr-only">{caption}</caption>
     <thead class="mc-table-header">
@@ -284,79 +378,104 @@
         {#each grid.visibleColumns as column (column.id)}
           {@const pinned = pinnedAttributes(column.id)}
           {@const width = grid.columnWidthOf(column.id)}
-          <th
-            bind:this={headerCells[column.id]}
-            scope="col"
-            class="mc-table-head mc-table-grid-head"
-            data-grid-column={column.id}
-            data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
-            data-pinned={pinned["data-pinned"]}
-            data-pinned-edge={pinned["data-pinned-edge"]}
-            data-dragging={draggingColumnId === column.id ? "true" : undefined}
-            data-drop={dropTarget?.columnId === column.id
-              ? dropTarget.after
-                ? "after"
-                : "before"
-              : undefined}
-            aria-sort={ariaSortOf(column.id)}
-            draggable={column.anchored ? undefined : true}
-            style={[
-              pinned.style,
-              width === undefined ? undefined : `width: ${width}px`,
-            ]
-              .filter(Boolean)
-              .join("; ") || undefined}
-            ondragstart={(event) => {
-              if (column.anchored) return;
-              draggingColumnId = column.id;
-              if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-            }}
-            ondragend={() => {
-              draggingColumnId = null;
-              dropTarget = null;
-            }}
-            ondragover={(event) => headDragOver(event, column)}
-            ondragleave={() => {
-              if (dropTarget?.columnId === column.id) dropTarget = null;
-            }}
-            ondrop={(event) => headDrop(event, column)}
-            oncontextmenu={(event) => {
-              if (!onColumnContextMenu) return;
-              event.preventDefault();
-              onColumnContextMenu(event, column);
-            }}
-          >
-            <span class="mc-table-grid-head-inner">
-              <button
-                type="button"
-                class="mc-table-grid-sort"
-                title="Sort by {column.label}"
-                onclick={() => grid.toggleSort(column.id)}
-              >
-                {column.label}
-                <span class="mc-table-grid-sort-arrow">
-                  {#if grid.sortColumnId === column.id}
-                    {#if grid.sortDirection === "ascending"}
-                      <ArrowUp class="mc-table-grid-sort-arrow" aria-hidden="true" />
-                    {:else}
-                      <ArrowDown class="mc-table-grid-sort-arrow" aria-hidden="true" />
-                    {/if}
-                  {/if}
-                </span>
-              </button>
-              <GridColumnFilter {grid} {column} />
-            </span>
-            <span
-              class="mc-table-grid-grip"
-              data-resizing={resizingColumnId === column.id ? "true" : undefined}
-              aria-hidden="true"
-              title="Drag to resize the {column.label} column. Double-click fits it to its widest value"
-              onpointerdown={(event) => gripPointerDown(event, column)}
-              ondblclick={(event) => gripDoubleClick(event, column)}
-              onclick={(event) => event.stopPropagation()}
-              ondragstart={(event) => event.preventDefault()}
-            ></span>
-          </th>
+          <!--
+            The header cell IS the menu's trigger region, so the cell is rendered through Bits'
+            delegation snippet: nothing may wrap a `<th>`. Only the colliding props go through the
+            trigger to be merged — the inline style (Bits adds its own) and the contextmenu handler,
+            which stops the event at the cell so a surface listening for a ROW's right-click over
+            the same region (the file manager) never re-targets its selection off a header.
+          -->
+          <ContextMenu.Root>
+            <ContextMenu.Trigger
+              style={[pinned.style, width === undefined ? undefined : `width: ${width}px`]
+                .filter(Boolean)
+                .join("; ") || undefined}
+              oncontextmenu={(event: MouseEvent) => event.stopPropagation()}
+            >
+              {#snippet child({ props })}
+                <th
+                  bind:this={headerCells[column.id]}
+                  {...props}
+                  scope="col"
+                  class="mc-table-head mc-table-grid-head"
+                  data-grid-column={column.id}
+                  data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
+                  data-pinned={pinned["data-pinned"]}
+                  data-pinned-edge={pinned["data-pinned-edge"]}
+                  data-pinned-end={pinned["data-pinned-end"]}
+                  data-pinned-end-edge={pinned["data-pinned-end-edge"]}
+                  data-dragging={draggingColumnId === column.id ? "true" : undefined}
+                  data-drop={dropTarget?.columnId === column.id
+                    ? dropTarget.after
+                      ? "after"
+                      : "before"
+                    : undefined}
+                  aria-sort={ariaSortOf(column.id)}
+                  draggable={column.anchored || column.pinnedEnd === true ? undefined : true}
+                  ondragstart={(event) => {
+                    if (column.anchored || column.pinnedEnd === true) return;
+                    draggingColumnId = column.id;
+                    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+                  }}
+                  ondragend={() => {
+                    draggingColumnId = null;
+                    dropTarget = null;
+                  }}
+                  ondragover={(event) => headDragOver(event, column)}
+                  ondragleave={() => {
+                    if (dropTarget?.columnId === column.id) dropTarget = null;
+                  }}
+                  ondrop={(event) => headDrop(event, column)}
+                >
+                  <span class="mc-table-grid-head-inner">
+                    <button
+                      type="button"
+                      class="mc-table-grid-sort"
+                      title="Sort by {column.label}. Right-click the header for its column controls"
+                      onclick={() => grid.toggleSort(column.id)}
+                    >
+                      {column.label}
+                      <span class="mc-table-grid-sort-arrow">
+                        {#if grid.sortColumnId === column.id}
+                          {#if grid.sortDirection === "ascending"}
+                            <ArrowUp class="mc-table-grid-sort-arrow" aria-hidden="true" />
+                          {:else}
+                            <ArrowDown class="mc-table-grid-sort-arrow" aria-hidden="true" />
+                          {/if}
+                        {/if}
+                      </span>
+                    </button>
+                    <!--
+                      The filter's MARK, not its control: it says a filter is in play on this column
+                      and nothing else, so the cell holds only the column's name and its state. The
+                      slot is reserved whether or not it shows, so a filter appearing moves nothing.
+                    -->
+                    <span
+                      class="mc-table-grid-filter-mark"
+                      data-active={grid.filterFor(column.id) === undefined ? undefined : "true"}
+                      title={filterMarkTitle(column)}
+                    >
+                      {#if grid.filterFor(column.id) !== undefined}
+                        <Funnel class="mc-table-filter-icon" aria-hidden="true" />
+                        <span class="sr-only">{column.label} is filtered</span>
+                      {/if}
+                    </span>
+                  </span>
+                  <span
+                    class="mc-table-grid-grip"
+                    data-resizing={resizingColumnId === column.id ? "true" : undefined}
+                    aria-hidden="true"
+                    title="Drag to resize the {column.label} column. Double-click fits it to its widest value"
+                    onpointerdown={(event) => gripPointerDown(event, column)}
+                    ondblclick={(event) => gripDoubleClick(event, column)}
+                    onclick={(event) => event.stopPropagation()}
+                    ondragstart={(event) => event.preventDefault()}
+                  ></span>
+                </th>
+              {/snippet}
+            </ContextMenu.Trigger>
+            <GridHeadMenu {grid} {column} {settings} />
+          </ContextMenu.Root>
         {/each}
       </tr>
     </thead>
@@ -365,45 +484,65 @@
         {#each Array.from({ length: skeletonRowCount }, (_, index) => index) as skeletonRow (skeletonRow)}
           <tr class="mc-table-row">
             {#each grid.visibleColumns as column (column.id)}
-              <td class="mc-table-cell mc-table-grid-cell"
-                ><Skeleton class="mc-table-skeleton w-full" /></td
+              {@const pinned = pinnedAttributes(column.id)}
+              <td
+                class="mc-table-cell mc-table-grid-cell"
+                data-pinned={pinned["data-pinned"]}
+                data-pinned-edge={pinned["data-pinned-edge"]}
+                data-pinned-end={pinned["data-pinned-end"]}
+                data-pinned-end-edge={pinned["data-pinned-end-edge"]}
+                style={pinned.style}><Skeleton class="mc-table-skeleton w-full" /></td
               >
             {/each}
           </tr>
         {/each}
       {:else if grid.rowsInView.length === 0 && grid.isFiltered}
         <tr class="mc-table-row">
-          <td class="mc-table-cell mc-table-grid-cell" colspan={grid.visibleColumns.length}>
-            <div class="mc-table-grid-empty">
-              <p>
-                No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
-                the {grid.activeFilterCount === 1 ? "filter" : "filters"} on
-                {grid.activeFilterLabels.join(", ")}. All {grid.totalRowCount}
-                {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} are hidden.
-              </p>
-              <Button variant="secondary" size="sm" onclick={() => grid.clearAllFilters()}>
-                <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
-                Clear All Filters
-              </Button>
+          <td
+            class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
+            colspan={grid.visibleColumns.length}
+          >
+            <div class="mc-table-grid-placeholder-frame">
+              <div class="mc-table-grid-empty">
+                <p>
+                  No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
+                  the {grid.activeFilterCount === 1 ? "filter" : "filters"} on
+                  {grid.activeFilterLabels.join(", ")}. All {grid.totalRowCount}
+                  {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} are hidden.
+                </p>
+                <Button variant="secondary" size="sm" onclick={() => grid.clearAllFilters()}>
+                  <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
+                  Clear All Filters
+                </Button>
+              </div>
             </div>
           </td>
         </tr>
       {:else if grid.rowsInView.length === 0}
         <tr class="mc-table-row">
-          <td class="mc-table-cell mc-table-grid-cell" colspan={grid.visibleColumns.length}>
-            {#if empty}
-              {@render empty()}
-            {:else}
-              <div class="mc-table-grid-empty">
-                <p>No {grid.itemNoun.plural} yet.</p>
-              </div>
-            {/if}
+          <td
+            class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
+            colspan={grid.visibleColumns.length}
+          >
+            <!-- The surface's own empty state renders inside the SAME frame as the built-in one,
+                 so a composed empty state centres in the visible width exactly as the default
+                 does. A surface cannot get this wrong, because it does not supply it. -->
+            <div class="mc-table-grid-placeholder-frame">
+              {#if empty}
+                {@render empty()}
+              {:else}
+                <div class="mc-table-grid-empty">
+                  <p>No {grid.itemNoun.plural} yet.</p>
+                </div>
+              {/if}
+            </div>
           </td>
         </tr>
       {:else}
         {#each grid.rowsInView as row, rowIndex (rowKeyOf(row))}
           {@const key = rowKeyOf(row)}
           {@const mark = grid.markFor(row)}
+          {@const stripe = rowIndex % 2 === 1 ? ("even" as const) : undefined}
           {#if grid.pinnedRowCount > 0 && rowIndex === grid.pinnedRowCount}
             <!-- The rule that separates the pinned block from the list: pinned items sit above
                  EVERYTHING, not above their own kind, and the rule is what says so. -->
@@ -415,10 +554,14 @@
             class="mc-table-row"
             data-grid-row={key}
             data-state={grid.isSelected(key) ? "selected" : undefined}
+            data-stripe={stripe}
+            data-pair-hover={pairHoverOf(key)}
             {...gridRowMarkAttributes(mark)}
             onclick={(event) => rowClick(event, key)}
             ondblclick={() => rowDoubleClick(key)}
             oncontextmenu={(event) => rowContextMenu(event, row)}
+            onpointerenter={rowDetail ? () => (hoveredPairKey = key) : undefined}
+            onpointerleave={rowDetail ? () => (hoveredPairKey = null) : undefined}
           >
             {#each grid.visibleColumns as column, columnIndex (column.id)}
               {@const pinned = pinnedAttributes(column.id)}
@@ -428,6 +571,8 @@
                 data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
                 data-pinned={pinned["data-pinned"]}
                 data-pinned-edge={pinned["data-pinned-edge"]}
+                data-pinned-end={pinned["data-pinned-end"]}
+                data-pinned-end-edge={pinned["data-pinned-end-edge"]}
                 style={pinned.style}
               >
                 {#if columnIndex === 0 && mark?.pinned === true}
@@ -445,6 +590,39 @@
               </td>
             {/each}
           </tr>
+          {#if rowDetail}
+            <!-- The record's second line: one cell across the scrolling columns, carrying the
+                 hairline the primary line gave up — the pair reads as one row of two lines. -->
+            <tr
+              class="mc-table-grid-detail-row"
+              data-grid-detail-row={key}
+              data-state={grid.isSelected(key) ? "selected" : undefined}
+              data-stripe={stripe}
+              data-pair-hover={pairHoverOf(key)}
+              {...gridRowMarkAttributes(mark)}
+              onclick={(event) => rowClick(event, key)}
+              ondblclick={() => rowDoubleClick(key)}
+              oncontextmenu={(event) => rowContextMenu(event, row)}
+              onpointerenter={() => (hoveredPairKey = key)}
+              onpointerleave={() => (hoveredPairKey = null)}
+            >
+              <td
+                class="mc-table-cell mc-table-grid-cell mc-table-grid-detail-cell"
+                colspan={grid.visibleColumns.length - pinnedEndColumns.length}
+              >
+                {@render rowDetail(row)}
+              </td>
+              {#if pinnedEndColumns.length > 0}
+                <!-- An empty pinned cell keeps the trailing column's hairline continuous. -->
+                <td
+                  class="mc-table-cell mc-table-grid-cell mc-table-grid-detail-pinned-cell"
+                  colspan={pinnedEndColumns.length}
+                  data-pinned-end="true"
+                  data-pinned-end-edge="true"
+                ></td>
+              {/if}
+            </tr>
+          {/if}
         {/each}
       {/if}
     </tbody>
@@ -457,6 +635,8 @@
               class="mc-table-grid-total-cell"
               data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
               data-pinned={pinned["data-pinned"]}
+              data-pinned-end={pinned["data-pinned-end"]}
+              data-pinned-end-edge={pinned["data-pinned-end-edge"]}
               style={pinned.style}
             >
               {#if columnIndex === 0}

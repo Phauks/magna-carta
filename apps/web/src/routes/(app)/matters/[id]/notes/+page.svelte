@@ -33,6 +33,7 @@
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import NoteDeleteDialog from "$lib/matters/note-delete-dialog.svelte";
   import NoteRecordWindow from "$lib/matters/note-record-window.svelte";
   import { attachableFoldersFor } from "$lib/matters/note-attachable-documents.ts";
@@ -259,13 +260,12 @@
   {/if}
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>Notes Unavailable</Alert.Title>
-      <Alert.Description>
-        {failure} The record itself is unaffected: nothing was changed by this failure.
-      </Alert.Description>
-    </Alert.Root>
-    <Button class="self-start" variant="secondary" onclick={refresh}>Retry</Button>
+    <FailureNotice
+      {failure}
+      title="Notes Unavailable"
+      fallback="The notes on this matter could not be read."
+      onRetry={refresh}
+    />
   {/if}
 
   <div class="flex min-h-0 flex-1 flex-col gap-8">

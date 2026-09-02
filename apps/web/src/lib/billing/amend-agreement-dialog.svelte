@@ -15,14 +15,15 @@
    * the control opens unanswered and the act is refused until somebody answers it.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
-  import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import SquarePen from "@lucide/svelte/icons/square-pen";
   import {
-    billingFailureText,
+    billingFailure,
     setArrangement,
     type ArrangementKind,
     type ArrangementRecord,
@@ -81,14 +82,12 @@
   let shareText = $state("");
   let retainerTargetText = $state("");
   let retainerFloorText = $state("");
-  let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   const inForce = $derived(arrangement?.inForce ?? null);
   const nextVersion = $derived((inForce?.version ?? 0) + 1);
 
-  $effect(() => {
-    if (!open) return;
+  function reset(): void {
     kindValue = inForce?.kind ?? "hourly";
     validFrom = civilToday();
     depositValue = UNANSWERED;
@@ -98,7 +97,7 @@
     retainerTargetText = "";
     retainerFloorText = "";
     failure = null;
-  });
+  }
 
   const kind = $derived(
     (ARRANGEMENT_KINDS.find((candidate) => candidate === kindValue) ?? "hourly") as ArrangementKind,
@@ -109,7 +108,7 @@
   const targetReading = $derived(readAmountMinor(retainerTargetText));
   const floorReading = $derived(readAmountMinor(retainerFloorText));
 
-  const refusal = $derived.by((): string | null => {
+  const refusal = $derived.by((): string | undefined => {
     if (validFrom === "") return "Say when the amendment takes effect.";
     if (takesAdvanceDeposit(kind) && depositValue === UNANSWERED) {
       return "Say where the advance deposit sits. It is recorded, never defaulted.";
@@ -131,7 +130,7 @@
       if (floorReading.kind === "empty") return "Say the balance a replenishment is asked at.";
       if (floorReading.kind === "refused") return floorReading.reason;
     }
-    return null;
+    return undefined;
   });
 
   function composeRequest(): ArrangementRequest {
@@ -153,157 +152,162 @@
     return request;
   }
 
-  async function record(): Promise<void> {
-    if (working || refusal !== null) return;
-    working = true;
+  async function record(): Promise<ActionOutcome> {
     failure = null;
     const outcome = await setArrangement(fetch, matterId, composeRequest(), crypto.randomUUID());
-    working = false;
     if (outcome.kind === "ok") {
-      open = false;
+
       onRecorded(outcome.value);
-      return;
+      return "committed";
     }
-    failure = billingFailureText(outcome, "The agreement is unchanged.");
+    failure = billingFailure(outcome, "The agreement is unchanged.");
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false} class="max-w-2xl">
-    <Dialog.Title>Amend Agreement</Dialog.Title>
-    <Dialog.Description>
-      Records version {nextVersion}.{inForce === null
-        ? " Nothing was recorded before, so the matter has been billed hourly by absence."
-        : ` Version ${inForce.version} stays on the record with the dates it governed.`}
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  heading="Amend Agreement"
+  commitLabel="Record Amendment"
+  commitBusyLabel="Recording"
+  commitRefusal={refusal}
+  width="wide"
+  unsavedChanges={
+    flatFeeText !== "" ||
+    shareText !== "" ||
+    retainerTargetText !== "" ||
+    retainerFloorText !== "" ||
+    depositValue !== UNANSWERED ||
+    basisValue !== UNANSWERED
+  }
+  onOpen={reset}
+  onCommit={record}
+>
+  {#snippet subtitle()}
+    Records version {nextVersion}.{inForce === null
+      ? " Nothing was recorded before, so the matter has been billed hourly by absence."
+      : ` Version ${inForce.version} stays on the record with the dates it governed.`}
+  {/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Recorded</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Recorded"
+        fallback={failure.fallback}
+      />
     {/if}
+  {/snippet}
 
-    <div class="flex flex-col gap-16">
-      <div class="grid gap-12 sm:grid-cols-3">
-        <div class="flex flex-col gap-8">
-          <Label id="{fieldPrefix}-kind-label">Billed As</Label>
-          <Select.Root
-            type="single"
-            items={KIND_ITEMS}
-            bind:value={kindValue}
-            allowDeselect={false}
-            disabled={working}
-          >
-            <Select.Trigger aria-labelledby="{fieldPrefix}-kind-label">
-              <Select.Value />
-            </Select.Trigger>
-            <Select.Content>
-              {#each KIND_ITEMS as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-        <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-from">Effective From</Label>
-          <Input id="{fieldPrefix}-from" type="date" disabled={working} bind:value={validFrom} />
-        </div>
-        {#if takesAdvanceDeposit(kind)}
+  {#snippet fields({ busy })}
+      <div class="flex flex-col gap-16">
+        <div class="grid gap-12 sm:grid-cols-3">
           <div class="flex flex-col gap-8">
-            <Label id="{fieldPrefix}-deposit-label">Advance Deposit Sits In</Label>
+            <Label id="{fieldPrefix}-kind-label">Billed As</Label>
             <Select.Root
               type="single"
-              items={DEPOSIT_ITEMS}
-              bind:value={depositValue}
+              items={KIND_ITEMS}
+              bind:value={kindValue}
               allowDeselect={false}
-              disabled={working}
+              disabled={busy}
             >
-              <Select.Trigger aria-labelledby="{fieldPrefix}-deposit-label">
+              <Select.Trigger aria-labelledby="{fieldPrefix}-kind-label">
                 <Select.Value />
               </Select.Trigger>
               <Select.Content>
-                {#each DEPOSIT_ITEMS as item (item.value)}
+                {#each KIND_ITEMS as item (item.value)}
                   <Select.Item value={item.value} label={item.label} />
                 {/each}
               </Select.Content>
             </Select.Root>
           </div>
+          <div class="flex flex-col gap-8">
+            <Label for="{fieldPrefix}-from">Effective From</Label>
+            <Input id="{fieldPrefix}-from" type="date" disabled={busy} bind:value={validFrom} />
+          </div>
+          {#if takesAdvanceDeposit(kind)}
+            <div class="flex flex-col gap-8">
+              <Label id="{fieldPrefix}-deposit-label">Advance Deposit Sits In</Label>
+              <Select.Root
+                type="single"
+                items={DEPOSIT_ITEMS}
+                bind:value={depositValue}
+                allowDeselect={false}
+                disabled={busy}
+              >
+                <Select.Trigger aria-labelledby="{fieldPrefix}-deposit-label">
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  {#each DEPOSIT_ITEMS as item (item.value)}
+                    <Select.Item value={item.value} label={item.label} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+          {/if}
+        </div>
+
+        {#if kind === "flat_fee"}
+          <div class="grid gap-12 sm:grid-cols-3">
+            <div class="flex flex-col gap-8">
+              <Label for="{fieldPrefix}-flat">Flat Fee</Label>
+              <Input id="{fieldPrefix}-flat" disabled={busy} bind:value={flatFeeText} />
+            </div>
+          </div>
+        {:else if kind === "contingency"}
+          <div class="grid gap-12 sm:grid-cols-3">
+            <div class="flex flex-col gap-8">
+              <Label for="{fieldPrefix}-share">Share of Recovery</Label>
+              <Input id="{fieldPrefix}-share" disabled={busy} bind:value={shareText} />
+              <p class="text-xs text-text-muted">As a percentage, such as 33.33.</p>
+            </div>
+            <div class="flex flex-col gap-8 sm:col-span-2">
+              <Label id="{fieldPrefix}-basis-label">Costs and the Fee</Label>
+              <Select.Root
+                type="single"
+                items={BASIS_ITEMS}
+                bind:value={basisValue}
+                allowDeselect={false}
+                disabled={busy}
+              >
+                <Select.Trigger aria-labelledby="{fieldPrefix}-basis-label">
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  {#each BASIS_ITEMS as item (item.value)}
+                    <Select.Item value={item.value} label={item.label} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+          </div>
+        {:else if kind === "retainer"}
+          <div class="grid gap-12 sm:grid-cols-3">
+            <div class="flex flex-col gap-8">
+              <Label for="{fieldPrefix}-target">Retainer Target</Label>
+              <Input id="{fieldPrefix}-target" disabled={busy} bind:value={retainerTargetText} />
+            </div>
+            <div class="flex flex-col gap-8">
+              <Label for="{fieldPrefix}-floor">Replenish Below</Label>
+              <Input id="{fieldPrefix}-floor" disabled={busy} bind:value={retainerFloorText} />
+            </div>
+          </div>
+        {:else}
+          <p class="text-xs text-text-muted">
+            Nothing else to record: rates resolve per timekeeper from the firm&rsquo;s rate cards in
+            force on each work date.
+          </p>
         {/if}
-      </div>
 
-      {#if kind === "flat_fee"}
-        <div class="grid gap-12 sm:grid-cols-3">
-          <div class="flex flex-col gap-8">
-            <Label for="{fieldPrefix}-flat">Flat Fee</Label>
-            <Input id="{fieldPrefix}-flat" disabled={working} bind:value={flatFeeText} />
-          </div>
-        </div>
-      {:else if kind === "contingency"}
-        <div class="grid gap-12 sm:grid-cols-3">
-          <div class="flex flex-col gap-8">
-            <Label for="{fieldPrefix}-share">Share of Recovery</Label>
-            <Input id="{fieldPrefix}-share" disabled={working} bind:value={shareText} />
-            <p class="text-xs text-text-muted">As a percentage, such as 33.33.</p>
-          </div>
-          <div class="flex flex-col gap-8 sm:col-span-2">
-            <Label id="{fieldPrefix}-basis-label">Costs and the Fee</Label>
-            <Select.Root
-              type="single"
-              items={BASIS_ITEMS}
-              bind:value={basisValue}
-              allowDeselect={false}
-              disabled={working}
-            >
-              <Select.Trigger aria-labelledby="{fieldPrefix}-basis-label">
-                <Select.Value />
-              </Select.Trigger>
-              <Select.Content>
-                {#each BASIS_ITEMS as item (item.value)}
-                  <Select.Item value={item.value} label={item.label} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-        </div>
-      {:else if kind === "retainer"}
-        <div class="grid gap-12 sm:grid-cols-3">
-          <div class="flex flex-col gap-8">
-            <Label for="{fieldPrefix}-target">Retainer Target</Label>
-            <Input id="{fieldPrefix}-target" disabled={working} bind:value={retainerTargetText} />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="{fieldPrefix}-floor">Replenish Below</Label>
-            <Input id="{fieldPrefix}-floor" disabled={working} bind:value={retainerFloorText} />
-          </div>
-        </div>
-      {:else}
-        <p class="text-xs text-text-muted">
-          Nothing else to record: rates resolve per timekeeper from the firm&rsquo;s rate cards in
-          force on each work date.
+        <p class="text-xs text-text-muted">{amendmentNote(kind)}</p>
+
+        <!-- What recording actually does. It sat in the action bar before the shell owned that bar;
+             it is content rather than a control, so it reads here with the rest. -->
+        <p class="text-xs text-text-subtle">
+          Records a new version, in force from the effective date. Every bill names the version it
+          was composed under.
         </p>
-      {/if}
-
-      <p class="text-xs text-text-muted">{amendmentNote(kind)}</p>
-    </div>
-
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <span class="mr-auto max-w-sm text-xs text-text-subtle">
-        Records a new version, in force from the effective date. Every bill names the version it was
-        composed under.
-      </span>
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        disabled={working || refusal !== null}
-        title={refusal ?? "Record this amendment as a new version"}
-        onclick={() => void record()}
-      >
-        <SquarePen class="size-16" aria-hidden="true" />
-        {working ? "Recording" : "Record Amendment"}
-      </Button>
-    </div>
-    {#if refusal !== null}
-      <p class="text-right text-xs text-text-muted">{refusal}</p>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+      </div>
+  {/snippet}
+</ActionDialog>

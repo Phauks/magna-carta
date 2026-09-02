@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { ApiOutcome, Page } from "../src/lib/api/request.ts";
+import {
+  problemOutcome,
+  transportOutcome,
+  type ApiOutcome,
+  type Page,
+} from "../src/lib/api/request.ts";
 import { PagedList } from "../src/lib/matters/paged-list.svelte.ts";
 
 interface Row {
@@ -60,27 +65,60 @@ describe("a paged section list", () => {
   it("keeps the rows already read when a FURTHER page fails", async () => {
     // They were read successfully and are still true. Only the first page has nothing to keep.
     const list = new PagedList<Row>("The costs could not be read.");
-    const { read } = reader(ok(["a"], "CURSOR-1"), { kind: "transport" });
+    const { read } = reader(ok(["a"], "CURSOR-1"), transportOutcome("GET /costs"));
     list.reset("matter_1");
     await list.load(read);
 
     await list.loadMore(read);
     expect(list.items?.map((row) => row.id)).toEqual(["a"]);
-    expect(list.failure).toBe("Nothing answered. The costs could not be read.");
+    expect(list.failureMessage).toBe("Nothing answered. The costs could not be read.");
   });
 
   it("says the server's own words when it sent any, and its own when it did not", async () => {
     const withDetail = new PagedList<Row>("fallback");
     withDetail.reset("matter_1");
     await withDetail.load(() =>
-      Promise.resolve({ kind: "problem", problem: { status: 403, detail: "Not your matter." } }),
+      Promise.resolve(
+        problemOutcome({ status: 403, detail: "Not your matter." }, "GET /matters/mat_1"),
+      ),
     );
-    expect(withDetail.failure).toBe("Not your matter.");
+    expect(withDetail.failureMessage).toBe("Not your matter.");
 
     const without = new PagedList<Row>("fallback");
     without.reset("matter_1");
-    await without.load(() => Promise.resolve({ kind: "problem", problem: { status: 500 } }));
-    expect(without.failure).toBe("fallback");
+    await without.load(() =>
+      Promise.resolve(problemOutcome({ status: 500 }, "GET /matters/mat_1")),
+    );
+    expect(without.failureMessage).toBe("fallback");
+  });
+
+  it("keeps the whole failure, not a sentence squeezed out of it", async () => {
+    // The field used to be a string, which made every surface built on this class incapable of
+    // showing an Error ID however its own template was written.
+    const list = new PagedList<Row>("fallback");
+    list.reset("matter_1");
+    await list.load(() =>
+      Promise.resolve(
+        problemOutcome(
+          { status: 503, errorId: "error_7FQ2K9XW", detail: "The costs service is away." },
+          "GET /matters/mat_1/costs",
+        ),
+      ),
+    );
+
+    expect(list.failureErrorId).toBe("error_7FQ2K9XW");
+    expect(list.failure?.request).toBe("GET /matters/mat_1/costs");
+    expect(list.failure?.problem?.status).toBe(503);
+    expect(list.failureGuidance?.remedy.kind).toBe("retry");
+  });
+
+  it("offers no retry for a refusal that would refuse identically", async () => {
+    const list = new PagedList<Row>("fallback");
+    list.reset("matter_1");
+    await list.load(() =>
+      Promise.resolve(problemOutcome({ status: 403, errorId: "error_X" }, "GET /matters/mat_1")),
+    );
+    expect(list.failureGuidance?.remedy.kind).toBe("none");
   });
 
   it("discards a page that resolves after the subject changed", async () => {

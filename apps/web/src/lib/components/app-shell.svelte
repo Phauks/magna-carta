@@ -19,7 +19,7 @@
    *
    * Top-bar seams stay seams: +New renders nothing until its slice ships — the Actions region
    * reserves its geometry; the shell never fakes function. The notification bell IS a real (if
-   * empty) surface — its honesty is the empty state, not a badge. The Time Keeper is live: it
+   * empty) surface — its honesty is the empty state, not a badge. The Time Sheet's handle is live: it
    * reads the firm's timer, and opens the firm-wide Time Sheet over whatever is on screen.
    */
   import { page } from "$app/state";
@@ -480,15 +480,15 @@
               </a>
             </Popover.Content>
           </Popover.Root>
-          <!-- The Time Keeper — a WIDGET, not an icon button (owner-corrected): the running-
-               timer chip from the approved mockups, a hairline chip with a tabular elapsed
-               readout. It is live: the chip reads the firm's timer, and pressing it opens the
-               Time Sheet over whatever is on screen, firm-wide, because capture must never cost
-               a person the place they were working. Its anatomy and every read it makes belong
-               to the Time surface ($lib/time/time-keeper-chip.svelte); the shell seats it and
-               does nothing else with it. -->
+          <!-- The Time Sheet's handle: a tabular elapsed readout that reads the firm's timer, and
+               opens the sheet over whatever is on screen, firm-wide, because capture must never
+               cost a person the place they were working. It wears the same quiet chrome as the
+               tray and the bell beside it — no border of its own — because three controls sitting
+               in one band and one of them boxed reads as a control of a different kind. Its
+               anatomy and every read it makes belong to the Time surface
+               ($lib/time/time-keeper-chip.svelte); the shell seats it and does nothing else with it. -->
           <TimeKeeperChip />
-          <!-- The download tray, seated beside the Time Keeper on the owner's direction: what the
+          <!-- The download tray, seated beside the Time Sheet's handle on the owner's direction: what the
                platform has made for this member, reachable from the top of the app rather than only
                from the sidebar row. Clicking it gives the overview and offers the full register at
                the bottom. Deliberately NOT a transfer manager — bytes move over a presigned URL the

@@ -15,6 +15,7 @@
    * localStorage rather than on the member's record.
    */
   import { onMount } from "svelte";
+  import { guidanceFor } from "$lib/diagnostics/guidance.ts";
   import Download from "@lucide/svelte/icons/download";
   import * as Popover from "@magna-carta/design-system/popover";
   import { toast } from "@magna-carta/design-system/toast";
@@ -119,11 +120,9 @@
     const format = item.downloadedFormats[0] ?? "xlsx";
     const outcome = await fetchShelfItem(fetch, item.id, format);
     if (outcome.kind !== "ok") {
-      toast.error(
-        outcome.kind === "problem"
-          ? (outcome.problem.detail ?? "That download could not be taken.")
-          : "Nothing answered the request. Check your connection, then try again.",
-      );
+      // A toast has nowhere to put a handle or a remedy, so it takes the presenter's sentence
+      // rather than the whole record — the wording rules still apply, the furniture does not fit.
+      toast.error(guidanceFor(outcome.failure, "That download").message);
       markShelfChanged();
       return;
     }

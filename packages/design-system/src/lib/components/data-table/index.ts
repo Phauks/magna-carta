@@ -14,10 +14,7 @@
  */
 import Root from "./table.svelte";
 import Grid from "./data-table-grid.svelte";
-import GridColumnsMenu from "./data-table-grid-columns-menu.svelte";
-import GridColumnsContextMenu from "./data-table-grid-columns-context-menu.svelte";
 import GridFooter from "./data-table-grid-footer.svelte";
-import GridColumnFilterControl from "./data-table-grid-filter.svelte";
 import Header from "./table-header.svelte";
 import Body from "./table-body.svelte";
 import Row from "./table-row.svelte";
@@ -119,10 +116,7 @@ export {
 export {
   Root,
   Grid,
-  GridColumnsMenu,
-  GridColumnsContextMenu,
   GridFooter,
-  GridColumnFilterControl,
   Header,
   Body,
   Row,
@@ -136,8 +130,6 @@ export {
   //
   Root as Table,
   Grid as DataTableGrid,
-  GridColumnsMenu as DataTableGridColumnsMenu,
-  GridColumnsContextMenu as DataTableGridColumnsContextMenu,
   GridFooter as DataTableGridFooter,
   Header as TableHeader,
   Body as TableBody,

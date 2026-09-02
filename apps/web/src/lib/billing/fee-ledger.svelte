@@ -27,7 +27,6 @@
    * refused, naming what it waits on.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Resizable from "@magna-carta/design-system/resizable";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -40,7 +39,7 @@
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import Plus from "@lucide/svelte/icons/plus";
   import SquarePen from "@lucide/svelte/icons/square-pen";
-  import { RecordMenu } from "$lib/records/index.ts";
+  import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
   import type { LedgerRecord } from "$lib/records/ledger-record-menu.ts";
   import type { RecordMenuAction, RecordMenuModel } from "$lib/records/record-menu-model.ts";
@@ -344,9 +343,15 @@
   </span>
 {/snippet}
 
-<section class="flex h-full min-h-0 flex-col gap-12">
-  <!-- The arrangement: which version is in force, since when, and the two verbs. -->
-  <div class="flex flex-wrap items-baseline gap-8 text-sm">
+<section class="flex min-h-0 flex-1 flex-col gap-12">
+  <!--
+    ONE ROW. The arrangement's facts lead and every verb this screen has trails them: View and Amend
+    read and change the arrangement, New Fee records against it, and the pane toggle ends the row as
+    it does on every ledger. Two rows split one set of controls across two lines and spent a row of
+    the screen saying nothing — the arrangement is a strip of facts, not a section with a toolbar
+    of its own.
+  -->
+  <div class="flex flex-wrap items-center gap-8 text-sm">
     {#if inForce === null}
       <span class="text-text-muted">
         No arrangement recorded &mdash; this matter is billed hourly.
@@ -358,7 +363,18 @@
         in force since <span class="tabular-nums">{formatDate(inForce.validFrom)}</span>
       </span>
     {/if}
-    <span class="flex flex-1 flex-wrap justify-end gap-8">
+    <span class="flex flex-1 flex-wrap items-center justify-end gap-8">
+      {#if grid.isFiltered}
+        <Button
+          variant="secondary"
+          size="sm"
+          title="Clear all filters and show all {grid.totalRowCount} fees"
+          onclick={() => grid.clearAllFilters()}
+        >
+          <FunnelX class="size-16" aria-hidden="true" />
+          Clear Filters
+        </Button>
+      {/if}
       <Button
         variant="secondary"
         size="sm"
@@ -380,40 +396,27 @@
         <SquarePen class="size-16" aria-hidden="true" />
         Amend
       </Button>
-    </span>
-  </div>
-
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
       <Button
-        variant="secondary"
         size="sm"
-        title="Clear all filters and show all {grid.totalRowCount} fees"
-        onclick={() => grid.clearAllFilters()}
+        title="Record a flat charge for professional services on this matter. It saves as a draft."
+        onclick={openNewFee}
       >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
+        <Plus class="size-16" aria-hidden="true" />
+        New Fee
       </Button>
-    {/if}
-    <Button
-      size="sm"
-      title="Record a flat charge for professional services on this matter. It saves as a draft."
-      onclick={openNewFee}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      New Fee
-    </Button>
-    <DataTable.GridColumnsMenu {grid} />
-    <Button
-      variant="secondary"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
+      <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
+           border of its own, and last in the row on every ledger. -->
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-pressed={panelOpen}
+        title="Show or hide the details panel"
+        aria-label="Show or hide the details panel"
+        onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
+      >
+        <PanelRight class="size-16" aria-hidden="true" />
+      </Button>
+    </span>
   </div>
 
   <!-- The one honest line about why this ledger stands empty: the record it lists is not served. -->
@@ -422,45 +425,41 @@
     {soonDependencySentence(gapReason("store"))}
   </p>
 
-  <div class="min-h-0 flex-1">
-    <Resizable.PaneGroup direction="horizontal" autoSaveId="matter-fees-panes">
-      <Resizable.Pane defaultSize={panelOpen ? 70 : 100} minSize={40}>
-        <RecordMenu
-          {menu}
-          onAction={runMenuAction}
-          onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-        >
-          <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-               product uses everywhere is still the thing that opens. -->
-          <div role="presentation" oncontextmenu={retargetSelection}>
-            <DataTable.Grid
-              {grid}
-              {cell}
-              class="max-h-svh"
-              caption="Fees recorded on this matter"
-              empty={emptyLedger}
-              {loading}
-            />
-          </div>
-        </RecordMenu>
-      </Resizable.Pane>
-      {#if panelOpen}
-        <Resizable.Handle withHandle />
-        <Resizable.Pane defaultSize={30} minSize={20} maxSize={46}>
-          <FeeDetailsPanel
-            {fees}
-            selected={selectedFees}
-            {arrangement}
-            {money}
-            onOpen={(fee) => openRecord(fee, canWorkDraft(fee).allowed)}
-            onPrint={print}
-            onViewArrangement={() => (arrangementOpen = true)}
-            onLetGo={() => grid.clearSelection()}
+  <LedgerPanes autoSaveId="matter-fees-panes" {panelOpen}>
+    {#snippet list()}
+      <RecordMenu
+        class="flex min-h-0 flex-1 flex-col"
+        {menu}
+        onAction={runMenuAction}
+        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+      >
+        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+             product uses everywhere is still the thing that opens. -->
+        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+          <DataTable.Grid
+            {grid}
+            {cell}
+            class="min-h-0 flex-1"
+            caption="Fees recorded on this matter"
+            empty={emptyLedger}
+            {loading}
           />
-        </Resizable.Pane>
-      {/if}
-    </Resizable.PaneGroup>
-  </div>
+        </div>
+      </RecordMenu>
+    {/snippet}
+    {#snippet panel()}
+      <FeeDetailsPanel
+        {fees}
+        selected={selectedFees}
+        {arrangement}
+        {money}
+        onOpen={(fee) => openRecord(fee, canWorkDraft(fee).allowed)}
+        onPrint={print}
+        onViewArrangement={() => (arrangementOpen = true)}
+        onLetGo={() => grid.clearSelection()}
+      />
+    {/snippet}
+  </LedgerPanes>
 
   <DataTable.GridFooter {grid} end={footerEnd} />
 </section>

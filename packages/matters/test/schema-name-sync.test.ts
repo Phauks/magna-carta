@@ -96,6 +96,7 @@ describe("schema name sync (matters SQL pinned to @magna-carta/database)", () =>
           ...FIELDS,
           status: "open",
           matterNumber: "n",
+          consultationNumber: null,
           numberedAt: "t",
           openedAt: "t",
           createdAt: "t",
@@ -113,7 +114,7 @@ describe("schema name sync (matters SQL pinned to @magna-carta/database)", () =>
 
   it("every column the scheme + counter SQL names exists in the schema", () => {
     const stub = stubDatabase();
-    const schemeSql = sqlOf(selectActiveSchemeStatement(stub));
+    const schemeSql = sqlOf(selectActiveSchemeStatement(stub, "matter"));
     expectOnlyKnownIdentifiers(
       schemeSql,
       new Set([NUMBERING_SCHEME_TABLE, ...columnsOf(numberingScheme)]),

@@ -199,6 +199,7 @@ export class TimeSheetStore {
       provisionalCode: provisionalTimeCode(this.#provisionalCount),
       timekeeperUserId: sessionUserId ?? "",
       timekeeperName: me?.displayName ?? "",
+      enteredAt: this.#context.today(),
       currency: this.rows[0]?.currency ?? "USD",
     });
     this.rows = [...this.rows, row];
@@ -243,6 +244,20 @@ export class TimeSheetStore {
     if (row === undefined || row.description === description) return;
     this.history.push("the description on this entry");
     this.#patchRow(key, { description });
+    this.#save(key);
+  }
+
+  /**
+   * Write the firm's own note on the entry.
+   *
+   * It rides the same debounced save as every other cell, and it is the one field on this row that
+   * no client-facing projection selects — not the bill, not the export, not the printed sheet.
+   */
+  setMemo(key: string, memo: string): void {
+    const row = this.rowByKey(key);
+    if (row === undefined || row.memo === memo) return;
+    this.history.push("the internal memo on this entry");
+    this.#patchRow(key, { memo });
     this.#save(key);
   }
 
@@ -314,6 +329,9 @@ export class TimeSheetStore {
               rawDurationMinutes: minutesFromSeconds(row.workedSeconds),
               narrative: row.description.trim(),
               billable: row.billable,
+              // Null clears rather than omits, so a memo emptied on the row is emptied on the
+              // record — an internal note somebody deleted must not survive the save.
+              memo: row.memo.trim() === "" ? null : row.memo,
             },
             writeKey(),
           )
@@ -324,6 +342,7 @@ export class TimeSheetStore {
               narrative: row.description.trim(),
               rawDurationMinutes: minutesFromSeconds(row.workedSeconds),
               workDate: row.workDate,
+              memo: row.memo.trim() === "" ? null : row.memo,
             },
             writeKey(),
           );
@@ -337,11 +356,15 @@ export class TimeSheetStore {
       });
       return;
     }
-    const written = outcome.value as { timeEntryId?: string };
+    // A capture answers with the identity it minted AND the number it drew; an update answers with
+    // the whole entry. Both are read for the number, because the Time Code cell should stop saying
+    // TMP- the moment the firm's own reference exists rather than at the next listing.
+    const written = outcome.value as { timeEntryId?: string; entryNumber?: string | null };
     this.#patchRow(key, {
       saveState: "saved",
       saveFailure: null,
       entryIdentifier: row.entryIdentifier ?? written.timeEntryId ?? null,
+      entryNumber: written.entryNumber ?? row.entryNumber,
     });
     this.#context.onChanged();
   }

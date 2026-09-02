@@ -8,8 +8,10 @@
    * record as evidence of what was withdrawn. A withdrawn cost was never advanced.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as AlertDialog from "@magna-carta/design-system/alert-dialog";
-  import { buttonClasses } from "@magna-carta/design-system/button";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import type { CostLedgerEntry } from "./cost-operations.ts";
   import { voidCost, writeKey } from "./cost-operations.ts";
@@ -27,14 +29,11 @@
     onVoided: () => void;
   } = $props();
 
-  let sending = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
-  $effect(() => {
-    const subject = cost?.id ?? null;
-    if (subject === null) return;
+  function reset(): void {
     failure = null;
-  });
+  }
 
   const identity = $derived(
     cost === null
@@ -42,64 +41,52 @@
       : `${formatDate(cost.incurredDate)} · ${payeeText(cost)} · ${formatMoney(cost.amountMinor / 100, { currency })}`,
   );
 
-  async function withdraw(): Promise<void> {
-    if (cost === null || sending) return;
-    sending = true;
+  async function withdraw(): Promise<ActionOutcome> {
+    if (cost === null) return "refused";
     failure = null;
     const outcome = await voidCost(fetch, cost.id, writeKey());
-    sending = false;
     if (outcome.kind === "ok") {
-      open = false;
       onVoided();
-      return;
+      return "committed";
     }
-    failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The cost was not voided and is unchanged."
-        : `${outcome.problem.detail ?? "The cost was not voided."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    failure = stated(
+      outcome.failure,
+      "The cost was not voided.",
+      "The cost was not voided and is unchanged.",
+    );
+    return "refused";
   }
 </script>
 
-<AlertDialog.Root bind:open>
-  <AlertDialog.Content>
-    <AlertDialog.Title>Void Cost</AlertDialog.Title>
-    <AlertDialog.Description>{identity}</AlertDialog.Description>
+<ActionDialog
+  bind:open
+  kind="destructive"
+  heading="Void Cost"
+  commitLabel="Void Cost"
+  commitBusyLabel="Voiding"
+  commitRefusal={cost === null ? "No cost is open." : undefined}
+  unsavedChanges={false}
+  onOpen={reset}
+  onCommit={withdraw}
+>
+  {#snippet subtitle()}{identity}{/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Changed</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Changed"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
     {/if}
+  {/snippet}
 
+  {#snippet fields()}
     <p class="text-sm">
       The cost freezes and stops counting toward the matter&rsquo;s totals: a withdrawn cost was
       never advanced. It stays on the record, struck through, with everything it recorded. Nothing
       is deleted.
     </p>
-
-    <div class="flex justify-end gap-8">
-      <AlertDialog.Cancel
-        class={buttonClasses({ variant: "secondary", size: "default" })}
-        disabled={sending}
-      >
-        Cancel
-      </AlertDialog.Cancel>
-      <!-- Bits' Action does not self-close: the write decides when the panel goes, so a refusal
-           stays on screen with its reason rather than closing over it. -->
-      <AlertDialog.Action
-        class={buttonClasses({ variant: "destructive", size: "default" })}
-        disabled={sending}
-        title="Freeze this cost and take it out of every total"
-        onclick={(event) => {
-          event.preventDefault();
-          void withdraw();
-        }}
-      >
-        Void Cost
-      </AlertDialog.Action>
-    </div>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+  {/snippet}
+</ActionDialog>
