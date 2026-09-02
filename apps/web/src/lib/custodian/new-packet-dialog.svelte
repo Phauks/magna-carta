@@ -20,9 +20,10 @@
    * holding means relabelling objects in a safe. That is the one case the form takes a number, and
    * it says which case it is rather than offering a number field to everybody.
    */
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -70,7 +71,6 @@
      just chose them. */
   let depositorName = $state<string | null>(null);
   let carriedIn = $state(false);
-  let submitting = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
   const options = $derived(custodyLocationOptions(locations));
@@ -78,7 +78,22 @@
     options.map((option) => ({ value: option.id, label: option.path })),
   );
   const shortfalls = $derived(packetDraftShortfalls(draft));
-  const ready = $derived(packetDraftReady(draft));
+
+  /*
+   * Why the commit is unavailable, or undefined when it is available. The window shows this beside
+   * the control it refuses rather than hiding the control, so a reader is told which of the three
+   * required answers is still missing instead of hunting for it.
+   */
+  const refusal = $derived(packetDraftReady(draft) ? undefined : shortfalls[0]);
+
+  /** Whether anything has been entered. A blank form has nothing to lose, so leaving never asks. */
+  const started = $derived(
+    draft.name.trim() !== "" ||
+      draft.owners.length > 0 ||
+      draft.locationId !== null ||
+      draft.notes.trim() !== "" ||
+      draft.depositorEntityId !== null,
+  );
 
   /** The deposit date as a calendar date, or undefined while it is empty or half-entered. */
   const depositedAtValue = $derived.by(() => {
@@ -143,19 +158,14 @@
     if (!carriedIn) draft.manualCustodyNumber = "";
   });
 
-  async function submit(): Promise<void> {
-    if (!ready || submitting) return;
-    submitting = true;
+  async function submit(): Promise<ActionOutcome> {
     failure = null;
     // A retried submit must not draw a second custody number for one envelope, so every attempt
     // carries its own key and the server answers the repeat with the first result.
     const outcome = await createCustodyPacket(fetch, packetDraftRequest(draft), crypto.randomUUID());
-    submitting = false;
     if (outcome.kind === "ok") {
       onCreated(outcome.value);
-      reset();
-      open = false;
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
@@ -164,23 +174,42 @@
       // to press the button again needs: no number was drawn, so pressing again logs one packet.
       "Nothing answered. Nothing was logged, so no number was drawn.",
     );
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-2xl">
+<ActionDialog
+  bind:open
+  heading="New Packet"
+  commitLabel="Log Packet"
+  commitBusyLabel="Logging"
+  commitRefusal={refusal}
+  width="wide"
+  unsavedChanges={started}
+  onOpen={reset}
+  onCommit={submit}
+>
+  {#snippet subtitle()}
+    The physical thing the firm is taking into safekeeping. What is inside it is described
+    afterwards, item by item.
+  {/snippet}
+
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="The Packet Was Not Logged"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Dialog.Title>New Packet</Dialog.Title>
-        <Dialog.Description>
-          The physical thing the firm is taking into safekeeping. What is inside it is described
-          afterwards, item by item.
-        </Dialog.Description>
-      </div>
-
-      <div class="flex flex-col gap-8">
         <Label for="new-packet-name">Name</Label>
-        <Input id="new-packet-name" bind:value={draft.name} />
+        <Input id="new-packet-name" disabled={busy} bind:value={draft.name} />
       </div>
 
       <div class="flex flex-col gap-8">
@@ -191,7 +220,7 @@
           value={draft.locationId ?? ""}
           onValueChange={(value) => (draft.locationId = value === "" ? null : value)}
           allowDeselect={false}
-          disabled={locationItems.length === 0}
+          disabled={busy || locationItems.length === 0}
         >
           <Select.Trigger aria-labelledby="new-packet-location-label">
             <Select.Value placeholder={placeholderOf("Container")} />
@@ -277,45 +306,22 @@
 
       <div class="flex flex-col gap-8">
         <Label for="new-packet-notes">Notes</Label>
-        <Textarea id="new-packet-notes" rows={2} bind:value={draft.notes} />
+        <Textarea id="new-packet-notes" rows={2} disabled={busy} bind:value={draft.notes} />
       </div>
 
       <div class="flex flex-col gap-8">
         <label class="flex items-center gap-8">
-          <Checkbox bind:checked={carriedIn} />
+          <Checkbox disabled={busy} bind:checked={carriedIn} />
           <span>Carried in from an earlier register</span>
         </label>
         {#if carriedIn}
           <Input
             aria-label="The number already written on this packet"
+            disabled={busy}
             bind:value={draft.manualCustodyNumber}
           />
         {/if}
       </div>
-
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Packet Was Not Logged"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex items-center justify-end gap-8">
-        {#if shortfalls[0] !== undefined}
-          <span class="me-auto text-xs text-text-muted">{shortfalls[0]}</span>
-        {/if}
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button variant="primary" disabled={!ready || submitting} onclick={submit}>
-          {submitting ? "Logging" : "Log Packet"}
-        </Button>
-      </div>
     </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

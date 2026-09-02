@@ -1,3 +1,4 @@
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite-plus";
 
 // Two projects:
@@ -11,6 +12,10 @@ import { defineConfig } from "vite-plus";
 // root is pinned to this package so the repo-root `vp test` resolves this project's tests from here.
 export default defineConfig({
   root: import.meta.dirname,
+  // Also at the top level, not only on the "unit" project below: from the repo root this file
+  // contributes ONLY its top-level fallback (see the note on `include`), so a plugin declared just
+  // on the project is invisible to `pnpm test` and a runes module fails there while passing here.
+  plugins: [svelte()],
   test: {
     // The repo-root fallback's include, EXPLICIT (mirrors the "unit" project below): Vitest's
     // default include matches **/*.spec.ts, which would sweep the Playwright visual-regression
@@ -20,6 +25,12 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     projects: [
       {
+        // The base Svelte compiler plugin (not SvelteKit's), for the same reason apps/web's own
+        // vitest config carries it: a `.svelte.ts` module is runes source, and without a transform
+        // for it `$state` reaches Node as a bare identifier and throws. The package has no
+        // vite.config.ts on purpose — that note is about the Storybook pipeline's plugin ORDER, and
+        // this is a plugin on the unit project alone, which never runs a dev server or a build.
+        plugins: [svelte()],
         test: {
           name: "unit",
           root: import.meta.dirname,
