@@ -1,7 +1,8 @@
 # Directory Linking — One Way to Name a Person Anywhere, and the Matter's Parties Built On It
 
 **Date:** 2026-09-02 · **Status:** Owner-reviewed 2026-09-02 — the questions of §7 are answered and every section they
-change has been rewritten to match; slice 1 is in build · **Subsystem:** Directory (`packages/directory`, `apps/web/src/lib/directory`,
+change has been rewritten to match; slice 1 is built on the branch (see the active-work note
+`docs/active-work/claude/directory-ui-person-linking-fcot46.md` for the session handoff) · **Subsystem:** Directory (`packages/directory`, `apps/web/src/lib/directory`,
 `apps/web/src/routes/(app)/contacts`), the design system, and every surface that links a record to a
 person or an organization — matters first · **Predecessors:**
 [`2026-08-30-directory-entity-model-design.md`](2026-08-30-directory-entity-model-design.md) (the
@@ -235,7 +236,7 @@ area. `matter_party` already has this shape; nothing about it changes.
 
 ## 5. Slices, in order — each complete through every layer
 
-**Slice 1 — the family, and the matter's parties.** `EntityIdentity`, `EntityPicker`,
+**Slice 1 — the family, and the matter's parties. BUILT on the branch, 2026-09-02.** `EntityIdentity`, `EntityPicker`,
 `RecordParties` in the design system (stories, axe, VRT, `registry.json`, package exports, CSS
 cascade position pinned by test); `directory-picker-source.ts`; the parties tab live; `linkMatterParty`;
 the parties page's dialog on `ActionDialog`; the route renamed from `/contacts` to `/directory`; user
