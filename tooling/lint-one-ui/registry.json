@@ -127,11 +127,6 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/conflicts/disposition-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/costs/cost-review-window.svelte",
       "reason": "a screen presented over the app rather than an act asked of a reader. It belongs to the full-screen presentation question, which is a separate design and deliberately not folded into this one."
     },
@@ -157,27 +152,12 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/merge-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the directory family."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/directory/names-pane.svelte",
       "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/new-entity-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the directory family."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/documents/new-document-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/records/reclassify-dialog.svelte",
       "reason": "predates ActionDialog; migrates to ActionDialog."
     },
     {
