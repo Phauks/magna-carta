@@ -4,7 +4,8 @@
    * shows it whole: the heading, the subtitle, the notice slot, the body, and one action bar whose
    * two controls are always the same two in the same order.
    *
-   * Eight stories, because eight things about it can be wrong independently: the three KINDS, which
+   * Nine stories, because nine things about it can be wrong independently: a READING kind, which
+   * asks for nothing, seats any step it offers in its body, and ends its bar at the way out; the three KINDS, which
    * are the variant axis and each carry a different primitive; a commit refused with the reason it
    * is refused, which must never be an absent control; a commit that the server turns down, where
    * the panel must stand its ground rather than vanish; the guard, which is the one behaviour none
@@ -27,6 +28,7 @@
   import Input from "../lib/components/input/index.ts";
   import Label from "../lib/components/label/index.ts";
   import * as Alert from "../lib/components/alert/index.ts";
+  import Button from "../lib/components/button/index.ts";
 
   const { Story } = defineMeta({
     title: "Overlay/ActionDialog",
@@ -42,7 +44,14 @@
     },
   });
 
-  type ActionDialogStoryArgs = ComponentProps<typeof ActionDialog>;
+  // The props are a union on `kind`, and a template receives the WHOLE union (that is svelte-csf's
+  // contract, so a template typed on one arm does not satisfy it). A story spreads its args and
+  // then names a kind, and a spread of the union cannot be narrowed by the literal beside it — so
+  // each template narrows first. The meta args are the acting arm, the one with a commit; the
+  // reading story takes only the props both arms share.
+  type ActionDialogProps = ComponentProps<typeof ActionDialog>;
+  type ActingProps = Extract<ActionDialogProps, { commitLabel: string }>;
+  const acting = (args: ActionDialogProps): ActingProps => args as ActingProps;
 </script>
 
 <script lang="ts">
@@ -55,6 +64,7 @@
     guarded: false,
     withContext: false,
     long: false,
+    reading: false,
   });
 
   let amount = $state("");
@@ -71,6 +81,7 @@
     showing.guarded = false;
     showing.withContext = false;
     showing.long = false;
+    showing.reading = false;
   }
 
   /** A commit that lands. The shell closes the panel; the caller never writes `open`. */
@@ -126,7 +137,7 @@
   </p>
 {/snippet}
 
-{#snippet formTemplate(args: ActionDialogStoryArgs)}
+{#snippet formTemplate(args: ActionDialogProps)}
   <button
     type="button"
     class="mc-button mc-button-secondary mc-button-md"
@@ -135,7 +146,7 @@
     Write off a balance
   </button>
   <ActionDialog
-    {...args}
+    {...acting(args)}
     bind:open={showing.form}
     kind="form"
     unsavedChanges={false}
@@ -148,7 +159,7 @@
   />
 {/snippet}
 
-{#snippet confirmTemplate(args: ActionDialogStoryArgs)}
+{#snippet confirmTemplate(args: ActionDialogProps)}
   <button
     type="button"
     class="mc-button mc-button-secondary mc-button-md"
@@ -157,7 +168,7 @@
     Discard the draft
   </button>
   <ActionDialog
-    {...args}
+    {...acting(args)}
     heading="Discard This Draft Bill?"
     commitLabel="Discard the Draft"
     bind:open={showing.confirm}
@@ -168,7 +179,7 @@
   />
 {/snippet}
 
-{#snippet destructiveTemplate(args: ActionDialogStoryArgs)}
+{#snippet destructiveTemplate(args: ActionDialogProps)}
   <button
     type="button"
     class="mc-button mc-button-secondary mc-button-md"
@@ -177,7 +188,7 @@
     Void the cost
   </button>
   <ActionDialog
-    {...args}
+    {...acting(args)}
     heading="Void This Cost?"
     commitLabel="Void the Cost"
     bind:open={showing.destructive}
@@ -188,7 +199,7 @@
   />
 {/snippet}
 
-{#snippet refusedTemplate(args: ActionDialogStoryArgs)}
+{#snippet refusedTemplate(args: ActionDialogProps)}
   <button
     type="button"
     class="mc-button mc-button-secondary mc-button-md"
@@ -197,7 +208,7 @@
     Write off with nothing entered
   </button>
   <ActionDialog
-    {...args}
+    {...acting(args)}
     bind:open={showing.refused}
     kind="form"
     unsavedChanges={false}
@@ -208,7 +219,7 @@
   />
 {/snippet}
 
-{#snippet turnedDownTemplate(args: ActionDialogStoryArgs)}
+{#snippet turnedDownTemplate(args: ActionDialogProps)}
   <button
     type="button"
     class="mc-button mc-button-secondary mc-button-md"
@@ -217,7 +228,7 @@
     Write off against a finalized bill
   </button>
   <ActionDialog
-    {...args}
+    {...acting(args)}
     bind:open={showing.turnedDown}
     kind="form"
     unsavedChanges={false}
@@ -252,7 +263,7 @@
   {/each}
 {/snippet}
 
-{#snippet contextTemplate(args: ActionDialogStoryArgs)}
+{#snippet contextTemplate(args: ActionDialogProps)}
   <button
     type="button"
     class="mc-button mc-button-secondary mc-button-md"
@@ -261,7 +272,7 @@
     Open a matter
   </button>
   <ActionDialog
-    {...args}
+    {...acting(args)}
     heading="Open a Matter"
     commitLabel="Open the Matter"
     bind:open={showing.withContext}
@@ -274,7 +285,7 @@
   />
 {/snippet}
 
-{#snippet longTemplate(args: ActionDialogStoryArgs)}
+{#snippet longTemplate(args: ActionDialogProps)}
   <button
     type="button"
     class="mc-button mc-button-secondary mc-button-md"
@@ -283,7 +294,7 @@
     Write off with a long form
   </button>
   <ActionDialog
-    {...args}
+    {...acting(args)}
     bind:open={showing.long}
     kind="form"
     unsavedChanges={false}
@@ -293,7 +304,48 @@
   />
 {/snippet}
 
-{#snippet guardedTemplate(args: ActionDialogStoryArgs)}
+{#snippet statusReading({ busy }: { busy: boolean })}
+  <dl class="flex flex-col gap-8 text-sm">
+    <div class="grid grid-cols-2 items-center gap-16">
+      <dt class="text-text-muted">Status</dt>
+      <!-- The step sits on the fact it changes, not at the foot of the window: somebody may have
+           opened this to read the pane beside it, and the corner is where a hand goes by habit. -->
+      <dd class="flex flex-wrap items-center gap-8">
+        <span class="font-semibold uppercase">Open</span>
+        <Button variant="secondary" size="sm" disabled={busy}>Close Matter</Button>
+      </dd>
+    </div>
+  </dl>
+{/snippet}
+
+{#snippet paperFile()}
+  <dl class="flex flex-col gap-8 text-sm">
+    <div class="grid grid-cols-2 items-baseline gap-16">
+      <dt class="text-text-muted">Kept at</dt>
+      <dd class="text-text-subtle">Not recorded</dd>
+    </div>
+  </dl>
+{/snippet}
+
+{#snippet readingTemplate(args: ActionDialogProps)}
+  <button
+    type="button"
+    class="mc-button mc-button-secondary mc-button-md"
+    onclick={() => (showing.reading = true)}
+  >
+    Read the status
+  </button>
+  <ActionDialog
+    kind="reading"
+    heading="Matter Status"
+    width={args.width}
+    bind:open={showing.reading}
+    fields={statusReading}
+    context={paperFile}
+  />
+{/snippet}
+
+{#snippet guardedTemplate(args: ActionDialogProps)}
   <button
     type="button"
     class="mc-button mc-button-secondary mc-button-md"
@@ -302,7 +354,7 @@
     Write off with work in progress
   </button>
   <ActionDialog
-    {...args}
+    {...acting(args)}
     bind:open={showing.guarded}
     kind="form"
     unsavedChanges
@@ -579,6 +631,48 @@
       await waitFor(() => expect(pane.scrollTop).toBeGreaterThan(0));
       expect(bar.getBoundingClientRect().top).toBe(before);
       expect(bar.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight);
+    });
+
+    closeEveryPanel();
+  }}
+/>
+
+<Story
+  name="Reading"
+  template={readingTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Read the status" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = await body.findByRole("dialog");
+    await waitFor(() => expect(panel).toBeVisible());
+
+    await step("A reading panel asks for nothing: its bar ends at the way out", () => {
+      const marked = [...panel.querySelectorAll("[data-action-dialog-action]")].map((control) =>
+        control.getAttribute("data-action-dialog-action"),
+      );
+      expect(marked).not.toContain("commit");
+      // Two controls are named Close here — the corner and the bar's — and both are meant to be:
+      // a reading panel leaves the same way from either. The bar's is the one the kind changes.
+      const dismiss = panel.querySelector('[data-action-dialog-action="dismiss"]');
+      expect(dismiss).toBeVisible();
+      expect(dismiss).toHaveAccessibleName("Close");
+    });
+
+    await step("It leaves through Close, not Cancel — nothing was begun", () => {
+      const bar = panel.querySelector(".mc-action-dialog-actions");
+      expect(bar?.textContent?.trim()).toBe("Close");
+    });
+
+    await step("The step it offers is seated in the body, beside the fact it changes", () => {
+      expect(within(panel).getByRole("button", { name: "Close Matter" })).toBeVisible();
+    });
+
+    await step("Escape leaves at once — a reading panel has nothing to lose", async () => {
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(body.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
     closeEveryPanel();
