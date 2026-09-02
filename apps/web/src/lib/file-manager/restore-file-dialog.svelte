@@ -4,11 +4,15 @@
    * overwritten, the file returns with every version and its whole history intact. The default is
    * back where it was; when the folder went with the file, the host lands it at the matter root
    * and the option says so. Any other folder is one pick away through the shared picker.
+   *
+   * The host does the restoring and reports how it went; this panel owns only the question. Its
+   * failure arrives as a sentence the host already worded, and is shown where the shell puts a
+   * failure: beneath the fields, above the bar, outside the scroll.
    */
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import * as Alert from "@magna-carta/design-system/alert";
-  import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
   import type { DeletedFileSummary } from "./matter-file-api.ts";
   import type { MatterFileIndex } from "./file-rows.ts";
@@ -18,24 +22,27 @@
     open = $bindable(false),
     index,
     file,
-    running,
     failure,
     onConfirm,
-    onCancel,
+    onDismiss,
   }: {
     open?: boolean;
     index: MatterFileIndex;
     file: DeletedFileSummary | null;
-    running: boolean;
     failure: string | null;
     /** No folderId = back where it was (the host falls back to the root when the folder is gone). */
-    onConfirm: (destination: { folderId?: string | null }) => void;
-    onCancel: () => void;
+    onConfirm: (destination: { folderId?: string | null }) => Promise<ActionOutcome>;
+    onDismiss: () => void;
   } = $props();
 
   type Manner = "back" | "other";
   let manner = $state<Manner>("back");
   let pickedFolderId = $state<string | null>(null);
+
+  function reset(): void {
+    manner = "back";
+    pickedFolderId = null;
+  }
 
   const folderSurvives = $derived(
     file !== null && (file.folderId === null || index.folderById(file.folderId) !== undefined),
@@ -49,56 +56,45 @@
   );
 </script>
 
-<Dialog.Root
-  bind:open={
-    () => open,
-    (next) => {
-      open = next;
-      if (!next) onCancel();
-    }
-  }
+<ActionDialog
+  bind:open
+  kind="confirm"
+  heading={`Restore ${file?.name ?? "this file"}?`}
+  subtitle="Nothing is overwritten: the file returns with every version and its whole history intact."
+  commitLabel="Restore"
+  commitBusyLabel="Restoring"
+  commitRefusal={file === null ? "No file is chosen." : undefined}
+  unsavedChanges={false}
+  onOpen={reset}
+  onCommit={() => onConfirm(manner === "back" ? {} : { folderId: pickedFolderId })}
+  {onDismiss}
 >
-  <Dialog.Content>
-    <Dialog.Title>Restore {file?.name ?? "this file"}?</Dialog.Title>
-    <Dialog.Description>
-      Nothing is overwritten: the file returns with every version and its whole history intact.
-    </Dialog.Description>
+  {#snippet fields({ busy })}
+    <RadioGroup.Root
+      bind:value={() => manner, (next) => (manner = next as Manner)}
+      disabled={busy}
+    >
+      <div class="flex items-center gap-8">
+        <RadioGroup.Item value="back" id="restore-manner-back" />
+        <Label for="restore-manner-back">{backLabel}</Label>
+      </div>
+      <div class="flex items-center gap-8">
+        <RadioGroup.Item value="other" id="restore-manner-other" />
+        <Label for="restore-manner-other">Select Folder</Label>
+      </div>
+    </RadioGroup.Root>
 
-    <div class="flex flex-col gap-16">
-      <RadioGroup.Root
-        bind:value={() => manner, (next) => (manner = next as Manner)}
-        disabled={running}
-      >
-        <div class="flex items-center gap-8">
-          <RadioGroup.Item value="back" id="restore-manner-back" />
-          <Label for="restore-manner-back">{backLabel}</Label>
-        </div>
-        <div class="flex items-center gap-8">
-          <RadioGroup.Item value="other" id="restore-manner-other" />
-          <Label for="restore-manner-other">Select Folder</Label>
-        </div>
-      </RadioGroup.Root>
+    {#if manner === "other"}
+      <FolderPicker {index} bind:chosenFolderId={pickedFolderId} label="Restore destination" />
+    {/if}
+  {/snippet}
 
-      {#if manner === "other"}
-        <FolderPicker {index} bind:chosenFolderId={pickedFolderId} label="Restore destination" />
-      {/if}
-
-      {#if failure !== null}
-        <Alert.Root variant="warning">
-          <Alert.Title>The Restore Did Not Go Through</Alert.Title>
-          <Alert.Description>{failure}</Alert.Description>
-        </Alert.Root>
-      {/if}
-    </div>
-
-    <div class="flex justify-end gap-8">
-      <Button variant="secondary" disabled={running} onclick={onCancel}>Cancel</Button>
-      <Button
-        disabled={running || file === null}
-        onclick={() => onConfirm(manner === "back" ? {} : { folderId: pickedFolderId })}
-      >
-        Restore
-      </Button>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {#snippet notice()}
+    {#if failure !== null}
+      <Alert.Root variant="warning">
+        <Alert.Title>The Restore Did Not Go Through</Alert.Title>
+        <Alert.Description>{failure}</Alert.Description>
+      </Alert.Root>
+    {/if}
+  {/snippet}
+</ActionDialog>

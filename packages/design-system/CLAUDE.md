@@ -41,8 +41,8 @@ properties; off-token values are machine-rejected.
 `AlertDialog.Content` / `Sheet.Content` into a panel of its own — `lint:one-ui`'s
 `hand-composed-modal` rule fails it, and the homes allowed to compose one are DECLARED in
 `tooling/lint-one-ui/registry.json` (`modalShells`), not hardcoded in the rule. Being a registered
-component is not enough on its own: `RecordAttachments` is registered and still carries an allowance
-because the confirmation inside it should be an `ActionDialog`.
+component is not enough on its own: `RecordAttachments` is registered and its detach confirmation
+is still an `ActionDialog` inside it, not a panel of its own.
 
 - **What `ActionDialog` owns, it owns by having no prop for it**: the footer's geometry and the
   order of its two controls, the dismissal's word, the busy state, whether the corner dismiss shows,
@@ -76,12 +76,21 @@ because the confirmation inside it should be an `ActionDialog`.
   beside it and the dependency as its accessible description. The commit is ONE snippet rendered
   one of two ways so the bar holds exactly one `<Button` carrying the commit marker in this file's
   source — that is what keeps `footer-set` true; do not duplicate the control to add a branch.
+- **`restoreFocus={false}` is the one focus seam, for a trigger revealed on focus.** Bits returns
+  focus to the trigger on close; a per-row control that reveals on focus then stays latched open
+  after the panel has gone (owner-reported twice on the settings rows). The default is true and
+  right for every other trigger; do not reach for it to tidy focus elsewhere.
 - **The `notice` slot is the layering seam.** The design system cannot know what a failure reads
   like, so the shell reserves the PLACE and the app puts `FailureNotice` in it. Never import an app
   module here to close that gap.
-- **The commit owns the close.** `onCommit` reports an outcome; the shell closes on `"committed"`
-  and stands its ground on `"refused"`. A caller never writes `open` on the way out — that is what
-  keeps the close to one path, and a one-entrance close path is the only kind a guard can cover.
+- **The commit owns the close.** `onCommit` reports an outcome; the shell closes on `"committed"`,
+  stands its ground on `"refused"`, and on `"done"` stays open as a panel with nothing left to ask:
+  the commit leaves the bar, the dismissal reads Close, the guard stands down, and `fields` /
+  `context` are handed `done` so one snippet shows what the act came to (a reference, a batch
+  still landing). A caller never writes `open` on the way out — that is what keeps the close to
+  one path, and a one-entrance close path is the only kind a guard can cover. A host MAY close a
+  done panel itself by writing the bound `open` (the upload panel's host does, once the last file
+  lands); that is a prop changing, not a gesture, and runs no guard.
 - **Both shells stamp `data-modal-shell`** on their panel, and `ActionDialog`'s two footer controls
   carry `data-action-dialog-action`. These are the hooks a scan and a rendered-DOM check read;
   `footer-set` asserts the bar against the shell's source the way `header-set` asserts the record

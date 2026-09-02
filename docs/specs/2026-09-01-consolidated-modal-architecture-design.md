@@ -594,3 +594,41 @@ Close, Copy and Send) is refused on the same ground as before: the copy belongs 
 the text it copies, as the reading kind seats its step. And an app-side failure helper — the twelve
 lines every caller writes around `FailureNotice` — is the app's side of the notice seam and stays
 out of the design system; it is queued for the migration pass that touches every caller anyway.
+
+### 11.6 A commit that stays: the `done` outcome
+
+The confirmation family — the file manager's three panels, the note and party removals, the
+settings recap, the attachment detach — was the first to need something the seams above did not
+give: the upload panel saves its destination and then **stays open while the batch lands**, its
+report column ticking, until the host closes it. Two of the panels still to migrate have the same
+shape (bug-report shows its filed reference; new-document shows what it made). So `ActionOutcome`
+gains a third value. `"done"` leaves the panel standing as a panel with nothing left to ask: the
+commit leaves the bar, the dismissal reads Close, the guard stands down, and `fields` and `context`
+are handed `done` beside `busy` so one snippet renders the panel before and after. It is the reading
+kind's bar arrived at by acting, which is why it costs the shell one flag and no new branch.
+
+The same family put the upload panel's report in the **context pane**, where it had been a second
+grid column inside a `max-w-record-pane` dialog: the decision on the left is the fields, the report
+on the right is the context, and the frame's rule — the primary pane stops, the context takes the
+room — is exactly what a live list beside a still choice wants. The bar's hint ("closing keeps what
+has landed") moved into the body, because the bar is the shell's.
+
+### 11.7 Where the migration ended
+
+Twenty-seven panels moved onto the shells across six pull requests on 2026-09-02, in families:
+custodian (3), billing and costs (10), the new-matter window, the status window (the reading kind),
+the confirmations (7, with the `done` outcome), the forms (4, the first callers of `commitSoon` and
+`LabelledField`), the send panels (3, with `restoreFocus`), and the last two — the new-document flow
+and Apply Trust Funds, which the Soon affordance's move into the design system admitted.
+
+Ten `hand-composed-modal` allowances remain, and every one is a named exclusion rather than debt:
+the command palette (a launcher, the documented Command-in-a-Dialog pattern), the four directory
+panes (panes inside a surface, not modals), the settings ledger (a Sheet holding context), the three
+full-screen surfaces (a separate design, deliberately not folded into this one), and the
+fee-arrangement window (`RecordWindow`'s shape, migrated when that stream is open). The register
+prints them on every run with the reason each stands on, so the list stays read.
+
+What the migration left for the next pass: the fifteen panels that landed before `LabelledField`
+existed still write the label-over-control column by hand, and every caller still writes the same
+twelve lines around `FailureNotice`. Both are mechanical, both are the app's side of a seam the
+shell already has, and neither should be done panel by panel.

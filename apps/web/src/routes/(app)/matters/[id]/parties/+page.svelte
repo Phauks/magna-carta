@@ -12,7 +12,8 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as AlertDialog from "@magna-carta/design-system/alert-dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -40,7 +41,6 @@
   let loadFailure = $state<StatedFailure | null>(null);
   let severing = $state<MatterPartyEntry | null>(null);
   let severFailure = $state<StatedFailure | null>(null);
-  let severInFlight = $state(false);
   // Bumped to force a re-read after a link is severed.
   let reloadToken = $state(0);
 
@@ -80,23 +80,21 @@
     };
   });
 
-  async function confirmSever(): Promise<void> {
+  async function confirmSever(): Promise<ActionOutcome> {
     const target = severing;
-    if (target === null) return;
-    severInFlight = true;
+    if (target === null) return "refused";
     severFailure = null;
     const result = await unlinkMatterParty(fetch, target.id, crypto.randomUUID());
-    severInFlight = false;
     if (result.kind === "ok") {
-      severing = null;
       reloadToken += 1;
-      return;
+      return "committed";
     }
     severFailure = stated(
       result.failure,
       "The party could not be removed from this matter.",
       "The party is still on this matter.",
     );
+    return "refused";
   }
 </script>
 
@@ -198,38 +196,35 @@
   {/if}
 </section>
 
-<AlertDialog.Root
-  open={severing !== null}
-  onOpenChange={(open) => {
-    if (!open) severing = null;
+<ActionDialog
+  kind="destructive"
+  bind:open={() => severing !== null, (next) => {
+    if (!next) severing = null;
   }}
+  heading="Remove This Party?"
+  commitLabel="Remove"
+  commitBusyLabel="Removing"
+  unsavedChanges={false}
+  onCommit={confirmSever}
 >
-  <AlertDialog.Content>
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <AlertDialog.Title>Remove This Party?</AlertDialog.Title>
-        <AlertDialog.Description>
-          {#if severing !== null}
-            This removes the {roleLabel(severing.role).toLowerCase()} role from this matter. The
-            record is kept so a conflicts report that named this party stays reproducible, and the
-            person stays in the directory. Their other roles on this matter are not affected.
-          {/if}
-        </AlertDialog.Description>
-      </div>
-      {#if severFailure !== null}
-        <FailureNotice
-          failure={severFailure.failure}
-          title="The Party Was Not Severed"
-          fallback={severFailure.fallback}
-          whenSilent={severFailure.whenSilent}
-        />
-      {/if}
-      <div class="flex justify-end gap-8">
-        <AlertDialog.Cancel disabled={severInFlight}>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action disabled={severInFlight} onclick={confirmSever}>
-          {severInFlight ? "Removing" : "Remove"}
-        </AlertDialog.Action>
-      </div>
-    </div>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+  {#snippet fields()}
+    {#if severing !== null}
+      <p class="text-sm">
+        This removes the {roleLabel(severing.role).toLowerCase()} role from this matter. The record
+        is kept so a conflicts report that named this party stays reproducible, and the person stays
+        in the directory. Their other roles on this matter are not affected.
+      </p>
+    {/if}
+  {/snippet}
+
+  {#snippet notice()}
+    {#if severFailure !== null}
+      <FailureNotice
+        failure={severFailure.failure}
+        title="The Party Was Not Severed"
+        fallback={severFailure.fallback}
+        whenSilent={severFailure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>

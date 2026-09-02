@@ -36,10 +36,13 @@ export type ActingKind = Exclude<ActionDialogKind, "reading">;
  * How a commit went.
  *
  * `committed` closes the panel; `refused` leaves it standing with whatever the caller has put in
- * the notice slot. The caller never touches `open` on the way out — returning the outcome is what
- * keeps the close to one path, which is what lets the guard cover every exit.
+ * the notice slot; `done` leaves it standing too, but as a panel with nothing left to ask — the
+ * act happened and the reader is shown what came of it (a reference number, a batch still
+ * landing, the document that was made), the bar ends at Close, and every exit leaves at once. The
+ * caller never touches `open` on the way out — returning the outcome is what keeps the close to
+ * one path, which is what lets the guard cover every exit.
  */
-export type ActionOutcome = "committed" | "refused";
+export type ActionOutcome = "committed" | "refused" | "done";
 
 /**
  * How wide a panel opens.

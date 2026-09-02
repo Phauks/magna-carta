@@ -17,14 +17,25 @@
    * ingest — the incident route carries no recipients — so they stay honestly marked, and the copy
    * block still records them so a pasted report tells the administrator who else was meant to know.
    *
+   * COPY SITS BESIDE WHAT IT COPIES. The action bar is the shell's and holds the one commit; the
+   * copy is a second act, so it sits in the body beside the diagnostics it copies rather than in
+   * the bar as a third control.
+   *
+   * A filed report is a DONE panel: it stays open to show the reference, with nothing left to
+   * ask, and leaves through Close. The draft survives an ordinary close/reopen on purpose — an
+   * accidental dismiss must not eat a half-written report — which is why the shell is told there
+   * is nothing to lose: nothing is.
+   *
    * The profile menu owns the trigger state (`bind:open`); this component renders no trigger.
    */
   import { page } from "$app/state";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
   import Switch from "@magna-carta/design-system/switch";
   import Check from "@lucide/svelte/icons/check";
@@ -40,13 +51,9 @@
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
-  // The draft survives close/reopen on purpose: an accidental dismiss must not eat a
-  // half-written report.
   let description = $state("");
   let diagnosticsExpanded = $state(false);
   let copied = $state<"copied" | "failed" | null>(null);
-  let textareaRef = $state<HTMLTextAreaElement | null>(null);
-  let sending = $state(false);
   let sendFailure = $state<StatedFailure | null>(null);
   let filedIdentifier = $state<string | null>(null);
 
@@ -63,6 +70,19 @@
   $effect(() => {
     if (open) void firmRoster.load(fetch);
   });
+
+  /*
+   * A filed report is finished: reopening starts a fresh one. An unfiled draft is kept — see the
+   * head of this file — so the reset is only ever of a report that has already gone.
+   */
+  function startAfresh(): void {
+    sendFailure = null;
+    if (filedIdentifier === null) return;
+    filedIdentifier = null;
+    description = "";
+    alsoSendToIds = [];
+    emailMeCopy = false;
+  }
 
   function addRecipient(id: string): void {
     if (!alsoSendToIds.includes(id)) alsoSendToIds = [...alsoSendToIds, id];
@@ -87,9 +107,8 @@
   }
 
   /** File the report through the firm's own pipeline — the same one the failure screens use. */
-  async function submitReport(): Promise<void> {
-    if (descriptionEmpty || sending) return;
-    sending = true;
+  async function submitReport(): Promise<ActionOutcome> {
+    if (descriptionEmpty) return "refused";
     sendFailure = null;
     const outcome = await reportProblem(fetch, {
       description: description.trim(),
@@ -97,93 +116,127 @@
       errorIds: [],
       route: page.url.pathname,
     });
-    sending = false;
     if (outcome.kind === "ok") {
       filedIdentifier = outcome.value.id;
-      return;
+      return "done";
     }
     sendFailure = stated(
       outcome.failure,
       "The report was not sent — copy it instead and send it on.",
     );
-  }
-
-  function focusDescription(event: Event): void {
-    // The report starts with the user's words, so the first focus lands in the textarea rather
-    // than on Bits' default first-tabbable.
-    event.preventDefault();
-    textareaRef?.focus();
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false} onOpenAutoFocus={focusDescription}>
-    <Dialog.Title>Report an Issue</Dialog.Title>
-    <div class="flex flex-col gap-4">
-      <Label for="bug-report-description">What happened?</Label>
-      <p id="bug-report-description-hint" class="text-xs text-text-muted">
-        What you did, what you expected, what happened instead
-      </p>
-      <Textarea
-        id="bug-report-description"
-        bind:ref={textareaRef}
-        bind:value={description}
-        required
-        aria-describedby="bug-report-description-hint"
-      />
-    </div>
-    <div class="flex flex-col gap-4">
-      <Button
-        variant="ghost"
-        size="sm"
-        class="self-start"
-        aria-expanded={diagnosticsExpanded}
-        aria-controls="bug-report-diagnostics"
-        onclick={() => (diagnosticsExpanded = !diagnosticsExpanded)}
+<ActionDialog
+  bind:open
+  kind="form"
+  heading="Report an Issue"
+  subtitle="This goes to the firm's own reporting pipeline, not to a third party."
+  commitLabel="Submit Issue"
+  commitBusyLabel="Submitting"
+  commitRefusal={descriptionEmpty
+    ? "Say what happened: the report is read by a person, and the diagnostics alone say nothing about what went wrong."
+    : undefined}
+  unsavedChanges={false}
+  onOpen={startAfresh}
+  onCommit={submitReport}
+>
+  {#snippet fields({ busy, done })}
+    {#if done && filedIdentifier !== null}
+      <Alert.Root variant="success">
+        <Alert.Title>Report Filed</Alert.Title>
+        <Alert.Description>
+          It was recorded as {filedIdentifier}. Quoting that reference gets support to it directly.
+        </Alert.Description>
+      </Alert.Root>
+    {:else}
+      <LabelledField
+        label="What happened?"
+        hint="What you did, what you expected, what happened instead"
       >
+        {#snippet children({ props })}
+          <Textarea {...props} required disabled={busy} bind:value={description} />
+        {/snippet}
+      </LabelledField>
+
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={diagnosticsExpanded}
+            aria-controls="bug-report-diagnostics"
+            onclick={() => (diagnosticsExpanded = !diagnosticsExpanded)}
+          >
+            {#if diagnosticsExpanded}
+              <ChevronDown class="size-16" aria-hidden="true" />
+            {:else}
+              <ChevronRight class="size-16" aria-hidden="true" />
+            {/if}
+            Included diagnostics
+          </Button>
+          <!-- Disabled while the description is empty: a report with no words is read by a person
+               who has nothing to go on. -->
+          <Button variant="secondary" size="sm" disabled={descriptionEmpty || busy} onclick={copyReport}>
+            {#if copied === "copied"}
+              <Check class="size-16" aria-hidden="true" />
+              Copied
+            {:else}
+              <Copy class="size-16" aria-hidden="true" />
+              Copy report
+            {/if}
+          </Button>
+        </div>
         {#if diagnosticsExpanded}
-          <ChevronDown class="size-16" aria-hidden="true" />
-        {:else}
-          <ChevronRight class="size-16" aria-hidden="true" />
+          <pre
+            id="bug-report-diagnostics"
+            class="rounded-md border border-border-default bg-surface-sunken p-12 text-start font-mono text-xs whitespace-pre-wrap text-text-muted select-all">{diagnostics}</pre>
         {/if}
-        Included diagnostics
-      </Button>
-      {#if diagnosticsExpanded}
-        <pre
-          id="bug-report-diagnostics"
-          class="rounded-md border border-border-default bg-surface-sunken p-12 text-start font-mono text-xs whitespace-pre-wrap text-text-muted select-all">{diagnostics}</pre>
-      {/if}
-    </div>
-    <div class="flex flex-col gap-4">
-      <Label for="issue-report-recipients">Also Send To</Label>
-      <p id="issue-report-recipients-hint" class="text-xs text-text-muted">
-        Optional — colleagues who should see this report; they ride the filed report once it carries
-        recipients
-      </p>
-      <RecipientPicker
-        {members}
-        selectedIds={alsoSendToIds}
-        onAdd={addRecipient}
-        onRemove={removeRecipient}
-        inputId="issue-report-recipients"
-      />
+        {#if copied === "failed"}
+          <p class="text-xs text-text-muted">
+            Your browser would not let us copy. Select the diagnostics above and copy them by hand.
+          </p>
+        {/if}
+      </div>
+
+      <LabelledField
+        label="Also Send To"
+        hint="Optional — colleagues who should see this report; they ride the filed report once it carries recipients"
+      >
+        {#snippet children({ props })}
+          <RecipientPicker
+            {members}
+            selectedIds={alsoSendToIds}
+            onAdd={addRecipient}
+            onRemove={removeRecipient}
+            inputId={props.id}
+          />
+        {/snippet}
+      </LabelledField>
       <!-- The roster is a courtesy field, so a failed read never fails the dialog: the picker is
            simply empty and says why, and the report still files. -->
       {#if firmRoster.failure !== null}
         <p class="text-xs text-text-muted">{firmRoster.failure}</p>
       {/if}
-    </div>
 
-    <div class="flex items-center justify-between gap-16">
-      <div class="flex min-w-0 flex-col gap-4">
-        <Label for="issue-report-email-me">Email Me a Copy</Label>
-        <!-- Not part of the filing, which is wired: emailing rides the platform's transactional
-             email, which does not exist yet. -->
-        <p class="text-xs text-text-muted">Sends with the report once email delivery ships</p>
+      <div class="flex items-center justify-between gap-16">
+        <div class="flex min-w-0 flex-col gap-4">
+          <Label for="issue-report-email-me">Email Me a Copy</Label>
+          <!-- Not part of the filing, which is wired: emailing rides the platform's transactional
+               email, which does not exist yet. -->
+          <p class="text-xs text-text-muted">Sends with the report once email delivery ships</p>
+        </div>
+        <Switch id="issue-report-email-me" disabled={busy} bind:checked={emailMeCopy} />
       </div>
-      <Switch id="issue-report-email-me" bind:checked={emailMeCopy} />
-    </div>
 
+      <p class="text-xs text-text-muted">
+        No document, file name, client name or matter content leaves the firm.
+      </p>
+    {/if}
+  {/snippet}
+
+  {#snippet notice()}
     {#if sendFailure !== null}
       <FailureNotice
         failure={sendFailure.failure}
@@ -191,44 +244,5 @@
         fallback={sendFailure.fallback}
       />
     {/if}
-    {#if filedIdentifier !== null}
-      <Alert.Root variant="success">
-        <Alert.Title>Report Filed</Alert.Title>
-        <Alert.Description>
-          It was recorded as {filedIdentifier}. Quoting that reference gets support to it directly.
-        </Alert.Description>
-      </Alert.Root>
-    {/if}
-    {#if copied === "failed"}
-      <p class="text-xs text-text-muted">
-        Your browser would not let us copy. Select the diagnostics above and copy them by hand.
-      </p>
-    {/if}
-
-    <p class="text-xs text-text-muted">
-      This goes to the firm&rsquo;s own reporting pipeline, not to a third party. No document, file
-      name, client name or matter content leaves the firm.
-    </p>
-    <div class="flex justify-end gap-8">
-      <Button variant="ghost" onclick={() => (open = false)}>Close</Button>
-      <!-- Disabled while the description is empty: a report with no words is read by a person who
-           has nothing to go on, and the diagnostics alone say nothing about what went wrong. -->
-      <Button variant="secondary" disabled={descriptionEmpty} onclick={copyReport}>
-        {#if copied === "copied"}
-          <Check class="size-16" aria-hidden="true" />
-          Copied
-        {:else}
-          <Copy class="size-16" aria-hidden="true" />
-          Copy report
-        {/if}
-      </Button>
-      <Button
-        variant="primary"
-        disabled={descriptionEmpty || sending || filedIdentifier !== null}
-        onclick={() => void submitReport()}
-      >
-        Submit Issue
-      </Button>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

@@ -1322,6 +1322,120 @@ describe("attachments", () => {
   });
 });
 
+describe("refiling a misfiled entry onto another matter", () => {
+  /*
+   * Time gets recorded against the wrong matter, and the remedy has to keep the record: its number,
+   * its memo, its codes, its files and its history. The alternative — strike it and type it again —
+   * loses all five and leaves a struck row on a matter the work was never really on.
+   *
+   * ONE destination matter for the whole block, made once. The suite shares a rate-limit budget, so
+   * a describe that stands up a fresh matter per test spends the budget the later blocks need.
+   */
+  let destination: string;
+
+  beforeAll(async () => {
+    const created = await SELF.fetch("https://example.com/api/v1/matters", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://example.com",
+        cookie: ownerCookie,
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({
+        title: "Pemberton v. Hale",
+        status: "open",
+        responsibleMemberId: ownerUserId,
+      }),
+    });
+    destination = ((await created.json()) as { matterId: string }).matterId;
+  });
+
+  async function captureDraft(memo?: string): Promise<{ id: string; entryNumber?: string }> {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-07-20",
+      rawDurationMinutes: 30,
+      narrative: "Filed on the wrong matter",
+      billable: true,
+      source: "manual",
+      ...(memo === undefined ? {} : { memo }),
+    });
+    const ack = (await created.json()) as { timeEntryId: string; entryNumber?: string };
+    return {
+      id: ack.timeEntryId,
+      ...(ack.entryNumber === undefined ? {} : { entryNumber: ack.entryNumber }),
+    };
+  }
+
+  it("moves the entry, keeps what identifies it, and re-reads the rate on the new matter", async () => {
+    const draft = await captureDraft("do not raise this on the call");
+    const response = await post(`/api/v1/time-entries/${draft.id}/refile`, {
+      matterId: destination,
+    });
+    expect(response.status).toBe(200);
+    // The ack answers with what the entry NOW carries: the rate and the rounding are re-resolved
+    // against the destination, so a caller that assumed only the matter moved would be showing the
+    // wrong money. This firm has one card and a timekeeper-tier rate, so the destination resolves
+    // the same figure — a firm with a matter- or client-tier rate on either end gets a different
+    // one, which is the whole reason the move re-asks.
+    const ack = (await response.json()) as { matterId: string; rateE4: number | null };
+    expect(ack.matterId).toBe(destination);
+    expect(ack.rateE4).not.toBeNull();
+
+    const body = (await (await get(`/api/v1/time-entries/${draft.id}`)).json()) as Record<
+      string,
+      unknown
+    >;
+    expect(body["matterId"]).toBe(destination);
+    // The ack tells the truth about the record: what it reported the entry now carries is what the
+    // entry now carries. That the figure was RE-RESOLVED against the destination rather than
+    // carried over is pinned in the service test, where two matters can be given different chains;
+    // this firm has one card, so both ends of the move answer alike.
+    expect(body["rateE4"]).toBe(ack.rateE4);
+    // The entry number does NOT change: a reference that changes is a reference that lies, so its
+    // prefix becomes provenance — it names the matter the entry was FIRST written on.
+    expect(body["entryNumber"]).toBe(draft.entryNumber);
+    expect(body["memo"]).toBe("do not raise this on the call");
+    expect(body["narrative"]).toBe("Filed on the wrong matter");
+    expect(body["status"]).toBe("draft");
+
+    // And the move is legible afterwards, naming both ends.
+    const events = await get(`/api/v1/time-entries/${draft.id}/events`);
+    const history = (await events.json()) as { data: { event: string; detail: unknown }[] };
+    const move = history.data.find((entry) => entry.event === "time_entry.refiled");
+    expect(move?.detail).toMatchObject({ fromMatterId: matterId, toMatterId: destination });
+  });
+
+  it("refuses a matter this firm does not have, and the one it is already on", async () => {
+    const draft = await captureDraft();
+    const unknown = await post(`/api/v1/time-entries/${draft.id}/refile`, {
+      matterId: newIdentifier("matter"),
+    });
+    expect(unknown.status).toBe(404);
+
+    // Refusing rather than no-opping keeps the act's meaning: a move that moved nothing still
+    // reported success.
+    const sameMatter = await post(`/api/v1/time-entries/${draft.id}/refile`, { matterId });
+    expect(sameMatter.status).toBe(422);
+  });
+
+  /*
+   * Past draft the entry is evidence somebody is relying on, and the answer is a void and a fresh
+   * record — never a move nobody can see.
+   */
+  it("refuses an entry that is no longer a draft", async () => {
+    const draft = await captureDraft();
+    await post(`/api/v1/time-entries/${draft.id}/void`, {});
+
+    const response = await post(`/api/v1/time-entries/${draft.id}/refile`, {
+      matterId: destination,
+    });
+    expect(response.status).toBe(409);
+  });
+});
+
 describe("convert-to-cost", () => {
   async function captureBillable(): Promise<string> {
     const created = await post("/api/v1/time-entries", {

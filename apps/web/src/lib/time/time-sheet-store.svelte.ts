@@ -20,10 +20,12 @@
  * Opening the sheet from a matter changes only two things: the rows it shows, and what a new row's
  * matter starts as. It is one surface with two doors, never two surfaces.
  *
- * THE MATTER OF AN ENTRY THAT ALREADY EXISTS IS NOT SETTABLE HERE. Nothing in the contract moves an
- * entry from one matter to another, so the picker is offered on a row that has not been written and
- * the cell states the dependency on one that has. Offering the change and dropping it would be the
- * worse failure: the reader would believe the entry had moved.
+ * A MISFILED ENTRY MOVES; IT IS NOT RE-TYPED. Time gets recorded against the wrong matter, and the
+ * remedy is a refile that keeps the entry's number, its memo, its codes, its files and its history
+ * — not a strike and a fresh row, which loses all five and leaves a struck entry on a matter it was
+ * never really on. Moving it re-reads the rate and the rounding against the destination, because
+ * both resolve through the matter, so the row's money follows the row. What a move cannot do is
+ * take a written entry OFF a matter: the record has to be somewhere.
  *
  * THE TIMER IS THE FIRM'S, NOT THE PAGE'S. One timer per timekeeper, held on the server, so
  * starting one on a second row stops the first and a reload does not lose it. Where it lands
@@ -58,6 +60,7 @@ import {
   pauseTimer,
   patchTimeEntry,
   readTimer,
+  refileTimeEntry,
   resumeTimer,
   startTimer,
   stopTimerAndCommit,
@@ -220,14 +223,63 @@ export class TimeSheetStore {
     const row = this.rowByKey(key);
     if (row === undefined || row.matterId === matterId) return;
     if (row.entryIdentifier !== null) {
-      this.#context.announce(
-        "This entry is on the firm's record, and nothing moves an entry from one matter to another yet. It stays where it is.",
-      );
+      // An entry the firm holds MOVES rather than being re-typed: it keeps its number, its memo,
+      // its codes, its attachments and its whole history. Taking it OFF a matter is the one thing
+      // a move cannot do — the record has to be somewhere — so that is refused rather than sent.
+      if (matterId === null) {
+        this.#context.announce(
+          "An entry on the firm's record has to be on a matter. Move it to another one rather than taking it off this one.",
+        );
+        return;
+      }
+      void this.#refile(key, row.entryIdentifier, matterId);
       return;
     }
     this.history.push("the matter on this entry");
     this.#patchRow(key, { matterId });
     this.#save(key);
+  }
+
+  /**
+   * Move a written entry onto another matter.
+   *
+   * It is NOT the debounced cell save. A refile re-resolves the rate and the rounding against the
+   * destination, so the row's money changes with its matter — the answer comes back from the write
+   * and is adopted, rather than the row keeping figures that belonged to the matter it just left.
+   *
+   * No undo step is pushed. Moving it back is another refile, which the reader can simply do; a
+   * stack entry that silently re-ran a cross-matter write on a record two people may be looking at
+   * is a different act from putting a typed cell back.
+   */
+  async #refile(key: string, entryIdentifier: string, matterId: string): Promise<void> {
+    const before = this.rowByKey(key)?.matterId ?? null;
+    this.#patchRow(key, { matterId, saveState: "saving", saveFailure: null });
+    const outcome = await refileTimeEntry(fetch, entryIdentifier, matterId, writeKey());
+    if (outcome.kind !== "ok") {
+      // The row goes back where it was: the record did not move, and a screen showing it on the
+      // new matter would be the one thing worse than refusing.
+      this.#patchRow(key, {
+        matterId: before,
+        saveState: "failed",
+        saveFailure:
+          outcome.kind === "problem" && outcome.problem.status === 409
+            ? "This entry cannot be moved: it is past draft, on a bill, or claimed by one. It is unchanged."
+            : "The entry was not moved. It is still on the matter it was on.",
+      });
+      return;
+    }
+    this.#patchRow(key, {
+      saveState: "saved",
+      saveFailure: null,
+      billedMinutes: outcome.value.durationMinutes,
+      rateE4: outcome.value.rateE4,
+      amountMinor: outcome.value.amountMinor,
+      currency: outcome.value.currency,
+    });
+    this.#context.announce(
+      "The entry moved. Its number, its note and its files came with it; the rate and the rounding were re-read on the matter it moved to.",
+    );
+    this.#context.onChanged();
   }
 
   /** Set the work date, and answer whether the scope has to widen to keep the row in view. */
