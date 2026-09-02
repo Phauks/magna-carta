@@ -559,7 +559,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Litigation events and deadlines</span>
 <code>calendar.events</code>
 <p>Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail.</p>
-<p class="note">The matter's Calendar section reads both records; recording from the screen still waits on the participant picker, so those actions render disabled. The firm-wide calendar screens remain their own slice.</p>
+<p class="note">The matter's Calendar section reads both records; recording from the screen waits on the event and deadline forms, so those actions render disabled; the participant picker it once named exists (EntityPicker) and is consumed when the forms are built. The firm-wide calendar screens remain their own slice.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Matter timeline (federated)</span>
@@ -921,7 +921,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Matter role assignments</span>
 <code>directory.edges.role-assignments</code>
 <p>Entity-to-matter role links with the role on the link, not the entity; one entity can hold multiple roles in one matter.</p>
-<p class="note">Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client as a party row is the next slice.</p>
+<p class="note">Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client is a party row from the moment the matter exists, written by the intake's create.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Typed identifiers</span>

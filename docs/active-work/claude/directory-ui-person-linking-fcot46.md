@@ -109,9 +109,12 @@ Review it on the deployed site after merge (the matter's Parties tab, and `/dire
    dialog should stay mounted (it resizes the panel while typing); whether the modal kind table wants
    a "form with an irreversible commit" for the merge; the merge dialog opens at record width with no
    context pane.
-4. **Slice 5** per the spec: calendar participants on `RecordParties` (the calendar page says it
-   waits on "the participant picker"); time and notes when those streams are in the area; the
-   custodian fold when its stream lands (see 2).
+4. **Slice 5 is re-scoped to a seam** (see the spec's §5): the calendar page has no event or
+   deadline form to attach participants to, so its Soon line now names the forms rather than the
+   picker, and the calendar stream consumes `EntityPicker` / `RecordParties` when it builds them.
+   Time and notes likewise. The custodian fold waits on its stream (see 2). **This stream's build is
+   complete**; what remains is the owner's review on the deployed site after merge, and the
+   custodian fold and the constituent class when their streams arrive.
 
 ## Environment notes for a fresh container
 

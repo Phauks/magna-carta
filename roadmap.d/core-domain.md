@@ -105,7 +105,7 @@
   surface: screen
   slices: 1-3-directory, 1-1-matters-locations-file-manager
   evidence: packages/directory/src/party.ts (matter_party rows, one per role, no uniqueness on (matter, entity)); apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte on the RecordParties tab
-  notes: Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client as a party row is the next slice.
+  notes: Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client is a party row from the moment the matter exists, written by the intake's create.
 
 - id: directory.identifiers
   name: Typed identifiers

@@ -263,7 +263,14 @@ it); an organization record gains a People pane and a person record an Organizat
 from edges; category management; `merge-dialog.svelte` and `new-entity-dialog.svelte` on
 `ActionDialog`, clearing their allowances.
 
-**Slice 5 — the remaining callers.** Calendar participants; then time and notes when those streams are
+**Slice 5 — the remaining callers. RE-SCOPED, 2026-09-02.** The calendar page has no event or
+deadline form — only a listing — so there is nothing for a participant picker to attach to, and its
+"waits on the participant picker" line was wrong about its own dependency; it now names the forms.
+The calendar's own design keeps a judge an `external` participant by default and makes a directory
+entity optional, so when the calendar stream builds those forms it consumes the family as a seam:
+`participantKind: "entity"` is an `EntityPicker` pick (a `RecordParties` tab where the event opens
+in a record window), `external` is a name, `member` is the member picker. Nothing is built here for
+it. Likewise time and notes. Calendar participants; then time and notes when those streams are
 in the area.
 
 Each slice: schema (where any) → data-access → API → UI → tests → user doc → `changelog.d/` fragment,
