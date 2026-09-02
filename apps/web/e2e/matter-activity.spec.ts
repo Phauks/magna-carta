@@ -88,6 +88,28 @@ test("the register is the product's table: it sorts, and the columns menu is its
     .poll(async () => ((await firstDate().textContent()) ?? "").trim())
     .not.toBe(newestFirst);
 
-  // And the columns are the reader's to arrange, which is the whole reason this is the shared table.
-  await expect(page.getByRole("button", { name: "Columns" })).toBeVisible();
+  // And the columns are the reader's to arrange — by right-clicking the register, which is the
+  // gesture this product teaches everywhere else an act belongs to a list. There is no button.
+  await expect(page.getByRole("button", { name: "Columns" })).toHaveCount(0);
+  await page.getByRole("columnheader", { name: "Kind" }).click({ button: "right" });
+  const columnsMenu = page.getByRole("menu");
+  await expect(columnsMenu).toBeVisible();
+  await expect(columnsMenu.getByRole("menuitemcheckbox", { name: "Details" })).toBeVisible();
+
+  // Hiding a column through it actually hides the column.
+  await columnsMenu.getByRole("menuitemcheckbox", { name: "Details" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("columnheader", { name: "Details" })).toHaveCount(0);
+});
+
+test("a document row is named by its file and typed by its real extension", async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/matters/${seededMatterId}/activity`);
+
+  // Not "Document" on every row: the file manager's settled convention is that a file's type is its
+  // real extension, and the same helper decides it on both surfaces.
+  const row = page.getByRole("row", { name: /Case Documents\.zip/ });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row.getByRole("cell", { name: "zip", exact: true })).toBeVisible();
+  await expect(row.getByRole("cell", { name: "2.1 KB" })).toBeVisible();
 });

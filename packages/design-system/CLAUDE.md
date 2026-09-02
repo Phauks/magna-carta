@@ -191,6 +191,12 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   - **Every `play` wraps its assertions in named `step()` calls** (the play context's `step`, no import) — one step per beat (`"Starts unchecked"` → `"Clicking checks it"`). The play functions ARE the behaviour tests, but a bare list of `expect(...)` lines reads as noise in the Interactions panel; `step()` turns each into a labelled, collapsible checklist that doubles as living documentation of what the component guarantees. Keep element lookups above the steps; put each interaction + its assertions inside the step it proves. (Owner-directed 2026-06-13 — the panel must read as a checklist, not a wall of assertions.)
   - **Never two stories rendering the SAME thing** (duplicates stack on the Docs page — the owner saw "two cards on top of each other").
   - **Visual-tests addon** (`@chromatic-com/storybook`) is installed but **inert** until a Chromatic token is set; the recorded primary VRT is the self-hosted Playwright harness (Argos the named upgrade) — revisit which SaaS before relying on Chromatic.
+- **`ContextMenu.GroupHeading` outside a `ContextMenu.Group` stops the menu OPENING, silently.** No
+  console error, no failed render, no thrown exception a caller can see — the right-click simply does
+  nothing, which reads as "context menus do not work here" and sends you looking at the trigger. A
+  heading that names no group has no group to name: either wrap the items in `ContextMenu.Group`, or
+  use the plain heading element the other menus use (`<p class="mc-table-filter-heading">`), which is
+  what `DataTable.GridColumnsContextMenu` does. Found the hard way, 2026-09-02.
 - **`#NNNN` issue references in `src/` comments trip the raw-hex gate** (four hex digits) — cite
   issues in full URL form or use a justified `fitness-allow`.
 - **No-emoji gate (golden rule 2)** is the fifth off-token scanner (`test/fitness/off-token.test.ts`):

@@ -47,7 +47,10 @@ export interface ActivityRow {
   readonly day: string;
   /** The clock time, where its source records one. Empty on a source that records only a day. */
   readonly time: string;
-  /** What kind of thing it is, in one word: Note, Document, Time entry. The set filter's vocabulary. */
+  /**
+   * What kind of thing it is, in one word: Note, Time entry, or a file's own extension. It is the
+   * Kind column's value, so it is also what that column's set filter narrows by.
+   */
   readonly kind: string;
   /** What it is CALLED, where its own subsystem can say — otherwise what happened. */
   readonly what: string;
@@ -99,7 +102,8 @@ export function activityRows(
       entry,
       day: entry.sortKey.slice(0, 10),
       time: timeOfDay(entry.sortKey) ?? "",
-      kind: presentation?.noun ?? "Other",
+      // The subsystem's own word where it has a more exact one — a pdf rather than a Document.
+      kind: detail?.kind ?? presentation?.noun ?? "Other",
       what: shortened(detail?.title ?? happenedText(entry.sourceKey)),
       details: [
         detail?.secondary,

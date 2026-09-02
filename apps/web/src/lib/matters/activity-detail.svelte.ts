@@ -19,6 +19,7 @@
  * the chronology than that page reaches shows its sentence without detail. Silently correct, never
  * wrong — an absent detail is an absent line, not a mistaken one.
  */
+import { fileExtension } from "$lib/file-manager/file-columns.ts";
 import { listMatterFiles } from "$lib/file-manager/matter-file-api.ts";
 import { listMatterDeadlines, listMatterEvents } from "$lib/matters/calendar-api.ts";
 import { listMatterCosts } from "$lib/matters/cost-api.ts";
@@ -31,6 +32,16 @@ export interface ActivityDetail {
   readonly title: string;
   /** One more fact worth the width: a type, a size, a state. */
   readonly secondary?: string;
+  /**
+   * What KIND of thing this row is, where its subsystem can be more exact than the source can.
+   *
+   * Every document on a matter is a "Document" to the timeline, which tells a reader nothing they
+   * could not see from the glyph. Its own record knows it is a pdf or a zip, and that is what
+   * somebody scans for — so a loader may refine the word, and the Kind column's filter picks the
+   * refinement up on its own, because a set filter offers the declared vocabulary and then whatever
+   * the rows actually carry.
+   */
+  readonly kind?: string;
 }
 
 /**
@@ -77,6 +88,9 @@ const LOADERS: Readonly<Record<string, DetailLoader>> = {
         file.id,
         {
           title: file.name,
+          // The file manager's settled convention: a file's type is its real EXTENSION, never a
+          // category paraphrase of ours. Same helper, so the two surfaces cannot disagree.
+          kind: fileExtension(file),
           secondary: [
             file.versionNumber > 1 ? `Version ${String(file.versionNumber)}` : undefined,
             sizeText(file.sizeBytes),

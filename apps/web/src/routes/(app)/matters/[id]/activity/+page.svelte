@@ -186,9 +186,9 @@
     <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
       Activity
     </h2>
-    <!-- Narrowing lives in the columns: each header carries its own filter, and the columns menu
-         decides which columns are there to narrow by. -->
-    <DataTable.GridColumnsMenu {grid} />
+    <!-- No columns button: choosing columns is a right-click on the register, which is the gesture
+         this product already teaches everywhere else an act belongs to a list. -->
+    <p class="text-xs text-text-muted">Right-click for columns</p>
   </div>
 
   {#if failure !== null}
@@ -204,7 +204,7 @@
   {#if isSample}
     <EmptyState title="This is a sample matter, so nothing has happened on it." />
   {:else}
-    <div class="min-h-0 flex-1">
+    <DataTable.GridColumnsContextMenu {grid} class="flex min-h-0 flex-1 flex-col">
       <DataTable.Grid
         {grid}
         {cell}
@@ -213,7 +213,7 @@
         empty={emptyRegister}
         loading={entries === null}
       />
-    </div>
+    </DataTable.GridColumnsContextMenu>
     <DataTable.GridFooter {grid} end={footerEnd} />
   {/if}
 </section>

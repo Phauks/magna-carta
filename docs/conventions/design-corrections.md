@@ -143,6 +143,11 @@ is usually the fastest way to understand the rule.
   nothing behind it swallows the gesture in silence: the person watches their file go in, sees
   nothing happen, and cannot tell that from a failure. Either wire it or leave it out — a control
   that does nothing is worse than an absent one. _(matter notes, 2026-09-01)_
+- **A type column names the thing's REAL type, never our category word for it.** A file's kind is
+  its extension — `txt`, `zip`, `bin` — because that is what a reader scans for and what the record
+  actually says; "Document" on every row of a document register is the column repeating its own
+  heading. Where a subsystem knows a more exact word than the surface does, the surface takes it.
+  _(matter activity, 2026-09-02)_
 - **A list of records IS the product's table.** Not a hand-built list that resembles one. The shared
   grid already carries sorting, per-column filtering, a set filter with counts, column
   show/hide/pin/reorder/resize, and a footer that says how many rows a filter is hiding; a list
@@ -398,6 +403,19 @@ promoted above; it binds everywhere. What is local to this surface:
   of them narrows the READ — the source keys and bounds travel with the request and the server
   narrows its registry before it builds a statement — so a filtered chronology is cheaper as well as
   shorter, and Clear Filters appears only while something is hidden.
+
+### 2026-09-02 — the matter Activity section, third review round
+
+Three corrections, all promoted above except what is local:
+
+- **A document row's Kind is its real EXTENSION** — `txt`, `zip`, `bin` — not the word "Document",
+  which told a reader nothing the glyph had not. Same `fileExtension` helper the File Manager's own
+  File Type column uses, so the two surfaces cannot disagree about what a file is. A loader may
+  refine any row's kind this way, and the Kind filter picks the refinement up on its own.
+- **There is no Columns button.** Choosing columns is a right-click on the register, through the new
+  shared `DataTable.GridColumnsContextMenu` — the same grid state the button's menu drives, so a
+  surface may offer either. Verified before building: the shared grid had no column right-click at
+  all, and nine registers still carry the button, so this is the first consumer rather than a sweep.
 
 ### 2026-09-02 — the matter Activity section, second review round
 

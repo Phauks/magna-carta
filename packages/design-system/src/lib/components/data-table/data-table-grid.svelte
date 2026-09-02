@@ -44,6 +44,12 @@
     /** Right-click on a row: the selection re-targets first, then this fires for the surface's
      * menu. Rows carry no menu of their own here. */
     onRowContextMenu?: (event: MouseEvent, row: TRow, selectedRows: readonly TRow[]) => void;
+    /**
+     * Right-clicking a column header. Given, the header's own context menu is suppressed and this is
+     * called with the column under the pointer — which is how a surface opens the columns control
+     * where the columns are, rather than from a button somewhere else in its chrome.
+     */
+    onColumnContextMenu?: (event: MouseEvent, column: GridColumn<TRow>) => void;
     class?: string;
   };
   let {
@@ -55,6 +61,7 @@
     skeletonRowCount = 8,
     density = "comfortable",
     onRowContextMenu,
+    onColumnContextMenu,
     class: className,
   }: Props = $props();
 
@@ -313,6 +320,11 @@
               if (dropTarget?.columnId === column.id) dropTarget = null;
             }}
             ondrop={(event) => headDrop(event, column)}
+            oncontextmenu={(event) => {
+              if (!onColumnContextMenu) return;
+              event.preventDefault();
+              onColumnContextMenu(event, column);
+            }}
           >
             <span class="mc-table-grid-head-inner">
               <button
