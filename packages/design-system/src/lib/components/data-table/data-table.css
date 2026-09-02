@@ -704,8 +704,15 @@
    * The custody register showed this worst, because its empty state is four lines of prose, but it
    * was never that screen's defect: any surface whose empty state runs past one short line has it,
    * which is why the fix is here and not there.
+   *
+   * THE SELECTOR IS DESCENDANT-QUALIFIED, AND HAS TO BE. The nowrap it overrides is set by
+   * `.mc-table-grid .mc-table-cell`, which is two classes; a bare `.mc-table-grid-placeholder` is
+   * one, loses on specificity, and silently does nothing however far down the file it sits. That
+   * is exactly how this shipped once already and had to be fixed twice, so the story test asserts
+   * the COMPUTED value rather than the presence of a rule — the only kind of assertion that can
+   * fail on a specificity mistake.
    */
-  .mc-table-grid-placeholder {
+  .mc-table-grid .mc-table-grid-placeholder {
     white-space: normal;
   }
   /* The filtered-empty state says WHY the table is empty and hands over the way out. */

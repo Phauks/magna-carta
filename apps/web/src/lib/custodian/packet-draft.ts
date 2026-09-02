@@ -42,17 +42,39 @@ export interface PacketOwnerDraft {
   ownershipRole: string;
 }
 
-/** Everything the packet form holds. Dates are plain ISO days, never instants. */
+/**
+ * Everything the packet form holds. Dates are plain ISO days, never instants.
+ *
+ * TWO FIELDS ARE NAMED IN THE FIRM'S WORDS RATHER THAN THE CONTRACT'S, and the mapping is done once
+ * in `packetDraftRequest` below. The register's row calls them `depositor_entity_id` and
+ * `deposited_at`; the firm calls them the TRUSTOR and the ACQUISITION DATE, which is what the form
+ * says. Naming the draft after the screen keeps the translation in one function instead of leaving
+ * every reader of this form to hold both vocabularies at once.
+ */
 export interface PacketDraft {
   name: string;
   owners: readonly PacketOwnerDraft[];
   locationId: string | null;
+  /**
+   * The matter this property is held under. REQUIRED, and that is the firm's own rule rather than
+   * the contract's: property is held for a client, a client is somebody with a matter, and the firm
+   * does not hold originals for people it has no matter with. The API still permits a packet
+   * without one — this screen is deliberately the stricter of the two.
+   */
   matterId: string | null;
-  depositorEntityId: string | null;
-  depositedAt: string | null;
+  /** Who handed the property over. The contract's `depositorEntityId`. */
+  trustorEntityId: string | null;
+  /** When the firm actually took it, which is rarely the day the row is typed. `depositedAt`. */
+  acquiredOn: string | null;
   notes: string;
-  /** Set only for property carried in from an earlier register, which keeps its old number. */
-  manualCustodyNumber: string;
+  /**
+   * A number the property already carries on its physical label, from a paper deeds register or a
+   * system the firm is migrating off. Set it and the register keeps that number and draws none, so
+   * nobody has to re-label objects sitting in a safe. Empty means the register draws the next one.
+   */
+  existingNumber: string;
+  /** What is inside, described before the packet is saved. Each becomes one item after it exists. */
+  items: readonly ItemDraft[];
 }
 
 /** A form nobody has typed into yet. */
@@ -61,21 +83,26 @@ export const EMPTY_PACKET_DRAFT: PacketDraft = {
   owners: [],
   locationId: null,
   matterId: null,
-  depositorEntityId: null,
-  depositedAt: null,
+  trustorEntityId: null,
+  acquiredOn: null,
   notes: "",
-  manualCustodyNumber: "",
+  existingNumber: "",
+  items: [],
 };
 
 /**
  * What still stops this packet being logged.
  *
- * The three required answers are the register's own: a packet with no name cannot be asked for, a
- * packet held for nobody cannot be given back, and a packet at no location is one the firm has
- * lost. Everything else on the form is genuinely optional and is not named here.
+ * THE MATTER IS NAMED FIRST because everything else on the form depends on it: the owners a packet
+ * can be held for are that matter's parties, so a form with no matter cannot offer an owner at all.
+ * The other three are the register's own: property with no name cannot be asked for, property held
+ * for nobody can never be given back, and property at no location is property the firm has lost.
+ * Everything else on the form is genuinely optional and is not named here.
  */
 export function packetDraftShortfalls(draft: PacketDraft): readonly string[] {
   const shortfalls: string[] = [];
+  if (draft.matterId === null) shortfalls.push("Choose the matter this is held under.");
+
   const name = draft.name.trim();
   if (name === "") shortfalls.push("Name what the firm is holding.");
   else if (name.length > PACKET_NAME_LIMIT) {
@@ -97,8 +124,13 @@ export function packetDraftShortfalls(draft: PacketDraft): readonly string[] {
   if (draft.notes.trim().length > PACKET_NOTES_LIMIT) {
     shortfalls.push(`The notes are longer than ${PACKET_NOTES_LIMIT} characters.`);
   }
-  if (draft.manualCustodyNumber.trim().length > CUSTODY_NUMBER_LIMIT) {
-    shortfalls.push(`A carried-in number is longer than ${CUSTODY_NUMBER_LIMIT} characters.`);
+  if (draft.existingNumber.trim().length > CUSTODY_NUMBER_LIMIT) {
+    shortfalls.push(`An existing number is longer than ${CUSTODY_NUMBER_LIMIT} characters.`);
+  }
+  // An item nobody finished describing would be posted as a blank line inside the packet, so the
+  // form refuses the whole submit rather than silently dropping it.
+  if (draft.items.some((item) => !itemDraftReady(item))) {
+    shortfalls.push("Finish or remove the item being described.");
   }
   return shortfalls;
 }
@@ -117,11 +149,14 @@ export function packetDraftReady(draft: PacketDraft): boolean {
  */
 export function packetDraftRequest(draft: PacketDraft): CreateCustodyPacketRequest {
   const locationId = draft.locationId;
-  if (locationId === null) {
-    throw new Error("A packet cannot be logged without a location. Ask packetDraftReady first.");
+  const matterId = draft.matterId;
+  if (locationId === null || matterId === null) {
+    throw new Error(
+      "A packet cannot be logged without a matter and a location. Ask packetDraftReady first.",
+    );
   }
   const notes = draft.notes.trim();
-  const manualCustodyNumber = draft.manualCustodyNumber.trim();
+  const existingNumber = draft.existingNumber.trim();
   return {
     name: draft.name.trim(),
     owners: draft.owners.map((owner) => {
@@ -129,11 +164,14 @@ export function packetDraftRequest(draft: PacketDraft): CreateCustodyPacketReque
       return { entityId: owner.entityId, ...(role === "" ? {} : { ownershipRole: role }) };
     }),
     currentLocationId: locationId,
-    ...(draft.matterId === null ? {} : { matterId: draft.matterId }),
-    ...(draft.depositorEntityId === null ? {} : { depositorEntityId: draft.depositorEntityId }),
-    ...(draft.depositedAt === null ? {} : { depositedAt: draft.depositedAt }),
+    matterId,
+    // The one place the form's words become the contract's: the Trustor is the row's depositor and
+    // the Acquisition Date is the row's deposited-at. Stated here so neither vocabulary has to be
+    // carried anywhere else.
+    ...(draft.trustorEntityId === null ? {} : { depositorEntityId: draft.trustorEntityId }),
+    ...(draft.acquiredOn === null ? {} : { depositedAt: draft.acquiredOn }),
     ...(notes === "" ? {} : { notes }),
-    ...(manualCustodyNumber === "" ? {} : { manualCustodyNumber }),
+    ...(existingNumber === "" ? {} : { manualCustodyNumber: existingNumber }),
   };
 }
 

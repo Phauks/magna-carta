@@ -12,14 +12,11 @@
 import { describe, expect, it } from "vitest";
 import type { TimeEntrySummary } from "../src/lib/matters/time-api.ts";
 import {
-  NO_MATTER_TEXT,
   clockText,
   decimalHoursText,
   incompleteCount,
   isIncomplete,
   isWorkable,
-  matterDisplay,
-  matterMatches,
   minutesFromSeconds,
   missingFacts,
   newSheetRow,
@@ -29,9 +26,14 @@ import {
   searchMatches,
   sheetHonesty,
   sheetRowFromEntry,
-  type SheetMatter,
   type SheetRow,
 } from "../src/lib/time/time-sheet-model.ts";
+import {
+  matterDisplay,
+  matterMatches,
+  NO_MATTER_TEXT,
+  type SheetMatter,
+} from "../src/lib/matters/matter-choice.ts";
 
 function entry(overrides: Partial<TimeEntrySummary> = {}): TimeEntrySummary {
   return {

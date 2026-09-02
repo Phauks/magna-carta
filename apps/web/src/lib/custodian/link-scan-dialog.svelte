@@ -22,11 +22,12 @@
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { parseDate, type DateValue } from "@internationalized/date";
+  import X from "@lucide/svelte/icons/x";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import { listMatterDocuments, type DocumentSummary } from "$lib/documents/document-api.ts";
+  import type { DocumentSummary } from "$lib/documents/document-api.ts";
+  import MatterFilePicker from "$lib/components/matter-file-picker.svelte";
   import { linkCustodyScan, type CustodyItem } from "./custody-api.ts";
   import { SCAN_KINDS, scanKindLabel } from "./custody-vocabulary.ts";
   import {
@@ -55,34 +56,11 @@
   } = $props();
 
   let draft = $state<ScanDraft>({ ...EMPTY_SCAN_DRAFT });
-  let documents = $state<readonly DocumentSummary[]>([]);
-  let readFailed = $state(false);
+  /* The chosen file's name, held beside its handle so a filled field can name what it holds. */
+  let chosenName = $state<string | null>(null);
   let submitting = $state(false);
   let failure = $state<StatedFailure | null>(null);
-  let readMatterId: string | null = null;
 
-  // One read per matter, when the form is in play. A read that could not run is stated rather than
-  // rendered as a matter holding no files: the two are the same picture and not the same fact.
-  $effect(() => {
-    const matter = filingMatterId;
-    if (!open || matter === null || readMatterId === matter) return;
-    readMatterId = matter;
-    void (async () => {
-      const outcome = await listMatterDocuments(fetch, matter);
-      if (readMatterId !== matter) return;
-      if (outcome.kind === "ok") {
-        documents = outcome.value.data;
-        readFailed = false;
-        return;
-      }
-      documents = [];
-      readFailed = true;
-    })();
-  });
-
-  const documentItems = $derived(
-    documents.map((document) => ({ value: document.id, label: document.name })),
-  );
   const kindItems = SCAN_KINDS.map((kind) => ({ value: kind, label: scanKindLabel(kind) }));
   const WHOLE_PACKET = "packet";
   const itemItems = $derived([
@@ -108,6 +86,7 @@
 
   function reset(): void {
     draft = { ...EMPTY_SCAN_DRAFT };
+    chosenName = null;
     failure = null;
   }
 
@@ -150,26 +129,32 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label id="link-scan-file-label">Document</Label>
-        <Select.Root
-          type="single"
-          items={documentItems}
-          value={draft.fileId ?? ""}
-          onValueChange={(value) => (draft.fileId = value === "" ? null : value)}
-          allowDeselect={false}
-          disabled={documentItems.length === 0}
-        >
-          <Select.Trigger aria-labelledby="link-scan-file-label">
-            <Select.Value placeholder={placeholderOf("Document")} />
-          </Select.Trigger>
-          <Select.Content>
-            {#each documentItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-        {#if readFailed}
-          <p class="text-xs text-text-muted">This packet's file store could not be read.</p>
+        <Label for="link-scan-file">Document</Label>
+        {#if chosenName === null}
+          <MatterFilePicker
+            matterId={filingMatterId}
+            inputId="link-scan-file"
+            onPick={(document: DocumentSummary) => {
+              draft.fileId = document.id;
+              chosenName = document.name;
+            }}
+          />
+        {:else}
+          <!-- A filled seat names what is in it rather than showing its ghost text back. -->
+          <div class="flex items-center gap-8">
+            <span class="min-w-0 flex-1 truncate">{chosenName}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Clear the chosen document"
+              onclick={() => {
+                draft.fileId = null;
+                chosenName = null;
+              }}
+            >
+              <X class="size-16" aria-hidden="true" />
+            </Button>
+          </div>
         {/if}
       </div>
 

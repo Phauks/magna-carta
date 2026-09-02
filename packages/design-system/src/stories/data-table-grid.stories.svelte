@@ -627,6 +627,48 @@
   {/snippet}
 </Story>
 
+<!--
+  A surface's OWN empty state, which is the one that broke.
+
+  The grid's built-in empty renders inside `.mc-table-grid-empty` and sets its own white-space, so
+  it could never show this. A surface-supplied snippet renders bare in the placeholder cell and
+  inherits the cell's `white-space: nowrap` — set by `.mc-table-grid .mc-table-cell`, two classes.
+  A one-class override loses to it silently, which is exactly how the fix shipped once doing
+  nothing at all. So the assertion is the SYMPTOM, not the rule: prose in an empty table must not
+  push the table wider than the frame it scrolls in.
+-->
+<Story
+  name="EmptyWithSurfaceProse"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const scroll = canvas.getByRole("table").closest(".mc-table-grid-scroll");
+    if (!(scroll instanceof HTMLElement)) throw new Error("the grid has no scroll frame");
+
+    await step("The placeholder cell wraps rather than inheriting the row nowrap", async () => {
+      const placeholder = scroll.querySelector(".mc-table-grid-placeholder");
+      if (!(placeholder instanceof HTMLElement)) throw new Error("no placeholder cell");
+      // The COMPUTED value, because the defect was a specificity loss: the rule was present in the
+      // stylesheet and beaten, which any assertion about the stylesheet itself would have passed.
+      await expect(getComputedStyle(placeholder).whiteSpace).not.toBe("nowrap");
+    });
+
+    await step("A wordy empty state does not widen the table past its frame", async () => {
+      await expect(scroll.scrollWidth).toBeLessThanOrEqual(scroll.clientWidth + 1);
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid rows={[]}>
+      {#snippet empty()}
+        A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
+        wallet. It carries a custody number, the person or organization it is held for, and
+        everything that has ever happened to it. Logging the first one draws the firm's first
+        custody number.
+      {/snippet}
+    </LitigationGrid>
+  {/snippet}
+</Story>
+
 <!-- Empty (unfiltered): distinct from filtered-empty — nothing exists yet, nothing is hidden. -->
 <Story
   name="Empty"

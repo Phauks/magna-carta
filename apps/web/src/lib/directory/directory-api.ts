@@ -927,3 +927,34 @@ export function setDirectoryPersonLifeDates(
     { method: "PUT", body: request, idempotencyKey },
   );
 }
+
+/**
+ * One party on a matter: the directory entity, the role it plays there, and what to call it.
+ *
+ * The mirror of `listEntityMatterParties`, which answers what a PERSON is on. This one answers who
+ * is on a matter, and it is what any surface asking "which of this client's people" reads: the
+ * directory is the firm's whole address book, and most of it has nothing to do with the matter in
+ * front of you.
+ */
+export interface MatterParty {
+  id: string;
+  matterId: string;
+  entityId: string;
+  role: string;
+  /** The capacity recorded on this link, or null. Never inferred from the role. */
+  capacity: string | null;
+  entityKind: "person" | "organization" | "unknown";
+  /** Null where the directory holds no name; a caller shows the gap rather than inventing one. */
+  displayName: string | null;
+}
+
+/** Every live party on one matter. A matter with none answers empty rather than failing. */
+export function listMatterParties(
+  fetchImpl: typeof fetch,
+  matterId: string,
+): Promise<ApiOutcome<{ parties: MatterParty[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/matter-parties?matterId=${encodeURIComponent(matterId)}`,
+  );
+}

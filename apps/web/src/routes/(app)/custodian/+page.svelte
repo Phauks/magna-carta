@@ -3,10 +3,11 @@
    * Custodian — the firm's holdings of record.
    *
    * WHY THIS IS A TOP-LEVEL SCREEN AND NOT ONLY A MATTER TAB. The question this register answers is
-   * "where is the original will", and that question does not arrive through a matter. A firm holds
-   * a will for a client whose last matter closed eleven years ago, for the adult child of a client,
-   * for a deceased client's estate, for somebody who has never had a matter at all. A packet's
-   * matter link is optional by construction, so the register has to be reachable without one.
+   * "where is the original will", and it arrives without the matter attached: somebody rings up
+   * about a client, or walks to a safe holding property from forty files. Every packet IS under a
+   * matter — the firm holds property for clients, and a client is somebody it has a matter with —
+   * but a reader who had to know which matter before they could look would be unable to use the
+   * register for the thing it is for.
    *
    * IT IS ONE TABLE, AND THE TABLE IS WHAT NARROWS IT. There is no status control above the rows,
    * no search box of its own and no tab strip: status is a column with its own filter, search is
@@ -254,7 +255,12 @@
   </div>
 </div>
 
-<NewPacketDialog bind:open={dialogOpen} {locations} onCreated={onLogged} />
+<NewPacketDialog
+  bind:open={dialogOpen}
+  {locations}
+  onCreated={onLogged}
+  onLocationsChanged={readTree}
+/>
 
 <PacketWindow
   bind:open={windowOpen}

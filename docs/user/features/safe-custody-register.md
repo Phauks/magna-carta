@@ -20,32 +20,45 @@ moves: an envelope, a deed box, a sealed wallet. The items are what it contains 
 Jane Smith dated 14 March 2019", "share certificate, 200 ordinary, Acme Holdings". You move a packet;
 you describe items. A packet can start with nothing itemized and be filled in later.
 
-**Every packet belongs to somebody named.** You cannot log a packet without linking it to a person or
-organization in your directory. This is deliberate and there is no way around it: the worst thing that
-happens in safe custody is not a misplaced envelope, it is an envelope nobody can attribute — one that
-can never be returned to its owner and never be destroyed.
+**Every packet belongs to somebody named, on a matter.** You cannot log a packet without linking it
+to a person or organization, and the ones on offer are the parties to the matter it is held under.
+This is deliberate and there is no way around it: the worst thing that happens in safe custody is not
+a misplaced envelope, it is an envelope nobody can attribute — one that can never be returned to its
+owner and never be destroyed. Property under no matter belongs to somebody your firm has no
+relationship with, and the firm does not take that in.
 
 ## Logging something into custody
 
-1. Open the register and press **New**.
-2. Give it a name you would recognize on a shelf ("Smith family deeds").
-3. Choose the **container** it is going into — the safe, box, or shelf it will live in. Containers you
-   have closed are not offered.
-4. Link at least one **owner** from the directory. You can add more than one — a joint will packet has
-   two — and you can give each a short role: owner, joint owner, life tenant, trustee, executor.
-5. Record who **handed it over** if it was not the owner, and when. A son depositing his mother's
-   will, or a former solicitor transferring a file on a practice closure, is a fact about the deposit
-   that should not be lost when ownership later changes. The date is the day the firm actually took
-   it, which is often years before anybody types the row.
-6. Link a **matter** only if there is one. Most packets have none, and that is normal: a will held for
-   a client whose last matter closed eleven years ago is the ordinary case, not an oversight. Where a
-   packet is linked to a matter, closing that matter tells the person closing it that you still hold
-   the property — and then closes the matter anyway. It never blocks, because holding a client's will
-   long after their last matter closed is what a safe-custody register is for. Pressing **New** from
-   inside a matter's Custodian section fills this in for you and asks you everything else.
+The form has two sides: the packet on the left, what is inside it on the right. Nothing on the right
+is required — property is regularly taken in sealed, and you describe the contents whenever it is
+next opened.
 
-The form will not let you record a packet without a name, an owner and a container, and it tells you
-which of the three is missing rather than leaving a button greyed out with no reason.
+1. Open the register and press **New**. The number the packet would take is shown at the top, marked
+   **tentative**: nothing is reserved by showing it, so if a colleague logs one first yours takes the
+   next. It is there because it is what you are about to write on the label.
+2. Choose the **matter** it is held under. This comes first because everything else depends on it:
+   the people it can be held for are that matter's parties, and the documents you can attach are the
+   ones filed on it. Pressing **New** inside a matter's own Custodian section fills this in for you.
+3. Give it a name you would recognize on a shelf ("Smith family deeds").
+4. Choose the **container** it is going into — the safe, box, or shelf it will live in. Containers you
+   have closed are not offered, and if your firm has not described any yet you can describe one right
+   here instead of going somewhere else first. A container described while another is selected is
+   nested inside it, so "Box 4" lands in the Reno safe rather than beside the building.
+5. Name at least one **owner**, from the matter's parties. You can add more than one — a joint will
+   packet has two — and each carries a short role, which starts from the capacity that party holds on
+   the matter and can be changed.
+6. Record the **trustor** where the property was handed over by somebody other than its owner, and
+   the **acquisition date** — the day the firm actually took it, which is often years before anybody
+   types the row.
+7. On the right, add what is inside, one line at a time, and attach any documents already filed on
+   the matter.
+
+The form will not let you record a packet without a matter, a name, an owner and a container, and it
+tells you which of the four is missing rather than leaving a button greyed out with no reason.
+
+Closing that matter later tells the person closing it that you still hold the property, and then
+closes the matter anyway. It never blocks, because holding a client's will long after their file
+closes is what a safe-custody register is for.
 
 If your firm has written down its own list of ownership roles, the role you choose has to be one of
 them, so a typo does not become a new category. If it has not, anything you type is accepted — the
@@ -53,8 +66,8 @@ platform has no list of its own, because the forms property can be held under va
 
 The register gives the packet a **custody number** — the number you write on the label and read out
 over the phone. If you are moving in from a paper deeds register or another system and your packets
-already have numbers on their labels, enter the existing number instead; the register will use it and
-you do not have to re-label the safe.
+already have numbers on their labels, type it into **Existing number** instead; the register keeps
+that number, draws none, and you do not have to re-label the safe.
 
 Then itemize it: open the packet, go to **Contents**, and press **Describe An Item** once per thing
 inside, with a description, the type, and the item's own date where it has one (a will's date is what

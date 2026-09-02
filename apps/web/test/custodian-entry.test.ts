@@ -36,6 +36,7 @@ import type { CustodyLocationNode } from "../src/lib/custodian/custody-api.ts";
 function loggable(overrides: Partial<PacketDraft> = {}): PacketDraft {
   return {
     ...EMPTY_PACKET_DRAFT,
+    matterId: "matter_conveyance",
     name: "Smith family deeds",
     owners: [{ entityId: "directoryPerson_smith", displayName: "Ada Smith", ownershipRole: "" }],
     locationId: "custodyLocation_safe",
@@ -58,17 +59,28 @@ function node(overrides: Partial<CustodyLocationNode> = {}): CustodyLocationNode
 }
 
 describe("the packet form", () => {
-  it("names the three answers the register cannot work without", () => {
+  it("names the four answers the register cannot work without, matter first", () => {
     const shortfalls = packetDraftShortfalls(EMPTY_PACKET_DRAFT);
     expect(packetDraftReady(EMPTY_PACKET_DRAFT)).toBe(false);
+    // The matter leads, because the owners a packet can be held for are its parties: a form with
+    // no matter cannot offer an owner at all, so naming anything else first would misdirect.
     expect(shortfalls).toEqual([
+      "Choose the matter this is held under.",
       "Name what the firm is holding.",
       "Name at least one person or organization this is held for.",
       "Say where it is being kept.",
     ]);
   });
 
-  it("is ready on those three alone, because everything else really is optional", () => {
+  it("refuses a packet with no matter, which is the firm's rule and not the contract's", () => {
+    // The API permits a matterless packet; this screen does not. Property is held for a client,
+    // and somebody the firm has no matter with is not one.
+    expect(packetDraftShortfalls(loggable({ matterId: null }))).toEqual([
+      "Choose the matter this is held under.",
+    ]);
+  });
+
+  it("is ready on those four alone, because everything else really is optional", () => {
     expect(packetDraftShortfalls(loggable())).toEqual([]);
     expect(packetDraftReady(loggable())).toBe(true);
   });
@@ -79,6 +91,7 @@ describe("the packet form", () => {
       name: "Smith family deeds",
       owners: [{ entityId: "directoryPerson_smith" }],
       currentLocationId: "custodyLocation_safe",
+      matterId: "matter_conveyance",
     });
     // Said explicitly: a key that is merely undefined would still serialize away, but a key set to
     // "" would not, and this is the difference the register would record as an answer.
@@ -98,11 +111,10 @@ describe("the packet form", () => {
             ownershipRole: " Life tenant ",
           },
         ],
-        depositorEntityId: "directoryOrganization_bank",
-        depositedAt: "2019-04-02",
+        trustorEntityId: "directoryOrganization_bank",
+        acquiredOn: "2019-04-02",
         notes: "  Sealed on receipt.  ",
-        manualCustodyNumber: " OLD-114 ",
-        matterId: "matter_conveyance",
+        existingNumber: " OLD-114 ",
       }),
     );
     expect(request).toEqual({
@@ -138,7 +150,20 @@ describe("the packet form", () => {
   });
 
   it("will not assemble a request it has already said is not ready", () => {
-    expect(() => packetDraftRequest(EMPTY_PACKET_DRAFT)).toThrow(/location/);
+    expect(() => packetDraftRequest(EMPTY_PACKET_DRAFT)).toThrow(/matter and a location/);
+  });
+
+  it("refuses a submit while an item is half-described, rather than dropping it", () => {
+    // A blank line posted inside the packet is worse than a refused submit: the packet would exist
+    // with a described item nobody described.
+    expect(
+      packetDraftShortfalls(loggable({ items: [{ ...EMPTY_ITEM_DRAFT, description: "  " }] })),
+    ).toEqual(["Finish or remove the item being described."]);
+    expect(
+      packetDraftReady(
+        loggable({ items: [{ ...EMPTY_ITEM_DRAFT, description: "Original will" }] }),
+      ),
+    ).toBe(true);
   });
 });
 

@@ -478,3 +478,28 @@ export async function endCustodyOwner(
     },
   };
 }
+
+/**
+ * The number the NEXT packet would draw, without drawing it.
+ *
+ * TENTATIVE, AND THE WORD IS LOAD-BEARING. This reads the counter and renders it; it allocates
+ * nothing. Two people logging a packet at the same moment are shown the same number and only one of
+ * them gets it — the loser's write advances past it and takes the next. So a surface that shows this
+ * has to say it is provisional, because a custody number is what somebody writes on a physical
+ * label, and a number written on a label before the record exists is the one kind of wrong this
+ * register cannot tolerate.
+ *
+ * It reads through the SAME `readCounterValue` / `renderCustodyNumber` pair the draw uses, rather
+ * than reimplementing the shape. A preview computed independently would agree with the draw exactly
+ * until the scheme changed, and then disagree silently, which is worse than showing nothing.
+ */
+export async function previewNextCustodyNumber(
+  database: BatchDatabase,
+  options: { readonly numberScheme?: CustodyNumberScheme; readonly rootCode?: string } = {},
+): Promise<string> {
+  const scheme = options.numberScheme ?? DEFAULT_CUSTODY_NUMBER_SCHEME;
+  const context: CustodyNumberContext = { rootCode: options.rootCode };
+  const observed =
+    (await readCounterValue(database, deriveScopeKey(scheme, context))) ?? scheme.startValue;
+  return renderCustodyNumber(scheme, context, observed);
+}

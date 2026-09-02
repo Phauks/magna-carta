@@ -208,6 +208,26 @@ export function locationKindLabel(kind: CustodyLocationKind): string {
 }
 
 /**
+ * The container kinds in reading order — what a form offers, outermost first.
+ *
+ * Ordered the way a firm walks its own storage rather than alphabetically: an office holds rooms, a
+ * room holds safes and cabinets, a cabinet holds shelves, a shelf holds boxes, a box holds
+ * positions. The two that are not the firm's own premises come last, because they are the
+ * exception a person looks for rather than the one they scroll past.
+ */
+export const CUSTODY_LOCATION_KINDS: readonly CustodyLocationKind[] = [
+  "office",
+  "room",
+  "safe",
+  "cabinet",
+  "shelf",
+  "box",
+  "position",
+  "offsite",
+  "bank",
+];
+
+/**
  * The overdue buckets the register reports in, in reading order. The words are the domain's own
  * bucket keys; only their rendering is decided here.
  */

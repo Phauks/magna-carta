@@ -1,32 +1,36 @@
 <script lang="ts">
   /*
-   * Whom the firm holds property for, picked from the Directory rather than typed.
+   * Whom the firm holds property for, chosen from the MATTER'S OWN PARTIES.
    *
-   * A PACKET CANNOT BE LOGGED FOR A NAME. The register stores directory handles, and that is the
-   * whole reason it can answer "does this firm hold anything of Mrs Ableman's" eleven years after
-   * her last matter closed. A free-text owner would let one client be three spellings, and every
-   * one of those questions would stop having an answer.
+   * IT WAS A DIRECTORY SEARCH AND THAT WAS WRONG. The directory is the firm's whole address book —
+   * opposing counsel, courts, vendors, every party to every matter the firm has ever had. Offering
+   * all of it as candidate owners invites recording a will as held for the other side's attorney,
+   * and no amount of care at the keyboard makes that a good list to choose from. The people a
+   * packet can be held for are the people on its matter, so that is the list.
    *
-   * The search behind it is the Directory's own fuzzy match, tolerant of a typo and run over every
-   * name an entity has ever held, so an original filed under a maiden name is still found under it.
-   * A search that could not run says so rather than rendering as an empty Directory: the two are
-   * the same picture and they are not the same fact.
+   * WHICH IS WHY THE MATTER COMES FIRST ON THE FORM. Property is held for a client, a client is
+   * somebody the firm has a matter with, and the firm does not hold originals for anyone else. With
+   * no matter chosen there is nothing to offer, and the field says so rather than sitting empty
+   * looking broken.
    *
-   * IT PICKS, AND FORGETS. The chosen entity is handed to the caller and the field clears itself,
-   * because the form above it holds a LIST of owners and a field that kept the last pick would read
-   * as though that pick were still pending.
+   * THE ROLE COMES ACROSS WITH THE PERSON. A party already carries what they are on the matter, so
+   * the ownership role starts from the capacity the matter recorded rather than from a blank box.
+   * It stays editable: what somebody is to a matter and what they are to an envelope inside it are
+   * related questions, not the same one.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
-  import { searchDirectory, type DirectorySearchHit } from "$lib/directory/directory-api.ts";
-  import { searchHitKindLabel } from "$lib/directory/entity-presentation.ts";
+  import { listMatterParties, type MatterParty } from "$lib/directory/directory-api.ts";
 
   let {
+    matterId,
     inputId,
     fieldName,
     disabled = false,
     excluded = [],
     onPick,
   }: {
+    /** The matter whose parties are on offer. Null before one has been chosen. */
+    matterId: string | null;
     /** The combobox input's id, so the consumer's Label can point at it. */
     inputId: string;
     /** What this field is choosing, for the input's own accessible name. */
@@ -34,72 +38,79 @@
     disabled?: boolean;
     /** Handles already chosen. Offering one twice would invite a duplicate the server refuses. */
     excluded?: readonly string[];
-    /** An entity was chosen. */
-    onPick: (hit: DirectorySearchHit) => void;
+    /** A party was chosen. */
+    onPick: (party: MatterParty) => void;
   } = $props();
 
+  let parties = $state<readonly MatterParty[]>([]);
+  let reading = $state(false);
+  let readFailed = $state(false);
   let query = $state("");
-  let settledQuery = $state("");
-  let results = $state<readonly DirectorySearchHit[]>([]);
-  let capped = $state(false);
-  let searching = $state(false);
-  let searchFailed = $state(false);
+  let readMatterId: string | null = null;
 
-  // The typed query settles before it is sent: a Directory search per keystroke is a request per
-  // keystroke, and the firm's own record is the authoritative match rather than the rows on screen.
-  const SETTLE_MILLISECONDS = 250;
+  // One read per matter. A read that could not run is stated rather than rendered as a matter with
+  // no parties: the two are the same picture and they are not the same fact.
   $effect(() => {
-    const typed = query;
-    const timer = setTimeout(() => (settledQuery = typed), SETTLE_MILLISECONDS);
-    return () => clearTimeout(timer);
-  });
-
-  $effect(() => {
-    const asked = settledQuery.trim();
-    if (asked === "") {
-      results = [];
-      capped = false;
-      searchFailed = false;
+    const matter = matterId;
+    if (matter === null) {
+      parties = [];
+      readMatterId = null;
       return;
     }
-    let live = true;
-    searching = true;
+    if (readMatterId === matter) return;
+    readMatterId = matter;
+    reading = true;
     void (async () => {
-      const outcome = await searchDirectory(fetch, asked);
-      if (!live) return;
-      searching = false;
+      const outcome = await listMatterParties(fetch, matter);
+      if (readMatterId !== matter) return;
+      reading = false;
       if (outcome.kind === "ok") {
-        results = outcome.value.data;
-        capped = outcome.value.capped;
-        searchFailed = false;
+        parties = outcome.value.parties;
+        readFailed = false;
         return;
       }
-      results = [];
-      capped = false;
-      searchFailed = true;
+      parties = [];
+      readFailed = true;
     })();
-    return () => {
-      live = false;
-    };
   });
 
-  const offered = $derived(results.filter((hit) => !excluded.includes(hit.entityId)));
+  /** What to call a party. A handle is never printed at a person; the gap is stated instead. */
+  function partyName(party: MatterParty): string {
+    return party.displayName ?? "Not named in the directory";
+  }
+
+  /** What they are on the matter, which is where the ownership role starts from. */
+  function partyRole(party: MatterParty): string {
+    return party.capacity ?? party.role;
+  }
+
+  const offered = $derived.by(() => {
+    const wanted = query.trim().toLowerCase();
+    return parties
+      .filter((party) => !excluded.includes(party.entityId))
+      .filter(
+        (party) =>
+          wanted === "" ||
+          partyName(party).toLowerCase().includes(wanted) ||
+          partyRole(party).toLowerCase().includes(wanted),
+      );
+  });
 
   function pick(value: string | string[]): void {
     const entityId = Array.isArray(value) ? (value[0] ?? "") : value;
-    const hit = offered.find((candidate) => candidate.entityId === entityId);
-    if (hit === undefined) return;
-    onPick(hit);
+    const party = offered.find((candidate) => candidate.entityId === entityId);
+    if (party === undefined) return;
+    onPick(party);
+    // The field forgets its pick: the form above holds a LIST of owners, and a field that kept the
+    // last one would read as though that choice were still pending.
     query = "";
-    settledQuery = "";
-    results = [];
   }
 </script>
 
 <Combobox.Root
   type="single"
-  {disabled}
-  items={offered.map((hit) => ({ value: hit.entityId, label: hit.displayName }))}
+  disabled={disabled || matterId === null}
+  items={offered.map((party) => ({ value: party.entityId, label: partyName(party) }))}
   inputValue={query}
   onValueChange={pick}
 >
@@ -110,21 +121,23 @@
     oninput={(event) => (query = event.currentTarget.value)}
   />
   <Combobox.Content>
-    {#each offered as hit (hit.entityId)}
-      <Combobox.Item value={hit.entityId} label={hit.displayName}>
-        {hit.displayName}
-        <span class="text-text-muted">&mdash; {searchHitKindLabel(hit.entityKind)}</span>
+    {#each offered as party (party.entityId)}
+      <Combobox.Item value={party.entityId} label={partyName(party)}>
+        {partyName(party)}
+        <span class="text-text-muted">&mdash; {partyRole(party)}</span>
       </Combobox.Item>
     {/each}
   </Combobox.Content>
 </Combobox.Root>
 
-{#if searchFailed}
-  <p class="text-xs text-text-muted">The Directory search could not be reached.</p>
-{:else if capped}
+{#if matterId === null}
+  <p class="text-xs text-text-muted">Choose the matter first. Owners come from its parties.</p>
+{:else if readFailed}
+  <p class="text-xs text-text-muted">This matter's parties could not be read.</p>
+{:else if reading}
+  <p class="text-xs text-text-muted">Reading the matter's parties.</p>
+{:else if parties.length === 0}
   <p class="text-xs text-text-muted">
-    The firm holds more matches than are listed. Narrowing the name brings the rest into reach.
+    This matter records no parties yet. Add them on the matter, and they can hold property here.
   </p>
-{:else if searching}
-  <p class="text-xs text-text-muted">Searching the Directory.</p>
 {/if}

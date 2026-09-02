@@ -56364,6 +56364,96 @@
         }
       }
     },
+    "/api/v1/custody/next-number": {
+      "get": {
+        "description": "Returns the custody number the next packet would draw, WITHOUT drawing it. Provisional by construction: nothing is allocated, so two people logging at the same moment are told the same number and only one of them gets it. A surface showing this must say it is tentative — a custody number is written on a physical label, and a label written before the record exists is the one kind of wrong this register cannot tolerate. A packet carrying a number in from a paper register draws nothing and this does not describe it.",
+        "operationId": "custody.nextNumber",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.nextNumber",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The number the next drawn packet would take",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "custodyNumber": {
+                      "type": "string"
+                    },
+                    "tentative": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ],
+                      "description": "Always true. It is in the body rather than left to the endpoint's name so a client cannot render this as settled without having read the word."
+                    }
+                  },
+                  "required": [
+                    "custodyNumber",
+                    "tentative"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/custody/item-types": {
       "get": {
         "description": "Returns the firm's custody item-type catalog.",

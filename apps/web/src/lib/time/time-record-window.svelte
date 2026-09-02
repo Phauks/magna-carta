@@ -51,11 +51,15 @@
   import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
-  import MatterPicker from "./matter-picker.svelte";
+  import MatterPicker from "$lib/matters/matter-picker.svelte";
   import { timekeeperOf } from "./time-columns.ts";
   import { gapReason, TIME_LEDGER_GAPS } from "./time-gaps.ts";
   import { timePreferences } from "./time-preferences.svelte.ts";
-  import { matterDisplay, provisionalTimeCode, type SheetMatter } from "./time-sheet-model.ts";
+  import { provisionalTimeCode } from "./time-sheet-model.ts";
+  import {
+    matterDisplay,
+    type SheetMatter,
+  } from "$lib/matters/matter-choice.ts";
   import {
     createTimeEntry,
     draftRefusal,

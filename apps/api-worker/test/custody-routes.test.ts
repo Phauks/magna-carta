@@ -320,6 +320,48 @@ describe("the custody register end to end", () => {
     expect(itemBody.data.map((movement) => movement.itemId)).toEqual([null, willId, null]);
   });
 
+  /*
+   * THE TENTATIVE NUMBER IS THE ONE THE NEXT DRAW TAKES, AND ASKING TAKES NOTHING.
+   *
+   * Both halves are worth pinning. If the preview disagreed with the draw it would be worse than
+   * showing nothing — a person writes this on a physical label. And if asking ALLOCATED, a form
+   * somebody opened and closed would burn a number, leaving gaps in a register whose whole value is
+   * that it is a contemporaneous sequence.
+   */
+  it("previews the number the next packet draws, and allocates nothing by being asked", async () => {
+    const safe = await createLocation("Preview safe", "safe");
+    const ownerEntityId = await createPerson("Ida", "Preview");
+
+    const before = await get("/api/v1/custody/next-number");
+    expect(before.status).toBe(200);
+    const previewed = (await before.json()) as { custodyNumber: string; tentative: boolean };
+    expect(previewed.tentative).toBe(true);
+    expect(previewed.custodyNumber).toMatch(/^CUS-\d{5}$/);
+
+    // Asked twice with nothing logged in between, the answer does not move.
+    const again = (await (await get("/api/v1/custody/next-number")).json()) as {
+      custodyNumber: string;
+    };
+    expect(again.custodyNumber).toBe(previewed.custodyNumber);
+
+    const logged = await post("/api/v1/custody/packets", {
+      name: "Previewed packet",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    expect(logged.status).toBe(201);
+    // The packet took exactly what the preview promised.
+    expect((await logged.json()) as { custodyNumber: string }).toMatchObject({
+      custodyNumber: previewed.custodyNumber,
+    });
+
+    // And the preview has moved on by one draw, not by two.
+    const after = (await (await get("/api/v1/custody/next-number")).json()) as {
+      custodyNumber: string;
+    };
+    expect(after.custodyNumber).not.toBe(previewed.custodyNumber);
+  });
+
   it("refuses a packet logged with no Directory owner (422)", async () => {
     const safe = await createLocation("No-owner safe", "safe");
     const response = await post("/api/v1/custody/packets", {

@@ -351,6 +351,26 @@ export function linkCustodyScan(
   });
 }
 
+/** The number the next drawn packet would take. Provisional: nothing is allocated by asking. */
+export interface TentativeCustodyNumber {
+  custodyNumber: string;
+  /** Always true. Read it before rendering the number as though it were settled. */
+  tentative: true;
+}
+
+/**
+ * What the next packet would be numbered, without drawing it.
+ *
+ * Two people logging at the same moment are told the same number and only one of them gets it, so
+ * every surface that shows this says so. It is worth showing anyway: the number is what goes on the
+ * physical label, and a person about to write one wants to know what they are about to write.
+ */
+export function readNextCustodyNumber(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<TentativeCustodyNumber>> {
+  return requestJson(fetchImpl, "/api/v1/custody/next-number");
+}
+
 // ---- the container tree ----------------------------------------------------------------------
 
 /** Every node of the firm's physical tree, flat with parent ids. */
@@ -460,6 +480,36 @@ export interface CustodyItemType {
   code: string | null;
   intrinsicValueDefault: boolean;
   active: boolean;
+}
+
+/**
+ * A new node of the container tree.
+ *
+ * WHY THE FORM THAT LOGS A PACKET CAN ALSO MAKE ONE. A packet must go into a container and a firm
+ * that has described none has nowhere to put its first one, so the field would be a dead end on the
+ * one day it matters most: the day somebody is holding an original and trying to record it. The
+ * shape of the tree is still the firm's to design at leisure; this only refuses to make the first
+ * step impossible.
+ */
+export interface CreateCustodyLocationRequest {
+  name: string;
+  kind: CustodyLocationKind;
+  parentLocationId?: string;
+  address?: string | null;
+  notes?: string | null;
+}
+
+/** Describe a container. */
+export function createCustodyLocation(
+  fetchImpl: typeof fetch,
+  request: CreateCustodyLocationRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, "/api/v1/custody/locations", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
 }
 
 /** The firm's own catalog of what a packet may contain. */

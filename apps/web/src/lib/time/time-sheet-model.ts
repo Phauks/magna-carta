@@ -39,30 +39,6 @@ export type SheetSaveState = "unsaved" | "saving" | "saved" | "failed";
  * The number is nullable because an unnumbered consultation is a matter a person may well be
  * recording time against, and numbering it later does not make the time before that unreal.
  */
-export interface SheetMatter {
-  readonly id: string;
-  readonly matterNumber: string | null;
-  readonly title: string;
-}
-
-/** How a matter reads in a cell and in the picker: the number and the name, together. */
-export function matterDisplay(matter: SheetMatter): string {
-  return matter.matterNumber === null ? matter.title : `${matter.matterNumber} · ${matter.title}`;
-}
-
-/** What the Matter column says for a row with none. It is a value, so the set filter can hold it. */
-export const NO_MATTER_TEXT = "No matter";
-
-/** Whether what somebody typed reaches this matter, by number or by name. Either finds it. */
-export function matterMatches(matter: SheetMatter, query: string): boolean {
-  const wanted = query.trim().toLowerCase();
-  if (wanted === "") return true;
-  return (
-    (matter.matterNumber ?? "").toLowerCase().includes(wanted) ||
-    matter.title.toLowerCase().includes(wanted)
-  );
-}
-
 /**
  * The provisional code a matterless row is held under.
  *

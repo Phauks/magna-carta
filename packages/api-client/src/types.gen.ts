@@ -18123,6 +18123,49 @@ export type CustodyLinkScanResponses = {
 
 export type CustodyLinkScanResponse = CustodyLinkScanResponses[keyof CustodyLinkScanResponses];
 
+export type CustodyNextNumberData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/next-number';
+};
+
+export type CustodyNextNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyNextNumberError = CustodyNextNumberErrors[keyof CustodyNextNumberErrors];
+
+export type CustodyNextNumberResponses = {
+    /**
+     * The number the next drawn packet would take
+     */
+    200: {
+        custodyNumber: string;
+        /**
+         * Always true. It is in the body rather than left to the endpoint's name so a client cannot render this as settled without having read the word.
+         */
+        tentative: true;
+    };
+};
+
+export type CustodyNextNumberResponse = CustodyNextNumberResponses[keyof CustodyNextNumberResponses];
+
 export type CustodyListItemTypesData = {
     body?: never;
     path?: never;

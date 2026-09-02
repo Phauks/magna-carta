@@ -84,8 +84,8 @@
   import X from "@lucide/svelte/icons/x";
   import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import { autoSizeTextarea } from "./auto-size-textarea.ts";
-  import { FirmMatters } from "./firm-matters.svelte.ts";
-  import MatterPicker from "./matter-picker.svelte";
+  import { FirmMatters } from "$lib/matters/firm-matters.svelte.ts";
+  import MatterPicker from "$lib/matters/matter-picker.svelte";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
   import { personInitials } from "./time-columns.ts";
@@ -99,11 +99,9 @@
   } from "./time-sheet-columns.ts";
   import { historyAnnouncement } from "./time-sheet-history.svelte.ts";
   import {
-    NO_MATTER_TEXT,
     clockText,
     isIncomplete,
     isWorkable,
-    matterDisplay,
     minutesFromSeconds,
     parseDurationSeconds,
     saveStateTitle,
@@ -111,6 +109,7 @@
     sheetHonesty,
     type SheetRow,
   } from "./time-sheet-model.ts";
+  import { NO_MATTER_TEXT, matterDisplay } from "$lib/matters/matter-choice.ts";
   import {
     SCOPE_PRESET_IDENTIFIERS,
     customRangeOutcome,

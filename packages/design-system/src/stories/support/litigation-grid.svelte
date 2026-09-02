@@ -133,6 +133,15 @@
     rowMark?: (row: TimeEntry) => GridRowMark | undefined;
     /** The record's second line, passed through to the grid. */
     rowDetail?: Snippet<[TimeEntry]>;
+    /**
+     * The surface's OWN empty state, passed through to the grid.
+     *
+     * Worth a prop rather than always taking the grid's built-in one: the built-in renders inside
+     * `.mc-table-grid-empty`, which sets its own `white-space`, so it can never reproduce the
+     * placeholder-cell wrapping defect. A surface-supplied snippet renders bare in the cell and
+     * inherits whatever the cell says, which is where that defect lives.
+     */
+    empty?: Snippet;
     onActivate?: (row: TimeEntry) => void;
     onSelectionChange?: (keys: readonly string[], rows: readonly TimeEntry[]) => void;
   };
@@ -145,6 +154,7 @@
     pinnedRowKeys = [],
     rowMark,
     rowDetail,
+    empty,
     onActivate,
     onSelectionChange,
   }: Props = $props();
@@ -168,7 +178,15 @@
 </script>
 
 <div class="flex flex-col gap-8">
-  <DataTable.Grid {grid} caption="Time entries" {loading} {density} {rowDetail} class="max-h-96">
+  <DataTable.Grid
+    {grid}
+    caption="Time entries"
+    {loading}
+    {density}
+    {rowDetail}
+    {empty}
+    class="max-h-96"
+  >
     {#snippet cell({ row, column, text })}
       {#if column.id === "status"}
         <Badge variant={STATUS_BADGE[row.status]}>{row.status}</Badge>

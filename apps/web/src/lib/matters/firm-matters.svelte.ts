@@ -1,17 +1,16 @@
 /*
- * The firm's matters, as the Time Sheet needs them: a list to pick from, and a way to name the
- * matter a row is already on.
+ * The firm's matters, for any surface that has to let somebody CHOOSE one.
  *
- * THE SHEET IS FIRM-WIDE, SO IT CANNOT ASSUME A MATTER. Two rows beside each other belong to two
- * different matters, and a person capturing time picks the matter per row. That needs the whole
- * record rather than a page of it: a picker that quietly offered the first fifty matters would look
+ * A FIRM-WIDE PICKER CANNOT ASSUME A MATTER, and that is what makes this the whole record rather
+ * than a page of it. The time sheet picks a matter per row; the custody register picks the matter a
+ * packet is held under. Either way a picker that quietly offered the first fifty matters would look
  * exactly like a picker that offered them all, and the matter somebody wanted would simply not be
  * there. So this walks the listing to its end and holds the answer for the session.
  *
  * WHY IT IS READ ONCE AND NOT REFRESHED. Matters open and close at the pace of a working week, not
  * of a keystroke, and a re-read behind a picker somebody is typing into would swap the list under
- * their hands. The read happens when the sheet first opens, which is also the first moment anybody
- * needs it: nothing is spent on it while the sheet is closed.
+ * their hands. The read happens when the surface that needs it first opens, which is also the first
+ * moment anybody needs it: nothing is spent on it before then.
  *
  * WHERE IT STOPS AND WHY IT SAYS SO. The walk is bounded, because an unbounded loop against a
  * server is a loop that can never be reasoned about. A firm whose record runs past the bound gets
@@ -19,7 +18,7 @@
  * surfaces above render that rather than pretending the list is complete.
  */
 import { listEveryMatter, type MatterSummary } from "$lib/matters/matters-api.ts";
-import type { SheetMatter } from "./time-sheet-model.ts";
+import type { SheetMatter } from "$lib/matters/matter-choice.ts";
 
 /**
  * How many pages the walk will read before it stops and says it stopped.

@@ -30,6 +30,7 @@ import {
   addCustodyOwner,
   createCustodyPacket,
   CustodyIdempotencyConflictError,
+  previewNextCustodyNumber,
   updateCustodyPacket,
 } from "@magna-carta/custodian/packet-service";
 import {
@@ -1485,6 +1486,40 @@ const linkScanRoute = defineOpenAPIRoute(writeMeta("linkScan", "required"), {
   },
 });
 
+const nextNumberRoute = defineOpenAPIRoute(readMeta("nextNumber"), {
+  method: "get",
+  path: "/api/v1/custody/next-number",
+  description:
+    "Returns the custody number the next packet would draw, WITHOUT drawing it. Provisional by " +
+    "construction: nothing is allocated, so two people logging at the same moment are told the " +
+    "same number and only one of them gets it. A surface showing this must say it is tentative — a " +
+    "custody number is written on a physical label, and a label written before the record exists " +
+    "is the one kind of wrong this register cannot tolerate. A packet carrying a number in from a " +
+    "paper register draws nothing and this does not describe it.",
+  request: {},
+  responses: {
+    200: {
+      description: "The number the next drawn packet would take",
+      content: {
+        "application/json": {
+          schema: z.object({
+            custodyNumber: z.string(),
+            tentative: z.literal(true).openapi({
+              description:
+                "Always true. It is in the body rather than left to the endpoint's name so a " +
+                "client cannot render this as settled without having read the word.",
+            }),
+          }),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
 const listItemTypesRoute = defineOpenAPIRoute(readMeta("listItemTypes"), {
   method: "get",
   path: "/api/v1/custody/item-types",
@@ -2523,6 +2558,20 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
       } catch (caught) {
         return custodyErrorResponse(c, caught);
       }
+    },
+  );
+
+  app.openapi(
+    { ...nextNumberRoute, middleware: chokepointMiddleware(chokepoint, nextNumberRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      return c.json(
+        {
+          custodyNumber: await previewNextCustodyNumber(firm.firmDatabase),
+          tentative: true,
+        } as never,
+        200,
+      );
     },
   );
 

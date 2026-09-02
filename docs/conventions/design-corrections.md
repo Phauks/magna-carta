@@ -353,6 +353,18 @@ surface, which is most of the product.
   screen; what it never is, is a second screen. A genuine aggregate (counts per owner rather than a
   list of packets) is a different object and is judged on its own, not carried along because it sat
   in the same strip. _(Custodian register, 2026-09-01)_
+- **A picker offers the set the record allows, not the biggest set that would answer.** Where a
+  field takes an entity, the candidates are the ones the surrounding record permits — a matter's
+  parties, not the whole directory. A wider list is not a convenience: it is an invitation to
+  record something the domain forbids, and no care at the keyboard makes a list of opposing counsel
+  a good place to choose an owner from. Where that narrows to nothing, the field says which choice
+  is missing rather than sitting empty looking broken. _(Custodian packet form, 2026-09-02)_
+- **A fix is asserted by its effect, never by its own presence in the source.** A rule added to a
+  stylesheet, a guard added to a branch, a flag added to a call: each can be present and beaten, and
+  a test that checks it is there passes either way. Assert the computed value, the rendered result,
+  the symptom the fix exists to remove. The custody empty state shipped "fixed" and unchanged
+  because a one-class selector lost to a two-class one and nothing looked. _(Custodian register,
+  2026-09-02)_
 - **A screen with no way to create the thing it lists is not built.** A list, a detail window, a
   filter set and a print sheet over records nobody can add is a reader for somebody else's data. The
   entry path ships with the surface, and where the backend already serves it, its absence is the
@@ -387,6 +399,49 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-02 — the Custodian register, second round
+
+The owner walked the New Packet form. Most of the round is local, but one correction reverses a
+premise the previous round had written into four places, and the reversal is the interesting part.
+
+**A custody packet requires its matter.** Asked to scope the owner picker to the matter's parties,
+the reply was that the premise behind the question was wrong: "matterId is not optional for a
+custodian item... if they don't have a matter, they aren't associated with us, and we wouldn't hold
+their items." The register had been built the other way, and the matterless packet — the will held
+for a client whose last matter closed eleven years ago — was written into the register screen's
+rationale, the matter section's comment and empty state, and the user guide. All four are reversed.
+The API still permits a matterless packet and the server's holding-matter path still exists for one;
+the screen is deliberately the stricter of the two, and says so where it enforces it.
+
+The generalizable half is promoted above. What is local:
+
+- **The owner picker was a directory search, and that was the real defect the ruling exposed.** The
+  directory holds opposing counsel, courts and vendors; offering all of it as candidate owners
+  invites recording a will as held for the other side's attorney. Owners are now the matter's
+  parties, which `GET /directory/matter-parties` already answered.
+- **The container dropdown was not a rendering bug.** It was empty because a new firm has no custody
+  locations and nothing anywhere in the product created one, so the field was a dead end on exactly
+  the day it mattered: somebody at a safe with an original in their hand. It describes one inline
+  now, nested under whatever is selected.
+- **The form is two columns**, the packet against its contents, with items added a line at a time
+  before anything is written. Nothing on the right is required: property is taken in sealed.
+- **The tentative number is shown.** It is what goes on the physical label, so a person filling the
+  form wants to know what they are about to write. Nothing is allocated by asking, which is why the
+  response carries the word `tentative` in its body rather than leaving it to the endpoint's name.
+- **"Handed over by" and "Handed over on" are the Trustor and the Acquisition date**, and the
+  contract's `depositor` / `deposited_at` are mapped to them in one function rather than either
+  vocabulary being carried around.
+- **"Carried in from an earlier register" did not say what it meant** and is now "Existing number",
+  with a line stating the consequence: set it and the register keeps that number instead of drawing
+  the one shown above.
+- **The Dialog description is gone**, under the standing rule that a data-entry surface carries no
+  helper prose.
+- **The empty-state fix from the first round never took effect**, and was reported as done. A
+  one-class selector cannot beat the two-class rule it overrides, so `nowrap` kept winning and the
+  empty register kept running off the screen. Recorded here because the lesson is not about CSS: a
+  fix asserted only by its own presence in the source is not asserted at all. The test now reads the
+  computed value.
 
 ### 2026-09-01 — the Custodian register
 

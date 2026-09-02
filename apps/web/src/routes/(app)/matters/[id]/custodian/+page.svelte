@@ -7,15 +7,14 @@
    * more filter. Written as its own table it would drift from the register it is a view of, and the
    * drift would be silent.
    *
-   * A MATTER LINK IS OPTIONAL, AND A MATTER THAT SHOWS NOTHING HERE IS NORMAL. Most of what a firm
-   * holds is anchored to a person rather than to a file: a will held for a client whose last matter
-   * closed years ago belongs to that client, not to the closed matter. So an empty section says
-   * that, rather than implying something is missing.
+   * EVERY PACKET IS UNDER A MATTER, so this section is the whole of what the firm holds for this
+   * file rather than a subset of it. The firm holds property for clients and a client is somebody
+   * it has a matter with; property under no matter is property belonging to somebody the firm has
+   * no relationship with, which it does not take in. An empty section therefore means what it says.
    *
-   * LOGGING FROM HERE PRE-ANSWERS THE MATTER AND NOTHING ELSE. A packet taken in during a
-   * conveyance is nearly always logged while somebody is looking at the file, so the form opens
-   * with the link already made; every other answer on it, the owner included, is still the
-   * register's own question, because the property belongs to a person and not to a file.
+   * LOGGING FROM HERE PRE-ANSWERS THE MATTER. The form needs one before it can offer an owner at
+   * all — the owners on offer are the matter's own parties — so opening it from a file answers its
+   * first question and narrows its second.
    *
    * CLOSING THIS MATTER IS NOT BLOCKED BY WHAT IS HERE. Holding a client's original after their
    * matter closes is the normal, correct, indefinite state of affairs. A gate on it would only
@@ -57,17 +56,19 @@
   $effect(() => {
     if (bootstrapped || isSample) return;
     bootstrapped = true;
+    void readContainerTree();
     void (async () => {
-      const [tree, sessionOutcome] = await Promise.all([
-        listCustodyLocations(fetch),
-        readSession(fetch),
-      ]);
-      // A tree that cannot be read leaves the section readable: the packets and their numbers are
-      // still true, and only the Location column goes quiet.
-      if (tree.kind === "ok") locations = tree.value.data;
-      if (sessionOutcome.kind === "ok") session = sessionOutcome.value;
+      const outcome = await readSession(fetch);
+      if (outcome.kind === "ok") session = outcome.value;
     })();
   });
+
+  // A tree that cannot be read leaves the section readable: the packets and their numbers are
+  // still true, and only the Location column goes quiet. Re-read when the form describes one.
+  async function readContainerTree(): Promise<void> {
+    const tree = await listCustodyLocations(fetch);
+    if (tree.kind === "ok") locations = tree.value.data;
+  }
 
   const query = $derived({ matterId: matter.id });
 
@@ -132,9 +133,8 @@
       emptyTitle="Nothing In Custody For This Matter"
     >
       {#snippet emptyBody()}
-        Physical originals a firm holds are anchored to the person they belong to, not to a file, so
-        most of what the firm holds for this client will not be linked here. The firm's whole
-        register answers the question either way.
+        A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
+        wallet. Nothing has been taken into safekeeping on this matter yet.
       {/snippet}
       {#snippet emptyActions()}
         {@render newPacketButton()}
@@ -148,6 +148,7 @@
   {locations}
   matterId={matter.id}
   onCreated={() => rereadRegister()}
+  onLocationsChanged={readContainerTree}
 />
 
 <PacketWindow

@@ -12,13 +12,18 @@
    * puts the chosen matter's name back. A filled field rendering its ghost text reads as a row
    * nobody has filed, which on this surface is a different and important fact.
    *
-   * NO MATTER IS A CHOICE, NOT AN ABSENCE. A person captures time before they know where it
-   * belongs, so the list leads with a row that says so and takes the matter back off. Leaving it
-   * blank by deleting the text would work too, but a choice somebody has to discover is a choice
-   * most people never make.
+   * NO MATTER IS A CHOICE, NOT AN ABSENCE — WHERE THE SURFACE ALLOWS ONE. A person captures time
+   * before they know where it belongs, so the list leads with a row that says so and takes the
+   * matter back off. Leaving it blank by deleting the text would work too, but a choice somebody
+   * has to discover is a choice most people never make.
+   *
+   * Not every surface can take that row, though, and `allowNone` is why it is a prop rather than a
+   * fact about the component. Custody holds property for a client, a client is somebody with a
+   * matter, and a packet under no matter is not a thing the register can record — so on that form
+   * the row is not offered rather than offered and refused.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
-  import { matterDisplay, matterMatches, type SheetMatter } from "./time-sheet-model.ts";
+  import { matterDisplay, matterMatches, type SheetMatter } from "./matter-choice.ts";
 
   /**
    * The reserved value the "No matter" row reports.
@@ -35,6 +40,7 @@
     disabled = false,
     title,
     capped = false,
+    allowNone = true,
     onpick,
   }: {
     /** The firm's matters, as they were read. Narrowing happens here, not at the caller. */
@@ -48,6 +54,8 @@
     title?: string;
     /** Whether the list is a page of the record rather than all of it, so the panel can say so. */
     capped?: boolean;
+    /** Whether "No matter" is on offer. False where the surface cannot record a matterless row. */
+    allowNone?: boolean;
     /** Called with the chosen matter, or null where the row was taken back off a matter. */
     onpick: (matterId: string | null) => void;
   } = $props();
@@ -87,7 +95,7 @@
   type="single"
   {disabled}
   items={[
-    { value: NO_MATTER_VALUE, label: "No matter" },
+    ...(allowNone ? [{ value: NO_MATTER_VALUE, label: "No matter" }] : []),
     ...matching.map((matter) => ({ value: matter.id, label: matterDisplay(matter) })),
   ]}
   value={value ?? ""}
@@ -122,7 +130,9 @@
     }}
   />
   <Combobox.Content>
-    <Combobox.Item value={NO_MATTER_VALUE} label="No matter" />
+    {#if allowNone}
+      <Combobox.Item value={NO_MATTER_VALUE} label="No matter" />
+    {/if}
     {#each matching as matter (matter.id)}
       <Combobox.Item value={matter.id} label={matterDisplay(matter)} />
     {/each}
