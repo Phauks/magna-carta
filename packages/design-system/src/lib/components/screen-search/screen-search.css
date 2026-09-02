@@ -19,6 +19,38 @@
     flex: none;
     align-items: center;
     gap: var(--mc-space-4);
+    /* The seat for the downward panel, which is anchored to this root rather than to the page. */
+    position: relative;
+  }
+
+  /*
+   * The downward panel. It hangs from the control's trailing edge so it grows the same way the
+   * field does — toward the inline start — and it is INSIDE the control's root, which is what keeps
+   * reaching into it from collapsing the field.
+   *
+   * The surface treatment lives here rather than in each consumer: a panel under a search field is
+   * the same object on every screen, and letting each one dress its own is how four of them ended
+   * up with four shadows.
+   */
+  .mc-screen-search-panel {
+    position: absolute;
+    inset-inline-end: var(--mc-space-0);
+    /*
+     * The control's own extent, which is not a design value and cannot be a token — the same
+     * argument styles/animations.css makes for a slide keyframe's offset. The root is a centred
+     * inline-flex row, so an absolutely positioned child with no block inset would sit CENTRED on
+     * the field rather than under it. Width is deliberately absent: the panel shrink-wraps whatever
+     * the surface puts in it, so the surface decides how wide its own panel is.
+     */
+    inset-block-start: 100%;
+    margin-block-start: var(--mc-space-4);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-raised);
+    box-shadow: var(--mc-elevation-2);
+    z-index: var(--mc-z-dropdown);
   }
 
   /* The field surface — the Input recipe's treatment, applied to the wrapper. */

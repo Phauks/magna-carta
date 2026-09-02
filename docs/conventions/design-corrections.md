@@ -434,6 +434,18 @@ surface, which is most of the product.
   every keystroke has nothing to re-run, so Enter must mean the next thing rather than nothing at
   all. A screen that narrows rows in place has no such destination and leaves Enter alone rather
   than inventing one. _(matter search, 2026-09-02)_
+- **The control opens in two directions, and each one has a job.** To the inline START it opens
+  into the field, which is for WRITING the query; DOWNWARD it opens into a panel, which is for
+  everything else — what the query reaches, and what it found. Aiming a search is not part of typing
+  it, and a scope named in full ("Everything on this matter") took most of the width the field had
+  on a header line. ScreenSearch's `scope` seam, which seats a scope control inside the field's
+  leading edge, is therefore NOT what a long scope vocabulary should use. _(matter search,
+  2026-09-02)_
+- **The downward panel belongs to the control, not beside it.** A panel rendered as a sibling is
+  outside the control's root, so the collapse watches read a click into it as a click away and shut
+  the whole thing on first use. `ScreenSearch`'s `panel` seam renders it inside that root, which
+  makes the correct behaviour structural rather than something each surface has to rediscover.
+  _(matter search, 2026-09-02)_
 - **A search panel opens with the field, not with the first keystroke.** Anything a person needs
   before they have typed — the scope, the way through to the full results — is unreachable if the
   panel is gated on a query, and gating it made changing where the search looked require starting a

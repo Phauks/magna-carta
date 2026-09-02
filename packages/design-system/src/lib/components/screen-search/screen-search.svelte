@@ -11,7 +11,10 @@
    * control that opens what it needs when it is needed:
    *
    *   - it rests as an icon and costs the screen NO vertical space;
-   *   - it expands on use and collapses again when left empty;
+   *   - it opens to the inline START into the field, which is for writing the query, and — where
+   *     the surface fills the `panel` seam — DOWNWARD into that panel, which is for everything
+   *     else: what the query reaches, and what it found;
+   *   - it collapses again when left empty;
    *   - a live query keeps it open and takes a single accent hairline at the field's edge, so a
    *     narrowed list always carries its reason on screen;
    *   - a live query also carries an X at the field's trailing edge, which clears it and leaves the
@@ -44,7 +47,10 @@
    *   - `scope` — the surface's own scope control, seated at the field's leading edge. Its
    *     vocabulary belongs to the surface ("Everything on this matter", "Files only", "This
    *     folder") and never says "everywhere", because searching everything is the top bar's job.
-   *     WIRED: the matter's consolidated search is its first production consumer.
+   *     STILL UNWIRED, and the matter search is the reason to be careful with it: that surface
+   *     tried the seam and moved its scope OUT of the field, because a scope named in full took
+   *     most of the field's width on a header line and because aiming a search is a different job
+   *     from writing it. A screen whose scope is one short word may still want this.
    *   - `matchSummary` — a short count inside the field's trailing edge, for a screen that wants
    *     the answer's size where the eye already is.
    *   - `shortcut` — a key that expands and focuses the control from anywhere on the page. Off by
@@ -101,6 +107,14 @@
     class?: string;
     /** Seam: the surface's own scope control, at the field's leading edge. */
     scope?: Snippet;
+    /**
+     * What the control opens DOWNWARD into, seated under the field and anchored to its trailing
+     * edge: the surface's settings, its results, or both. Rendered INSIDE the control's own root,
+     * which is the whole point — the collapse watches measure against that root, so reaching into
+     * this panel is reaching into the control and does not close it. A panel rendered beside the
+     * control instead collapses it on the first click, which is exactly the bug this replaced.
+     */
+    panel?: Snippet;
     /** Seam: a short count inside the field's trailing edge ("2 of 6"). */
     matchSummary?: string;
     /** Seam: a key that expands and focuses the control from anywhere. Off by default. */
@@ -123,6 +137,7 @@
     fieldClass = "w-3xs",
     class: className,
     scope,
+    panel,
     matchSummary,
     shortcut = null,
     inputRef = $bindable(null),
@@ -355,6 +370,11 @@
       </button>
     {/if}
   </div>
+  {#if panel && expanded}
+    <!-- The panel shrink-wraps its content, so the surface sets its own width on what it renders
+         here rather than through a prop this component would have to guess a default for. -->
+    <div class="mc-screen-search-panel">{@render panel()}</div>
+  {/if}
   <button
     bind:this={triggerRef}
     type="button"

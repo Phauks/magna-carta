@@ -26,6 +26,19 @@ the folder sat in the tree: the Files source only ever matched file names, and c
 only to say which one a file was in. Folder names are now matched alongside file names, in the same
 Files group, each labelled so a folder and a file of the same name are told apart.
 
+**The control opens in two directions, and the downward one is now a seam on the component.** The
+icon opens to the inline start into the field (writing the query) and downward into a `panel` snippet
+(aiming it, and reading what came back). That panel renders INSIDE ScreenSearch's own root, which is
+load-bearing rather than tidy: the collapse watches measure against that root, so a panel rendered
+beside the control is read as "outside" and shuts the field on the first click into it. The matter
+search's scope moved out of the `scope` seam and into that panel — the seam seats a control inside
+the field's leading edge, and "Everything on this matter" spelled out there took most of the field's
+width on a header line.
+
+One fitness rule was widened to allow it, deliberately and narrowly: a percentage on a logical
+`inset-*` property means "this element's own extent", which `styles/animations.css` already
+establishes cannot be a token. Only bare percentages, only on the four inset properties.
+
 ## Public
 
 **The search box now clears, closes, and takes you somewhere.**
@@ -44,3 +57,8 @@ soon as you click the search, so you can change where it looks before you start 
 **Searching a matter now finds folders, not just files.** Looking for a folder by name used to come
 back with nothing even though the folder was sitting in the matter. Folders now appear under Files
 alongside matching documents, each labelled so you can tell a folder from a file of the same name.
+
+**The search opens in two directions.** The icon opens to the left into the field, which is for
+writing the query, and downward into a panel, which is for aiming it — the scope, and whether
+deleted records join the answer. The scope used to sit inside the field itself, where spelling out
+"Everything on this matter" took most of the width the field had.

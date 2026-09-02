@@ -4,18 +4,22 @@
    * LAYOUT, so every section inherits it and no section can mount a second one — which is the
    * mechanical half of "the search is on every screen".
    *
-   * It is the design system's ScreenSearch with its `scope` seam filled, and it is that seam's first
-   * production consumer: the component ships the seam naming a matter scope dropdown as the thing
-   * that would sit there, and this is it. Nothing in the design system changed to build this.
+   * TWO DIRECTIONS, TWO JOBS (owner's ruling, 2026-09-02). The icon opens to the inline START into
+   * the field, which is for writing the query; and DOWNWARD into a settings block, which is for
+   * aiming it — the scope, and whether deleted records join the answer. It deliberately does NOT
+   * fill ScreenSearch's `scope` seam, which seats a scope control inside the field's leading edge:
+   * spelling out "Everything on this matter" there took most of the width the field had on the
+   * header line, and aiming a search is not part of typing it. That seam stays unwired.
    *
    * IT SITS ABOVE THE SECTION STRIP, NOT ON ITS ROW, and that is measured rather than aesthetic:
    * ScreenSearch always grows toward the inline start, so sharing the strip's row would shove the
    * tabs sideways on the first keystroke and make the strip's measured fold re-run mid-typing. That
    * is the file-manager ruling about New keeping its place, applied to a right-aligned rail.
    *
-   * The panel is the fast path; most searches end in it. "Open full results" sits on the scope line,
-   * where the ruling puts it, and leads to the matter's own results page — the query rides in the
-   * address, so a search survives a reload and can be handed to a colleague.
+   * The panel is the fast path; most searches end in it. "Open full results" sits on the settings
+   * row rather than under the results, so it cannot scroll away beneath a long answer, and leads to
+   * the matter's own results page — the query rides in the address, so a search survives a reload
+   * and can be handed to a colleague.
    */
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -49,10 +53,6 @@
 
   const currentSection = $derived(sectionForPathname(matterId, page.url.pathname));
   const options = $derived(scopeOptions(currentSection));
-  const scopeLabel = $derived(
-    options.find((option) => option.value === search.scope)?.label ?? "Scope",
-  );
-
   // Moving to another matter resets the control outright. A query is about ONE case: carrying
   // "easement" from the Herrera file onto the Brown estate would answer a question nobody asked,
   // and carrying only the id while leaving the results on screen would be worse — the rows would
@@ -92,13 +92,12 @@
   });
 
   /*
-   * The panel opens with the FIELD, not with the first keystroke. Two things live in its header
-   * that a person needs before they have typed anything — the scope, and the way through to the
-   * full search — and gating the panel on a query put both behind a search you had to start in
-   * order to change where it looked. Expanded and empty, the panel is its header row and nothing
-   * else; the results region below only exists once there is a query to answer.
+   * The panel opens with the FIELD, not with the first keystroke — ScreenSearch renders the `panel`
+   * snippet whenever it is expanded. Everything that decides where a query looks lives in there, and
+   * gating it on a query put all of it behind a search you had to start in order to change where it
+   * looked. Empty, the panel is its settings row and nothing else; the results region below only
+   * exists once there is a query to answer.
    */
-  const panelOpen = $derived(expanded);
   const hasQuery = $derived(query.trim() !== "");
 
   /*
@@ -117,8 +116,7 @@
   }
 </script>
 
-<div class="relative">
-  <ScreenSearch
+<ScreenSearch
     bind:value={query}
     bind:expanded
     bind:busy={search.busy}
@@ -130,51 +128,49 @@
     onsearch={run}
     onsubmit={openFullResults}
   >
-    {#snippet scope()}
-      <!-- The vocabulary names the matter and no wider: searching everything is the top bar's job,
-           not this control's. A section with no source is present and DISABLED with the line saying
-           what it waits on, never omitted. -->
-      <Select.Root
-        type="single"
-        items={options.map((option) => ({ value: option.value, label: option.label }))}
-        allowDeselect={false}
-        bind:value={() => search.scope, (next) => reRunForScope(next as string)}
-      >
-        <Select.Trigger aria-label="Search in">
-          <Select.Value placeholder={placeholderOf("Scope")} />
-        </Select.Trigger>
-        <Select.Content>
-          {#each options as option (option.value)}
-            <Select.Item
-              value={option.value}
-              label={option.label}
-              disabled={option.waitingOn !== undefined}
-            >
-              {option.label}
-              {#if option.waitingOn !== undefined}
-                <Badge variant="neutral" class="ms-auto">Soon</Badge>
-              {/if}
-            </Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    {/snippet}
-  </ScreenSearch>
+  {#snippet panel()}
+    <!-- Not a dialog: the field keeps focus, so typing keeps narrowing what is underneath. The
+         panel shrink-wraps this, so the width set here is the panel's own width. -->
+    <div style="inline-size: min(var(--mc-size-prose), calc(100vw - var(--mc-space-32)))">
+      <!--
+        THE SETTINGS, which is what the control opens DOWNWARD into (owner's ruling, 2026-09-02).
+        The field grows to the inline start and holds typing; everything that decides WHAT a query
+        reaches sits under it. That split is why the scope is not on the field's leading edge: it is
+        not part of writing the query, it is part of aiming it, and on the header line it took most
+        of the width the field had.
+      -->
+      <div class="flex flex-wrap items-center gap-x-12 gap-y-8 px-12 py-8">
+        <div class="flex min-w-0 items-center gap-8">
+          <span class="flex-none text-xs text-text-muted">Search in</span>
+          <!-- The vocabulary names the matter and no wider: searching everything is the top bar's
+               job, not this control's. A section with no source is present and DISABLED with the
+               line saying what it waits on, never omitted. -->
+          <Select.Root
+            type="single"
+            items={options.map((option) => ({ value: option.value, label: option.label }))}
+            allowDeselect={false}
+            bind:value={() => search.scope, (next) => reRunForScope(next as string)}
+          >
+            <Select.Trigger aria-label="Search in">
+              <Select.Value placeholder={placeholderOf("Scope")} />
+            </Select.Trigger>
+            <Select.Content>
+              {#each options as option (option.value)}
+                <Select.Item
+                  value={option.value}
+                  label={option.label}
+                  disabled={option.waitingOn !== undefined}
+                >
+                  {option.label}
+                  {#if option.waitingOn !== undefined}
+                    <Badge variant="neutral" class="ms-auto">Soon</Badge>
+                  {/if}
+                </Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
 
-  {#if panelOpen}
-    <!-- The panel hangs from the field's own edge. It is not a dialog: the field keeps focus, so
-         typing keeps narrowing what is underneath. -->
-    <div
-      class="absolute end-0 mt-4 rounded-md border border-border-default bg-surface-raised shadow-lg"
-      style="z-index: var(--mc-z-dropdown);
-             inline-size: min(var(--mc-size-prose), calc(100vw - var(--mc-space-32)))"
-    >
-      <div
-        class="flex items-center gap-8 px-12 py-8"
-        class:border-b={hasQuery}
-        class:border-border-default={hasQuery}
-      >
-        <span class="text-xs text-text-muted">{scopeLabel}</span>
         {#if search.deletedOptionApplies}
           <!-- Off by default, and offered only where a selected source has a deleted set to offer —
                which the SERVER says, on the answer, rather than this control keeping its own list.
@@ -193,11 +189,12 @@
             Include deleted
           </label>
         {/if}
-        <!-- On the scope line, where the ruling puts it: a reader may want to act on the whole
-             result set, and a panel cannot carry that. -->
+
+        <!-- The way out of the panel, on the settings row rather than below the results: a reader
+             may want to act on the whole result set, and this must not scroll away under them. -->
         <a
           href={resultsHref}
-          class="{buttonClasses({ variant: 'ghost', size: 'sm' })} ms-auto"
+          class="{buttonClasses({ variant: 'ghost', size: 'sm' })} ms-auto flex-none"
           onclick={(event) => {
             event.preventDefault();
             openFullResults();
@@ -207,8 +204,12 @@
           <ArrowRight class="size-16" aria-hidden="true" />
         </a>
       </div>
+
       {#if hasQuery}
-        <div class="overflow-y-auto p-8" style="max-block-size: var(--mc-size-record-pane)">
+        <div
+          class="overflow-y-auto border-t border-border-default p-8"
+          style="max-block-size: var(--mc-size-record-pane)"
+        >
           <MatterSearchResults
             answer={search.answer}
             failure={search.failure}
@@ -219,5 +220,5 @@
         </div>
       {/if}
     </div>
-  {/if}
-</div>
+  {/snippet}
+</ScreenSearch>
