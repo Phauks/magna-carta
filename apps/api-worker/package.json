@@ -78,7 +78,6 @@
     "@hey-api/openapi-ts": "catalog:",
     "@magna-carta/signing": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
-    "@stoplight/prism-cli": "catalog:",
     "@stoplight/spectral-cli": "catalog:",
     "asn1js": "catalog:",
     "fflate": "^0.8.3",

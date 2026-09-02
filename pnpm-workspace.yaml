@@ -46,9 +46,12 @@ catalog:
   "@hono/zod-openapi": 1.5.1
   zod: 4.4.3
   # API contract pipeline. Hey API generates the typed client (packages/api-client) from the
-  # OpenAPI document; Spectral lints the document and Prism mock-serves it (apps/api-worker devDeps).
+  # OpenAPI document; Spectral lints the document (apps/api-worker devDeps). The Prism mock server
+  # is deliberately NOT a dependency: nothing in the repository ran it, and its HTTP layer dragged in
+  # postman-collection, which hard-pins a @faker-js/faker 5.x with a HIGH advisory no override can
+  # reach (the fixed line is a different major that the carrier cannot load). Run it on demand with
+  # `pnpm dlx` when a consumer wants a mock (docs/conventions/api.md).
   "@hey-api/openapi-ts": 0.98.2
-  "@stoplight/prism-cli": 5.16.0
   "@stoplight/spectral-cli": 6.16.3
   "@tanstack/svelte-query": 6.1.38
   # Auth (apps/api-worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
@@ -181,16 +184,11 @@ overrides:
   # tree is a 0.18 that @esbuild-kit/core-utils hard-pins, and dragging that ten minor versions
   # forward would break drizzle-kit's config loader for no security gain (see the note below).
   "esbuild@0.28": 0.28.2
-  # lodash arrives at 4.17.21 only through postman-collection (the Prism/Spectral contract tooling),
-  # which hard-pins that exact version — every other consumer in the tree already resolves 4.18.1, so
-  # this override collapses the two copies onto the newer one rather than introducing anything. 4.18.x
-  # is the line that fixes all three lodash advisories: prototype pollution in `_.unset`/`_.omit`
-  # (two records) and code injection through `_.template` import key names.
+  # lodash floor. Every consumer in the tree resolves 4.18.1 on its own now that postman-collection
+  # (which hard-pinned 4.17.21) left with the Prism mock server; the override stays as a floor so a
+  # future carrier cannot reintroduce the 4.17 line. 4.18.x is the line that fixes all three lodash
+  # advisories: prototype pollution in `_.unset`/`_.omit` (two records) and code injection through
+  # `_.template` import key names.
   lodash: 4.18.1
-  # uuid arrives only through postman-collection (the Prism/Spectral contract tooling), which
-  # hard-pins 8.3.2 through its newest release, so no carrier bump reaches the fixed line. 11.1.1
-  # is the newest release that still ships a CommonJS entry point — postman-collection does
-  # `require('uuid').v4()`, and uuid 12+ is ESM-only, so this is the highest safe floor.
-  uuid: 11.1.1
 patchedDependencies:
   bits-ui@2.18.1: patches/bits-ui@2.18.1.patch
