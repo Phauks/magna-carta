@@ -77,9 +77,17 @@ const WIDTH_CLASSES: Record<ActionDialogWidth, string> = {
   record: "max-w-record-window",
 };
 
-/** The max-width utility for a panel of this width. */
-export function widthClass(width: ActionDialogWidth): string {
-  return WIDTH_CLASSES[width];
+/**
+ * The max-width utility for a panel of this width.
+ *
+ * A context pane implies the record width, whatever `width` says. The two panes have bases of
+ * their own (the primary stops at size.record-pane, the context asks for size.record-context), and
+ * a frame narrower than the two together squeezes both into something neither was designed for.
+ * Rather than let a caller discover that by eye, the shell decides it: context beside the fields
+ * is the record window's geometry, so it opens at the record window's width.
+ */
+export function widthClass(width: ActionDialogWidth, { withContext = false } = {}): string {
+  return WIDTH_CLASSES[withContext ? "record" : width];
 }
 
 /**

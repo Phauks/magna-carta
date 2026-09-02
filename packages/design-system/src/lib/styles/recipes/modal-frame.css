@@ -195,6 +195,45 @@
     border-inline-start-color: var(--mc-border-default);
   }
 
+  /*
+   * What a context pane holds when it is not a tab strip: a column that fills the pane and scrolls
+   * in itself, with the same measure as a tab panel so context reads the same beside a form as it
+   * does beside a record. A COLUMN, not a plain block, so a panel whose whole content is one
+   * scrolling thing works without the caller wrapping it.
+   */
+  .mc-modal-frame-context-body {
+    display: flex;
+    flex-direction: column;
+    flex: auto;
+    min-block-size: var(--mc-space-0);
+    overflow-y: auto;
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-16);
+  }
+
+  /* --- the notice band -------------------------------------------------------------------- */
+
+  /*
+   * Where a failure lands: between the body and the action bar, OUTSIDE the scroll. A refusal
+   * comes back from pressing the commit, and the reader is looking at the commit when it does; a
+   * band at the top of a long form has scrolled out of sight by then, and a refusal nobody read is
+   * a refusal that was not made. The band is `flex: none` like the bars around it, so it never
+   * scrolls away either. It carries only inline and end padding — the pane above already ends in
+   * its own — and an empty band draws nothing, so a caller whose notice has nothing to say costs
+   * the frame no height.
+   */
+  .mc-modal-frame-notice {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    padding-inline: var(--mc-space-24);
+    padding-block-end: var(--mc-space-16);
+  }
+  .mc-modal-frame-notice:empty {
+    display: none;
+  }
+
   /* --- the action bar --------------------------------------------------------------------- */
 
   /*

@@ -190,11 +190,6 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/matters/new-matter-dialog.svelte",
-      "reason": "a record being CREATED, not an act asked of a reader \u2014 its right shell is RecordWindow opened with editing raised, which that component already supports. ActionDialog would be the wrong shell, so this one is scheduled separately."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/matters/note-delete-dialog.svelte",
       "reason": "predates ActionDialog; migrates to ActionDialog as kind=destructive."
     },
