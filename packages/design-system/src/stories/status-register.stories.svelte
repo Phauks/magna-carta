@@ -10,13 +10,12 @@
    * nothing struck or dimmed.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import CircleCheckBig from "@lucide/svelte/icons/circle-check-big";
   import { expect } from "storybook/test";
   import Badge from "../lib/components/badge/index.ts";
+  import StatusMark from "../lib/components/status-mark/index.ts";
   import {
     statusBadgeAttributes,
     statusEntry,
-    statusMarkClasses,
     statusVocabulary,
     type StatusVocabulary,
   } from "../lib/status-register/index.ts";
@@ -34,7 +33,7 @@
   <div class="flex flex-wrap items-center gap-8">
     {#each statusVocabulary(name) as entry (entry.label)}
       {#if entry.presentation === "mark"}
-        <CircleCheckBig class={statusMarkClasses()} aria-label={entry.label} />
+        <StatusMark label={entry.label} />
       {:else}
         <Badge variant={entry.tone} title={entry.meaning}>{entry.label}</Badge>
       {/if}

@@ -60,7 +60,7 @@
   scope: In-house @magna-carta/design-system styled directly on headless Bits UI v2 — the only primitives the app may compose.
   status: shipped
   adrs: ADR-0076
-  evidence: packages/design-system/src/lib/components holds fifty-two component directories across four tiers, DataTable, Sidebar, Resizable and the brand components among them
+  evidence: packages/design-system/src/lib/components holds sixty component directories across four tiers, DataTable, Sidebar, Resizable and the brand components among them
   notes: shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/.
 
 - id: design-system.components.storybook-catalog
