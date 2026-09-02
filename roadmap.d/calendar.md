@@ -9,7 +9,7 @@
   scope: Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   status: partial
   adrs: ADR-0018, ADR-0055
-  evidence: The event and deadline model, firm events with an audience switch, resources and bookings with derived liveness, typed event links with chain-held continuance, the federated timeline (fourteen sources in TIMELINE_SOURCES), and thirty-three routes are built (packages/calendar, apps/api-worker/src/routes/calendar.ts registers thirty-three handlers); the only interface is the matter's own Calendar section, and there is no docketing computation (which is a deliberate position, not a gap).
+  evidence: The event and deadline model, firm events with an audience switch, resources and bookings with derived liveness, typed event links with chain-held continuance, the federated timeline (fourteen sources in TIMELINE_SOURCES), the firm's week-start setting, and thirty-five routes are built (packages/calendar, apps/api-worker/src/routes/calendar.ts registers thirty-five handlers); the firm calendar, the matter's Calendar section and the calendar settings page are the interface, and there is no docketing computation (which is a deliberate position, not a gap).
   audience: public
   public-name: Calendar and deadlines
   public-summary: Hearings, deadlines, firm events and room bookings in one calendar, with every date on a matter visible as that matter's own timeline.
@@ -102,6 +102,16 @@
   slices: 6-1-case-calendar, 6-2-calendar-firm-events-resources
   spec: docs/specs/2026-09-02-calendar-interface-design.md
   evidence: apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte, record-firm-event-dialog.svelte and participant-picker.svelte over the pure draft models asserted in apps/web/test/calendar-drafts.test.ts.
+
+- id: calendar.surface.firm-settings
+  name: Firm calendar settings
+  scope: What the firm decides once about how it reads its calendar, held in the per-firm setting table and edited under Settings › Practice › Calendar; today the day the week begins on.
+  status: shipped
+  surface: screen
+  slices: 6-1-case-calendar
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  notes: A firm setting, never a personal preference (owner ruling 2026-09-02); Sunday by default. Read by every member who can read the calendar, moved only under calendar:manage, audited, idempotent. The page is the first settings page with a server behind it and shows no per-browser history.
+  evidence: packages/calendar/src/settings.ts over the setting table; GET/PATCH /api/v1/calendar/settings in apps/api-worker/src/routes/calendar.ts, asserted over Miniflare in apps/api-worker/test/calendar-settings-routes.test.ts; apps/web/src/routes/(app)/settings/calendar/+page.svelte over apps/web/src/lib/calendar/calendar-settings-draft.svelte.ts (apps/web/test/calendar-settings-draft.test.ts); CalendarView reads it once in apps/web/src/lib/calendar/calendar-context.svelte.ts and hands it to every grid.
 
 - id: calendar.surface.kind-narrowing
   name: Kind narrowing and state filters

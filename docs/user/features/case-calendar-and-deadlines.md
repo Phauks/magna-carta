@@ -29,7 +29,10 @@ setting and deadline on every matter you can see, and the firm's own events besi
 - **Month, week, agenda.** Three views of the same calendar. The month grid shows a few entries per
   day and says how many more there are; press that and the agenda opens on that day. The week is
   seven days side by side with each day's entries listed. The agenda is a fortnight as a list. The
-  view and the date live in the address.
+  view and the date live in the address. The week begins on the day your firm chose, Sunday unless
+  an administrator changed it under Settings › Calendar; it is the firm's setting rather than a
+  personal one, so everybody in the firm reads the same week
+  ([the administrator's guide](../admin/calendar-week-start.md)).
 - **What an entry says on the firm calendar.** The kind and the matter, never the title: "Hearing,
   2026-0042". A calendar that spans every case does not broadcast what each case is about. Press
   the entry and it opens with its title, its people, its place and the zone its time is read in.

@@ -23,7 +23,11 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-reads.ts` — the read plan per scope: which reads, walked to the end or the ceiling,
   failing independently
 - `calendar-controller.svelte.ts`, `calendar-context.svelte.ts` — the view state and the read-once
-  context (session, catalog, the firm's matters through `$lib/time/firm-matters.svelte.ts`)
+  context (session, catalog, the firm's matters through `$lib/time/firm-matters.svelte.ts`, and
+  the firm's calendar settings)
+- `calendar-settings-draft.svelte.ts` — the firm's calendar settings (the day the week begins on)
+  as a server-backed draft the settings page at `(app)/settings/calendar` renders through the
+  shared settings rows and footer; the one draft on that surface with no local-storage copy
 - `calendar-view.svelte`, `calendar-toolbar.svelte` — the component and its one action row
 - `entry-window.svelte`, `entry-reference.ts`, `entry-print-sheet.ts` — the `RecordWindow` an
   event, a firm event or a deadline opens in, its verbs, and its print projection
@@ -40,6 +44,10 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - **Every question the pure modules can answer is asserted in `apps/web/test/calendar-*.test.ts`
   without a browser**: the window arithmetic, the projection, the read plan over a fake fetch, the
   draft shortfalls and request shapes. A Svelte file renders those answers and decides none of them.
+- **The week begins on the day the firm chose, never on a personal preference.** `CalendarView`
+  reads `GET /api/v1/calendar/settings` once with the rest of its context and hands
+  `weekStartsOn` to every grid; a surface never picks a week start of its own, and a member has
+  no override. The setting is edited under Settings › Practice › Calendar.
 - **The grid tones are the subtle status register.** `info` for a court appearance, `danger` for an
   open past-due deadline, `success` satisfied, `warning` and struck for cancelled, `accent` for a
   firm entry; neutral otherwise. Decided once in `calendar-vocabulary.ts` and `calendar-entries.ts`.

@@ -633,3 +633,41 @@ export function readerTimeZone(): string {
 export function overdueCount(deadlines: readonly CalendarDeadline[]): number {
   return deadlines.filter((deadline) => deadline.overdue && deadline.state === "open").length;
 }
+
+// ---- the firm's calendar settings --------------------------------------------------------------
+//
+// What the firm decides once about how it reads its own calendar. One setting today: the day the
+// week begins on. A FIRM setting rather than a personal preference, by the owner's ruling — two
+// members of one firm looking at the same week must see the same grid, so that "next week" names
+// the same seven days to everybody.
+
+/** The two week starts practice actually uses: 0 is Sunday, 1 is Monday. */
+export type WeekStartsOn = 0 | 1;
+
+export interface CalendarSettings {
+  weekStartsOn: WeekStartsOn;
+}
+
+/** The firm's settings as they stand. Readable by every member who can read the calendar. */
+export function readCalendarSettings(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<CalendarSettings>> {
+  return requestJson(fetchImpl, "/api/v1/calendar/settings");
+}
+
+export interface UpdateCalendarSettingsRequest {
+  weekStartsOn?: WeekStartsOn;
+}
+
+/** Moves the firm's week for everybody; audited, and behind `calendar:manage`. */
+export function updateCalendarSettings(
+  fetchImpl: typeof fetch,
+  request: UpdateCalendarSettingsRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<CalendarSettings>> {
+  return requestJson(fetchImpl, "/api/v1/calendar/settings", {
+    method: "PATCH",
+    body: request,
+    idempotencyKey,
+  });
+}

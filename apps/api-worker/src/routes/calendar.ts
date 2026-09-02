@@ -2,6 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
   closeMatterDeadline,
@@ -60,6 +61,12 @@ import {
   deactivateMatterEventType,
   updateMatterEventType,
 } from "@magna-carta/calendar/event-type-service";
+import {
+  WEEK_STARTS_ON_VALUES,
+  readCalendarWeekStartsOn,
+  writeCalendarWeekStartsOnStatement,
+  type WeekStartsOn,
+} from "@magna-carta/calendar/settings";
 import { readMatterEventTypes } from "@magna-carta/calendar/event-type-statements";
 import { encodeCursor } from "@magna-carta/data-access/cursor-pagination";
 import { decodeTimelineCursor } from "@magna-carta/calendar/merge";
@@ -294,6 +301,27 @@ const EventTypeDetail = z
     active: z.boolean(),
   })
   .openapi("MatterEventTypeDetail");
+
+// ---- the firm's calendar settings ----
+
+// 0 is Sunday and 1 is Monday: the two starts practice actually uses, and a closed vocabulary so a
+// grid never has to draw a week that begins on a Wednesday. The value is a firm setting rather than a
+// personal preference, because two members of one firm looking at the same week must see the same
+// seven days.
+const WeekStartsOnValue = z
+  .union([z.literal(WEEK_STARTS_ON_VALUES[0]), z.literal(WEEK_STARTS_ON_VALUES[1])])
+  .openapi("CalendarWeekStartsOn");
+
+const CalendarSettingsResponse = z
+  .object({ weekStartsOn: WeekStartsOnValue })
+  .openapi("CalendarSettingsResponse");
+
+const PatchCalendarSettingsRequest = z
+  .object({
+    // Sparse: a field absent is unchanged, and an empty patch writes nothing and audits nothing.
+    weekStartsOn: WeekStartsOnValue.optional(),
+  })
+  .openapi("PatchCalendarSettingsRequest");
 
 const CreateEventTypeRequest = z
   .object({
@@ -951,6 +979,53 @@ const listEventTypesRoute = defineOpenAPIRoute(readMeta("listEventTypes", "firm"
     401: authErrors[401],
     403: authErrors[403],
     404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const getSettingsRoute = defineOpenAPIRoute(readMeta("getSettings", "firm"), {
+  method: "get",
+  path: "/api/v1/calendar/settings",
+  description:
+    "The firm's calendar settings: which day its week begins on (0 for Sunday, 1 for Monday). A firm " +
+    "setting rather than a personal one, so every member reads the same week; Sunday until the firm " +
+    "says otherwise.",
+  responses: {
+    200: {
+      description: "The firm's calendar settings",
+      content: { "application/json": { schema: CalendarSettingsResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const updateSettingsRoute = defineOpenAPIRoute(mutationMeta("updateSettings", "firm"), {
+  method: "patch",
+  path: "/api/v1/calendar/settings",
+  description:
+    "Updates the firm's calendar settings. Sparse: an absent field is left alone, and an empty " +
+    "patch changes nothing and records nothing. Returns the settings after the write.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: {
+      content: { "application/json": { schema: PatchCalendarSettingsRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "The firm's calendar settings after the write",
+      content: { "application/json": { schema: CalendarSettingsResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
     429: authErrors[429],
   },
 });
@@ -2216,6 +2291,66 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
         },
         200,
       );
+    },
+  );
+
+  // GET /api/v1/calendar/settings
+  app.openapi(
+    { ...getSettingsRoute, middleware: chokepointMiddleware(chokepoint, getSettingsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      return c.json({ weekStartsOn: await readCalendarWeekStartsOn(firm.firmDatabase) }, 200);
+    },
+  );
+
+  // PATCH /api/v1/calendar/settings
+  app.openapi(
+    { ...updateSettingsRoute, middleware: chokepointMiddleware(chokepoint, updateSettingsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const request = c.req.valid("json");
+      const weekStartsOn: WeekStartsOn | undefined = request.weekStartsOn;
+      if (weekStartsOn === undefined) {
+        // An empty patch changes nothing and must not add an audit row: a redelivered no-op would
+        // otherwise put a settings change in the log that nobody made.
+        return c.json({ weekStartsOn: await readCalendarWeekStartsOn(firm.firmDatabase) }, 200);
+      }
+      const idempotency = requireChokepointIdempotency(c);
+      const options = serviceOptions(userId);
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => ({
+          id: "calendar.weekStartsOn",
+          effect: {
+            statements: [
+              writeCalendarWeekStartsOnStatement(
+                firm.firmDatabase,
+                weekStartsOn,
+                options.clock.now(),
+              ),
+              domainAuditStatement(firm.firmDatabase, {
+                event: "calendar.settings.updated",
+                // The setting's own key is the subject: there is no row identifier to name, and
+                // the key is what a later reader of the trail searches for.
+                subjectId: "calendar.weekStartsOn",
+                actorUserId: options.actorUserId,
+                clock: options.clock,
+                randomSource: options.randomSource,
+                // An integer from a closed vocabulary. Nothing here was typed by a person.
+                metadata: { weekStartsOn },
+              }),
+            ],
+            outboxMessages: [],
+          },
+        }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ weekStartsOn: await readCalendarWeekStartsOn(firm.firmDatabase) }, 200);
     },
   );
 

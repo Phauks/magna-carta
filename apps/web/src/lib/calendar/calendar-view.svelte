@@ -75,8 +75,9 @@
     anchor: () => anchor,
     setAnchor: (next) => (anchor = next),
     address: () => address,
-    // Sunday, until the preference exists; the grid takes it from here so the preference is one line.
-    weekStartsOn: () => 0,
+    // The firm's own week, read once with the rest of the context: two members of one firm looking
+    // at the same week see the same columns.
+    weekStartsOn: () => context.weekStartsOn,
     memberId: () => context.memberId,
     context: () => context.entryContext,
     contextReady: () => context.ready,
@@ -234,6 +235,7 @@
         entries={controller.entries ?? []}
         label={gridLabel}
         anchor={controller.anchor}
+        weekStartsOn={controller.weekStartsOn}
         today={controller.today}
         loading={controller.loading}
         {emptyMessage}
@@ -245,6 +247,7 @@
         entries={controller.entries ?? []}
         label={gridLabel}
         anchor={controller.anchor}
+        weekStartsOn={controller.weekStartsOn}
         today={controller.today}
         loading={controller.loading}
         {emptyMessage}

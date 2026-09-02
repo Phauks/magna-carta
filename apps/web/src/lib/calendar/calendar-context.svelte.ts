@@ -2,12 +2,14 @@
  * What every calendar surface on a page needs to know before it can paint or record anything, read
  * once and held.
  *
- * Five reads, none of them about the calendar's rows: who is asking and what they may do (the
+ * Six reads, none of them about the calendar's rows: who is asking and what they may do (the
  * session), the event-type catalog (a chip on the firm grid paints a type's NAME from a type CODE,
  * and the record forms choose from it), the firm's roster (a participant is a member handle the
- * grid cannot name without it), the firm's offices (a firm event is held at one), and the firm's
- * matters (a chip paints a matter NUMBER from a matter identifier). Each changes at the pace of a
- * working week, so re-reading any of them per navigation would spend a round trip to learn nothing.
+ * grid cannot name without it), the firm's offices (a firm event is held at one), the firm's
+ * matters (a chip paints a matter NUMBER from a matter identifier), and the firm's calendar
+ * settings (which day its week begins on, so every grid on the page draws the same week). Each
+ * changes at the pace of a working week, so re-reading any of them per navigation would spend a
+ * round trip to learn nothing.
  *
  * ONE INSTANCE, LOADED ON FIRST USE. The calendar component and the screen that embeds it both
  * reach for the same instance, so the screen's Record menu and the grid's chips agree about the
@@ -32,8 +34,10 @@ import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
 import {
   listEventTypes,
   MANAGE_CALENDAR_PERMISSION,
+  readCalendarSettings,
   readerTimeZone,
   type EventType,
+  type WeekStartsOn,
 } from "./calendar-api.ts";
 import type { EntryContext } from "./calendar-entries.ts";
 import { eventTypesByCode } from "./calendar-vocabulary.ts";
@@ -47,6 +51,13 @@ export class CalendarContext {
   membersFailure = $state<Failure | null>(null);
   locations = $state<readonly LocationSummary[]>([]);
   locationsFailure = $state<Failure | null>(null);
+  /**
+   * The day the firm's week begins on. Sunday until the firm's own answer arrives, and Sunday where
+   * that read fails: a grid that draws the default week is still a grid, and the failure is stated
+   * beside it rather than blocking every calendar on the page.
+   */
+  weekStartsOn = $state<WeekStartsOn>(0);
+  settingsFailure = $state<Failure | null>(null);
   /** The firm's matters, walked once and held for the session. */
   readonly firmMatters = new FirmMatters();
 
@@ -54,7 +65,13 @@ export class CalendarContext {
   readonly readerTimeZone: string = readerTimeZone();
 
   /** Which reads have answered, whether or not they succeeded. */
-  #settled = $state({ session: false, eventTypes: false, members: false, locations: false });
+  #settled = $state({
+    session: false,
+    eventTypes: false,
+    members: false,
+    locations: false,
+    settings: false,
+  });
   #inFlight: Promise<void> | null = null;
 
   /** The member asking, once the session is known. */
@@ -87,11 +104,20 @@ export class CalendarContext {
   }
 
   /**
-   * Whether the grid can paint honestly: the catalog and the matters have answered (or failed), so
-   * a chip's type name and matter number will not change under the reader a moment after it paints.
+   * Whether the grid can paint honestly: the catalog, the matters and the week start have answered
+   * (or failed), so a chip's type name and matter number will not change under the reader a moment
+   * after it paints, and the week's columns will not shift once the firm's answer lands.
    */
   get ready(): boolean {
-    return this.#settled.eventTypes && this.firmMatters.matters !== null;
+    return this.#settled.eventTypes && this.#settled.settings && this.firmMatters.matters !== null;
+  }
+
+  /**
+   * The settings page saved a new week start. Told here so a calendar opened later in the same
+   * session draws the firm's week without a reload; the page's own read stays the record.
+   */
+  noteWeekStartsOn(weekStartsOn: WeekStartsOn): void {
+    this.weekStartsOn = weekStartsOn;
   }
 
   readonly matterNumbers: ReadonlyMap<string, string> = $derived.by(() => {
@@ -146,8 +172,20 @@ export class CalendarContext {
       this.#readEventTypes(fetchImpl),
       this.#readMembers(fetchImpl),
       this.#readLocations(fetchImpl),
+      this.#readSettings(fetchImpl),
       this.firmMatters.load(fetchImpl),
     ]);
+  }
+
+  async #readSettings(fetchImpl: typeof fetch): Promise<void> {
+    const outcome = await readCalendarSettings(fetchImpl);
+    if (outcome.kind === "ok") {
+      this.weekStartsOn = outcome.value.weekStartsOn;
+      this.settingsFailure = null;
+    } else {
+      this.settingsFailure = outcome.failure;
+    }
+    this.#settled.settings = true;
   }
 
   async #readSession(fetchImpl: typeof fetch): Promise<void> {

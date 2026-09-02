@@ -54,6 +54,7 @@ export interface CalendarHost {
   setAnchor(anchor: string): void;
   /** Whether view, date and scope are mirrored into the page's query string. */
   address(): boolean;
+  /** The day the firm's week begins on. A firm setting, never a personal one. */
   weekStartsOn(): WeekStart;
   /** The member asking, once the session is known. Mine reads through it. */
   memberId(): string | null;
@@ -132,6 +133,11 @@ export class CalendarController {
 
   /** The window's own name, as the toolbar reads it. */
   readonly title: string = $derived(windowTitle(this.window));
+
+  /** The day the week's columns begin on: the firm's setting, read through the host. */
+  get weekStartsOn(): WeekStart {
+    return this.#host.weekStartsOn();
+  }
 
   /** True until the first read of the window lands. */
   get loading(): boolean {

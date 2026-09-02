@@ -1039,6 +1039,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

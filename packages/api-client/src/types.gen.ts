@@ -2594,6 +2594,16 @@ export type MatterEventTypeDetail = {
     active: boolean;
 };
 
+export type CalendarSettingsResponse = {
+    weekStartsOn: CalendarWeekStartsOn;
+};
+
+export type CalendarWeekStartsOn = 0 | 1;
+
+export type PatchCalendarSettingsRequest = {
+    weekStartsOn?: CalendarWeekStartsOn;
+};
+
 export type CalendarCreatedResponse = {
     id: string;
 };
@@ -15869,6 +15879,95 @@ export type CalendarCreateEventTypeResponses = {
 };
 
 export type CalendarCreateEventTypeResponse = CalendarCreateEventTypeResponses[keyof CalendarCreateEventTypeResponses];
+
+export type CalendarGetSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar/settings';
+};
+
+export type CalendarGetSettingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarGetSettingsError = CalendarGetSettingsErrors[keyof CalendarGetSettingsErrors];
+
+export type CalendarGetSettingsResponses = {
+    /**
+     * The firm's calendar settings
+     */
+    200: CalendarSettingsResponse;
+};
+
+export type CalendarGetSettingsResponse = CalendarGetSettingsResponses[keyof CalendarGetSettingsResponses];
+
+export type CalendarUpdateSettingsData = {
+    body: PatchCalendarSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar/settings';
+};
+
+export type CalendarUpdateSettingsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateSettingsError = CalendarUpdateSettingsErrors[keyof CalendarUpdateSettingsErrors];
+
+export type CalendarUpdateSettingsResponses = {
+    /**
+     * The firm's calendar settings after the write
+     */
+    200: CalendarSettingsResponse;
+};
+
+export type CalendarUpdateSettingsResponse = CalendarUpdateSettingsResponses[keyof CalendarUpdateSettingsResponses];
 
 export type CalendarCancelEventData = {
     body?: CancelEventRequest;
