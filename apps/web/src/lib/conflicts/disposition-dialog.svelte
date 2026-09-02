@@ -28,14 +28,14 @@
    *      shows it until a later answer supplies the rest. That is stated here, before the control is
    *      pressed, so nobody records an unevidenced waiver believing it complete.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
-  import Button from "@magna-carta/design-system/button";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import Label from "@magna-carta/design-system/label";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
   import Separator from "@magna-carta/design-system/separator";
   import { personName } from "@magna-carta/design-system/formatters";
@@ -88,7 +88,6 @@
 
   let kind = $state<DispositionKind>("cleared");
   let rationale = $state("");
-  let recording = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
   // The waiver's own record. `confirmedInWriting` starts unanswered on purpose: it is a fact in its
@@ -102,11 +101,9 @@
     permissions === null || permissions.includes(DISPOSE_CONFLICTS_PERMISSION),
   );
 
-  // A fresh subject is a fresh answer: reopening on another hit must never carry the last one's
+  // A fresh opening is a fresh answer: reopening on another hit must never carry the last one's
   // reasoning — or the last one's waiver — into it.
-  $effect(() => {
-    const subject = hit?.id ?? null;
-    if (subject === null) return;
+  function reset(): void {
     kind = "cleared";
     rationale = "";
     consentingParty = null;
@@ -114,7 +111,12 @@
     documentFileId = null;
     givenOn = "";
     failure = null;
-  });
+  }
+
+  /** Whether anything has been answered: what the guard asks about before a stray Escape. */
+  const started = $derived(
+    rationale.trim() !== "" || kind !== "cleared" || consentingParty !== null || givenOn !== "",
+  );
 
   /** The typed date as a calendar date, or undefined while it is empty or half-entered. */
   const givenOnValue = $derived.by(() => {
@@ -130,7 +132,8 @@
     givenOn = next ? next.toString() : "";
   }
 
-  const refusal = $derived.by((): string | null => {
+  const refusal = $derived.by((): string | undefined => {
+    if (hit === null) return "No hit is open.";
     if (permissions !== null && !mayDispose) {
       return "Answering a hit needs the conflicts:dispose permission, which this account does not hold.";
     }
@@ -142,7 +145,7 @@
         return "Say whether the consent was confirmed in writing. Either answer is recordable; not answering is not.";
       }
     }
-    return null;
+    return undefined;
   });
 
   /**
@@ -162,9 +165,14 @@
     return ahead;
   });
 
-  async function record(): Promise<void> {
-    if (hit === null || refusal !== null || recording) return;
-    recording = true;
+  const subject = $derived(
+    hit === null
+      ? "No hit is open."
+      : `${evidenceTier(hit.evidenceTier).label} · ${sourceVocabulary(hit.sourceClass).label} · ${partyName ?? "Party unread"}`,
+  );
+
+  async function record(): Promise<ActionOutcome> {
+    if (hit === null || refusal !== undefined) return "refused";
     failure = null;
     const outcome = await recordConflictsDisposition(
       fetch,
@@ -185,32 +193,131 @@
       // A retried submit must not append a second answer to the same hit.
       crypto.randomUUID(),
     );
-    recording = false;
     if (outcome.kind === "ok") {
-      open = false;
       onRecorded();
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
       "The answer was refused.",
       "The answer could not be sent. Nothing was recorded.",
     );
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Answer This Hit</Dialog.Title>
-    <Dialog.Description>
-      {#if hit === null}
-        No hit is open.
-      {:else}
-        {evidenceTier(hit.evidenceTier).label} &middot; {sourceVocabulary(hit.sourceClass).label}
-        &middot; {partyName ?? "Party unread"}
-      {/if}
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  kind="form"
+  heading="Answer This Hit"
+  subtitle={subject}
+  commitLabel="Record the Answer"
+  commitBusyLabel="Recording"
+  commitRefusal={refusal}
+  unsavedChanges={started}
+  onOpen={reset}
+  onCommit={record}
+>
+  {#snippet fields({ busy })}
+    <div class="flex flex-col gap-8">
+      <Label>Reviewer</Label>
+      <p class="text-sm">{personName(reviewerName)}</p>
+    </div>
 
+    <div class="flex flex-col gap-8">
+      <Label id="{fieldPrefix}-kind-label">Adjudication</Label>
+      <RadioGroup.Root
+        bind:value={kind}
+        disabled={busy}
+        aria-labelledby="{fieldPrefix}-kind-label"
+      >
+        {#each DISPOSITION_KINDS as candidate (candidate)}
+          {@const word = dispositionVocabulary(candidate)}
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value={candidate} id="{fieldPrefix}-kind-{candidate}" />
+            <Label for="{fieldPrefix}-kind-{candidate}" title={word.meaning}>{word.label}</Label>
+          </div>
+        {/each}
+      </RadioGroup.Root>
+    </div>
+
+    <LabelledField label="Rationale">
+      {#snippet children({ props })}
+        <Textarea {...props} rows={4} placeholder="Rationale" disabled={busy} bind:value={rationale} />
+      {/snippet}
+    </LabelledField>
+
+    {#if kind === "waiver_obtained"}
+      <Separator />
+      <!-- The waiver's own record. This is what a firm is asked to produce when a waiver is
+           questioned, so it is captured as facts rather than left to the rationale sentence. -->
+      <LabelledField label="Waiver Given By">
+        {#snippet children({ props })}
+          <!-- A Directory record, not a typed name: the consenting party has to be somebody a
+               reader can look up, which is the difference between a waiver and a claim of one. -->
+          <SubjectPartyPicker
+            selected={consentingParty === null ? [] : [consentingParty]}
+            onAdd={(picked) => (consentingParty = picked)}
+            onRemove={() => (consentingParty = null)}
+            inputId={props.id}
+            disabled={busy}
+          />
+        {/snippet}
+      </LabelledField>
+
+      <div class="flex flex-col gap-8">
+        <Label id="{fieldPrefix}-waiver-confirmed-label">Confirmed In Writing</Label>
+        <!-- Answered, never assumed. There is no preselected option, because a control that
+             defaults to Yes records a confirmation nobody stated and one that defaults to No
+             reports a firm as short of something it may well hold. -->
+        <RadioGroup.Root
+          bind:value={confirmedInWriting}
+          disabled={busy}
+          aria-labelledby="{fieldPrefix}-waiver-confirmed-label"
+          class="flex flex-row gap-16"
+        >
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value="yes" id="{fieldPrefix}-waiver-confirmed-yes" />
+            <Label for="{fieldPrefix}-waiver-confirmed-yes">Yes</Label>
+          </div>
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value="no" id="{fieldPrefix}-waiver-confirmed-no" />
+            <Label for="{fieldPrefix}-waiver-confirmed-no">Not yet</Label>
+          </div>
+        </RadioGroup.Root>
+      </div>
+
+      <LabelledField label="Evidencing Document">
+        {#snippet children({ props })}
+          <WaiverDocumentPicker
+            bind:value={documentFileId}
+            {matterId}
+            inputId={props.id}
+            disabled={busy}
+          />
+        {/snippet}
+      </LabelledField>
+
+      <!-- The date the waiver was GIVEN, which is not the instant this answer is being written.
+           The interval between the two is exactly what a reviewer gets asked about. -->
+      <DatePicker label="Waiver Given On" value={givenOnValue} onValueChange={recordGivenOn} />
+
+      {#if shortfallsAhead.length > 0}
+        <div class="flex flex-col gap-4 text-xs text-text-muted">
+          <p>Recorded like this, the answer will read as incomplete wherever it is shown:</p>
+          <ul class="flex flex-col gap-4">
+            {#each shortfallsAhead as sentence (sentence)}
+              <li>{sentence}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+    {/if}
+
+    <p class="text-xs text-text-muted">Recorded as a new row. An earlier answer is never edited.</p>
+  {/snippet}
+
+  {#snippet notice()}
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
@@ -219,122 +326,5 @@
         whenSilent={failure.whenSilent}
       />
     {/if}
-
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Label>Reviewer</Label>
-        <p class="text-sm">{personName(reviewerName)}</p>
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label id="{fieldPrefix}-kind-label">Adjudication</Label>
-        <RadioGroup.Root bind:value={kind} aria-labelledby="{fieldPrefix}-kind-label">
-          {#each DISPOSITION_KINDS as candidate (candidate)}
-            {@const word = dispositionVocabulary(candidate)}
-            <div class="flex items-center gap-8">
-              <RadioGroup.Item value={candidate} id="{fieldPrefix}-kind-{candidate}" />
-              <Label for="{fieldPrefix}-kind-{candidate}" title={word.meaning}>{word.label}</Label>
-            </div>
-          {/each}
-        </RadioGroup.Root>
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-rationale">Rationale</Label>
-        <Textarea
-          id="{fieldPrefix}-rationale"
-          rows={4}
-          placeholder="Rationale"
-          disabled={recording}
-          bind:value={rationale}
-        />
-      </div>
-
-      {#if kind === "waiver_obtained"}
-        <Separator />
-        <!-- The waiver's own record. This is what a firm is asked to produce when a waiver is
-             questioned, so it is captured as facts rather than left to the rationale sentence. -->
-        <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-waiver-given-by">Waiver Given By</Label>
-          <!-- A Directory record, not a typed name: the consenting party has to be somebody a
-               reader can look up, which is the difference between a waiver and a claim of one. -->
-          <SubjectPartyPicker
-            selected={consentingParty === null ? [] : [consentingParty]}
-            onAdd={(picked) => (consentingParty = picked)}
-            onRemove={() => (consentingParty = null)}
-            inputId="{fieldPrefix}-waiver-given-by"
-            disabled={recording}
-          />
-        </div>
-
-        <div class="flex flex-col gap-8">
-          <Label id="{fieldPrefix}-waiver-confirmed-label">Confirmed In Writing</Label>
-          <!-- Answered, never assumed. There is no preselected option, because a control that
-               defaults to Yes records a confirmation nobody stated and one that defaults to No
-               reports a firm as short of something it may well hold. -->
-          <RadioGroup.Root
-            bind:value={confirmedInWriting}
-            aria-labelledby="{fieldPrefix}-waiver-confirmed-label"
-            class="flex flex-row gap-16"
-          >
-            <div class="flex items-center gap-8">
-              <RadioGroup.Item value="yes" id="{fieldPrefix}-waiver-confirmed-yes" />
-              <Label for="{fieldPrefix}-waiver-confirmed-yes">Yes</Label>
-            </div>
-            <div class="flex items-center gap-8">
-              <RadioGroup.Item value="no" id="{fieldPrefix}-waiver-confirmed-no" />
-              <Label for="{fieldPrefix}-waiver-confirmed-no">Not yet</Label>
-            </div>
-          </RadioGroup.Root>
-        </div>
-
-        <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-waiver-document">Evidencing Document</Label>
-          <WaiverDocumentPicker
-            bind:value={documentFileId}
-            {matterId}
-            inputId="{fieldPrefix}-waiver-document"
-            disabled={recording}
-          />
-        </div>
-
-        <!-- The date the waiver was GIVEN, which is not the instant this answer is being written.
-             The interval between the two is exactly what a reviewer gets asked about. -->
-        <DatePicker
-          label="Waiver Given On"
-          value={givenOnValue}
-          onValueChange={recordGivenOn}
-        />
-
-        {#if shortfallsAhead.length > 0}
-          <div class="flex flex-col gap-4 text-xs text-text-muted">
-            <p>Recorded like this, the answer will read as incomplete wherever it is shown:</p>
-            <ul class="flex flex-col gap-4">
-              {#each shortfallsAhead as sentence (sentence)}
-                <li>{sentence}</li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-      {/if}
-    </div>
-
-    <div class="mt-16 flex flex-wrap items-center justify-end gap-8">
-      <span class="mr-auto text-xs text-text-muted">
-        Recorded as a new row. An earlier answer is never edited.
-      </span>
-      <Button variant="secondary" onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        variant="primary"
-        disabled={refusal !== null || recording || hit === null}
-        title={refusal ?? undefined}
-        onclick={() => void record()}
-      >
-        {recording ? "Recording" : "Record the answer"}
-      </Button>
-    </div>
-    {#if refusal !== null}
-      <p class="mt-8 text-right text-xs text-text-muted">{refusal}</p>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>
