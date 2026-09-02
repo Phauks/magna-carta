@@ -169,6 +169,13 @@ is usually the fastest way to understand the rule.
   nothing behind it swallows the gesture in silence: the person watches their file go in, sees
   nothing happen, and cannot tell that from a failure. Either wire it or leave it out — a control
   that does nothing is worse than an absent one. _(matter notes, 2026-09-01)_
+- **A screen that consolidates other screens' records names nothing itself.** Every word on a row
+  of a consolidation — a chronology, a search result, a dashboard tile — is declared by the
+  subsystem that owns the row, beside that subsystem's own code, and the consolidating screen draws
+  what it is told. The moment the consolidation decides what a file or a hearing is called, it is a
+  second file manager and a second calendar, each a little wrong, and every new subsystem becomes a
+  change to it. Enforced by a pairing test against the server's registry and a coverage lint against
+  the section registry, so it cannot be forgotten. _(matter activity, 2026-09-02)_
 - **A type column names the thing's REAL type, never our category word for it.** "Document" on
   every row of a document register is the column repeating its own heading. A file's type is what
   the file manager identifies it as — its document type where one is set, else the identification
@@ -465,6 +472,35 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-02 — the matter Activity section, fourth review round (from scratch)
+
+The owner rejected the third round outright — a file's kind read as `txt`, `zip`, `bin` when "we
+have a whole file manager that has the file read functionality" — and asked for the section to be
+reviewed line by line and rebuilt as a consolidation that respects the modular seams of the parts
+it consolidates, naming where those parts are not modular enough. The review and the plan are the
+design artifact of that day; what it changed is recorded here.
+
+- **A consolidation view names nothing itself.** Every word on an Activity row — the section, the
+  type, the glyph, the facts, how it opens, how one is made — is declared by the subsystem that owns
+  the row, in an `ActivityContribution` beside that subsystem's own web code, and the server half is
+  a `describe` on that subsystem's own timeline source. The two central files that had decided all
+  of it in `$lib/matters` are gone. Promoted above as a standing rule.
+- **A file's type is what the file manager identifies it as.** The document type where the firm set
+  one, else the label of the identification the design-system `FileIcon` resolves from the content
+  type and the name — "PDF document", "Archive" — composed once in
+  `$lib/file-manager/file-identity.ts` with the size and the safety standing out of the status
+  register, and drawn with the file manager's own glyph. Never a name suffix.
+- **Section and Type are two columns.** Which part of the matter a row belongs to (a closed
+  vocabulary the registry declares, so the filter offers every section) and what the row IS in its
+  own subsystem's words. One column doing both had mixed "Deadline" with "pdf" in one filter list.
+- **The description is server-side and by identity.** The first cut read each subsystem's first
+  page on the client and joined by row id, so a document older than that page silently had no name.
+  The rebuilt read names the rows on the page, one statement per source present on it, behind each
+  source's own read capability: a member without `notes:read` sees that a note was written and not
+  what it said. The firm-wide read is never described.
+- **The screen can make a record.** "+ New Note" opens the note window on the Activity section; a
+  subsystem with a window of its own adds a verb and the control becomes a menu.
 
 ### 2026-09-02 — the matter Activity section, first review round
 

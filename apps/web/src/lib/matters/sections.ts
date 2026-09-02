@@ -24,6 +24,14 @@
  * neither. That is what makes the search's growth impossible to forget rather than merely unlikely:
  * adding a fifteenth section forces somebody to answer the question, and the scope dropdown renders
  * the unanswerable ones disabled with their reason instead of quietly omitting them.
+ *
+ * AND EVERY SECTION ANSWERS FOR THE TIMELINE, the same way. `timelineSources` names the federated
+ * timeline sources (packages/calendar/src/sources/all.ts) whose rows this section OWNS — the
+ * section an Activity row of that source opens into, behind its own access gate. A source no
+ * section owns is declared so in `UNSECTIONED_TIMELINE_SOURCES` with the reason, and
+ * `pnpm run lint:matter-timeline-coverage` fails a source that is neither owned nor declared, or
+ * owned twice. Ownership lives HERE rather than in the Activity section's own files so that "where
+ * does this row open" has one answer, and it is the answer the section registry already gives.
  */
 import type { MaturityStage } from "$lib/maturity/maturity.ts";
 
@@ -45,12 +53,28 @@ export interface MatterSection {
    * Names what a source here waits on, in the reader's words.
    */
   searchWaitingOn?: string;
+  /**
+   * The timeline source keys whose rows this section owns. Empty where the section holds no record
+   * the timeline reads — Overview and Activity consolidate, Fees and Parties have no source yet.
+   */
+  timelineSources: readonly string[];
 }
+
+/**
+ * The timeline sources no matter section owns, each with the reason. A row of one of these states
+ * what happened and opens nowhere, which is honest; the coverage lint refuses a source that is
+ * missing from both this map and every section's `timelineSources`.
+ */
+export const UNSECTIONED_TIMELINE_SOURCES: Readonly<Record<string, string>> = {
+  conflictsCheck: "No matter section holds a conflicts check yet",
+  firmEvent: "Firm-anchored: a firm event belongs to no matter and never appears on one",
+};
 
 /** Every section a matter has, in the order the strip reads them. */
 export const matterSections: readonly MatterSection[] = [
   {
     slug: "overview",
+    timelineSources: ["matterLifecycle"],
     label: "Overview",
     stage: "alpha",
     description: "The matter at a glance — its facts, status, and what has accrued against it.",
@@ -62,6 +86,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "activity",
+    timelineSources: [],
     label: "Activity",
     stage: "alpha",
     description:
@@ -76,6 +101,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "files",
+    timelineSources: ["documentFiled", "documentAssembly"],
     label: "Files",
     stage: "alpha",
     description:
@@ -85,6 +111,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "time",
+    timelineSources: ["timeEntry"],
     label: "Time",
     stage: "alpha",
     description:
@@ -94,6 +121,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "fees",
+    timelineSources: [],
     label: "Fees",
     stage: "alpha",
     description:
@@ -110,6 +138,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "costs",
+    timelineSources: ["costEntry"],
     label: "Costs",
     stage: "alpha",
     description:
@@ -119,6 +148,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "billing",
+    timelineSources: [],
     label: "Billing",
     stage: "alpha",
     description:
@@ -128,6 +158,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "trust",
+    timelineSources: ["trustMovement"],
     label: "Trust",
     stage: "soon",
     description:
@@ -138,6 +169,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "notes",
+    timelineSources: ["matterNote"],
     label: "Notes",
     stage: "alpha",
     description: "Matter notes and memoranda — dated, attributed, and searchable.",
@@ -145,6 +177,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "emails",
+    timelineSources: ["emailFiled"],
     label: "Emails",
     stage: "soon",
     description: "Email correspondence filed to this matter, threaded and searchable.",
@@ -153,6 +186,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "messaging",
+    timelineSources: [],
     label: "Messaging",
     stage: "soon",
     description:
@@ -162,6 +196,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "custodian",
+    timelineSources: ["custodyMovement", "custodyReviewDue", "custodyDueBack"],
     label: "Custodian",
     stage: "alpha",
     description:
@@ -171,6 +206,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "parties",
+    timelineSources: [],
     label: "Parties",
     stage: "alpha",
     description:
@@ -180,6 +216,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "calendar",
+    timelineSources: ["matterEvent", "matterDeadline"],
     label: "Calendar",
     stage: "alpha",
     description:
@@ -189,6 +226,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "magnus",
+    timelineSources: [],
     label: "Magnus",
     stage: "soon",
     description:
@@ -280,6 +318,11 @@ function buildStrip(): readonly MatterStripEntry[] {
 
 /** The strip's top level, in order. Validated at module load against the section registry. */
 export const matterStrip: readonly MatterStripEntry[] = buildStrip();
+
+/** The section that owns a timeline source's rows, or undefined where none does. */
+export function sectionOwningTimelineSource(sourceKey: string): MatterSection | undefined {
+  return matterSections.find((section) => section.timelineSources.includes(sourceKey));
+}
 
 /** The section a matter route is on, resolved from the address. Undefined off a section path. */
 export function sectionForPathname(matterId: string, pathname: string): MatterSection | undefined {

@@ -11,7 +11,7 @@ load-profile: n/a
 tested: done
 branch: claude/matters-notes-section-m9na1w
 active-work: docs/active-work/claude/matters-notes-section-m9na1w.md
-next: entity notes and their visibility anchor; firm-wide note search needs an index decision; the Activity section wants the sections it links into to honour the entry they are handed
+next: every section honours the `?entry=` an Activity row hands it; the file manager's history events join the timeline; the Overview tile and Home mount the Activity component; Billing and Parties gain sources; then Notes is rebuilt on the Activity component with a subject, a kind, parties and a standing flag
 link-spec: docs/specs/2026-08-15-notes-and-activity-design.md
 link-plan: docs/specs/2026-08-15-notes-and-tasks-implementation-plan.md
 adrs:
@@ -25,11 +25,17 @@ The first cut of this slice shipped the opposite model — an identity row plus 
 The owner's first review round on the screen replaced the inline composer with the record window, on the ruling that starting a record is a modal act; the corrections are in `docs/conventions/design-corrections.md`. The reported symptom that opened that round — a section that never stopped loading — did not reproduce: `apps/web/e2e/matter-notes.spec.ts` drives the whole surface against a real Worker and the list settles every time, and `apps/api-worker/test/notes-routes.test.ts` pins the empty-page envelope the settling depends on. What the rebuild changed is the shape rather than a found defect: the notes read is an effect of its own, so nothing else the screen wants can abort it before the read is asked for, and a failed read settles with a stated reason and a Retry.
 
 The owner then took the screen question further: the note is a small primitive, and the reason the
-Notes section read thin is that it showed one of the fourteen sources the platform already records.
+Notes section read thin is that it showed one of the fifteen sources the platform already records.
 So the matter gained an **Activity** section over the federated timeline that had been built, tested
-and served since the calendar slice with no web caller at all. The screen names no source: a
-presentation registry pairs one entry to each declared source, and a test scanning the calendar
-package's own declarations fails until a new source has one. The Notes section stays as it is, on the
-owner's direction.
+and served since the calendar slice with no web caller at all. Its first cut named rows from two
+central files and read each subsystem's first page from the client; the owner rejected that as a
+second file manager, calendar and ledger, and it was rebuilt from scratch on 2026-09-02 as a
+contract: every timeline source declares a `permission` and, where its rows have names, a
+`describe` that names a page of them for one matter on the server, and every source has an
+`ActivityContribution` beside its own web code that says how those rows read, open and get made.
+The screen names no source; the pairing test and `lint:matter-timeline-coverage` refuse a source
+without both halves. A note is the first record written from the chronology. The Notes section
+stays as it is, on the owner's direction, and its rebuild on the same component is the last step of
+the plan in `docs/decisions/pending/activity-names-its-rows-in-the-owning-source-behind-its-own-permission.md`.
 
 Two things stage 1 still does not close. Entity notes wait on a third `visibilityAnchor` with its own predicate, which is the substance of that stage rather than a copy of this one. Firm-wide note search is not built: the natural-language feed reserves `work-product` as a class its writer must never produce and a note is exactly that, while the keyword index takes a file or a review document fed from R2 objects — so the search that shipped is within one matter and needs no index.

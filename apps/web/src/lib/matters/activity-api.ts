@@ -6,11 +6,14 @@
  * key and one cursor, so this client asks for a page and never for a source: adding a subsystem to
  * the platform's activity does not add a request here.
  *
- * AN ENTRY CARRIES NO PRIVILEGED TEXT, BY CONSTRUCTION. Most sources declare no label at all — a
- * note's words and an email's subject line are exactly what a read spanning a whole matter must not
- * broadcast — so an entry states which source, which row, when, and by whom, plus the deep link that
- * reaches the detail through the owning subsystem's own access gate. A client that wants the words
- * follows the link; there is no parameter that asks for them here.
+ * THE PROJECTION CARRIES NO PRIVILEGED TEXT; THE DESCRIPTION CARRIES WHAT THE MEMBER MAY READ. Most
+ * sources declare no label at all — a note's words and an email's subject line are exactly what a
+ * read spanning a whole matter must not broadcast — so an entry states which source, which row,
+ * when, and by whom, plus the deep link that reaches the detail through the owning subsystem's own
+ * access gate. On THIS read, which is scoped to one matter the member is standing in, each source
+ * also names its rows through its own describe statement behind its own read capability: a title,
+ * its own word for what the row is, and its own facts. Those three are null wherever a source has
+ * nothing to say or the member may not read it — absent, never invented.
  */
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
@@ -30,6 +33,16 @@ export interface ActivityEntry {
   label: string | null;
   /** Where the row itself is read, in the subsystem that owns it and behind its own access gate. */
   link: string;
+  /** What the reader recognises the row by, as its own subsystem names it. Null where undescribed. */
+  title: string | null;
+  /** The subsystem's own word for what the row is — a document type, an event type. Null = the noun. */
+  typeText: string | null;
+  /**
+   * The subsystem's own fields, read only by that subsystem's own activity contribution. The
+   * consolidating screen carries this opaque; what a fact is called and how it reads is decided
+   * beside the code that wrote it.
+   */
+  facts: Readonly<Record<string, unknown>> | null;
 }
 
 /** What may narrow the read. Everything is optional; the default is the whole record, newest first. */

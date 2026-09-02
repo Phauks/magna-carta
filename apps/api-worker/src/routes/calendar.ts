@@ -99,6 +99,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointPermissions,
   requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
@@ -281,6 +282,15 @@ const TimelineEntryResponse = z
     // the link into the owning subsystem's own access-gated read.
     label: z.string().nullable(),
     link: z.string(),
+    // THE DESCRIPTION, on the matter's own timeline only. Each source names its rows for the one
+    // matter in scope through its own describe statement, behind its own read capability: the
+    // title a reader recognises the row by, the subsystem's own word for what it is, and that
+    // subsystem's own facts as an object its own presentation reads. Null on any entry whose
+    // source declares no describe, whose permission the member lacks, or on a read that is not
+    // scoped to one matter — the firm-wide calendar is never described.
+    title: z.string().nullable(),
+    typeText: z.string().nullable(),
+    facts: z.record(z.string(), z.unknown()).nullable(),
   })
   .openapi("TimelineEntry");
 
@@ -812,8 +822,11 @@ const timelineRoute = defineOpenAPIRoute(readMeta("matterTimeline", "matter"), {
     "conflicts checks run, and the matter's own opening and closing. Nothing is copied into a " +
     "timeline table: each entry is read in place from the record its own subsystem keeps, so the " +
     "timeline cannot disagree with the register behind it. An entry carries identifiers, a kind, and " +
-    "a non-privileged summary where its source has one — follow the link for the detail. `kind` is " +
-    "repeatable and narrows which sources are read at all.",
+    "a non-privileged summary where its source has one. On this matter-scoped read each source " +
+    "also NAMES its rows — a title, its own word for what the row is, and its own facts — for the " +
+    "sources whose read capability the member holds; the words are absent, never invented, where " +
+    "a source has none to give or the member may not read them. `kind` is repeatable and narrows " +
+    "which sources are read at all.",
   request: { params: matterIdParam, query: timelineQuery },
   responses: {
     200: {
@@ -2037,6 +2050,9 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
           sourceKeys: repeatable(query.kind),
           cursor: decodeTimelineCursor(query.cursor),
           pageSize: DEFAULT_PAGE,
+          // The one read that describes: it is scoped to a matter the member is standing in, and
+          // the capability set the chokepoint resolved is what each source's own gate reads.
+          describe: { permissions: requireChokepointPermissions(c) },
         });
         return c.json({ data: [...page.entries], nextCursor: page.nextCursor }, 200);
       } catch (caught) {

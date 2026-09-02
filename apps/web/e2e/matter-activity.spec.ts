@@ -56,8 +56,8 @@ test("the matter's activity reads every subsystem in one request", async ({ page
 
   // The seeded matter carries files and now carries a note, so two subsystems that share no table
   // reach this screen through the one federated read. Each row leads with what its own subsystem
-  // calls it, read back through that subsystem's own access gate — a file by its name, a note by
-  // its opening line.
+  // calls it — named by that subsystem's own describe statement on the server, behind its own read
+  // capability — a file by its name, a note by its opening line.
   await expect(page.getByRole("cell", { name: "Client Letter.txt" })).toBeVisible({
     timeout: 15_000,
   });
@@ -65,12 +65,12 @@ test("the matter's activity reads every subsystem in one request", async ({ page
 
   expect(
     timelineReads,
-    "the whole screen is one federated read, so exactly one request answers it",
+    "the whole screen is one federated read that also names its rows, so exactly one request answers it",
   ).toHaveLength(1);
   expect(clientErrors).toEqual([]);
 });
 
-test("the register is the product's table: it sorts, and the columns menu is its own", async ({
+test("the register is the product's table: it sorts, and a column's controls are on the column", async ({
   page,
 }) => {
   await signIn(page);
@@ -88,28 +88,47 @@ test("the register is the product's table: it sorts, and the columns menu is its
     .poll(async () => ((await firstDate().textContent()) ?? "").trim())
     .not.toBe(newestFirst);
 
-  // And the columns are the reader's to arrange — by right-clicking the register, which is the
-  // gesture this product teaches everywhere else an act belongs to a list. There is no button.
+  // And a column's controls are summoned from the column: right-clicking its heading opens the
+  // shared grid's own head menu, and hiding the column through it actually hides the column.
+  // There is no Columns button anywhere on the surface.
   await expect(page.getByRole("button", { name: "Columns" })).toHaveCount(0);
-  await page.getByRole("columnheader", { name: "Kind" }).click({ button: "right" });
-  const columnsMenu = page.getByRole("menu");
-  await expect(columnsMenu).toBeVisible();
-  await expect(columnsMenu.getByRole("menuitemcheckbox", { name: "Details" })).toBeVisible();
-
-  // Hiding a column through it actually hides the column.
-  await columnsMenu.getByRole("menuitemcheckbox", { name: "Details" }).click();
-  await page.keyboard.press("Escape");
+  await page.getByRole("columnheader", { name: "Details" }).click({ button: "right" });
+  const headMenu = page.getByRole("menu");
+  await expect(headMenu).toBeVisible();
+  await headMenu.getByRole("menuitem", { name: "Hide Details" }).click();
   await expect(page.getByRole("columnheader", { name: "Details" })).toHaveCount(0);
 });
 
-test("a document row is named by its file and typed by its real extension", async ({ page }) => {
+test("a document row is named by its file and typed by what the file manager says it is", async ({
+  page,
+}) => {
   await signIn(page);
   await page.goto(`/matters/${seededMatterId}/activity`);
 
-  // Not "Document" on every row: the file manager's settled convention is that a file's type is its
-  // real extension, and the same helper decides it on both surfaces.
+  // Not "Document" on every row, and not a name suffix either: the file manager identifies the file
+  // from its content type and its name, and the Activity section shows that identification. The
+  // Section column says which part of the matter the row belongs to.
   const row = page.getByRole("row", { name: /Case Documents\.zip/ });
   await expect(row).toBeVisible({ timeout: 15_000 });
-  await expect(row.getByRole("cell", { name: "zip", exact: true })).toBeVisible();
-  await expect(row.getByRole("cell", { name: "2.1 KB" })).toBeVisible();
+  await expect(row.getByRole("cell", { name: "Files", exact: true })).toBeVisible();
+  await expect(row.getByRole("cell", { name: "Archive", exact: true })).toBeVisible();
+  await expect(row.getByRole("cell", { name: /2\.1 KB/ })).toBeVisible();
+});
+
+test("a note is written from the Activity section and appears on it", async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/matters/${seededMatterId}/activity`);
+  await expect(page.getByRole("cell", { name: "Client Letter.txt" })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // The screen lists everything, so it can make the records a contribution offers a window for —
+  // today, a note, in the same window the Notes section opens.
+  const line = `Written from the chronology. ${crypto.randomUUID().slice(0, 8)}`;
+  await page.getByRole("button", { name: "New Note" }).click();
+  const window = page.getByRole("dialog");
+  await expect(window).toBeVisible();
+  await window.getByRole("textbox", { name: /note/i }).first().fill(line);
+  await window.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("link", { name: line })).toBeVisible({ timeout: 15_000 });
 });
