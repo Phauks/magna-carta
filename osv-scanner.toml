@@ -40,6 +40,14 @@
 # override, onto lodash 4.18.1, which every other consumer in the tree already resolved. The 4.18 line
 # fixes that advisory and the two prototype-pollution records alongside it.
 #
+# The same carrier was the wall for @faker-js/faker 5.5.3 (GHSA-qxc2-j82w-r537, helpers.fake code
+# execution, CVSS 7.8, fixed only in 10.5.0). postman-collection hard-pins 5.5.3 through its newest
+# release and reads the v5 API at module load, so the override that worked for lodash and uuid makes
+# it throw on require here. It left the tree on 2026-09-02 the way quick-xml did: the carrier went.
+# postman-collection reached the lockfile only through the Prism mock server's HTTP layer, and nothing
+# in the repository ran Prism, so @stoplight/prism-cli was dropped from apps/api-worker and the mock
+# server is run on demand with `pnpm dlx` instead (docs/conventions/api.md).
+#
 # --- What is NOT accepted, and is deliberately left visible ----------------------------------------
 #
 # Nine advisories remain in the audited lockfiles. All nine pass the gate on severity, and every one

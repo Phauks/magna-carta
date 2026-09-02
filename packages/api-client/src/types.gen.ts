@@ -987,6 +987,16 @@ export type MatterDetail = {
     responsibleMemberName: string | null;
 };
 
+export type MatterCloseReadiness = {
+    matterId: string;
+    status: 'prospective' | 'open' | 'closed';
+    closable: boolean;
+    blockers: Array<{
+        code: string;
+        message: string;
+    }>;
+};
+
 export type MatterActionAck = {
     matterId: string;
 };
@@ -2939,6 +2949,33 @@ export type EditMatterNoteRequest = {
 
 export type AttachMatterNoteDocumentRequest = {
     fileId: string;
+};
+
+export type MatterSearchAnswer = {
+    matterId: string;
+    query: string;
+    groups: Array<MatterSearchGroup>;
+};
+
+export type MatterSearchGroup = {
+    source: string;
+    section: string;
+    answerShape: 'listing' | 'ranked';
+    matchedFields: Array<string>;
+    supportsDeleted: boolean;
+    hits: Array<MatterSearchHit>;
+    hasMore: boolean;
+    skipped: 'permission' | 'query-too-short' | 'engine-unavailable' | null;
+};
+
+export type MatterSearchHit = {
+    id: string;
+    title: string;
+    snippet: string | null;
+    secondary: string | null;
+    actorUserId: string | null;
+    sortKey: string;
+    link: string;
 };
 
 export type CustodyLocation = {
@@ -10592,6 +10629,45 @@ export type MattersUpdateResponses = {
 
 export type MattersUpdateResponse = MattersUpdateResponses[keyof MattersUpdateResponses];
 
+export type MattersCloseReadinessData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/close-readiness';
+};
+
+export type MattersCloseReadinessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersCloseReadinessError = MattersCloseReadinessErrors[keyof MattersCloseReadinessErrors];
+
+export type MattersCloseReadinessResponses = {
+    /**
+     * Whether the matter can close, and what stands in the way
+     */
+    200: MatterCloseReadiness;
+};
+
+export type MattersCloseReadinessResponse = MattersCloseReadinessResponses[keyof MattersCloseReadinessResponses];
+
 export type MattersOpenData = {
     body?: never;
     headers: {
@@ -17388,6 +17464,50 @@ export type NotesDetachNoteDocumentResponses = {
 };
 
 export type NotesDetachNoteDocumentResponse = NotesDetachNoteDocumentResponses[keyof NotesDetachNoteDocumentResponses];
+
+export type MatterSearchSearchData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query: {
+        q: string;
+        in?: string | Array<string>;
+        limit?: number;
+        includeDeleted?: 'true' | 'false';
+    };
+    url: '/api/v1/matters/{matterId}/search';
+};
+
+export type MatterSearchSearchErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterSearchSearchError = MatterSearchSearchErrors[keyof MatterSearchSearchErrors];
+
+export type MatterSearchSearchResponses = {
+    /**
+     * One group per selected source
+     */
+    200: MatterSearchAnswer;
+};
+
+export type MatterSearchSearchResponse = MatterSearchSearchResponses[keyof MatterSearchSearchResponses];
 
 export type CustodyListLocationsData = {
     body?: never;

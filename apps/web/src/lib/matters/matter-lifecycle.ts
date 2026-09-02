@@ -1,0 +1,301 @@
+/*
+ * The one lifecycle step each matter status offers, and the facts the status window states beside
+ * it.
+ *
+ * WHY THIS IS A MODEL AND NOT MARKUP. The words on the window that closes a firm's file are worth a
+ * test, and a test cannot reach a sentence written inside a template.
+ *
+ * ONE STEP, NEVER A PICKER. A matter's status is not a field somebody chooses a value for. Each
+ * status offers exactly one next step: a consultation opens, an active matter closes, a closed
+ * matter reopens. That is also the shape of the contract — three operations, each a POST with no
+ * body, none of which takes a status. A control that let somebody pick "Closed" from a list would
+ * be offering a state the lifecycle may not put a matter in from where it stands.
+ *
+ * THE PROGRAM ANSWERS THE REQUIREMENTS, NOT THE READER. The close-readiness route runs the firm's
+ * own registered rules read-only, so the window lists what closing requires with each one already
+ * answered, rather than handing somebody a list of things to go and confirm. What to do about an
+ * unmet requirement is in the rule's own words, which name the amount, where it sits, and the
+ * movements that clear it.
+ */
+import type { Problem } from "$lib/api/request.ts";
+import type { MatterStatus } from "./matter-status.ts";
+import {
+  CLOSE_MATTER_PERMISSION,
+  OPEN_MATTER_PERMISSION,
+  REOPEN_MATTER_PERMISSION,
+  type MatterCloseBlocker,
+  type MatterCloseReadiness,
+} from "./matters-api.ts";
+
+/** The lifecycle operations, which are also the three endpoints that serve them. */
+export type MatterLifecycleAction = "open" | "close" | "reopen";
+
+export interface MatterLifecycleStep {
+  /** Which operation the step runs. */
+  readonly action: MatterLifecycleAction;
+  /** The control's label, title case, as every other primary action in the product is written. */
+  readonly label: string;
+  /** What the control reads while the call is in flight. */
+  readonly busyLabel: string;
+  /** The permission the endpoint names, so the control can say no before the server has to. */
+  readonly permission: string;
+  /** What is said once the step has been taken. */
+  readonly doneSentence: string;
+  /** What is said when the step failed and the server did not say why. */
+  readonly failureSentence: string;
+}
+
+/**
+ * What is said when nothing answered at all.
+ *
+ * One sentence for all three steps, because the fact it states is the same one in each case and it
+ * is the fact that matters: no lifecycle call is a partial write, so a call that did not arrive left
+ * the matter exactly where it was.
+ */
+export const MATTER_LIFECYCLE_TRANSPORT_FAILURE =
+  "Nothing answered. The matter's status is unchanged.";
+
+/** The step each status offers. */
+export const MATTER_LIFECYCLE_STEPS: Readonly<Record<MatterStatus, MatterLifecycleStep>> = {
+  prospective: {
+    action: "open",
+    label: "Open Matter",
+    busyLabel: "Opening",
+    permission: OPEN_MATTER_PERMISSION,
+    doneSentence: "The matter is open.",
+    failureSentence: "The matter could not be opened.",
+  },
+  open: {
+    action: "close",
+    label: "Close Matter",
+    busyLabel: "Closing",
+    permission: CLOSE_MATTER_PERMISSION,
+    doneSentence: "The matter is closed.",
+    failureSentence: "The matter could not be closed.",
+  },
+  closed: {
+    action: "reopen",
+    label: "Reopen Matter",
+    busyLabel: "Reopening",
+    permission: REOPEN_MATTER_PERMISSION,
+    doneSentence: "The matter is open again.",
+    failureSentence: "The matter could not be reopened.",
+  },
+};
+
+/** The step a matter in this status offers. */
+export function matterLifecycleStep(status: MatterStatus): MatterLifecycleStep {
+  return MATTER_LIFECYCLE_STEPS[status];
+}
+
+// ---- what closing requires -----------------------------------------------------------------------
+
+/**
+ * One thing that has to be true before a matter closes, and the refusal codes that say it is not.
+ *
+ * These are NOT boxes for a person to tick. Each is a rule the firm's own subsystems enforce, and
+ * the close-readiness route runs all of them and answers; what this list adds is the plain statement
+ * of the rule, so a met requirement reads as a sentence about the matter rather than as the absence
+ * of an error. The codes are the subsystems' own (packages/trust/src/close-precondition.ts,
+ * packages/billing/src/close-precondition.ts) and are spelled here because this app deliberately does
+ * not depend on those packages, the same way every response shape in matters-api.ts is.
+ */
+interface MatterCloseRequirement {
+  readonly key: string;
+  readonly label: string;
+  readonly codes: readonly string[];
+}
+
+const MATTER_CLOSE_REQUIREMENTS: readonly MatterCloseRequirement[] = [
+  {
+    key: "trust",
+    label: "The client's trust ledger for this matter is empty, with no disputed-funds hold.",
+    codes: ["trust-balance-not-zero", "trust-hold-active"],
+  },
+  {
+    key: "client-credit",
+    label: "No client credit is open against the matter.",
+    codes: ["client-credit-open"],
+  },
+];
+
+/**
+ * Where one requirement stands.
+ *
+ * `unknown` never collapses into `unmet`. A rule that refused and a question nobody could put are
+ * different facts, and only the first is one a person can act on; showing the second as a refusal
+ * would send somebody looking for money that is not there.
+ */
+export type MatterCloseRequirementState = "checking" | "met" | "unmet" | "unknown";
+
+export interface MatterCloseRequirementStatus {
+  readonly key: string;
+  /** What has to be true. For a rule this build does not know, the server's own sentence. */
+  readonly label: string;
+  readonly state: MatterCloseRequirementState;
+  /** The rule's own words where it is what stands in the way: the amount, and what clears it. */
+  readonly detail: string | null;
+}
+
+/**
+ * Every requirement, answered.
+ *
+ * `readiness` null means the answer has not arrived; `failed` means it could not be had at all. An
+ * answer resolves every requirement at once, because the route runs every rule and reports every
+ * failure — so a rule the answer does not mention is a rule that passed. A refusal naming a rule
+ * this build has never heard of becomes its own unmet row rather than disappearing, since a rule
+ * registered after this screen shipped is the one a person most needs to read.
+ */
+export function matterCloseRequirements(
+  readiness: MatterCloseReadiness | null,
+  failed = false,
+): readonly MatterCloseRequirementStatus[] {
+  if (failed || readiness === null) {
+    const state: MatterCloseRequirementState = failed ? "unknown" : "checking";
+    return MATTER_CLOSE_REQUIREMENTS.map((requirement) => ({
+      key: requirement.key,
+      label: requirement.label,
+      state,
+      detail: null,
+    }));
+  }
+  const known = MATTER_CLOSE_REQUIREMENTS.map((requirement) => {
+    const blocking = readiness.blockers.filter((blocker) =>
+      requirement.codes.includes(blocker.code),
+    );
+    return {
+      key: requirement.key,
+      label: requirement.label,
+      state: (blocking.length > 0 ? "unmet" : "met") as MatterCloseRequirementState,
+      detail:
+        blocking.length === 0
+          ? null
+          : blocking.map((blocker) => leadingCapital(blocker.message)).join(" "),
+    };
+  });
+  const accounted = new Set(MATTER_CLOSE_REQUIREMENTS.flatMap((one) => one.codes));
+  const unaccounted = readiness.blockers
+    .filter((blocker) => !accounted.has(blocker.code))
+    .map((blocker, index) => ({
+      key: blocker.code === "" ? `unnamed-${String(index)}` : blocker.code,
+      label: leadingCapital(blocker.message),
+      state: "unmet" as const,
+      detail: null,
+    }));
+  return [...known, ...unaccounted];
+}
+
+/** Whether the program says this matter would close right now. Unknown until it has answered. */
+export function matterCanClose(readiness: MatterCloseReadiness | null): boolean | null {
+  return readiness === null ? null : readiness.closable;
+}
+
+// A rule writes its message as the tail of a sentence ("this matter still holds $400 on…"), because
+// the subsystem that owns the rule does not know what the surface above it will put in front of it.
+// Rendered as its own line it needs the capital the server did not supply. Only the first character
+// is touched: the amounts, account names and dates in the rest are the server's.
+function leadingCapital(message: string): string {
+  return `${message.charAt(0).toUpperCase()}${message.slice(1)}`;
+}
+
+/**
+ * The problem type the close endpoint answers with when its preconditions refuse a matter. Matched
+ * on the type rather than the status, because a 409 also means a request with this idempotency key
+ * is still running, and that is not a refusal a person can do anything about.
+ */
+export const CLOSE_REFUSED_PROBLEM_TYPE = "matter-close-refused";
+
+/**
+ * The named reasons a close was refused, or nothing where the failure was something else.
+ *
+ * A close refused at the last moment answers in the same shape the readiness route answers in, so
+ * it re-answers the requirements already on screen rather than arriving as a second kind of message.
+ * That is not a coincidence to be relied on quietly: it is why both read the rules' own failures.
+ */
+export function matterCloseRefusals(problem: Problem): readonly MatterCloseBlocker[] {
+  if (problem.type !== CLOSE_REFUSED_PROBLEM_TYPE) return [];
+  // The transport already drops an entry missing any of path, code or detail, so what arrives here
+  // is whole. A refusal names all three: the rules write to "$", the request as a whole.
+  return (problem.errors ?? []).map((reason) => ({ code: reason.code, message: reason.detail }));
+}
+
+// ---- the physical file ------------------------------------------------------------------------
+
+/**
+ * The firm's own paper file for this matter: where it is kept, and when it may be destroyed.
+ *
+ * IT IS A STANDING FACT, NOT A CONSEQUENCE OF CLOSING. A firm keeps a matter's folder in a box,
+ * commonly with other matters' folders, commonly at a remote store, and closing the matter moves
+ * none of that. So this is not the "and then what happens" half of a close; it is what is true
+ * about the file whatever the matter's status is, which is why it sits beside the status rather
+ * than under the step.
+ *
+ * NEITHER IS MODELLED, AND NEITHER IS THE CUSTODY REGISTER. Custodian holds CLIENT property left
+ * with the firm to guard — an original will, a deed, a passport — which stays in the register for as
+ * long as the client's affairs need it, long after the matter that brought it in has closed. The
+ * firm's own file is a different object with a different life, and the platform does not carry it:
+ * no register, no location, no box, and no retention clock anywhere to derive a destruction date
+ * from. The custody register is explicit that it runs no timer at all — an original is destroyed on
+ * a written basis, by two people, never because a date arrived.
+ *
+ * So every row renders, holding nothing, marked Soon. That is the standing rule for anything
+ * designed ahead of what serves it: the shape of the answer, never an invented one. A date made up
+ * here would be a date somebody destroys a client's file on.
+ *
+ * The rows carry no sentence naming the dependency (owner ruling): a row that says "Not recorded"
+ * beside the Soon mark has already said it is not built, and a paragraph repeating that under three
+ * rows was the loudest copy on a window whose whole point is to be short.
+ */
+export interface MatterPhysicalFileFact {
+  readonly key: string;
+  readonly label: string;
+}
+
+/**
+ * The rows.
+ *
+ * "Held In" names the thing the folder physically sits inside and deliberately does not say what
+ * kind of thing that is. Firms do not agree: a box at a remote store, a drawer in a cabinet, a
+ * safe, a shelf, a crate. A row called Box would have decided that for every firm, and the register
+ * behind it will carry the medium as a fact of the container rather than as a word this screen
+ * assumed. It is its own row rather than part of Location for the same reason it will be its own
+ * record: one container holds the folders of several matters, so a matter points at it.
+ */
+export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
+  { key: "location", label: "Location" },
+  { key: "container", label: "Held In" },
+  { key: "destroy-after", label: "Destroy After" },
+];
+
+// ---- what stops the step being taken from this screen ---------------------------------------------
+
+/**
+ * Why the step cannot be taken from this screen, or nothing where it can.
+ *
+ * The three answers are different and a person can act on exactly one of them, so they are never
+ * collapsed into a single "unavailable". A sample matter is a fixture with no record behind it; a
+ * missing permission is an account question for whoever administers the firm; a session still being
+ * read is a wait.
+ */
+export function matterLifecycleBlock(options: {
+  readonly step: MatterLifecycleStep;
+  readonly isSample: boolean;
+  /** Whether the session read has come back at all, either way. */
+  readonly sessionSettled: boolean;
+  /** The permissions it answered with, or null where the read itself failed. */
+  readonly permissions: readonly string[] | null;
+}): string | null {
+  if (options.isSample) {
+    return "This is a sample matter, not one of the firm's. Its status is fixed so the three lifecycle states stay reviewable.";
+  }
+  if (!options.sessionSettled) return "Reading your session.";
+  // A session that could not be read is UNKNOWN, not unprivileged, and the two must not be said the
+  // same way. Blocking here would refuse somebody who holds the permission, on the strength of a
+  // failed read; the server checks the same permission and answers in its own words, so the step
+  // stays offered and the refusal, if there is one, comes from the authority on it.
+  if (options.permissions === null) return null;
+  if (!options.permissions.includes(options.step.permission)) {
+    return `This step needs the ${options.step.permission} permission, which this account does not hold.`;
+  }
+  return null;
+}
