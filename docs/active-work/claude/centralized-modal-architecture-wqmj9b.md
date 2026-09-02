@@ -16,12 +16,16 @@ own inline copy of the question is gone. `tooling/lint-one-ui/` is also owned he
 gained a `modalShells` block and thirty-seven `hand-composed-modal` allowances, so any branch adding
 an allowance will conflict.
 
+**The custodian's three panels are migrated and are the shell's first callers** — they landed from
+`claude/custodian-refinements-19iycw` while this branch was open, the rule caught all three when the
+two met, and they are rewritten rather than allowanced. Anything touching
+`apps/web/src/lib/custodian/` will conflict.
+
 **A branch adding a new modal panel should reach for `ActionDialog` rather than composing one.**
 `lint:one-ui` now fails a hand-composed panel outside a declared shell's home, and the existing
 panels are carried as printed allowances — so new work is bitten immediately while nothing already
-written is blocked. `claude/custodian-refinements-19iycw` (three new panels) and
-`claude/matter-status-modal-wjzv1v` (one) are the intended first adopters; neither has been touched
-from here.
+written is blocked. `claude/matter-status-modal-wjzv1v` (one new panel, twelve behind main) is the next adopter and has
+not been touched from here.
 
 Two pre-existing failures on `main` are NOT this stream's and are left alone:
 `data-table-grid.stories.svelte > TrailingPinAndRowDetail` and

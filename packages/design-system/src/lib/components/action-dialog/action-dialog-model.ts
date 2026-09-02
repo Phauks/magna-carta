@@ -9,15 +9,26 @@
  * that only a form is dismissed by a press outside, and that the two are the same everywhere —
  * which is exactly what was NOT true of the panels this shell replaces, where each file decided
  * its own and thirty files disagreed.
+ *
+ * It is also the reason a ruling on any of this is now one edit. The dismissal verb was settled by
+ * the owner after this table existed, and settling it changed one constant rather than thirty files.
  */
 import type { ActionDialogKind, ActionDialogWidth } from "./types.ts";
+
+/**
+ * The word on the control that walks away without committing — ONE word, for every kind of ask.
+ *
+ * Owner ruling, 2026-09-02, settling a thirteen-to-five split between "Cancel" and "Close" across
+ * the panels this shell replaces. It is a constant rather than a column in the table below on
+ * purpose: a per-kind field that happened to hold the same value in every row would be an invitation
+ * to make them differ again, and the ruling is that they do not.
+ */
+export const DISMISS_LABEL = "Cancel";
 
 /** Everything a kind decides, resolved in one place. */
 export interface KindTraits {
   /** Which primitive renders it. An alert dialog takes the `alertdialog` role and traps a decision. */
   readonly primitive: "dialog" | "alert-dialog";
-  /** The word on the control that walks away without committing. */
-  readonly dismissLabel: string;
   /** Whether the panel carries the corner dismiss. */
   readonly showsCornerDismiss: boolean;
   /** Whether a press outside the panel dismisses it. */
@@ -29,21 +40,18 @@ export interface KindTraits {
 const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
   form: {
     primitive: "dialog",
-    dismissLabel: "Cancel",
     showsCornerDismiss: true,
     dismissOnPressOutside: true,
     commitVariant: "primary",
   },
   confirm: {
     primitive: "alert-dialog",
-    dismissLabel: "Never mind",
     showsCornerDismiss: false,
     dismissOnPressOutside: false,
     commitVariant: "primary",
   },
   destructive: {
     primitive: "alert-dialog",
-    dismissLabel: "Never mind",
     showsCornerDismiss: false,
     dismissOnPressOutside: false,
     commitVariant: "destructive",

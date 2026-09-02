@@ -301,8 +301,8 @@
       expect(panel).toHaveAttribute("data-action-kind", "confirm");
     });
 
-    await step("Nothing was begun, so declining is Never mind", () => {
-      expect(inside.getByRole("button", { name: "Never mind" })).toBeVisible();
+    await step("It walks away with the same word every panel uses", () => {
+      expect(inside.getByRole("button", { name: "Cancel" })).toBeVisible();
     });
 
     await step("A question has no incidental dismiss — no corner control", () => {
@@ -310,7 +310,7 @@
     });
 
     await step("Declining closes it", async () => {
-      await userEvent.click(inside.getByRole("button", { name: "Never mind" }));
+      await userEvent.click(inside.getByRole("button", { name: "Cancel" }));
       await waitFor(() => expect(body.queryByRole("alertdialog")).not.toBeInTheDocument());
     });
 
@@ -336,8 +336,8 @@
       );
     });
 
-    await step("It is still a question, so it declines with the same word", () => {
-      expect(inside.getByRole("button", { name: "Never mind" })).toBeVisible();
+    await step("It is still a question, and walks away with the same one word", () => {
+      expect(inside.getByRole("button", { name: "Cancel" })).toBeVisible();
     });
 
     closeEveryPanel();

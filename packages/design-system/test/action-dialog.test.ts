@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DISCARD_SENTENCE,
+  DISMISS_LABEL,
   traitsOf,
   widthClass,
 } from "../src/lib/components/action-dialog/action-dialog-model.ts";
@@ -30,10 +31,10 @@ describe("what a kind of ask implies", () => {
     expect(traitsOf("destructive").primitive).toBe("alert-dialog");
   });
 
-  it("says Cancel where something was begun and Never mind where nothing was", () => {
-    expect(traitsOf("form").dismissLabel).toBe("Cancel");
-    expect(traitsOf("confirm").dismissLabel).toBe("Never mind");
-    expect(traitsOf("destructive").dismissLabel).toBe("Never mind");
+  it("walks away with one word, whatever is being asked", () => {
+    // The owner's ruling, and it is a constant rather than a per-kind field so that no kind can
+    // drift back to a word of its own. The split it settled was thirteen "Cancel" to five "Close".
+    expect(DISMISS_LABEL).toBe("Cancel");
   });
 
   it("gives a question no incidental dismiss — no corner control, no press outside", () => {

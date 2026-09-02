@@ -61,6 +61,13 @@ existing panels are carried as allowances, each with its reason, printed on ever
 registry's standing discipline that an allowance outliving its violation is itself a failure is
 what makes that ledger shrink instead of rot.
 
+**Settled by the owner on 2026-09-02, and the settling is itself the argument.** The dismissal verb
+is "Cancel" for every kind of ask, held as one constant rather than a per-kind field so no kind can
+drift back to a word of its own; a form keeps its corner dismiss and a question still has none; and a
+full-screen surface stays a design choice each time rather than becoming a third shell. Each of those
+was one edit to one table, which is the whole claim this decision makes: before the shell, the same
+three rulings would have been thirty-odd files.
+
 **Consequences:** New work is bitten immediately and nothing in flight is blocked, so the shell
 can land with a gallery and no adopters. Twenty-six panels are in scope; the other eight are named
 and excluded rather than left to be discovered mid-migration — the launcher, the four directory

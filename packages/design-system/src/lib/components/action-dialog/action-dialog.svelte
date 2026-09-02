@@ -18,9 +18,9 @@
    * outcome. There is deliberately no `class` prop.
    *
    * THE KIND CHOOSES THE PRIMITIVE, which is the most valuable line in the contract. A `form` is a
-   * Dialog; a `confirm` or `destructive` is an AlertDialog, with the `alertdialog` role, no corner
-   * dismiss, and no dismissal on a press outside — a question that can be dismissed by a stray
-   * press is not a question. The panels this shell replaces each decided that for themselves and
+   * Dialog, and keeps the corner dismiss (owner ruling, 2026-09-02); a `confirm` or `destructive`
+   * is an AlertDialog, with the `alertdialog` role, no corner dismiss, and no dismissal on a press
+   * outside — a question that can be dismissed by a stray press is not a question. The panels this shell replaces each decided that for themselves and
    * disagreed: four reached AlertDialog and thirty did not, with no rule behind the split.
    *
    * A CLOSE GESTURE NEVER DISCARDS SILENTLY. Every way out — the corner dismiss, Escape, a press
@@ -45,7 +45,7 @@
   import Button from "../button/index.ts";
   import { CloseGuard } from "../../internal/close-guard.svelte.ts";
   import DiscardQuestion from "../../internal/discard-question.svelte";
-  import { DISCARD_SENTENCE, traitsOf, widthClass } from "./action-dialog-model.ts";
+  import { DISCARD_SENTENCE, DISMISS_LABEL, traitsOf, widthClass } from "./action-dialog-model.ts";
   import type { ActionDialogKind, ActionDialogWidth, ActionOutcome } from "./types.ts";
 
   let {
@@ -56,6 +56,7 @@
     notice,
     fields,
     commitLabel,
+    commitBusyLabel,
     commitRefusal,
     onCommit,
     onOpen,
@@ -90,6 +91,13 @@
     fields?: Snippet<[{ busy: boolean }]>;
     /** The commit's own verb — "Write Off a Balance", never "OK", "Submit" or "Confirm". */
     commitLabel: string;
+    /**
+     * The same verb while the request is in flight — "Writing Off" to `commitLabel`'s "Write Off".
+     * Two words for ONE verb rather than a second verb, which is why it sits beside its own label
+     * and not in a slot of the caller's. Omitted, the label does not change: a commit with nothing
+     * to wait for has no in-flight state to name.
+     */
+    commitBusyLabel?: string;
     /**
      * Why the commit is unavailable, if it is. The control is DISABLED and titled with this rather
      * than hidden: an act that vanishes teaches a reader nothing, and a refusal is stated where it
@@ -185,9 +193,10 @@
     }
   }
 
-  const commitTitle = $derived(commitRefusal ?? commitLabel);
+  const commitText = $derived(busy ? (commitBusyLabel ?? commitLabel) : commitLabel);
+  const commitTitle = $derived(commitRefusal ?? commitText);
   const commitAccessibleName = $derived(
-    commitRefusal === undefined ? commitLabel : `${commitLabel}: ${commitRefusal}`,
+    commitRefusal === undefined ? commitText : `${commitLabel}: ${commitRefusal}`,
   );
 
   /*
@@ -223,8 +232,16 @@
        against this file, the same way it asserts the record window's header set, so the promise
        cannot be quietly rearranged. The wrapper class is a marker too and carries no recipe. -->
   <div class="mc-action-dialog-actions flex flex-none items-center justify-end gap-8">
+    <!-- The refusal, READ ALOUD rather than only hovered. A `title` is not discoverable by anyone
+         who is not already hunting for the reason, and the reader who most needs it is the one
+         looking at a control that will not press. It sits at the weak end of the bar, so it never
+         moves the two controls. It is also on the commit's accessible name, so the refusal reaches
+         a screen reader from the control it is about. -->
+    {#if commitRefusal !== undefined}
+      <span class="me-auto text-xs text-text-muted">{commitRefusal}</span>
+    {/if}
     <Button data-action-dialog-action="dismiss" variant="secondary" disabled={busy} onclick={dismiss}>
-      {traits.dismissLabel}
+      {DISMISS_LABEL}
     </Button>
     <Button
       data-action-dialog-action="commit"
@@ -234,7 +251,7 @@
       aria-label={commitAccessibleName}
       onclick={commit}
     >
-      {commitLabel}
+      {commitText}
     </Button>
   </div>
 {/snippet}

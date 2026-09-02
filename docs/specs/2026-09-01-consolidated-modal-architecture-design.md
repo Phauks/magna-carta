@@ -427,15 +427,32 @@ original survey for the mundane reason that it lives in the design system rather
 - **Migration:** each migrated panel keeps its existing tests unchanged. A panel whose tests need
   editing to pass has had its behaviour changed, and that is the signal to stop and look.
 
-## 10. Open questions for the owner
+## 10. The owner's answers
 
-1. **The dismissal verbs.** Proposed: **Cancel** on a form, **Never mind** on a question. Today's
-   split is thirteen "Cancel" to five "Close" with no rule behind it.
-2. **Does the corner dismiss survive at all on a form?** Eighteen of thirty already suppress it,
-   which is close enough to a decision that it may be worth making one — a footer that already
-   carries Cancel arguably does not need a second dismissal in the corner.
-3. **`new-matter-dialog.svelte` onto `RecordWindow`** (step 8). It is the right shell and it is a
-   647-line change to a file two branches hold; worth confirming before it is scheduled.
-4. **The full-screen family** — `time-sheet`, `cost-review-window`, `safe-browse/website-shell`.
-   Section 5.5 leaves them alone deliberately. If they should be one presentation too, that is a
-   second design, and this one should not quietly grow into it.
+Settled 2026-09-02.
+
+1. **The dismissal verb is "Cancel", for every kind of ask.** It is a single constant rather than a
+   per-kind field, so no kind can drift back to a word of its own. It settled a thirteen-to-five
+   split between "Cancel" and "Close".
+
+2. **A form keeps its corner dismiss.** Unchanged from what shipped. A question still has none — it
+   is answered, not dismissed.
+
+3. **`new-matter-dialog.svelte` stays as it is for now.** The question was worth asking and is worth
+   restating plainly, because the name alone does not carry it: that file is 647 lines of form for
+   CREATING a matter, and it already reaches for `max-w-record-window` by hand — it is trying to be
+   the window a matter opens in. `RecordWindow` supports exactly that (open it with `editing`
+   raised), so the proposal was to let a matter be created in the same window it is later read in,
+   rather than in a dialog that looks like that window but is not. It is not blocking anything, it
+   is the largest single migration on the list, and it can be taken up on its own.
+
+4. **A full-screen surface is a design choice every time, not a shell.** The time sheet, the cost
+   review window and the website shell stay as they are. This is the answer this design wanted: a
+   third shell for "presented over the app" would have had to absorb three surfaces that have
+   nothing in common but their size.
+
+**One correction to how this document argued.** Sections above framed these as cheap now and
+expensive later. That was true of the world this shell replaced and is not true of the one it
+creates: the point of a table in `action-dialog-model.ts` is that a ruling is one edit. Answer 1
+changed a single constant. The genuine cost of deferring is only that migrated panels carry the old
+word until the constant changes, which is a re-render rather than a rewrite.
