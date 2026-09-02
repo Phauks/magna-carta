@@ -45,6 +45,7 @@
     onAction,
     onChoice,
     shortcutsEnabled = true,
+    class: className,
     children,
   }: {
     /** The menu for the current selection, already decided. */
@@ -58,6 +59,14 @@
      * a second menu mounted beside the first turns its own off rather than both firing.
      */
     shortcutsEnabled?: boolean;
+    /**
+     * The trigger region's own classes.
+     *
+     * The trigger wraps whatever the menu is summoned over, so it sits in the middle of a height
+     * chain: a table told to fill the screen cannot do it through an element that sizes to its
+     * content. A surface that needs the region to carry height says so here.
+     */
+    class?: string;
     /** The region the menu is summoned over: the table, the icon grid, the empty space beneath. */
     children: Snippet;
   } = $props();
@@ -220,7 +229,7 @@
 {/snippet}
 
 <ContextMenu.Root>
-  <ContextMenu.Trigger>
+  <ContextMenu.Trigger class={className}>
     {@render children()}
   </ContextMenu.Trigger>
   <ContextMenu.Content>

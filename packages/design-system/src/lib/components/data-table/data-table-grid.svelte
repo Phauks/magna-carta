@@ -82,6 +82,31 @@
   let scrollElement = $state<HTMLDivElement | null>(null);
   let headerCells = $state<Record<string, HTMLTableCellElement | null>>({});
 
+  /*
+   * THE FRAME'S OWN WIDTH, PUBLISHED TO CSS.
+   *
+   * A placeholder row spans every column, so its cell is as wide as the TABLE — which is wider than
+   * the frame the moment the columns are. Content centred in that cell centres in a box the reader
+   * cannot see the far side of, so the empty state's watermark and heading sit off to the inline
+   * end with the sentence trailing past them. Centring has to happen in the VISIBLE width, and the
+   * only thing that knows the visible width is the scroll element.
+   *
+   * `clientWidth` rather than a container query: it excludes the scrollbar, and a container query's
+   * `cqi` does not, which would put the empty state a scrollbar's width out and hand a table with
+   * no rows a horizontal scrollbar of its own.
+   */
+  $effect(() => {
+    const frame = scrollElement;
+    if (frame === null) return;
+    const publish = (): void => {
+      frame.style.setProperty("--mc-table-frame-inline-size", `${String(frame.clientWidth)}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  });
+
   const rowKeyOf = (row: TRow): string => grid.options.rowKey(row);
   /** The filter mark's tooltip, or undefined when no filter is in play and no mark is drawn. */
   const filterMarkTitle = (column: GridColumn<TRow>): string | undefined => {
@@ -477,17 +502,19 @@
             class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
             colspan={grid.visibleColumns.length}
           >
-            <div class="mc-table-grid-empty">
-              <p>
-                No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
-                the {grid.activeFilterCount === 1 ? "filter" : "filters"} on
-                {grid.activeFilterLabels.join(", ")}. All {grid.totalRowCount}
-                {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} are hidden.
-              </p>
-              <Button variant="secondary" size="sm" onclick={() => grid.clearAllFilters()}>
-                <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
-                Clear All Filters
-              </Button>
+            <div class="mc-table-grid-placeholder-frame">
+              <div class="mc-table-grid-empty">
+                <p>
+                  No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
+                  the {grid.activeFilterCount === 1 ? "filter" : "filters"} on
+                  {grid.activeFilterLabels.join(", ")}. All {grid.totalRowCount}
+                  {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} are hidden.
+                </p>
+                <Button variant="secondary" size="sm" onclick={() => grid.clearAllFilters()}>
+                  <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
+                  Clear All Filters
+                </Button>
+              </div>
             </div>
           </td>
         </tr>
@@ -497,13 +524,18 @@
             class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
             colspan={grid.visibleColumns.length}
           >
-            {#if empty}
-              {@render empty()}
-            {:else}
-              <div class="mc-table-grid-empty">
-                <p>No {grid.itemNoun.plural} yet.</p>
-              </div>
-            {/if}
+            <!-- The surface's own empty state renders inside the SAME frame as the built-in one,
+                 so a composed empty state centres in the visible width exactly as the default
+                 does. A surface cannot get this wrong, because it does not supply it. -->
+            <div class="mc-table-grid-placeholder-frame">
+              {#if empty}
+                {@render empty()}
+              {:else}
+                <div class="mc-table-grid-empty">
+                  <p>No {grid.itemNoun.plural} yet.</p>
+                </div>
+              {/if}
+            </div>
           </td>
         </tr>
       {:else}

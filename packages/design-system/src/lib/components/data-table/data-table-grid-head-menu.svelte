@@ -40,6 +40,8 @@
 
   const pinned = $derived(grid.isPinned(column.id));
   const anchored = $derived(column.anchored === true);
+  /** Declared by the column model to sit at the trailing edge; no member gesture moves it. */
+  const heldAtTheEnd = $derived(column.pinnedEnd === true);
   // A column with nothing to filter on contributes no group, and so no rule above the next one.
   const filterable = $derived(gridColumnFilterKind(column) !== "none");
 </script>
@@ -59,18 +61,27 @@
     <EyeOff class="mc-table-grid-head-menu-icon" aria-hidden="true" />
     Hide {column.label}
   </ContextMenu.Item>
+  <!--
+    A TRAILING-PINNED COLUMN IS NOT THE MEMBER'S TO MOVE. Its place at the end edge is declared by
+    the column model — the row's own verbs are pinned there so the list can scroll sideways without
+    taking them out of reach — so the item states that and refuses, rather than offering an unpin
+    that the model would immediately overrule.
+  -->
   <ContextMenu.Item
-    title={pinned
-      ? `Unpin: ${column.label} scrolls with the rest again`
-      : `Pin ${column.label} so it keeps its place when the list scrolls sideways`}
+    disabled={heldAtTheEnd}
+    title={heldAtTheEnd
+      ? `${column.label} always keeps its place at the trailing edge`
+      : pinned
+        ? `Unpin: ${column.label} scrolls with the rest again`
+        : `Pin ${column.label} so it keeps its place when the list scrolls sideways`}
     onSelect={() => grid.togglePinned(column.id)}
   >
     <Pin
       class="mc-table-grid-head-menu-icon"
       aria-hidden="true"
-      fill={pinned ? "currentColor" : "none"}
+      fill={pinned || heldAtTheEnd ? "currentColor" : "none"}
     />
-    {pinned ? "Unpin" : "Pin"}
+    {heldAtTheEnd ? "Pinned" : pinned ? "Unpin" : "Pin"}
     {column.label}
   </ContextMenu.Item>
   <ContextMenu.Separator />

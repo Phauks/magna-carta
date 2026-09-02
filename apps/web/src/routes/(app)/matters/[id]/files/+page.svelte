@@ -10,6 +10,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import FileManager from "$lib/file-manager/file-manager.svelte";
+  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -30,12 +31,11 @@
     </Alert.Root>
   </section>
 {:else}
-  <!-- The file area takes the remaining viewport height and keeps it, so the screen does not
-       reflow as rows arrive, as a filter narrows them, or as an empty state replaces them. The
-       negative margins cancel the work canvas's padding and the layout's gap below the section
-       strip: the surface runs edge to edge, the toolbar sits directly under the tabs, and the
-       counts footer lands on the bottom of the screen. -->
-  <div class="-mx-24 -mt-24 -mb-24 flex min-h-0 flex-1 flex-col">
+  <!-- The remaining-height frame every working surface uses, plus this one's own edge-to-edge
+       treatment: the horizontal margins cancel the work canvas's padding and the top one cancels
+       the layout's gap below the section strip, so the surface runs to the edges and the toolbar
+       sits directly under the tabs. -->
+  <FullHeightSection class="-mx-24 -mt-24">
     <FileManager matterId={matter.id} matterTitle={matter.title} />
-  </div>
+  </FullHeightSection>
 {/if}

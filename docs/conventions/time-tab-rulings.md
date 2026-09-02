@@ -380,6 +380,33 @@ be a better way to show the relationship between them all."
   unbilled figures as well as the claim workbench. It is still a live draft and still counts in
   the entry count.
 
+## R8 — round eight: the chrome the four tabs hold in common
+
+The owner walked Time, Fees, Costs and Billing in the built app (not a mockup — these are the real
+screens now) and reported that they disagree with each other and with the file manager. Every ruling
+here is about the frame around the table rather than the table, which is why each of them landed as
+a shared component or a standing rule rather than four edits.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                     | Status  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| G1  | **The pane toggle is the file manager's**, on all four tabs: the quiet ghost chrome affordance with no border of its own, reading its state through its glyph, and LAST in the row. Costs had it before its capture verb; every tab now ends with it.                                                                                     | settled |
+| G2  | **The four surfaces take the rest of the screen and keep it**, as Files does — the table scrolls inside itself and the counts footer lands on the bottom edge. They capped at the viewport and then grew past it, so the footer walked off the bottom as records arrived. One `FullHeightSection` and one `LedgerPanes`, never four copies. | settled |
+| G3  | **The divider between the panes carries no grip handle.** Resizing is unchanged: the edge drags and the separator takes the keyboard. The centred grip was a second affordance for a gesture the whole edge already answers.                                                                                                             | settled |
+| G4  | **An empty table centres its state in the frame**, not in the table — see the standing rule in [`design-corrections.md`](design-corrections.md), which is where it binds, because it is the one table's behaviour and not these four tabs'.                                                                                              | settled |
+| G5  | **The Time tab carries no Time Sheet button.** The sheet opens from the top bar on every screen including this one; a second door here took a reader somewhere they were already standing. Log Time is this screen's own act and becomes its primary.                                                                                    | settled |
+| G6  | **The Time Sheet's handle in the top bar wears the band's chrome**, with no border — the same as the download tray and the notification bell it sits between. A box round one of three controls reclassifies it rather than emphasising it.                                                                                              | settled |
+| G7  | **The Fees controls are ONE row**: the arrangement's facts lead, then View, Amend, New Fee and the pane toggle. Two rows split one set of verbs across two lines and spent a row of the screen saying nothing.                                                                                                                            | settled |
+
+**Notes recorded this round:**
+
+- G1's placement corrects Costs against TT4's own ordering (the toggle was already meant to be last).
+- The pane geometry is now one component with the panel width as a parameter; Billing keeps its
+  wider panel because an invoice's details are a bigger read than a time entry's. That is a number
+  handed to the shared frame, not a frame of its own.
+- Found while landing G4, and fixed with it: a trailing-pinned column had quietly lost its "not
+  yours to move" refusal when the column controls moved into the header's right-click menu. The
+  menu now states it and refuses, which is what the story had been asserting all along.
+
 ## API gaps the mockup is honest about
 
 Consolidated across rounds, in rough priority order. The per-matter listing and capture contracts
