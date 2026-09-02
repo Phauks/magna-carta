@@ -17,12 +17,11 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
-  import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import Send from "@lucide/svelte/icons/send";
   import {
     billingFailure,
     recordInvoiceDelivery,
@@ -61,32 +60,29 @@
   let deliveryDate = $state(civilToday());
   let outcome = $state<string>("delivered");
   let externalReference = $state("");
-  let working = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
-  $effect(() => {
-    if (!open) return;
+  function reset(): void {
     channel = "email";
     recipient = "";
     deliveryDate = civilToday();
     outcome = "delivered";
     externalReference = "";
     failure = null;
-  });
+  }
 
   function chosenChannel(): DeliveryChannel {
     return DELIVERY_CHANNELS.find((candidate) => candidate === channel) ?? "email";
   }
 
-  const refusal = $derived.by((): string | null => {
+  const refusal = $derived.by((): string | undefined => {
     if (recipient.trim() === "") return "Say who received it: the address, mailbox, or person.";
     if (deliveryDate === "") return "Say when it reached them.";
-    return null;
+    return undefined;
   });
 
-  async function record(): Promise<void> {
-    if (row === null || working || refusal !== null) return;
-    working = true;
+  async function record(): Promise<ActionOutcome> {
+    if (row === null) return "refused";
     failure = null;
     const result = await recordInvoiceDelivery(
       fetch,
@@ -100,23 +96,30 @@
       },
       crypto.randomUUID(),
     );
-    working = false;
     if (result.kind === "ok") {
-      open = false;
       onRecorded();
-      return;
+      return "committed";
     }
     failure = billingFailure(result, "No delivery was recorded.");
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Record a Delivery</Dialog.Title>
-    <Dialog.Description>
-      {row?.summary.invoiceNumber ?? "This bill"} · records a delivery the firm made; nothing is sent
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  heading="Record a Delivery"
+  commitLabel="Record Delivery"
+  commitBusyLabel="Recording"
+  commitRefusal={refusal}
+  unsavedChanges={recipient.trim() !== "" || externalReference.trim() !== ""}
+  onOpen={reset}
+  onCommit={record}
+>
+  {#snippet subtitle()}
+    {row?.summary.invoiceNumber ?? "This bill"} · records a delivery the firm made; nothing is sent
+  {/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
@@ -124,7 +127,9 @@
         fallback={failure.fallback}
       />
     {/if}
+  {/snippet}
 
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
@@ -134,7 +139,7 @@
             items={CHANNEL_ITEMS}
             bind:value={channel}
             allowDeselect={false}
-            disabled={working}
+            disabled={busy}
           >
             <Select.Trigger aria-labelledby="{fieldPrefix}-channel-label">
               <Select.Value />
@@ -148,22 +153,13 @@
         </div>
         <div class="flex flex-col gap-8">
           <Label for="{fieldPrefix}-date">Date It Reached Them</Label>
-          <Input
-            id="{fieldPrefix}-date"
-            type="date"
-            disabled={working}
-            bind:value={deliveryDate}
-          />
+          <Input id="{fieldPrefix}-date" type="date" disabled={busy} bind:value={deliveryDate} />
         </div>
       </div>
 
       <div class="flex flex-col gap-8">
         <Label for="{fieldPrefix}-recipient">Recipient</Label>
-        <Input
-          id="{fieldPrefix}-recipient"
-          disabled={working}
-          bind:value={recipient}
-        />
+        <Input id="{fieldPrefix}-recipient" disabled={busy} bind:value={recipient} />
         <p class="text-xs text-text-muted">
           Who received it, in the firm's own words: the address it was posted to, the mailbox it was
           emailed to, or the person it was handed to.
@@ -178,7 +174,7 @@
             items={[...OUTCOME_ITEMS]}
             bind:value={outcome}
             allowDeselect={false}
-            disabled={working}
+            disabled={busy}
           >
             <Select.Trigger aria-labelledby="{fieldPrefix}-outcome-label">
               <Select.Value />
@@ -192,11 +188,7 @@
         </div>
         <div class="flex flex-col gap-8">
           <Label for="{fieldPrefix}-reference">Carrier Reference</Label>
-          <Input
-            id="{fieldPrefix}-reference"
-            disabled={working}
-            bind:value={externalReference}
-          />
+          <Input id="{fieldPrefix}-reference" disabled={busy} bind:value={externalReference} />
           <p class="text-xs text-text-muted">
             The handle of whatever carried it, where something did: a tracking number, a gateway
             submission reference, the message id of a mail sent elsewhere.
@@ -206,26 +198,9 @@
 
       <p class="text-xs text-text-subtle">
         Each attempt is its own permanent record: a bill sent twice has two, and a returned letter
-        followed by a successful re-send reads as exactly that.
+        followed by a successful re-send reads as exactly that. It is shown beside the decision to
+        take fees from trust; it gates nothing.
       </p>
     </div>
-
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <span class="mr-auto max-w-sm text-xs text-text-subtle">
-        Shown beside the decision to take fees from trust; it gates nothing.
-      </span>
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        disabled={working || refusal !== null}
-        title={refusal ?? "Record this delivery"}
-        onclick={() => void record()}
-      >
-        <Send class="size-16" aria-hidden="true" />
-        {working ? "Recording" : "Record Delivery"}
-      </Button>
-    </div>
-    {#if refusal !== null}
-      <p class="text-right text-xs text-text-muted">{refusal}</p>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

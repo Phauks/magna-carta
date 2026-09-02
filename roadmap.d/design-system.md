@@ -83,6 +83,15 @@
   scope: Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
   status: partial
 
+- id: design-system.modal-shells
+  name: Two modal shells and never a third
+  scope: Every modal surface in the product is one of two shells — RecordWindow for reading and changing a record, ActionDialog for an act asked of a reader — with one shared unsaved-work guard, and a source scan that recognizes a panel built outside them.
+  status: partial
+  surface: internal
+  spec: docs/specs/2026-09-01-consolidated-modal-architecture-design.md
+  evidence: packages/design-system/src/lib/components/action-dialog (the shell, its kind table and its six stories), src/lib/internal/close-guard.svelte.ts + discard-question.svelte (the guard both shells share), tooling/lint-one-ui rules `hand-composed-modal` and `footer-set`
+  notes: The shell, the shared guard and the two rules are built and the shells are declared in tooling/lint-one-ui/registry.json. Two families have migrated — the custodian's three panels and ten across billing and costs — leaving twenty-eight printed allowances, of which thirteen are named exclusions with the shell or the dependency each belongs to.
+
 - id: design-system.enforcement.off-token-lint
   name: Off-token value gates
   scope: Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.

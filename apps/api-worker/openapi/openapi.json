@@ -12253,6 +12253,130 @@
           "fileId"
         ]
       },
+      "MatterSearchAnswer": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterSearchGroup"
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "query",
+          "groups"
+        ]
+      },
+      "MatterSearchGroup": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "answerShape": {
+            "type": "string",
+            "enum": [
+              "listing",
+              "ranked"
+            ]
+          },
+          "matchedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supportsDeleted": {
+            "type": "boolean"
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterSearchHit"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "skipped": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "permission",
+              "query-too-short",
+              "engine-unavailable",
+              null
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "section",
+          "answerShape",
+          "matchedFields",
+          "supportsDeleted",
+          "hits",
+          "hasMore",
+          "skipped"
+        ]
+      },
+      "MatterSearchHit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secondary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortKey": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "snippet",
+          "secondary",
+          "actorUserId",
+          "sortKey",
+          "link"
+        ]
+      },
       "CustodyLocation": {
         "type": "object",
         "properties": {
@@ -54695,6 +54819,141 @@
         }
       }
     },
+    "/api/v1/matters/{matterId}/search": {
+      "get": {
+        "description": "Searches one matter across every section the member may read, answering one group per source in the matter's own section order. Pass `in` (repeatable) to narrow to named sources; absent means every source the member may read, and there is no value meaning wider than this matter. A group that contributed nothing says why — a source the member lacks the capability for is reported as withheld rather than returned empty, so a search never reads as 'this matter holds nothing' when it holds something the reader cannot see.",
+        "operationId": "matterSearch.search",
+        "tags": [
+          "matterSearch"
+        ],
+        "x-mc-operationId": "matterSearch.search",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "search:matter",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterSearch"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "required": false,
+            "name": "in",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "includeDeleted",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One group per selected source",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterSearchAnswer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/custody/locations": {
       "get": {
         "description": "Returns every node of the firm's physical custody tree, flat with parent ids — the client assembles the tree. A root node either names one of the firm's offices or stands for an external site such as a bank vault or an offsite records vendor.",
@@ -56000,7 +56259,7 @@
         }
       },
       "get": {
-        "description": "Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in.",
+        "description": "Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in. Narrowing by itemId answers one item's own chain of custody, which is its own entries PLUS the packet-wide ones: an item inside a packet goes wherever the packet goes, so a history of only the rows naming the item would leave out every move it actually made. Each row carries itemId, so a reader can tell the two apart.",
         "operationId": "custody.listMovements",
         "tags": [
           "custody"
@@ -56034,6 +56293,15 @@
             },
             "required": false,
             "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyItem_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "itemId",
             "in": "query"
           }
         ],
@@ -86443,6 +86711,9 @@
     },
     {
       "name": "matterAssets"
+    },
+    {
+      "name": "matterSearch"
     },
     {
       "name": "matterTypes"

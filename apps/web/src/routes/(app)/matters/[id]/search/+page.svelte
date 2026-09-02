@@ -1,0 +1,186 @@
+<script lang="ts">
+  /*
+   * The matter's search results, as a page rather than only a panel — a reader may want to act on
+   * or download the whole result set, and a panel under a field cannot carry that.
+   *
+   * THE QUERY RIDES IN THE ADDRESS. `?q=` and `?in=` are the state, so a search survives a reload
+   * and can be handed to a colleague, and the browser's own back button walks a reader's searches.
+   * The trade taken with it, stated rather than glossed: a fragment of a matter's text lands in
+   * browser history, on a URL that already names the matter.
+   *
+   * The field sits in the view's own header, where the ruling puts it, on one row with the scope
+   * and the match count — never in the middle of the page above however many rows came back.
+   */
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import * as Select from "@magna-carta/design-system/select";
+  import Badge from "@magna-carta/design-system/badge";
+  import Checkbox from "@magna-carta/design-system/checkbox";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import MatterSearchResults from "$lib/matters/matter-search-results.svelte";
+  import {
+    EVERYTHING_SCOPE,
+    MatterSearch,
+    scopeOptions,
+    totalHits,
+  } from "$lib/matters/matter-search.svelte.ts";
+  import type { MatterRecord } from "$lib/matters/matter-record.ts";
+  import { matterSections } from "$lib/matters/sections.ts";
+
+  let { data }: { data: { matter: MatterRecord } } = $props();
+
+  /** The results page pays for depth where the panel does not. */
+  const PAGE_LIMIT = 50;
+
+  const matter = $derived(data.matter);
+  // Empty at construction and bound in the effect below — reading the id once here would capture
+  // the matter the page first rendered for rather than the one it is showing.
+  const search = new MatterSearch("");
+
+  // The address is the state. Reading the query and scope FROM it rather than holding a second copy
+  // is what makes a reload, a shared link and the back button all land on the same search.
+  const addressQuery = $derived(page.url.searchParams.get("q") ?? "");
+  const addressScope = $derived(page.url.searchParams.get("in") ?? EVERYTHING_SCOPE);
+
+  let field = $state("");
+  $effect(() => {
+    field = addressQuery;
+  });
+
+  // The scope list here names no "this section": a reader on the results page is not standing on a
+  // section, so the first option would be a fiction.
+  const options = $derived(scopeOptions(undefined));
+
+  function addressFor(query: string, scope: string): string {
+    const parameters = new URLSearchParams({ q: query.trim() });
+    if (scope !== EVERYTHING_SCOPE) parameters.set("in", scope);
+    return `/matters/${matter.id}/search?${parameters.toString()}`;
+  }
+
+  $effect(() => {
+    const query = addressQuery;
+    const scope = addressScope;
+    search.matterId = matter.id;
+    search.scope = scope;
+    if (query.trim() === "") {
+      search.clear();
+      return;
+    }
+    const sources = options.find((option) => option.value === scope)?.sources ?? [];
+    void search.run(fetch, query, sources, PAGE_LIMIT);
+  });
+
+  // Typing in the header field rewrites the address, which re-runs the search through the effect
+  // above. One path, so the field and the address can never say different things.
+  function submit(next: string): void {
+    if (next.trim() === addressQuery.trim()) return;
+    void goto(addressFor(next, addressScope), { replaceState: true, keepFocus: true });
+  }
+
+  const scopeLabel = $derived(
+    options.find((option) => option.value === addressScope)?.label ?? "Everything on this matter",
+  );
+  const sectionLabel = $derived(
+    matterSections.find((section) => section.slug === addressScope)?.label ?? null,
+  );
+</script>
+
+<svelte:head>
+  <title>Search · {matter.title} · Magna Carta</title>
+</svelte:head>
+
+<div class="flex min-h-0 flex-1 flex-col">
+  <!-- The view's header: one row, the field where the view is named, the count beside it. -->
+  <div class="flex flex-wrap items-center gap-12 border-b border-border-default pb-12">
+    <ScreenSearch
+      bind:value={field}
+      expanded
+      busy={search.busy}
+      label="Search this matter"
+      placeholder={placeholderOf("Search this matter")}
+      searchOn="pause"
+      fieldClass="w-xs sm:w-sm"
+      onsearch={submit}
+    >
+      {#snippet scope()}
+        <Select.Root
+          type="single"
+          items={options.map((option) => ({ value: option.value, label: option.label }))}
+          allowDeselect={false}
+          bind:value={
+            () => addressScope,
+            (next) => void goto(addressFor(field, next as string), { replaceState: true })
+          }
+        >
+          <Select.Trigger aria-label="Search in">
+            <Select.Value placeholder={placeholderOf("Scope")} />
+          </Select.Trigger>
+          <Select.Content>
+            {#each options as option (option.value)}
+              <Select.Item
+                value={option.value}
+                label={option.label}
+                disabled={option.waitingOn !== undefined}
+              >
+                {option.label}
+                {#if option.waitingOn !== undefined}
+                  <Badge variant="neutral" class="ms-auto">Soon</Badge>
+                {/if}
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      {/snippet}
+    </ScreenSearch>
+
+    {#if search.deletedOptionApplies}
+      <!-- The scope area, where the ruling puts it: off by default, and only where a selected
+           source has a deleted set. Re-running on change rather than filtering what is on screen —
+           the deleted rows were never fetched, so there is nothing here to filter. -->
+      <label class="flex items-center gap-4 text-sm text-text-muted">
+        <Checkbox
+          bind:checked={
+            () => search.includeDeleted,
+            (next) => {
+              search.includeDeleted = next === true;
+              if (addressQuery.trim() !== "") {
+                const sources = options.find((option) => option.value === addressScope)?.sources ?? [];
+                void search.run(fetch, addressQuery, sources, PAGE_LIMIT);
+              }
+            }
+          }
+        />
+        Include deleted files
+      </label>
+    {/if}
+
+    {#if search.answer !== null}
+      <span class="text-sm text-text-muted">
+        {totalHits(search.answer)} on this page, in {scopeLabel.toLowerCase()}
+      </span>
+    {/if}
+  </div>
+
+  <!-- The result region is furniture: it holds its shape at rest, so arriving results fill a frame
+       the reader already has rather than appearing out of nothing. -->
+  <div class="min-h-0 flex-1 overflow-y-auto pt-16">
+    {#if addressQuery.trim() === ""}
+      <p class="text-sm text-text-muted">
+        {#if sectionLabel === null}
+          Search everything on this matter — files, parties, notes and what the firm holds in
+          custody.
+        {:else}
+          Searching {sectionLabel} on this matter.
+        {/if}
+      </p>
+    {:else}
+      <MatterSearchResults
+        answer={search.answer}
+        failure={search.failure}
+        busy={search.busy}
+        density="comfortable"
+      />
+    {/if}
+  </div>
+</div>

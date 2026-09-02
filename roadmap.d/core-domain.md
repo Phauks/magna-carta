@@ -393,6 +393,33 @@
   evidence: access-triggered rescan built — rescanCommittedVersion in apps/api-worker/src/files/ingest-consumer.ts over the scan port (docs/specs/2026-06-22-access-triggered-rescan-design.md and its implementation plan)
   notes: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.
 
+- id: matters.search
+  name: Consolidated matter search
+  scope: One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter.
+  status: partial
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  audience: public
+  public-name: Search a matter
+  public-summary: Search everything on a matter from one box — notes, files, parties and what the firm holds in custody — starting with the screen you are already on.
+  awaiting-owner: Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
+  notes: PARTIAL because eight of the fourteen sections answer; the other six decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page.
+
+- id: matters.search.sources
+  name: Declared search sources
+  scope: One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  evidence: packages/matter-search/src/sources/all.ts registers eight sources (files, time, costs, billing, parties, calendar, notes, custody) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds
+  notes: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. The matter-asset register has a query but no screen to land a hit on, so it is deliberately unregistered until the register gets one. Review-set sources are structurally refused: a review set is its own corpus.
+
+- id: matters.search.file-contents
+  name: File contents in a matter search
+  scope: The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match.
+  status: designed
+  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
+  notes: The engine, write pipeline and compaction are built; SearchIndexPort answers engine-not-implemented until the search Container is deployed in the order docs/deploy-queue.md names.
+
 - id: locations
   name: Locations (offices)
   scope: First-class per-firm entity for physical offices; a dimension within the firm tenancy boundary, referenced by matters, trust accounts, Custodian roots, users, and generated documents.

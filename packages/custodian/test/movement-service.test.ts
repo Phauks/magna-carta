@@ -210,6 +210,99 @@ describe("the movement ledger is the one write path for every state change", () 
 
   // A Friday collection typed in on Monday is the ordinary case. The register reports on
   // occurred_at; recorded_at proves when the assertion was made, and the gap stays visible.
+  /*
+   * ONE ITEM'S CHAIN OF CUSTODY.
+   *
+   * The scope is the item's own rows PLUS the packet-wide ones, because an item inside a packet
+   * goes wherever the packet goes. Two failures are pinned here rather than left to the route: a
+   * filter narrowed to `item_id = ?` would answer a decade of moves with "itemized" and present
+   * that as a chain of custody, and a filter that merely dropped nothing would show a sibling
+   * item's entries against this one.
+   *
+   * ORDER IS NOT ASSERTED AGAINST INSERTION, and that is the fixture rather than a shrug: this
+   * suite's clock is fixed, so every row here shares an `occurred_at` and the whole ordering falls
+   * to the `id DESC` tiebreak. Asserting a chronology the fixture does not have would pin the
+   * identifier generator instead of the query. What IS asserted is the set of rows, and — in the
+   * paged walk — that paging reproduces the unpaged answer exactly, which is the property paging
+   * has to have and the one a mis-numbered binding breaks.
+   */
+  it("reads one item's history as its own rows plus the packet's, and never a sibling's", async () => {
+    const { database, offsite, packetId } = await scaffold();
+    const will = await addCustodyItem(
+      database,
+      packetId,
+      { description: "Original will" },
+      options,
+    );
+    await commit(database, will.effect);
+    const certificate = await addCustodyItem(
+      database,
+      packetId,
+      { description: "Share certificate" },
+      options,
+    );
+    await commit(database, certificate.effect);
+    await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "moved", toLocationId: offsite },
+      options,
+    );
+
+    const whole = await readCustodyMovements(database, packetId, 10);
+    expect(whole).toHaveLength(4);
+
+    const forWill = await readCustodyMovements(database, packetId, 10, undefined, will.itemId);
+    // The move and the logging are the packet's, and are the will's history too; the will's own
+    // itemized row joins them. The certificate's is the row a filter that dropped nothing keeps.
+    expect(forWill.map((movement) => movement.kind).toSorted()).toEqual([
+      "itemized",
+      "logged",
+      "moved",
+    ]);
+    expect(forWill.map((movement) => movement.item_id).filter((id) => id !== null)).toEqual([
+      will.itemId,
+    ]);
+    expect(forWill.some((movement) => movement.item_id === certificate.itemId)).toBe(false);
+  });
+
+  it("pages an item's history without the cursor and the item filter treading on each other", async () => {
+    const { database, offsite, safe, packetId } = await scaffold();
+    const will = await addCustodyItem(
+      database,
+      packetId,
+      { description: "Original will" },
+      options,
+    );
+    await commit(database, will.effect);
+    await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "moved", toLocationId: offsite },
+      options,
+    );
+    await recordCustodyMovement(database, packetId, { kind: "moved", toLocationId: safe }, options);
+
+    const unpaged = await readCustodyMovements(database, packetId, 10, undefined, will.itemId);
+    expect(unpaged).toHaveLength(4);
+
+    const walked: string[] = [];
+    let cursor: { occurredAt: string; id: string } | undefined;
+    // A page size of one, so every step of the walk exercises the cursor rather than only the last.
+    // Every row shares an occurred_at here, so the walk is carried entirely by the id half of the
+    // keyset — the part a wrongly numbered binding would silently feed the limit into.
+    for (let step = 0; step < 8; step += 1) {
+      const page = await readCustodyMovements(database, packetId, 1, cursor, will.itemId);
+      const row = page[0];
+      if (row === undefined) break;
+      walked.push(row.id);
+      cursor = { occurredAt: row.occurred_at, id: row.id };
+    }
+    // Paging reproduces the unpaged answer exactly: the same rows, in the same order, none twice.
+    expect(walked).toEqual(unpaged.map((movement) => movement.id));
+    expect(new Set(walked).size).toBe(walked.length);
+  });
+
   it("keeps occurred_at and recorded_at apart so back-dating stays visible", async () => {
     const { database, offsite, packetId } = await scaffold();
     const moved = await recordCustodyMovement(
