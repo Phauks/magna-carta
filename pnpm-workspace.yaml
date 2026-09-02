@@ -164,7 +164,11 @@ overrides:
   "js-yaml@3": 3.15.1
   "js-yaml@4": 4.3.1
   undici: 7.29.0
-  fast-uri: 3.1.5
+  # fast-uri floor is 3.1.6: below it four host-confusion / SSRF defects in URI normalization (IPv6
+  # handling, repeated percent-decoding of the host, percent-encoded scheme, skipped IDN
+  # canonicalization on scheme-relative references) each score CVSS 7.5, over the gate's fail
+  # threshold. It reaches the tree only through ajv, whose ^3 range already admits this line.
+  fast-uri: 3.1.7
   sharp: 0.35.0
   # postcss floor is 8.5.23, which stops an attacker-controlled `sourceMappingURL` reading arbitrary
   # .map files when `from` is unset. 8.5.26 is taken rather than the bare floor because it is the
