@@ -76,6 +76,10 @@ is still an `ActionDialog` inside it, not a panel of its own.
   beside it and the dependency as its accessible description. The commit is ONE snippet rendered
   one of two ways so the bar holds exactly one `<Button` carrying the commit marker in this file's
   source — that is what keeps `footer-set` true; do not duplicate the control to add a branch.
+- **`restoreFocus={false}` is the one focus seam, for a trigger revealed on focus.** Bits returns
+  focus to the trigger on close; a per-row control that reveals on focus then stays latched open
+  after the panel has gone (owner-reported twice on the settings rows). The default is true and
+  right for every other trigger; do not reach for it to tidy focus elsewhere.
 - **The `notice` slot is the layering seam.** The design system cannot know what a failure reads
   like, so the shell reserves the PLACE and the app puts `FailureNotice` in it. Never import an app
   module here to close that gap.
