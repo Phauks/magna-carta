@@ -119,7 +119,7 @@ const timelineRow: TimelineEntry = {
 describe("readCalendarWindow, firm scope", () => {
   const window = calendarWindow("month", "2026-09-15");
 
-  it("makes the three reads over the window, narrowed to the event kind, and merges them", async () => {
+  it("makes the three reads over the window, narrowed to the matter-event source, and merges them", async () => {
     const { fetch, requests } = fakeFetch([
       {
         match: (url) => url.pathname === "/api/v1/calendar/events",
@@ -145,7 +145,7 @@ describe("readCalendarWindow, firm scope", () => {
     expect(federated?.searchParams.get("from")).toBe(window.from);
     expect(federated?.searchParams.get("to")).toBe(window.to);
     expect(federated?.searchParams.get("scope")).toBe("matter");
-    expect(federated?.searchParams.getAll("kind")).toEqual(["event"]);
+    expect(federated?.searchParams.getAll("kind")).toEqual(["matterEvent"]);
     expect(federated?.searchParams.has("memberId")).toBe(false);
 
     const deadlines = requests.find((url) => url.pathname === "/api/v1/calendar/deadlines");

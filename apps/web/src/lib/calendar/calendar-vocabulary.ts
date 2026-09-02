@@ -10,8 +10,13 @@
 import type { CalendarGridTone } from "@magna-carta/design-system/calendar-grid";
 import type { EventType } from "./calendar-api.ts";
 
-/** The registry kinds a firm-scope federated read is narrowed to. Deadlines come from their own read, which carries titles. */
-export const FIRM_CALENDAR_KINDS: readonly string[] = ["event"];
+/**
+ * The SOURCE KEYS a firm-scope federated read is narrowed to. The read's `kind` filter names a
+ * source in the registry (`matterEvent`), not the kind word a row carries (`event`); a key the
+ * registry does not hold is refused rather than ignored. Deadlines come from their own read, which
+ * carries titles, and firm events from the firm's own listing.
+ */
+export const FIRM_CALENDAR_KINDS: readonly string[] = ["matterEvent"];
 
 /**
  * The platform type codes whose events are court settings a person has to be at. They take the

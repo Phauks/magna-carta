@@ -278,6 +278,7 @@
         scope={{ kind: "matter", matterId: matter.id }}
         bind:view={calendarView}
         toolbar={true}
+        viewSwitch={false}
         address={true}
         {openEntry}
         {refreshToken}

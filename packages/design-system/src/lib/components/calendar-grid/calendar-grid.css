@@ -210,6 +210,13 @@
     border-start-end-radius: var(--mc-radius-none);
     border-end-end-radius: var(--mc-radius-none);
   }
+  /*
+   * A narrow month cell lets the label drop under the time rather than truncating it to nothing
+   * behind a clock: the time is the shorter fact and the label is the one a reader came for.
+   */
+  .mc-calendar-grid-month .mc-calendar-grid-entry {
+    flex-wrap: wrap;
+  }
   /* The time leads, at the reading edge, in tabular figures so a column of them aligns. */
   .mc-calendar-grid-entry-time {
     flex: none;
@@ -234,6 +241,16 @@
     white-space: nowrap;
   }
   /* Struck: shown, and struck. The tone stays, because what it was is still what it was. */
+  /*
+   * A week cell is narrow and its chips carry a detail line: both lines truncate rather than
+   * breaking inside a word, because "Sandb / ox" is not a matter number anybody can read.
+   */
+  .mc-calendar-grid-week .mc-calendar-grid-entry-label,
+  .mc-calendar-grid-week .mc-calendar-grid-entry-detail {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .mc-calendar-grid-entry[data-struck="true"] .mc-calendar-grid-entry-label {
     text-decoration-line: line-through;
   }

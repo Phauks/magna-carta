@@ -24,7 +24,14 @@
   import type { CalendarController, ScopeChoice } from "./calendar-controller.svelte.ts";
   import { CALENDAR_VIEWS, type CalendarView as CalendarViewKind } from "./calendar-window.ts";
 
-  let { controller }: { controller: CalendarController } = $props();
+  let {
+    controller,
+    viewSwitch = true,
+  }: {
+    controller: CalendarController;
+    /** Whether the month / week / agenda switch is drawn; a host with its own switch passes false. */
+    viewSwitch?: boolean;
+  } = $props();
 
   const VIEW_PRESENTATION: Record<CalendarViewKind, { label: string; icon: typeof List }> = {
     month: { label: "Month", icon: CalendarDays },
@@ -65,6 +72,7 @@
     </div>
   {/if}
 
+  {#if viewSwitch}
   <div class="flex items-center gap-4" role="group" aria-label="View">
     {#each CALENDAR_VIEWS as view (view)}
       {@const presentation = VIEW_PRESENTATION[view]}
@@ -81,6 +89,7 @@
       </Button>
     {/each}
   </div>
+  {/if}
 
   <div class="flex items-center gap-4" role="group" aria-label="Move through time">
     <Button
@@ -93,7 +102,7 @@
       <ChevronLeft class="size-16" aria-hidden="true" />
     </Button>
     <!-- A fixed slot, so the arrow on its far side never moves as the name changes length. -->
-    <p class="w-3xs truncate text-center text-sm font-medium" title={controller.title} aria-live="polite">
+    <p class="w-3xs truncate text-center text-sm font-medium text-text-default" title={controller.title} aria-live="polite">
       {controller.title}
     </p>
     <Button

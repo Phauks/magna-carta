@@ -215,8 +215,9 @@ for a firm event; it renders the same screen with the firm side of the scope and
 The section keeps everything it has (the past-due alert, the deadlines table, the events table:
 these are the matter's record, and the tables are the reviewed surface) and gains a view switch at
 the section's action row: **Month**, **Agenda**, **List**, where List is the two tables as they
-stand. Month and Agenda are `CalendarView` with the matter scope, headless (the section's own row
-carries the switch), mirroring `view` and `date` into the query. The two disabled "Record" controls
+stand. Month and Agenda are `CalendarView` with the matter scope, its toolbar carrying the navigation
+but not the view switch (the section's own row carries that), mirroring `view` and `date` into
+the query. The two disabled "Record" controls
 become live: they open the record dialogs with the matter fixed. The deep link
 `?entry=` the federated read emits for a matter event opens the entry window on arrival.
 

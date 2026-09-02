@@ -17,8 +17,8 @@
    * that way is looked for among the chips on screen first, because it can only be read through
    * the matter and the day the chip knows.
    */
-  import { untrack } from "svelte";
-  import { goto } from "$app/navigation";
+  import { onMount, untrack } from "svelte";
+  import { afterNavigate, goto } from "$app/navigation";
   import * as CalendarGrid from "@magna-carta/design-system/calendar-grid";
   import type { CalendarGridEntry } from "@magna-carta/design-system/calendar-grid";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -44,6 +44,7 @@
     address = false,
     openEntry = null,
     refreshToken = 0,
+    viewSwitch = true,
     class: className,
   }: {
     /** What this calendar is a calendar of: the firm, one member's own day, or one matter. */
@@ -60,6 +61,8 @@
     openEntry?: string | null;
     /** A host bumps this after recording something, and the window is read again. */
     refreshToken?: number;
+    /** Whether the toolbar carries the month / week / agenda switch. A host with its own switch passes false and keeps the navigation. */
+    viewSwitch?: boolean;
     class?: string;
   } = $props();
 
@@ -117,8 +120,28 @@
     untrack(() => void controller.read(fetch, "refresh"));
   });
 
+  /*
+   * The address is mirrored only once the router has finished its first navigation. SvelteKit's
+   * `replaceState` reaches into the router, and an effect that runs during hydration runs before
+   * the router exists: the call throws, and the throw takes the rest of the flush with it, which
+   * is how the grid was left loading forever.
+   */
+  let navigated = $state(false);
+  afterNavigate(() => {
+    navigated = true;
+  });
+  // A component mounted AFTER the first navigation (the matter section switching to its Month
+  // view) sees no navigation of its own, so the mount is the signal there. Deferred by a task
+  // rather than raised in the mount itself, because during hydration the mount still runs before
+  // the router has its root.
+  onMount(() => {
+    const timer = setTimeout(() => {
+      navigated = true;
+    }, 0);
+    return () => clearTimeout(timer);
+  });
   $effect(() => {
-    if (!address) return;
+    if (!address || !navigated) return;
     controller.mirrorAddress();
   });
 
@@ -193,7 +216,7 @@
 
 <div class="flex h-full min-h-0 flex-col gap-12 {className ?? ''}">
   {#if toolbar}
-    <CalendarToolbar {controller} />
+    <CalendarToolbar {controller} {viewSwitch} />
   {/if}
 
   {#each controller.failures as failed (failed.read)}

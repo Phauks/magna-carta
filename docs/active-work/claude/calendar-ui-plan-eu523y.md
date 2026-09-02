@@ -1,7 +1,7 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/calendar-ui-plan-eu523y
 area: The calendar interface — one reusable CalendarView over a domain-free CalendarGrid, the firm /calendar screen, the matter section's month and agenda views, the entry window and the record forms
-status: building
+status: review
 touches: packages/design-system/src/lib/components/calendar-grid, packages/design-system/package.json, packages/design-system/src/lib/styles/components.css, apps/web/src/lib/calendar, apps/web/src/routes/(app)/calendar, apps/web/src/routes/(app)/matters/[id]/calendar, apps/web/src/lib/navigation/destinations.ts, apps/web/src/lib/matters/calendar-api.ts, tooling/lint-one-ui/registry.json, docs/specs, docs/user/features, roadmap.d/calendar.md, status.d, changelog.d, ROADMAP.md
 ---
 
