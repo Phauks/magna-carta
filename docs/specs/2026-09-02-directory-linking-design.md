@@ -207,7 +207,7 @@ area. `matter_party` already has this shape; nothing about it changes.
    `listPartyRoles` (the `directory_party_role` catalog, with the platform's add row for a role the
    firm has not named yet), capacity as free text, `linkMatterParty` added to `party-api.ts`. The
    page's own removal dialog moves onto `ActionDialog`, which clears its allowance.
-2. **The client becomes a party, and there is no matter without one.** The intake's client field
+2. **The client becomes a party, and there is no matter without one. BUILT on the branch, 2026-09-02.** The intake's client field
    becomes an `EntityPicker` over both kinds (quick-create follows the owner's later ruling on §7
    Q-4), and creating the matter — `open` or `prospective` alike, because a prospective matter's
    conflict check needs a person — writes the `client` party row in the same request. `client_display_name`
@@ -215,8 +215,10 @@ area. `matter_party` already has this shape; nothing about it changes.
    party. `migrateClientDisplayFields` gets its production caller — an idempotent per-firm backfill
    run once — so existing matters gain their client party and billing and trust stop reading nothing.
    The intake's conflict control becomes usable, because the client is now an entity.
-3. **The matter header** names the client as an `EntityIdentity` linking to the directory record.
-   The Matters pane on the directory record already lists the reverse.
+3. **The matter's Overview** names the client as an `EntityIdentity` linking to the directory
+   record. Not the header: its citation line is ruled to be ONE string that ellipsizes, never a row
+   of spans, so a link cannot live in it. The Matters pane on the directory record already lists
+   the reverse.
 
 ---
 
@@ -243,7 +245,7 @@ the parties page's dialog on `ActionDialog`; the route renamed from `/contacts` 
 doc for adding a party; changelog fragment; `roadmap.d/core-domain.md` corrected (the directory nodes'
 status and evidence are stale today).
 
-**Slice 2 — the client is a party.** Intake picker with quick-create; the `client` party written at
+**Slice 2 — the client is a party. BUILT on the branch, 2026-09-02.** Intake picker with quick-create; the `client` party written at
 open; the backfill's production caller; header chip; intake conflict check enabled; `party-api.ts`
 and `matter-intake.ts` updated; migration notes in `packages/database` if any column is touched (none
 is expected — this slice is writes into an existing table).

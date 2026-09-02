@@ -183,7 +183,7 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0007
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
-  evidence: packages/matters + apps/api-worker/src/routes/matters.ts on main; status.d/1-1 built done, ui todo
+  evidence: packages/matters + apps/api-worker/src/routes/matters.ts on main; the intake at apps/web/src/lib/matters/new-matter-dialog.svelte chooses the client from the directory (EntityPicker) and the create writes the client party in the same batch
   audience: public
   public-summary: Open a matter, set who is involved and how it is numbered, and keep everything about it in the one place for the life of the file.
   awaiting-owner: The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
@@ -195,8 +195,8 @@
   status: partial
   surface: screen
   slices: 1-1-matters-locations-file-manager, 1-3-directory
-  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/api-worker/src/routes/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte reads and severs.
-  notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party from the screen still waits on the directory picker, so the section renders that action disabled and says so; the link route itself has always worked.
+  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/api-worker/src/routes/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte on the RecordParties tab links, reads and severs; the client's own party row is written by packages/matters createMatter in the same batch as the matter (clientPartyStatements), and POST /api/v1/directory/matter-clients/backfill links the matters that predate it.
+  notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a prospective matter's conflict check needs a person.
 
 - id: matters.numbering
   name: Configurable matter numbering

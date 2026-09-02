@@ -32,6 +32,7 @@ import {
   InvalidAddressClassificationError,
 } from "@magna-carta/directory/contact-address";
 import { readContactPoints } from "@magna-carta/directory/contact-points";
+import { migrateClientDisplayFields } from "@magna-carta/directory/client-migration";
 import { InvalidContactVerificationStatusError } from "@magna-carta/directory/contact-preference";
 import { IncompletePronounSetError, PRONOUN_VERB_NUMBERS } from "@magna-carta/directory/pronouns";
 import { createOrganization, readOrganization } from "@magna-carta/directory/organization";
@@ -1825,6 +1826,41 @@ const contactPointsRoute = defineOpenAPIRoute(readMeta("contactPoints", null), {
   },
 });
 
+const BackfillMatterClientsResponse = z
+  .object({
+    linked: z.number().int(),
+    skipped: z.number().int(),
+  })
+  .openapi("BackfillMatterClientsResponse");
+
+const backfillMatterClientsRoute = defineOpenAPIRoute(
+  mutationMeta("backfillMatterClients", WRITE_PERMISSION),
+  {
+    method: "post",
+    path: "/api/v1/directory/matter-clients/backfill",
+    description:
+      "Gives every matter that carries only a client display name a directory entity and a " +
+      "client party link. A matter that already has a live client party is skipped, so the run " +
+      "is idempotent; a display name is never matched against an existing record, because a " +
+      "string match is not identity and an accidental merge is the one thing the directory " +
+      "exists to prevent — a clerk folds duplicates together afterwards, on the record screen.",
+    request: { headers: idempotencyKeyHeader },
+    responses: {
+      200: {
+        description: "How many matters gained a client link, and how many already had one",
+        content: { "application/json": { schema: BackfillMatterClientsResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
 const listEmailsRoute = defineOpenAPIRoute(readMeta("listEmails", null), {
   method: "get",
   path: "/api/v1/directory/entities/{id}/emails",
@@ -2797,6 +2833,28 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       }
     },
   );
+  // POST /api/v1/directory/matter-clients/backfill
+  app.openapi(
+    {
+      ...backfillMatterClientsRoute,
+      middleware: chokepointMiddleware(chokepoint, backfillMatterClientsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      try {
+        const outcome = await migrateClientDisplayFields(
+          firm.firmDatabase,
+          writeOptions(userId, idempotency),
+        );
+        return c.json(outcome as z.infer<typeof BackfillMatterClientsResponse>, 200);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
   // GET /api/v1/directory/entities/{id}/contact-points
   app.openapi(
     { ...contactPointsRoute, middleware: chokepointMiddleware(chokepoint, contactPointsRoute) },

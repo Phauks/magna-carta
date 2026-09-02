@@ -27,6 +27,7 @@ import {
 
 let poolFirmId: FirmId;
 let ownerCookie: string;
+let ownerUserId: UserId;
 let readOnlyCookie: string;
 
 // Mirror a member carrying a named seeded role (the Read-only role grants no directory permission).
@@ -62,6 +63,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   await mirrorMemberWithOwnerRole(owner.userId, "Directory Owner", poolFirmId);
+  ownerUserId = owner.userId;
   ownerCookie = await signInForSessionCookie("directory-owner@example.com");
 
   const readOnly = await seedCredentialedUser("directory-readonly@example.com", {
@@ -115,6 +117,43 @@ async function postWithFixedKey(path: string, body: unknown, idempotencyKey: str
     body: JSON.stringify(body),
   });
 }
+
+describe("the client backfill", () => {
+  it("gives a display-name-only matter a client entity and party, once, and skips it thereafter", async () => {
+    const created = await post("/api/v1/matters", {
+      title: "Wren estate",
+      // Prospective, so the create needs no numbering scheme this firm has not set.
+      status: "prospective",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "Marguerite Wren",
+    });
+    expect(created.status).toBe(201);
+    const { matterId } = (await created.json()) as { matterId: string };
+
+    const first = await post("/api/v1/directory/matter-clients/backfill", {});
+    expect(first.status).toBe(200);
+    const firstOutcome = (await first.json()) as { linked: number; skipped: number };
+    expect(firstOutcome.linked).toBeGreaterThanOrEqual(1);
+
+    const parties = await get(`/api/v1/directory/matter-parties?matterId=${matterId}`);
+    const { parties: rows } = (await parties.json()) as {
+      parties: { entityId: string; role: string; displayName: string | null }[];
+    };
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.role).toBe("client");
+    expect(rows[0]?.displayName).toBe("Marguerite Wren");
+
+    const second = await post("/api/v1/directory/matter-clients/backfill", {});
+    expect(second.status).toBe(200);
+    const again = await get(`/api/v1/directory/matter-parties?matterId=${matterId}`);
+    expect(((await again.json()) as { parties: unknown[] }).parties).toHaveLength(1);
+  });
+
+  it("refuses a caller without directory:edit", async () => {
+    const refused = await post("/api/v1/directory/matter-clients/backfill", {}, readOnlyCookie);
+    expect(refused.status).toBe(403);
+  });
+});
 
 describe("directory person routes", () => {
   it("creates a person, reads it back, and finds it by fuzzy search", async () => {

@@ -153,10 +153,19 @@ function personStatements(
 // distinct entities, because a string match is not identity (auto-merge on a name is exactly what the
 // directory exists to prevent). It is idempotent: a matter that already has a client link is skipped,
 // so a re-run is a no-op.
+export interface ClientBackfillOutcome {
+  /** Matters that gained a client entity and a client party link in this run. */
+  readonly linked: number;
+  /** Matters that already carried a live client party and were left untouched. */
+  readonly skipped: number;
+}
+
 export async function migrateClientDisplayFields(
   database: BatchDatabase,
   options: DirectoryWriteOptions,
-): Promise<void> {
+): Promise<ClientBackfillOutcome> {
+  let linked = 0;
+  let skipped = 0;
   const { results: matters } = await database
     .prepare(
       `SELECT id, client_display_name FROM matter WHERE client_display_name IS NOT NULL ORDER BY id ASC`,
@@ -174,7 +183,10 @@ export async function migrateClientDisplayFields(
       )
       .bind(matterRow.id)
       .all<{ id: string }>();
-    if (existing.length > 0) continue;
+    if (existing.length > 0) {
+      skipped += 1;
+      continue;
+    }
 
     const now = options.clock.now();
     // Pre-minted for both org and non-blank-person paths; blank-person path emits no name row
@@ -215,5 +227,8 @@ export async function migrateClientDisplayFields(
     ];
 
     await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
+    linked += 1;
   }
+
+  return { linked, skipped };
 }

@@ -9,7 +9,23 @@ The design is [`docs/specs/2026-09-02-directory-linking-design.md`](../../specs/
 its §7 carries the owner's rulings of 2026-09-02. This note is the handoff between sessions: what has
 landed on the branch, what was verified and how, and what the next session picks up first.
 
-## Landed on the branch (commit `0fa125b2`, pushed, not yet merged)
+## Landed on the branch, pushed, not yet merged
+
+**Slice 2 (the client is a party), commit after `6c45ef01` (the merge of main):** `createMatter`
+in `packages/matters` takes `clientEntityId` and writes the `client` `matter_party` row in the same
+batch (`clientPartyStatements`; `@magna-carta/matters` now depends on `@magna-carta/directory` for
+the insert statement); `CreateMatterRequest.clientEntityId`, `MatterDetail.clientEntityId`,
+`MatterSummary.clientEntityId` (one batched read per page); `POST
+/api/v1/directory/matter-clients/backfill` gives `migrateClientDisplayFields` its production caller
+and reports `{ linked, skipped }` — it has no screen yet, so an administrator calls it once through
+the API; the intake's client field is `EntityPicker`, the draft requires a client for open AND
+prospective, `client-picker.svelte` and `knownClientNames` are deleted, "Open Client Record" is a
+`Button href` link, "Run Conflict Check" runs a preliminary check on the client with one
+always-mounted result line, and the overview's Client fact is an `EntityIdentity` link (the header's
+citation stays one string by ruling). Route tests cover the party at create, the 422 on a bad handle,
+and the idempotent backfill. A design review's four must-fix items were fixed before the commit.
+
+**Slice 1, commit `0fa125b2`:**
 
 Slice 1 of the spec, whole: `EntityIdentity`, `EntityPicker`, `RecordParties` in the design system
 with stories and package tests; `directory-picker-source.ts` as the one search adapter;
@@ -68,16 +84,12 @@ Review it on the deployed site after merge (the matter's Parties tab, and `/dire
 
 ## Next session, in order
 
-1. **Slice 2 — the client is a party.** `new-matter-dialog.svelte` / `client-picker.svelte` /
-   `matter-intake.ts`: the client field becomes `EntityPicker` over both kinds; the create request
-   carries the client's entity id and the API writes the `client` `matter_party` row in the same
-   request (open AND prospective — a prospective matter's conflict check needs a person);
-   `client_display_name` keeps being written as the display denormalization. Give
-   `packages/directory/src/client-migration.ts` (`migrateClientDisplayFields`) its production caller
-   as an idempotent per-firm backfill. The matter header's client mark waits until
-   `claude/matter-consolidated-search-yba72d` lands — it edits `matter-header.svelte` and
-   `sections.ts`; that branch also adds nodes to `roadmap.d/core-domain.md`, so expect a trivial
-   merge there. Enable the intake conflict control once the client is an entity.
+1. **Slice 2 leftovers.** The backfill has no screen — decide with the owner where a one-time
+   administrative act lives (a settings page, or the directory's action row) and add the control.
+   Three owner questions from the slice-2 review: both "Open Client Record" and "Open the report"
+   open a new tab from the intake dialog (a draft would be lost in place); whether a non-zero hit
+   count wears a status colour; and that a walk-in with no directory record forces the receptionist
+   out of the dialog until quick-create (Q-4) is ruled on — the strongest reason to rule on Q-4 soon.
 2. **Slice 3 — no second implementation left standing**: fold the three pickers onto
    `EntityPicker` (multiple mode for conflicts), promote the name resolver to
    `apps/web/src/lib/directory/entity-names.svelte.ts`, delete the copies. Waits on

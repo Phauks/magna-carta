@@ -932,6 +932,10 @@ export type CreateMatterRequest = {
     responsibleMemberId: string;
     clientDisplayName?: string | null;
     clientCode?: string | null;
+    /**
+     * The directory entity the firm acts for. Given, the client's party link is written in the same batch as the matter, so billing, trust and the conflicts check find the client from the day the matter exists. The display name still travels beside it as the denormalized caption.
+     */
+    clientEntityId?: string | null;
 };
 
 export type MatterListResponse = {
@@ -942,6 +946,7 @@ export type MatterListResponse = {
 export type MatterSummary = {
     id: string;
     title: string;
+    clientEntityId: string | null;
     status: 'prospective' | 'open' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
@@ -976,6 +981,7 @@ export type MatterDetail = {
     responsibleMemberId: string;
     clientDisplayName: string | null;
     clientCode: string | null;
+    clientEntityId: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
     eBilling: boolean;
@@ -2098,6 +2104,11 @@ export type MatterPartyEntry = {
 
 export type UnlinkMatterPartyResponse = {
     unlinked: boolean;
+};
+
+export type BackfillMatterClientsResponse = {
+    linked: number;
+    skipped: number;
 };
 
 export type DirectoryContactPointsResponse = {
@@ -14625,6 +14636,58 @@ export type DirectoryUnlinkMatterPartyResponses = {
 };
 
 export type DirectoryUnlinkMatterPartyResponse = DirectoryUnlinkMatterPartyResponses[keyof DirectoryUnlinkMatterPartyResponses];
+
+export type DirectoryBackfillMatterClientsData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/matter-clients/backfill';
+};
+
+export type DirectoryBackfillMatterClientsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryBackfillMatterClientsError = DirectoryBackfillMatterClientsErrors[keyof DirectoryBackfillMatterClientsErrors];
+
+export type DirectoryBackfillMatterClientsResponses = {
+    /**
+     * How many matters gained a client link, and how many already had one
+     */
+    200: BackfillMatterClientsResponse;
+};
+
+export type DirectoryBackfillMatterClientsResponse = DirectoryBackfillMatterClientsResponses[keyof DirectoryBackfillMatterClientsResponses];
 
 export type DirectoryContactPointsData = {
     body?: never;
