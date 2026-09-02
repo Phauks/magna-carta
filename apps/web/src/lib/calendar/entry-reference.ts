@@ -35,9 +35,17 @@ export interface EntryReference {
 
 /** The record a reference resolves to, once its own read has answered. */
 export type EntryRecord =
-  | { readonly kind: "event"; readonly event: CalendarEvent; readonly participants: readonly EventParticipant[] }
+  | {
+      readonly kind: "event";
+      readonly event: CalendarEvent;
+      readonly participants: readonly EventParticipant[];
+    }
   | { readonly kind: "deadline"; readonly deadline: CalendarDeadline }
-  | { readonly kind: "firmEvent"; readonly event: FirmEvent; readonly participants: readonly EventParticipant[] };
+  | {
+      readonly kind: "firmEvent";
+      readonly event: FirmEvent;
+      readonly participants: readonly EventParticipant[];
+    };
 
 const KIND_BY_PREFIX: ReadonlyArray<readonly [prefix: string, kind: EntryReferenceKind]> = [
   ["matterEvent_", "event"],

@@ -64,6 +64,9 @@ export interface CalendarHost {
 }
 
 export class CalendarController {
+  readonly #host: CalendarHost;
+  #generation = 0;
+
   /** The reader's civil date today, in their own zone. */
   readonly today: string;
 
@@ -74,9 +77,6 @@ export class CalendarController {
   failures = $state<readonly CalendarReadFailure[]>([]);
   /** True when a read hit its page ceiling, so the surface says the answer is the first N. */
   truncated = $state(false);
-
-  #generation = 0;
-  readonly #host: CalendarHost;
 
   constructor(host: CalendarHost) {
     this.#host = host;
@@ -124,7 +124,9 @@ export class CalendarController {
     return "Reading your session.";
   }
 
-  readonly window: CalendarWindow = $derived(
+  // The derived fields read the host through a closure: a field initializer runs before the
+  // constructor assigns the host, and a derived is only evaluated when something reads it.
+  readonly window: CalendarWindow = $derived.by(() =>
     calendarWindow(this.view, this.anchor, this.#host.weekStartsOn()),
   );
 
@@ -145,7 +147,7 @@ export class CalendarController {
    * re-reads when it changes, so the dependencies of a read are stated here once rather than
    * discovered by whatever the effect happened to touch.
    */
-  readonly readKey: string = $derived(
+  readonly readKey: string = $derived.by(() =>
     [
       this.scope === null ? "waiting" : scopeKey(this.scope),
       this.window.from,
@@ -185,7 +187,13 @@ export class CalendarController {
   async read(fetchImpl: typeof fetch, mode: "fresh" | "refresh"): Promise<void> {
     this.#generation += 1;
     const generation = this.#generation;
-    if (mode === "fresh") this.entries = null;
+    if (mode === "fresh") {
+      // A window the reader moved to starts clean: a notice about the last window's read would
+      // stand over this one's skeleton and read as a failure of a read that has not happened.
+      this.entries = null;
+      this.failures = [];
+      this.truncated = false;
+    }
     const scope = this.scope;
     if (scope === null || !this.#host.contextReady()) return;
     const result = await readCalendarWindow(fetchImpl, scope, this.window, this.#host.context());

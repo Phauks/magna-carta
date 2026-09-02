@@ -10,7 +10,10 @@
  * surface doing the printing, not to the description of what the paper says. The description of an
  * event is prose and prints as prose, wrapping rather than clipping.
  */
-import type { PrintSheetDocument, PrintSheetField } from "@magna-carta/design-system/print-sheet/projection";
+import type {
+  PrintSheetDocument,
+  PrintSheetField,
+} from "@magna-carta/design-system/print-sheet/projection";
 import {
   deadlineStateLabel,
   eventStatusLabel,
@@ -106,7 +109,9 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
             { label: "Authority", value: deadline.authorityText ?? NOT_RECORDED },
             {
               label: "Source",
-              value: deadlineSourceLabel(deadline.source === "court_order" ? "court_order" : "member"),
+              value: deadlineSourceLabel(
+                deadline.source === "court_order" ? "court_order" : "member",
+              ),
             },
             {
               label: "Priority",
@@ -160,7 +165,9 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
             { label: "Where", value: event.locationText ?? NOT_RECORDED },
             { label: "Court Reference", value: event.courtReference ?? NOT_RECORDED },
             { label: "Status", value: eventStatusLabel(event.status) },
-            ...(event.statusReason === null ? [] : [{ label: "Reason", value: event.statusReason }]),
+            ...(event.statusReason === null
+              ? []
+              : [{ label: "Reason", value: event.statusReason }]),
           ],
         },
         ...(record.participants.length === 0
@@ -175,7 +182,14 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
             ]),
         ...(event.description === null
           ? []
-          : [{ id: "description", kind: "text" as const, title: "Description", text: event.description }]),
+          : [
+              {
+                id: "description",
+                kind: "text" as const,
+                title: "Description",
+                text: event.description,
+              },
+            ]),
       ],
       footer,
     };
@@ -222,7 +236,14 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
           ]),
       ...(event.description === null
         ? []
-        : [{ id: "description", kind: "text" as const, title: "Description", text: event.description }]),
+        : [
+            {
+              id: "description",
+              kind: "text" as const,
+              title: "Description",
+              text: event.description,
+            },
+          ]),
     ],
     footer,
   };
