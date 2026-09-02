@@ -72,8 +72,10 @@ interface Harness {
 function sheetOver(
   entries: readonly TimeEntrySummary[],
   matterFilter: string | null = "matter-1",
+  /** What every call answers with. A test that asserts a body the store ADOPTS supplies its own. */
+  answer: unknown = { timeEntryId: "entry-written" },
 ): Harness {
-  const recorder = recordRequests({ timeEntryId: "entry-written" });
+  const recorder = recordRequests(answer);
   vi.stubGlobal("fetch", recorder.fetch);
   const announcements: string[] = [];
   const store = new TimeSheetStore({
@@ -188,15 +190,62 @@ describe("a row captured before anybody knew where it belonged", () => {
 });
 
 describe("the matter of an entry the firm already holds", () => {
-  it("is refused, because nothing moves an entry between matters", async () => {
-    const { store, recorder, announcements } = sheetOver([entry()]);
+  /*
+   * A misfiled entry MOVES rather than being struck and re-typed: it keeps its number, its memo,
+   * its codes, its files and its history. The move is its own route, not the debounced cell save,
+   * because it is a cross-matter write with its own refusals.
+   */
+  it("moves it, on its own route, with an Idempotency-Key", async () => {
+    const { store, recorder } = sheetOver([entry()]);
 
     store.setMatter("entry-1", "matter-2");
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
+    const sent = recorder.onlyCall();
+    expect(sent.method).toBe("POST");
+    expect(sent.path).toBe("/api/v1/time-entries/entry-1/refile");
+    expect(sent.body).toEqual({ matterId: "matter-2" });
+    expect(sent.headers[IDEMPOTENCY_HEADER]).toBeDefined();
+    expect(store.rowByKey("entry-1")?.matterId).toBe("matter-2");
+  });
+
+  /*
+   * The rate and the rounding are resolved against the matter, so they come back from the move and
+   * are adopted. A row that kept the figures it had on the matter it just left would be showing one
+   * client's money under another's name.
+   */
+  it("takes the figures the move answers with, because the money follows the matter", async () => {
+    const { store } = sheetOver([entry()], "matter-1", {
+      timeEntryId: "entry-1",
+      matterId: "matter-2",
+      durationMinutes: 45,
+      rateE4: 4_000_000,
+      amountMinor: 30_000,
+      currency: "USD",
+    });
+
+    store.setMatter("entry-1", "matter-2");
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    const row = store.rowByKey("entry-1");
+    expect(row?.billedMinutes).toBe(45);
+    expect(row?.rateE4).toBe(4_000_000);
+    expect(row?.amountMinor).toBe(30_000);
+  });
+
+  /*
+   * A written entry has to be on a matter — the record has to be somewhere — so taking it off one
+   * is the single thing a move cannot do, and it is refused here rather than sent.
+   */
+  it("refuses to take a written entry off its matter altogether", async () => {
+    const { store, recorder, announcements } = sheetOver([entry()]);
+
+    store.setMatter("entry-1", null);
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
     expect(store.rowByKey("entry-1")?.matterId).toBe("matter-1");
     expect(recorder.writes).toEqual([]);
-    expect(announcements.join(" ")).toContain("nothing moves an entry from one matter to another");
+    expect(announcements.join(" ")).toContain("has to be on a matter");
   });
 });
 

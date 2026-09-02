@@ -70,6 +70,7 @@
     listTimeEntryEvents,
     parseDurationText,
     patchTimeEntry,
+    refileTimeEntry,
     writeKey,
     type TimeEntryAttachment,
     type TimeEntryDraftFields,
@@ -581,6 +582,20 @@
     if (entry === null && writeToMatter === null) return;
     saving = true;
     saveFailure = null;
+    // A changed matter on an entry the firm holds is a MOVE, and it is its own write: the patch
+    // route does not carry a matter, because moving one is a cross-matter change with its own
+    // refusals. It goes first, so a refused move never half-lands behind a successful edit.
+    if (entry !== null && chosenMatterId !== null && chosenMatterId !== entry.matterId) {
+      const moved = await refileTimeEntry(fetch, entry.id, chosenMatterId, writeKey());
+      if (moved.kind !== "ok") {
+        saving = false;
+        saveFailure =
+          moved.kind === "problem" && moved.problem.status === 409
+            ? "This entry cannot be moved: it is past draft, on a bill, or claimed by one. Nothing was changed."
+            : "The entry was not moved, so nothing else was saved either. It is unchanged.";
+        return;
+      }
+    }
     const outcome =
       entry === null
         ? await createTimeEntry(
@@ -836,22 +851,28 @@
         written yet. An entry the firm already holds is a different question: nothing in the
         contract moves one between matters, so that field stays refused and says what it waits on.
       -->
-      {#if creating}
-        <div class="flex flex-col gap-4">
-          <Label for="time-record-matter">Matter</Label>
-          <MatterPicker
-            inputId="time-record-matter"
-            {matters}
-            value={chosenMatterId}
-            capped={mattersCapped}
-            disabled={readOnly}
-            title="Where this time belongs. Type the number or the name; either finds it."
-            onpick={(picked) => (chosenMatterId = picked)}
-          />
-        </div>
-      {:else}
-        {@render unservedField("Matter", "matter", "Matter")}
-      {/if}
+      <!--
+        THE MATTER IS THE RECORD'S, AND A MISFILED ENTRY MOVES. On a new entry it is the choice that
+        lets the entry be written at all; on a draft the firm already holds, choosing another matter
+        moves it there — its number, its memo, its codes, its files and its history come with it,
+        and its rate and rounding are re-read on the matter it moved to, because both resolve
+        through the matter. Past draft the field states where the entry is and refuses: an approved
+        or billed entry is evidence, and the answer there is a strike and a fresh record.
+      -->
+      <div class="flex flex-col gap-4">
+        <Label for="time-record-matter">Matter</Label>
+        <MatterPicker
+          inputId="time-record-matter"
+          {matters}
+          value={chosenMatterId}
+          capped={mattersCapped}
+          disabled={readOnly}
+          title={creating
+            ? "Where this time belongs. Type the number or the name; either finds it."
+            : "Where this time belongs. Picking another matter moves the entry there, with its number, its note and its files."}
+          onpick={(picked) => (chosenMatterId = picked)}
+        />
+      </div>
 
       <div class="flex flex-col gap-4">
         <Label for="time-record-staff">Staff</Label>
