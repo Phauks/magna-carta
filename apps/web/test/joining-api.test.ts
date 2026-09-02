@@ -80,7 +80,7 @@ describe("startRegistration", () => {
       name: "Trevor Goldsmith",
       email: "trevor@goldsmith.example",
     });
-    expect(outcome).toEqual({ kind: "transport" });
+    expect(outcome).toMatchObject({ kind: "transport" });
   });
 });
 
@@ -127,7 +127,7 @@ describe("redeemInvitation", () => {
       dateOfBirth: "1974-03-19",
     });
 
-    expect(outcome).toEqual({
+    expect(outcome).toMatchObject({
       kind: "problem",
       problem: {
         status: 422,
@@ -138,6 +138,11 @@ describe("redeemInvitation", () => {
         retryAfterSeconds: 900,
       },
     });
+    // The refusal also carries the two facts only the transport knows, so the screen can say what
+    // failed and when without the caller reassembling either.
+    if (outcome.kind !== "problem") throw new Error("expected a refusal");
+    expect(outcome.failure.request).toBe("POST /invitations/redemptions");
+    expect(outcome.failure.problem).toBe(outcome.problem);
   });
 
   it("leaves the budget absent when the refusal carried none", async () => {
@@ -165,7 +170,7 @@ describe("redeemInvitation", () => {
       lastName: "Wrong",
       dateOfBirth: "1974-03-19",
     });
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 502 } });
+    expect(outcome).toMatchObject({ kind: "problem", problem: { status: 502 } });
   });
 });
 

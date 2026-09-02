@@ -200,15 +200,33 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     presentation: "chip",
   },
   out: {
-    label: "Out",
+    /*
+     * "On loan", not "Out" and not "Checked out".
+     *
+     * THE PAIR IS WHAT HAS TO BE UNMISTAKABLE, NOT THE WORD ON ITS OWN. `out` and `released` are the
+     * two states in which the property is not on the shelf, and they are opposites: a loan is the
+     * firm's to get back and a release has ended the firm's custody for good. "Out" said neither,
+     * and "Checked out" was read as the same event as "Released" — both just mean it left the
+     * building until you already know the difference, which is exactly what a status must not
+     * require. "On loan" carries the return in the word.
+     *
+     * It is still the domain's own noun rather than an invention: the ledger row for this state
+     * records a BORROWER — `borrower_kind`, `borrower_name`, `due_back_on` — and what a borrower has
+     * is a loan.
+     */
+    label: "On loan",
     tone: "warning",
-    meaning: "Checked out. The ledger names who has it and when it is due back.",
+    meaning:
+      "On loan and coming back. The ledger names who has it and when it is due; the firm's custody has not ended.",
     presentation: "chip",
   },
   released: {
     label: "Released",
     tone: "info",
-    meaning: "Handed back. The ledger records the authority it left on and who collected it.",
+    // The contrast with a loan is the whole content of this word, so the meaning states the ending
+    // rather than only the handing over.
+    meaning:
+      "Handed back for good, and the firm's custody has ended. The ledger records the authority it left on and who collected it.",
     presentation: "chip",
   },
   destroyed: {
@@ -340,11 +358,6 @@ export function statusVocabulary(vocabulary: StatusVocabulary): readonly StatusE
 export function statusBadgeAttributes(key: StatusKey): { variant: BadgeVariant; title: string } {
   const entry = statusEntry(key);
   return { variant: entry.tone, title: entry.meaning };
-}
-
-/** The recipe class for the bare mark: the circle-check, filled, with the check knocked out. */
-export function statusMarkClasses(): string {
-  return "mc-status-mark";
 }
 
 /**

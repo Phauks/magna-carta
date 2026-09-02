@@ -11,14 +11,15 @@
    * drafts and one bill.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Button from "@magna-carta/design-system/button";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import Info from "@lucide/svelte/icons/info";
-  import Ban from "@lucide/svelte/icons/ban";
-  import { billingFailureText, voidInvoiceDraft } from "./billing-api.ts";
+  import { billingFailure, voidInvoiceDraft } from "./billing-api.ts";
   import type { InvoiceRow } from "./invoice-standing.ts";
 
   let {
@@ -34,49 +35,61 @@
   const fieldPrefix = $props.id();
 
   let reason = $state("");
-  let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
-  $effect(() => {
-    if (!open) return;
+  function reset(): void {
     reason = "";
     failure = null;
-  });
+  }
 
   const lineCount = $derived(row?.detail?.lines.length ?? 0);
-  const refusal = $derived(
-    reason.trim() === "" ? "A reason is required. It is what somebody reads years later." : null,
-  );
+  const refusal = $derived.by((): string | undefined => {
+    if (row === null) return "No draft is open.";
+    if (reason.trim() === "") {
+      return "A reason is required. It is what somebody reads years later.";
+    }
+    return undefined;
+  });
 
-  async function voidDraft(): Promise<void> {
-    if (row === null || working || refusal !== null) return;
-    working = true;
+  async function voidDraft(): Promise<ActionOutcome> {
+    if (row === null) return "refused";
     failure = null;
     const outcome = await voidInvoiceDraft(fetch, row.summary.id, reason.trim(), crypto.randomUUID());
-    working = false;
     if (outcome.kind === "ok") {
-      open = false;
       onVoided();
-      return;
+      return "committed";
     }
-    failure = billingFailureText(outcome, "The draft is unchanged.");
+    failure = billingFailure(outcome, "The draft is unchanged.");
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Void This Draft</Dialog.Title>
-    <Dialog.Description>
-      {lineCount === 1 ? "1 line" : `${String(lineCount)} lines`} on the draft
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  kind="destructive"
+  heading="Void This Draft"
+  commitLabel="Void Draft"
+  commitBusyLabel="Voiding"
+  commitRefusal={refusal}
+  unsavedChanges={reason.trim() !== ""}
+  onOpen={reset}
+  onCommit={voidDraft}
+>
+  {#snippet subtitle()}
+    {lineCount === 1 ? "1 line" : `${String(lineCount)} lines`} on the draft
+  {/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Voided</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Voided"
+        fallback={failure.fallback}
+      />
     {/if}
+  {/snippet}
 
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
@@ -91,27 +104,11 @@
         <Input
           id="{fieldPrefix}-reason"
           placeholder={placeholderOf("Reason")}
-          disabled={working}
+          disabled={busy}
           bind:value={reason}
         />
         <p class="text-xs text-text-muted">Why this draft is being thrown away.</p>
       </div>
     </div>
-
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        variant="destructive"
-        disabled={working || refusal !== null}
-        title={refusal ?? "Void this draft and return its work to unbilled"}
-        onclick={() => void voidDraft()}
-      >
-        <Ban class="size-16" aria-hidden="true" />
-        {working ? "Voiding" : "Void Draft"}
-      </Button>
-    </div>
-    {#if refusal !== null}
-      <p class="text-right text-xs text-text-muted">{refusal}</p>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

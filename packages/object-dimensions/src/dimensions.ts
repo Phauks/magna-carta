@@ -99,7 +99,10 @@ export type FirmScopedObjectClass =
   // acquire one.
   | "email-staging"
   // A label for a shipment that names no matter.
-  | "shipping-label";
+  | "shipping-label"
+  // A tabular export on a member's shelf: the stored DOCUMENT a later download renders into a
+  // format. Its figures may span matters and the shelf is the member's, so it belongs to none.
+  | "export-snapshot";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -127,6 +130,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "email-original",
   "email-staging",
   "shipping-label",
+  "export-snapshot",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [

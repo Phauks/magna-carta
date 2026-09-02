@@ -8,12 +8,8 @@
    * register's own word, and the meaning rides the hover rather than being printed beneath it.
    */
   import Badge from "@magna-carta/design-system/badge";
-  import CircleCheck from "@lucide/svelte/icons/circle-check";
-  import {
-    statusBadgeAttributes,
-    statusEntry,
-    statusMarkClasses,
-  } from "@magna-carta/design-system/status-register";
+  import StatusMark from "@magna-carta/design-system/status-mark";
+  import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import type { SafetyKey } from "./file-manager-vocabulary.ts";
 
   let { verdict }: { verdict: SafetyKey } = $props();
@@ -22,7 +18,7 @@
 </script>
 
 {#if entry.presentation === "mark"}
-  <CircleCheck class={statusMarkClasses()} aria-label={entry.label} />
+  <StatusMark label={entry.label} />
 {:else}
   <Badge {...statusBadgeAttributes(verdict)}>{entry.label}</Badge>
 {/if}

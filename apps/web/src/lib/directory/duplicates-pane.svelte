@@ -19,6 +19,8 @@
    * merge window has to show both sides field by field and a name is not enough for that.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -48,7 +50,7 @@
   } = $props();
 
   let candidates = $state<readonly DuplicateCandidate[] | null>(null);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let reviewing = $state<DirectoryEntityDetail | null>(null);
   let opening = $state<string | null>(null);
   let mergeOpen = $state(false);
@@ -62,10 +64,7 @@
     const detail = await readDirectoryEntity(fetch, entityId);
     opening = null;
     if (detail.kind !== "ok") {
-      failure =
-        detail.kind === "transport"
-          ? "Nothing answered. That record could not be opened."
-          : (detail.problem.detail ?? "That record could not be opened.");
+      failure = stated(detail.failure, "That record could not be opened.");
       return;
     }
     reviewing = detail.value;
@@ -100,10 +99,11 @@
       if (cancelled) return;
       if (outcome.kind !== "ok") {
         candidates = [];
-        failure =
-          outcome.kind === "transport"
-            ? "Nothing answered. The firm's record was not searched for near matches."
-            : (outcome.problem.detail ?? "The firm's record could not be searched for near matches.");
+        failure = stated(
+          outcome.failure,
+          "The firm's record could not be searched for near matches.",
+          "The firm's record was not searched for near matches.",
+        );
         return;
       }
       // The candidate answer NAMES each candidate — the server resolves the whole list in one
@@ -127,10 +127,12 @@
   </div>
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Near Matches Could Not Be Read</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="The Near Matches Could Not Be Read"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {:else if candidates === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Looking for near matches">
       <Skeleton class="h-32 w-full" />

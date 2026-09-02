@@ -13,6 +13,7 @@ import {
 } from "@magna-carta/matters/matter-service";
 import {
   ClosePreconditionError,
+  runClosePreconditions,
   type ClosePrecondition,
 } from "@magna-carta/matters/close-preconditions";
 import type { CloseAdvisory } from "@magna-carta/matters/close-advisories";
@@ -78,6 +79,9 @@ const MatterSummary = z
     responsibleMemberId: z.string(),
     clientDisplayName: z.string().nullable(),
     matterNumber: z.string().nullable(),
+    // The tentative number a consultation wears until (and after) it is opened. Carried beside the
+    // matter number, never folded into it: which of the two a reader has changes what it means.
+    consultationNumber: z.string().nullable(),
     createdAt: z.string(),
   })
   .openapi("MatterSummary");
@@ -91,6 +95,8 @@ const ConsultationItemSchema = z
     id: z.string(),
     title: z.string(),
     matterNumber: z.string().nullable(),
+    // A consultation's own number — on this view, the only number there is.
+    consultationNumber: z.string().nullable(),
     createdAt: z.string(),
     isStale: z.boolean(),
   })
@@ -112,6 +118,7 @@ const MatterDetail = z
     clientDisplayName: z.string().nullable(),
     clientCode: z.string().nullable(),
     matterNumber: z.string().nullable(),
+    consultationNumber: z.string().nullable(),
     eBilling: z.boolean(),
     openedAt: z.string().nullable(),
     closedAt: z.string().nullable(),
@@ -131,7 +138,13 @@ const MatterDetail = z
 // from the stored body — is byte-identical to the fresh response. That is why these carry matterId,
 // not a remapped id: the handler returns the service value verbatim.
 const CreateMatterResponse = z
-  .object({ matterId: z.string(), matterNumber: z.string().nullable() })
+  .object({
+    matterId: z.string(),
+    matterNumber: z.string().nullable(),
+    // Filled for a consultation, which is numbered the moment it is created; null for a matter
+    // created straight to open, which never was one.
+    consultationNumber: z.string().nullable(),
+  })
   .openapi("CreateMatterResponse");
 
 const PatchMatterRequest = z
@@ -164,6 +177,23 @@ const CloseAck = z
     notices: z.array(z.object({ code: z.string(), message: z.string() })),
   })
   .openapi("MatterCloseAck");
+
+// Whether a matter would close if somebody asked it to, WITHOUT asking. The close hook's rules are
+// pure reads with a separate commit guard, so running them read-only is the same question the close
+// asks and none of the write. A screen that offers a close can therefore state the answer instead of
+// making a person press a button to discover it.
+//
+// It is a probe and not a promise: the balances it reads can move a second later, which is exactly
+// why the close re-asserts every rule inside its own batch. `closable` here means "nothing stands in
+// the way right now", never "this close will succeed".
+const CloseReadiness = z
+  .object({
+    matterId: z.string(),
+    status: matterStatus,
+    closable: z.boolean(),
+    blockers: z.array(z.object({ code: z.string(), message: z.string() })),
+  })
+  .openapi("MatterCloseReadiness");
 
 const RenumberRequest = z
   .object({ matterNumber: z.string().min(1) })
@@ -358,6 +388,19 @@ const getMatterMeta: RouteMeta = {
   rateLimit: "default",
 };
 
+// The same permission the close itself names: the answer quotes trust balances and conceded client
+// credits, so whoever may read it is whoever may act on it.
+const getMatterCloseReadinessMeta: RouteMeta = {
+  operationId: "matters.closeReadiness",
+  surface: "app",
+  authenticated: true,
+  permission: "matters:close",
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
 const patchMatterMeta: RouteMeta = {
   operationId: "matters.update",
   surface: "app",
@@ -512,6 +555,29 @@ const getMatterRoute = defineOpenAPIRoute(getMatterMeta, {
   responses: {
     200: { description: "The matter", content: { "application/json": { schema: MatterDetail } } },
     401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const getMatterCloseReadinessRoute = defineOpenAPIRoute(getMatterCloseReadinessMeta, {
+  method: "get",
+  path: "/api/v1/matters/{id}/close-readiness",
+  description:
+    "Answers whether this matter would close right now, without closing it. Runs the same close " +
+    "preconditions the close runs and reports each one that stands in the way, with the balance and " +
+    "the movements that clear it, in the words of the subsystem that owns the rule. A matter that is " +
+    "already closed is reported as not closable, with that as its blocker. The answer is a reading " +
+    "of the present, never a guarantee: the close re-asserts every rule inside its own batch, so a " +
+    "balance that moves in between is caught there.",
+  request: { params: matterParam },
+  responses: {
+    200: {
+      description: "Whether the matter can close, and what stands in the way",
+      content: { "application/json": { schema: CloseReadiness } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
     404: authErrors[404],
     429: authErrors[429],
   },
@@ -689,6 +755,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           {
             matterId: result.matterId,
             matterNumber: result.matterNumber,
+            consultationNumber: result.consultationNumber,
           } as z.infer<typeof CreateMatterResponse>,
           201,
         );
@@ -770,6 +837,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         client_display_name: string | null;
         client_code: string | null;
         matter_number: string | null;
+        consultation_number: string | null;
         e_billing: number;
         opened_at: string | null;
         closed_at: string | null;
@@ -799,6 +867,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           clientDisplayName: row.client_display_name,
           clientCode: row.client_code,
           matterNumber: row.matter_number,
+          consultationNumber: row.consultation_number,
           eBilling: row.e_billing !== 0,
           openedAt: row.opened_at,
           closedAt: row.closed_at,
@@ -807,6 +876,54 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           locationName: row.location_name,
           responsibleMemberName: row.responsible_member_name,
         } as z.infer<typeof MatterDetail>,
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/matters/{id}/close-readiness — would this close, if asked?
+  app.openapi(
+    {
+      ...getMatterCloseReadinessRoute,
+      middleware: chokepointMiddleware(chokepoint, getMatterCloseReadinessRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const { results } = await selectMatterDetailStatement(firm.firmDatabase, id).all<{
+        status: "prospective" | "open" | "closed";
+      }>();
+      const row = results[0];
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such matter in this firm.",
+        });
+      }
+      // A matter that is already closed is not closable, and saying so here rather than leaving it
+      // to the caller keeps one definition of the word: the close refuses it for its own reason (a
+      // recorded close date must never move), which is as real a blocker as a balance.
+      const blockers =
+        row.status === "closed"
+          ? [
+              {
+                code: "matter-already-closed",
+                message: `matter ${id} is already closed; its close date and events stand`,
+              },
+            ]
+          : await runClosePreconditions(
+              { matterId: id, database: firm.firmDatabase },
+              CLOSE_PRECONDITIONS,
+            );
+      return c.json(
+        {
+          matterId: id,
+          status: row.status,
+          closable: blockers.length === 0,
+          blockers: blockers.map((blocker) => ({ code: blocker.code, message: blocker.message })),
+        } as z.infer<typeof CloseReadiness>,
         200,
       );
     },

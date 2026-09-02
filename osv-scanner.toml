@@ -4,11 +4,11 @@
 # each carries a cause. The `ignoreUntil` on the tracked-remediation set is a forcing function — when it
 # lapses the advisory re-surfaces and fails the gate, so acceptance cannot silently become permanent.
 #
-# THE FILE IS EMPTY OF ENTRIES, AND THAT IS THE INTENDED STATE. Nothing is accepted today. An entry
-# belongs here only when an advisory would otherwise FAIL the gate — that is, a remaining HIGH or
-# CRITICAL (CVSS >= 7.0) with no remediation available. An advisory the gate already passes needs no
-# entry, and adding one would be actively harmful: it would hide a finding that is currently visible in
-# the scan output for the next person who reads it.
+# ONE ENTRY IS ACCEPTED TODAY, AND THE EMPTY STATE IS STILL THE INTENDED ONE. An entry belongs here
+# only when an advisory would otherwise FAIL the gate — that is, a remaining HIGH or CRITICAL
+# (CVSS >= 7.0) with no remediation available. An advisory the gate already passes needs no entry, and
+# adding one would be actively harmful: it would hide a finding that is currently visible in the scan
+# output for the next person who reads it.
 #
 # --- History, so a future reader knows why the mechanism exists ------------------------------------
 #
@@ -40,6 +40,14 @@
 # override, onto lodash 4.18.1, which every other consumer in the tree already resolved. The 4.18 line
 # fixes that advisory and the two prototype-pollution records alongside it.
 #
+# The same carrier was the wall for @faker-js/faker 5.5.3 (GHSA-qxc2-j82w-r537, helpers.fake code
+# execution, CVSS 7.8, fixed only in 10.5.0). postman-collection hard-pins 5.5.3 through its newest
+# release and reads the v5 API at module load, so the override that worked for lodash and uuid makes
+# it throw on require here. It left the tree on 2026-09-02 the way quick-xml did: the carrier went.
+# postman-collection reached the lockfile only through the Prism mock server's HTTP layer, and nothing
+# in the repository ran Prism, so @stoplight/prism-cli was dropped from apps/api-worker and the mock
+# server is run on demand with `pnpm dlx` instead (docs/conventions/api.md).
+#
 # --- What is NOT accepted, and is deliberately left visible ----------------------------------------
 #
 # Nine advisories remain in the audited lockfiles. All nine pass the gate on severity, and every one
@@ -61,3 +69,28 @@
 #   wasmtime 43.0.2 (RUSTSEC-2026-0222, 3.8) — yara-x requires ^43.0.2 and the fix landed in 46.0.2,
 #     so no yara-x release reaches it. The defect needs an application that moves a Store between two
 #     Engines; yara-x uses one.
+
+# --- Accepted, with cause ---------------------------------------------------------------------------
+
+# The owner accepted this advisory on 2026-09-01, after the remediation search below came back empty.
+# It is the same crate and the same wall as RUSTSEC-2026-0222 above, one advisory later and over the
+# fail threshold rather than under it.
+#
+# Why no remediation exists: the fixed ranges are < 24.0.13, < 36.0.14, < 46.0.3 and < 47.0.4, and
+# 43.0.2 sits in the 37.0.0 → < 46.0.3 band, so the fix for this line is 46.0.3. yara-x is wasmtime's
+# only carrier in every audited lockfile, and no published release reaches that high — 1.18.0 (ours)
+# and 1.19.0 require ^43.0.2, and even 1.20.0, the newest, requires ^45.0.3. Checked against crates.io
+# rather than assumed.
+#
+# Why the exposure is judged nil rather than small: the defect is a filesystem sandbox escape through
+# trailing slashes or symlinks in a WASI preopen. containers/scan uses yara_x::{Compiler, Rules,
+# Scanner} only; wasmtime is internal to yara-x's rule JIT, and there is no WASI, no preopen and no
+# guest filesystem anywhere in that container's source. There is no operation here for the advisory
+# to target.
+#
+# The exit condition is a yara-x release requiring wasmtime >= 46.0.3. ignoreUntil re-surfaces it for
+# review before then, so this cannot become permanent by inattention.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0269"
+ignoreUntil = 2026-10-01
+reason = "wasmtime 43.0.2 WASI filesystem sandbox escape. No remediation reachable: the fix for the 37-45 line is 46.0.3 and no yara-x release requires above ^45.0.3. yara-x is the only carrier, and containers/scan uses it for rule compilation and scanning only - no WASI, no preopens, no guest filesystem - so the advisory has no reachable surface. Revisit when a yara-x release requires wasmtime >= 46.0.3."

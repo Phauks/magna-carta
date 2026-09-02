@@ -1,5 +1,6 @@
 import type { DataRegion } from "@magna-carta/database/data-region";
 import type { Bindings } from "../app.ts";
+import { firmBucketNotBound } from "./firm-bucket-fault.ts";
 import { firmBucketFactoryForEnv } from "./firm-bucket-wiring.ts";
 import { requireBucket } from "./require-bucket.ts";
 
@@ -47,11 +48,12 @@ export function resolveFirmBucket(
   if (factory === null) return { bucketName, bucket: env.R2 };
 
   const boundBucketName = env.R2_BUCKET_NAME;
+  // A NAMED fault rather than a bare throw: this is the one way a deployment can be configured such
+  // that no upload can work at all, and a bare Error reached the member as "an unexpected error
+  // occurred" with an Error ID — which said nothing about what was wrong, or that it was not their
+  // file (firm-bucket-fault.ts).
   if (boundBucketName === undefined || boundBucketName === "") {
-    throw new Error(
-      "R2_BUCKET_NAME is unset — the bound R2 bucket cannot be told apart from a firm's own, so no " +
-        "read can prove it reaches the bucket a presigned URL addresses",
-    );
+    throw firmBucketNotBound();
   }
   // The bound bucket is reached through its binding: no signing, no network hop, exact binding
   // semantics. Everything else goes over the S3 API.

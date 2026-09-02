@@ -12,6 +12,8 @@
    * that has left the submitted state between then and now is skipped rather than shown.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
@@ -43,7 +45,7 @@
 
   let position = $state(0);
   let sending = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   // Opening starts the walk at the top. Reopening after a change starts the new queue at the top
   // too, which is the honest answer: the queue is not the same queue.
@@ -72,12 +74,11 @@
     const outcome = await approveCost(fetch, current.id, writeKey());
     sending = false;
     if (outcome.kind !== "ok") {
-      failure =
-        outcome.kind === "transport"
-          ? "Nothing answered. The cost was not approved and is unchanged."
-          : `${outcome.problem.detail ?? "The cost was not approved."}${
-              outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-            }`;
+      failure = stated(
+        outcome.failure,
+        "The cost was not approved.",
+        "The cost was not approved and is unchanged.",
+      );
       return;
     }
     onApproved();
@@ -104,10 +105,12 @@
     </Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Changed</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Changed"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
     {/if}
 
     {#if current !== null}

@@ -1,0 +1,258 @@
+@layer components {
+  /*
+   * The modal frame — the chassis both modal shells sit on. RecordWindow (a record read and
+   * changed) and ActionDialog (an act asked of a reader) differ in what they carry; they do not
+   * differ in the frame that carries it, and this is that frame, once.
+   *
+   * It exists because the alternative was measured: the largest panel in the app rebuilt every rule
+   * below from utilities in 647 lines, quoting the record window's own doctrine in its comments,
+   * because there was nothing to reach for. A pane system that lives in one shell is a pane system
+   * every other panel rebuilds.
+   *
+   * THE FRAME IS THREE BANDS AND A RULE. A header band that never moves; a body; an action bar of
+   * fixed geometry. And the sizing rule that governs all three — FIT FIRST, THEN CAP, and the order
+   * of those two is the rule, not a detail:
+   *
+   *   1. A panel that FITS does not scroll. The frame sizes to its content (`block-size:
+   *      fit-content`), so a short panel opens short: no scrollbar, no band of empty space, nothing
+   *      to move. This is the preferred outcome and most panels reach it.
+   *   2. A panel that genuinely does NOT fit caps at the viewport, and then the PANES ALONE move.
+   *      The header and the action bar are `flex: none`, so they never shrink and never scroll
+   *      away — a long form can no more push its own close control off the screen than it can
+   *      hide the commit.
+   *
+   * Both are true; the first is preferred and the second is what happens when the first is
+   * impossible. Nothing here should be changed to make the panel always full height or always
+   * scrolling: that trades the common case away to simplify the rare one.
+   *
+   * WHERE EXTRA WIDTH GOES: THE PRIMARY PANE STOPS, THE CONTEXT CONTINUES. Prose and rows of fields
+   * set across a wide monitor are harder to read, not easier — so the primary pane stops at its own
+   * measure (size.record-pane) and holds it however wide the frame gets. Everything past that goes
+   * to the context pane, which is the side that can use room: attachments, a history, a client's
+   * standing all read better wide and worse cramped. That is a bound, not a ratio, and the two panes
+   * are flex items rather than grid tracks for exactly that reason — a track ratio cannot say "this
+   * one stops and that one carries on". Each pane's `inline-size` is its flex BASIS; the primary
+   * pane's `max-inline-size` is where it stops; flex hands the surplus to the only pane still
+   * willing to take it. A primary pane with NO context beside it has no reason to stop, so it fills
+   * the frame — `:only-child` below — which is what lets a wide single-column form use its width.
+   *
+   * HOW WIDE A FRAME OPENS IS NOT DECLARED HERE, AND THAT IS DELIBERATE. It rides the element as a
+   * `max-w-*` utility. A recipe cannot win it: the dialog panel this dresses already carries a
+   * default cap as a Tailwind utility, and utilities outrank the components layer whatever the
+   * selector, so a `max-inline-size` written here would be overridden silently and govern nothing.
+   * (It did exactly that until it was measured in a browser.)
+   *
+   * This recipe dresses the Dialog and AlertDialog panels rather than replacing them, so it is
+   * imported AFTER both of those recipes in styles/components.css; at equal specificity the later
+   * declaration wins, and the panel's own padding, gap and overflow are what it overrides.
+   */
+  .mc-modal-frame {
+    padding: var(--mc-space-0);
+    gap: var(--mc-space-0);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    /* Stated here rather than inherited from the dialog, because rule 1 above depends on it: a
+       panel whose height came from anywhere but its content would scroll a form that fits. */
+    block-size: fit-content;
+  }
+
+  /* --- the header band ------------------------------------------------------------------- */
+
+  .mc-modal-frame-header {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--mc-space-16);
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-24);
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+  }
+  .mc-modal-frame-identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-modal-frame-heading {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-lg);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  /* The subtitle is a reference's one home, so it stays legible rather than decorative. */
+  .mc-modal-frame-subtitle {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  .mc-modal-frame-header-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+  }
+  /*
+   * A header control, one shape wherever it appears: a quiet icon button that lifts to the default
+   * ink on hover. They frame the work rather than being part of it, so they carry no fill and no
+   * chrome of their own; a disabled one mutes its colour at rest, not only under the pointer.
+   */
+  .mc-modal-frame-header-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--mc-density-control-sm);
+    min-block-size: var(--mc-density-control-sm);
+    padding: var(--mc-space-4);
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-modal-frame-header-action:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-modal-frame-header-action:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-modal-frame-header-action[aria-pressed="true"] {
+    color: var(--mc-text-default);
+  }
+  /* After the hover and pressed rules, so it wins at equal specificity. */
+  .mc-modal-frame-header-action:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-modal-frame-header-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /* --- the body: the primary pane beside its context ---------------------------------------- */
+
+  .mc-modal-frame-body {
+    flex: auto;
+    display: flex;
+    min-block-size: var(--mc-space-0);
+    overflow: hidden;
+  }
+  /*
+   * The primary pane. Top-aligned and dense: the reader's eye starts at the first fact or the first
+   * field, never below a band of empty space, and the pane does not stretch its rows to fill a tall
+   * frame. It scrolls in itself.
+   */
+  .mc-modal-frame-pane {
+    justify-content: flex-start;
+    display: flex;
+    flex-direction: column;
+    flex: auto;
+    inline-size: var(--mc-size-record-pane);
+    max-inline-size: var(--mc-size-record-pane);
+    gap: var(--mc-space-12);
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-24);
+    overflow-y: auto;
+    min-inline-size: var(--mc-space-0);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  /* Alone in the body, the pane has no context to hand its surplus to, so it takes the frame. */
+  .mc-modal-frame-pane:only-child {
+    max-inline-size: none;
+  }
+  /*
+   * The context pane sits on the quieter surface behind the primary one, and takes the hairline
+   * that separates the two. It clips; whatever it holds is what scrolls. It carries no cap of its
+   * own: it is the pane the frame's spare width belongs to.
+   */
+  .mc-modal-frame-context {
+    display: flex;
+    flex-direction: column;
+    flex: auto;
+    inline-size: var(--mc-size-record-context);
+    min-inline-size: var(--mc-space-0);
+    overflow: hidden;
+    background-color: var(--mc-surface-sunken);
+    border-inline-start-style: solid;
+    border-inline-start-width: var(--mc-border-width-default);
+    border-inline-start-color: var(--mc-border-default);
+  }
+
+  /*
+   * What a context pane holds when it is not a tab strip: a column that fills the pane and scrolls
+   * in itself, with the same measure as a tab panel so context reads the same beside a form as it
+   * does beside a record. A COLUMN, not a plain block, so a panel whose whole content is one
+   * scrolling thing works without the caller wrapping it.
+   */
+  .mc-modal-frame-context-body {
+    display: flex;
+    flex-direction: column;
+    flex: auto;
+    min-block-size: var(--mc-space-0);
+    overflow-y: auto;
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-16);
+  }
+
+  /* --- the notice band -------------------------------------------------------------------- */
+
+  /*
+   * Where a failure lands: between the body and the action bar, OUTSIDE the scroll. A refusal
+   * comes back from pressing the commit, and the reader is looking at the commit when it does; a
+   * band at the top of a long form has scrolled out of sight by then, and a refusal nobody read is
+   * a refusal that was not made. The band is `flex: none` like the bars around it, so it never
+   * scrolls away either. It carries only inline and end padding — the pane above already ends in
+   * its own — and an empty band draws nothing, so a caller whose notice has nothing to say costs
+   * the frame no height.
+   */
+  .mc-modal-frame-notice {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    padding-inline: var(--mc-space-24);
+    padding-block-end: var(--mc-space-16);
+  }
+  .mc-modal-frame-notice:empty {
+    display: none;
+  }
+
+  /* --- the action bar --------------------------------------------------------------------- */
+
+  /*
+   * Fixed geometry: the same band in the same place at the same height in every state, so an act a
+   * state refuses shows disabled with its reason and the bar never jumps under the hand that was
+   * reaching for it.
+   */
+  .mc-modal-frame-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--mc-space-8);
+    min-block-size: var(--mc-density-control-lg);
+    padding-block: var(--mc-space-12);
+    padding-inline: var(--mc-space-24);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+    background-color: var(--mc-surface-raised);
+  }
+}

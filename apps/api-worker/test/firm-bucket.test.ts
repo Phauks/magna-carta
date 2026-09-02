@@ -82,8 +82,10 @@ describe("resolveFirmBucket", () => {
   it("demands the bound bucket's name once real presigning is configured", () => {
     // Without it the binding cannot be told apart from a firm's own bucket, so nothing could prove a
     // read reaches the bucket a presigned URL addresses. An unset value is a misconfiguration.
+    // The refusal is a NAMED fault (firm-bucket-fault.ts) that tells the member what is misconfigured
+    // and what the operator sets, rather than an Error ID that says nothing.
     expect(() => resolveFirmBucket(envWithRealPresigning({}), BOUND_BUCKET)).toThrow(
-      /R2_BUCKET_NAME is unset/,
+      /does not name the storage bucket it reads through[\s\S]*R2_BUCKET_NAME/,
     );
   });
 
@@ -97,7 +99,7 @@ describe("resolveFirmBucket", () => {
   });
 
   it("fails loudly for a firm whose provisioning never recorded a bucket", () => {
-    expect(() => resolveFirmBucket(env, null)).toThrow(/no R2 bucket/);
+    expect(() => resolveFirmBucket(env, null)).toThrow(/has not finished being provisioned/);
   });
 });
 

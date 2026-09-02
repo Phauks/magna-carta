@@ -90,29 +90,35 @@ describe("lookupWhois", () => {
       "example.com",
       respondWith({ title: "boom", status: 500, errorId: "error_abc123" }, 500),
     );
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 500, errorId: "error_abc123" } });
+    expect(outcome).toMatchObject({
+      kind: "problem",
+      problem: { status: 500, errorId: "error_abc123" },
+    });
   });
 
   it("returns a problem carrying the status when a 400 body has no Error ID field", async () => {
     const outcome = await lookupWhois("bad", respondWith("not a json body", 400));
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 400, errorId: undefined } });
+    expect(outcome).toMatchObject({ kind: "problem", problem: { status: 400 } });
   });
 
   it("reports a 401 as a problem so the page can explain the missing session", async () => {
     const outcome = await lookupWhois("example.com", respondWith({ errorId: "error_z" }, 401));
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 401, errorId: "error_z" } });
+    expect(outcome).toMatchObject({
+      kind: "problem",
+      problem: { status: 401, errorId: "error_z" },
+    });
   });
 
   it("reports transport when nothing answers at all", async () => {
     const throwing = (async () => {
       throw new TypeError("network down");
     }) as unknown as typeof fetch;
-    expect(await lookupWhois("example.com", throwing)).toEqual({ kind: "transport" });
+    expect(await lookupWhois("example.com", throwing)).toMatchObject({ kind: "transport" });
   });
 
   it("reports transport when a 200 body is not valid JSON", async () => {
     const outcome = await lookupWhois("example.com", respondWith("<html>not json</html>", 200));
-    expect(outcome).toEqual({ kind: "transport" });
+    expect(outcome).toMatchObject({ kind: "transport" });
   });
 });
 
@@ -181,7 +187,7 @@ describe("lookupWhoisWithRetries", () => {
       respondInSequence([{ body: {}, status: 502 }]),
       noDelay,
     );
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 502, errorId: undefined } });
+    expect(outcome).toMatchObject({ kind: "problem", problem: { status: 502 } });
     expect(attempts).toEqual([1, 2, 3]);
   });
 
@@ -205,7 +211,7 @@ describe("lookupWhoisWithRetries", () => {
       respondInSequence([{ body: {}, status: 429 }]),
       noDelay,
     );
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 429, errorId: undefined } });
+    expect(outcome).toMatchObject({ kind: "problem", problem: { status: 429 } });
     expect(attempts).toEqual([1]);
   });
 });

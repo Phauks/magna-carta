@@ -19,7 +19,13 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
 - `src/rate-resolution.ts` — pure `resolveRate` (override → matter → client → timekeeper → role → card default)
 - `src/rounding.ts` — `roundDuration` (quantity) + `computeAmountMinor` (integer-minor money via @magna-carta/money)
 - `src/utbms-catalog.ts` / `src/utbms-service.ts` — the seeded ABA UTBMS codes + enable/disable
-- `src/queries.ts` / `src/my-day.ts` — the WIP / weekly-grid / per-matter-unbilled / My Day reads
+- `src/queries.ts` / `src/my-day.ts` — the WIP / weekly-grid / per-matter-unbilled / My Day reads, the
+  one shared RECORD read every listing and the single-entry detail go through (`readTimeEntryRecord`),
+  and the entry's own cursor-paged event history
+- `src/entry-numbering.ts` — the matter-scoped entry number (`2026-0147.0042`): the per-matter counter
+  block drawn through `@magna-carta/sequence-numbering`, rendered against the matter's own number
+- `src/time-entry-attachments.ts` — the many-file relation to the entry's matter's documents; attach
+  refuses a file on another matter, detach removes the link and never the file
 
 ## Invariants that apply here
 
@@ -37,6 +43,12 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
   @magna-carta/money. `amount_minor` is null ⟺ `rate_e4` is null (non-billable). A `Rate`/`Money` must
   reconstruct from the stored columns, so `currency` is carried NOT NULL.
 - **Every mutation audited.** A `time_audit` row rides in the same batch as the write.
+- **The internal memo never reaches audit metadata, a bill, or a client.** `time_entry.memo` is the
+  firm's own note: an audit row records WHICH fields an edit touched (names only), never their text,
+  and no client-facing projection selects the column.
+- **An entry number is immutable and never reused.** It is drawn once at capture and kept through
+  every transition — a void keeps its number — and an entry captured before the sequence existed
+  stays null rather than being backfilled with a guess.
 
 ## Dependencies & contracts
 

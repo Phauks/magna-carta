@@ -1269,20 +1269,37 @@ export async function listDeletedFiles(
   };
 }
 
-// A matter's file activity trail, read straight off the per-firm audit_log: every 'file.*' and
-// 'document.*' event whose subject resolves to one of this matter's files, newest first on a
-// (created_at, id) keyset. Two subject shapes exist and both are resolved in one pass: rename/move/
-// delete/restore/document-type/check-in events carry the FILE id, while upload/version/download
-// events carry the FILE VERSION id — the LEFT JOIN to file_version turns the second shape back into
-// its file, and the COALESCE join to file scopes both to the matter. The file name is the file's
-// CURRENT name, resolved at read time, never baked into the event. Metadata is passed through as the
-// stored JSON string (already redacted at write time); actor names resolve through the member mirror
-// like every other surface, null when the actor is the system or the member row is gone.
+// A matter's file activity trail, read straight off the per-firm audit_log, newest first on a
+// (created_at, id) keyset.
+//
+// THREE SUBJECT SHAPES, ONE TRAIL. Rename/move/delete/restore/document-type/check-in events carry
+// the FILE id; upload/version/download events carry the FILE VERSION id (the LEFT JOIN to
+// file_version turns that back into its file); and 'folder.*' events carry the FOLDER id. The
+// folder arm is a second SELECT rather than a wider join, because a folder is a different table and
+// forcing one join to serve both would have to invent a null-file row for every folder event.
+//
+// Making a folder was audited from the day folders existed and never appeared here, because the
+// read asked only for file events and its inner join to `file` could not have matched a folder id
+// anyway. A history that silently omits a whole class of act is worse than one that says it cannot
+// see it: somebody looking for who made a folder found nothing and concluded nothing had happened.
+//
+// A DELETED FOLDER's row is gone (a folder delete is a hard delete of an empty folder), so its name
+// cannot be resolved at read time the way a file's is. That arm keeps the event and says the folder
+// is no longer on the matter rather than dropping the row — what happened is the fact being read.
+//
+// The subject name is resolved at read time, never baked into the event. Metadata is passed through
+// as the stored JSON string (already redacted at write time); actor names resolve through the
+// member mirror like every other surface, null when the actor is the system or the member row is
+// gone.
 export interface FileHistoryItem {
   readonly at: string;
   readonly event: string;
-  readonly fileId: FileId;
-  readonly fileName: string;
+  /** Whether this act was done to a file or to a folder. */
+  readonly subjectKind: "file" | "folder";
+  /** The file or folder the act was done to. */
+  readonly subjectId: string;
+  /** Its CURRENT name, or an honest sentence where the subject is no longer on the matter. */
+  readonly subjectName: string;
   readonly versionNumber: number | null;
   readonly actorUserId: UserId | null;
   readonly actorName: string | null;
@@ -1290,33 +1307,56 @@ export interface FileHistoryItem {
   readonly metadataJson: string | null;
 }
 
+/** What a folder's name reads as once the folder itself is gone from the matter. */
+const DELETED_FOLDER_NAME = "a folder no longer on the matter";
+
 export function listFileHistoryStatement(
   database: SqlDatabase,
   matterId: MatterId,
   cursor: SortCursor | undefined,
   limit: number,
 ): SqlStatement {
-  const conditions = ["(a.event LIKE 'file.%' OR a.event LIKE 'document.%')"];
-  const bindings: unknown[] = [matterId];
+  const conditions: string[] = [];
+  // The matter scopes both arms of the union, so it is bound once per arm.
+  const bindings: unknown[] = [matterId, matterId];
   if (cursor !== undefined) {
-    conditions.push("(a.created_at < ? OR (a.created_at = ? AND a.id < ?))");
+    conditions.push("(trail.created_at < ? OR (trail.created_at = ? AND trail.id < ?))");
     bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
   }
   bindings.push(limit);
+  const where = conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")} `;
   // The join to file_version resolves a version-subject event back to its file and version number —
   // it deliberately spans every status, because the history includes what happened to versions that
   // were quarantined or abandoned. It serves no bytes: it projects version_number only, never an
   // r2_key. fitness:allow-no-status
   return database
     .prepare(
-      `SELECT a.id, a.created_at, a.event, a.actor_user_id, a.metadata, ` +
-        `f.id AS file_id, f.name AS file_name, v.version_number, ` +
+      `SELECT trail.id, trail.created_at, trail.event, trail.actor_user_id, trail.metadata, ` +
+        `trail.subject_kind, trail.subject_id, trail.subject_name, trail.version_number, ` +
         `m.display_name AS actor_name ` +
+        `FROM (` +
+        // The file arm: file-subject and version-subject events, both scoped through `file`.
+        `SELECT a.id, a.created_at, a.event, a.actor_user_id, a.metadata, ` +
+        `'file' AS subject_kind, f.id AS subject_id, f.name AS subject_name, ` +
+        `v.version_number AS version_number ` +
         `FROM ${AUDIT_LOG_TABLE} a ` +
         `LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = a.subject_id ` +
         `JOIN ${FILE_TABLE} f ON f.id = COALESCE(v.file_id, a.subject_id) AND f.matter_id = ?1 ` +
-        `LEFT JOIN ${MEMBER_TABLE} m ON m.user_id = a.actor_user_id ` +
-        `WHERE ${conditions.join(" AND ")} ORDER BY a.created_at DESC, a.id DESC LIMIT ?`,
+        `WHERE (a.event LIKE 'file.%' OR a.event LIKE 'document.%') ` +
+        `UNION ALL ` +
+        // The folder arm. The join is LEFT so a folder that has since been deleted keeps its event;
+        // the matter scope then rides the ON clause, and a deleted folder's own event is admitted
+        // by its subject having no surviving row at all rather than by belonging to another matter.
+        `SELECT a.id, a.created_at, a.event, a.actor_user_id, a.metadata, ` +
+        `'folder' AS subject_kind, a.subject_id AS subject_id, ` +
+        `COALESCE(d.name, '${DELETED_FOLDER_NAME}') AS subject_name, ` +
+        `NULL AS version_number ` +
+        `FROM ${AUDIT_LOG_TABLE} a ` +
+        `LEFT JOIN ${FOLDER_TABLE} d ON d.id = a.subject_id AND d.matter_id = ?2 ` +
+        `WHERE a.event LIKE 'folder.%' AND (d.id IS NOT NULL OR a.event = 'folder.deleted')` +
+        `) trail ` +
+        `LEFT JOIN ${MEMBER_TABLE} m ON m.user_id = trail.actor_user_id ` +
+        `${where}ORDER BY trail.created_at DESC, trail.id DESC LIMIT ?`,
     )
     .bind(...bindings);
 }
@@ -1339,9 +1379,10 @@ export async function listFileHistory(
     event: string;
     actor_user_id: UserId | null;
     metadata: string | null;
-    file_id: FileId;
-    file_name: string;
     version_number: number | null;
+    subject_kind: "file" | "folder";
+    subject_id: string;
+    subject_name: string;
     actor_name: string | null;
   }>();
   const hasMore = results.length > pageSize;
@@ -1352,8 +1393,9 @@ export async function listFileHistory(
     data: rows.map((row) => ({
       at: row.created_at,
       event: row.event,
-      fileId: row.file_id,
-      fileName: row.file_name,
+      subjectKind: row.subject_kind,
+      subjectId: row.subject_id,
+      subjectName: row.subject_name,
       versionNumber: row.version_number,
       actorUserId: row.actor_user_id,
       actorName: row.actor_name,

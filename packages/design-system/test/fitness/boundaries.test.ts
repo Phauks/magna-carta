@@ -515,10 +515,10 @@ describe("recipe-file token purity (golden rule 2, component-layer discipline)",
     expect(RECIPE_CSS_FILES).toContain(
       "packages/design-system/src/lib/styles/recipes/presence.css",
     );
-    // A recipe outside components/ — the case the old two-directory scan walked straight past.
-    expect(RECIPE_CSS_FILES).toContain(
-      "packages/design-system/src/lib/status-register/status-register.css",
-    );
+    // There is no longer a recipe outside components/ and styles/ to name here: the last one, the
+    // status register's mark, became a component of its own, which is where a recipe belongs. The
+    // scan still walks the whole of src/lib rather than those two directories, so the next recipe
+    // written anywhere else is caught the day it appears rather than the day somebody notices.
     expect(RECIPE_CSS_FILES).not.toContain("packages/design-system/src/lib/styles/components.css");
     expect(RECIPE_CSS_FILES.length).toBeGreaterThanOrEqual(30);
   });

@@ -137,6 +137,28 @@ describe("visible order", () => {
     );
     expect(visible.map((column) => column.id)).toEqual(["date", "hours", "amount"]);
   });
+
+  it("a trailing-pinned column renders LAST, whatever the member-set order says", () => {
+    const columns = [dateColumn, { ...titleColumn, pinnedEnd: true }, hoursColumn, amountColumn];
+    const visible = visibleGridColumns(
+      columns,
+      ["date", "title", "hours", "amount"],
+      new Set(),
+      new Set(),
+    );
+    expect(visible.map((column) => column.id)).toEqual(["date", "hours", "amount", "title"]);
+  });
+
+  it("the leading pin set leaves a trailing-pinned column at the trailing edge", () => {
+    const columns = [dateColumn, { ...titleColumn, pinnedEnd: true }, hoursColumn, amountColumn];
+    const visible = visibleGridColumns(
+      columns,
+      ["date", "title", "hours", "amount"],
+      new Set(),
+      new Set(["title", "amount"]),
+    );
+    expect(visible.map((column) => column.id)).toEqual(["date", "amount", "hours", "title"]);
+  });
 });
 
 describe("reorder", () => {
@@ -165,6 +187,11 @@ describe("reorder", () => {
       "amount",
     ]);
     expect(movedGridColumnOrder(COLUMNS, ORDER, "date", "hours", true)).toEqual(ORDER);
+  });
+
+  it("a trailing-pinned column never moves — both its edges are declared, not arranged", () => {
+    const columns = [dateColumn, titleColumn, hoursColumn, { ...amountColumn, pinnedEnd: true }];
+    expect(movedGridColumnOrder(columns, ORDER, "amount", "title", false)).toEqual(ORDER);
   });
 });
 

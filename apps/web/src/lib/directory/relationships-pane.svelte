@@ -15,6 +15,8 @@
    * per row — and a far end the directory holds no name for renders as its gap, never as a handle.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -29,7 +31,7 @@
 
   let edges = $state<readonly DirectoryEdgeEntry[] | null>(null);
   let nextCursor = $state<string | null>(null);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let loadingMore = $state(false);
 
   $effect(() => {
@@ -47,10 +49,7 @@
         return;
       }
       edges = [];
-      failure =
-        outcome.kind === "transport"
-          ? "Nothing answered. This record's relationships could not be read."
-          : (outcome.problem.detail ?? "This record's relationships could not be read.");
+      failure = stated(outcome.failure, "This record's relationships could not be read.");
     })();
     return () => {
       cancelled = true;
@@ -87,10 +86,12 @@
   <h3 class="text-sm font-semibold">Relationships</h3>
 
   {#if failure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Relationships Could Not Be Read</Alert.Title>
-      <Alert.Description>{failure}</Alert.Description>
-    </Alert.Root>
+    <FailureNotice
+      failure={failure.failure}
+      title="The Relationships Could Not Be Read"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
   {:else if edges === null}
     <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading this record's relationships">
       <Skeleton class="h-32 w-full" />

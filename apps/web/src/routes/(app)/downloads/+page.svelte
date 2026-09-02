@@ -9,6 +9,9 @@
    * artifact hands back a short-lived URL the browser downloads directly.
    */
   import { onMount } from "svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import { guidanceFor } from "$lib/diagnostics/guidance.ts";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Download from "@lucide/svelte/icons/download";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -40,7 +43,7 @@
   import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
 
   let items = $state<ShelfItem[] | null>(null);
-  let failure = $state<{ message: string; errorId: string | null } | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   // Selection is the reason exporting generates rather than downloads: several items gathered over a
   // morning are taken in one act. Held as ids so a refresh that drops a row drops it from the
   // selection too, rather than leaving a phantom selected item nothing can act on.
@@ -74,18 +77,9 @@
       items = [...outcome.value.items];
       const present = new Set(items.map((item) => item.id));
       selectedIds = selectedIds.filter((id) => present.has(id));
-    } else if (outcome.kind === "problem") {
-      items = null;
-      failure = {
-        message: outcome.problem.detail ?? "Your downloads could not be read.",
-        errorId: outcome.problem.errorId ?? null,
-      };
     } else {
       items = null;
-      failure = {
-        message: "Nothing answered the request. Check your connection, then try again.",
-        errorId: null,
-      };
+      failure = stated(outcome.failure, "Your downloads could not be read.");
     }
   }
 
@@ -105,11 +99,8 @@
   async function take(item: ShelfItem, format: string): Promise<void> {
     const outcome = await fetchShelfItem(fetch, item.id, format);
     if (outcome.kind !== "ok") {
-      const message =
-        outcome.kind === "problem"
-          ? (outcome.problem.detail ?? "That download could not be taken.")
-          : "Nothing answered the request. Check your connection, then try again.";
-      toast.error(message);
+      // A toast has nowhere to put a handle or a remedy, so it takes the presenter's sentence.
+      toast.error(guidanceFor(outcome.failure, "That download").message);
       // A gone item is gone for good, so the shelf is re-read rather than left showing it.
       if (outcome.kind === "problem" && outcome.problem.status === 410) void load();
       return;
@@ -211,19 +202,12 @@
 </Masthead.Root>
 
 {#if failure !== null}
-  <Alert.Root variant="danger">
-    <Alert.Title>Your Downloads Could Not Be Read</Alert.Title>
-    <Alert.Description>
-      {failure.message}
-      {#if failure.errorId !== null}
-        <span class="mt-8 block">Error ID: <span class="font-mono">{failure.errorId}</span></span>
-      {/if}
-      <Button variant="secondary" class="mt-8" onclick={() => void load()}>
-        <RotateCcw class="size-16" aria-hidden="true" />
-        Try again
-      </Button>
-    </Alert.Description>
-  </Alert.Root>
+  <FailureNotice
+    failure={failure.failure}
+    title="Your Downloads Could Not Be Read"
+    fallback={failure.fallback}
+    onRetry={() => void load()}
+  />
 {:else if items === null}
   <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading your downloads">
     <Skeleton class="h-32 w-full" />
