@@ -14,7 +14,7 @@
   audience: public
   public-name: Tasks and matter plans
   public-summary: Task lists on a matter, and a plan that lays them out for you when a matter of that kind is opened.
-  awaiting-owner: W7 is answered by event — the note primitive shipped first, and tasks were built on the activity stream it settled. What remains is W8, whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Four calls raised by the 2026-09-01 scope study are open and shape the remainder rather than the record: T2 (whether a time entry's task link is one-to-one or many-to-many), T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).
+  awaiting-owner: W7 and W8 are both answered — W7 by event (the note primitive shipped first and tasks were built on the activity stream it settled), W8 by the owner on 2026-09-01 (a plan proposes its tasks and a member accepts them; acceptance is the write). Four calls raised by the 2026-09-01 scope study remain open and shape the remainder rather than the record: T2 (whether a time entry's task link is one-to-one or many-to-many), T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).
 
 - id: tasks.task-lists
   name: Task lists

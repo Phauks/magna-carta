@@ -3052,7 +3052,7 @@
       },
       "branch": "claude/tasks-feature-planning-ihaq2r",
       "activeWork": "docs/active-work/claude/tasks-feature-planning-ihaq2r.md",
-      "next": "matter plans (templates, role-based default assignment, propose-and-confirm instantiation) are gated on owner flags W8, W11 and W12; the time-entry link; due-soon and overdue reminders wait on the notifications comparison sweep; the board view waits on T3",
+      "next": "matter plans — UNBLOCKED, W8 answered 2026-09-01 (a plan proposes and a member accepts); W11 and W12 stay open but the design's own answers to both are safe defaults the build proceeds under, so what remains is templates, role-based default assignment and propose-and-confirm instantiation. Then the time-entry link; due-soon and overdue reminders wait on the notifications comparison sweep; the board view waits on T3",
       "links": {
         "spec": "docs/specs/2026-08-15-tasks-and-matter-plans-design.md",
         "plan": "docs/specs/2026-09-01-tasks-scope-study.md",
