@@ -85,11 +85,25 @@ correct — a queue message names a firm, not a bucket — and surfaced as three
 been driving consumers for firms that existed nowhere. `seedFirm` now records a bucket by default,
 because a firm without one is a shape production never has.
 
-Still owed by the adapter itself, and deliberately not smuggled in here: per-firm lifecycle rules at
-provisioning (firm buckets today get **neither** the `bundles/` rule nor the still-missing
-`conversions/` one), an injectable adapter so the Miniflare pool can exercise the firm-bucket path,
-and the S3 endpoint's data region. That last one is a defect in the existing presign path rather than
-a new concern: `presign.ts` hardcodes the default `<account>.r2.cloudflarestorage.com`, while
-`data-region.ts` supports an `eu` jurisdiction whose buckets are reachable only at a different
-endpoint. It is latent because `data_region` defaults to `us`, and it bites the first EU firm whether
-or not this adapter lands.
+Provisioning now applies the firm bucket's expiry rules as well, on the same unconditional footing as
+its event notifications: `bundles/` at seven days, `conversions/` at twenty-four hours, and an
+abandoned-multipart abort at twenty-four hours. Both prefixes hold regenerable artifacts, which is
+precisely why they can carry a rule where a firm's own documents cannot. Firm buckets previously got
+**neither**, so every bundle and conversion a firm ever produced accumulated in its bucket, metered.
+The shared platform bucket predates this code and keeps its dashboard step.
+
+The endpoint is now one home (`files/r2-s3-endpoint.ts`), used by both the adapter and the presigner,
+and it is jurisdiction-aware — a bucket created under the `eu` jurisdiction exists at no other host.
+What is NOT finished, and is named here rather than implied: the firm's real data region reaches that
+helper only on the `resolveFirmBucketForFirmId` path, which reads it from the control-plane row. The
+name-taking `resolveFirmBucket` and `presignerForEnv` both default to `us`. That default is correct
+for every firm today, because `data_region` defaults to `us` and no firm has been provisioned
+otherwise, and it becomes wrong for the first EU firm — at which point the region has to be threaded
+from the tenancy chokepoint to both. The defect is older than this decision: `presign.ts` hardcoded
+the default endpoint before any of this, so an EU firm's presigned URLs were already addressing a host
+its bucket does not exist at.
+
+Also still owed: a backfill for any firm whose bytes are already in the shared bucket. The guard's
+history bounds it — while credentials have been configured, every such write was REFUSED rather than
+misdirected — so the set is plausibly empty, but it is a bucket listing rather than a code question
+and has not been run.

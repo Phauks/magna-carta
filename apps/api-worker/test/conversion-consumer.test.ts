@@ -170,11 +170,13 @@ describe("conversionQueue", () => {
     expect(acks).toEqual([]);
   });
 
-  it("reads and writes through the firm bucket seam, so a bucket it cannot reach stops the job", async () => {
-    // Proof that the consumer resolves its bucket rather than reaching for the binding: with real
-    // presigning credentials configured, the resolver refuses a firm bucket that is not the bound one
-    // (a source presigned into a bucket this Worker cannot read is a job that could never complete).
-    // A consumer holding env.R2 directly would sail past that and silently convert nothing.
+  it("reads and writes through the firm bucket seam, never through the bound binding", async () => {
+    // Proof that the consumer resolves its bucket rather than reaching for the binding, and it turns
+    // on the source object being present in the BOUND bucket while the message names a different one.
+    // With production-shaped credentials the resolver hands back an S3-backed handle addressing that
+    // other bucket, which no test pool can reach — so the job cannot complete. A consumer holding
+    // env.R2 directly would find the source sitting right there, convert it, and write the result into
+    // the wrong firm's bucket without anything noticing.
     const firmId = "firm_conv_seam";
     const jobId = "job_conv_seam_1";
     const sourceKey = `conversions/${firmId}/${jobId}/source`;
@@ -206,12 +208,14 @@ describe("conversionQueue", () => {
       convert: async () => converted(new Uint8Array([1]), "image/webp"),
     }));
 
-    const state = await stub.status();
-    expect(state.status).toBe("failed");
-    expect(state.reason).toMatch(/not the R2 bucket bound to this Worker/);
-    // Nothing was written: the seam refused before any conversion ran.
+    // The source is readable through the binding and the conversion port always succeeds, so a result
+    // in the bound bucket would mean the consumer had read and written through it. There is none.
     expect(await env.R2.get(resultKey)).toBeNull();
+    expect(await env.R2.get(sourceKey)).not.toBeNull();
+    // Unreachable storage is a transport failure, so the message is retried rather than burned.
     expect(retries).toEqual(["msg-1"]);
     expect(acks).toEqual([]);
+    const state = await stub.status();
+    expect(state.status).not.toBe("done");
   });
 });
