@@ -26,6 +26,8 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
   block drawn through `@magna-carta/sequence-numbering`, rendered against the matter's own number
 - `src/time-entry-attachments.ts` — the many-file relation to the entry's matter's documents; attach
   refuses a file on another matter, detach removes the link and never the file
+- `src/task-time.ts` — how long a task took: the grouped read over `time_entry.task_id`, batched by
+  construction so a page of tasks costs one statement rather than one per task
 
 ## Invariants that apply here
 
@@ -46,6 +48,20 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
 - **The internal memo never reaches audit metadata, a bill, or a client.** `time_entry.memo` is the
   firm's own note: an audit row records WHICH fields an edit touched (names only), never their text,
   and no client-facing projection selects the column.
+- **A time entry names at most ONE task, and that task is on the entry's own matter.** The column is
+  nullable and null on nearly every row: time is captured against a MATTER, and naming a task is an
+  extra the timekeeper chooses. One task rather than a set, because an entry split across two tasks
+  needs an allocation of its minutes between them and an allocation is a second ledger with its own
+  rounding; the honest encoding is two entries. `assertTaskOnMatter` in `time-entry-service.ts` is
+  the whole enforcement — SQLite cannot express the cross-table condition without a trigger — and it
+  refuses three shapes under one code: a task that does not exist, a task on another matter, and a
+  task on NO matter, which is the firm's own work and has nothing for a client matter to bill it to.
+  A null `matter_id` on the task is a refusal, never a wildcard.
+- **The task summary is minutes and never money.** `readTaskTimeSummaries` answers "how long did this
+  take", which is the question the column exists for. What a task COST is a billing question with a
+  different audience and a different permission, and a summary carrying both would have to be gated
+  by the stricter of the two everywhere it is read. Void is excluded and every other status counts:
+  a discarded capture is not an hour, a billed hour still is one.
 - **An entry number is immutable and never reused.** It is drawn once at capture and kept through
   every transition — a void keeps its number — and an entry captured before the sequence existed
   stays null rather than being backfilled with a guess.
@@ -77,6 +93,18 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
   (matter → client → user → location → firm) via `resolveScopedSetting` in @magna-carta/data-access.
   Reading the firm-level key/value `setting` table directly bypasses per-matter/client overrides — always
   use the scoped resolver for time-related settings.
+- **The task summary is BATCHED by construction, and that is not an optimization to undo.** It takes
+  a set of task identifiers and returns a map, because its caller is a paged list: a per-task read
+  would put a round-trip on every row of every page, and the failure would be invisible to an EXPLAIN
+  (a per-task lookup has the same plan as the grouped one). The load profile records its STATEMENT
+  COUNT beside the timings for exactly that reason — one statement for a page of fifty tasks, and
+  `packages/fixtures/test/load-profile-smoke.test.ts` asserts it. The map answers for every task
+  asked about, including the ones with no time at all, so a caller rendering a list never has to
+  remember to default a missing key.
+- **Whose time the summary counts is the CALLER's answer, arriving as data.** `onlyTimekeeperUserId`
+  null reads the firm's; a user id reads that member's own. It is the same line My Day draws, and the
+  reason it is a parameter rather than a permission read inside the module is that this package holds
+  no session — the route resolves `time:viewFirm` and passes the consequence.
 - **Consent-gated AI seam.** The `buildNarrativeSuggestion` / UTBMS-suggestion path is compiled in but
   dark: the route returns null unless the firm's client-consent flag is set. No model is reached at any
   point in the default path. Do not change the gate without a consent decision recorded as an ADR

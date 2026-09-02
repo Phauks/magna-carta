@@ -1,5 +1,5 @@
 ---
-slice: 6·3 — Tasks (the task record, its two screens, and the matter plan)
+slice: 6·3 — Tasks (the task record, its screens, the matter plan, and the time link)
 group: phase-6
 order: 3
 research: n/a
@@ -7,11 +7,11 @@ spec: done
 plan: done
 built: done
 ui: done
-load-profile: todo
+load-profile: done
 tested: done
 branch: claude/tasks-feature-planning-ihaq2r
 active-work: docs/active-work/claude/tasks-feature-planning-ihaq2r.md
-next: the time-entry link (shape waits on T2 — one-to-one or many-to-many); due-soon and overdue reminders wait on the notifications comparison sweep; the board view waits on T3; a plan's event and document steps wait on the calendar and document-automation seams; a task volume profile for the load-profile harness
+next: starting a timer from a task, which waits on the live-timer run store becoming plural; due-soon and overdue reminders wait on the notifications comparison sweep; the board view waits on T3; comments on T4 and a flat checklist on T5; a plan's event and document steps wait on the calendar and document-automation seams. One finding to revisit rather than build: tasks.my-work-page-1 scans, at a measured cost of about a millisecond over the same read narrowed
 link-spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
 link-plan: docs/specs/2026-09-01-tasks-scope-study.md
 adrs:
@@ -34,4 +34,10 @@ blocked-by:
 
 **One named date-arithmetic exception.** `addCalendarDays` in `packages/tasks/src/validation.ts` is the only place in the package that adds days to a date, and it exists so the calendar's source scan can see it in exactly one spot. It is plain calendar addition — no holidays, no court rules, no weekend rolling — which is precisely why the result is a **proposal** a person reviews: a plan can and will put a task on Christmas Day, and the person accepting is the one who moves it. The anchor vocabulary stays at one value, `matter opened`, because every other candidate is the front half of a docketing rule this platform does not build.
 
-Not built: a plan's event and document steps, the time-entry link, the board and its firm-defined statuses, recurrence, watchers and comments. The platform ships no curated plans of its own. The load profile has no task volume profile yet.
+**Where a task meets time.** One nullable `task_id` on `time_entry`, answering flag **T2** the way the scope study recommended: ONE task per entry, never a set. An entry split across two tasks needs an allocation of its minutes, and an allocation is a second ledger with its own rounding and its own disputes; the honest encoding is two entries. A join table stays an additive migration over this column if many-to-many is ever wanted, and the reverse is not, so the reversible direction is the one taken. `assertTaskOnMatter` is the whole enforcement of the rule SQLite cannot hold — the task must be on the entry's own matter — and it refuses three shapes under one code on the `file-not-on-matter` model: no such task, a task on another matter, and a task on NO matter, which is firm work with nothing to bill it to. A null `matter_id` there is a refusal, never a wildcard, so the firm's own work is timeless by construction.
+
+The read is **minutes and never money** — what a task cost has a different audience and a different permission — and it is **batched by construction**, riding the task list's own `pageFrom` beside the attachments read rather than a route of its own. A standalone per-task endpoint was built first and removed rather than left uncalled. Whose time it counts is the reader's `time:viewFirm` answer arriving as data, and the scope travels beside the totals because the same two numbers mean two different things.
+
+**The load profile earned its keep on the first run.** The task volume lays down the deep list, the firm's own matterless work and the linked time, and measures the four-term keyset cursor, both halves of the visibility fragment, the LIKE search under its narrowing, and the grouped time read. Page 20 costs less than page 1 (0.48 ms against 0.71 ms) and the time read is **one statement for a page of fifty**, asserted in the smoke test because no EXPLAIN can see that failure. It also found a real scan: `tasks.my-work-page-1` cannot seek, because the unnarrowed firm-wide read names no matter and no assignee and its visibility fragment is an OR spanning the presence of `matter_id` itself. Recorded by name with the number the trade was made against — 2.1 ms against 1.1 ms narrowed — and not fixed here, because a measurement change measures. Two pre-existing firm-window scans, `matterNote` and `matterTask`, were sitting unallowlisted and are now named with the same reason as the other eight.
+
+Not built: a plan's event and document steps, starting a timer from a task (which waits on the live-timer run store becoming plural — a replacing `start` silently destroys the first run's elapsed time), the board and its firm-defined statuses, recurrence, watchers and comments. The platform ships no curated plans of its own.

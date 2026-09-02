@@ -1,8 +1,8 @@
 ---
 worktree: (remote session — no local worktree path)
-area: Tasks — the scope study, then the build: @magna-carta/tasks, the schema, the routes, the task screens, and the matter plan.
+area: Tasks — the scope study, then the build: @magna-carta/tasks, the schema, the routes, the task screens, the matter plan, and the time link.
 status: review
-touches: packages/tasks, packages/database, packages/notifications, packages/calendar/src/sources, packages/access-control, packages/identifiers, packages/data-access/src/pii-registry.ts, apps/api-worker, apps/web, roadmap.d/tasks.md, status.d, ROADMAP.md
+touches: packages/tasks, packages/timekeeping, packages/fixtures, packages/database, packages/notifications, packages/calendar/src/sources, packages/access-control, packages/identifiers, packages/data-access/src/pii-registry.ts, apps/api-worker, apps/web, roadmap.d/tasks.md, status.d, ROADMAP.md
 ---
 
 # claude/tasks-feature-planning-ihaq2r
@@ -33,8 +33,15 @@ three widened CHECKs (two table rebuilds), `packages/access-control` gains four 
 
 The owner answered **W8** on 2026-09-01 — a plan proposes and a member accepts — which unblocked the
 plan half; it is built. **W11** and **W12** stay open and neither blocks: the build took the design's
-own answer to each (ship no platform plans, keep the anchor vocabulary at `matter opened`).
+own answer to each (ship no platform plans, keep the anchor vocabulary at `matter opened`). **T2** is
+answered the way the scope study recommended and built: one nullable `task_id` on `time_entry`.
 
-**Not in flight, and not this stream's:** a plan's event and document steps, the time-entry link, and
-the board view. Each is gated on an owner answer named in the scope study, or on a seam in another
-subsystem.
+**Also touched, and worth knowing about:** `packages/timekeeping` gains the column on `time_entry`,
+a refusal code, and `src/task-time.ts`; `packages/fixtures` gains a task volume, a profile version
+bump to 16 and a `GENERATOR_VERSION` bump to 12 (both invalidate cached snapshots by design), a
+regenerated baseline, and two additions to the calendar's firm-window scan allowlist that were
+already outstanding on `main`.
+
+**Not in flight, and not this stream's:** a plan's event and document steps, starting a timer from a
+task (which waits on the live-timer run store becoming plural), and the board view. Each is gated on
+an owner answer named in the scope study, or on a seam in another subsystem.

@@ -155,10 +155,36 @@ practises in your jurisdiction. A plan written by us, with a missing step or a s
 order, would look authoritative precisely because it shipped with the software. Yours will be right;
 ours could not be.
 
+## Time On A Task
+
+A time entry can say which task the work was for. Open the entry, pick the task in the **Task**
+field, and save — the field offers that matter's open tasks and nothing else, because time on one
+matter cannot be work on another matter's task. Most entries name none, and that is the ordinary
+case: time is recorded against a **matter**, and naming a task is an extra you choose when you want
+to know how long a particular piece of work took.
+
+Once there is time against a task, the task says so: **Time logged** appears in its row with the
+total. That total is minutes, not money — what a task was billed for is a billing question, asked on
+a billing screen.
+
+**Whose time you see depends on what you may see.** If you are allowed to see other people's time,
+the total is the whole task's: everything the firm has put into it. If you are not, you see your
+own and the row says **by you**, so the number is never mistaken for the whole.
+
+Some things this deliberately does not do. **One task per entry** — if a block of time served two
+tasks, record two entries, because splitting one entry between tasks would mean deciding how many of
+its minutes went to each, and that is a second set of books. **Nothing starts a timer from a task
+yet.** And **a task never carries an estimate that the product compares against the actual time** —
+that is a report, and reports belong on the reporting screens.
+
+A task on no matter — the firm's own work — cannot carry time, because there is no client matter for
+that time to belong to.
+
 ## What Is Not Built Yet
 
 There is no board view, no recurring task, and no comment thread on a task. Sub-checklists inside a
-task are not built either; use a second task and the waiting-on link.
+task are not built either; use a second task and the waiting-on link. A timer cannot yet be started
+from a task.
 
 A plan cannot yet be set to apply itself without review, and its dates can only count from the day
 the matter opened.

@@ -151,6 +151,21 @@ notification to the second person.
 due. When the sub-slice that sweeps deadlines lands, it sweeps tasks through the same mechanism
 against the same definition of overdue, not a second one.
 
+## Time against a task — read here, owned there
+
+`time_entry.task_id` is the link, and **it lives in `@magna-carta/timekeeping`, not here.** This
+package depends on neither the column nor the read: a task does not know time exists, and the number
+a surface shows is composed at the route, which reads the page of tasks from here and the page's
+minutes from `@magna-carta/timekeeping/task-time`. Nothing in `packages/tasks` may grow a query over
+`time_entry` — the work-in-progress store is that package's, with its own freeze contract and its own
+permission, and a second reader of it here would be a second answer to what a task cost.
+
+Two facts worth knowing from this side. **A task on NO matter can never carry time**, because the
+link is refused unless the task is on the entry's own matter and firm work has none — so the firm's
+own work is timeless by construction rather than by a rule somebody has to remember. And **the
+minutes are read for a whole page at once**: the route batches, because a per-row read would be an
+N+1 on the surface members open most, and the load profile counts the statements to prove it.
+
 ## Dependencies & contracts
 
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`,

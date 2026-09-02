@@ -1742,6 +1742,9 @@ importers:
       '@magna-carta/reporting':
         specifier: workspace:*
         version: link:../reporting
+      '@magna-carta/tasks':
+        specifier: workspace:*
+        version: link:../tasks
       '@magna-carta/timekeeping':
         specifier: workspace:*
         version: link:../timekeeping
