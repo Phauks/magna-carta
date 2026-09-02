@@ -27,6 +27,7 @@
  * what the rows mean.
  */
 import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
+import { personName } from "@magna-carta/design-system/formatters";
 import { timekeeperOf } from "./time-columns.ts";
 import { gapReason } from "./time-gaps.ts";
 
@@ -72,16 +73,37 @@ export interface SheetRow {
    * provisional code this entry was held under while it was only on the sheet.
    */
   provisionalCode: string | null;
+  /** The firm's own reference, once the row is on the record and the sequence has minted one. */
+  entryNumber: string | null;
   workDate: string;
   description: string;
+  /** The firm's internal note on this entry. Never on a bill, an export or a printed sheet. */
+  memo: string;
   /** Seconds as worked. The sheet types in seconds so a running timer has somewhere to land. */
   workedSeconds: number;
   /** Minutes as the server rounded them, or null where nothing has been written yet. */
   billedMinutes: number | null;
   timekeeperUserId: string;
   timekeeperName: string;
+  /**
+   * Who typed the row, and when.
+   *
+   * Both are facts of every entry rather than of the delegated ones only: a person recording their
+   * own work carries the same name twice, and delegation is the case where the two names differ.
+   * A row not yet on the record answers with the day it was made and the person making it, because
+   * that is exactly what the server will record when it lands.
+   */
+  enteredByName: string;
+  enteredAt: string;
   billable: boolean;
   amountMinor: number | null;
+  /** The rate frozen at capture, at scale 4. Null on non-billable time and on an unwritten row. */
+  rateE4: number | null;
+  /** The entry's UTBMS task code — its category — and its activity code, as identifiers. */
+  utbmsTaskCodeId: string | null;
+  utbmsActivityCodeId: string | null;
+  /** How many of the matter's documents this row points at. */
+  attachmentCount: number;
   currency: string;
   status: TimeEntrySummary["status"];
   saveState: SheetSaveState;
@@ -103,14 +125,24 @@ export function sheetRowFromEntry(entry: TimeEntrySummary): SheetRow {
     entryIdentifier: entry.id,
     matterId: entry.matterId,
     provisionalCode: null,
+    entryNumber: entry.entryNumber ?? null,
     workDate: entry.workDate,
     description: entry.narrative,
+    memo: entry.memo ?? "",
     workedSeconds: entry.rawDurationMinutes * 60,
     billedMinutes: entry.durationMinutes,
     timekeeperUserId: entry.timekeeperUserId,
     timekeeperName: timekeeperOf(entry),
+    // The enterer's name as the record kept it. A record whose member row is gone still names the
+    // person; falling back to the timekeeper would quietly assert an entry nobody delegated.
+    enteredByName: personName(entry.createdByName),
+    enteredAt: (entry.createdAt ?? "").slice(0, 10),
     billable: entry.billable,
     amountMinor: entry.amountMinor,
+    rateE4: entry.rateE4 ?? null,
+    utbmsTaskCodeId: entry.utbmsTaskCodeId ?? null,
+    utbmsActivityCodeId: entry.utbmsActivityCodeId ?? null,
+    attachmentCount: entry.attachmentCount ?? 0,
     currency: entry.currency,
     status: entry.status,
     saveState: "saved",
@@ -128,6 +160,8 @@ export function newSheetRow(input: {
   readonly provisionalCode: string;
   readonly timekeeperUserId: string;
   readonly timekeeperName: string;
+  /** The day the row is being made, so the entered date reads true before the server answers. */
+  readonly enteredAt: string;
   readonly currency: string;
 }): SheetRow {
   return {
@@ -135,14 +169,24 @@ export function newSheetRow(input: {
     entryIdentifier: null,
     matterId: input.matterId,
     provisionalCode: input.provisionalCode,
+    entryNumber: null,
     workDate: input.workDate,
     description: "",
+    memo: "",
     workedSeconds: 0,
     billedMinutes: null,
     timekeeperUserId: input.timekeeperUserId,
     timekeeperName: input.timekeeperName,
+    // A row is entered by whoever is making it, which on this surface is always the person at the
+    // keyboard: the sheet cannot record one member's work under another's hand yet.
+    enteredByName: input.timekeeperName,
+    enteredAt: input.enteredAt,
     billable: true,
     amountMinor: null,
+    rateE4: null,
+    utbmsTaskCodeId: null,
+    utbmsActivityCodeId: null,
+    attachmentCount: 0,
     currency: input.currency,
     status: "draft",
     saveState: "unsaved",
@@ -237,8 +281,13 @@ export function searchMatches(row: SheetRow, query: string, matterText = ""): bo
   if (wanted === "") return true;
   return (
     row.description.toLowerCase().includes(wanted) ||
+    // The memo is the firm's own note on its own surface, so it is findable here. It is still
+    // absent by construction from everything client-facing.
+    row.memo.toLowerCase().includes(wanted) ||
     row.timekeeperName.toLowerCase().includes(wanted) ||
+    row.enteredByName.toLowerCase().includes(wanted) ||
     matterText.toLowerCase().includes(wanted) ||
+    (row.entryNumber ?? "").toLowerCase().includes(wanted) ||
     (row.provisionalCode ?? "").toLowerCase().includes(wanted)
   );
 }

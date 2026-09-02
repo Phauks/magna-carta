@@ -1,5 +1,6 @@
 /*
- * The record menu, and the models that decide it.
+ * What every record surface holds in common: the frame it is laid out in, the menu it is
+ * right-clicked with, and the models that decide that menu.
  *
  * One menu serves every table in the product. It is here rather than beside any one of those tables
  * because the moment a second table wrote its own, the two would start disagreeing about what a
@@ -9,6 +10,7 @@
  * verb nobody has yet adds it to a catalogue here, where every table gets it at once.
  */
 export { default as RecordMenu } from "./record-menu.svelte";
+export { default as LedgerPanes } from "./ledger-panes.svelte";
 
 export {
   countedLabel,

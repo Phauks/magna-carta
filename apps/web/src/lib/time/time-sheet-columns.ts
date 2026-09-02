@@ -45,13 +45,14 @@ export const TIME_SHEET_COLUMN_IDENTIFIERS = {
   actions: "actions",
 } as const;
 
-/** Which sheet columns carry a value the server does not answer, and which gap each one names. */
-export const UNSERVED_TIME_SHEET_COLUMNS: Readonly<Record<string, TimeLedgerGapName>> = {
-  [TIME_SHEET_COLUMN_IDENTIFIERS.dateEntered]: "dateEntered",
-  [TIME_SHEET_COLUMN_IDENTIFIERS.rate]: "rate",
-  [TIME_SHEET_COLUMN_IDENTIFIERS.files]: "attachments",
-  [TIME_SHEET_COLUMN_IDENTIFIERS.enteredBy]: "dateEntered",
-};
+/**
+ * Which sheet columns carry a value the server does not answer, and which gap each one names.
+ *
+ * Empty, and deliberately kept: the four that were here — the entered date, its enterer, the
+ * resolved rate and the attached files — are all served, and the map stays for the next column the
+ * design adds ahead of its route.
+ */
+export const UNSERVED_TIME_SHEET_COLUMNS: Readonly<Record<string, TimeLedgerGapName>> = {};
 
 export function isUnservedSheetColumn(columnIdentifier: string): boolean {
   return columnIdentifier in UNSERVED_TIME_SHEET_COLUMNS;
@@ -95,18 +96,18 @@ export function timeSheetColumns(
       value: (row) => row.workDate,
     },
     /*
-     * The code a row is known by. A row that is not on the firm's record carries the provisional
-     * code minted for it here, which is a real value and is shown; a row that IS on the record
-     * carries the firm's own entry number, which nothing serves yet, so its cell says so. Two
-     * different facts, one column, and neither of them invented.
+     * The code a row is known by, and there are two of them. A row that is not on the firm's record
+     * carries the provisional code minted for it here; a row that IS on the record carries the
+     * firm's own entry number. The permanent one leads wherever it exists, because that is the
+     * reference anything outside this sheet will cite.
      */
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.timeCode,
       label: "Time Code",
       type: "text",
       filter: "none",
-      value: (row) => row.provisionalCode,
-      text: (row) => row.provisionalCode ?? "",
+      value: (row) => row.entryNumber ?? row.provisionalCode,
+      text: (row) => row.entryNumber ?? row.provisionalCode ?? "",
     },
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.matter,
@@ -115,14 +116,13 @@ export function timeSheetColumns(
       filter: "set",
       value: (row) => matterText(row),
     },
+    // The day the row was written down. Automatic, never typed, and off by default.
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.dateEntered,
       label: "Date Entered",
       type: "date",
       hidden: true,
-      filter: "none",
-      value: () => null,
-      text: () => "",
+      value: (row) => row.enteredAt,
     },
     /*
      * The description is deliberately NOT a column: it is prose, usually the longest thing on the
@@ -149,15 +149,14 @@ export function timeSheetColumns(
       text: (row) => (row.billedMinutes === null ? "" : formatDuration(row.billedMinutes).text),
       totalText: hoursTotalText,
     },
+    // The rate the row froze at capture. Null on non-billable time, and on a row not yet written.
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.rate,
       label: "Rate",
       type: "money",
       currency,
       hidden: true,
-      filter: "none",
-      value: () => null,
-      text: () => "",
+      value: (row) => (row.rateE4 === null ? null : row.rateE4 / 10_000),
     },
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.total,
@@ -168,14 +167,19 @@ export function timeSheetColumns(
       filterNote: "In the matter's currency.",
       value: (row) => (row.amountMinor === null ? null : row.amountMinor / 100),
     },
+    // How many of the matter's documents the row points at. Nothing attached reads as nothing.
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.files,
       label: "Files",
-      type: "text",
+      type: "number",
       hidden: true,
-      filter: "none",
-      value: () => null,
-      text: () => "",
+      value: (row) => row.attachmentCount,
+      text: (row) =>
+        row.attachmentCount === 0
+          ? ""
+          : row.attachmentCount === 1
+            ? "1 file"
+            : `${String(row.attachmentCount)} files`,
     },
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.timekeeper,
@@ -185,14 +189,19 @@ export function timeSheetColumns(
       fitExtra: 30,
       value: (row) => row.timekeeperName,
     },
+    /*
+     * Who typed the row, which is a fact of EVERY entry and not only a delegated one — a person
+     * recording their own work simply appears in both columns. That is what makes delegation a
+     * comparison between two names rather than a column that is blank on almost every row.
+     */
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.enteredBy,
       label: "Entered By",
       type: "text",
       hidden: true,
-      filter: "none",
-      value: () => null,
-      text: () => "",
+      filter: "set",
+      fitExtra: 30,
+      value: (row) => row.enteredByName,
     },
     {
       id: TIME_SHEET_COLUMN_IDENTIFIERS.status,

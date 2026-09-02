@@ -46,14 +46,19 @@
   import { formatDuration, formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Info from "@lucide/svelte/icons/info";
+  import Paperclip from "@lucide/svelte/icons/paperclip";
+  import X from "@lucide/svelte/icons/x";
   import Lock from "@lucide/svelte/icons/lock";
   import SquarePen from "@lucide/svelte/icons/square-pen";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
   import MatterPicker from "$lib/matters/matter-picker.svelte";
-  import { timekeeperOf } from "./time-columns.ts";
+  import { rateAmount, timekeeperOf } from "./time-columns.ts";
   import { gapReason, TIME_LEDGER_GAPS } from "./time-gaps.ts";
+  import { historyEvents } from "./time-entry-history.ts";
+  import type { UtbmsCode } from "./time-operations.ts";
+  import { UtbmsCatalogue } from "./time-utbms-codes.svelte.ts";
   import { timePreferences } from "./time-preferences.svelte.ts";
   import { provisionalTimeCode } from "./time-sheet-model.ts";
   import {
@@ -61,13 +66,21 @@
     type SheetMatter,
   } from "$lib/matters/matter-choice.ts";
   import {
+    attachTimeEntryFile,
     createTimeEntry,
+    detachTimeEntryFile,
     draftRefusal,
+    listTimeEntryAttachments,
+    listTimeEntryEvents,
     parseDurationText,
     patchTimeEntry,
+    refileTimeEntry,
     writeKey,
+    type TimeEntryAttachment,
     type TimeEntryDraftFields,
+    type TimeEntryEvent,
   } from "./time-operations.ts";
+  import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { timeEntrySheet } from "./time-print-sheet.ts";
 
   let {
@@ -139,9 +152,22 @@
     "The firm's rounding increment is not served, so this window shows the worked time as billed.";
 
   let descriptionText = $state("");
+  let memoText = $state("");
   let workDateText = $state("");
   let durationText = $state("");
   let timekeeperUserId = $state("");
+  let taskCodeId = $state<string | null>(null);
+  let activityCodeId = $state<string | null>(null);
+
+  /*
+   * The firm's UTBMS codes, read the first time this window opens and not before: a person who
+   * never opens a record should not pay for a catalogue they will not look at.
+   */
+  const codes = new UtbmsCatalogue();
+  $effect(() => {
+    if (!open) return;
+    void codes.load(fetch);
+  });
   /**
    * The matter a new entry is being written on, which the reader may still change.
    *
@@ -163,20 +189,26 @@
    */
   const seeded = $state({
     description: "",
+    memo: "",
     workDate: "",
     duration: "",
     timekeeperUserId: "",
     matterId: null as string | null,
     billing: "billable",
+    taskCodeId: null as string | null,
+    activityCodeId: null as string | null,
   });
 
   function rememberWhatIsInTheFields(): void {
     seeded.description = descriptionText;
+    seeded.memo = memoText;
     seeded.workDate = workDateText;
     seeded.duration = durationText;
     seeded.timekeeperUserId = timekeeperUserId;
     seeded.matterId = chosenMatterId;
     seeded.billing = billableChoice;
+    seeded.taskCodeId = taskCodeId;
+    seeded.activityCodeId = activityCodeId;
   }
 
   /*
@@ -207,6 +239,11 @@
     // there is neither.
     const start = entry ?? prefill;
     descriptionText = start?.narrative ?? "";
+    // The memo and the codes are the RECORD's, never a prefill's: duplicating an entry copies what
+    // the new one is about, not the firm's private note on the old one.
+    memoText = entry?.memo ?? "";
+    taskCodeId = entry?.utbmsTaskCodeId ?? null;
+    activityCodeId = entry?.utbmsActivityCodeId ?? null;
     workDateText = start?.workDate ?? new Date().toISOString().slice(0, 10);
     durationText =
       start === null || start.rawDurationMinutes === 0
@@ -232,11 +269,14 @@
 
   const unsavedChanges = $derived(
     descriptionText !== seeded.description ||
+      memoText !== seeded.memo ||
       workDateText !== seeded.workDate ||
       durationText !== seeded.duration ||
       timekeeperUserId !== seeded.timekeeperUserId ||
       chosenMatterId !== seeded.matterId ||
-      billableChoice !== seeded.billing,
+      billableChoice !== seeded.billing ||
+      taskCodeId !== seeded.taskCodeId ||
+      activityCodeId !== seeded.activityCodeId,
   );
 
   /*
@@ -247,13 +287,147 @@
    */
   function forgetChanges(): void {
     descriptionText = seeded.description;
+    memoText = seeded.memo;
     workDateText = seeded.workDate;
     durationText = seeded.duration;
     timekeeperUserId = seeded.timekeeperUserId;
     chosenMatterId = seeded.matterId;
     billableChoice = seeded.billing;
+    taskCodeId = seeded.taskCodeId;
+    activityCodeId = seeded.activityCodeId;
     saveFailure = null;
     if (entry === null) open = false;
+  }
+
+  /**
+   * The reserved value the "No code" row reports.
+   *
+   * A UTBMS code identifier is minted as `utbmsCode_…`, so this can never collide with one; it is
+   * spelled here once rather than at each place that compares against it.
+   */
+  const NO_CODE_VALUE = "no-code";
+  /** Which code field is being typed into, by field id, or null while neither is. */
+  let codeSearching = $state<string | null>(null);
+  let codeListOpen = $state<string | null>(null);
+  let codeQuery = $state("");
+
+  const matchingCodes = (set: UtbmsCatalogue["task"]): readonly UtbmsCode[] => {
+    const wanted = codeQuery.trim().toLowerCase();
+    if (wanted === "") return set.available;
+    return set.available.filter(
+      (code) =>
+        code.code.toLowerCase().includes(wanted) || code.label.toLowerCase().includes(wanted),
+    );
+  };
+
+  /**
+   * How a code reads when the catalogue cannot name it.
+   *
+   * The listing serves the code and its label ON THE ENTRY, so a record whose catalogue read was
+   * refused still says what the entry carries — the field falls back to the record rather than
+   * showing an identifier or a blank, either of which would read as "no code".
+   */
+  const recordedCodeText = (label: string, chosen: string | null): string => {
+    if (chosen === null || entry === null) return "";
+    const isCategory = label === "Category";
+    const code = isCategory ? entry.utbmsTaskCode : entry.utbmsActivityCode;
+    const codeLabel = isCategory ? entry.utbmsTaskLabel : entry.utbmsActivityLabel;
+    if (code === null || code === undefined || code === "") return "";
+    return codeLabel === null || codeLabel === undefined || codeLabel === ""
+      ? code
+      : `${code} · ${codeLabel}`;
+  };
+
+  /*
+   * ---------------------------------------------------------------------------------------------
+   * THE ENTRY'S HISTORY AND ITS FILES, each read when the window opens on a record that has one.
+   *
+   * Both are per-entry reads and neither is made for a new entry, which has no history and nothing
+   * attached: a window opened to write one must not spend two requests establishing that.
+   */
+  let events = $state<readonly TimeEntryEvent[] | null>(null);
+  let attachments = $state<readonly TimeEntryAttachment[] | null>(null);
+  /** The matter's own documents, so the attach picker offers what is actually there to point at. */
+  let matterFiles = $state<readonly MatterFile[] | null>(null);
+  let attachmentFailure = $state<string | null>(null);
+  let fileQuery = $state("");
+  let fileListOpen = $state(false);
+  /** Which entry these three were read for, so re-opening on another one re-reads rather than lies. */
+  let readFor = $state<string | null>(null);
+
+  $effect(() => {
+    const record = open ? entry : null;
+    if (record === null) {
+      readFor = null;
+      events = null;
+      attachments = null;
+      return;
+    }
+    if (readFor === record.id) return;
+    readFor = record.id;
+    events = null;
+    attachments = null;
+    attachmentFailure = null;
+    void (async () => {
+      const [history, attached] = await Promise.all([
+        listTimeEntryEvents(fetch, record.id),
+        listTimeEntryAttachments(fetch, record.id),
+      ]);
+      if (readFor !== record.id) return;
+      // A failed read settles as an empty list: the rail and the attachment list each say what
+      // that means in their own words, and neither is the subject of this window.
+      events = history.kind === "ok" ? history.value.data : [];
+      attachments = attached.kind === "ok" ? attached.value.data : [];
+    })();
+    void (async () => {
+      const outcome = await listMatterFiles(fetch, record.matterId);
+      if (readFor !== record.id) return;
+      matterFiles = outcome.kind === "ok" ? outcome.value.data : [];
+    })();
+  });
+
+  /** The matter's documents this entry does not already point at. */
+  const attachableFiles = $derived.by((): readonly MatterFile[] => {
+    const already = new Set((attachments ?? []).map((attachment) => attachment.fileId));
+    const wanted = fileQuery.trim().toLowerCase();
+    return (matterFiles ?? [])
+      .filter((file) => !already.has(file.id))
+      .filter((file) => wanted === "" || file.name.toLowerCase().includes(wanted));
+  });
+
+  async function attachFile(fileId: string): Promise<void> {
+    if (entry === null) return;
+    attachmentFailure = null;
+    const outcome = await attachTimeEntryFile(fetch, entry.id, fileId, writeKey());
+    if (outcome.kind !== "ok") {
+      attachmentFailure =
+        "The file was not attached. The entry and the document are both unchanged.";
+      return;
+    }
+    await refreshAttachments();
+    // The listing carries the count, so the row and the panel follow the record window.
+    onSaved();
+  }
+
+  async function detachFile(fileId: string): Promise<void> {
+    if (entry === null) return;
+    attachmentFailure = null;
+    const outcome = await detachTimeEntryFile(fetch, entry.id, fileId, writeKey());
+    if (outcome.kind !== "ok") {
+      attachmentFailure = "The file was not detached. It is still attached to this entry.";
+      return;
+    }
+    await refreshAttachments();
+    onSaved();
+  }
+
+  async function refreshAttachments(): Promise<void> {
+    if (entry === null) return;
+    const outcome = await listTimeEntryAttachments(fetch, entry.id);
+    if (outcome.kind === "ok") attachments = outcome.value.data;
+    // Attaching and detaching are both recorded events, so the rail re-reads with them.
+    const history = await listTimeEntryEvents(fetch, entry.id);
+    if (history.kind === "ok") events = history.value.data;
   }
 
   let staffQuery = $state("");
@@ -307,6 +481,35 @@
   const workedMinutes = $derived(parseDurationText(durationText));
   const billedMinutes = $derived(workedMinutes);
   const billable = $derived(billableChoice === "billable");
+
+  /** Where a resolved rate came from, in the words the chain uses. */
+  const RATE_SOURCE_WORDS: Readonly<Record<string, string>> = {
+    override: "a per-entry override",
+    matter: "this matter's own rate",
+    client: "the client's rate",
+    timekeeper: "the timekeeper's standard rate",
+    role: "the role's default",
+    card_default: "the rate card's default",
+  };
+
+  /*
+   * The rate the entry froze at capture. Not a field: an entry keeps the rate in force on its work
+   * date for ever, so this states a fact rather than offering a change. Non-billable internal time
+   * has no rate at all, which is a statement that nothing is charged and not a rate of zero.
+   */
+  const rateLine = $derived.by((): string => {
+    const amount = entry === null ? null : rateAmount(entry);
+    if (amount === null) return billable ? "—" : "No charge";
+    return formatMoney(amount, { currency: entry?.currency ?? "USD" });
+  });
+  const rateExplanation = $derived.by((): string => {
+    if (entry === null) return "The rate resolves when the entry is written.";
+    if (entry.rateE4 === null || entry.rateE4 === undefined) {
+      return "Non-billable time carries no rate: nothing is charged.";
+    }
+    const source = RATE_SOURCE_WORDS[entry.rateSource ?? ""] ?? "the rate chain";
+    return `Resolved from ${source} on ${entry.workDate}, and frozen there. Changing a rate card later never re-rates an entry.`;
+  });
 
   /** The amount the window can state. Without a served rate it can only repeat what was recorded. */
   const amountLine = $derived.by((): string => {
@@ -383,6 +586,20 @@
     if (entry === null && writeToMatter === null) return;
     saving = true;
     saveFailure = null;
+    // A changed matter on an entry the firm holds is a MOVE, and it is its own write: the patch
+    // route does not carry a matter, because moving one is a cross-matter change with its own
+    // refusals. It goes first, so a refused move never half-lands behind a successful edit.
+    if (entry !== null && chosenMatterId !== null && chosenMatterId !== entry.matterId) {
+      const moved = await refileTimeEntry(fetch, entry.id, chosenMatterId, writeKey());
+      if (moved.kind !== "ok") {
+        saving = false;
+        saveFailure =
+          moved.kind === "problem" && moved.problem.status === 409
+            ? "This entry cannot be moved: it is past draft, on a bill, or claimed by one. Nothing was changed."
+            : "The entry was not moved, so nothing else was saved either. It is unchanged.";
+        return;
+      }
+    }
     const outcome =
       entry === null
         ? await createTimeEntry(
@@ -396,6 +613,11 @@
               rawDurationMinutes: minutes,
               narrative: descriptionText.trim(),
               billable,
+              utbmsTaskCodeId: taskCodeId,
+              utbmsActivityCodeId: activityCodeId,
+              // Null clears rather than omits: a memo somebody emptied must be emptied on the
+              // record, not left standing because the field went blank.
+              memo: memoText.trim() === "" ? null : memoText,
             },
             writeKey(),
           )
@@ -406,6 +628,9 @@
               narrative: descriptionText.trim(),
               rawDurationMinutes: minutes,
               workDate: workDateText,
+              utbmsTaskCodeId: taskCodeId,
+              utbmsActivityCodeId: activityCodeId,
+              memo: memoText.trim() === "" ? null : memoText,
             },
             writeKey(),
           );
@@ -432,6 +657,7 @@
         return;
       }
       descriptionText = "";
+      memoText = "";
       durationText = "";
       // A fresh entry, a fresh tentative code: the one just saved took its own number with it.
       provisionalSequence += 1;
@@ -462,9 +688,19 @@
     {/if}
     <span>{chosenMatterName === "" ? "No matter chosen yet" : chosenMatterName}</span>
   {:else}
-    <span title={TIME_LEDGER_GAPS.entryNumber.field + " is not recorded yet."}>
-      Entry number not yet recorded
+    <!-- The entry number is the subtitle, and the subtitle is its only home in this window: the
+         record pane does not repeat it. An entry captured before the sequence existed carries
+         none, and says that rather than showing a number nothing issued. -->
+    <span
+      class="tabular-nums"
+      title={entry.entryNumber === null
+        ? "This entry was captured before entry numbers existed. Nothing backfills one."
+        : "The firm's own entry number. Drawn once, never reused; a struck entry keeps it."}
+    >
+      {entry.entryNumber === null ? "No entry number" : `Entry ${entry.entryNumber}`}
     </span>
+    <span aria-hidden="true">&middot;</span>
+    <span>{chosenMatterName}</span>
     <Badge {...statusBadgeAttributes(entry.status)}>{statusEntry(entry.status).label}</Badge>
   {/if}
 {/snippet}
@@ -479,6 +715,90 @@
         </Combobox.Root>
       {/snippet}
     </SoonAffordance>
+  </div>
+{/snippet}
+
+<!--
+  ONE UTBMS FIELD, RENDERED TWICE. Category and Activity are the same control over two ABA sets, so
+  they are one snippet: two copies of a typable combobox is how the two fields start behaving
+  differently. The field shows what it holds at rest and arriving in it starts a fresh search; a
+  "No code" row takes the code back off, because clearing by deleting text is a gesture most people
+  never find.
+
+  A CATALOGUE THAT COULD NOT BE READ COSTS THE PICKER AND NOT THE FIELD. The listing serves the code
+  and its label on the entry itself, so the record still reads correctly; what it cannot do is offer
+  a choice, and the line under the field says which of the three reasons applies.
+-->
+{#snippet codeField(
+  label: string,
+  fieldId: string,
+  set: UtbmsCatalogue["task"],
+  chosen: string | null,
+  onpick: (identifier: string | null) => void,
+  readOnly: boolean,
+)}
+  {@const refusal = set.pickerRefusal}
+  {@const committed =
+    set.labelFor(chosen) === "" ? recordedCodeText(label, chosen) : set.labelFor(chosen)}
+  <div class="flex flex-col gap-4">
+    <Label for={fieldId}>{label}</Label>
+    {#if readOnly}
+      <Input id={fieldId} value={committed} disabled placeholder={label} />
+    {:else}
+      <Combobox.Root
+        type="single"
+        disabled={refusal !== null && chosen === null}
+        items={[
+          { value: NO_CODE_VALUE, label: `No ${label.toLowerCase()}` },
+          ...set.available.map((code) => ({
+            value: code.id,
+            label: `${code.code} · ${code.label}`,
+          })),
+        ]}
+        value={chosen ?? ""}
+        inputValue={codeSearching === fieldId ? codeQuery : committed}
+        open={codeListOpen === fieldId}
+        onValueChange={(picked) => {
+          const value = Array.isArray(picked) ? (picked[0] ?? "") : picked;
+          codeSearching = null;
+          codeQuery = "";
+          onpick(value === "" || value === NO_CODE_VALUE ? null : value);
+        }}
+        onOpenChange={(opened) => {
+          codeListOpen = opened ? fieldId : null;
+          if (!opened) {
+            codeSearching = null;
+            codeQuery = "";
+          }
+        }}
+      >
+        <Combobox.Input
+          id={fieldId}
+          fieldName={label}
+          autocomplete="off"
+          onfocus={() => {
+            codeSearching = fieldId;
+            codeQuery = "";
+            codeListOpen = fieldId;
+          }}
+          onclick={() => (codeListOpen = fieldId)}
+          oninput={(event) => {
+            codeSearching = fieldId;
+            codeQuery = event.currentTarget.value;
+            codeListOpen = fieldId;
+          }}
+        />
+        <Combobox.Content>
+          <Combobox.Item value={NO_CODE_VALUE} label={`No ${label.toLowerCase()}`} />
+          {#each matchingCodes(set) as code (code.id)}
+            <Combobox.Item value={code.id} label={`${code.code} · ${code.label}`} />
+          {/each}
+        </Combobox.Content>
+      </Combobox.Root>
+    {/if}
+    {#if refusal !== null}
+      <p class="text-xs text-text-subtle">{refusal}</p>
+    {/if}
   </div>
 {/snippet}
 
@@ -535,22 +855,28 @@
         written yet. An entry the firm already holds is a different question: nothing in the
         contract moves one between matters, so that field stays refused and says what it waits on.
       -->
-      {#if creating}
-        <div class="flex flex-col gap-4">
-          <Label for="time-record-matter">Matter</Label>
-          <MatterPicker
-            inputId="time-record-matter"
-            {matters}
-            value={chosenMatterId}
-            capped={mattersCapped}
-            disabled={readOnly}
-            title="Where this time belongs. Type the number or the name; either finds it."
-            onpick={(picked) => (chosenMatterId = picked)}
-          />
-        </div>
-      {:else}
-        {@render unservedField("Matter", "matter", "Matter")}
-      {/if}
+      <!--
+        THE MATTER IS THE RECORD'S, AND A MISFILED ENTRY MOVES. On a new entry it is the choice that
+        lets the entry be written at all; on a draft the firm already holds, choosing another matter
+        moves it there — its number, its memo, its codes, its files and its history come with it,
+        and its rate and rounding are re-read on the matter it moved to, because both resolve
+        through the matter. Past draft the field states where the entry is and refuses: an approved
+        or billed entry is evidence, and the answer there is a strike and a fresh record.
+      -->
+      <div class="flex flex-col gap-4">
+        <Label for="time-record-matter">Matter</Label>
+        <MatterPicker
+          inputId="time-record-matter"
+          {matters}
+          value={chosenMatterId}
+          capped={mattersCapped}
+          disabled={readOnly}
+          title={creating
+            ? "Where this time belongs. Type the number or the name; either finds it."
+            : "Where this time belongs. Picking another matter moves the entry there, with its number, its note and its files."}
+          onpick={(picked) => (chosenMatterId = picked)}
+        />
+      </div>
 
       <div class="flex flex-col gap-4">
         <Label for="time-record-staff">Staff</Label>
@@ -633,8 +959,22 @@
         </Combobox.Root>
       </div>
 
-      {@render unservedField("Category", "category", "Category")}
-      {@render unservedField("Activity Code", "activity", "Activity Code")}
+      {@render codeField(
+        "Category",
+        "time-record-category",
+        codes.task,
+        taskCodeId,
+        (picked) => (taskCodeId = picked),
+        readOnly,
+      )}
+      {@render codeField(
+        "Activity Code",
+        "time-record-activity",
+        codes.activity,
+        activityCodeId,
+        (picked) => (activityCodeId = picked),
+        readOnly,
+      )}
     </div>
 
     <!-- Worked, rounded to billed, times rate, equals amount: one relationship on one line. -->
@@ -663,15 +1003,14 @@
       </div>
       <span class="pb-8 text-text-subtle" aria-hidden="true">&times;</span>
       <div class="flex min-w-0 flex-1 flex-col gap-4">
-        <Label>Rate</Label>
-        <!-- The Soon mark rides BESIDE the control, so the control has to be allowed to give up
-             width for it. Left at its own full width it pushed the mark past the pane's edge, which
-             the pane does not scroll sideways: the badge was simply cut off. -->
-        <SoonAffordance class="min-w-0" reason={gapReason("rate")}>
-          {#snippet control(soon)}
-            <Input class="min-w-0 flex-1" placeholder="Rate" {...soon} />
-          {/snippet}
-        </SoonAffordance>
+        <span class="text-xs text-text-subtle">Rate</span>
+        <!--
+          The rate the entry FROZE at capture, named with where it came from. It is not a field: an
+          entry keeps the rate in force on its work date for ever, so changing a card later never
+          re-rates it, and a per-entry override is a permission question nobody has answered yet.
+          Read, therefore, and not typed.
+        -->
+        <span class="pb-8 tabular-nums" title={rateExplanation}>{rateLine}</span>
       </div>
       <span class="pb-8 text-text-subtle" aria-hidden="true">=</span>
       <div class="flex flex-col gap-4">
@@ -681,54 +1020,144 @@
     </div>
     <p class="text-xs text-text-subtle">{roundingUnserved}</p>
 
-    <div class="flex flex-col gap-4">
-      <Label>Internal Memo</Label>
-      <SoonAffordance class="min-w-0" reason={gapReason("memo")} reasonPlacement="line">
-        {#snippet control(soon)}
-          <Textarea class="min-w-0 flex-1" rows={2} placeholder="Internal Memo" {...soon} />
-        {/snippet}
-      </SoonAffordance>
+    <!--
+      THE INTERNAL MEMO IS REAL, and it is shown on a read-only record too: internal is not the same
+      as hidden. It is absent by construction from everything client-facing — the print sheet names
+      every field it prints rather than spreading the entry, so this text has no way to reach paper.
+    -->
+    <div class="flex flex-col gap-4" data-internal-only="true">
+      <div class="flex items-center gap-8">
+        <Label for="time-record-memo">Internal Memo</Label>
+        <Badge variant="neutral">Internal</Badge>
+      </div>
+      <Textarea
+        id="time-record-memo"
+        class="resize-none"
+        rows={2}
+        placeholder="Internal Memo"
+        title="The firm's own note on this entry. It never reaches a bill, an export or a client."
+        disabled={readOnly}
+        spellcheck={true}
+        bind:value={memoText}
+      />
     </div>
   </div>
 {/snippet}
 
-<!-- THE WHOLE TAB IS THE DROPZONE. Attaching a file is the tab's one act, so the entire pane
-     takes a drop, the two deliberate doors sit at its top right, and the list of what is already
-     attached fills the rest. -->
+<!--
+  THE WHOLE TAB IS THE LIST OF WHAT THIS ENTRY POINTS AT. An attachment REFERENCES a document that
+  is already in the matter — attaching never copies bytes and detaching never deletes the file, it
+  removes the link. That is why the door is a picker over the matter's own documents rather than an
+  upload: uploading into the matter is the file manager's job, and a second uploader here would be
+  a second place a document can arrive from.
+-->
 {#snippet attachmentsTab()}
   <div class="flex h-full min-h-0 flex-col gap-8">
-    <div class="flex items-center justify-end gap-8">
-      <SoonAffordance reason={gapReason("attachments")}>
-        {#snippet control(soon)}
-          <Button variant="secondary" size="sm" {...soon}>From the Matter</Button>
-        {/snippet}
-      </SoonAffordance>
-      <SoonAffordance reason={gapReason("attachments")}>
-        {#snippet control(soon)}
-          <Button variant="secondary" size="sm" {...soon}>Upload</Button>
-        {/snippet}
-      </SoonAffordance>
-    </div>
-    <div
-      class="flex min-h-0 flex-1 flex-col rounded-md border border-dashed border-border-default"
-      role="presentation"
-    >
-      <div class="flex flex-1 flex-col items-center justify-center gap-4 p-16 text-center">
-        <p class="text-sm text-text-muted">Drop files anywhere on this pane to attach them.</p>
-        <p class="text-xs text-text-subtle">
-          Waiting on {gapReason("attachments")}.
-        </p>
-      </div>
-    </div>
+    {#if attachmentFailure !== null}
+      <Alert.Root variant="danger">
+        <Alert.Title>Nothing Changed</Alert.Title>
+        <Alert.Description>{attachmentFailure}</Alert.Description>
+      </Alert.Root>
+    {/if}
+    {#if entry === null}
+      <p class="text-sm text-text-muted">
+        Save the entry first: a file is attached to a record the firm holds.
+      </p>
+    {:else}
+      <Combobox.Root
+        type="single"
+        items={attachableFiles.map((file) => ({ value: file.id, label: file.name }))}
+        value=""
+        inputValue={fileQuery}
+        open={fileListOpen}
+        onValueChange={(picked) => {
+          const value = Array.isArray(picked) ? (picked[0] ?? "") : picked;
+          if (value !== "") void attachFile(value);
+          fileQuery = "";
+          fileListOpen = false;
+        }}
+        onOpenChange={(opened) => {
+          fileListOpen = opened;
+          if (!opened) fileQuery = "";
+        }}
+      >
+        <Combobox.Input
+          fieldName="From the Matter"
+          autocomplete="off"
+          onfocus={() => (fileListOpen = true)}
+          onclick={() => (fileListOpen = true)}
+          oninput={(event) => {
+            fileQuery = event.currentTarget.value;
+            fileListOpen = true;
+          }}
+        />
+        <Combobox.Content>
+          {#each attachableFiles as file (file.id)}
+            <Combobox.Item value={file.id} label={file.name} />
+          {/each}
+          {#if attachableFiles.length === 0}
+            <Combobox.GroupHeading>
+              {matterFiles === null
+                ? "Reading the matter's documents"
+                : "Every document on this matter is already attached."}
+            </Combobox.GroupHeading>
+          {/if}
+        </Combobox.Content>
+      </Combobox.Root>
+
+      {#if attachments === null}
+        <p class="text-sm text-text-muted">Reading what is attached.</p>
+      {:else if attachments.length === 0}
+        <div
+          class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-md border border-dashed border-border-default p-16 text-center"
+        >
+          <p class="text-sm text-text-muted">Nothing is attached to this entry.</p>
+          <p class="text-xs text-text-subtle">
+            Pick one of the matter's documents above. The file stays where it is.
+          </p>
+        </div>
+      {:else}
+        <ul class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+          {#each attachments as attachment (attachment.fileId)}
+            <li class="flex items-center gap-8 rounded-md border border-border-default p-8">
+              <Paperclip class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
+              <span class="min-w-0 flex-1 truncate text-sm">
+                <!-- A file whose row is gone still had a link; the link says so rather than
+                     rendering a blank the reader cannot act on. -->
+                {attachment.fileName ?? "This document is no longer on the matter"}
+              </span>
+              <span class="text-xs whitespace-nowrap text-text-subtle">
+                {formatDate(attachment.createdAt.slice(0, 10))}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Detach this file. It stays in the matter's documents."
+                aria-label="Detach {attachment.fileName ?? 'this file'}"
+                onclick={() => void detachFile(attachment.fileId)}
+              >
+                <X class="size-16" aria-hidden="true" />
+              </Button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
   </div>
 {/snippet}
 
+<!--
+  HISTORY IS ALSO WHERE TWO FACTS LIVE. The entered date and who entered it are not repeated in the
+  record pane: the rail's first event states both, in the place a reader goes for when-and-by-whom.
+-->
 {#snippet historyTab()}
   <EventRail
-    events={[]}
+    events={events === null ? [] : historyEvents(events)}
+    loading={entry !== null && events === null}
     label="This entry's history"
-    emptyMessage="Not built yet. Waiting on {gapReason('history')}. The entered date and who entered
-      it are the first event this rail will carry."
+    emptyMessage={entry === null
+      ? "A new entry has no history yet. Saving it records the first event."
+      : "Nothing has been recorded against this entry."}
   />
 {/snippet}
 

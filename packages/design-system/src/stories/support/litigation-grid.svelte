@@ -134,6 +134,14 @@
     /** The record's second line, passed through to the grid. */
     rowDetail?: Snippet<[TimeEntry]>;
     /**
+     * Column widths to snapshot on mount, which also puts the table into its fixed layout.
+     *
+     * It is how a story reaches the state a member reaches by dragging a grip: columns that sum to
+     * more than the frame, so the table scrolls sideways and the placeholder row's cell is wider
+     * than anything the reader can see.
+     */
+    columnWidths?: Record<string, number>;
+    /**
      * The surface's OWN empty state, passed through to the grid.
      *
      * Worth a prop rather than always taking the grid's built-in one: the built-in renders inside
@@ -154,6 +162,7 @@
     pinnedRowKeys = [],
     rowMark,
     rowDetail,
+    columnWidths,
     empty,
     onActivate,
     onSelectionChange,
@@ -174,6 +183,13 @@
     zebra,
     onActivate: (row) => onActivate?.(row),
     onSelectionChange: (keys, selectedRows) => onSelectionChange?.(keys, selectedRows),
+  });
+
+  let widthsTaken = false;
+  $effect(() => {
+    if (columnWidths === undefined || widthsTaken) return;
+    widthsTaken = true;
+    grid.snapshotColumnWidths(columnWidths);
   });
 </script>
 

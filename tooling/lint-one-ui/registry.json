@@ -16,6 +16,10 @@
       "home": "packages/design-system/src/lib/components/action-dialog"
     },
     {
+      "name": "SoonAffordance",
+      "home": "packages/design-system/src/lib/components/maturity"
+    },
+    {
       "name": "RecordWindow",
       "home": "packages/design-system/src/lib/components/record-window"
     },

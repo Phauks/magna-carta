@@ -25,7 +25,7 @@
  * adding a fifteenth section forces somebody to answer the question, and the scope dropdown renders
  * the unanswerable ones disabled with their reason instead of quietly omitting them.
  */
-import type { MaturityStage } from "$lib/maturity/maturity.ts";
+import type { MaturityStage } from "@magna-carta/design-system/maturity";
 
 export interface MatterSection {
   /** Route segment under matters/[id]/. */

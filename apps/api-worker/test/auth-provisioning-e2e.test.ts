@@ -354,12 +354,10 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
-        // The three matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
-        // Attorney and Paralegal — and to neither Billing nor Read-only. notes:retract is its own
-        // key so a firm can narrow withdrawal without narrowing authorship
-        // (20260901T010000_matter-notes.sql).
+        // The two matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
+        // Attorney and Paralegal — and to neither Billing nor Read-only. The separate withdrawal key
+        // left with the edit-and-delete model.
         "notes:read",
-        "notes:retract",
         "notes:write",
         // Seeded onto every default role, Read-only included — the deliberate contrast with
         // trust:read below (20260807T020000_notifications-delivery). A member's feed is their own,
@@ -378,6 +376,8 @@ describe("end-to-end", () => {
         "reports:produce",
         "reports:productivity",
         "reports:trustCompliance",
+        // One search across a matter's sections; each source stays gated by its own read key.
+        "search:matter",
         "shipping:manage",
         "support:cosign",
         "support:manage",
@@ -795,7 +795,10 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     }
     // The sweep fires one real request per authenticated operation, sequentially — it grows with the
     // contract, so it carries a generous timeout rather than the 5s default.
-  }, 40_000);
+    // Sized to the sweep: one request per declared-authenticated operation (five hundred and
+    // counting), each through the full middleware chain, on a 2-core runner shared with three other
+    // workerd VMs. 40 s was enough on a quiet box and timed out on the gate.
+  }, 180_000);
 
   it("gives every /v1 operation a unique, well-formed operationId mirrored in x-mc-operationId", async () => {
     const document = await fetchOpenApiDocument();

@@ -132,6 +132,7 @@
 <ActionDialog
   bind:open
   heading="File A Copy"
+  subtitle="A document the firm already holds, linked to this packet. It is never a substitute for the original."
   commitLabel="File Copy"
   commitBusyLabel="Filing"
   commitRefusal={refusal}
@@ -140,10 +141,6 @@
   onOpen={reset}
   onCommit={submit}
 >
-  {#snippet subtitle()}
-    A document the firm already holds, linked to this packet. It is never a substitute for the
-    original.
-  {/snippet}
 
   {#snippet notice()}
     {#if failure !== null}

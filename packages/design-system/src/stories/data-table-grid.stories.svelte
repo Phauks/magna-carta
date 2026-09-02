@@ -11,6 +11,7 @@
   import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
   import Grid from "../lib/components/data-table/data-table-grid.svelte";
   import LitigationGrid, { TIME_COLUMNS } from "./support/litigation-grid.svelte";
+  import EmptyState from "../lib/components/empty-state/empty-state.svelte";
 
   const { Story } = defineMeta({
     title: "Data Display/DataTableGrid",
@@ -37,6 +38,22 @@
   const TRAILING_PINNED_COLUMNS = TIME_COLUMNS.map((column) =>
     column.id === "status" ? Object.assign({}, column, { pinnedEnd: true }) : column,
   );
+
+  // Columns summing to far more than any story frame, so the placeholder row's cell is wider than
+  // what the reader can see — the state a member reaches by widening a couple of columns.
+  const OVERWIDE_COLUMN_WIDTHS = Object.fromEntries(
+    TIME_COLUMNS.map((column) => [column.id, 420]),
+  );
+
+  /** Where a box sits and how wide it is, in page coordinates. */
+  const box = (element: Element): { start: number; end: number; centre: number } => {
+    const rectangle = element.getBoundingClientRect();
+    return {
+      start: rectangle.left,
+      end: rectangle.right,
+      centre: rectangle.left + rectangle.width / 2,
+    };
+  };
 </script>
 
 <!--
@@ -689,3 +706,59 @@
     <LitigationGrid rows={[]} />
   {/snippet}
 </Story>
+
+<!--
+  The empty state CENTRES IN WHAT THE READER CAN SEE, not in the table.
+
+  A placeholder row spans every column, so its cell is as wide as the table — and once a member has
+  widened a couple of columns the table is far wider than its frame. Centred in the cell, the empty
+  state's heading landed off past the inline end with its sentence trailing after it, on every
+  surface whose columns overflow. This story reaches that state deliberately (fixed layout, columns
+  summing well past the frame) and measures, because the defect is invisible to any assertion that
+  only asks whether the text is in the document.
+-->
+<Story
+  name="Empty in a table wider than its frame"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const frame = canvas.getByRole("group", { name: "Time entries" });
+
+    await step("The table really is wider than its frame", async () => {
+      await waitFor(() => expect(frame.scrollWidth).toBeGreaterThan(frame.clientWidth + 200));
+    });
+
+    await step("The empty state sits centred in the frame, not in the table", async () => {
+      const heading = canvas.getByText("Nothing recorded on this matter yet.");
+      await waitFor(() => {
+        const frameBox = box(frame);
+        const headingBox = box(heading);
+        // Inside the frame at all — the defect put it wholly outside.
+        expect(headingBox.start).toBeGreaterThanOrEqual(frameBox.start);
+        expect(headingBox.end).toBeLessThanOrEqual(frameBox.end);
+        // And centred on it, within a pixel of rounding.
+        expect(Math.abs(headingBox.centre - frameBox.centre)).toBeLessThanOrEqual(1);
+      });
+    });
+
+    await step("It holds its place when the table is scrolled sideways", async () => {
+      frame.scrollLeft = 400;
+      const heading = canvas.getByText("Nothing recorded on this matter yet.");
+      await waitFor(() => {
+        const frameBox = box(frame);
+        const headingBox = box(heading);
+        expect(Math.abs(headingBox.centre - frameBox.centre)).toBeLessThanOrEqual(1);
+      });
+      frame.scrollLeft = 0;
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid rows={[]} columnWidths={OVERWIDE_COLUMN_WIDTHS} empty={overwideEmptyState} />
+  {/snippet}
+</Story>
+
+{#snippet overwideEmptyState()}
+  <EmptyState title="Nothing recorded on this matter yet.">
+    Timers, manual entries and the weekly grid all land here, billable or not.
+  </EmptyState>
+{/snippet}

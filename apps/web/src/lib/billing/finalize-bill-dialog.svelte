@@ -87,6 +87,7 @@
 <ActionDialog
   bind:open
   heading="Finalize This Bill"
+  subtitle={`Draft · ${money(total)}`}
   commitLabel="Finalize"
   commitBusyLabel="Finalizing"
   commitRefusal={refusal}
@@ -94,9 +95,6 @@
   onOpen={reset}
   onCommit={finalize}
 >
-  {#snippet subtitle()}
-    Draft · {money(total)}
-  {/snippet}
 
   {#snippet notice()}
     {#if failure !== null}

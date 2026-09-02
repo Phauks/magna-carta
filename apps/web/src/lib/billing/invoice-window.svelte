@@ -43,7 +43,7 @@
   import Plus from "@lucide/svelte/icons/plus";
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import X from "@lucide/svelte/icons/x";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import type { CostSummary } from "$lib/matters/cost-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
   import type { ClientCredit, InvoiceDelivery, InvoiceLine } from "./billing-api.ts";

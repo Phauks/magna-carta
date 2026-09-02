@@ -53,6 +53,43 @@ function entry(overrides: Partial<TimeEntrySummary> = {}): TimeEntrySummary {
   };
 }
 
+describe("a row built from the record", () => {
+  /*
+   * The listing serves far more than a row used to read off it, and every field it dropped came
+   * back to the screen as "not recorded yet". This holds the mapping still.
+   */
+  it("carries every fact the listing answers with", () => {
+    const row = sheetRowFromEntry(
+      entry({
+        entryNumber: "2026-0147.0042",
+        memo: "Check the retainer before billing this",
+        rateE4: 3_400_000,
+        utbmsTaskCodeId: "utbmsCode_l120",
+        utbmsActivityCodeId: "utbmsCode_a103",
+        attachmentCount: 2,
+        createdAt: "2026-08-27T10:30:00.000Z",
+        createdByName: "Marcus Reyes",
+      }),
+    );
+    expect(row.entryNumber).toBe("2026-0147.0042");
+    expect(row.memo).toBe("Check the retainer before billing this");
+    expect(row.rateE4).toBe(3_400_000);
+    expect(row.utbmsTaskCodeId).toBe("utbmsCode_l120");
+    expect(row.utbmsActivityCodeId).toBe("utbmsCode_a103");
+    expect(row.attachmentCount).toBe(2);
+    expect(row.enteredAt).toBe("2026-08-27");
+    expect(row.enteredByName).toBe("Marcus Reyes");
+  });
+
+  it("reads an entry captured before those fields existed without inventing any of them", () => {
+    const row = sheetRowFromEntry(entry());
+    expect(row.entryNumber).toBeNull();
+    expect(row.memo).toBe("");
+    expect(row.rateE4).toBeNull();
+    expect(row.attachmentCount).toBe(0);
+  });
+});
+
 /** A row a person has just added on the firm-wide sheet: no matter, and a provisional code. */
 function blankRow(): SheetRow {
   return newSheetRow({
@@ -62,6 +99,7 @@ function blankRow(): SheetRow {
     provisionalCode: provisionalTimeCode(1),
     timekeeperUserId: "user_1",
     timekeeperName: "Rosalind Osei",
+    enteredAt: "2026-08-26",
     currency: "USD",
   });
 }

@@ -25958,6 +25958,55 @@
           }
         }
       },
+      "RefileTimeEntryAck": {
+        "type": "object",
+        "properties": {
+          "timeEntryId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer"
+          },
+          "rateE4": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "amountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "timeEntryId",
+          "matterId",
+          "durationMinutes",
+          "rateE4",
+          "amountMinor",
+          "currency"
+        ]
+      },
+      "RefileTimeEntryRequest": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "matterId"
+        ]
+      },
       "TimerStartAck": {
         "type": "object",
         "properties": {
@@ -80180,6 +80229,140 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConvertToCostAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/time-entries/{id}/refile": {
+      "post": {
+        "description": "Moves a misfiled DRAFT entry onto another matter. Its own route rather than a PATCH of matterId, because it is a cross-matter write: two ledgers change, and the rate the entry froze was resolved against the matter it is leaving. The entry number, the description, the memo, the codes, the attachments and the whole history carry across untouched; the RATE and the ROUNDING INCREMENT are re-resolved against the destination as of the entry's own work date, because both are matter-scoped and carrying one client's answer to another is how a firm bills at the wrong rate. Refused for anything past draft, anything on a bill, and anything a draft invoice has claimed — past that the entry is evidence somebody is relying on, and the answer is a void and a fresh record.",
+        "operationId": "timeEntries.refile",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.refile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^timeEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefileTimeEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The entry was refiled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefileTimeEntryAck"
                 }
               }
             }
