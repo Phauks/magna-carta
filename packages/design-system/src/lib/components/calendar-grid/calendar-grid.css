@@ -1,0 +1,352 @@
+@layer components {
+  /*
+   * CalendarGrid — a month, a week and an agenda, presented.
+   *
+   * The grid is a WORK SURFACE, not chrome: it is read closely, often while deciding something,
+   * so it stays quiet. Structure is hairlines and a sunken head, the same voice as the data table;
+   * an entry is a pale same-hue chip in the SUBTLE status register, never a saturated block; and
+   * the accent's whole appearance is the small filled disc on today's number — one edge, never a
+   * wash across the days.
+   *
+   * The table keeps `border-collapse: separate` with the hairlines on the cells, as the data table
+   * does, so a cell's fill (today's, an outside-month day's) never shares a border box with a
+   * row and the geometry never moves. The rounded frame sits on the table itself, with the corner
+   * cells rounding to meet it, because a sunken head cell would otherwise paint a square corner
+   * over the frame's curve.
+   */
+  .mc-calendar-grid {
+    border-collapse: separate;
+    border-spacing: var(--mc-space-0);
+    border: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-radius: var(--mc-radius-lg);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    text-align: start;
+  }
+  /*
+   * The caption region is where the grid says what it is missing. It is mounted whether or not
+   * there is anything to say, so the grid beneath sits at one height in every state.
+   */
+  .mc-calendar-grid-caption {
+    caption-side: top;
+    padding-block-end: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    text-align: start;
+  }
+  /* Weekday heads: the data table's header voice — a sunken fill, letterspaced caps, structural. */
+  .mc-calendar-grid-weekday {
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-8);
+    background-color: var(--mc-surface-sunken);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    color: var(--mc-text-subtle);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    letter-spacing: var(--mc-tracking-caps);
+    text-transform: uppercase;
+    text-align: start;
+    white-space: nowrap;
+  }
+  .mc-calendar-grid-weekday:first-child {
+    border-start-start-radius: var(--mc-radius-lg);
+  }
+  .mc-calendar-grid-weekday:last-child {
+    border-start-end-radius: var(--mc-radius-lg);
+    border-inline-end-width: var(--mc-space-0);
+  }
+  /*
+   * A day. The block size is a MINIMUM — a table cell treats its block-size that way — so a month
+   * cell holds its shape empty and grows only when its entries need more. The one 96px step is the
+   * largest spacing token; a week cell wants more than that and takes it from the host instead
+   * (`h-full` on the table lets its single row fill whatever height the host gives).
+   */
+  .mc-calendar-grid-cell {
+    block-size: var(--mc-space-96);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-4);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    vertical-align: top;
+  }
+  .mc-calendar-grid-cell:last-child {
+    border-inline-end-width: var(--mc-space-0);
+  }
+  .mc-calendar-grid-row:last-child .mc-calendar-grid-cell {
+    border-block-end-width: var(--mc-space-0);
+  }
+  .mc-calendar-grid-row:last-child .mc-calendar-grid-cell:first-child {
+    border-end-start-radius: var(--mc-radius-lg);
+  }
+  .mc-calendar-grid-row:last-child .mc-calendar-grid-cell:last-child {
+    border-end-end-radius: var(--mc-radius-lg);
+  }
+  .mc-calendar-grid-week .mc-calendar-grid-cell {
+    padding-inline: var(--mc-space-8);
+  }
+  /* The neighbouring months' days: present, so every row is a whole week, and dimmed. */
+  .mc-calendar-grid-cell[data-outside-month="true"] {
+    background-color: var(--mc-surface-sunken);
+  }
+  .mc-calendar-grid-cell[data-outside-month="true"] .mc-calendar-grid-day-number {
+    color: var(--mc-text-muted);
+  }
+  .mc-calendar-grid-day {
+    display: flex;
+    align-items: center;
+  }
+  .mc-calendar-grid-day-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-24);
+    block-size: var(--mc-space-24);
+    border-radius: var(--mc-radius-full);
+    color: var(--mc-text-default);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-medium);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Today: the accent's one appearance in the grid, a filled disc the size of a check mark. */
+  .mc-calendar-grid-cell[data-today="true"] .mc-calendar-grid-day-number {
+    background-color: var(--mc-accent-strong);
+    color: var(--mc-accent-strong-foreground);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-calendar-grid-entries {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    margin-block-start: var(--mc-space-4);
+    padding-inline: var(--mc-space-0);
+    list-style: none;
+  }
+  /* Each item is a flex row so the chip inside can fill the cell's width without a `%`. */
+  .mc-calendar-grid-item {
+    display: flex;
+    min-inline-size: var(--mc-space-0);
+  }
+  /*
+   * The chip. A real control (a button, or a link when it goes somewhere) in the subtle status
+   * register: pale tint, deep text, soft hairline. Hover strengthens the hairline to the text's
+   * own colour, which keeps the tone; focus is the house ring, flush.
+   */
+  .mc-calendar-grid-entry {
+    display: flex;
+    flex: auto;
+    align-items: baseline;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-regular);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    text-decoration-line: none;
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+    transition-property: border-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-calendar-grid-entry:hover {
+    border-color: currentcolor;
+  }
+  .mc-calendar-grid-entry:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-calendar-grid-entry[data-tone="accent"] {
+    background-color: var(--mc-accent-subtle);
+    border-color: var(--mc-accent-strong);
+    color: var(--mc-accent-subtle-foreground);
+  }
+  .mc-calendar-grid-entry[data-tone="info"] {
+    background-color: var(--mc-status-info-subtle);
+    border-color: var(--mc-status-info-subtle-border);
+    color: var(--mc-status-info-subtle-foreground);
+  }
+  .mc-calendar-grid-entry[data-tone="success"] {
+    background-color: var(--mc-status-success-subtle);
+    border-color: var(--mc-status-success-subtle-border);
+    color: var(--mc-status-success-subtle-foreground);
+  }
+  .mc-calendar-grid-entry[data-tone="warning"] {
+    background-color: var(--mc-status-warning-subtle);
+    border-color: var(--mc-status-warning-subtle-border);
+    color: var(--mc-status-warning-subtle-foreground);
+  }
+  .mc-calendar-grid-entry[data-tone="danger"] {
+    background-color: var(--mc-status-danger-subtle);
+    border-color: var(--mc-status-danger-subtle-border);
+    color: var(--mc-status-danger-subtle-foreground);
+  }
+  /*
+   * A span reads as one run across its days: the chip squares off the edge that continues into
+   * the next day, and rounds only where the run begins and ends.
+   */
+  .mc-calendar-grid-entry[data-span="true"]:not([data-span-start="true"]) {
+    border-start-start-radius: var(--mc-radius-none);
+    border-end-start-radius: var(--mc-radius-none);
+  }
+  .mc-calendar-grid-entry[data-span="true"]:not([data-span-end="true"]) {
+    border-start-end-radius: var(--mc-radius-none);
+    border-end-end-radius: var(--mc-radius-none);
+  }
+  /* The time leads, at the reading edge, in tabular figures so a column of them aligns. */
+  .mc-calendar-grid-entry-time {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--mc-weight-medium);
+    white-space: nowrap;
+  }
+  .mc-calendar-grid-entry-body {
+    display: flex;
+    flex: auto;
+    flex-direction: column;
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-calendar-grid-entry-label {
+    font-weight: var(--mc-weight-semibold);
+    overflow-wrap: anywhere;
+  }
+  /* A month cell is narrow: the label takes an ellipsis, with the whole entry on the chip's title. */
+  .mc-calendar-grid-month .mc-calendar-grid-entry-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Struck: shown, and struck. The tone stays, because what it was is still what it was. */
+  .mc-calendar-grid-entry[data-struck="true"] .mc-calendar-grid-entry-label {
+    text-decoration-line: line-through;
+  }
+  .mc-calendar-grid-entry-detail {
+    font-weight: var(--mc-weight-regular);
+    overflow-wrap: anywhere;
+  }
+  /* The "more" control loads the rest of the day, so it wears the link register. */
+  .mc-calendar-grid-more {
+    display: inline-flex;
+    margin-block-start: var(--mc-space-4);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: var(--mc-text-link);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    text-decoration-line: underline;
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-calendar-grid-more:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  /* The loading stand-ins: chip-height lines in the cell, so the entries land where the eye is. */
+  .mc-calendar-grid-placeholders {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    margin-block-start: var(--mc-space-4);
+  }
+  .mc-calendar-grid-line-placeholder {
+    block-size: var(--mc-space-20);
+  }
+
+  /*
+   * The agenda. A scrolling child, like the event rail: it takes the block space it is given and
+   * scrolls inside it, and the zero minimum is what lets it shrink below its content in a flex
+   * parent. Focusable because its content can scroll past every control in it.
+   */
+  .mc-calendar-agenda {
+    display: flex;
+    flex-direction: column;
+    flex: auto;
+    min-block-size: var(--mc-space-0);
+    overflow-x: hidden;
+    overflow-y: auto;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-calendar-agenda:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-calendar-agenda-empty {
+    padding-block: var(--mc-space-16);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-calendar-agenda-days {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+  }
+  .mc-calendar-agenda-day {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+  }
+  /* The day heading: the full date over a hairline, in the reading weight, whatever the host's
+     heading levels are. */
+  .mc-calendar-agenda-heading {
+    padding-block-end: var(--mc-space-4);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-calendar-agenda-entries {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    padding-inline: var(--mc-space-0);
+    list-style: none;
+  }
+  /* Agenda rows are read at the reading size, with the time in a column so the labels align. */
+  .mc-calendar-agenda .mc-calendar-grid-entry {
+    gap: var(--mc-space-12);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    font-size: var(--mc-font-size-sm);
+  }
+  .mc-calendar-agenda .mc-calendar-grid-entry-time {
+    min-inline-size: var(--mc-space-64);
+  }
+  .mc-calendar-agenda-heading-placeholder {
+    block-size: var(--mc-space-16);
+  }
+  .mc-calendar-agenda-line-placeholder {
+    block-size: var(--mc-space-32);
+  }
+}

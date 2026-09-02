@@ -50,9 +50,16 @@
     {
       "name": "ScreenSearch",
       "home": "packages/design-system/src/lib/components/screen-search"
+    },
+    {
+      "name": "CalendarGrid",
+      "home": "packages/design-system/src/lib/components/calendar-grid"
+    },
+    {
+      "name": "CalendarView",
+      "home": "apps/web/src/lib/calendar"
     }
   ],
-
   "modalShellsComment": [
     "The homes allowed to compose a modal panel out of the Dialog / AlertDialog / Sheet parts.",
     "Everywhere else, a modal surface is one of the shells — RecordWindow for reading and changing a",
@@ -84,7 +91,6 @@
       "reason": "the shared unsaved-work question both shells ask, which is an AlertDialog by construction."
     }
   ],
-
   "allowancesComment": [
     "Pre-existing debt, declared out loud. Every entry here is a REAL violation that predates the",
     "rule catching it: the status register and the placeholder ruling both landed after the code",
@@ -106,12 +112,12 @@
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/billing/apply-trust-funds-dialog.svelte",
-      "reason": "NOT read-only, and not debt: an act whose commit is not served yet. Its control is wrapped in SoonAffordance \u2014 the product's own primitive for a designed-but-unbuilt capability (disabled control, Soon badge, the dependency as the accessible description) \u2014 and that primitive lives in the app, so the design-system shell cannot carry it. It becomes a plain ActionDialog the day a route hands out a trust account."
+      "reason": "NOT read-only, and not debt: an act whose commit is not served yet. Its control is wrapped in SoonAffordance — the product's own primitive for a designed-but-unbuilt capability (disabled control, Soon badge, the dependency as the accessible description) — and that primitive lives in the app, so the design-system shell cannot carry it. It becomes a plain ActionDialog the day a route hands out a trust account."
     },
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/billing/arrangement-dialog.svelte",
-      "reason": "Belongs to the OTHER shell. It reads a record \u2014 the fee arrangement in force, its terms, and its version history \u2014 and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
+      "reason": "Belongs to the OTHER shell. It reads a record — the fee arrangement in force, its terms, and its version history — and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
     },
     {
       "rule": "hand-composed-modal",
@@ -121,7 +127,7 @@
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/components/command-palette.svelte",
-      "reason": "not an act asked of a reader \u2014 a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
+      "reason": "not an act asked of a reader — a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
     },
     {
       "rule": "hand-composed-modal",
@@ -191,7 +197,7 @@
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/matters/new-matter-dialog.svelte",
-      "reason": "a record being CREATED, not an act asked of a reader \u2014 its right shell is RecordWindow opened with editing raised, which that component already supports. ActionDialog would be the wrong shell, so this one is scheduled separately."
+      "reason": "a record being CREATED, not an act asked of a reader — its right shell is RecordWindow opened with editing raised, which that component already supports. ActionDialog would be the wrong shell, so this one is scheduled separately."
     },
     {
       "rule": "hand-composed-modal",
@@ -221,12 +227,12 @@
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/time/time-sheet.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader \u2014 same full-screen family as cost-review-window, same separate design."
+      "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family as cost-review-window, same separate design."
     },
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/tools/safe-browse/website-shell.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader \u2014 same full-screen family, same separate design."
+      "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family, same separate design."
     },
     {
       "rule": "hand-composed-modal",
@@ -243,7 +249,6 @@
       "file": "apps/web/src/routes/developer-console/table-states/+page.svelte",
       "reason": "predates the status register; the dev gallery holds its own STATUS_BADGE map so the grid states have something to render. It should read the register instead, which is also what would make the gallery show the real tones."
     },
-
     {
       "rule": "placeholder",
       "file": "apps/web/src/lib/components/recipient-picker.svelte",

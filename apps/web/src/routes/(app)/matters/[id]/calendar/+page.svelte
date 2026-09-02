@@ -37,7 +37,7 @@
     overdueCount,
     type CalendarDeadline,
     type CalendarEvent,
-  } from "$lib/matters/calendar-api.ts";
+  } from "$lib/calendar/calendar-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 

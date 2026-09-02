@@ -20,8 +20,8 @@
   status: shipped
   surface: screen
   adrs: ADR-0055
-  notes: The matter's Calendar section reads both records; recording from the screen still waits on the participant picker, so those actions render disabled. The firm-wide calendar screens remain their own slice.
-  evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar; read at apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte over the two listings.
+  notes: Read on the matter's Calendar section and on the firm calendar; recorded, edited, cancelled, continued, satisfied, vacated and superseded from those screens through the record forms and the entry window.
+  evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar; read at apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte and apps/web/src/routes/(app)/calendar/+page.svelte; written from apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte and entry-window.svelte.
 
 - id: calendar.timeline
   name: Matter timeline (federated)
@@ -36,9 +36,9 @@
   name: Firm events
   scope: Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0055, ADR-0068
-  notes: Backend only — the calendar screens are their own slice.
+  notes: On the firm calendar at /calendar beside the matters' settings, recorded from its Record menu, opened and edited in the entry window; /calendar/firm-events is the deep link the federated read emits.
   evidence: firm_event and firm_event_participant in 20260807T070000_calendar-firm-events-resources-links; write paths in packages/calendar/src/firm-event-service.ts; the firmEvent federated source with visibilityAnchor 'firm'; scope and widened member filters on GET /api/v1/calendar/events.
 
 - id: calendar.resources
@@ -53,17 +53,76 @@
   name: Event links and continuance
   scope: Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved.
   status: shipped
-  surface: awaiting-screen
-  notes: Backend only. Continuance binds matter events; a moved staff meeting stays an edit.
+  surface: screen
+  notes: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to. Related links are recorded through the API only until the links surface lands.
   evidence: calendar_event_link with two hand-written partial uniques; packages/calendar/src/continuance-service.ts (one-batch operation, depth-capped chain read, trigger-linked deadline lookup as pure SELECT); continue and continuance-chain routes.
 
 - id: calendar.surface
   name: Calendar surface
   scope: Calendar of matters, deadlines, and appointments.
   status: partial
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  notes: One reusable calendar component (CalendarView over the design system's CalendarGrid) embedded with a scope: the firm screen, the matter section, and later the dashboard, an entity and a room.
+  evidence: apps/web/src/lib/calendar/calendar-view.svelte and packages/design-system/src/lib/components/calendar-grid; both registered in tooling/lint-one-ui/registry.json so a second calendar rendering fails the gate.
+
+- id: calendar.surface.firm-calendar
+  name: Firm calendar screen
+  scope: The firm-wide calendar at /calendar: month, week and agenda views over the federated read, the deadlines read and the firm-events read, with a Mine / Everyone scope and a Record menu.
+  status: shipped
   surface: screen
-  notes: One screen of several. A month grid, a week view, an agenda list, and the firm-wide calendar are all still unbuilt, as is any way to record a date from a screen.
-  evidence: The matter's Calendar section at apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte reads the matter's events and its deadlines, in every state, and reports which deadlines are past due. There is still no firm calendar route, and the reads a month grid and a week view consume are built and contract-emitted with nothing consuming them.
+  slices: 6-1-case-calendar, 6-2-calendar-firm-events-resources
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  notes: Paints kinds and matter numbers, never titles, on the firm-wide grid; the title is fetched for the one entry opened. The week is seven civil-day columns rather than a time axis (owner flag C3).
+  evidence: apps/web/src/routes/(app)/calendar/+page.svelte over apps/web/src/lib/calendar/calendar-reads.ts; the window arithmetic and the projection are asserted in apps/web/test/calendar-window.test.ts, calendar-entries.test.ts and calendar-reads.test.ts.
+
+- id: calendar.surface.matter-section
+  name: Matter calendar section
+  scope: The matter's Calendar section: the deadlines and events tables as the List view, plus Month and Agenda views over the same component with the matter scope, and live record controls.
+  status: shipped
+  surface: screen
+  slices: 6-1-case-calendar
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  evidence: apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte embedding apps/web/src/lib/calendar/calendar-view.svelte with a matter scope.
+
+- id: calendar.surface.entry-window
+  name: Entry window
+  scope: The one window an event, a firm event or a deadline opens in: the record, its participants and links, in-place editing, and the verbs (cancel, continue, satisfy, vacate, supersede).
+  status: shipped
+  surface: screen
+  slices: 6-1-case-calendar, 6-2-calendar-firm-events-resources
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  notes: The History tab is a marked Soon seam until a per-record audit read exists; a deadline reached by deep link outside the window on screen says so rather than reading one by id, because no single-deadline route exists.
+  evidence: apps/web/src/lib/calendar/entry-window.svelte, a RecordWindow.
+
+- id: calendar.surface.record-forms
+  name: Record forms
+  scope: Recording an event on a matter, a deadline on a matter (including superseding one), and a firm event from a screen, with a participant picker over the roster, the directory and external names.
+  status: shipped
+  surface: screen
+  slices: 6-1-case-calendar, 6-2-calendar-firm-events-resources
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  evidence: apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte, record-firm-event-dialog.svelte and participant-picker.svelte over the pure draft models asserted in apps/web/test/calendar-drafts.test.ts.
+
+- id: calendar.surface.kind-narrowing
+  name: Kind narrowing and state filters
+  scope: Turning the timeline's other sources (custody dates, review dates) on for the firm calendar, and narrowing the agenda by state.
+  status: designed
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  evidence: The read is narrowed to the event kind in apps/web/src/lib/calendar/calendar-vocabulary.ts (FIRM_CALENDAR_KINDS) and no control widens it yet; the plan's slice 2.
+
+- id: calendar.surface.embedded
+  name: Calendar embedded on other surfaces
+  scope: The Today card on Home, the matter overview's agenda, and a directory entity's appearances, each the one component with a narrower scope.
+  status: designed
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  evidence: No host beyond the firm screen and the matter section embeds the component; the plan's slice 2.
+
+- id: calendar.surface.room-grid
+  name: Room grid and bookings
+  scope: A resource's schedule over the availability read with conflicts painted, bookings on an event's window, and the resource catalog under Settings.
+  status: designed
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  evidence: Nothing on the web reads /api/v1/calendar/resources; the plan's slice 3.
 
 - id: calendar.sync
   name: Two-way Google/Outlook sync

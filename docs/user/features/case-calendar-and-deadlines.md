@@ -1,6 +1,6 @@
 # Case calendar and deadlines
 
-_The backend is built. The calendar screens — a month grid, a week view, an agenda list, and the matter timeline — are authored when those surfaces ship; today events and deadlines are recorded through the API._
+_The firm calendar and the matter's Calendar section are live. The matter timeline as a view, the room grid, and the Home card are still to come and are recorded through the API meanwhile._
 
 ## What it does
 
@@ -17,6 +17,40 @@ the ledger, or the file it came from.
 **A place to record the litigation itself**, which the platform has no other way to know about.
 Hearings, filings, service, orders, depositions, mediations, trials, client meetings, site visits —
 and separately, the dates you must act by.
+
+## The calendar screens
+
+**Calendar**, in the sidebar, is the firm's calendar. It opens on the whole firm's month: every
+setting and deadline on every matter you can see, and the firm's own events beside them.
+
+- **Mine or Everyone.** Mine narrows the month to what is on your own calendar: settings you are a
+  participant at or the responsible attorney for, and every firm event whose audience is everyone.
+  The address remembers the choice, so a link you send opens the same way.
+- **Month, week, agenda.** Three views of the same calendar. The month grid shows a few entries per
+  day and says how many more there are; press that and the agenda opens on that day. The week is
+  seven days side by side with each day's entries listed. The agenda is a fortnight as a list. The
+  view and the date live in the address.
+- **What an entry says on the firm calendar.** The kind and the matter, never the title: "Hearing,
+  2026-0042". A calendar that spans every case does not broadcast what each case is about. Press
+  the entry and it opens with its title, its people, its place and the zone its time is read in.
+  Deadlines are the exception: they show their titles, because a deadline is read per matter you
+  can see, and they say when they are past due.
+- **Cancelled settings stay on the calendar, struck through.** A setting that was called off and one
+  that never existed are different facts.
+- **Record** at the top right records an event on a matter, a deadline on a matter, or a firm event.
+
+**A matter's Calendar section** keeps its two tables (Deadlines, then Events) as the **List** view and
+adds **Month** and **Agenda** beside them, which are the firm calendar narrowed to this one matter
+and showing titles. **Record a deadline** and **Record an event** are on the section's own row.
+
+**Opening an entry.** Every entry opens in the same window: the record on the left, its people, its
+links and its history on the right, and the verbs it allows along the bottom. Edit changes the
+record in place. A scheduled setting can be **cancelled** with a reason or **continued**; an open
+deadline can be **satisfied**, **vacated** with a reason, or **superseded** by a new one. A verb the
+record's state or your permissions refuse stays visible and says why.
+
+**Who is at an event.** When recording, pick a person from the firm, from the directory, or type a
+name once for somebody who is neither, such as a judge or a court reporter; each can carry a role.
 
 ## Recording an event
 
@@ -126,7 +160,12 @@ retired type keeps its meaning. The shipped types can be retired or regrouped bu
   record itself — email subject lines, document names, narratives, and people's names stay behind that
   link and out of any list that spans several matters.
 - **Reading the calendar and setting dates on it are separate permissions.** Everyone can see what is
-  coming; asserting when a hearing is, is its own capability.
+  coming; asserting when a hearing is, is its own capability. A record control you cannot use stays
+  on the screen, disabled, and says which permission it needs.
+- **A month never asks for more than six weeks**, so the firm calendar never meets the one-year cap
+  on its own; the cap still applies to anything reading the calendar through the API.
+- **A very busy window says so.** The calendar walks each read to its end, up to a ceiling; past
+  it, the screen says it is showing the first entries rather than pretending the month is complete.
 
 ## Related features
 
