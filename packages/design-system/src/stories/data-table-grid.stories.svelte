@@ -607,18 +607,19 @@
     });
 
     await step("The header menu holds the trailing pin — it is not the member's to move", async () => {
-      // Summoned from the column's own header, which is where every column control lives: this
-      // step used to reach for the Columns button the header menu replaced.
+      // The column's controls live in its own header's right-click menu (see "Columns and pinning").
+      const statusHead = canvas.getByRole("button", { name: "Status" }).closest("th")!;
+      await fireEvent.contextMenu(statusHead);
       const body = within(document.body);
-      await fireEvent.contextMenu(canvas.getByRole("button", { name: "Status" }).closest("th")!);
       await body.findByRole("menu");
-      const heldPin = await body.findByRole("menuitem", { name: "Pinned Status" });
+      const heldPin = body.getByRole("menuitem", { name: "Unpin Status" });
       await expect(heldPin).toHaveAttribute("data-disabled");
       await expect(heldPin).toHaveAttribute(
         "title",
         "Status always keeps its place at the trailing edge",
       );
       await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
       await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
     });
   }}

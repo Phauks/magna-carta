@@ -27,6 +27,13 @@
    * shell replaces each decided that for themselves and disagreed: four reached AlertDialog and
    * thirty did not, with no rule behind the split.
    *
+   * A READING PANEL ASKS FOR NOTHING, AND ITS PROPS SAY SO BY TYPE. `kind="reading"` shows a thing
+   * and may offer a step in place, beside the fact the step changes; its action bar carries only
+   * the way out, and `commitLabel` and `onCommit` are refused by the type rather than merely
+   * unused. The three acting kinds require both. So the shell's contract is not weakened by the
+   * fourth kind — it is a discriminated union, and each arm is as strict as it was — which is what
+   * makes a reading panel a variant of this shell rather than a third shell or a hand-composed one.
+   *
    * THE CONTEXT PANE IS THE RECORD WINDOW'S, LENT. A form that needs something beside its fields —
    * the client a matter is being opened for, the standing that decides whether it may be — hands
    * it over as `context` and gets the record window's own right pane: the sunken surface, the
@@ -58,8 +65,102 @@
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { CloseGuard } from "../../internal/close-guard.svelte.ts";
   import DiscardQuestion from "../../internal/discard-question.svelte";
-  import { DISCARD_SENTENCE, DISMISS_LABEL, traitsOf, widthClass } from "./action-dialog-model.ts";
-  import type { ActionDialogKind, ActionDialogWidth, ActionOutcome } from "./types.ts";
+  import {
+    DISCARD_SENTENCE,
+    DISMISS_LABEL,
+    LEAVE_LABEL,
+    traitsOf,
+    widthClass,
+  } from "./action-dialog-model.ts";
+  import type { ActingKind, ActionDialogWidth, ActionOutcome } from "./types.ts";
+
+  /*
+   * The props are a union on `kind`. An acting kind carries a commit and everything about it; a
+   * reading kind carries none and cannot be handed one. Written as a type alias rather than inline
+   * so the arms can be read side by side, which is the whole point of the union.
+   */
+  type Shared = {
+    /** Whether the panel is showing. Bindable, so a surface can open and close it. */
+    open?: boolean;
+    /** The act, in the reader's words — "Write Off a Balance", never a name for the panel. */
+    heading: string;
+    /**
+     * What is being acted on, named once. A record's own reference belongs here and only here;
+     * repeating it in the body makes a reader check whether the two agree.
+     */
+    subtitle?: Snippet;
+    /**
+     * The failure band's PLACE, which is the shell's; its CONTENT, which is the caller's. The
+     * design system cannot know what a failure reads like — that lives in the app, over the app's
+     * own problem model — so the shell reserves a band between the body and the action bar, outside
+     * the scroll and under the reader's eye when a commit comes back refused, and renders whatever
+     * arrives in it. Same division as the record window's menu: the place here, the content there.
+     * It is what lets the next change to how a failure reads touch one component instead of every
+     * panel.
+     */
+    notice?: Snippet;
+    /**
+     * The body. Handed `busy` so ONE snippet renders the fields at rest and while the commit is in
+     * flight — two snippets would be two layouts, and they would disagree within a week.
+     */
+    fields?: Snippet<[{ busy: boolean }]>;
+    /**
+     * What stands beside the fields, in the record window's own right pane: the thing being acted
+     * on, or the facts that decide whether the act may happen. Given, the panel opens at the record
+     * width whatever `width` says, because two panes have a geometry of their own. Handed `busy`
+     * for the same reason the fields are.
+     */
+    context?: Snippet<[{ busy: boolean }]>;
+    /** Fired once each time the panel opens — where a caller clears its fields. Once per OPENING. */
+    onOpen?: () => void;
+    /** Fired after a dismissal that was not a commit, once the guard has allowed it. */
+    onDismiss?: () => void;
+    /**
+     * Whether there is anything to lose. `true` (the default for an acting kind) makes every exit
+     * ask first. A caller that can see its fields are untouched passes false and the question is
+     * skipped. The default is the careful one because a caller that never thought about it should
+     * get the question rather than the silence. A reading panel has nothing to lose and never asks.
+     */
+    unsavedChanges?: boolean;
+    /**
+     * How wide the panel opens. A closed set, not a class — and overruled by `context`, which
+     * implies the record width.
+     */
+    width?: ActionDialogWidth;
+  };
+
+  type Acting = Shared & {
+    /** What is being asked. Decides the primitive, the dismissal verb and the commit's colour. */
+    kind?: ActingKind;
+    /** The commit's own verb — "Write Off a Balance", never "OK", "Submit" or "Confirm". */
+    commitLabel: string;
+    /**
+     * The same verb while the request is in flight — "Writing Off" to `commitLabel`'s "Write Off".
+     * Two words for ONE verb rather than a second verb, which is why it sits beside its own label
+     * and not in a slot of the caller's. Omitted, the label does not change.
+     */
+    commitBusyLabel?: string;
+    /**
+     * Why the commit is unavailable, if it is. The control is DISABLED and the reason is rendered
+     * beside it rather than the control being hidden: an act that vanishes teaches a reader
+     * nothing, and a refusal is stated where it is caused. Undefined means the commit is available.
+     */
+    commitRefusal?: string;
+    /**
+     * Do it. The shell raises the busy state, awaits, and lowers it. "committed" closes the panel;
+     * "refused" leaves it standing with whatever the caller has put in the notice slot.
+     */
+    onCommit: () => Promise<ActionOutcome>;
+  };
+
+  type Reading = Shared & {
+    /** A panel that shows a thing and asks for nothing. Any step it offers is seated in its body. */
+    kind: "reading";
+    commitLabel?: never;
+    commitBusyLabel?: never;
+    commitRefusal?: never;
+    onCommit?: never;
+  };
 
   let {
     open = $bindable(false),
@@ -75,85 +176,15 @@
     onCommit,
     onOpen,
     onDismiss,
-    unsavedChanges = true,
+    unsavedChanges,
     width = "default",
-  }: {
-    /** Whether the panel is showing. Bindable, so a surface can open and close it. */
-    open?: boolean;
-    /** What is being asked. Decides the primitive, the dismissal verb and the commit's colour. */
-    kind?: ActionDialogKind;
-    /** The act, in the reader's words — "Write Off a Balance", never a name for the panel. */
-    heading: string;
-    /**
-     * What is being acted on, named once. A record's own reference belongs here and only here;
-     * repeating it in the body makes a reader check whether the two agree.
-     */
-    subtitle?: Snippet;
-    /**
-     * The failure band's PLACE, which is the shell's; its CONTENT, which is the caller's. The
-     * design system cannot know what a failure reads like — that lives in the app, over the app's
-     * own problem model — so the shell reserves a band between the body and the action bar, outside
-     * the scroll and under the reader's eye when a commit comes back refused, and renders whatever
-     * arrives in it. Same division as the record window's menu: the place here, the
-     * content there. It is what lets the next change to how a failure reads touch one component
-     * instead of every panel.
-     */
-    notice?: Snippet;
-    /**
-     * The body. Handed `busy` so ONE snippet renders the fields at rest and while the commit is in
-     * flight — two snippets would be two layouts, and they would disagree within a week.
-     */
-    fields?: Snippet<[{ busy: boolean }]>;
-    /**
-     * What stands beside the fields, in the record window's own right pane: the thing being acted
-     * on, or the facts that decide whether the act may happen. Given, the panel opens at the record
-     * width whatever `width` says, because two panes have a geometry of their own. Handed `busy`
-     * for the same reason the fields are.
-     */
-    context?: Snippet<[{ busy: boolean }]>;
-    /** The commit's own verb — "Write Off a Balance", never "OK", "Submit" or "Confirm". */
-    commitLabel: string;
-    /**
-     * The same verb while the request is in flight — "Writing Off" to `commitLabel`'s "Write Off".
-     * Two words for ONE verb rather than a second verb, which is why it sits beside its own label
-     * and not in a slot of the caller's. Omitted, the label does not change: a commit with nothing
-     * to wait for has no in-flight state to name.
-     */
-    commitBusyLabel?: string;
-    /**
-     * Why the commit is unavailable, if it is. The control is DISABLED and the reason is rendered
-     * beside it rather than the control being hidden: an act that vanishes teaches a reader
-     * nothing, and a refusal is stated where it is caused. Undefined means the commit is available.
-     */
-    commitRefusal?: string;
-    /**
-     * Do it. The shell raises the busy state, awaits, and lowers it. "committed" closes the panel;
-     * "refused" leaves it standing with whatever the caller has put in the notice slot.
-     */
-    onCommit: () => Promise<ActionOutcome>;
-    /**
-     * Fired once each time the panel opens — where a caller clears its fields. Once per OPENING,
-     * not per render, which is the bug in the hand-written effect this replaces: an effect that
-     * reads other state as well as `open` re-runs mid-edit and wipes what the reader has typed.
-     */
-    onOpen?: () => void;
-    /** Fired after a dismissal that was not a commit, once the guard has allowed it. */
-    onDismiss?: () => void;
-    /**
-     * Whether there is anything to lose. `true` (the default) makes every exit ask first. A caller
-     * that can see its fields are untouched passes false and the question is skipped. The default
-     * is the careful one because a caller that never thought about it should get the question
-     * rather than the silence.
-     */
-    unsavedChanges?: boolean;
-    /**
-     * How wide the panel opens. A closed set, not a class — and overruled by `context`, which
-     * implies the record width.
-     */
-    width?: ActionDialogWidth;
-  } = $props();
+  }: Acting | Reading = $props();
 
   const traits = $derived(traitsOf(kind));
+  const reading = $derived(kind === "reading");
+
+  /* Nothing to lose is the reading panel's default; the careful default is the acting kinds'. */
+  const guarded = $derived(unsavedChanges ?? !reading);
 
   /** Raised across the commit, and read by the panes as well as by both footer controls. */
   let busy = $state(false);
@@ -165,7 +196,7 @@
    * busy state is not part of this — an exit while the request is in flight is refused outright
    * below instead.
    */
-  const guard = new CloseGuard(() => unsavedChanges);
+  const guard = new CloseGuard(() => guarded);
 
   /*
    * `onOpen` on the opening TRANSITION, never on the state. Written as a transition so a caller
@@ -206,7 +237,7 @@
   }
 
   async function commit(): Promise<void> {
-    if (busy || commitRefusal !== undefined) return;
+    if (busy || commitRefusal !== undefined || onCommit === undefined) return;
     busy = true;
     try {
       const outcome = await onCommit();
@@ -232,10 +263,10 @@
     first.focus();
   }
 
-  const commitText = $derived(busy ? (commitBusyLabel ?? commitLabel) : commitLabel);
+  const commitText = $derived(busy ? (commitBusyLabel ?? commitLabel ?? "") : (commitLabel ?? ""));
   const commitTitle = $derived(commitRefusal ?? commitText);
   const commitAccessibleName = $derived(
-    commitRefusal === undefined ? commitText : `${commitLabel}: ${commitRefusal}`,
+    commitRefusal === undefined ? commitText : `${commitLabel ?? ""}: ${commitRefusal}`,
   );
 
   /*
@@ -322,18 +353,22 @@
       disabled={busy}
       onclick={requestClose}
     >
-      {DISMISS_LABEL}
+      {reading ? LEAVE_LABEL : DISMISS_LABEL}
     </Button>
-    <Button
-      data-action-dialog-action="commit"
-      variant={traits.commitVariant}
-      disabled={busy || commitRefusal !== undefined}
-      title={commitTitle}
-      aria-label={commitAccessibleName}
-      onclick={commit}
-    >
-      {commitText}
-    </Button>
+    <!-- A reading panel asks for nothing, so its bar ends at the way out. The commit's marker is
+         still the last thing in this source, which is the order the footer-set rule reads. -->
+    {#if traits.commitVariant !== null}
+      <Button
+        data-action-dialog-action="commit"
+        variant={traits.commitVariant}
+        disabled={busy || commitRefusal !== undefined}
+        title={commitTitle}
+        aria-label={commitAccessibleName}
+        onclick={commit}
+      >
+        {commitText}
+      </Button>
+    {/if}
   </div>
 {/snippet}
 

@@ -134,6 +134,10 @@ export function findHeaderSetProblems(filePath, source) {
  * The action bar's two controls, in the one order a reader learns: the dismissal at the weak hand,
  * the commit last at the strong hand. Its sibling is HEADER_ACTIONS above, and it exists for the
  * same reason — the promise a shell makes is only worth what stops it being quietly rearranged.
+ *
+ * A reading panel renders no commit at all; that is a runtime branch on its kind, and this rule
+ * reads SOURCE, where the commit's marker is still the last control in the bar. What the rule
+ * asserts is therefore the order of the controls that exist, and that no third one joins them.
  */
 export const FOOTER_ACTIONS = ["dismiss", "commit"];
 

@@ -25,6 +25,13 @@ import type { ActionDialogKind, ActionDialogWidth } from "./types.ts";
  */
 export const DISMISS_LABEL = "Cancel";
 
+/**
+ * The word on the way out of a panel that asked for nothing. "Cancel" is the ruling for an act —
+ * something was begun — and nothing was begun here; the record window's own reading mode leaves
+ * through "Close", so a reading panel does too.
+ */
+export const LEAVE_LABEL = "Close";
+
 /** Everything a kind decides, resolved in one place. */
 export interface KindTraits {
   /** Which primitive renders it. An alert dialog takes the `alertdialog` role and traps a decision. */
@@ -33,8 +40,8 @@ export interface KindTraits {
   readonly showsCornerDismiss: boolean;
   /** Whether a press outside the panel dismisses it. */
   readonly dismissOnPressOutside: boolean;
-  /** The commit control's variant. */
-  readonly commitVariant: "primary" | "destructive";
+  /** The commit control's variant. A reading panel has no commit, and says so. */
+  readonly commitVariant: "primary" | "destructive" | null;
 }
 
 const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
@@ -55,6 +62,12 @@ const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
     showsCornerDismiss: false,
     dismissOnPressOutside: false,
     commitVariant: "destructive",
+  },
+  reading: {
+    primitive: "dialog",
+    showsCornerDismiss: true,
+    dismissOnPressOutside: true,
+    commitVariant: null,
   },
 };
 

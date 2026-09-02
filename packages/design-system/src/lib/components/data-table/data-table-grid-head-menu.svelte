@@ -38,10 +38,12 @@
   };
   let { grid, column, settings }: Props = $props();
 
-  const pinned = $derived(grid.isPinned(column.id));
+  // A trailing-pinned column is pinned by declaration, not by the reader: it holds its place at the end
+  // edge and the grid refuses to toggle it (togglePinned returns early), so the menu shows the pin as
+  // held rather than offering a control that would do nothing.
+  const pinnedEnd = $derived(column.pinnedEnd === true);
+  const pinned = $derived(pinnedEnd || grid.isPinned(column.id));
   const anchored = $derived(column.anchored === true);
-  /** Declared by the column model to sit at the trailing edge; no member gesture moves it. */
-  const heldAtTheEnd = $derived(column.pinnedEnd === true);
   // A column with nothing to filter on contributes no group, and so no rule above the next one.
   const filterable = $derived(gridColumnFilterKind(column) !== "none");
 </script>
@@ -61,15 +63,9 @@
     <EyeOff class="mc-table-grid-head-menu-icon" aria-hidden="true" />
     Hide {column.label}
   </ContextMenu.Item>
-  <!--
-    A TRAILING-PINNED COLUMN IS NOT THE MEMBER'S TO MOVE. Its place at the end edge is declared by
-    the column model — the row's own verbs are pinned there so the list can scroll sideways without
-    taking them out of reach — so the item states that and refuses, rather than offering an unpin
-    that the model would immediately overrule.
-  -->
   <ContextMenu.Item
-    disabled={heldAtTheEnd}
-    title={heldAtTheEnd
+    disabled={pinnedEnd}
+    title={pinnedEnd
       ? `${column.label} always keeps its place at the trailing edge`
       : pinned
         ? `Unpin: ${column.label} scrolls with the rest again`
@@ -79,9 +75,9 @@
     <Pin
       class="mc-table-grid-head-menu-icon"
       aria-hidden="true"
-      fill={pinned || heldAtTheEnd ? "currentColor" : "none"}
+      fill={pinned ? "currentColor" : "none"}
     />
-    {heldAtTheEnd ? "Pinned" : pinned ? "Unpin" : "Pin"}
+    {pinned ? "Unpin" : "Pin"}
     {column.label}
   </ContextMenu.Item>
   <ContextMenu.Separator />
