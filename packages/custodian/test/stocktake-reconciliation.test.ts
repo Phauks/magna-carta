@@ -13,9 +13,11 @@ import {
 import {
   ACTOR,
   AUTHORIZED_RELEASE,
+  MATTER,
   commit,
   migratedDatabase,
   options,
+  seedMatter,
   seedMember,
 } from "./support.ts";
 
@@ -28,6 +30,7 @@ const SMITH = "directoryPerson_smith0000000000000";
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const office = await createCustodyLocation(
     database,
     { name: "Reno office", kind: "office" },
@@ -65,7 +68,7 @@ async function scaffold() {
 async function logPacket(database: BatchDatabase, locationId: CustodyLocationId, name: string) {
   return createCustodyPacket(
     database,
-    { name, owners: [{ entityId: SMITH }], currentLocationId: locationId },
+    { name, owners: [{ entityId: SMITH }], currentLocationId: locationId, matterId: MATTER },
     { ...options, responsibleMemberId: ACTOR },
   );
 }

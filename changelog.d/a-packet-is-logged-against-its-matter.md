@@ -7,6 +7,8 @@ audience: public
 
 The form is two columns now: the packet on the left, its contents on the right, added a line at a time before anything is written. The matter leads the left column because the rest depends on it — `owner-picker.svelte` reads `GET /directory/matter-parties?matterId=`, which already existed, instead of searching the whole directory. That search was the real defect the ruling exposed: the directory holds opposing counsel, courts and vendors, and offering all of it as candidate owners invites recording a will as held for the other side's attorney.
 
+The contract holds the rule too, which it did not at first. `matterId` was made required on the form and left optional on `POST /custody/packets`, and a rule one screen holds is not a rule. It is required in the request schema now, and `createCustodyPacket` refuses a blank one at the single place a packet comes into existence — the fixtures and the seeders reach that function directly, and a types-only requirement is a requirement until somebody casts. The create path no longer resolves or mints the per-firm holding matter that stood in for an absent one; the column stays nullable and `resolveCustodyFilingMatter` still answers for packets logged under the old rule, because a register that refused to read its own older rows would be the worse failure. The load profile's `matterlessPacketFraction` knob is gone with the shape it generated.
+
 `GET /api/v1/custody/next-number` is new, reading the counter through the same `readCounterValue` / `renderCustodyNumber` pair the draw uses rather than reimplementing the shape. It allocates nothing, so the response carries `tentative: true` in the body rather than leaving the word to the endpoint's name.
 
 The container field could not be filled at all: a new firm has no custody locations and nothing in the product created one, so the dropdown was empty on exactly the day it mattered. It now describes one inline, nested under whatever is selected.
@@ -20,6 +22,8 @@ The placeholder-cell wrapping fix from the previous round **never took effect**:
 **Logging a packet now starts with its matter, and asks for less guesswork after that.**
 
 The form has two sides: the packet on the left, what is inside it on the right, added a line at a time. Choosing the matter first means the people it can be held for are that matter's parties rather than your entire address book — so an original can no longer be recorded as held for opposing counsel by a slip of the keyboard. The documents you can attach are the ones already filed on that matter.
+
+A packet without a matter is now refused by the server as well as by the form, so nothing can record one through another route. Packets logged before this rule still read normally.
 
 **The number is shown before you save**, marked tentative: nothing is reserved by showing it, so if a colleague logs one first yours takes the next. It is there because it is what you are about to write on the label.
 

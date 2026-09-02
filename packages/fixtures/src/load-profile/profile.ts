@@ -368,10 +368,6 @@ export interface CustodianVolume {
   readonly packetCount: number;
   // Items described inside each packet.
   readonly itemsPerPacket: { readonly min: number; readonly max: number };
-  // Fraction of packets held for somebody with no matter — a will deposited by a client whose only
-  // engagement closed a decade ago. These file their scans against the platform holding matter, which
-  // is what makes the holding matter a real row in the corpus rather than a hypothetical one.
-  readonly matterlessPacketFraction: number;
   // How far back the oldest deposits go. This is the parameter that carries the subsystem's actual
   // risk: a packet's history depth is its AGE times the movement rate, so lengthening the span
   // deepens the ledger without adding a single packet.
@@ -662,7 +658,6 @@ export const ledgerVolume: LedgerVolumeProfile = {
     positionsPerBox: 8,
     packetCount: 2_000,
     itemsPerPacket: { min: 1, max: 5 },
-    matterlessPacketFraction: 0.4,
     historySpanYears: 20,
     movementsPerPacketPerYear: { min: 1, max: 2 },
     deepHistoryMovementCount: 200,

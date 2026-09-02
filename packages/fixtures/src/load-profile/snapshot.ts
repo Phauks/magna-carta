@@ -330,9 +330,10 @@ export async function loadProfileSnapshot(
       const trust = await generateTrustVolume(generated.database, context, profile.trust, options);
       // The custody volume rides after practice and directory generation: its roots bind the offices
       // the practice generator opened, its owner links point at the directory generator's entities,
-      // and a fraction of its packets link to matters. It also CREATES the platform holding matter
-      // the matterless packets file their scans against, which is why it runs before the calendar
-      // volume reads the firm's matters — that row must exist and must be excluded there.
+      // and EVERY packet files under one of the practice generator's matters. It used to also create
+      // the platform holding matter, as the filing target for packets that named none; a packet now
+      // names a matter or is refused (packages/custodian/src/packet-service.ts), so it creates no
+      // matter of its own and the ordering here is only about having matters to file under.
       const custodyAttachPoints = await readCustodyAttachPoints(generated.database);
       const custodian = await generateCustodianVolume(
         generated.database,

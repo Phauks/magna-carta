@@ -53,8 +53,9 @@ next opened.
 7. On the right, add what is inside, one line at a time, and attach any documents already filed on
    the matter.
 
-The form will not let you record a packet without a matter, a name, an owner and a container, and it
-tells you which of the four is missing rather than leaving a button greyed out with no reason.
+The register will not record a packet without a matter, a name, an owner and a container — the form
+tells you which of the four is missing rather than leaving a button greyed out with no reason, and
+the server refuses the same four, so nothing else can record one either.
 
 Closing that matter later tells the person closing it that you still hold the property, and then
 closes the matter anyway. It never blocks, because holding a client's will long after their file

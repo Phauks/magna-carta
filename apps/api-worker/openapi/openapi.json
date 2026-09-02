@@ -12517,7 +12517,8 @@
         "required": [
           "name",
           "owners",
-          "currentLocationId"
+          "currentLocationId",
+          "matterId"
         ]
       },
       "CustodyOwnerInput": {

@@ -8,13 +8,22 @@ import { createCustodyPacket, updateCustodyPacket } from "../src/packet-service.
 import { readCustodyItem, readCustodyPacket } from "../src/packet-statements.ts";
 import { addCalendarMonths, completeCustodyReview, nextReviewDate } from "../src/review-service.ts";
 import { readCustodyReviewsDue } from "../src/review-statements.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  MATTER,
+  commit,
+  migratedDatabase,
+  options,
+  seedMatter,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const { locationId, effect } = await createCustodyLocation(
     database,
     { name: "Main safe", kind: "safe" },
@@ -27,7 +36,12 @@ async function scaffold() {
 async function logPacket(database: BatchDatabase, safe: CustodyLocationId) {
   return createCustodyPacket(
     database,
-    { name: "Smith family deeds", owners: [{ entityId: SMITH }], currentLocationId: safe },
+    {
+      name: "Smith family deeds",
+      owners: [{ entityId: SMITH }],
+      currentLocationId: safe,
+      matterId: MATTER,
+    },
     { ...options, responsibleMemberId: ACTOR },
   );
 }

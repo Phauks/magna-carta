@@ -208,7 +208,7 @@ export const custodianMeasurements: readonly Measurement<CustodianMeasurementHan
           name: "Load-profile measurement packet",
           owners: [{ entityId: custodianProbes.busiestOwnerEntityId }],
           currentLocationId: custodianProbes.intakeLocationId,
-          matterId: null,
+          matterId: custodianProbes.intakeMatterId,
         },
         {
           clock: handle.context.clock,

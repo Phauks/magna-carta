@@ -56,10 +56,10 @@ export interface PacketDraft {
   owners: readonly PacketOwnerDraft[];
   locationId: string | null;
   /**
-   * The matter this property is held under. REQUIRED, and that is the firm's own rule rather than
-   * the contract's: property is held for a client, a client is somebody with a matter, and the firm
-   * does not hold originals for people it has no matter with. The API still permits a packet
-   * without one — this screen is deliberately the stricter of the two.
+   * The matter this property is held under. REQUIRED, in the firm's rule and in the contract alike:
+   * property is held for a client, a client is somebody with a matter, and the firm does not hold
+   * originals for people it has no matter with. Nullable HERE only because the form starts before
+   * the question is answered; `packetDraftRequest` cannot produce a request without it.
    */
   matterId: string | null;
   /** Who handed the property over. The contract's `depositorEntityId`. */

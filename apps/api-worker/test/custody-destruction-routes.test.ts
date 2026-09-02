@@ -25,6 +25,9 @@ import type { ProblemBody } from "../src/contracts/problem.ts";
 let firmId: FirmId;
 let ownerCookie: string;
 let ownerUserId: UserId;
+// Every packet names the matter it is held under, and none of these tests is about the matter, so
+// one serves them all.
+let matterId: string;
 let approverCookie: string;
 let readOnlyCookie: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
@@ -57,6 +60,15 @@ beforeAll(async () => {
   await mirrorMemberWithOwnerRole(owner.userId, "Destruction Owner", firmId);
   ownerUserId = owner.userId;
   ownerCookie = await signInForSessionCookie("custody-destruction-owner@example.com");
+  // Prospective rather than open: no test here reads a matter NUMBER, and drawing one would make
+  // this suite depend on a numbering scheme it does not otherwise need.
+  const matter = await post("/api/v1/matters", {
+    title: "Destruction register matter",
+    status: "prospective",
+    responsibleMemberId: ownerUserId,
+  });
+  expect(matter.status).toBe(201);
+  matterId = ((await matter.json()) as { matterId: string }).matterId;
 
   // The second person. Destroying a client's original takes two, and a test that only ever posts as
   // one of them proves nothing about the rule.
@@ -117,6 +129,7 @@ async function createPacket(
     name,
     owners: [{ entityId }],
     currentLocationId: locationId,
+    matterId,
   });
   expect(logged.status).toBe(201);
   const { id: packetId } = (await logged.json()) as { id: string };

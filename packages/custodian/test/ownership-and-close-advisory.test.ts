@@ -8,9 +8,11 @@ import { readCustodyOwnershipRoleCatalog } from "../src/settings.ts";
 import {
   ACTOR,
   AUTHORIZED_RELEASE,
+  MATTER,
   commit,
   migratedDatabase,
   options,
+  seedMatter,
   seedMember,
 } from "./support.ts";
 
@@ -20,6 +22,7 @@ const JONES = "directoryPerson_jones0000000000000";
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const { locationId: safe, effect } = await createCustodyLocation(
     database,
     { name: "Main safe", kind: "safe" },
@@ -51,6 +54,7 @@ describe("the ownership role is a per-firm catalog, never a platform enum", () =
         name: "Smith family deeds",
         owners: [{ entityId: SMITH, ownershipRole: "beneficial owner under a bare trust" }],
         currentLocationId: safe,
+        matterId: MATTER,
       },
       { ...options, responsibleMemberId: ACTOR },
     );
@@ -69,6 +73,7 @@ describe("the ownership role is a per-firm catalog, never a platform enum", () =
           name: "Smith family deeds",
           owners: [{ entityId: SMITH, ownershipRole: "usufructuary" }],
           currentLocationId: safe,
+          matterId: MATTER,
         },
         { ...options, responsibleMemberId: ACTOR },
       ),
@@ -82,6 +87,7 @@ describe("the ownership role is a per-firm catalog, never a platform enum", () =
         name: "Smith family deeds",
         owners: [{ entityId: SMITH, ownershipRole: " Life Tenant " }],
         currentLocationId: safe,
+        matterId: MATTER,
       },
       { ...options, responsibleMemberId: ACTOR },
     );
@@ -115,6 +121,7 @@ describe("the ownership role is a per-firm catalog, never a platform enum", () =
         name: "Smith family deeds",
         owners: [{ entityId: SMITH, ownershipRole: "anything at all" }],
         currentLocationId: safe,
+        matterId: MATTER,
       },
       { ...options, responsibleMemberId: ACTOR },
     );

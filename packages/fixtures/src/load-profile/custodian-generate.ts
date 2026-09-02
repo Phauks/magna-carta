@@ -81,6 +81,9 @@ export interface CustodianProbes {
   // The custody location a measured packet creation files its packet into, and the member the
   // measured writes act as.
   readonly intakeLocationId: CustodyLocationId;
+  // The matter a measured packet creation files its packet under. A packet names one or it is not a
+  // packet, so the probe carries a real matter rather than the measurement inventing one.
+  readonly intakeMatterId: MatterId;
   readonly actorUserId: UserId;
 }
 
@@ -99,8 +102,10 @@ export interface CustodianAttachPoints {
   // Directory entities that own packets. Owner links carry no cross-domain foreign key, following the
   // matter_party precedent, but the ids are real Directory rows so the holdings report joins something.
   readonly ownerEntityIds: readonly string[];
-  // Matters a packet may be linked to. A packet with none files its scans against the platform
-  // holding matter, which createCustodyPacket resolves for itself.
+  // Matters the packets are filed under. EVERY packet names one: the firm holds property for
+  // clients, and a client is somebody it has a matter with (packages/custodian/src/packet-service.ts
+  // refuses a packet without one), so a corpus of matterless packets would be a corpus of rows the
+  // product cannot produce.
   readonly matterIds: readonly MatterId[];
   readonly actorUserId: UserId;
 }
@@ -137,6 +142,9 @@ export async function generateCustodianVolume(
 
   if (attach.ownerEntityIds.length === 0) {
     throw new Error("load-profile: custody volume needs at least one Directory entity as an owner");
+  }
+  if (attach.matterIds.length === 0) {
+    throw new Error("load-profile: custody volume needs at least one matter to file packets under");
   }
 
   // ---- the container tree ----
@@ -291,12 +299,8 @@ export async function generateCustodianVolume(
   for (let index = 0; index < volume.packetCount; index += 1) {
     const ownerEntityId =
       attach.ownerEntityIds[faker.number.int({ min: 0, max: attach.ownerEntityIds.length - 1 })]!;
-    const matterless =
-      attach.matterIds.length === 0 ||
-      faker.number.float({ min: 0, max: 1 }) < volume.matterlessPacketFraction;
-    const matterId = matterless
-      ? null
-      : attach.matterIds[faker.number.int({ min: 0, max: attach.matterIds.length - 1 })]!;
+    const matterId =
+      attach.matterIds[faker.number.int({ min: 0, max: attach.matterIds.length - 1 })]!;
     const ageYears = faker.number.int({ min: 0, max: volume.historySpanYears });
     const depositedAt = instantDaysBefore(now, ageYears * 365);
 
@@ -407,7 +411,7 @@ export async function generateCustodianVolume(
       name: "Long-held deposit",
       owners: [{ entityId: deepHistoryOwnerEntityId }],
       currentLocationId: positions[0]!,
-      matterId: null,
+      matterId: attach.matterIds[0]!,
       depositorEntityId: deepHistoryOwnerEntityId,
       depositedAt: instantDaysBefore(now, volume.historySpanYears * 365),
     },
@@ -492,6 +496,7 @@ export async function generateCustodianVolume(
       reviewScheduledPacketId: reviewScheduledPacketId ?? deepHistoryPacketId,
       asOfDate: today,
       intakeLocationId: positions[0]!,
+      intakeMatterId: attach.matterIds[0]!,
       actorUserId: attach.actorUserId,
     },
   };

@@ -442,8 +442,14 @@ custodian item... if they don't have a matter, they aren't associated with us, a
 their items." The register had been built the other way, and the matterless packet — the will held
 for a client whose last matter closed eleven years ago — was written into the register screen's
 rationale, the matter section's comment and empty state, and the user guide. All four are reversed.
-The API still permits a matterless packet and the server's holding-matter path still exists for one;
-the screen is deliberately the stricter of the two, and says so where it enforces it.
+The API refuses one too. The screen was made strict first and the contract left permissive, which
+lasted exactly as long as it took the owner to read it back: a rule the firm holds is not a rule one
+screen holds. `POST /custody/packets` now requires `matterId`, and `createCustodyPacket` refuses a
+blank one at the single place a packet comes into existence, so a fixture or a future write path
+cannot reintroduce what the form refuses. The column stays nullable and the read-side
+holding-matter fallback stays with it: packets logged under the old rule still exist, and a register
+that refused to read its own older rows would be the worse failure. Nothing creates a holding matter
+any more.
 
 The generalizable half is promoted above. What is local:
 

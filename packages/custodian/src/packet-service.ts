@@ -15,11 +15,7 @@ import type {
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import {
-  ensureSystemMatter,
-  isSystemMatterConflict,
-  SYSTEM_MATTER_KEYS,
-} from "@magna-carta/matters/system-matter-statements";
+import { isSystemMatterConflict } from "@magna-carta/matters/system-matter-statements";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
 import { custodyAuditStatement, type CustodyAuditContext } from "./audit.ts";
 import { insertCustodyMovementStatement } from "./movement-statements.ts";
@@ -89,7 +85,16 @@ export interface CreateCustodyPacketInput {
   readonly name: string;
   readonly owners: readonly CustodyOwnerInput[];
   readonly currentLocationId: CustodyLocationId;
-  readonly matterId?: MatterId | null;
+  /**
+   * The matter the property is held under. REQUIRED.
+   *
+   * Property is held for a client and a client is somebody the firm has a matter with, so a packet
+   * under no matter is property belonging to somebody the firm has no relationship with. This was
+   * optional once, with a system holding matter standing in as the filing target; the column is
+   * still nullable and `resolveCustodyFilingMatter` still reads those older rows, because a
+   * register that refused to read what it had already recorded would be the worse failure.
+   */
+  readonly matterId: MatterId;
   readonly depositorEntityId?: string | null;
   readonly depositedAt?: string | null;
   readonly notes?: string | null;
@@ -103,8 +108,9 @@ export interface CreateCustodyPacketInput {
 export interface CreatedCustodyPacket {
   readonly packetId: CustodyPacketId;
   readonly custodyNumber: string;
-  // Where a scan of this packet's contents is filed: the packet's own matter when it has one, and
-  // the firm's custody holding matter when it does not.
+  // Where a scan of this packet's contents is filed. The packet's own matter, which every packet
+  // now has; older rows recorded before that was required file against the firm's holding matter,
+  // which resolveCustodyFilingMatter still answers for them.
   readonly filingMatterId: MatterId;
   readonly replayed: boolean;
 }
@@ -125,6 +131,16 @@ export async function createCustodyPacket(
     throw new CustodyValidationError(
       "custody-owner-required",
       "a custody packet needs at least one Directory owner — an unattributable original can never be released and never be destroyed",
+    );
+  }
+  // The same invariant, one field over. The route's schema already refuses a request without a
+  // matter, but the schema guards ONE caller: this function is the single place a packet comes into
+  // existence, and the fixtures, the seeders, and every future caller reach it directly. A types-only
+  // requirement is a requirement until somebody casts.
+  if (input.matterId.trim().length === 0) {
+    throw new CustodyValidationError(
+      "custody-matter-required",
+      "a custody packet needs the matter it is held under — the firm holds property for clients, and a client is somebody it has a matter with",
     );
   }
   // The firm's own list of ownership labels, if it has written one down. One read for the whole
@@ -150,12 +166,14 @@ export async function createCustodyPacket(
     {
       sequenceLabel: "custody number",
       maxAttempts: options.maxAttempts,
-      // Two collisions of custody's own, on top of the allocation-key race the loop already knows.
-      // A rendered number can collide with one a firm carried in manually (only the unique index on
-      // custody_number sees that, since a manual number draws no allocation row), and the holding
-      // matter this packet files its scans against can be created concurrently by another packet —
-      // which loses on `matter.system_key` before any counter has been read at all. The retry of the
-      // second one succeeds by finding the winner's row.
+      // One collision of custody's own, on top of the allocation-key race the loop already knows: a
+      // rendered number can collide with one a firm carried in manually, which only the unique
+      // index on custody_number sees, since a manual number draws no allocation row.
+      //
+      // The system-matter conflict stays in the retry set even though creation no longer resolves a
+      // holding matter. It costs a comparison on a path that has already failed, and dropping it
+      // would silently turn a survivable race into a 500 the day anything else in this batch
+      // touches a system matter.
       alsoRetryable: (error) => isCustodyNumberConflict(error) || isSystemMatterConflict(error),
       // Giving up is a refusal a person sees, not an internal fault: the route maps this code to a
       // problem type. A bare Error here would surface as an unexplained 500 on a packet a firm is
@@ -177,23 +195,10 @@ export async function createCustodyPacket(
         now: () => options.clock.now(),
         effect: async () => {
           const now = options.clock.now();
-          // A matterless packet still needs somewhere to file its scans, and the File Manager is the
-          // only storage of record. Resolving the holding matter HERE means a packet always has a
-          // filing target by the time anyone uploads a scan for it, and the row rides this same
-          // atomic batch — so a firm never ends up with a packet whose filing target does not exist.
-          const holding =
-            input.matterId != null
-              ? null
-              : await ensureSystemMatter(database, SYSTEM_MATTER_KEYS.custodyHolding, {
-                  clock: options.clock,
-                  actorUserId: options.actorUserId,
-                  responsibleMemberId: options.responsibleMemberId,
-                  randomSource: options.randomSource,
-                });
-          const filingMatterId = input.matterId ?? holding?.matterId;
-          if (filingMatterId === undefined) {
-            throw new Error("custody packet filing target did not resolve");
-          }
+          // Where a scan of this packet's contents is filed. It is the packet's own matter, now
+          // that every packet has one: the system holding matter this used to fall back to existed
+          // only to give a matterless packet a filing target, and there are no new ones.
+          const filingMatterId = input.matterId;
 
           const drawStatements = [];
           let custodyNumber: string;
@@ -234,7 +239,6 @@ export async function createCustodyPacket(
           return {
             write: {
               statements: [
-                ...(holding?.effect.statements ?? []),
                 ...drawStatements,
                 insertCustodyPacketStatement(database, {
                   id: packetId,

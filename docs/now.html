@@ -1301,7 +1301,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="chip done">Shipped</span>
 <span class="nm">Item register</span>
 <code>custodian.register</code>
-<p>Item model with type, description, intrinsic-value flag, mandatory Directory owner link(s), co-ownership form, depositor, optional matter link, status.</p>
+<p>Item model with type, description, intrinsic-value flag, mandatory Directory owner link(s), co-ownership form, depositor, required matter link, status.</p>
 <p class="note">The design splits packet (unit of custody) from item (unit of description); co-ownership is a firm-configurable role label rather than a platform enum of tenancy forms.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
@@ -1337,7 +1337,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Attached digital scans</span>
 <code>custodian.scans</code>
 <p>R2 digital scans attached to each custody item.</p>
-<p class="note">A matterless packet files its scans onto a per-firm system holding matter, so file.matter_id stays NOT NULL. A scan satisfies no gate the original would not.</p>
+<p class="note">A scan is filed against the packet's own matter, which every packet now names; the per-firm holding matter survives only as a read-side fallback for packets logged before that rule. A scan satisfies no gate the original would not.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Retention and destruction dates</span>

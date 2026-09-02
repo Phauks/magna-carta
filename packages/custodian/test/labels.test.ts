@@ -4,7 +4,15 @@ import { buildCustodyLabelSheet } from "../src/label-service.ts";
 import { code128Bars, code128Values } from "../src/labels/code128.ts";
 import { CUSTODY_LABELS_PER_SHEET, renderCustodyLabelSheet } from "../src/labels/label-sheet.ts";
 import { createCustodyPacket } from "../src/packet-service.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  MATTER,
+  commit,
+  migratedDatabase,
+  options,
+  seedMatter,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 
@@ -70,6 +78,7 @@ describe("building a label sheet from the register", () => {
   async function scaffold() {
     const { database, raw } = migratedDatabase();
     seedMember(raw);
+    seedMatter(raw);
     const safe = await createCustodyLocation(
       database,
       { name: "Main safe", kind: "safe" },
@@ -82,6 +91,7 @@ describe("building a label sheet from the register", () => {
         name: "Smith family deeds",
         owners: [{ entityId: SMITH }],
         currentLocationId: safe.locationId,
+        matterId: MATTER,
       },
       { ...options, responsibleMemberId: ACTOR },
     );

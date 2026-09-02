@@ -63,6 +63,18 @@ relaxing `file.matter_id`.
 packet/item hierarchy, the mandatory Directory owner link, and the per-firm `system` holding matter
 for matterless scans.
 
+**Reversed in part, 2026-09-02: the matter link is REQUIRED.** Reviewing the New Packet form, the
+owner ruled the premise wrong — "if they don't have a matter, they aren't associated with us, and we
+wouldn't hold their items." Property is held for a client, and a client is somebody the firm has a
+matter with, so the matterless packet this decision modelled around (the will held for a client whose
+last engagement closed years ago) is a shape the firm does not take in. `POST /custody/packets`
+requires `matterId` and `createCustodyPacket` refuses a blank one, so the holding matter is no longer
+resolved or created by any write path. What survives: the COLUMN stays nullable and
+`resolveCustodyFilingMatter` still falls back to the holding matter, because packets logged under the
+original rule still exist and a register that refused to read its own older rows would be the worse
+failure. The negative consequence recorded below is therefore bounded rather than permanent — no new
+firm acquires a `system` matter.
+
 ## Considered options
 
 **A flat item register with a location on every item** — rejected. The register answers a location

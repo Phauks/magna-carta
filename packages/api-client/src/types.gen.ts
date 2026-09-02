@@ -3002,7 +3002,7 @@ export type CreateCustodyPacketRequest = {
     name: string;
     owners: Array<CustodyOwnerInput>;
     currentLocationId: string;
-    matterId?: string;
+    matterId: string;
     depositorEntityId?: string;
     depositedAt?: string;
     notes?: string | null;

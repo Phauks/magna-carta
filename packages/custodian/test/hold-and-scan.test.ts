@@ -1,4 +1,4 @@
-import type { FileId, MatterId } from "@magna-carta/identifiers/types";
+import type { CustodyPacketId, FileId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { placeCustodyHold, releaseCustodyHold } from "../src/hold-service.ts";
 import { readActiveCustodyHoldsForFile, readCustodyHolds } from "../src/hold-statements.ts";
@@ -13,9 +13,11 @@ import { readCustodyScans } from "../src/scan-statements.ts";
 import {
   ACTOR,
   AUTHORIZED_RELEASE,
+  MATTER,
   commit,
   migratedDatabase,
   options,
+  seedMatter,
   seedMember,
 } from "./support.ts";
 
@@ -24,6 +26,7 @@ const SMITH = "directoryPerson_smith0000000000000";
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const { locationId: safe, effect } = await createCustodyLocation(
     database,
     { name: "Main safe", kind: "safe" },
@@ -32,7 +35,12 @@ async function scaffold() {
   await commit(database, effect);
   const created = await createCustodyPacket(
     database,
-    { name: "Smith family deeds", owners: [{ entityId: SMITH }], currentLocationId: safe },
+    {
+      name: "Smith family deeds",
+      owners: [{ entityId: SMITH }],
+      currentLocationId: safe,
+      matterId: MATTER,
+    },
     { ...options, responsibleMemberId: ACTOR },
   );
   return {
@@ -140,7 +148,7 @@ describe("holds block release and destruction, and nothing else", () => {
 });
 
 describe("scanned copies bind over ordinary File Manager files", () => {
-  it("links a scan on a matterless packet through the firm's holding matter", async () => {
+  it("links a scan against the packet's own matter", async () => {
     const { database, raw, packetId, filingMatterId } = await scaffold();
     const fileId = seedFile(raw, "file_custodyScan00000000000000", filingMatterId);
     const { scanId, effect } = await linkCustodyScan(
@@ -172,6 +180,34 @@ describe("scanned copies bind over ordinary File Manager files", () => {
     await expect(
       linkCustodyScan(database, packetId, { fileId, kind: "scan" }, options),
     ).rejects.toMatchObject({ code: "custody-scan-file-not-filed-here" });
+  });
+
+  // The read-side fallback for rows the register ALREADY HOLDS. A packet's matter was optional once,
+  // and a packet that named none filed its scans against the firm's custody holding matter. The
+  // write path refuses such a packet now (packages/custodian/src/packet-service.ts), so this test
+  // seeds the row the way the only remaining source of one does: directly, as a migration left it.
+  it("still files a scan on a legacy matterless packet through the holding matter", async () => {
+    const { database, raw, safe } = await scaffold();
+    const holdingMatterId = "matter_custodyHolding00000" as MatterId;
+    raw.exec(
+      `INSERT INTO matter (id, title, status, system_key, responsible_member_id, created_at, updated_at) VALUES ('${holdingMatterId}', 'Custody holding', 'open', 'custody-holding', '${ACTOR}', '2026-08-04T00:00:00.000Z', '2026-08-04T00:00:00.000Z')`,
+    );
+    const legacyPacketId = "custodyPacket_legacy000000" as CustodyPacketId;
+    raw.exec(
+      `INSERT INTO custody_packet (id, custody_number, number_source, name, current_location_id, matter_id, status, created_at, updated_at) VALUES ('${legacyPacketId}', 'CUS-09999', 'drawn', 'Deposit from a closed engagement', '${safe}', NULL, 'held', '2026-08-04T00:00:00.000Z', '2026-08-04T00:00:00.000Z')`,
+    );
+
+    expect(await resolveCustodyFilingMatter(database, legacyPacketId)).toBe(holdingMatterId);
+
+    const fileId = seedFile(raw, "file_legacyCustodyScan00000000", holdingMatterId);
+    const { effect } = await linkCustodyScan(
+      database,
+      legacyPacketId,
+      { fileId, kind: "scan" },
+      options,
+    );
+    await commit(database, effect);
+    expect(await readCustodyScans(database, legacyPacketId)).toHaveLength(1);
   });
 
   it("refuses an unknown file", async () => {

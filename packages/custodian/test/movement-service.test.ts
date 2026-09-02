@@ -12,9 +12,11 @@ import type { CustodyMovementKind, CustodyPacketStatus } from "../src/types.ts";
 import {
   ACTOR,
   AUTHORIZED_RELEASE,
+  MATTER,
   commit,
   migratedDatabase,
   options,
+  seedMatter,
   seedMember,
 } from "./support.ts";
 
@@ -23,6 +25,7 @@ const SMITH = "directoryPerson_smith0000000000000";
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const safe = await node(database, "Main safe", "safe");
   const offsite = await node(database, "Offsite vault", "offsite");
   const created = await createCustodyPacket(
@@ -31,6 +34,7 @@ async function scaffold() {
       name: "Smith family deeds",
       owners: [{ entityId: SMITH }],
       currentLocationId: safe,
+      matterId: MATTER,
     },
     { ...options, responsibleMemberId: ACTOR },
   );
@@ -405,7 +409,12 @@ describe("the overdue check-out read", () => {
     for (const dueBackOn of due) {
       const created = await createCustodyPacket(
         database,
-        { name: `Out since ${dueBackOn}`, owners: [{ entityId: SMITH }], currentLocationId: safe },
+        {
+          name: `Out since ${dueBackOn}`,
+          owners: [{ entityId: SMITH }],
+          currentLocationId: safe,
+          matterId: MATTER,
+        },
         { ...options, responsibleMemberId: ACTOR },
       );
       await recordCustodyMovement(

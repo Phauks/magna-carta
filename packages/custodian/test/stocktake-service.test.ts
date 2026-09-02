@@ -16,13 +16,22 @@ import {
   readCustodyStocktakeSightings,
 } from "../src/stocktake-statements.ts";
 import { CustodyValidationError } from "../src/validation.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  MATTER,
+  commit,
+  migratedDatabase,
+  options,
+  seedMatter,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const office = await createCustodyLocation(
     database,
     { name: "Reno office", kind: "office" },
@@ -57,7 +66,7 @@ async function logPacket(
 ) {
   return createCustodyPacket(
     database,
-    { name, owners: [{ entityId: SMITH }], currentLocationId: locationId },
+    { name, owners: [{ entityId: SMITH }], currentLocationId: locationId, matterId: MATTER },
     { ...options, responsibleMemberId: ACTOR },
   );
 }

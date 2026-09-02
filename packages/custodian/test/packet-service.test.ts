@@ -1,5 +1,5 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { CustodyLocationId, CustodyPacketId } from "@magna-carta/identifiers/types";
+import type { CustodyLocationId, CustodyPacketId, MatterId } from "@magna-carta/identifiers/types";
 import {
   readSystemMatterId,
   SYSTEM_MATTER_KEYS,
@@ -15,7 +15,15 @@ import {
 } from "../src/packet-service.ts";
 import { readCustodyOwners, readCustodyPacket } from "../src/packet-statements.ts";
 import { readCustodyMovements } from "../src/movement-statements.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  MATTER,
+  commit,
+  migratedDatabase,
+  options,
+  seedMatter,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 const JONES = "directoryOrganization_jones000000";
@@ -23,6 +31,7 @@ const JONES = "directoryOrganization_jones000000";
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const { locationId, effect } = await createCustodyLocation(
     database,
     { name: "Main safe", kind: "safe" },
@@ -47,6 +56,7 @@ async function logPacket(
       name: "Smith family deeds",
       owners: [{ entityId: SMITH, ownershipRole: "owner" }],
       currentLocationId: safe,
+      matterId: MATTER,
       ...overrides,
     },
     packetOptions(),
@@ -95,24 +105,25 @@ describe("logging a custody packet", () => {
     });
   });
 
-  it("accepts a packet with no matter and files its scans on the firm's holding matter", async () => {
+  // The same invariant as the owner one, and for the same reason. A packet under no matter is
+  // property belonging to somebody the firm has no relationship with; the firm does not take that
+  // in. The type says so and this says so at runtime, because a cast defeats the type.
+  it("refuses a packet with no matter", async () => {
     const { database, safe } = await scaffold();
-    const created = await logPacket(database, safe);
-    const holding = await readSystemMatterId(database, SYSTEM_MATTER_KEYS.custodyHolding);
-    expect(holding).toBeDefined();
-    expect(created.filingMatterId).toBe(holding);
-
-    // One system row per firm: a second matterless packet reuses it rather than minting another.
-    const second = await logPacket(database, safe, { name: "Alvarez will" });
-    expect(second.filingMatterId).toBe(holding);
+    await expect(logPacket(database, safe, { matterId: "  " as MatterId })).rejects.toMatchObject({
+      code: "custody-matter-required",
+    });
   });
 
-  // A system matter is plumbing, not a client engagement: it must never surface in a caseload list.
-  it("keeps the holding matter out of the matter list", async () => {
+  // Logging a packet used to MINT a matter: a per-firm system holding matter, the filing target for
+  // a packet that named none. Nothing needs one now, and a create that quietly wrote a matter row
+  // would put plumbing into a firm's caseload list.
+  it("mints no matter of its own", async () => {
     const { database, safe } = await scaffold();
     await logPacket(database, safe);
     const page = await listMatters(database, {});
-    expect(page.data).toEqual([]);
+    expect(page.data.map((matter) => matter.id)).toEqual([MATTER]);
+    expect(await readSystemMatterId(database, SYSTEM_MATTER_KEYS.custodyHolding)).toBeUndefined();
   });
 
   // A firm migrating thirty years of physical labels must not be made to re-label a safe.

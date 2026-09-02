@@ -10,7 +10,15 @@ import { readCustodyLocationSubtreeIds } from "../src/location-statements.ts";
 import { createCustodyPacket } from "../src/packet-service.ts";
 import { MAX_CUSTODY_LOCATION_DEPTH } from "../src/types.ts";
 import { CustodyValidationError } from "../src/validation.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  MATTER,
+  commit,
+  migratedDatabase,
+  options,
+  seedMatter,
+  seedMember,
+} from "./support.ts";
 
 async function makeNode(
   database: ReturnType<typeof migratedDatabase>["database"],
@@ -126,6 +134,7 @@ describe("the custody location tree", () => {
   it("refuses to close a node whose subtree still holds a packet", async () => {
     const { database, raw } = migratedDatabase();
     seedMember(raw);
+    seedMatter(raw);
     const office = await makeNode(database, "Reno office", "office");
     const safe = await makeNode(database, "Main safe", "safe", office);
     await createCustodyPacket(
@@ -134,6 +143,7 @@ describe("the custody location tree", () => {
         name: "Smith family deeds",
         owners: [{ entityId: "directoryPerson_smith0000000000000" }],
         currentLocationId: safe,
+        matterId: MATTER,
       },
       { ...options, responsibleMemberId: ACTOR },
     );

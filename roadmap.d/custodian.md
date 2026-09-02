@@ -19,7 +19,7 @@
 
 - id: custodian.register
   name: Item register
-  scope: Item model with type, description, intrinsic-value flag, mandatory Directory owner link(s), co-ownership form, depositor, optional matter link, status.
+  scope: Item model with type, description, intrinsic-value flag, mandatory Directory owner link(s), co-ownership form, depositor, required matter link, status.
   status: shipped
   surface: awaiting-screen
   slices: 4-2-custodian
@@ -84,7 +84,7 @@
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: custody_scan links ordinary File Manager files; packages/custodian/src/scan-service.ts. Bytes ride the existing presigned upload and quarantine chokepoint — there is no upload route in Custodian. Backend only.
-  notes: A matterless packet files its scans onto a per-firm system holding matter, so file.matter_id stays NOT NULL. A scan satisfies no gate the original would not.
+  notes: A scan is filed against the packet's own matter, which every packet now names; the per-firm holding matter survives only as a read-side fallback for packets logged before that rule. A scan satisfies no gate the original would not.
 
 - id: custodian.retention-destruction
   name: Retention and destruction dates

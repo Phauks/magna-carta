@@ -24,6 +24,9 @@ import {
 let poolFirmId: FirmId;
 let ownerCookie: string;
 let ownerUserId: UserId;
+// The matter every packet in this suite is filed under. A packet names one or the route refuses it,
+// and the matter is the same in every test here because none of them is ABOUT the matter.
+let matterId: string;
 let noPermissionCookie: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
@@ -35,6 +38,7 @@ let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 // to whichever test happened to run last. A second firm is one more seed and buys the block its own
 // bucket, so neither suite has to be kept artificially small to fit beside the other.
 let stocktakeOwnerCookie: string;
+let stocktakeOwnerUserId: UserId;
 let stocktakeNoPermissionCookie: string;
 
 const clock = { now: () => new Date().toISOString() };
@@ -68,6 +72,7 @@ beforeAll(async () => {
   await mirrorMemberWithOwnerRole(owner.userId, "Custody Owner", poolFirmId);
   ownerUserId = owner.userId;
   ownerCookie = await signInForSessionCookie("custody-owner@example.com");
+  matterId = await createMatter("Custody register matter", ownerCookie, ownerUserId);
 
   const noPermission = await seedCredentialedUser("custody-nopermission@example.com", {
     userName: "No Permission",
@@ -83,6 +88,7 @@ beforeAll(async () => {
     firmId: stocktakeFirmId,
   });
   await mirrorMemberWithOwnerRole(stocktakeOwner.userId, "Stocktake Owner", stocktakeFirmId);
+  stocktakeOwnerUserId = stocktakeOwner.userId;
   stocktakeOwnerCookie = await signInForSessionCookie("custody-stocktake-owner@example.com");
 
   const stocktakeNoPermission = await seedCredentialedUser(
@@ -145,6 +151,19 @@ async function createPerson(given: string, family: string): Promise<string> {
   return id;
 }
 
+async function createMatter(title: string, cookie: string, memberId: string): Promise<string> {
+  // Prospective rather than open: the register has no interest in a matter's NUMBER, and drawing one
+  // would make this whole suite depend on a numbering scheme it does not otherwise need.
+  const response = await post(
+    "/api/v1/matters",
+    { title, status: "prospective", responsibleMemberId: memberId },
+    cookie,
+  );
+  expect(response.status).toBe(201);
+  const { matterId: id } = (await response.json()) as { matterId: string };
+  return id;
+}
+
 async function createLocation(
   name: string,
   kind: string,
@@ -182,11 +201,11 @@ describe("the custody register end to end", () => {
     const safe = await createLocation("Main safe", "safe", office);
     const ownerEntityId = await createPerson("Jane", "Custody-Smith");
 
-    // No matter at all — the common steady state for a will held for a former client.
     const logged = await post("/api/v1/custody/packets", {
       name: "Smith family deeds",
       owners: [{ entityId: ownerEntityId, ownershipRole: "owner" }],
       currentLocationId: safe,
+      matterId,
     });
     expect(logged.status).toBe(201);
     const packet = (await logged.json()) as {
@@ -196,8 +215,8 @@ describe("the custody register end to end", () => {
     };
     expect(packet.id).toMatch(/^custodyPacket_/);
     expect(packet.custodyNumber).toMatch(/^CUS-\d{5}$/);
-    // A matterless packet still has somewhere for its scans to be filed.
-    expect(packet.filingMatterId).toMatch(/^matter_/);
+    // Scans are filed against the packet's own matter.
+    expect(packet.filingMatterId).toBe(matterId);
 
     const itemized = await post(`/api/v1/custody/packets/${packet.id}/items`, {
       description: "Original will of Jane Smith dated 14 March 2019",
@@ -277,6 +296,7 @@ describe("the custody register end to end", () => {
       name: "Two-instrument packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const packet = (await logged.json()) as { id: string };
 
@@ -348,6 +368,7 @@ describe("the custody register end to end", () => {
       name: "Previewed packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     expect(logged.status).toBe(201);
     // The packet took exactly what the preview promised.
@@ -362,12 +383,32 @@ describe("the custody register end to end", () => {
     expect(after.custodyNumber).not.toBe(previewed.custodyNumber);
   });
 
+  /*
+   * A PACKET NAMES ITS MATTER OR IT IS NOT LOGGED.
+   *
+   * The form asked for one first and the contract did not, which is a rule held by one screen rather
+   * than by the register. Property is held for a client, and a client is somebody the firm has a
+   * matter with; a packet under no matter is property belonging to somebody the firm has no
+   * relationship with, which it does not take in.
+   */
+  it("refuses a packet logged with no matter (422)", async () => {
+    const safe = await createLocation("No-matter safe", "safe");
+    const ownerEntityId = await createPerson("Unmattered", "Depositor");
+    const response = await post("/api/v1/custody/packets", {
+      name: "Envelope from nobody's file",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    expect(response.status).toBe(422);
+  });
+
   it("refuses a packet logged with no Directory owner (422)", async () => {
     const safe = await createLocation("No-owner safe", "safe");
     const response = await post("/api/v1/custody/packets", {
       name: "Unattributable envelope",
       owners: [],
       currentLocationId: safe,
+      matterId,
     });
     expect(response.status).toBe(422);
   });
@@ -379,6 +420,7 @@ describe("the custody register end to end", () => {
       name: "Still in the safe",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     expect(logged.status).toBe(201);
     const closed = await patch(`/api/v1/custody/locations/${safe}`, { close: true });
@@ -392,6 +434,7 @@ describe("the custody register end to end", () => {
       name: "Held originals",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const { id: packetId } = (await logged.json()) as { id: string };
 
@@ -435,6 +478,7 @@ describe("the custody register end to end", () => {
       name: "Gated release packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const { id: packetId } = (await logged.json()) as { id: string };
 
@@ -479,6 +523,7 @@ describe("the custody register end to end", () => {
       name: "Miscaptured packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const { id: packetId } = (await logged.json()) as { id: string };
 
@@ -500,6 +545,7 @@ describe("the custody register end to end", () => {
       name: "Retried movement packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const { id: packetId } = (await logged.json()) as { id: string };
 
@@ -552,6 +598,7 @@ describe("the custody chokepoint contract", () => {
       name: "Key-required packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const { id: packetId } = (await logged.json()) as { id: string };
     const response = await postWithoutKey(`/api/v1/custody/packets/${packetId}/movements`, {
@@ -580,6 +627,7 @@ describe("review dates, reminders, reports, and labels", () => {
       name: "Review packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const { id: packetId } = (await logged.json()) as { id: string };
 
@@ -628,6 +676,7 @@ describe("review dates, reminders, reports, and labels", () => {
       name: "Retry review packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const { id: packetId } = (await logged.json()) as { id: string };
     await patch(`/api/v1/custody/packets/${packetId}`, { reviewOn: "2026-05-01" });
@@ -657,6 +706,7 @@ describe("review dates, reminders, reports, and labels", () => {
       name: "Report packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const { id: packetId } = (await logged.json()) as { id: string };
     const held = await post(`/api/v1/custody/packets/${packetId}/holds`, {
@@ -698,6 +748,7 @@ describe("review dates, reminders, reports, and labels", () => {
       name: "Label packet",
       owners: [{ entityId: ownerEntityId }],
       currentLocationId: safe,
+      matterId,
     });
     const packet = (await logged.json()) as { id: string; custodyNumber: string };
 
@@ -788,11 +839,18 @@ describe("stocktake — counting the shelves without changing the register", () 
     expect(person.status).toBe(201);
     const ownerEntityId = (await readJson<{ id: string }>(person)).id;
 
+    const stocktakeMatterId = await createMatter(
+      "Stocktake matter",
+      stocktakeOwnerCookie,
+      stocktakeOwnerUserId,
+    );
+
     async function logPacket(name: string, currentLocationId: string): Promise<string> {
       const response = await stocktakePost("/api/v1/custody/packets", {
         name,
         owners: [{ entityId: ownerEntityId }],
         currentLocationId,
+        matterId: stocktakeMatterId,
       });
       expect(response.status).toBe(201);
       return (await readJson<{ id: string }>(response)).id;

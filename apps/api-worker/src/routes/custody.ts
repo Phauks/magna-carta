@@ -540,7 +540,15 @@ const CreateCustodyPacketRequest = z
     // and never be destroyed — the failure this register exists to prevent.
     owners: z.array(CustodyOwnerInput).min(1).max(20),
     currentLocationId: identifierField("custodyLocation"),
-    matterId: identifierField("matter").optional(),
+    // Required, and it is the firm's rule rather than a storage convenience: property is held for a
+    // client, a client is somebody the firm has a matter with, and the firm does not hold originals
+    // for anyone else. It was optional here first, with a system holding matter standing in for the
+    // absent one; the owner's ruling closed that, so a packet takes its matter at the door.
+    //
+    // The COLUMN stays nullable and the read-side fallback stays with it: packets logged before
+    // this still exist, and a register that refused to read its own older rows would be worse than
+    // one that once accepted a shape it no longer does.
+    matterId: identifierField("matter"),
     depositorEntityId: directoryEntityId.optional(),
     depositedAt: z.string().optional(),
     notes: z.string().max(4000).nullable().optional(),

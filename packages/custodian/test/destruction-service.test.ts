@@ -18,7 +18,15 @@ import { recordCustodyMovement } from "../src/movement-service.ts";
 import { readCustodyMovements } from "../src/movement-statements.ts";
 import { createCustodyPacket } from "../src/packet-service.ts";
 import { readCustodyItem, readCustodyPacket } from "../src/packet-statements.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  MATTER,
+  commit,
+  migratedDatabase,
+  options,
+  seedMatter,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 const APPROVER = "user_secondPerson" as UserId;
@@ -27,6 +35,7 @@ const approverOptions = { clock: options.clock, actorUserId: APPROVER };
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   raw.exec(
     `INSERT INTO member (user_id, display_name, status, created_at) VALUES ('${APPROVER}', 'Second Person', 'active', '2026-08-04T00:00:00.000Z')`,
   );
@@ -42,6 +51,7 @@ async function scaffold() {
       name: "Duplicate correspondence file",
       owners: [{ entityId: SMITH }],
       currentLocationId: safe,
+      matterId: MATTER,
     },
     { ...options, responsibleMemberId: ACTOR },
   );

@@ -10,10 +10,12 @@ import {
   ACTOR,
   AUTHORIZED_RELEASE,
   DEPARTED_MEMBER,
+  MATTER,
   WITNESS,
   commit,
   migratedDatabase,
   options,
+  seedMatter,
   seedMember,
 } from "./support.ts";
 
@@ -39,10 +41,16 @@ const STRANGER = "user_notAMemberHere0000000" as UserId;
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const safe = await node(database, "Main safe", "safe");
   const created = await createCustodyPacket(
     database,
-    { name: "Smith family deeds", owners: [{ entityId: SMITH }], currentLocationId: safe },
+    {
+      name: "Smith family deeds",
+      owners: [{ entityId: SMITH }],
+      currentLocationId: safe,
+      matterId: MATTER,
+    },
     { ...options, responsibleMemberId: ACTOR },
   );
   return { database, raw, safe, packetId: created.packetId };

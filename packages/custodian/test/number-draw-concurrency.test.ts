@@ -12,13 +12,22 @@ import {
   renderCustodyNumber,
 } from "../src/numbering/render.ts";
 import { createCustodyPacket } from "../src/packet-service.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  MATTER,
+  commit,
+  migratedDatabase,
+  options,
+  seedMatter,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 
 async function scaffold() {
   const { database, raw } = migratedDatabase();
   seedMember(raw);
+  seedMatter(raw);
   const { locationId: safe, effect } = await createCustodyLocation(
     database,
     { name: "Main safe", kind: "safe" },
@@ -61,7 +70,7 @@ describe("the number draw under concurrency", () => {
     const draw = (name: string) =>
       createCustodyPacket(
         database,
-        { name, owners: [{ entityId: SMITH }], currentLocationId: safe },
+        { name, owners: [{ entityId: SMITH }], currentLocationId: safe, matterId: MATTER },
         { ...options, responsibleMemberId: ACTOR },
       );
     const drawn = await Promise.all([draw("First"), draw("Second"), draw("Third")]);
@@ -74,7 +83,7 @@ describe("the number draw under concurrency", () => {
     const { database, raw, safe } = await scaffold();
     await createCustodyPacket(
       database,
-      { name: "Drawn", owners: [{ entityId: SMITH }], currentLocationId: safe },
+      { name: "Drawn", owners: [{ entityId: SMITH }], currentLocationId: safe, matterId: MATTER },
       { ...options, responsibleMemberId: ACTOR },
     );
     await createCustodyPacket(
@@ -83,6 +92,7 @@ describe("the number draw under concurrency", () => {
         name: "Carried in from the paper register",
         owners: [{ entityId: SMITH }],
         currentLocationId: safe,
+        matterId: MATTER,
         manualCustodyNumber: "DEEDS/1994/117",
       },
       { ...options, responsibleMemberId: ACTOR },
@@ -129,6 +139,7 @@ describe("the number draw under concurrency", () => {
         name: "Parked on the number the counter would render first",
         owners: [{ entityId: SMITH }],
         currentLocationId: safe,
+        matterId: MATTER,
         manualCustodyNumber: "CUS-00001",
       },
       { ...options, responsibleMemberId: ACTOR },
@@ -139,6 +150,7 @@ describe("the number draw under concurrency", () => {
         name: "Drawn after the parked number",
         owners: [{ entityId: SMITH }],
         currentLocationId: safe,
+        matterId: MATTER,
       },
       { ...options, responsibleMemberId: ACTOR },
     );

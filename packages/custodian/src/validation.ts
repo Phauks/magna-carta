@@ -6,6 +6,13 @@ export type CustodyValidationCode =
   // A packet cannot exist without at least one owner link. The orphan-prevention invariant: the
   // catastrophic outcome in safe custody is not a misplaced packet but an unattributable one.
   | "custody-owner-required"
+  // A packet cannot exist without the matter it is held under. Property is held for a client, and a
+  // client is somebody the firm has a matter with. The route's own schema refuses a request without
+  // one before the service is reached, so this code deliberately takes no dedicated problem type and
+  // falls to the generic 422 — it exists for callers that reach the service directly (fixtures,
+  // seeders, future write paths), where a types-only requirement is a requirement until somebody
+  // casts.
+  | "custody-matter-required"
   // A hold is in force and forbids this action (release, destruction).
   | "custody-hold-blocks-action"
   // An item flagged as an irreplaceable original is never destructible through the API.

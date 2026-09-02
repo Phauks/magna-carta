@@ -13,8 +13,9 @@
    * THE MATTER LEADS, AND IT IS REQUIRED. Property is held for a client, a client is somebody the
    * firm has a matter with, and the firm does not hold originals for anyone else. Everything else
    * on the form depends on it: the owners on offer are the matter's own parties, and the files that
-   * can be attached are the ones filed on it. The API still permits a packet with no matter; this
-   * screen is deliberately the stricter of the two.
+   * can be attached are the ones filed on it. The contract requires it too — `POST /custody/packets`
+   * refuses a request without one — so this is the same rule stated where a person can act on it,
+   * not a stricter one.
    *
    * THE NUMBER IS SHOWN AND SAID TO BE TENTATIVE. It is what somebody writes on a physical label,
    * so a person filling this in wants to know what they are about to write. Nothing is allocated by
