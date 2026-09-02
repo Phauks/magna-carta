@@ -1,8 +1,9 @@
 # Consolidated modal architecture — analysis and design
 
 **Date:** 2026-09-01
-**Status:** Proposed. Analysis complete; the contract in section 5 and the sequencing in section 8
-are for the owner to accept. Not built.
+**Status:** Accepted 2026-09-02. Steps 1-3 and 5 of section 8 are **built** — the shared close
+guard, the shell, its catalog, and both fitness rules. The migration (steps 4, 6-8) is open, and the
+four questions in section 10 are still the owner's.
 **Scope:** Every modal panel in `apps/web` that is not a record window — thirty-four files, thirty
 composing `Dialog.Content` by hand and four composing `AlertDialog.Content` — and the one shell they
 should be composed from instead.
@@ -345,38 +346,70 @@ has the machine for it.
    home, and — per that file's own rule — **the moment the contract is accepted, not once it is
    built**, marked `pending` until the home lands. That is what stops a second branch from taking
    the name in the meantime, which is the failure mode section 3 documents.
-2. **One new rule, `hand-composed-modal`.** A `.svelte` file under `apps/web/src` that renders
-   `<Dialog.Content` or `<AlertDialog.Content` is a violation unless it is `ActionDialog`'s home,
-   `RecordWindow`'s, or carries an allowance. It sits beside `findHandBuiltDialogs` in
-   `tooling/lint-one-ui/rules.mjs`, which already makes exactly this argument about raw `<dialog>`
-   and hand-built scrims and simply never reached one composed from the design system's own parts.
+2. **One new rule, `hand-composed-modal`, with three signals.** A composed
+   `Dialog`/`AlertDialog`/`Sheet` panel outside a declared shell's home; a scrim written as
+   utilities (`fixed inset-0` at the modal layer — the shape this repository actually writes, and
+   the one the existing `<style>`-block rule cannot see); and a reach for the platform's own modal
+   (`showModal`, `HTMLDialogElement`). It sits beside `findHandBuiltDialogs`, which already makes
+   this argument about raw `<dialog>` and hand-built scrims and simply never reached one composed
+   from the design system's own parts.
+
+   **Which homes may compose a panel is declared, not hardcoded.** `registry.json` grows a
+   `modalShells` block naming each home and why it is one, so adding a shell is a reviewed edit to
+   the file that already answers "what is in the system". Being a registered component is
+   deliberately not enough on its own — `RecordAttachments` is registered and still holds a
+   confirmation that should be an `ActionDialog`, so it carries an allowance rather than an
+   exemption. `PrintSheet` is a declared shell: it layers above a record window and undoes the
+   panel's centring for the printed page, which is a third surface on purpose.
+
 3. **All thirty-four go on the allowance list on day one, each with its reason.** The list is
    printed on every run, and `registry.json`'s discipline is that an allowance whose violation is gone
    is itself a failure — so a migrated panel must delete its line in the same commit, and the debt
    can only shrink. New work is bitten immediately; nothing in flight is blocked.
-4. **A gallery, not a mockup.** `/developer-console/action-dialog`, beside the `record-window`
-   gallery, showing all three kinds, all four widths, busy, refused, and the discard question —
-   the states real data cannot reach, in the code that ships.
+4. **A catalog, not a mockup.** The shell's six stories in Storybook — the three kinds, a commit
+   refused with its reason, a commit the server turns down, and the guard — each of which runs as a
+   behaviour test and an axe check. The `/developer-console/action-dialog` gallery this section
+   originally called for belongs with the first app adopter rather than here: the dev-console
+   galleries exist for app SCREENS whose reviewable states real data cannot reach, and a design-
+   system component's catalog is Storybook.
+
+5. **The footer set, asserted at the source.** `footer-set` reads the shell's own action bar and
+   requires exactly the dismissal then the commit, in that order — the header set's sibling, and for
+   the same reason. A reader who has learned where the commit sits has learned it in every panel in
+   the product; a third control added to the shell would un-learn that everywhere in one edit.
+
+6. **A marker the rendered DOM carries.** Both shells stamp `data-modal-shell` on their panel. A
+   source scan cannot see a panel whose parts were aliased on import or chosen at runtime; a check
+   over the rendered page can require the marker of anything holding the `dialog` or `alertdialog`
+   role. That is the half of the enforcement that reads behaviour rather than text, and it is why
+   the rule's own documentation names what it cannot catch instead of implying it catches
+   everything.
 
 ## 8. Order of work
 
 Each step lands on its own and leaves the app working. Nothing here waits on another branch —
 section 4 is why.
 
-|   # | Step                                                                                                      | Notes                                                                       |
-| --: | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-|   1 | Register `ActionDialog` in `lint-one-ui` as `pending`                                                     | Owner accepting section 5. Takes the name before another branch does        |
-|   2 | Lift the close guard out of `record-window.svelte` into the shared internal, `RecordWindow` still passing | Mechanical, behaviour-preserving, and no longer blocked                     |
-|   3 | Build the shell on that guard: recipe, gallery, tests. No adopters                                        | Its directory is new; conflicts with nothing                                |
-|   4 | Adopt in `claude/custodian-refinements-19iycw` (3 panels) and `claude/matter-status-modal-wjzv1v` (1)     | New files — a rewrite, not a migration. Proves the contract before it binds |
-|   5 | Add the `hand-composed-modal` rule with all thirty-four allowed                                           | Ships with adopters behind it, so the rule is asserting something true      |
-|   6 | Migrate the eleven billing and costs panels, deleting their allowances                                    | The largest and most uniform family; sets the pattern for the rest          |
-|   7 | Migrate the remaining fifteen, deleting their allowances                                                  | The four `AlertDialog` confirmations are the cheapest and should go first   |
-|   8 | Move `new-matter-dialog.svelte` onto `RecordWindow` with `editing` raised                                 | The wrong shell today, and 647 lines. Owner question 3                      |
+|   # | Step                                                                                                      | Notes                                                                                                                |
+| --: | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+|   1 | Register `ActionDialog` in `lint-one-ui`                                                                  | **Built.** The home landed with it, so it is registered outright rather than pending                                 |
+|   2 | Lift the close guard out of `record-window.svelte` into the shared internal, `RecordWindow` still passing | **Built.** Behaviour-preserving; the record window's own tests are unedited                                          |
+|   3 | Build the shell on that guard: catalog, tests. No adopters                                                | **Built.** No recipe of its own — it composes what Dialog already decides                                            |
+|   4 | Adopt in `claude/custodian-refinements-19iycw` (3 panels) and `claude/matter-status-modal-wjzv1v` (1)     | New files — a rewrite, not a migration. Proves the contract before it binds                                          |
+|   5 | Add the `hand-composed-modal` rule with all thirty-seven allowed                                          | **Built**, with `footer-set` beside it. Thirty-seven, not thirty-four: the rule reaches shapes the hand count missed |
+|   6 | Migrate the eleven billing and costs panels, deleting their allowances                                    | The largest and most uniform family; sets the pattern for the rest                                                   |
+|   7 | Migrate the remaining fifteen, deleting their allowances                                                  | The four `AlertDialog` confirmations are the cheapest and should go first                                            |
+|   8 | Move `new-matter-dialog.svelte` onto `RecordWindow` with `editing` raised                                 | The wrong shell today, and 647 lines. Owner question 3                                                               |
 
-The order has one real dependency and it is step 2 before step 3: building the shell first would
-mean writing the guard twice and reconciling two copies of a question the product asks in one
+The order had one real dependency and it was step 2 before step 3: building the shell first would
+have meant writing the guard twice and reconciling two copies of a question the product asks in one
 voice. Everything after step 5 is independently landable, one family at a time.
+
+**One number moved.** The hand count found thirty-four panels; the rule finds thirty-seven, because
+it reaches the `Sheet` panel and two design-system files a `Dialog.Content` grep over `apps/web`
+never looked at. Twenty-six are in scope for migration and eight are named exclusions; the
+thirty-seventh is `RecordAttachments`' detach confirmation, which is in scope and was missed by the
+original survey for the mundane reason that it lives in the design system rather than the app.
 
 ## 9. Test plan
 

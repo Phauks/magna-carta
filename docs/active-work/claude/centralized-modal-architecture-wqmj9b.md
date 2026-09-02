@@ -1,21 +1,31 @@
 ---
 worktree: /home/user/magna-carta (remote session)
 area: One shell for an act asked of a reader — the modal peer of RecordWindow
-status: designing
-touches: docs/specs/2026-09-01-consolidated-modal-architecture-design.md, docs/decisions/pending/
+status: building
+touches: packages/design-system/src/lib/components/action-dialog/, packages/design-system/src/lib/internal/close-guard.svelte.ts, packages/design-system/src/lib/internal/discard-question.svelte, packages/design-system/src/lib/components/record-window/, packages/design-system/src/stories/action-dialog.stories.svelte, packages/design-system/package.json, packages/design-system/vitest.config.ts, tooling/lint-one-ui/, roadmap.d/design-system.md, docs/specs/, docs/decisions/pending/, changelog.d/
 ---
 
-Surveying every modal panel in `apps/web` and designing the one shell they should all be, so the
-branches now in flight stop each writing their own. Design only so far: this stream has written a
-spec and an ADR fragment and has touched no code, no shared file, and no rendered tracker.
+`ActionDialog`, the modal peer of `RecordWindow`, and the enforcement that keeps a third shell from
+appearing. Design in `docs/specs/2026-09-01-consolidated-modal-architecture-design.md`; the shell,
+the shared close guard, the six stories and both fitness rules are built.
 
-When it builds, it will own `packages/design-system/src/lib/components/action-dialog/`, the shared
-close guard lifted out of `record-window/`, and `tooling/lint-one-ui/` (one registry entry, one new
-rule, and the allowance ledger that carries the thirty existing panels). A concurrent stream should
-know that the guard extraction touches `record-window.svelte`, which
-`claude/focused-cori-b8z77b` and `claude/magna-carta-file-manager-mdnug5` both hold open — the
-build waits on both.
+**A concurrent stream should stay out of `packages/design-system/src/lib/internal/` and
+`packages/design-system/src/lib/components/record-window/` while this is open** — the unsaved-work
+guard moved out of the record window into an internal both shells consume, and the record window's
+own inline copy of the question is gone. `tooling/lint-one-ui/` is also owned here: the registry
+gained a `modalShells` block and thirty-seven `hand-composed-modal` allowances, so any branch adding
+an allowance will conflict.
 
-The migration order is sequenced against the merge window in section 8 of the spec, and its first
-rule is that `claude/unified-error-screen-8pam6s` lands before any panel is migrated: it is one
-commit behind `main` and rewrites the failure rendering in fifteen of the thirty.
+**A branch adding a new modal panel should reach for `ActionDialog` rather than composing one.**
+`lint:one-ui` now fails a hand-composed panel outside a declared shell's home, and the existing
+panels are carried as printed allowances — so new work is bitten immediately while nothing already
+written is blocked. `claude/custodian-refinements-19iycw` (three new panels) and
+`claude/matter-status-modal-wjzv1v` (one) are the intended first adopters; neither has been touched
+from here.
+
+Two pre-existing failures on `main` are NOT this stream's and are left alone:
+`data-table-grid.stories.svelte > TrailingPinAndRowDetail` and
+`masthead.stories.svelte > CompactDensity`. A third one was — `lint-one-ui`'s own header-set
+fixture still supplied four controls after the record kind's menu joined the set, so the rule's
+passing case had been failing; it is repaired here because this branch could not otherwise show a
+green run of the file it is extending.

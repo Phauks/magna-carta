@@ -60,6 +60,8 @@ import {
   exportsName,
   findDomainLeaks,
   findHandBuiltDialogs,
+  findFooterSetProblems,
+  findHandComposedModals,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHeaderSetProblems,
@@ -76,6 +78,10 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 /** The record window's home, and the file the header set is asserted against. */
 const RECORD_WINDOW_HOME = "packages/design-system/src/lib/components/record-window";
 const RECORD_WINDOW_SHELL = `${RECORD_WINDOW_HOME}/record-window.svelte`;
+
+/** The action dialog's home, and the file the footer set is asserted against. */
+const ACTION_DIALOG_HOME = "packages/design-system/src/lib/components/action-dialog";
+const ACTION_DIALOG_SHELL = `${ACTION_DIALOG_HOME}/action-dialog.svelte`;
 
 /** Where a second implementation could be written. */
 const SEARCH_ROOTS = ["apps", "packages"];
@@ -184,6 +190,31 @@ try {
 }
 if (shellSource !== "") {
   problems.push(...findHeaderSetProblems(RECORD_WINDOW_SHELL, shellSource));
+}
+
+// Rule: the action dialog's footer set. The header set's sibling, and for the same reason — a
+// shell's promise is only worth what stops it being quietly rearranged.
+let actionDialogSource = "";
+try {
+  actionDialogSource = readFileSync(join(ROOT, ACTION_DIALOG_SHELL), "utf8");
+} catch {
+  problems.push({
+    rule: "footer-set",
+    file: ACTION_DIALOG_SHELL,
+    detail:
+      "is missing. The action dialog is the product's one shell for an act asked of a reader and " +
+      "this is the file its action bar is asserted against; if it moved, move this check with it",
+  });
+}
+if (actionDialogSource !== "") {
+  problems.push(...findFooterSetProblems(ACTION_DIALOG_SHELL, actionDialogSource));
+}
+
+// Rule: no kind of act inside the action dialog's shell. The same scan the record window gets, and
+// the same argument: the moment a shell learns about one kind of thing, the next kind needs its own.
+for (const absolute of walk(join(ROOT, ACTION_DIALOG_HOME), [], { includeStyles: true })) {
+  const path = repositoryPath(absolute);
+  problems.push(...findDomainLeaks(path, readFileSync(absolute, "utf8")));
 }
 
 // Rule: no kind of record inside the shell. Every file in its home, stylesheets included — a
@@ -316,6 +347,29 @@ mustHaveRead(sweep([APP_SOURCE], findHandRolledSelects), "hand-rolled select", [
 // mechanism inside the design system would be as expensive as one outside it.
 mustHaveRead(sweep(BOTH_SIDES, findHandBuiltDialogs), "hand-built dialog", BOTH_SIDES);
 
+// Rule: every modal surface is one of the two shells. Both sides of the line: a second panel
+// assembled inside the design system would be as expensive as one assembled outside it, and the
+// shells' own homes exempt themselves. Not svelte-only — the imperative signals are reached for
+// from modules as readily as from components.
+const modalShellHomes = (registry.modalShells ?? []).map((shell) => shell.home);
+if (modalShellHomes.length === 0) {
+  problems.push({
+    rule: "hand-composed-modal",
+    file: "tooling/lint-one-ui/registry.json",
+    detail:
+      "declares no modal shells. The rule below exempts the homes named there, so an empty list " +
+      "means every shell in the product reads as a hand-composed panel — a broken check rather " +
+      "than a clean repository",
+  });
+}
+mustHaveRead(
+  sweep(BOTH_SIDES, (path, source) => findHandComposedModals(path, source, modalShellHomes), {
+    svelteOnly: false,
+  }),
+  "hand-composed modal",
+  BOTH_SIDES,
+);
+
 // Rule: no hand-drawn glyphs, except the brand mark, which is a mark rather than an icon.
 mustHaveRead(
   sweep(BOTH_SIDES, (path, source) =>
@@ -403,10 +457,12 @@ if (unexcused.length > 0) {
 }
 
 console.log(
-  `lint:one-ui: the record window's header set is exactly the kind's menu, Edit, Print, expand, close; nothing in ` +
-    `its shell names a kind of record; ${entries.length} registered component(s) each have one ` +
+  `lint:one-ui: the record window's header set is exactly the kind's menu, Edit, Print, expand, close; the ` +
+    "action dialog's bar is exactly the dismissal then the commit; neither shell names a kind of " +
+    `thing; ${entries.length} registered component(s) each have one ` +
     "home; no app screen rolls its own select, dialog, scrim or glyph; and the ported surfaces " +
-    "reach for no node by id, selector or markup string." +
+    "reach for no node by id, selector or markup string; every modal surface is one of the " +
+    "declared shells." +
     (excused.length === 0
       ? " No surface outside the register gives a status word a tone, and every literal" +
         " placeholder reads as a field's name."
@@ -418,5 +474,8 @@ console.log(
     "through a generically named prop; a look-alike panel nobody named recognizably; a select, " +
     "scrim or glyph assembled at runtime rather than written out; a placeholder that is not a " +
     "literal, or that names the wrong field; a status mapper keyed on codes with its labels " +
-    "elsewhere; and imperative DOM beyond the three names the mockups actually used.",
+    "elsewhere; imperative DOM beyond the three names the mockups actually used; and a modal " +
+    "whose parts are aliased on import or chosen at runtime, which is why both shells also stamp " +
+    "`data-modal-shell` on the panel they render — a marker a rendered-DOM check can require of " +
+    "anything carrying the dialog or alertdialog role.",
 );

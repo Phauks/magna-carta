@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 775 nodes of the feature ledger in
+is the complete register rather than a digest: all 776 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**775 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**776 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 137 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **638 that are units of work**, for the reason set out under [What a roll-up is
+count the **639 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,17 +31,17 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 276 | 43% |
-| Part-built | partial, in-build | 113 | 18% |
+| Part-built | partial, in-build | 114 | 18% |
 | Ahead | designed, planned, researching, not-started | 208 | 33% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **638** | **100%** |
+| **All units of work** | | **639** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 276 | 43% |
-| `partial` | 112 | 18% |
+| `partial` | 113 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 45 | 7% |
 | `planned` | 16 | 3% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 142 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **638** | **100%** |
+| **All statuses** | **639** | **100%** |
 
 ### What a roll-up is not
 
-**137 of the 775 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
+**137 of the 776 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 276 of 638 (43%). Shipped plus partial is 388 (61%).**
+**Shipped alone is 276 of 639 (43%). Shipped plus partial is 389 (61%).**
 
-The 112 units between those two numbers are work that is engineered and paid for and is not
+The 113 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**389 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**390 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -83,9 +83,9 @@ ledger records it separately, in `surface:`.
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 33 | 9% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
-| No user surface by nature (`internal`) | 176 | 45% |
+| No user surface by nature (`internal`) | 177 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **389** | **100%** |
+| **Everything with something built** | **390** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -103,7 +103,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
 | Core Domain — Directory, Matters & Locations | 32 | 20 | 0 | 0 | 2 | 0 | 3 | 1 | 0 | 58 | 55% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
-| Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
+| Design System, UI Consistency & Design Quality | 11 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 16 | 69% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **276** | **112** | **1** | **45** | **16** | **5** | **142** | **38** | **3** | **638** | **43%** |
+| **All areas** | **276** | **113** | **1** | **45** | **16** | **5** | **142** | **38** | **3** | **639** | **43%** |
 
 ## Where we have been
 
@@ -691,7 +691,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Design System, UI Consistency & Design Quality
 
-[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 15 units of work, 73% shipped. 11 done, 3 part-built, 1 ahead, 0 parked.
+[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 16 units of work, 69% shipped. 11 done, 4 part-built, 1 ahead, 0 parked.
 
 - `design-system` · `partial` · **Design system** — UI consistency prevented by construction (tokens, one component source, CI) and design quality set by a human foundation with an enforced review step. _Note: Foundation built and merged; close-out items open (NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass)._
   - `design-system.tokens` · `partial` · **Design tokens** — Every color/spacing/radius/shadow/type/z/motion/breakpoint value a named DTCG token; no raw values elsewhere.
@@ -704,6 +704,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.components.storybook-catalog` · `shipped` · **Component catalog** — Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks. _Note: Histoire dead without Svelte 5 support, as the white paper records._
     - `design-system.components.icons` · `shipped` · **Lucide icons, no emojis** — Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   - `design-system.enforcement` · `partial` · **Machine enforcement** — Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
+  - `design-system.modal-shells` · `partial` · **Two modal shells and never a third** — Every modal surface in the product is one of two shells — RecordWindow for reading and changing a record, ActionDialog for an act asked of a reader — with one shared unsaved-work guard, and a source scan that recognizes a panel built outside them. _Note: The shell, the shared guard and the two rules are built and the shells are declared in tooling/lint-one-ui/registry.json. Thirty-seven existing panels are carried as printed allowances and migrate family by family; twenty-six of them are in scope, the other eight are named and excluded in the spec._
     - `design-system.enforcement.off-token-lint` · `shipped` · **Off-token value gates** — Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.
     - `design-system.enforcement.visual-regression` · `partial` · **Visual regression testing** — Playwright screenshots across every theme and mode over the story matrix; Argos the named upgrade. _Note: Harness and CI job built; first container-rendered baselines still pending; Argos not adopted._
   - `design-system.design-language` · `shipped` · **Design language foundation** — Human-set distinctive, restrained language: type system, palette with intent, legal power-user density, functional motion, signature elements. _Note: Dark design pass named as a remaining close-out item._

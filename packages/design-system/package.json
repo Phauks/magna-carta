@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./accordion": "./src/lib/components/accordion/index.ts",
+    "./action-dialog": "./src/lib/components/action-dialog/index.ts",
     "./alert": "./src/lib/components/alert/index.ts",
     "./alert-dialog": "./src/lib/components/alert-dialog/index.ts",
     "./avatar": "./src/lib/components/avatar/index.ts",
