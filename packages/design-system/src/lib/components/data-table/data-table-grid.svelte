@@ -473,7 +473,10 @@
         {/each}
       {:else if grid.rowsInView.length === 0 && grid.isFiltered}
         <tr class="mc-table-row">
-          <td class="mc-table-cell mc-table-grid-cell" colspan={grid.visibleColumns.length}>
+          <td
+            class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
+            colspan={grid.visibleColumns.length}
+          >
             <div class="mc-table-grid-empty">
               <p>
                 No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
@@ -490,7 +493,10 @@
         </tr>
       {:else if grid.rowsInView.length === 0}
         <tr class="mc-table-row">
-          <td class="mc-table-cell mc-table-grid-cell" colspan={grid.visibleColumns.length}>
+          <td
+            class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
+            colspan={grid.visibleColumns.length}
+          >
             {#if empty}
               {@render empty()}
             {:else}
