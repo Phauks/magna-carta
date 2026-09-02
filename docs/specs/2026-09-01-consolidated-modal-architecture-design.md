@@ -518,12 +518,43 @@ after it, at 1440×900. **All four are byte-identical.** The record window's six
 the two that assert its sizing as rendered geometry, pass unchanged. That is the standard a shared
 chassis has to meet: the shell it was taken from cannot tell.
 
-### 11.4 Why not a read-only variant instead
+### 11.4 The reading kind — a position reversed on evidence
 
-The owner also asked whether read-only panels should be a variant of the modal. Working through the
-two that looked read-only settled it: `arrangement-dialog` is a record with history and an action —
-`RecordWindow`'s shape — and `apply-trust-funds` is an act whose commit is not served yet. A
-read-only `kind` would have been a second answer to "read a thing" and would have made
-`commitLabel` and `onCommit` optional, weakening the type for every panel that commits. The gap the
-question pointed at was real; the pane system is what fills it, because it is what those panels
-were rebuilding.
+The owner asked whether read-only panels should be a variant of the modal. The first answer was
+no. Working through the two panels that looked read-only, `arrangement-dialog` was a record with
+history and an action — `RecordWindow`'s shape — and `apply-trust-funds` was an act whose commit
+is not served yet; a read-only `kind` looked like a second answer to "read a thing", and making
+`commitLabel` and `onCommit` optional would have weakened the type for every panel that commits.
+The pane system was what those two were rebuilding, so the pane system was what filled the gap.
+
+Then a third panel arrived that neither argument covered. The matter-status window (#473, merged
+the same day) opens from the seal in the matter's header to say what the matter's status is and,
+when the reader has the right to change it, offers the step — Close Matter, Reopen — **seated in
+the body beside the fact it changes**, deliberately not in the action bar: somebody may have opened
+the window to read the physical-file pane beside it, and the corner is where a hand goes by habit.
+It is not a record (it has no tabs, no history, no editing mode — `RecordWindow` would be the wrong
+shape). It is not an act asked of a reader either: its bar has nothing to commit, and a `form` kind
+would have forced a commit button into it that its design had rejected. It composed `Dialog.Content`
+by hand, the rule refused it, and nothing before merge had run the rule.
+
+So the shell now has a fourth kind, and the type is not weakened to admit it — the props are a
+**discriminated union on `kind`**, and each arm stays as strict as it was:
+
+```ts
+type Acting = { kind?: "form" | "confirm" | "destructive"; commitLabel: string; onCommit: () => Promise<ActionOutcome>; … };
+type Reading = { kind: "reading"; commitLabel?: never; onCommit?: never; … };
+```
+
+A form still cannot omit its commit; a reading panel cannot be given one. `kind="reading"` renders
+on `Dialog` with the corner dismiss, is dismissed by a press outside, runs no guard (there is
+nothing to lose unless the caller says `unsavedChanges`), and its bar holds one control that says
+**Close** rather than Cancel — nothing was begun, so nothing is cancelled. The kind table gained a
+row with `commitVariant: null`, and the action bar renders the commit only when the variant is not
+null; `footer-set` still asserts both markers in the shell's source, because the source still
+carries both.
+
+What this is not: a read-only `RecordWindow`. A record is read in the record window, and the
+reading kind is not a way around that — it is the panel for a fact with a step beside it, whose
+context pane earns the record width without the record's tabs. The distinction the shells draw
+(read a record; be asked for an act) gains a third clause: read a fact and take a step from where
+it sits. Three panels are known to have this shape; the status window is the first to land.

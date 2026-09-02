@@ -47,8 +47,17 @@ because the confirmation inside it should be an `ActionDialog`.
   `class` prop. A caller differs on a closed set — `fields`, `notice`, `kind`, `width`, and a commit
   returning `"committed" | "refused"`.
 - **`kind` selects the primitive.** `form` → `Dialog` (corner dismiss, dismissed by a press
-  outside, "Cancel"); `confirm`/`destructive` → `AlertDialog` (the `alertdialog` role, no incidental
-  dismiss, "Never mind"). The trait table describes what Bits already does rather than fighting it.
+  outside); `confirm`/`destructive` → `AlertDialog` (the `alertdialog` role, no incidental dismiss).
+  The dismissal says "Cancel" for every acting kind, held as one constant. The trait table describes
+  what Bits already does rather than fighting it.
+- **`kind="reading"` is the fourth kind, and it is an arm of a discriminated union, not an
+  optional commit.** A reading panel — the matter-status window is the model — states a fact and
+  seats any step it offers in the body beside that fact, so its bar holds one control that says
+  "Close" (nothing was begun). The props type has two arms: acting kinds REQUIRE `commitLabel` and
+  `onCommit`; the reading kind forbids them (`?: never`). Neither arm got weaker to admit the other.
+  Its row in the kind table carries `commitVariant: null`, which is what hides the commit; it runs
+  no unsaved-work guard unless the caller says `unsavedChanges`. It is not a read-only
+  `RecordWindow`: a record with tabs, history or an editing mode still opens in the record window.
 - **The `notice` slot is the layering seam.** The design system cannot know what a failure reads
   like, so the shell reserves the PLACE and the app puts `FailureNotice` in it. Never import an app
   module here to close that gap.

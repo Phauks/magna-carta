@@ -18,11 +18,19 @@
  * - `confirm` carries none. Nothing was begun, so declining is "Never mind", and only a deliberate
  *   answer closes it.
  * - `destructive` is a `confirm` whose commit takes something away, and says so in its colour.
+ * - `reading` asks for nothing. It shows a thing and may offer a step IN PLACE, beside the fact the
+ *   step changes; its action bar carries only the way out. The matter's status window is the case:
+ *   somebody opens it to read where the paper file is kept as often as to close the matter, and a
+ *   window whose bottom-right corner offers Close Matter puts the act they did not come for exactly
+ *   where a hand goes by habit. A reading panel has no commit, and the props say so by type.
  *
- * Closed on purpose: a fourth kind is a reviewed change to this file, not a call site's
+ * Closed on purpose: a fifth kind is a reviewed change to this file, not a call site's
  * improvisation. What each one implies is resolved in ./action-dialog-model.ts.
  */
-export type ActionDialogKind = "form" | "confirm" | "destructive";
+export type ActionDialogKind = "form" | "confirm" | "destructive" | "reading";
+
+/** The kinds that ask for an act, and therefore carry a commit. */
+export type ActingKind = Exclude<ActionDialogKind, "reading">;
 
 /**
  * How a commit went.
