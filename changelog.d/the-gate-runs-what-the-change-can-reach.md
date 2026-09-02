@@ -12,3 +12,5 @@ Three changes in `.github/workflows/gate.yml` and beside it:
 - **Named and sectioned.** Jobs are grouped under banners by tier — classify, always-on guards, WASM artefacts, consumers, Rust and containers, aggregate — and named for what they do (`classify`, `build-wasm`). The four-step preamble every consumer repeated (checkout, setup, download the artefact, untar it) is now `./.github/actions/setup` with `wasm: "true"`, so each job's steps are what that job checks.
 
 `assemble-docs.yml` moves to the 1-vCPU runner and installs the workspace only once the dependency-free assemblers have produced something to format; its second run per merge, which finds nothing, now costs a checkout. Standard: `docs/conventions/build-performance.md`.
+
+One gate-reliability fix rides along: the worker suites' `beforeAll` hooks apply the control-plane migrations and, in the heavier files, seed several firms through the real registration flow, which on a loaded 2-core runner overran Vitest's 10-second default twice in one afternoon while every test in the file would have passed. `apps/api-worker/vitest.config.ts` sizes `hookTimeout` to that work; the per-test timeout is unchanged.
