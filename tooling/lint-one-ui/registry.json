@@ -105,53 +105,13 @@
   "allowances": [
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/amend-agreement-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/billing/apply-trust-funds-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
+      "reason": "NOT read-only, and not debt: an act whose commit is not served yet. Its control is wrapped in SoonAffordance \u2014 the product's own primitive for a designed-but-unbuilt capability (disabled control, Soon badge, the dependency as the accessible description) \u2014 and that primitive lives in the app, so the design-system shell cannot carry it. It becomes a plain ActionDialog the day a route hands out a trust account."
     },
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/billing/arrangement-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/credit-note-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/draft-bill-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/finalize-bill-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/invoice-line-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/record-delivery-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/void-draft-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family \u2014 a question, so it becomes kind=destructive and gains the alertdialog role it never had."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/write-off-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
+      "reason": "Belongs to the OTHER shell. It reads a record \u2014 the fee arrangement in force, its terms, and its version history \u2014 and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
     },
     {
       "rule": "hand-composed-modal",
@@ -170,18 +130,8 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/costs/cost-kick-back-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the costs family."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/costs/cost-review-window.svelte",
       "reason": "a screen presented over the app rather than an act asked of a reader. It belongs to the full-screen presentation question, which is a separate design and deliberately not folded into this one."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/costs/cost-void-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the costs family as kind=destructive \u2014 it is already an AlertDialog, so the migration is the footer and the guard."
     },
     {
       "rule": "hand-composed-modal",
