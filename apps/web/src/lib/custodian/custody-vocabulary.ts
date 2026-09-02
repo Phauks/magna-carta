@@ -3,11 +3,17 @@
  * render, given its label, its tone and what it means on hover.
  *
  * THE WORDS ARE THE DOMAIN'S, TAKEN VERBATIM. `held`, `out`, `released`, `destroyed`, `lost`,
- * `superseded`, the fourteen movement kinds, the five hold kinds and the three borrower kinds are
- * declared in packages/custodian/src/types.ts, which is the state machine the ledger derives from.
- * Nothing here invents a synonym, softens a word, or collapses two of them: `superseded` is not
- * `released`, `lost` is a first-class recordable state and not an absence, and a register that
- * renamed either would be describing something the record does not say.
+ * `superseded`, the fourteen movement kinds, the five hold kinds, the three borrower kinds and the
+ * five scan kinds are declared in packages/custodian/src/types.ts, which is the state machine the
+ * ledger derives from. Nothing here invents a synonym, softens a word, or collapses two of them:
+ * `superseded` is not `released`, `lost` is a first-class recordable state and not an absence, and
+ * a register that renamed either would be describing something the record does not say. Rendering
+ * `out` as "On loan" is not an exception to that: it is the same state under the ledger's own noun
+ * for the person who has it, and the pair it belongs to is what had to be legible. `out` and
+ * `released` are the two states in which property is off the shelf, and they are opposites — a loan
+ * is the firm's to get back, a release has ended the firm's custody — so a label that left them
+ * reading as the same event was the defect. The ACT is still "Checked out", in the movement labels
+ * below, because a history is read as a sentence about what somebody did.
  *
  * WHERE THE STATUSES LIVE. Not here. A status word's label, tone and meaning belong to the design
  * system's status register, whose whole point is that a word carries the same tone wherever it
@@ -50,8 +56,11 @@ export type CustodyHoldKind =
   | "dispute"
   | "unclaimed";
 
-/** Who has it, when it is out. All three shapes really occur. */
+/** Who has it, when it is checked out. All three shapes really occur. */
 export type CustodyBorrowerKind = "member" | "entity" | "external";
+
+/** What a copy filed against a packet IS. A scan is never a substitute for the original. */
+export type CustodyScanKind = "scan" | "photograph" | "receipt" | "appraisal" | "correspondence";
 
 /** A node of the container tree. Drives grouping and reading only; nothing branches on it. */
 export type CustodyLocationKind =
@@ -153,6 +162,33 @@ const BORROWER_LABELS: Readonly<Record<CustodyBorrowerKind, string>> = {
 export function borrowerKindLabel(kind: CustodyBorrowerKind): string {
   return BORROWER_LABELS[kind];
 }
+
+/*
+ * The scan kinds, as a reader meets them. The enum was being printed raw against a packet's filed
+ * copies, so a receipt read as `receipt` and a piece of correspondence as `correspondence`; a
+ * taxonomy the register offers in a form is a taxonomy it has to be able to render back.
+ */
+const SCAN_LABELS: Readonly<Record<CustodyScanKind, string>> = {
+  scan: "Scan",
+  photograph: "Photograph",
+  receipt: "Receipt",
+  appraisal: "Appraisal",
+  correspondence: "Correspondence",
+};
+
+/** How one filed copy reads. */
+export function scanKindLabel(kind: CustodyScanKind): string {
+  return SCAN_LABELS[kind];
+}
+
+/** The scan kinds in reading order — what the link form offers. */
+export const SCAN_KINDS: readonly CustodyScanKind[] = [
+  "scan",
+  "photograph",
+  "receipt",
+  "appraisal",
+  "correspondence",
+];
 
 const LOCATION_LABELS: Readonly<Record<CustodyLocationKind, string>> = {
   office: "Office",

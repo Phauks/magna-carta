@@ -6,6 +6,12 @@
    * first, above everything descriptive — what stands against it. The right pane is context: what is
    * inside, the holds, the scanned copies, and the chain of custody.
    *
+   * CONTENTS AND HISTORY ARE THE SAME LEDGER AT TWO SCOPES. Each item in Contents opens onto its own
+   * chain of custody, because the question a firm is asked is about the object rather than the
+   * envelope: where has this will been, and who has had it. The History tab is the whole packet's,
+   * and an entry there about one item names the item. Neither is a second record, so the two can
+   * never come to disagree about the same object.
+   *
    * WHY THE REFUSALS LEAD. A firm holding an original will or a set of deeds is answerable for it,
    * and the two acts it never comes back from are releasing the property and destroying it. Both are
    * refused by the server under conditions the person standing at the safe cannot see — a hold
@@ -22,6 +28,7 @@
    * the overdue list, what is due — opens THIS one, so a reader meets the same window whichever
    * door they came through.
    */
+  import * as Accordion from "@magna-carta/design-system/accordion";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -35,6 +42,7 @@
   import Separator from "@magna-carta/design-system/separator";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import FileText from "@lucide/svelte/icons/file-text";
+  import Plus from "@lucide/svelte/icons/plus";
   import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
@@ -58,12 +66,17 @@
     holdMeaning,
     itemStatusEntry,
     packetStatusEntry,
+    scanKindLabel,
   } from "./custody-vocabulary.ts";
+  import AddItemDialog from "./add-item-dialog.svelte";
+  import ItemHistory from "./item-history.svelte";
+  import LinkScanDialog from "./link-scan-dialog.svelte";
 
   let {
     open = $bindable(false),
     packetId,
     locations,
+    mayManage = false,
   }: {
     /** Whether the window is showing. */
     open?: boolean;
@@ -71,6 +84,14 @@
     packetId: string | null;
     /** The firm's container tree, so a movement's from and to nodes read as names. */
     locations: readonly CustodyLocationNode[];
+    /**
+     * Whether this member may write to the register.
+     *
+     * Passed down rather than read here: the surface that opened this window has already asked who
+     * is signed in, and a window that asked again would be a second request for an answer the page
+     * is holding, made every time somebody opens a row.
+     */
+    mayManage?: boolean;
   } = $props();
 
   /** What the movement form and the release capture form are waiting on, said the same way twice. */
@@ -85,6 +106,10 @@
   let movements = $state<readonly CustodyMovement[] | null>(null);
   let loadFailure = $state<StatedFailure | null>(null);
   let printOpen = $state(false);
+  let itemDialogOpen = $state(false);
+  let scanDialogOpen = $state(false);
+  /** Which items have been opened onto their own history. Opening is what reads the ledger. */
+  let openItemIds = $state<string[]>([]);
   let shownPacketId: string | null = null;
 
   const directory = new DirectoryNames();
@@ -97,11 +122,44 @@
   );
   const locationNames = $derived(new Map(locations.map((node) => [node.id, node.name])));
 
+  // The packet's own items, so a history row about one of them names it rather than reading as an
+  // unexplained entry in the middle of the packet's own story.
+  const itemNames = $derived(
+    new Map(
+      (packet?.items ?? []).map((item) => [item.id, `Item ${item.ordinal}: ${item.description}`]),
+    ),
+  );
+
   const names: CustodyNameLookup = {
     member: (userId) => memberNames.get(userId) ?? null,
     location: (locationId) => locationNames.get(locationId) ?? null,
     entity: (entityId) => directory.nameOf(entityId),
+    item: (itemId) => itemNames.get(itemId) ?? null,
   };
+
+  async function read(asked: string): Promise<void> {
+    // The roster settles its own failure internally and is shared across the app; asking again
+    // when it is already read costs nothing.
+    void firmRoster.load(fetch);
+    const [detail, ledger] = await Promise.all([
+      readCustodyPacket(fetch, asked),
+      listCustodyMovements(fetch, asked),
+    ]);
+    if (shownPacketId !== asked) return;
+    if (detail.kind === "ok") {
+      packet = detail.value;
+      const handles = [
+        ...detail.value.owners.map((owner) => owner.entityId),
+        ...(detail.value.depositorEntityId === null ? [] : [detail.value.depositorEntityId]),
+      ];
+      void directory.resolve(fetch, handles);
+    } else {
+      loadFailure = stated(detail.failure, "This packet could not be read.");
+    }
+    // A ledger that failed leaves the packet readable: where the property is and whom it is held
+    // for are still true, and the history says its own absence rather than failing the window.
+    movements = ledger.kind === "ok" ? ledger.value.data : [];
+  }
 
   $effect(() => {
     const asked = packetId;
@@ -111,30 +169,24 @@
     packet = null;
     movements = null;
     loadFailure = null;
-    // The roster settles its own failure internally and is shared across the app; asking again
-    // when it is already read costs nothing.
-    void firmRoster.load(fetch);
-    void (async () => {
-      const [detail, ledger] = await Promise.all([
-        readCustodyPacket(fetch, asked),
-        listCustodyMovements(fetch, asked),
-      ]);
-      if (shownPacketId !== asked) return;
-      if (detail.kind === "ok") {
-        packet = detail.value;
-        const handles = [
-          ...detail.value.owners.map((owner) => owner.entityId),
-          ...(detail.value.depositorEntityId === null ? [] : [detail.value.depositorEntityId]),
-        ];
-        void directory.resolve(fetch, handles);
-      } else {
-        loadFailure = stated(detail.failure, "This packet could not be read.");
-      }
-      // A ledger that failed leaves the packet readable: where the property is and whom it is held
-      // for are still true, and the history says its own absence rather than failing the window.
-      movements = ledger.kind === "ok" ? ledger.value.data : [];
-    })();
+    // A different packet's items are different items; keeping the last one's open set would open
+    // rows that are not there and leave this packet's contents shut.
+    openItemIds = [];
+    void read(asked);
   });
+
+  /*
+   * Read the packet again after writing to it.
+   *
+   * The whole window is re-read rather than the one list that changed, because describing an item
+   * appends to the chain of custody as well as to the contents: a window that patched its own
+   * Contents tab would show a packet whose history did not mention the thing now sitting in it.
+   */
+  function reread(): void {
+    const asked = shownPacketId;
+    if (asked === null) return;
+    void read(asked);
+  }
 
   const standingHolds = $derived(packet === null ? [] : holdsInForce(packet.holds));
   const release = $derived(
@@ -148,6 +200,13 @@
 
   const events = $derived(
     movements === null ? [] : orderedOldestFirst(movementEvents(movements, names)),
+  );
+
+  /** Why a write control is refused, or undefined where it is not. */
+  const writeRefusal = $derived(
+    mayManage
+      ? undefined
+      : "Writing to the register needs the custody:manage permission, which this account does not hold.",
   );
 
   const heading = $derived(packet?.name ?? "Custody Packet");
@@ -296,43 +355,94 @@
   {/if}
 {/snippet}
 
+{#snippet describeItemButton()}
+  <Button
+    variant="secondary"
+    disabled={packet === null || writeRefusal !== undefined}
+    title={writeRefusal}
+    onclick={() => (itemDialogOpen = true)}
+  >
+    <Plus class="size-16" aria-hidden="true" />
+    Describe An Item
+  </Button>
+{/snippet}
+
+{#snippet fileCopyButton()}
+  <Button
+    variant="secondary"
+    disabled={packet === null || writeRefusal !== undefined}
+    title={writeRefusal}
+    onclick={() => (scanDialogOpen = true)}
+  >
+    <Plus class="size-16" aria-hidden="true" />
+    File A Copy
+  </Button>
+{/snippet}
+
 {#snippet contentsTab()}
   {#if packet === null || packet.items.length === 0}
-    <EmptyState title="Nothing Described Yet">
+    <EmptyState title="Nothing Described Yet" actions={describeItemButton}>
       A packet can be logged before anyone opens it, and this one has no contents recorded. What is
       inside is described item by item, which is how the register answers whether the firm holds an
       original will for somebody.
     </EmptyState>
   {:else}
     <div class="flex flex-col gap-12">
-      {#each packet.items as item (item.id)}
-        <div class="flex flex-col gap-4">
-          <div class="flex flex-wrap items-center gap-8">
-            <span>{item.description}</span>
-            <Badge
-              variant={itemStatusEntry(item.status).tone}
-              title={itemStatusEntry(item.status).meaning}
-            >
-              {itemStatusEntry(item.status).label}
-            </Badge>
-            {#if item.intrinsicValue}
-              <Badge
-                variant="accent"
-                title="An irreplaceable original. It is never destructible, and the refusal has no override."
-              >
-                Irreplaceable original
-              </Badge>
-            {/if}
-          </div>
-          <span class="text-xs text-text-muted">
-            Item {item.ordinal}{item.instrumentDate === null
-              ? ""
-              : ` · dated ${item.instrumentDate}`}{item.reviewOn === null
-              ? ""
-              : ` · review ${item.reviewOn}`}
-          </span>
-        </div>
-      {/each}
+      <!-- Each item opens onto its own chain of custody. The question a firm is asked is about the
+           OBJECT — where has this will been — and a packet that held one history for the whole
+           envelope could only answer it about the box. Opening is what reads the ledger, so a
+           packet with nine items draws a list rather than nine histories nobody asked for. -->
+      <!-- The wrapper passes `value`/`onValueChange` through rather than exposing a bindable, so
+           the open set is held here and handed back. -->
+      <Accordion.Root
+        type="multiple"
+        value={openItemIds}
+        onValueChange={(value) => (openItemIds = value)}
+      >
+        {#each packet.items as item (item.id)}
+          <Accordion.Item value={item.id}>
+            <Accordion.Trigger>
+              <span class="flex min-w-0 flex-col gap-4 text-start">
+                <span class="flex flex-wrap items-center gap-8">
+                  <span>{item.description}</span>
+                  <Badge
+                    variant={itemStatusEntry(item.status).tone}
+                    title={itemStatusEntry(item.status).meaning}
+                  >
+                    {itemStatusEntry(item.status).label}
+                  </Badge>
+                  {#if item.intrinsicValue}
+                    <Badge
+                      variant="accent"
+                      title="An irreplaceable original. It is never destructible, and the refusal has no override."
+                    >
+                      Irreplaceable original
+                    </Badge>
+                  {/if}
+                </span>
+                <span class="text-xs text-text-muted">
+                  Item {item.ordinal}{item.instrumentDate === null
+                    ? ""
+                    : ` · dated ${item.instrumentDate}`}{item.reviewOn === null
+                    ? ""
+                    : ` · review ${item.reviewOn}`}
+                </span>
+              </span>
+            </Accordion.Trigger>
+            <Accordion.Content>
+              {#if openItemIds.includes(item.id) && packetId !== null}
+                <ItemHistory
+                  {packetId}
+                  itemId={item.id}
+                  label={item.description}
+                  {names}
+                />
+              {/if}
+            </Accordion.Content>
+          </Accordion.Item>
+        {/each}
+      </Accordion.Root>
+      <div class="flex">{@render describeItemButton()}</div>
     </div>
   {/if}
 {/snippet}
@@ -372,7 +482,7 @@
 
 {#snippet scansTab()}
   {#if packet === null || packet.scans.length === 0}
-    <EmptyState title="No Scanned Copies">
+    <EmptyState title="No Scanned Copies" actions={fileCopyButton}>
       A scan is an ordinary document filed on a matter, linked here. It is never a substitute for the
       original, and its existence changes nothing about what may be done with what the firm holds.
     </EmptyState>
@@ -381,10 +491,13 @@
       {#each packet.scans as scan (scan.id)}
         <div class="flex items-center gap-8">
           <FileText class="size-16 text-text-muted" aria-hidden="true" />
-          <span>{scan.kind}</span>
+          <!-- The register's own word for what the copy is. The enum was being printed raw, so a
+               piece of correspondence read as `correspondence`. -->
+          <span>{scanKindLabel(scan.kind)}</span>
           <span class="text-xs text-text-muted">captured {scan.capturedAt}</span>
         </div>
       {/each}
+      <div class="flex">{@render fileCopyButton()}</div>
     </div>
   {/if}
 {/snippet}
@@ -454,3 +567,13 @@
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />
 {/if}
+
+<AddItemDialog bind:open={itemDialogOpen} {packetId} onAdded={reread} />
+
+<LinkScanDialog
+  bind:open={scanDialogOpen}
+  {packetId}
+  filingMatterId={packet?.filingMatterId ?? null}
+  items={packet?.items ?? []}
+  onLinked={reread}
+/>

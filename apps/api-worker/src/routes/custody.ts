@@ -1397,8 +1397,14 @@ const listMovementsRoute = defineOpenAPIRoute(readMeta("listMovements"), {
   path: "/api/v1/custody/packets/{packetId}/movements",
   description:
     "Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when " +
-    "each event happened, not by when it was typed in.",
-  request: { params: packetIdParam, query: cursorQuery },
+    "each event happened, not by when it was typed in. Narrowing by itemId answers one item's own " +
+    "chain of custody, which is its own entries PLUS the packet-wide ones: an item inside a packet " +
+    "goes wherever the packet goes, so a history of only the rows naming the item would leave out " +
+    "every move it actually made. Each row carries itemId, so a reader can tell the two apart.",
+  request: {
+    params: packetIdParam,
+    query: cursorQuery.extend({ itemId: identifierField("custodyItem").optional() }),
+  },
   responses: {
     200: {
       description: "A page of the packet's history",
@@ -2415,10 +2421,16 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { packetId } = c.req.valid("param");
-      const { cursor } = c.req.valid("query");
+      const { cursor, itemId } = c.req.valid("query");
       const decoded = decodeMovementCursor(cursor);
       const limit = 50;
-      const rows = await readCustodyMovements(firm.firmDatabase, packetId, limit + 1, decoded);
+      const rows = await readCustodyMovements(
+        firm.firmDatabase,
+        packetId,
+        limit + 1,
+        decoded,
+        itemId,
+      );
       const page = rows.slice(0, limit);
       const last = page.at(-1);
       const nextCursor =

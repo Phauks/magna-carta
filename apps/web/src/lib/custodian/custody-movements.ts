@@ -1,5 +1,7 @@
 /*
- * A packet's chain of custody, as the platform's one history presentation reads it.
+ * A chain of custody, as the platform's one history presentation reads it. One packet's, or one
+ * item inside it — the same rows, read from two places, so the two can never drift into telling
+ * different stories about the same object.
  *
  * WHAT A MOVEMENT ROW HAS TO SAY, EVERY TIME: who, and when. A custody ledger's whole value in a
  * dispute is that it is a contemporaneous record — "the packet was checked out to Ms. Alvarez on 3
@@ -34,6 +36,8 @@ export interface CustodyNameLookup {
   location: (locationId: string) => string | null;
   /** A directory person or organization, by entity handle. */
   entity: (entityId: string) => string | null;
+  /** One item described inside the packet, by item handle. */
+  item: (itemId: string) => string | null;
 }
 
 /** A lookup that names nothing — what a surface holds before its vocabularies land. */
@@ -41,7 +45,22 @@ export const NAMES_UNRESOLVED: CustodyNameLookup = {
   member: () => null,
   location: () => null,
   entity: () => null,
+  item: () => null,
 };
+
+/**
+ * Whose history this row is being read as part of.
+ *
+ * The register's ledger holds two kinds of row against one packet: entries about the packet itself,
+ * and entries about one item inside it. Which of the two a row is matters to the reader and it
+ * changes with the list they are looking at, so it is said rather than left to be worked out.
+ *
+ * Reading the PACKET's history, an item row is the odd one out and names its item. Reading one
+ * ITEM's history, the packet rows are the odd ones out and say so: an item goes wherever its packet
+ * goes, so those entries are the item's history too, and a reader has to be able to see that the
+ * move was of the whole box rather than of this will on its own.
+ */
+export type CustodyHistoryScope = "packet" | "item";
 
 /** How many days apart the two instants may sit before the gap is worth stating. */
 const BACKDATING_NOTICE_DAYS = 1;
@@ -91,8 +110,20 @@ function locationText(locationId: string | null, names: CustodyNameLookup): stri
  * correction names the row it corrects, because a compensating entry that did not would leave the
  * ledger contradicting itself with no way to tell which row is the later truth.
  */
-export function movementDetailLines(movement: CustodyMovement, names: CustodyNameLookup): string[] {
+export function movementDetailLines(
+  movement: CustodyMovement,
+  names: CustodyNameLookup,
+  scope: CustodyHistoryScope = "packet",
+): string[] {
   const lines: string[] = [];
+
+  // What this row is about, said first, and only where it is not what the surrounding list is
+  // about. A packet history where every row said "The whole packet" would be saying nothing.
+  if (scope === "packet" && movement.itemId !== null) {
+    const item = names.item(movement.itemId);
+    lines.push(item === null ? "About one item inside" : `About ${item}`);
+  }
+  if (scope === "item" && movement.itemId === null) lines.push("The whole packet");
 
   const borrower = borrowerText(movement, names);
   if (borrower !== null) {
@@ -139,8 +170,12 @@ export function movementDetailLines(movement: CustodyMovement, names: CustodyNam
 }
 
 /** One ledger row as the rail presents it. */
-export function movementEvent(movement: CustodyMovement, names: CustodyNameLookup): EventRailEvent {
-  const detail = movementDetailLines(movement, names).join(". ");
+export function movementEvent(
+  movement: CustodyMovement,
+  names: CustodyNameLookup,
+  scope: CustodyHistoryScope = "packet",
+): EventRailEvent {
+  const detail = movementDetailLines(movement, names, scope).join(". ");
   const recorded =
     movement.recordedByUserId === null ? null : names.member(movement.recordedByUserId);
   return {
@@ -154,10 +189,11 @@ export function movementEvent(movement: CustodyMovement, names: CustodyNameLooku
   };
 }
 
-/** A packet's ledger as the rail presents it, in the order it was handed over. */
+/** A ledger as the rail presents it, in the order it was handed over. */
 export function movementEvents(
   movements: readonly CustodyMovement[],
   names: CustodyNameLookup,
+  scope: CustodyHistoryScope = "packet",
 ): EventRailEvent[] {
-  return movements.map((movement) => movementEvent(movement, names));
+  return movements.map((movement) => movementEvent(movement, names, scope));
 }

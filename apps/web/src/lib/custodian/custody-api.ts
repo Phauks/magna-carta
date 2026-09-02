@@ -12,10 +12,18 @@
  * reports themselves carry. Resolution is `directory-names.svelte.ts`, and it is bounded to the
  * handles ONE record carries.
  *
- * It has no second write path. Every state change in this subsystem is one POST to a packet's
- * movements with a `kind`, because that is the one place the append-only ledger, the derived status
- * and the audit row are all written in a single commit. A check-out helper here that composed its
- * own body would be a second place all of that has to be right.
+ * It composes no MOVEMENT of its own. The three writes below each bring something into existence —
+ * a packet, an item inside it, a scanned copy linked to it — and the server appends the ledger row
+ * that records the act. Every subsequent state change (moved, checked out, returned, released,
+ * destroyed) is one POST to a packet's movements with a `kind`, because that is the one place the
+ * append-only ledger, the derived status and the audit row are written in a single commit. A
+ * check-out helper here that composed its own body would be a second place all of that has to be
+ * right.
+ *
+ * EVERY WRITE CARRIES AN IDEMPOTENCY KEY, and the contract refuses it without one. A person who
+ * presses a submit twice, or whose first attempt died on a dropped connection, must not draw two
+ * custody numbers for one envelope — so each attempt names itself and the server answers a repeat
+ * with the first result.
  */
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 import type {
@@ -25,6 +33,7 @@ import type {
   CustodyLocationKind,
   CustodyMovementKind,
   CustodyPacketStatus,
+  CustodyScanKind,
 } from "./custody-vocabulary.ts";
 
 /** The permission a reader needs. A member without it is refused server-side. */
@@ -140,7 +149,7 @@ export interface CustodyScan {
   id: string;
   itemId: string | null;
   fileId: string;
-  kind: "scan" | "photograph" | "receipt" | "appraisal" | "correspondence";
+  kind: CustodyScanKind;
   capturedAt: string;
 }
 
@@ -204,16 +213,142 @@ export interface CustodyMovement {
   releaseWitnessedByUserId: string | null;
 }
 
+/** What a history read is being asked for. */
+export interface CustodyMovementQuery {
+  /**
+   * One item's own chain of custody.
+   *
+   * The server answers the item's OWN entries plus the packet-wide ones, because an item inside a
+   * packet goes wherever the packet goes: the will was in the box when the box moved to the Reno
+   * safe. A read that returned only the rows naming the item would show "Contents described" over a
+   * decade and call that a chain of custody. Every row carries `itemId`, so a surface can say which
+   * of the two each entry is rather than presenting them as one undifferentiated list.
+   */
+  itemId?: string;
+  cursor?: string;
+}
+
 /** A packet's history, newest first, cursor-paged. */
 export function listCustodyMovements(
   fetchImpl: typeof fetch,
   packetId: string,
-  cursor?: string,
+  parameters: CustodyMovementQuery = {},
 ): Promise<ApiOutcome<Page<CustodyMovement>>> {
   return requestJson(
     fetchImpl,
-    `/api/v1/custody/packets/${encodeURIComponent(packetId)}/movements${query({ cursor })}`,
+    `/api/v1/custody/packets/${encodeURIComponent(packetId)}/movements${query({
+      itemId: parameters.itemId,
+      cursor: parameters.cursor,
+    })}`,
   );
+}
+
+// ---- bringing something into the register ----------------------------------------------------
+
+/** One owner as the packet form records it. At least one is required; the server refuses none. */
+export interface CustodyOwnerInput {
+  entityId: string;
+  /** What this owner is to the property, in the firm's own words. Null where it names nothing. */
+  ownershipRole?: string | null;
+}
+
+/**
+ * A new packet.
+ *
+ * `currentLocationId` is required by the contract and not by an oversight: a packet is a physical
+ * thing, and a register that accepts one without saying where it is has recorded that the firm has
+ * lost it. `manualCustodyNumber` is the carried-in case — property that arrived with a number from
+ * an earlier register keeps it, and draws none.
+ */
+export interface CreateCustodyPacketRequest {
+  name: string;
+  owners: readonly CustodyOwnerInput[];
+  currentLocationId: string;
+  matterId?: string;
+  depositorEntityId?: string;
+  depositedAt?: string;
+  notes?: string | null;
+  manualCustodyNumber?: string;
+}
+
+/** What the register answers with once the packet exists, including the number it drew. */
+export interface CreatedCustodyPacket {
+  id: string;
+  custodyNumber: string;
+  /** The system holding matter a packet's scans are filed into, whatever matter it is linked to. */
+  filingMatterId: string;
+}
+
+/** Log a packet into the register. The server appends its `logged` movement. */
+export function createCustodyPacket(
+  fetchImpl: typeof fetch,
+  request: CreateCustodyPacketRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<CreatedCustodyPacket>> {
+  return requestJson(fetchImpl, "/api/v1/custody/packets", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+/**
+ * One item described inside a packet.
+ *
+ * `intrinsicValue` is a person's assertion that this original is irreplaceable, and it is the one
+ * field on this form that can never be walked back by a later screen: it makes the item permanently
+ * undestructible, a refusal with no override anywhere in the subsystem.
+ */
+export interface AddCustodyItemRequest {
+  description: string;
+  itemTypeId?: string;
+  instrumentDate?: string | null;
+  intrinsicValue?: boolean;
+  declaredValue?: { amountMinor: number; currency: string } | null;
+  occurredAt?: string;
+}
+
+/** Describe what is inside a packet. The server appends its `itemized` movement. */
+export function addCustodyItem(
+  fetchImpl: typeof fetch,
+  packetId: string,
+  request: AddCustodyItemRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, `/api/v1/custody/packets/${encodeURIComponent(packetId)}/items`, {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+/**
+ * A copy filed against a packet.
+ *
+ * It takes a FILE THE FIRM ALREADY HOLDS rather than an upload, because a scan of an original is an
+ * ordinary document in a matter's file store and gains nothing by being a second kind of object
+ * with its own storage, its own scanning and its own permissions. The packet's `filingMatterId` is
+ * the matter those files live in.
+ */
+export interface LinkCustodyScanRequest {
+  fileId: string;
+  kind: CustodyScanKind;
+  itemId?: string;
+  capturedAt?: string;
+}
+
+/** Link a filed document to a packet as a copy of what the firm holds. */
+export function linkCustodyScan(
+  fetchImpl: typeof fetch,
+  packetId: string,
+  request: LinkCustodyScanRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, `/api/v1/custody/packets/${encodeURIComponent(packetId)}/scans`, {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
 }
 
 // ---- the container tree ----------------------------------------------------------------------

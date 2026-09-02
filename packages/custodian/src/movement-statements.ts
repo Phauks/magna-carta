@@ -139,24 +139,45 @@ export async function readCustodyMovement(
 // table in this subsystem that grows without bound — a firm holds a packet for decades — so the
 // history read is paginated from the start rather than retrofitted once a packet has two hundred
 // rows. The cursor is the last row's (occurred_at, id); passing none starts at the newest.
+//
+// WHAT AN ITEM'S HISTORY IS, WHICH IS WHY THE FILTER IS NOT `item_id = ?`. A chain of custody for
+// one original has to answer where that original has been, and an item inside a packet goes
+// wherever the packet goes: the will was in the box when the box moved to the Reno safe, and it was
+// in the deed case when the case went to a completion meeting. A filter that returned only rows
+// naming the item would answer "itemized, superseded" over a decade and call it a chain of custody.
+// So the scope is the item's own rows PLUS the packet-wide rows, and it is the READER that is told
+// which is which — the row carries `item_id`, so nothing is inferred to draw that distinction.
 export function selectCustodyMovementsStatement(
   database: SqlDatabase,
   packetId: CustodyPacketId,
   limit: number,
   cursor?: { readonly occurredAt: string; readonly id: string },
+  itemId?: CustodyItemId,
 ): SqlStatement {
-  if (cursor === undefined) {
-    return database
-      .prepare(
-        `SELECT ${MOVEMENT_COLUMNS} FROM ${CUSTODY_MOVEMENT_TABLE} WHERE packet_id = ?1 ORDER BY occurred_at DESC, id DESC LIMIT ?2`,
-      )
-      .bind(packetId, limit);
+  // The predicate and its bindings are assembled together, in one place, numbering as they go.
+  // Written as four hand-numbered query strings the two optional parts multiply into, `?5` in one
+  // of them silently means `?4`'s value in another, and the wrong page comes back rather than an
+  // error — the failure this shape cannot have.
+  const bindings: (string | number)[] = [packetId];
+  const predicates = [`packet_id = ?${bindings.length}`];
+
+  if (cursor !== undefined) {
+    bindings.push(cursor.occurredAt, cursor.id);
+    const occurred = bindings.length - 1;
+    const id = bindings.length;
+    predicates.push(`(occurred_at < ?${occurred} OR (occurred_at = ?${occurred} AND id < ?${id}))`);
   }
+  if (itemId !== undefined) {
+    bindings.push(itemId);
+    predicates.push(`(item_id IS NULL OR item_id = ?${bindings.length})`);
+  }
+
+  bindings.push(limit);
   return database
     .prepare(
-      `SELECT ${MOVEMENT_COLUMNS} FROM ${CUSTODY_MOVEMENT_TABLE} WHERE packet_id = ?1 AND (occurred_at < ?2 OR (occurred_at = ?2 AND id < ?3)) ORDER BY occurred_at DESC, id DESC LIMIT ?4`,
+      `SELECT ${MOVEMENT_COLUMNS} FROM ${CUSTODY_MOVEMENT_TABLE} WHERE ${predicates.join(" AND ")} ORDER BY occurred_at DESC, id DESC LIMIT ?${bindings.length}`,
     )
-    .bind(packetId, cursor.occurredAt, cursor.id, limit);
+    .bind(...bindings);
 }
 
 export async function readCustodyMovements(
@@ -164,12 +185,14 @@ export async function readCustodyMovements(
   packetId: CustodyPacketId,
   limit: number,
   cursor?: { readonly occurredAt: string; readonly id: string },
+  itemId?: CustodyItemId,
 ): Promise<CustodyMovementRow[]> {
   const { results } = await selectCustodyMovementsStatement(
     database,
     packetId,
     limit,
     cursor,
+    itemId,
   ).all<CustodyMovementRow>();
   return results;
 }

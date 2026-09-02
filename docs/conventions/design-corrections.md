@@ -346,6 +346,25 @@ surface, which is most of the product.
   best of an arbitrary slice at the top and read as the best of the firm's record), and says so
   when more matches exist than were returned. A screen that has both shows them as two different
   objects. Never fake a listing out of a search. _(directory, 2026-08-30)_
+- **A tab strip is not a place to keep a report.** Where tabs beside a list hold answers the list
+  itself could give — everything under a hold, everything overdue — they are pre-set filters wearing
+  the costume of destinations, and a reader has to visit each one to find out whether it holds
+  anything. Either the narrowing belongs to the one table or the report does not belong on that
+  screen; what it never is, is a second screen. A genuine aggregate (counts per owner rather than a
+  list of packets) is a different object and is judged on its own, not carried along because it sat
+  in the same strip. _(Custodian register, 2026-09-01)_
+- **A screen with no way to create the thing it lists is not built.** A list, a detail window, a
+  filter set and a print sheet over records nobody can add is a reader for somebody else's data. The
+  entry path ships with the surface, and where the backend already serves it, its absence is the
+  defect rather than the roadmap. _(Custodian register, 2026-09-01)_
+- **A status word is legible against the others in its set, not on its own.** Where a state leaves a
+  reader asking what it is, the label takes a word the domain already writes for it — but the test
+  it has to pass is the PAIR: custody's "Out" became "Checked out" and was then read as the same
+  event as "Released", because both merely say the property left the building. "On loan" carries the
+  return, which is the one thing that distinguishes it from a release. Fixing a word in isolation
+  and shipping it beside the word it collides with is half the correction. This never licenses a
+  synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
+  own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
 
 ### Spacing and rhythm
 
@@ -368,6 +387,62 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-01 — the Custodian register
+
+The owner opened the register and reported, first, that there was no way to put anything in it. That
+was true: the whole `custody.*` write surface existed and the screen offered a disabled "Log a
+packet" button with a Soon mark, so a firm could read a register it could not begin. The rest of the
+round was the screen carrying more furniture than record.
+
+What is local to this surface:
+
+- **The three report tabs are gone, and the panels behind them with them.** By Owner, Holds and Due
+  stood beside Register as though they were four destinations. Asked which of them were really the
+  register narrowed, the owner's answer was that no firm they know uses holds or due dates yet, so
+  all three come out rather than being folded in. The endpoints stay; the surfaces do not. The
+  generalizable half is promoted above.
+- **The status dropdown above the table is gone rather than renamed.** The correction as issued was
+  "change standing to status" — but Status is already a column with its own set filter, so renaming
+  it would have kept the second mechanism the matters docket round removed. Removed, per that rule.
+- **The screen's own search box is gone.** A centralized search component is being built elsewhere
+  and will reach this listing; the server-side `search` filter stays plumbed through the register
+  component for it to use.
+- **The masthead's "Originals the firm holds in safekeeping" is gone**, under the standing rule that
+  a heading carries no explanatory sub-text, and so are the two paragraphs under the location tree
+  and the standing paragraph under the matter's Custodian section, which said that closing a matter
+  is never blocked by what the firm holds. That is true, and it is a fact about the close path, so
+  it is stated where closing happens rather than on a screen that is not closing anything.
+- **The primary action is "New".** The register creates one kind of thing, so it needs no menu.
+- **"Out" now reads "On loan", after a first pass at "Checked out" was rejected.** The owner
+  reported not knowing what Out meant, and listed the statuses they believed real: Held, Released,
+  Destroyed, Lost. Out is real — it is what the ledger derives from a `checked_out` movement, it
+  carries the borrower and the due-back date the overdue report is built from, and a checked-out
+  packet has nowhere else to render — so it was relabelled rather than removed. "Checked out" did
+  not survive contact: the owner's answer was that checked out and released are the same thing, and
+  read as labels alone they are, since both only say the property is not on the shelf. The pair has
+  to separate itself without a legend, so the state is "On loan" (the firm's to get back) against
+  "Released" (the firm's custody has ended), and both hovers now state the ending or the return
+  rather than only the handover. The ACT stays "Checked out" in the history, where it is read as a
+  sentence about what somebody did. Promoted above.
+- **The empty register was running off the right-hand edge**, and it was never this screen's defect:
+  the grid's cells are `white-space: nowrap` for the sake of aligned columns, the placeholder cell
+  inherited it, and a wordy empty state therefore widened the table past its own frame. Fixed in the
+  shared table recipe, the same way the empty docket's hover band was.
+- **An item needed a history of its own**, and the ledger had been recording one all along: rows
+  carry an optional item, so withdrawing one instrument or superseding it was already written
+  against the item rather than the envelope, and nothing could read them back at that scope. The
+  read is the same ledger with one more filter rather than a second record. Two things had to be
+  decided rather than assumed: an item's history INCLUDES the packet-wide rows, because an item goes
+  wherever its packet goes and a history of only the rows naming it would show "Contents described"
+  over a decade of moves; and each list marks whichever kind of row is the odd one out in it, so
+  neither reads as the other. Each item in Contents opens onto its own rail, and opening is what
+  reads the ledger.
+- **Entry is three modals**, at the owner's direction, over the register's existing write endpoints:
+  New Packet on the register and on a matter's section, Describe An Item and File A Copy inside the
+  packet window, each on the tab it belongs to. The owner also raised a centralized modal framework;
+  around thirty dialogs now compose `Dialog` by hand, so that is worth its own look and is not part
+  of this round.
 
 ### 2026-09-01 — the matter chrome, identity-block round
 
