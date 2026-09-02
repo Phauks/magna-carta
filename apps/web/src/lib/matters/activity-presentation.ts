@@ -12,7 +12,7 @@
  * calendar package's own source declarations and fails when a key it declares has no entry below, so
  * a new subsystem joining the timeline cannot reach a person's screen as an unexplained row.
  *
- * MOST ENTRIES CARRY NO WORDS OF THEIR OWN, AND THAT IS THE DESIGN. A note, a filed email and a
+ * MOST ENTRIES CARRY NO WORDS OF THEIR OWN, AND THAT IS THE DESIGN. A note, a captured email and a
  * matter's own lifecycle all declare no label, because a note's first eight words and a subject line
  * are exactly the disclosure a read spanning every matter must not make. So an entry says WHAT
  * happened, WHEN, and BY WHOM — and the words are one authenticated request away behind the link.
@@ -21,8 +21,15 @@
  *
  * WHERE A SOURCE DOES DECLARE A LABEL, WHAT THE LABEL MEANS IS NOT OBVIOUS. `documentFiled` labels
  * with the document's TYPE and `timeEntry` with a duration — neither is a title, and a reader shown
- * a bare "Retainer Agreement" beside "A document was filed" would reasonably think it was the file's
- * name. `labelMeaning` names the field so the row can say which fact it is showing.
+ * a bare "Retainer Agreement" beside a document row would reasonably think it was the file's name.
+ * `labelMeaning` names the field so the row can say which fact it is showing.
+ *
+ * NOTHING HERE SAYS A DOCUMENT WAS "FILED". To a lawyer, filing means filing WITH A COURT, and this
+ * platform files nothing with a court: adding a document to the matter's own record is adding it,
+ * and an email arriving on a matter is saved to it. The source KEYS are `documentFiled` and
+ * `emailFiled` and stay that way — they are wire contracts, permanent once shipped — which is
+ * exactly why the words a person reads are decided here and not taken from them. The standing rule
+ * is in docs/conventions/design-corrections.md.
  */
 import Banknote from "@lucide/svelte/icons/banknote";
 import CalendarClock from "@lucide/svelte/icons/calendar-clock";
@@ -106,7 +113,7 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
   {
     key: "emailFiled",
     noun: "Email",
-    happened: "Mail was filed to the matter",
+    happened: "An email was saved to the matter",
     band: "documents",
     icon: Mail,
     section: "emails",
@@ -114,7 +121,7 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
   {
     key: "documentFiled",
     noun: "Document",
-    happened: "A document was filed",
+    happened: "A document was added to the matter",
     band: "documents",
     icon: FileText,
     labelMeaning: "Document type",

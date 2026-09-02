@@ -38,8 +38,8 @@
   surface: screen
   audience: public
   public-summary: See everything that has happened on a case, in order, in one place.
-  evidence: apps/web/src/routes/(app)/matters/[id]/activity/+page.svelte over GET /api/v1/matters/{matterId}/timeline; apps/web/src/lib/matters/activity-presentation.ts pairs one entry to each declared source, asserted against the calendar package's own declarations by apps/web/test/activity-presentation.test.ts; the two-subsystem walk in apps/web/e2e/matter-activity.spec.ts.
-  notes: The screen names no source and switches on none — adding a subsystem to the platform's timeline is one entry in the presentation registry, and the test fails until it exists. Most sources declare no label, so a row states what happened, when and by whom, and the words stay behind the link under the owning subsystem's own access gate.
+  evidence: apps/web/src/routes/(app)/matters/[id]/activity/+page.svelte over GET /api/v1/matters/{matterId}/timeline; apps/web/src/lib/matters/activity-presentation.ts pairs one entry to each declared source, asserted against the calendar package's own declarations by apps/web/test/activity-presentation.test.ts; apps/web/src/lib/matters/activity-detail.svelte.ts names each row through its own subsystem's access-gated read; the two-subsystem walk in apps/web/e2e/matter-activity.spec.ts.
+  notes: The screen names no source and switches on none — adding a subsystem to the platform's timeline is one entry in the presentation registry, and the test fails until it exists. The federated read still projects almost nothing, because it spans matters; the screen names its rows by following the deep link EAGERLY, one bounded read per subsystem per matter through that subsystem's own access gate, which is additive per source and costs a refusing subsystem only its own rows. Filters (bands, past/upcoming, a date range) narrow the read rather than the rows.
 
 - id: calendar.firm-events
   name: Firm events

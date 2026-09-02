@@ -47,16 +47,20 @@ test("the matter's activity reads every subsystem in one request", async ({ page
     }
   });
 
+  const line = `Reviewed the file before the hearing. ${crypto.randomUUID().slice(0, 8)}`;
   await signIn(page);
-  await writeNote(page, "Reviewed the file before the hearing.");
+  await writeNote(page, line);
   await page.goto(`/matters/${seededMatterId}/activity`);
 
   await expect(page.getByRole("heading", { name: "Activity", exact: true })).toBeVisible();
 
   // The seeded matter carries files and now carries a note, so two subsystems that share no table
-  // reach this screen through the one federated read.
-  await expect(page.getByText("A document was filed").first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("A note was written").first()).toBeVisible();
+  // reach this screen through the one federated read. Each row leads with what its own subsystem
+  // calls it, read back through that subsystem's own access gate.
+  await expect(page.getByText("Document", { exact: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText(line)).toBeVisible();
 
   expect(
     timelineReads,
@@ -65,11 +69,14 @@ test("the matter's activity reads every subsystem in one request", async ({ page
   expect(clientErrors).toEqual([]);
 });
 
-test("a band narrows the read itself, and Show Everything puts it back", async ({ page }) => {
+test("a band narrows the read itself, and All puts it back", async ({ page }) => {
+  const line = `Called opposing counsel about the schedule. ${crypto.randomUUID().slice(0, 8)}`;
   await signIn(page);
-  await writeNote(page, "Called opposing counsel about the schedule.");
+  await writeNote(page, line);
   await page.goto(`/matters/${seededMatterId}/activity`);
-  await expect(page.getByText("A document was filed").first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Document", { exact: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 
   const narrowed = page.waitForRequest(
     (request) => request.url().includes("/timeline") && request.url().includes("kind="),
@@ -78,9 +85,12 @@ test("a band narrows the read itself, and Show Everything puts it back", async (
   // Narrowing is a NEW read with the sources named, not a filter applied to rows already on screen:
   // the server narrows its registry before it builds a statement.
   await narrowed;
-  await expect(page.getByText("A note was written").first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("A document was filed")).toHaveCount(0);
+  await expect(page.getByText(line)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Document", { exact: true })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Show Everything" }).click();
-  await expect(page.getByText("A document was filed").first()).toBeVisible({ timeout: 15_000 });
+  // All is a pressed control rather than an absence, and pressing it puts every band back.
+  await page.getByRole("button", { name: "All", exact: true }).click();
+  await expect(page.getByText("Document", { exact: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 });

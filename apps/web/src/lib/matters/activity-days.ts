@@ -54,7 +54,7 @@ export function activityDays<Entry extends { readonly sortKey: string }>(
  * The clock time an entry happened at, or null where its source records only a day.
  *
  * Half the sources sort by a civil date and half by an instant, and the difference is real
- * information: a document was filed at a moment, a deadline falls on a day. So the time is shown
+ * information: a document arrives at a moment, a deadline falls on a day. So the time is shown
  * where there is one and the column stands empty where there is not, rather than inventing a
  * midnight that would sort and read as a fact nobody recorded.
  *

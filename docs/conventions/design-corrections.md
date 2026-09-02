@@ -56,6 +56,14 @@ is usually the fastest way to understand the rule.
   Password". Not sentence case, not all caps. _(auth flow, 2026-08-07)_
 - **No em dashes in user-facing copy.** They read as machine-written. Restructure the sentence or
   use a colon. Internal documents are unaffected. _(auth flow, 2026-08-07)_
+- **"Filed" means filed WITH A COURT. Nothing else may say it.** Adding a document to a matter's own
+  record is adding it; an email arriving on a matter is saved to it; a version is uploaded. This
+  platform files nothing with a court, so a screen that says a document was filed is telling a lawyer
+  something that did not happen, in the one vocabulary where being wrong has consequences. The word
+  is correct in exactly its own sense — a filing fee, a filing deadline, e-filing — and the test is
+  whether a court is on the other end of it. Source keys and column names that already carry the word
+  (`documentFiled`, `emailFiled`) are wire contracts and stay; what a person READS is decided at the
+  presentation layer, which is why the two are separate files. _(matter activity, 2026-09-02)_
 - **Short explanatory copy is one flowing paragraph.** A few sentences split across stacked
   paragraph elements read as a hard line break in the middle of one thought; join them unless the
   sentences genuinely address different subjects. _(WHOIS Lookup tool page, 2026-08-31)_
@@ -352,6 +360,29 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-02 — the matter Activity section, first review round
+
+The owner opened the new Activity section and reported that it lacked useful information, that
+uploading a file is not filing one, and that it needed a way to filter. The vocabulary ruling is
+promoted above; it binds everywhere. What is local to this surface:
+
+- **A row leads with what the thing is CALLED, where its own subsystem can name it.** The screen
+  reads the owning subsystem's own access-gated read for the rows on the page — the same read a
+  person could make by opening that section themselves — so a document row leads with the file name,
+  its size, its version and whether it is quarantined, and a note row leads with its opening line.
+  The federated read still projects none of that: it spans matters, and a note's first eight words on
+  a firm-wide read is the disclosure the label discipline exists to prevent. Enriching at the client,
+  for one matter somebody is already standing inside, is following the deep link eagerly rather than
+  loosening anything.
+- **The kind drops to one quiet word once the name leads.** "A document was added to the matter" on
+  forty rows is forty repetitions of what the glyph already said. The whole sentence survives as the
+  primary text of a row whose subsystem has no name to offer, because there it carries the row.
+- **The filter starts at All, and All is a pressed control rather than an absence.** Any number of
+  bands can be on at once. Beside them: Any time / Past / Upcoming, and a From and To date. Every one
+  of them narrows the READ — the source keys and bounds travel with the request and the server
+  narrows its registry before it builds a statement — so a filtered chronology is cheaper as well as
+  shorter, and Clear Filters appears only while something is hidden.
 
 ### 2026-09-01 — the matter Notes section, first review round
 

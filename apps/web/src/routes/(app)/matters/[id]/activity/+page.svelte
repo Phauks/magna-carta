@@ -25,7 +25,10 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import ArrowUpRight from "@lucide/svelte/icons/arrow-up-right";
+  import Input from "@magna-carta/design-system/input";
+  import Label from "@magna-carta/design-system/label";
   import { listMatterActivity, type ActivityEntry } from "$lib/matters/activity-api.ts";
+  import { ActivityDetails } from "$lib/matters/activity-detail.svelte.ts";
   import { activityDays, timeOfDay } from "$lib/matters/activity-days.ts";
   import {
     ACTIVITY_BANDS,
@@ -46,6 +49,9 @@
 
   const list = new PagedList<ActivityEntry>("This matter's activity could not be read.");
   const roster = new FirmRoster();
+  // What each row's own subsystem says about it, read once per matter through that subsystem's own
+  // access gate. A source with no loader renders exactly as it did.
+  const details = new ActivityDetails();
 
   const entries = $derived(list.items);
   const failure = $derived(list.failure);
@@ -53,9 +59,14 @@
   // Which bands are showing. Empty means every band, which is the resting state: the question this
   // screen answers first is "what happened", not "what happened in one subsystem".
   let chosenBands = $state<readonly ActivityBandKey[]>([]);
-  // Bumped to re-read after a failure; the filter is part of the subject, so changing it re-reads
+  // Bumped to re-read after a failure; every filter is part of the subject, so changing one re-reads
   // on its own.
   let reloadToken = $state(0);
+  // Which half of the case. "All" is the resting state, because what has happened and what is coming
+  // are one list read in one order — a deadline next Tuesday belongs beside the hearing it came from.
+  let direction = $state<"all" | "past" | "future">("all");
+  let fromDate = $state("");
+  let toDate = $state("");
 
   const chosenSourceKeys = $derived(
     chosenBands.flatMap((band) => sourcesInBand(band).map((presentation) => presentation.key)),
@@ -65,19 +76,25 @@
    * The activity read, and nothing else in this effect. A screen whose only subject is one read must
    * not let anything else stand between the subject changing and the read being asked for.
    */
+  /** Everything narrowing the read, as the server takes it. The subject the list is keyed on. */
+  const query = $derived({
+    ...(chosenSourceKeys.length === 0 ? {} : { sourceKeys: chosenSourceKeys }),
+    ...(fromDate === "" ? {} : { from: fromDate }),
+    ...(toDate === "" ? {} : { to: toDate }),
+    ...(direction === "all" ? {} : { direction }),
+  });
+
   $effect(() => {
     const matterId = matter.id;
-    const sourceKeys = chosenSourceKeys;
-    const subject = `${matterId}:${String(reloadToken)}:${sourceKeys.join(",")}`;
+    const asked = query;
+    const subject = `${matterId}:${String(reloadToken)}:${JSON.stringify(asked)}`;
     if (list.showing(subject)) return;
     list.reset(subject);
     if (isSample) {
       list.settleEmpty();
       return;
     }
-    void list.load((cursor) =>
-      listMatterActivity(fetch, matterId, cursor, (sourceKeys.length === 0 ? {} : { sourceKeys })),
-    );
+    void list.load((cursor) => listMatterActivity(fetch, matterId, cursor, asked));
   });
 
   // The roster resolves an actor into a person. Its own effect: a firm whose member list cannot be
@@ -85,6 +102,18 @@
   $effect(() => {
     if (isSample) return;
     void roster.load(fetch);
+  });
+
+  /*
+   * The detail behind the rows, read once per matter and kept across pages. Its own effect for the
+   * same reason the roster has one: a subsystem that will not answer costs its rows their extra
+   * line, never the chronology.
+   */
+  $effect(() => {
+    const matterId = matter.id;
+    if (isSample || details.showing(matterId)) return;
+    details.reset(matterId);
+    void details.load(fetch, matterId);
   });
 
   const days = $derived(activityDays(entries ?? []));
@@ -102,11 +131,21 @@
   }
 
   function loadMore(): void {
-    const sourceKeys = chosenSourceKeys;
-    void list.loadMore((cursor) =>
-      listMatterActivity(fetch, matter.id, cursor, (sourceKeys.length === 0 ? {} : { sourceKeys })),
-    );
+    const asked = query;
+    void list.loadMore((cursor) => listMatterActivity(fetch, matter.id, cursor, asked));
   }
+
+  function clearFilters(): void {
+    chosenBands = [];
+    direction = "all";
+    fromDate = "";
+    toDate = "";
+  }
+
+  /** Whether anything is narrowing the list, which is what the Clear control's presence answers. */
+  const narrowed = $derived(
+    chosenBands.length > 0 || direction !== "all" || fromDate !== "" || toDate !== "",
+  );
 </script>
 
 <svelte:head>
@@ -114,29 +153,69 @@
 </svelte:head>
 
 <section class="flex min-h-0 flex-1 flex-col gap-16">
-  <div class="flex flex-wrap items-center gap-16 border-b border-border-strong pb-8">
-    <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-      Activity
-    </h2>
-    <!-- Bands, not sources: a reader thinks "show me the money", not "show me costEntry". Nothing
-         pressed means everything, so the resting state needs no explaining. -->
-    <div class="flex flex-wrap items-center gap-4" role="group" aria-label="Narrow the activity">
-      {#each ACTIVITY_BANDS as band (band.key)}
-        {@const on = chosenBands.includes(band.key)}
+  <div class="flex flex-col gap-8 border-b border-border-strong pb-12">
+    <div class="flex flex-wrap items-center gap-8">
+      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        Activity
+      </h2>
+      <!--
+        Bands, not sources: a reader thinks "show me the money", not "show me costEntry". ALL leads
+        the row and is pressed whenever nothing else is, so the resting state is a state somebody
+        chose rather than an absence they have to infer — and every other band is a toggle, so any
+        number of them can be on at once.
+      -->
+      <div class="flex flex-wrap items-center gap-4" role="group" aria-label="Kinds of activity">
         <Button
-          variant={on ? "secondary" : "ghost"}
+          variant={chosenBands.length === 0 ? "secondary" : "ghost"}
           size="sm"
           disabled={isSample}
-          aria-pressed={on}
-          onclick={() => toggleBand(band.key, !on)}
+          aria-pressed={chosenBands.length === 0}
+          onclick={() => (chosenBands = [])}
         >
-          {band.label}
+          All
         </Button>
-      {/each}
-      {#if chosenBands.length > 0}
-        <Button variant="ghost" size="sm" onclick={() => (chosenBands = [])}>
-          Show Everything
-        </Button>
+        {#each ACTIVITY_BANDS as band (band.key)}
+          {@const on = chosenBands.includes(band.key)}
+          <Button
+            variant={on ? "secondary" : "ghost"}
+            size="sm"
+            disabled={isSample}
+            aria-pressed={on}
+            onclick={() => toggleBand(band.key, !on)}
+          >
+            {band.label}
+          </Button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-end gap-12">
+      <!-- What has happened and what is coming are one list by default; these split it. -->
+      <div class="flex items-center gap-4" role="group" aria-label="When">
+        {#each [{ key: "all", label: "Any time" }, { key: "past", label: "Past" }, { key: "future", label: "Upcoming" }] as const as choice (choice.key)}
+          <Button
+            variant={direction === choice.key ? "secondary" : "ghost"}
+            size="sm"
+            disabled={isSample}
+            aria-pressed={direction === choice.key}
+            onclick={() => (direction = choice.key)}
+          >
+            {choice.label}
+          </Button>
+        {/each}
+      </div>
+      <div class="flex flex-col gap-4">
+        <Label for="activity-from">From</Label>
+        <Input id="activity-from" type="date" disabled={isSample} bind:value={fromDate} />
+      </div>
+      <div class="flex flex-col gap-4">
+        <Label for="activity-to">To</Label>
+        <Input id="activity-to" type="date" disabled={isSample} bind:value={toDate} />
+      </div>
+      {#if narrowed}
+        <!-- Present only while something is narrowing the list, so its absence answers "is anything
+             hidden". -->
+        <Button variant="ghost" size="sm" onclick={clearFilters}>Clear Filters</Button>
       {/if}
     </div>
   </div>
@@ -158,8 +237,8 @@
       <Skeleton class="h-24 w-full" />
       <Skeleton class="h-24 w-full" />
       <Skeleton class="h-24 w-full" />
-    {:else if entries.length === 0 && chosenBands.length > 0}
-      <EmptyState title="Nothing of that kind has been recorded on this matter." />
+    {:else if entries.length === 0 && narrowed}
+      <EmptyState title="Nothing on this matter matches those filters." />
     {:else if entries.length === 0}
       <EmptyState title="Nothing has been recorded on this matter yet." />
     {:else}
@@ -183,6 +262,7 @@
               {@const href = followableLink(entry.sourceKey, entry.link)}
               {@const who = actorName(entry.actorUserId)}
               {@const at = timeOfDay(entry.sortKey)}
+              {@const detail = details.detailFor(entry.sourceKey, entry.rowId)}
               <li
                 class="flex flex-wrap items-center gap-8 border-b border-border-default py-8 last:border-b-0"
               >
@@ -195,10 +275,25 @@
                   {@const Glyph = presentation.icon}
                   <Glyph aria-hidden="true" class="size-16 shrink-0 text-text-muted" />
                 {/if}
-                <span class="text-sm">{happenedText(entry.sourceKey)}</span>
+                {#if detail === undefined}
+                  <span class="text-sm">{happenedText(entry.sourceKey)}</span>
+                {:else}
+                  <!-- Where its own subsystem can name the row, the NAME leads and the kind drops to
+                       one quiet word: a reader scanning for a document is scanning for what it is
+                       called, and "A document was added to the matter" on forty rows is forty
+                       repetitions of what the glyph already said. The whole sentence is still what
+                       a row with no name to lead with shows, because there it carries the row. -->
+                  <span class="text-sm">{detail.title}</span>
+                  <span class="text-xs text-text-muted">
+                    {presentation?.noun ?? happenedText(entry.sourceKey)}
+                  </span>
+                  {#if detail.secondary !== undefined && detail.secondary !== ""}
+                    <span class="text-xs text-text-muted">{detail.secondary}</span>
+                  {/if}
+                {/if}
                 {#if entry.label !== null}
                   <!-- Named, because a label is a specific field and never a title: a document's
-                       TYPE beside "A document was filed" reads as its name unless it says which. -->
+                       TYPE beside a document row reads as its name unless it says which. -->
                   <span class="text-xs text-text-muted">
                     {presentation?.labelMeaning ?? "Recorded"}: {entry.label}
                   </span>
