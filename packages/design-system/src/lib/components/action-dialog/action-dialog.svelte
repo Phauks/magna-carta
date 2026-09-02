@@ -46,10 +46,12 @@
    * question is skipped. The guard and its question are shared with the record window
    * (../../internal/close-guard.svelte.ts), so the product asks this in one voice.
    *
-   * THE COMMIT OWNS THE CLOSE. `onCommit` reports "committed" or "refused"; the shell raises the
-   * busy state around it, closes on the first and stands its ground on the second. A caller never
-   * writes `open` on the way out — that is what keeps the close to one path, and a close path with
-   * one entrance is the only kind a guard can actually cover.
+   * THE COMMIT OWNS THE CLOSE. `onCommit` reports "committed", "refused" or "done"; the shell
+   * raises the busy state around it, closes on the first, stands its ground on the second, and on
+   * the third stays open as a panel with nothing left to ask: the act happened and the reader is
+   * shown what came of it, the bar ends at Close, the guard stands down. A caller never writes
+   * `open` on the way out — that is what keeps the close to one path, and a close path with one
+   * entrance is the only kind a guard can actually cover.
    *
    * FOCUS LANDS ON THE FIRST FIELD, not the first control. The header's close is first in the DOM
    * because the header is first in the frame, and a form that opened with its own dismiss focused
@@ -117,16 +119,17 @@
     notice?: Snippet;
     /**
      * The body. Handed `busy` so ONE snippet renders the fields at rest and while the commit is in
-     * flight — two snippets would be two layouts, and they would disagree within a week.
+     * flight — two snippets would be two layouts, and they would disagree within a week — and
+     * `done` so the same snippet can show what the act came to, once it has.
      */
-    fields?: Snippet<[{ busy: boolean }]>;
+    fields?: Snippet<[{ busy: boolean; done: boolean }]>;
     /**
      * What stands beside the fields, in the record window's own right pane: the thing being acted
      * on, or the facts that decide whether the act may happen. Given, the panel opens at the record
      * width whatever `width` says, because two panes have a geometry of their own. Handed `busy`
-     * for the same reason the fields are.
+     * and `done` for the same reason the fields are.
      */
-    context?: Snippet<[{ busy: boolean }]>;
+    context?: Snippet<[{ busy: boolean; done: boolean }]>;
     /** Fired once each time the panel opens — where a caller clears its fields. Once per OPENING. */
     onOpen?: () => void;
     /** Fired after a dismissal that was not a commit, once the guard has allowed it. */
@@ -164,7 +167,8 @@
     commitRefusal?: string;
     /**
      * Do it. The shell raises the busy state, awaits, and lowers it. "committed" closes the panel;
-     * "refused" leaves it standing with whatever the caller has put in the notice slot.
+     * "refused" leaves it standing with whatever the caller has put in the notice slot; "done"
+     * leaves it standing with nothing left to ask, so the reader can see what came of it.
      */
     onCommit: () => Promise<ActionOutcome>;
     /**
@@ -208,11 +212,14 @@
   const traits = $derived(traitsOf(kind));
   const reading = $derived(kind === "reading");
 
-  /* Nothing to lose is the reading panel's default; the careful default is the acting kinds'. */
-  const guarded = $derived(unsavedChanges ?? !reading);
-
   /** Raised across the commit, and read by the panes as well as by both footer controls. */
   let busy = $state(false);
+
+  /** The act happened and the panel stayed to show it. Nothing is left to ask or to lose. */
+  let done = $state(false);
+
+  /* Nothing to lose is the reading panel's default; the careful default is the acting kinds'. */
+  const guarded = $derived(!done && (unsavedChanges ?? !reading));
 
   /*
    * The guard reads `unsavedChanges` at the moment of the gesture rather than holding it, because a
@@ -231,7 +238,10 @@
    */
   let wasOpen = false;
   $effect(() => {
-    if (open && !wasOpen) onOpen?.();
+    if (open && !wasOpen) {
+      done = false;
+      onOpen?.();
+    }
     wasOpen = open;
   });
 
@@ -262,13 +272,20 @@
   }
 
   async function commit(): Promise<void> {
-    if (busy || commitRefusal !== undefined || commitSoon !== undefined || onCommit === undefined) {
+    if (
+      busy ||
+      done ||
+      commitRefusal !== undefined ||
+      commitSoon !== undefined ||
+      onCommit === undefined
+    ) {
       return;
     }
     busy = true;
     try {
       const outcome = await onCommit();
       if (outcome === "committed") close();
+      else if (outcome === "done") done = true;
     } finally {
       // Lowered whatever happened, including a handler that threw: a panel stuck busy is a panel
       // the reader can neither commit nor leave, which is worse than the failure that caused it.
@@ -376,13 +393,13 @@
       onkeydown={commitOnModifiedEnter}
     >
       {#if fields}
-        {@render fields({ busy })}
+        {@render fields({ busy, done })}
       {/if}
     </form>
     {#if context}
       <div class="mc-modal-frame-context mc-action-dialog-context">
         <div class="mc-modal-frame-context-body mc-scrollbar">
-          {@render context({ busy })}
+          {@render context({ busy, done })}
         </div>
       </div>
     {/if}
@@ -425,7 +442,7 @@
       disabled={busy}
       onclick={requestClose}
     >
-      {reading ? LEAVE_LABEL : DISMISS_LABEL}
+      {reading || done ? LEAVE_LABEL : DISMISS_LABEL}
     </Button>
     <!-- A reading panel asks for nothing, so its bar ends at the way out. The commit's marker is
          still the last thing in this source, which is the order the footer-set rule reads.
@@ -435,7 +452,7 @@
          so the bar holds exactly one commit in this source whether or not the act is served yet:
          the Soon affordance takes the same control and hands it the attributes that disable it
          and say why. -->
-    {#if traits.commitVariant !== null}
+    {#if traits.commitVariant !== null && !done}
       {#snippet commitControl(soon?: SoonControlProperties)}
         <Button
           data-action-dialog-action="commit"

@@ -243,14 +243,4 @@
     border-block-start-width: var(--mc-border-width-default);
     border-block-start-color: var(--mc-border-default);
   }
-
-  /* --- the confirmation ---------------------------------------------------------------------- */
-
-  .mc-record-attachments-confirm-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--mc-space-8);
-    margin-block-start: var(--mc-space-16);
-  }
 }

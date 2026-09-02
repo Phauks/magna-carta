@@ -177,26 +177,6 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/file-manager/folder-delete-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog, and takes its failure as a bare string today so it gains the notice slot in the same pass."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/file-manager/restore-file-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the file-manager family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/file-manager/upload-destination-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the file-manager family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/matters/note-delete-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog as kind=destructive."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/records/reclassify-dialog.svelte",
       "reason": "predates ActionDialog; migrates to ActionDialog."
     },
@@ -204,11 +184,6 @@
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/settings/components/request-change-dialog.svelte",
       "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/settings/components/settings-commit-footer.svelte",
-      "reason": "predates ActionDialog; the commit confirmation migrates to ActionDialog as kind=confirm."
     },
     {
       "rule": "hand-composed-modal",
@@ -224,16 +199,6 @@
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/tools/safe-browse/website-shell.svelte",
       "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family, same separate design."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte",
-      "reason": "predates ActionDialog; the party-removal confirmation migrates to ActionDialog as kind=destructive."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "packages/design-system/src/lib/components/record-attachments/record-attachments.svelte",
-      "reason": "predates ActionDialog. Being a registered component does not exempt what is inside it: the detach confirmation is an act asked of a reader and becomes an ActionDialog with kind=destructive. It is listed here rather than in modalShells for exactly that reason."
     },
     {
       "rule": "status-tone",
