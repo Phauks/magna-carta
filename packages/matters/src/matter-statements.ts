@@ -7,6 +7,11 @@ export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 
 export type MatterStatus = "prospective" | "open" | "closed";
 
+// The two sequences a firm numbers, each with its own active scheme: the permanent matter number,
+// and the tentative number a consultation carries. Kept apart so a consultation that never becomes
+// a matter consumes no matter number — a gap in that run reads as a lost file.
+export type NumberingPurpose = "matter" | "consultation";
+
 // The mutable, caller-supplied matter fields (everything bar id, status, the number columns, and the
 // lifecycle timestamps the service owns). A full-row UPDATE keeps updateMatterFieldsStatement static.
 export interface MatterFields {
@@ -23,6 +28,8 @@ export interface InsertMatterRow extends MatterFields {
   readonly id: MatterId;
   readonly status: MatterStatus;
   readonly matterNumber: string | null;
+  // Drawn in this same batch for a consultation; null for a matter created straight to open.
+  readonly consultationNumber: string | null;
   readonly numberedAt: string | null;
   readonly openedAt: string | null;
   readonly createdAt: string;
@@ -31,7 +38,7 @@ export interface InsertMatterRow extends MatterFields {
 export function insertMatterStatement(database: SqlDatabase, row: InsertMatterRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_TABLE} (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL, ?13, ?13)`,
+      `INSERT INTO ${MATTER_TABLE} (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, NULL, ?14, ?14)`,
     )
     .bind(
       row.id,
@@ -44,6 +51,7 @@ export function insertMatterStatement(database: SqlDatabase, row: InsertMatterRo
       row.clientDisplayName,
       row.clientCode,
       row.matterNumber,
+      row.consultationNumber,
       row.numberedAt,
       row.openedAt,
       row.createdAt,
@@ -54,6 +62,7 @@ export interface MatterRow extends MatterFields {
   readonly id: MatterId;
   readonly status: MatterStatus;
   readonly matterNumber: string | null;
+  readonly consultationNumber: string | null;
   // The honest "was this matter ever opened" signal: set by createMatter (status 'open') and by
   // openMatter, never by renumberMatter — so reopen restores the real pre-close status.
   readonly openedAt: string | null;
@@ -62,7 +71,7 @@ export interface MatterRow extends MatterFields {
 export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, opened_at FROM ${MATTER_TABLE} WHERE id = ?1`,
+      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, opened_at FROM ${MATTER_TABLE} WHERE id = ?1`,
     )
     .bind(id);
 }
@@ -90,6 +99,7 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
               matter.client_display_name AS client_display_name,
               matter.client_code AS client_code,
               matter.matter_number AS matter_number,
+              matter.consultation_number AS consultation_number,
               matter.e_billing AS e_billing,
               matter.opened_at AS opened_at,
               matter.closed_at AS closed_at,
@@ -193,10 +203,15 @@ export function renumberMatterStatement(
     .bind(id, matterNumber, numberedAt);
 }
 
-// The one active scheme (a single active row is enforced in the scheme write path). segments is the
-// JSON the renderer parses via numberingSchemeSchema.
-export function selectActiveSchemeStatement(database: SqlDatabase): SqlStatement {
-  return database.prepare(`SELECT id, segments FROM ${NUMBERING_SCHEME_TABLE} WHERE active = 1`);
+// The one active scheme for a purpose (a single active row per purpose is enforced in the scheme
+// write path). segments is the JSON the renderer parses via numberingSchemeSchema.
+export function selectActiveSchemeStatement(
+  database: SqlDatabase,
+  purpose: NumberingPurpose,
+): SqlStatement {
+  return database
+    .prepare(`SELECT id, segments FROM ${NUMBERING_SCHEME_TABLE} WHERE active = 1 AND purpose = ?1`)
+    .bind(purpose);
 }
 
 // A colliding matter_number aborts the draw batch on the UNIQUE index. Mirrors isIdempotencyKeyConflict.
@@ -205,5 +220,16 @@ export function isMatterNumberConflict(error: unknown): boolean {
     error instanceof Error &&
     error.message.includes("UNIQUE constraint failed") &&
     error.message.includes(`${MATTER_TABLE}.matter_number`)
+  );
+}
+
+// The same backstop for the consultation sequence. Matched on the exact column name, not a prefix:
+// "matter_number" is a substring of nothing here, but "consultation_number" and "matter_number" are
+// distinct indexes and a draw must retry only on its own.
+export function isConsultationNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("UNIQUE constraint failed") &&
+    error.message.includes(`${MATTER_TABLE}.consultation_number`)
   );
 }

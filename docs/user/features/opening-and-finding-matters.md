@@ -21,12 +21,12 @@ record, not just the rows currently on screen, so a matter you have not scrolled
 
 **Showing** chooses which part of the docket you are looking at:
 
-| Showing            | What you get                                                           |
-| ------------------ | ---------------------------------------------------------------------- |
-| The working docket | The firm's live caseload. Consultations are left out.                  |
-| Open matters       | Only matters that are open.                                            |
-| Closed matters     | Only matters that have been closed. A closed matter is kept, not lost. |
-| Consultations      | Matters the firm has not taken on yet, which carry no number.          |
+| Showing            | What you get                                                                  |
+| ------------------ | ----------------------------------------------------------------------------- |
+| The working docket | The firm's live caseload. Consultations are left out.                         |
+| Open matters       | Only matters that are open.                                                   |
+| Closed matters     | Only matters that have been closed. A closed matter is kept, not lost.        |
+| Consultations      | Matters the firm has not taken on yet, each with its own consultation number. |
 
 Consultations are deliberately absent from the working docket. A consultation is a file the firm is
 still deciding about, and mixing it into the live caseload would overstate how much work the firm
@@ -34,15 +34,24 @@ has taken on. Choose **Consultations** to see them.
 
 ## Reading the table
 
-Each column header sorts when you press it, and carries a small funnel that filters just that
-column. **Columns** at the right chooses which columns show, pins one so it stays put when the table
-scrolls sideways, and turns row striping on or off. Columns can be dragged into the order you prefer
-and resized by their edges.
+Each column header sorts when you press it. Everything else a column can be asked is on its
+right-click menu: **Filter** narrows by that column alone, and beside it you can hide the column,
+pin it so it stays put when the table scrolls sideways, or open **Columns** for every column the
+table can show and the row-striping setting. A column you have hidden has no header left to
+right-click, so **Columns** is where you bring it back. A column that is being filtered is marked
+in its heading — hover the mark to read what it is narrowed to. Columns can be dragged into the
+order you prefer and resized by their edges.
 
 Three columns are worth explaining:
 
 **Matter number.** A matter's number is drawn when it opens and never changes afterwards. A
-consultation has not drawn one yet, so its cell reads "Consultation" rather than sitting empty.
+consultation has not drawn one yet, so the column shows its **consultation number** instead — the
+tentative number every consultation is given the moment it is recorded, so there is always something
+to quote on an intake sheet or a conflicts check. Consultation numbers come from their own sequence,
+separate from the firm's matter numbers, and read "C2026-0001" unless your firm has set its own
+shape. When the matter is opened it takes a matter number, and the column shows that from then on;
+the consultation number stays on the matter's own page, so anything filed under it still finds its
+way back.
 
 **Responsible attorney** is the colleague the matter is filed under. A colleague who has left the
 firm is still named on the matters they carried — that is who held them. If a matter's cell is
@@ -72,9 +81,10 @@ Marsh".
 
 - **Open the matter and draw its number.** The firm's counter issues the next matter number and the
   matter joins the working docket. This is the usual choice.
-- **Record a consultation, unnumbered for now.** The matter is recorded without a number and sits
-  under Consultations until the firm decides to take it. Use this when someone has approached the
-  firm and nothing has been agreed yet.
+- **Record a consultation.** The matter is recorded with a consultation number rather than a matter
+  number, and sits under Consultations until the firm decides to take it. Use this when someone has
+  approached the firm and nothing has been agreed yet. The consultation number is shown as soon as
+  the file is recorded, so it can be written on an intake sheet straight away.
 
 **Client** is the client's name as it should print. Linking the matter to a full Directory record is
 a separate step, done on the matter's Parties page.
@@ -94,8 +104,9 @@ would not be real.
 
 **"No active numbering scheme is configured."** A matter draws its number from your firm's numbering
 scheme, and the firm has not set one up. An administrator sets it in **Settings**, under **Matter
-numbering**. Recording the file as a consultation instead needs no scheme, because a consultation is
-unnumbered until the firm opens it.
+numbering**. Recording the file as a consultation instead still works: consultations number
+themselves from a built-in sequence until the firm sets its own, so a file can always be taken down
+while the numbering is being decided.
 
 **"Opening a matter is not available to this account."** Opening matters is a permission your firm
 grants, and this account does not have it. Ask whoever administers your firm.

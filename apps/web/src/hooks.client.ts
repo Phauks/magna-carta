@@ -1,0 +1,66 @@
+/*
+ * The client's error boundary, and the breadcrumb trail that gives a report its context.
+ *
+ * WITHOUT THIS, A CRASH IS ANONYMOUS. SvelteKit's `+error.svelte` catches a failure while loading or
+ * rendering a route; nothing caught a throw inside an event handler, an effect, or a promise nobody
+ * awaited. Those left a screen that silently stopped working, a console the member will never open,
+ * no Error ID, and nothing to report. Every one of them now mints a handle and records a breadcrumb,
+ * so even a failure the API never saw is something a person can quote.
+ *
+ * NOTHING IS FILED AUTOMATICALLY. A crash offers "Report a problem"; it does not send one. That
+ * holds the strict default the diagnostics setting already defines, and keeps reporting
+ * user-initiated as docs/conventions/error-logging.md specifies — the standing consent tier is a
+ * setting a firm turns on, not a behaviour that arrives with a boundary.
+ */
+import type { HandleClientError } from "@sveltejs/kit";
+import { newClientErrorId } from "$lib/diagnostics/client-error-id.ts";
+import { record } from "$lib/diagnostics/breadcrumbs.ts";
+
+/**
+ * What a member is told when the app itself broke. Deliberately says nothing about the cause: an
+ * exception message is written for whoever wrote the code, and pasting it onto a screen is how a
+ * stack trace ends up in a screenshot in a client's inbox. The cause is in the trace block, which is
+ * assembled from named fields rather than from whatever the throw happened to carry.
+ */
+const CRASH_MESSAGE = "Something went wrong";
+
+export const handleError: HandleClientError = ({ error, event, status, message }) => {
+  // A 404 is routing, not a crash: it has no handle to mint and nothing to report.
+  if (status === 404) return { message };
+
+  const errorId = newClientErrorId();
+  record("failure", `crash ${errorId}`, event.url.pathname);
+
+  // The one console line the app writes, and only in development: a developer at a dev server wants
+  // the stack immediately, and a member's browser console is not a place we put anything.
+  if (import.meta.env.DEV) console.error(`[${errorId}]`, error);
+
+  return { message: CRASH_MESSAGE, errorId };
+};
+
+/*
+ * The two failures SvelteKit's boundary never sees. `onerror` catches a throw that escaped an event
+ * handler; `unhandledrejection` catches a promise nobody awaited — which in a Svelte app is most of
+ * them, since every `void somePromise()` is one missing catch away from silence.
+ *
+ * Neither can replace the screen, because neither knows what was rendering. What they can do is
+ * leave a breadcrumb, so the next report says a crash happened here at this time rather than
+ * arriving with no explanation for why the member is upset.
+ */
+if (typeof window !== "undefined") {
+  window.addEventListener("error", (event) => {
+    // The exception's KIND and where it was thrown, never its message. A thrown message is written
+    // by whoever wrote the throw and can carry anything the code had in hand — a document name, a
+    // party, a field value — and a breadcrumb has no business holding it (golden rule 4). The
+    // filename and line say which code failed, which is what a report needs.
+    const kind = event.error instanceof Error ? event.error.name : "Error";
+    const where = event.filename === "" ? "unknown" : `${event.filename}:${String(event.lineno)}`;
+    record("failure", `uncaught ${kind} at ${where}`);
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    // Same rule: the rejection's kind, never its reason.
+    const reason: unknown = event.reason;
+    const kind = reason instanceof Error ? reason.name : typeof reason;
+    record("failure", `unhandled rejection: ${kind}`);
+  });
+}

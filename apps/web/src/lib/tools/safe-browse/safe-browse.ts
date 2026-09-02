@@ -15,6 +15,9 @@
  * move to that generated type when apps/web adopts the client.
  */
 
+import { readProblem, requestLine, type Failure, type Problem } from "$lib/api/problem.ts";
+import { guidanceForProblem, type ProblemGuidance } from "$lib/diagnostics/guidance.ts";
+
 export interface RedirectHop {
   url: string;
   status: number;
@@ -32,30 +35,21 @@ export interface SafeWebsiteView {
   links: string[];
 }
 
-// A failed capture surfaced to the user. `errorId` is the user-facing correlation handle carried on
-// every RFC 9457 problem document — the platform mints one even on a 500 — so a member can quote it
-// to support and it maps to the redacted server trace (the standard error pipeline in
-// docs/conventions/error-logging.md).
-export interface SafeBrowseProblem {
-  status: number;
-  errorId?: string;
-}
+// A failed capture surfaced to the user, as the shared problem record ($lib/api/problem.ts). This
+// module kept a private two-field copy of that parser until there was one home for it; the local
+// name stays because the guidance below is keyed to this tool's own renderer semantics.
+export type SafeBrowseProblem = Problem;
 
 // The distinct states a capture resolves to. A 200 always carries a view (there is no "empty"
 // capture — the remote browser either rendered something or the route failed); the component
-// decides panel-by-panel what the view has to show.
+// decides panel-by-panel what the view has to show. The two failing kinds carry the failure record
+// every failure surface renders from.
 export type SafeBrowseOutcome =
   | { kind: "view"; view: SafeWebsiteView }
-  | { kind: "problem"; problem: SafeBrowseProblem }
-  | { kind: "transport" };
+  | { kind: "problem"; problem: SafeBrowseProblem; failure: Failure }
+  | { kind: "transport"; failure: Failure };
 
-export type ProblemTone = "info" | "warning" | "danger";
-
-export interface ProblemGuidance {
-  tone: ProblemTone;
-  title: string;
-  message: string;
-}
+export type { ProblemTone, ProblemGuidance } from "$lib/diagnostics/guidance.ts";
 
 const SAFE_BROWSE_ENDPOINT = "/api/v1/safe-browse";
 
@@ -131,19 +125,22 @@ export function sortedHeaders(headers: Record<string, string>): [string, string]
  * other server fault carries an Error ID for the member to quote.
  */
 export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
-  // A 404 from our own API is never about the member's input: the page and the service are on
-  // different versions (they deploy as separate Workers), which reads as "address cannot be
-  // viewed" if it falls through to the input case — the exact misdiagnosis this branch prevents.
-  if (problem.status === 404) {
-    return {
-      tone: "warning",
-      title: "The service is mid-update",
-      message:
-        "The page and the capture service appear to be on different versions, which usually means an update is still rolling out. Refresh the page, then try again.",
-    };
-  }
+  // The shared presenter ($lib/diagnostics/guidance.ts) supplies the floor, including the
+  // service-skew 404 this surface learned the hard way and then carried alone. What stays here is
+  // the guidance only this tool can give: what a 502 from the remote renderer means, and that an
+  // input fault has nothing to press.
+  const base = guidanceForProblem(problem, "The capture");
+
+  // EVERY 404 goes back untouched, because the shared presenter tells the two apart and this
+  // function cannot: one answered by no route at all is deploy skew, one carrying a problem
+  // document is a record that is genuinely gone. Returning early matters — the input-fault default
+  // below would otherwise clobber both and blame the member's address for a release that was still
+  // rolling out, which is the exact misdiagnosis this tool shipped once already.
+  if (problem.status === 404) return base;
+
   if (problem.status === 502) {
     return {
+      ...base,
       tone: "warning",
       title: "The isolated browser is not available right now",
       message:
@@ -152,6 +149,7 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
   }
   if (problem.status >= 500) {
     return {
+      ...base,
       tone: "danger",
       title: "The capture failed",
       message: "Something went wrong on our side. Quote the Error ID below to support.",
@@ -160,6 +158,7 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
   switch (problem.status) {
     case 401:
       return {
+        ...base,
         tone: "info",
         title: "You are not signed in",
         message:
@@ -167,38 +166,29 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
       };
     case 403:
       return {
+        ...base,
         tone: "warning",
         title: "You do not have permission",
         message: "Your account is not allowed to use the Safe Website Viewer.",
       };
     case 429:
       return {
+        ...base,
         tone: "warning",
         title: "Too many captures",
         message: "You have run several captures in a short time. Wait a moment, then try again.",
       };
     default:
-      // 400 (invalid/blocked target) and 422 (the body failed validation) — both are input faults.
+      // 400 (invalid/blocked target) and 422 (the body failed validation) — both are input faults,
+      // and neither is fixed by pressing anything on this screen.
       return {
+        ...base,
         tone: "warning",
         title: "That address cannot be viewed",
         message:
           "Enter a web address (https://example.com). Private, local, and internal addresses are not accepted.",
+        remedy: { kind: "none" },
       };
-  }
-}
-
-// Read the correlation handle off a problem document. Defensive: a body that is not JSON, or is
-// missing the field, still yields a usable problem carrying the HTTP status.
-async function readProblem(response: Response): Promise<SafeBrowseProblem> {
-  try {
-    const body = (await response.json()) as { errorId?: unknown };
-    return {
-      status: response.status,
-      errorId: typeof body.errorId === "string" ? body.errorId : undefined,
-    };
-  } catch {
-    return { status: response.status };
   }
 }
 
@@ -227,6 +217,14 @@ export async function viewSafelyStaged(
   onProgress: (progress: CaptureProgress) => void,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SafeBrowseOutcome> {
+  // The request line never carries the target: requestLine drops the query, and the body is never
+  // in it. A copyable trace block is exactly where a reflected address would leak back out.
+  const line = requestLine("POST", SAFE_BROWSE_STREAM_ENDPOINT);
+  const nothingAnswered = (): SafeBrowseOutcome => ({
+    kind: "transport",
+    failure: { problem: null, request: line, failedAt: new Date() },
+  });
+
   let response: Response;
   try {
     response = await fetchImpl(SAFE_BROWSE_STREAM_ENDPOINT, {
@@ -235,7 +233,7 @@ export async function viewSafelyStaged(
       body: JSON.stringify({ url }),
     });
   } catch {
-    return { kind: "transport" };
+    return nothingAnswered();
   }
 
   if (!response.ok) {
@@ -244,9 +242,10 @@ export async function viewSafelyStaged(
     // since the tool shipped, so fall back to it rather than failing on deploy skew — the member
     // loses the narration, not the capture.
     if (response.status === 404) return viewSafely(url, fetchImpl);
-    return { kind: "problem", problem: await readProblem(response) };
+    const problem = await readProblem(response);
+    return { kind: "problem", problem, failure: { problem, request: line, failedAt: new Date() } };
   }
-  if (response.body === null) return { kind: "transport" };
+  if (response.body === null) return nothingAnswered();
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -267,16 +266,22 @@ export async function viewSafelyStaged(
           | { stage: "complete"; view: SafeWebsiteView }
           | { stage: "failed"; problem: SafeBrowseProblem };
         if (parsed.stage === "complete") return { kind: "view", view: parsed.view };
-        if (parsed.stage === "failed") return { kind: "problem", problem: parsed.problem };
+        if (parsed.stage === "failed") {
+          return {
+            kind: "problem",
+            problem: parsed.problem,
+            failure: { problem: parsed.problem, request: line, failedAt: new Date() },
+          };
+        }
         onProgress(parsed);
       }
       if (done) break;
     }
   } catch {
-    return { kind: "transport" };
+    return nothingAnswered();
   }
   // The stream ended without a terminal line — the capture died mid-flight.
-  return { kind: "transport" };
+  return nothingAnswered();
 }
 
 /**
@@ -289,6 +294,12 @@ export async function viewSafely(
   url: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SafeBrowseOutcome> {
+  const line = requestLine("POST", SAFE_BROWSE_ENDPOINT);
+  const nothingAnswered = (): SafeBrowseOutcome => ({
+    kind: "transport",
+    failure: { problem: null, request: line, failedAt: new Date() },
+  });
+
   let response: Response;
   try {
     response = await fetchImpl(SAFE_BROWSE_ENDPOINT, {
@@ -297,18 +308,19 @@ export async function viewSafely(
       body: JSON.stringify({ url }),
     });
   } catch {
-    return { kind: "transport" };
+    return nothingAnswered();
   }
 
   if (!response.ok) {
-    return { kind: "problem", problem: await readProblem(response) };
+    const problem = await readProblem(response);
+    return { kind: "problem", problem, failure: { problem, request: line, failedAt: new Date() } };
   }
 
   let view: SafeWebsiteView;
   try {
     view = (await response.json()) as SafeWebsiteView;
   } catch {
-    return { kind: "transport" };
+    return nothingAnswered();
   }
 
   return { kind: "view", view };

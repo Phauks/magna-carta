@@ -1,12 +1,13 @@
 <script lang="ts" generics="TRow">
   /*
-   * DataTable.GridColumnFilter — the in-header filter for one grid column: the funnel that lives
-   * INSIDE the header cell (flush at its end edge, one hover unit with the label, space always
-   * reserved — the head recipe owns that geometry), opening the ONE filter mechanism parameterized
-   * by the column's type: contains-text, a checkbox set with counts, a numeric from/to range with
-   * its honest unit note, or a date from/to range. A filtered column's funnel is apparent
-   * (accent-subtle fill), and the clear affordance exists ONLY while the filter is in play —
-   * absence is the signal.
+   * DataTable.GridColumnFilter — one column's filter, as a submenu of the header's own menu
+   * (GridHeadMenu). It is not a control on the table: the header cell shows only whether a filter
+   * is IN PLAY, and everything that sets one is summoned by right-clicking the column, in the same
+   * menu as hiding, pinning and the roster. One gesture reaches everything a column can be asked.
+   *
+   * What opens is the ONE filter mechanism parameterized by the column's type: contains-text, a
+   * checkbox set with counts, a numeric from/to range with its honest unit note, or a date from/to
+   * range. The clear affordance exists ONLY while the filter is in play — absence is the signal.
    *
    * Three settled rules shape the set filter in particular, and each was violated once already:
    *   - Every ghost text is the FIELD'S NAME, never a description of what to do. The narrow field
@@ -19,13 +20,12 @@
    */
   import Funnel from "@lucide/svelte/icons/funnel";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import * as Popover from "../popover/index.ts";
+  import * as ContextMenu from "../context-menu/index.ts";
+  import { keepMenuFieldKeys } from "../context-menu/menu-field-keys.ts";
   import Input from "../input/index.ts";
-  import Checkbox from "../checkbox/index.ts";
-  import Button from "../button/index.ts";
   import type { GridColumn } from "./grid-columns.ts";
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
-  import { gridColumnFilterKind, gridFilterSummary } from "./grid-filters.ts";
+  import { gridColumnFilterKind } from "./grid-filters.ts";
   import {
     facetSelectionAfterToggle,
     facetSelectionAfterToggleAll,
@@ -38,13 +38,7 @@
   let { grid, column }: Props = $props();
 
   const kind = $derived(gridColumnFilterKind(column));
-  const filter = $derived(grid.filterFor(column.id));
-  const active = $derived(filter !== undefined);
-  const title = $derived(
-    filter === undefined
-      ? `Filter ${column.label}`
-      : `Filtered: ${gridFilterSummary(column, filter)}. Change or clear the filter`,
-  );
+  const active = $derived(grid.filterFor(column.id) !== undefined);
 
   let setQuery = $state("");
 
@@ -115,123 +109,118 @@
 </script>
 
 {#if kind !== "none"}
-  <Popover.Root onOpenChange={() => (setQuery = "")}>
-    <Popover.Trigger
-      class="mc-table-grid-filter-trigger"
-      data-active={active ? "true" : undefined}
-      aria-label={title}
-      {title}
-    >
-      <Funnel class="mc-table-filter-icon" aria-hidden="true" />
-    </Popover.Trigger>
-    <Popover.Content align="start" class="mc-table-filter-content">
-      <p class="mc-table-filter-heading">Filter {column.label}</p>
-
+  <ContextMenu.Sub onOpenChange={() => (setQuery = "")}>
+    <ContextMenu.SubTrigger>
+      <Funnel class="mc-table-grid-head-menu-icon" aria-hidden="true" />
+      Filter {column.label}
+    </ContextMenu.SubTrigger>
+    <ContextMenu.SubContent class="mc-table-grid-filter-menu">
       {#if kind === "text"}
-        <Input
-          type="search"
-          size="sm"
-          placeholder={column.label}
-          aria-label="Filter {column.label}"
-          value={textQuery()}
-          oninput={(event) =>
-            grid.setFilter(column.id, { kind: "text", query: event.currentTarget.value })}
-        />
-      {:else if kind === "set"}
-        <Input
-          type="search"
-          size="sm"
-          placeholder={column.label}
-          aria-label="Narrow the {column.label} choices"
-          bind:value={setQuery}
-        />
-        <div class="mc-table-filter-selectall">
-          <button
-            type="button"
-            class="mc-table-filter-selectall-toggle"
-            title={selectAllTitle}
-            onclick={() => applySetSelection(facetSelectionAfterToggleAll(!everythingSelected))}
-          >
-            {selectAllLabel}
-          </button>
+        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
+          <Input
+            type="search"
+            size="sm"
+            placeholder={column.label}
+            aria-label="Filter {column.label}"
+            value={textQuery()}
+            oninput={(event) =>
+              grid.setFilter(column.id, { kind: "text", query: event.currentTarget.value })}
+          />
         </div>
-        <div class="mc-table-filter-facets mc-scrollbar">
+      {:else if kind === "set"}
+        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
+          <Input
+            type="search"
+            size="sm"
+            placeholder={column.label}
+            aria-label="Narrow the {column.label} choices"
+            bind:value={setQuery}
+          />
+        </div>
+        <ContextMenu.Item
+          closeOnSelect={false}
+          title={selectAllTitle}
+          onSelect={() => applySetSelection(facetSelectionAfterToggleAll(!everythingSelected))}
+        >
+          {selectAllLabel}
+        </ContextMenu.Item>
+        <ContextMenu.Separator />
+        <div class="mc-table-grid-filter-menu-facets mc-scrollbar">
           {#each visibleSetValues as value (value)}
-            <label class="mc-table-filter-option">
-              <Checkbox
-                bind:checked={
-                  () => isFacetSelected(setSelection(), value),
-                  (checked) =>
-                    applySetSelection(
-                      facetSelectionAfterToggle(setUniverse, setSelection(), value, checked),
-                    )
-                }
-                aria-label={value === "" ? "(empty)" : value}
-              />
-              <span>{value === "" ? "(empty)" : value}</span>
-              <span class="mc-table-filter-count">{setCounts.get(value)}</span>
-            </label>
+            <ContextMenu.CheckboxItem
+              bind:checked={
+                () => isFacetSelected(setSelection(), value),
+                (checked) =>
+                  applySetSelection(
+                    facetSelectionAfterToggle(setUniverse, setSelection(), value, checked),
+                  )
+              }
+            >
+              {value === "" ? "(empty)" : value}
+              <span class="mc-table-grid-filter-menu-count">{setCounts.get(value)}</span>
+            </ContextMenu.CheckboxItem>
           {/each}
         </div>
       {:else if kind === "range"}
-        <div class="mc-table-filter-range-row">
-          <Input
-            type="number"
-            size="sm"
-            placeholder="From"
-            aria-label="From"
-            value={rangeBound("from")}
-            oninput={(event) => setRangeBound("from", event.currentTarget.value)}
-          />
-          <span class="mc-table-filter-note">to</span>
-          <Input
-            type="number"
-            size="sm"
-            placeholder="To"
-            aria-label="To"
-            value={rangeBound("to")}
-            oninput={(event) => setRangeBound("to", event.currentTarget.value)}
-          />
+        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
+          <div class="mc-table-filter-range-row">
+            <Input
+              type="number"
+              size="sm"
+              placeholder="From"
+              aria-label="From"
+              value={rangeBound("from")}
+              oninput={(event) => setRangeBound("from", event.currentTarget.value)}
+            />
+            <span class="mc-table-filter-note">to</span>
+            <Input
+              type="number"
+              size="sm"
+              placeholder="To"
+              aria-label="To"
+              value={rangeBound("to")}
+              oninput={(event) => setRangeBound("to", event.currentTarget.value)}
+            />
+          </div>
+          {#if column.filterNote}
+            <p class="mc-table-filter-note">{column.filterNote}</p>
+          {/if}
         </div>
-        {#if column.filterNote}
-          <p class="mc-table-filter-note">{column.filterNote}</p>
-        {/if}
       {:else if kind === "dateRange"}
-        <div class="mc-table-filter-range-row">
-          <Input
-            type="date"
-            size="sm"
-            aria-label="From"
-            value={dateBound("from")}
-            oninput={(event) => setDateBound("from", event.currentTarget.value)}
-          />
-          <span class="mc-table-filter-note">to</span>
-          <Input
-            type="date"
-            size="sm"
-            aria-label="To"
-            value={dateBound("to")}
-            oninput={(event) => setDateBound("to", event.currentTarget.value)}
-          />
+        <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
+          <div class="mc-table-filter-range-row">
+            <Input
+              type="date"
+              size="sm"
+              aria-label="From"
+              value={dateBound("from")}
+              oninput={(event) => setDateBound("from", event.currentTarget.value)}
+            />
+            <span class="mc-table-filter-note">to</span>
+            <Input
+              type="date"
+              size="sm"
+              aria-label="To"
+              value={dateBound("to")}
+              oninput={(event) => setDateBound("to", event.currentTarget.value)}
+            />
+          </div>
+          {#if column.filterNote}
+            <p class="mc-table-filter-note">{column.filterNote}</p>
+          {/if}
         </div>
-        {#if column.filterNote}
-          <p class="mc-table-filter-note">{column.filterNote}</p>
-        {/if}
       {/if}
 
       {#if active && kind !== "set"}
-        <div class="mc-table-filter-actions">
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Stop filtering by {column.label}"
-            onclick={() => grid.clearFilter(column.id)}
-          >
-            <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
-            Clear This Filter
-          </Button>
-        </div>
+        <ContextMenu.Separator />
+        <ContextMenu.Item
+          title="Stop filtering by {column.label}"
+          onSelect={() => grid.clearFilter(column.id)}
+        >
+          <FunnelX class="mc-table-grid-head-menu-icon" aria-hidden="true" />
+          Clear This Filter
+        </ContextMenu.Item>
       {/if}
-    </Popover.Content>
-  </Popover.Root>
+    </ContextMenu.SubContent>
+  </ContextMenu.Sub>
 {/if}

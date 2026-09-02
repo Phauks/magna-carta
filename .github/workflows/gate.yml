@@ -395,6 +395,15 @@ jobs:
     # core it is given — the wrong shape for 1 vCPU / 5 GB under a 15-minute cap.
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # A COLD `tsc -b` over the whole graph wants more than the ~2 GB old-space Node picks by default
+    # on this runner, and dies with "Ineffective mark-compacts near heap limit" (exit 134) before it
+    # reports a single diagnostic. That was invisible while the incremental cache below always hit;
+    # it surfaced when the cache went cold, and it reproduces on main as readily as on any branch.
+    # Measured cold, both here and on main: 5.1 GiB peak with no ceiling, 3.4 GiB peak and no slower
+    # under this explicit 4 GB one — a stated cap makes V8 collect rather than grow lazily, so this
+    # lowers real memory use as well as raising the limit.
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup

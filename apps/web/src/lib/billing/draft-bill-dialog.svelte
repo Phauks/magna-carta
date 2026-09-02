@@ -14,13 +14,15 @@
    * a draft is already open, so nobody discovers it one claim at a time.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Info from "@lucide/svelte/icons/info";
   import Plus from "@lucide/svelte/icons/plus";
-  import { billingFailureText, createInvoice } from "./billing-api.ts";
+  import { billingFailure, createInvoice } from "./billing-api.ts";
   import { civilDatePlusDays, civilToday } from "./invoice-standing.ts";
 
   let {
@@ -47,7 +49,7 @@
   let periodStart = $state("");
   let periodEnd = $state("");
   let working = $state(false);
-  let failure = $state<string | null>(null);
+  let failure = $state<StatedFailure | null>(null);
 
   // A fresh opening starts from a fresh month: the period a firm bills is almost always the one just
   // finished, and carrying the last dialog's dates into this one is how a bill gets the wrong period.
@@ -80,7 +82,7 @@
       onOpened(outcome.value.invoiceId);
       return;
     }
-    failure = billingFailureText(outcome, "No draft was opened.");
+    failure = billingFailure(outcome, "No draft was opened.");
   }
 </script>
 
@@ -92,10 +94,11 @@
     </Dialog.Description>
 
     {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Nothing Was Opened</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Opened"
+        fallback={failure.fallback}
+      />
     {/if}
 
     <div class="flex flex-col gap-16">

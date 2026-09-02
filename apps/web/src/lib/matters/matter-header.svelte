@@ -2,17 +2,24 @@
   /*
    * The matter's header band — the ceremonial edge and the section navigation, in ONE band.
    *
-   * The arrangement (owner's selection, 2026-08-31): the identity block on the reading edge, and
-   * the inline-end half of the band — which previously held one overflow control and otherwise
-   * nothing — carrying a column of its own: the actions on the title's row, the section strip
-   * beneath them, packed to the end and flush against the band's bottom rule. The strip no longer
-   * costs a row of its own, and the masthead keeps every bit of its ceremony: the serif title at
-   * masthead scale, the ledger line, the citation.
+   * The arrangement (owner's selections, 2026-08-31 through 2026-09-01): the identity block on the
+   * reading edge, the matter's search and the section strip stacked in the column at the inline
+   * end, the strip flush against the band's bottom rule. 152px of chrome became 111px when the
+   * strip moved off its own row, and 76px when the identity block stopped spending three rows on
+   * itself; the search takes the space the strip's row left behind rather than a row of its own.
    *
-   * THE STRIP SITS ON THE RULE ON PURPOSE. `justify-between` pins the actions to the top of the
-   * column and the strip to the bottom, so the gold active bar lands on the band's own border
-   * rather than floating in the middle of it. That is why the band draws the rule and the nav
-   * does not.
+   * THE BAND CARRIES NO ACTIONS — the search is a way IN to the matter, not something done to it.
+   * The band held one overflow (...) control whose only item was the status's lifecycle action,
+   * shipped disabled and marked Soon. The owner removed it on 2026-09-01: a menu that has to be
+   * opened to find out it holds nothing pressable is chrome that costs a control's width and
+   * returns nothing. When the lifecycle action is wired it comes back as a named button, on the row
+   * and legible at rest, not behind a glyph.
+   *
+   * THE LEDGER LINE HAS NO ROW OF ITS OWN. The matter number and its status seal lead the citation
+   * beneath the title, where they still read first, instead of costing a full line above it. That
+   * is a whole row rather than a few points of type, which is why it beat shrinking the title
+   * further — at the next step down the display face is close enough to the citation that the
+   * masthead register's scale contrast nearly goes.
    *
    * THE TITLE TRUNCATES; IT DOES NOT WRAP. At a 1024 canvas there is not room for a full-scale
    * serif title AND a useful strip on one row, and only three things can give. Letting the title
@@ -24,25 +31,15 @@
    * height at every canvas width, which is the property this arrangement was chosen for.
    *
    * The Masthead recipe is the one door to the display serif, so the identity block still composes
-   * Masthead.Heading — only the Actions slot is left unused, because these actions belong to the
-   * column and not to the title's inline end.
+   * Masthead.Heading and takes its step from the recipe's own `density` rather than a type utility
+   * on the Title. The Actions slot is left unused: the inline-end column belongs to the search and
+   * the strip, which need to share a column rather than a slot.
    *
-   * Status never gates or varies the screen flow — it changes only what this header showcases:
-   * the seal, the number-or-Consultation line, and which lifecycle action label is offered.
-   *
-   * Actions collapse into one toggleable overflow (⋯) menu — the menu opens for real, and its
-   * items (the status's lifecycle action) are honest seams: designed-but-unwired ships visible and
-   * disabled, marked "Soon", never omitted and never fake-live. They go live with the wired
-   * matters surface.
+   * Status never gates or varies the screen flow — it changes only what this header showcases: the
+   * seal and the number-or-Consultation line.
    */
   import Badge from "@magna-carta/design-system/badge";
-  import { buttonClasses } from "@magna-carta/design-system/button";
-  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import Archive from "@lucide/svelte/icons/archive";
-  import Ellipsis from "@lucide/svelte/icons/ellipsis";
-  import FolderOpen from "@lucide/svelte/icons/folder-open";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import MatterSearchControl from "$lib/matters/matter-search-control.svelte";
   import MatterSectionNav from "$lib/matters/matter-section-nav.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -50,22 +47,9 @@
 
   let { matter }: { matter: MatterRecord } = $props();
 
-  // One lifecycle action per status: the single next step the matter's life offers. Closing
-  // archives (Archive, not a destructive glyph — the record stays additive after close).
-  const LIFECYCLE_ACTION: Record<
-    MatterRecord["status"],
-    { label: string; icon: typeof Archive }
-  > = {
-    prospective: { label: "Open matter", icon: FolderOpen },
-    open: { label: "Close matter", icon: Archive },
-    closed: { label: "Reopen", icon: RotateCcw },
-  };
-
   // The status seal comes from the one matter-status register, so the header and the docket's
   // status column can never disagree about what "Closed" looks like.
   const seal = $derived(matterStatusPresentation(matter.status));
-  const lifecycle = $derived(LIFECYCLE_ACTION[matter.status]);
-  const LifecycleIcon = $derived(lifecycle.icon);
 
   // The citation line's entries in reading order, nulls dropped — a consultation simply has a
   // shorter citation, never an empty slot.
@@ -91,58 +75,61 @@
    * element — which is the smaller loss.
    */
   const citation = $derived(metaEntries.join(" · "));
+
+  /*
+   * The number the file is called by. A consultation wears its own tentative number and is LABELLED
+   * as one, so nobody reads it as a matter number; once the matter opens the permanent number takes
+   * the line and the tentative one stays on the record. A consultation taken before the sequence
+   * existed has neither, and says only what it is.
+   */
+  const ledgerLine = $derived.by(() => {
+    if (matter.matterNumber !== null) return `Matter ${matter.matterNumber}`;
+    return matter.consultationNumber === null
+      ? "Consultation"
+      : `Consultation ${matter.consultationNumber}`;
+  });
 </script>
 
-<Masthead.Root class="items-stretch border-b border-border-default">
+<Masthead.Root density="compact" class="items-stretch border-b border-border-default">
   <Masthead.Heading class="min-w-0 max-w-2xl flex-1 pb-16">
-    <Masthead.Eyebrow>
-      <span class="flex items-center gap-8">
-        {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`}
-        <!-- The status seal rides the ledger line, beside the matter number — the top-left corner
-             is where the matter's standing is read, not the action rail. -->
-        <Badge
-          variant={seal.variant}
-          class="uppercase"
-          style="letter-spacing: var(--mc-tracking-caps)"
-        >
-          {seal.label}
-        </Badge>
-      </span>
-    </Masthead.Eyebrow>
     <Masthead.Title class="truncate" title={matter.title}>{matter.title}</Masthead.Title>
     <Masthead.Meta class="flex-nowrap">
+      <!-- The ledger line and the status seal lead the citation: still the first thing read on the
+           line, without costing a line of their own. Both hold their width so the citation is what
+           gives when the band narrows. -->
+      <span
+        class="flex-none text-xs font-semibold text-text-subtle uppercase"
+        style="letter-spacing: var(--mc-tracking-caps)"
+      >
+        {ledgerLine}
+      </span>
+      <Badge
+        variant={seal.variant}
+        class="flex-none uppercase"
+        style="letter-spacing: var(--mc-tracking-caps)"
+      >
+        {seal.label}
+      </Badge>
+      <Masthead.MetaSeparator />
       <span class="truncate" title={citation}>{citation}</span>
     </Masthead.Meta>
   </Masthead.Heading>
 
-  <div class="flex min-w-0 flex-1 flex-col items-end justify-between gap-8">
-    <div class="flex flex-none items-center gap-8 pt-4">
-      <!-- The search sits to the INLINE START of the overflow, and the order is load-bearing:
-           ScreenSearch always grows toward the inline start, so a field placed after the overflow
-           would shove it sideways on the first keystroke. Rendering it HERE — in the header, which
-           the matter layout draws over every section — is what puts one search on every screen and
-           stops a section growing its own. -->
-      <MatterSearchControl matterId={matter.id} />
-      <DropdownMenu.Root>
-        <!-- The overflow (⋯) carries a token border so it reads as a control at rest, not just on
-             hover — the quiet ghost was too easy to miss. The lifecycle action lives inside it,
-             disabled and marked Soon until the wired matters surface makes it live. -->
-        <DropdownMenu.Trigger
-          class="{buttonClasses({ variant: 'ghost', size: 'icon' })} border border-border-default"
-          aria-label="Matter actions"
-        >
-          <Ellipsis class="size-16" aria-hidden="true" />
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-          <DropdownMenu.Item disabled>
-            <LifecycleIcon class="size-16" aria-hidden="true" />
-            {lifecycle.label}
-            <Badge variant="neutral" class="ms-auto">Soon</Badge>
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
-    </div>
+  <!-- The inline-end column holds the search over the strip. It stays a flex column with items-end
+       so the strip sits on the band's bottom rule (the Masthead's own items-stretch would
+       otherwise hold it at the top of a full-height cell), and min-w-0 so the strip's measured
+       fold has a width it can actually shrink to. justify-between is what pins the two to the
+       band's two edges rather than letting them bunch.
 
+       THE SEARCH SITS ABOVE THE STRIP, NOT ON ITS ROW, and that is measured rather than aesthetic:
+       the field grows toward the inline start as it opens, so sharing the row would shove the tabs
+       sideways on the first keystroke — and the strip's own fold would then re-measure mid-typing.
+       Rendering it in the HEADER, which the matter layout draws over every section, is what puts
+       one search on every screen and stops a section growing its own. -->
+  <div class="flex min-w-0 flex-1 flex-col items-end justify-between gap-8">
+    <div class="flex flex-none items-center pt-4">
+      <MatterSearchControl matterId={matter.id} />
+    </div>
     <MatterSectionNav matterId={matter.id} />
   </div>
 </Masthead.Root>

@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 778 nodes of the feature ledger in
+is the complete register rather than a digest: all 779 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**778 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**779 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 138 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **640 that are units of work**, for the reason set out under [What a roll-up is
+count the **641 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 273 | 43% |
+| Done | shipped | 276 | 43% |
 | Part-built | partial, in-build | 115 | 18% |
-| Ahead | designed, planned, researching, not-started | 211 | 33% |
+| Ahead | designed, planned, researching, not-started | 209 | 33% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **640** | **100%** |
+| **All units of work** | | **641** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 273 | 43% |
+| `shipped` | 276 | 43% |
 | `partial` | 114 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 144 | 22% |
+| `not-started` | 142 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **640** | **100%** |
+| **All statuses** | **641** | **100%** |
 
 ### What a roll-up is not
 
-**138 of the 778 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**138 of the 779 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 273 of 640 (43%). Shipped plus partial is 387 (60%).**
+**Shipped alone is 276 of 641 (43%). Shipped plus partial is 390 (61%).**
 
 The 114 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**388 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**391 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 33 | 9% |
+| A person can open it today (`screen`) | 34 | 9% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
-| No user surface by nature (`internal`) | 175 | 45% |
+| No user surface by nature (`internal`) | 177 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **388** | **100%** |
+| **Everything with something built** | **391** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -103,7 +103,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
 | Core Domain — Directory, Matters & Locations | 32 | 21 | 0 | 1 | 2 | 0 | 3 | 1 | 0 | 60 | 53% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
-| Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
+| Design System, UI Consistency & Design Quality | 11 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 16 | 69% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
@@ -114,7 +114,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 6 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 11 | 55% |
 | Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
-| Observability & Diagnostics | 11 | 1 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 20 | 55% |
+| Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
 | Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 6 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 66 | 47% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **273** | **114** | **1** | **46** | **16** | **5** | **144** | **38** | **3** | **640** | **43%** |
+| **All areas** | **276** | **114** | **1** | **46** | **16** | **5** | **142** | **38** | **3** | **641** | **43%** |
 
 ## Where we have been
 
@@ -626,7 +626,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
   - `matters.lifecycle` · `partial` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: Backend shipped; lifecycle UI not built._
-    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
+    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
     - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
     - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
   - `matters.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop. _Note: The Files UI has landed since this said it was queued. What it does not yet offer is folder navigation, document-type assignment or drag-and-drop, which is the rest of this node's scope; the backend for all three is built._
@@ -641,8 +641,8 @@ to change a line here, edit the node in its area file and re-run the build.
       - `matters.file-manager.untrusted-pipeline.cdr` · `not-started` · **CDR disarmed renditions** — Optional disarmed copy of document types while the original is preserved byte-for-byte for evidence. _Note: Named optional in the pipeline design; engine choice deferred._
       - `matters.file-manager.untrusted-pipeline.safe-delivery` · `shipped` · **Safe delivery (structural)** — Separate cookieless sandbox origin, CSP, iframe sandbox, safe-rendition preview defeating stored-XSS uploads. _Note: Player/preview UI queued behind the app shell._
       - `matters.file-manager.untrusted-pipeline.rescan` · `partial` · **Continuous re-scan** — Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits. _Note: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it._
-  - `matters.search` · `partial` · **Consolidated matter search** — One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. _Note: PARTIAL because nine of the fourteen sections answer; the other five decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page._
-    - `matters.search.sources` · `partial` · **Declared search sources** — One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet. _Note: PARTIAL because five sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. Review-set sources are structurally refused: a review set is its own corpus._
+  - `matters.search` · `partial` · **Consolidated matter search** — One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. _Note: PARTIAL because eight of the fourteen sections answer; the other six decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page._
+    - `matters.search.sources` · `partial` · **Declared search sources** — One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet. _Note: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. The matter-asset register has a query but no screen to land a hit on, so it is deliberately unregistered until the register gets one. Review-set sources are structurally refused: a review set is its own corpus._
     - `matters.search.file-contents` · `designed` · **File contents in a matter search** — The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match. _Note: The engine, write pipeline and compaction are built; SearchIndexPort answers engine-not-implemented until the search Container is deployed in the order docs/deploy-queue.md names._
 - `locations` · `partial` · **Locations (offices)** — First-class per-firm entity for physical offices; a dimension within the firm tenancy boundary, referenced by matters, trust accounts, Custodian roots, users, and generated documents. _Note: Backend shipped; administration UI not built._
   - `locations.fields` · `partial` · **Location fields** — Name/label, active/closed status, physical addresses + contact info, jurisdiction, letterhead and branding assets (logo, address block, footer, remit-to), optional matter-number prefix/segment. _Note: Core fields shipped; branding assets (logo, address block, footer) beyond remit-to were not found — they land with document automation consumers._
@@ -696,7 +696,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Design System, UI Consistency & Design Quality
 
-[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 15 units of work, 73% shipped. 11 done, 3 part-built, 1 ahead, 0 parked.
+[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 16 units of work, 69% shipped. 11 done, 4 part-built, 1 ahead, 0 parked.
 
 - `design-system` · `partial` · **Design system** — UI consistency prevented by construction (tokens, one component source, CI) and design quality set by a human foundation with an enforced review step. _Note: Foundation built and merged; close-out items open (NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass)._
   - `design-system.tokens` · `partial` · **Design tokens** — Every color/spacing/radius/shadow/type/z/motion/breakpoint value a named DTCG token; no raw values elsewhere.
@@ -709,6 +709,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.components.storybook-catalog` · `shipped` · **Component catalog** — Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks. _Note: Histoire dead without Svelte 5 support, as the white paper records._
     - `design-system.components.icons` · `shipped` · **Lucide icons, no emojis** — Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   - `design-system.enforcement` · `partial` · **Machine enforcement** — Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
+  - `design-system.modal-shells` · `partial` · **Two modal shells and never a third** — Every modal surface in the product is one of two shells — RecordWindow for reading and changing a record, ActionDialog for an act asked of a reader — with one shared unsaved-work guard, and a source scan that recognizes a panel built outside them. _Note: The shell, the shared guard and the two rules are built and the shells are declared in tooling/lint-one-ui/registry.json. Thirty-seven existing panels are carried as printed allowances and migrate family by family; twenty-six of them are in scope, the other eight are named and excluded in the spec._
     - `design-system.enforcement.off-token-lint` · `shipped` · **Off-token value gates** — Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.
     - `design-system.enforcement.visual-regression` · `partial` · **Visual regression testing** — Playwright screenshots across every theme and mode over the story matrix; Argos the named upgrade. _Note: Harness and CI job built; first container-rendered baselines still pending; Argos not adopted._
   - `design-system.design-language` · `shipped` · **Design language foundation** — Human-set distinctive, restrained language: type system, palette with intent, legal power-user density, functional motion, signature elements. _Note: Dark design pass named as a remaining close-out item._
@@ -1101,17 +1102,17 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Observability & Diagnostics
 
-[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 55% shipped. 11 done, 1 part-built, 6 ahead, 2 parked.
+[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 70% shipped. 14 done, 0 part-built, 4 ahead, 2 parked.
 
 - `observability` · `partial` · **Observability & diagnostics** — Diagnose without exfiltrating privileged content: redacted operational telemetry, user-initiated incidents, correlation IDs, usage analytics, status page; no third-party error SaaS, no session replay.
   - `observability.redaction-model` · `shipped` · **Redact-by-default event model** — Three data classes (metadata / opaque identifiers / content-never); allowlist event assembly with a boundary scrubbing pass.
   - `observability.correlation` · `shipped` · **Correlation & Error IDs** — Per-request correlation ID on every event and problem response; Error ID minted at capture joining a user-visible failure to its server trace.
   - `observability.operational-telemetry` · `shipped` · **Always-on operational telemetry** — Redacted structured server logs and counters (Workers logger + Analytics Engine), firm-scoped, keyed by correlation/Error ID. _Note: Logpush-to-R2 archival is account configuration, not verified in-repo._
-  - `observability.client-reporter` · `partial` · **In-house client capture** — Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
-    - `observability.client-reporter.error-boundary` · `shipped` · **Error pages with trace identity** — Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block.
-    - `observability.client-reporter.breadcrumbs` · `not-started` · **Client breadcrumb ring buffer** — Client-side ring of recent actions/IDs (never field content) attached to reports.
-    - `observability.client-reporter.report-a-problem` · `partial` · **Report a problem affordance** — Always-available help-menu reporting usable without a crash.
-    - `observability.client-reporter.send-to-developer` · `not-started` · **Send-to-developer on crash** — Error screen/toast showing the Error ID with a prominent send button.
+  - `observability.client-reporter` · `shipped` · **In-house client capture** — Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
+    - `observability.client-reporter.error-boundary` · `shipped` · **Error pages with trace identity** — Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block, and a client boundary catches what never reached a route.
+    - `observability.client-reporter.breadcrumbs` · `shipped` · **Client breadcrumb ring buffer** — Client-side ring of recent actions/IDs (never field content) attached to reports.
+    - `observability.client-reporter.report-a-problem` · `shipped` · **Report a problem affordance** — Always-available help-menu reporting usable without a crash. _Note: The optional in-office recipients and the email-me-a-copy flag stay Soon-marked — the incident route carries no recipients, and transactional email does not exist yet._
+    - `observability.client-reporter.send-to-developer` · `shipped` · **Send-to-developer on crash** — Error screen/toast showing the Error ID with a prominent send button.
   - `observability.incidents` · `partial` · **Incident reports** — User-initiated firm-scoped incident rows: Error IDs, redacted breadcrumbs, free-text description, context metadata; access-gated and audited.
     - `observability.incidents.ingest` · `shipped` · **Incident ingest endpoint** — POST incidents route writing a bounded, redacted-by-construction firm-scoped row; description sealed under the firm key with an audited decrypt permission.
     - `observability.incidents.screenshot` · `not-started` · **Opt-in redactable screenshot** — User-redactable screenshot attached to a report, stored in R2.

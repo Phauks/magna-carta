@@ -227,12 +227,11 @@ describe("one query, answered from every section the member may read", () => {
       "files",
       "time",
       "costs",
+      "billing",
       "parties",
+      "calendar",
       "notes",
       "custody",
-      "billing",
-      "calendar",
-      "matterAssets",
     ]);
     expect(group(answer, "notes").section).toBe("notes");
     expect(group(answer, "custody").section).toBe("custodian");

@@ -9,6 +9,7 @@
  * handle format, so "E101" is legible from the record alone; what the catalogue adds is the human
  * label beside it. That is why a refused catalogue costs the ledger a label and not a column.
  */
+import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
 import { listExpenseCodes, type ExpenseCode } from "./cost-operations.ts";
 
 export class ExpenseCodeCatalogue {
@@ -17,7 +18,7 @@ export class ExpenseCodeCatalogue {
   /** True where the account was refused the read, which is not the same as an empty catalogue. */
   refused = $state(false);
   /** Set where the read failed for any other reason. */
-  failure = $state<string | null>(null);
+  failure = $state<StatedFailure | null>(null);
 
   #asked = false;
 
@@ -35,10 +36,7 @@ export class ExpenseCodeCatalogue {
       this.refused = true;
       return;
     }
-    this.failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The expense-code catalogue could not be read."
-        : (outcome.problem.detail ?? "The expense-code catalogue could not be read.");
+    this.failure = stated(outcome.failure, "The expense-code catalogue could not be read.");
   }
 
   /** The codes a person may actually pick: the ones the firm has turned on, in code order. */
@@ -60,7 +58,12 @@ export class ExpenseCodeCatalogue {
         "account does not hold. A cost saves without a code."
       );
     }
-    if (this.failure !== null) return this.failure;
+    // A picker refusal is one line under a field, not a failure surface: it says why there is
+    // nothing to choose from. The whole failure is still held, for a surface that wants to offer
+    // the handle and a retry.
+    if (this.failure !== null) {
+      return this.failure.failure.problem?.detail ?? this.failure.fallback;
+    }
     if (this.codes !== null && this.available.length === 0) {
       return "The firm has no expense codes turned on. A cost saves without a code.";
     }

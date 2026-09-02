@@ -38,7 +38,9 @@ on one results surface with the Files group drawn by the file manager's own row 
 adoption is follow-on work rather than part of this slice — the file manager's Search Results view
 is untouched and still works as it did.
 
-**Next:** the sources whose text is already in D1 (time narratives, cost descriptions, fees, calendar
-titles, matter assets, invoice numbers and memos) — with the load-profile measurement in front of
-them, because a `LIKE` scan bounded by one matter is genuinely bounded for notes and not obviously
-bounded for time entries on a long-running case.
+**Next:** file contents, which wait on the search Container being deployed — until then the port
+answers `engine-not-implemented` and the Files group says so rather than implying it looked. The
+sources whose text is already in D1 are done (time narratives, cost descriptions, calendar titles,
+invoice line descriptions and numbers), each behind the load-profile measurement, because a `LIKE`
+scan bounded by one matter is genuinely bounded for notes and was NOT bounded for parties until the
+gate caught it.

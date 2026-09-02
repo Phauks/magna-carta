@@ -17,7 +17,6 @@ import Search from "@lucide/svelte/icons/search";
 import Clock from "@lucide/svelte/icons/clock";
 import ReceiptText from "@lucide/svelte/icons/receipt-text";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
-import Landmark from "@lucide/svelte/icons/landmark";
 import FileSpreadsheet from "@lucide/svelte/icons/file-spreadsheet";
 
 export interface SourcePresentation {
@@ -43,7 +42,6 @@ const PRESENTATION: Readonly<Record<string, SourcePresentation>> = {
   time: { heading: "Time", icon: Clock, titleKind: "instant" },
   costs: { heading: "Costs", icon: ReceiptText, titleKind: "text" },
   calendar: { heading: "Calendar", icon: CalendarDays, titleKind: "text" },
-  matterAssets: { heading: "Assets", icon: Landmark, titleKind: "text" },
   billing: { heading: "Billing", icon: FileSpreadsheet, titleKind: "text" },
 };
 

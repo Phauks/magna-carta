@@ -1,15 +1,29 @@
 /*
- * The matter's section map — the one list the section nav and the section pages read. Each
- * section carries a maturity stage (maturity.ts): the nav shows its badge, and a "soon" section
- * lands on an honest stub describing what will live there. The stage climbs (soon → alpha → beta
- * → ready) as the section's real surface is built out.
+ * The matter's section map, and the arrangement the section strip reads it in.
  *
- * Each section also declares whether the matter's consolidated search can answer from it — a
- * source key, or `null` with the one line naming what a source there waits on. It is REQUIRED
- * either way, and `pnpm run lint:matter-search-coverage` fails a section that declares neither.
- * That is what makes the search's growth impossible to forget rather than merely unlikely: adding
- * a fifteenth section forces somebody to answer the question, and the scope dropdown renders the
- * unanswerable ones disabled with their reason instead of quietly omitting them.
+ * TWO LISTS, ONE HOME. `matterSections` is every section that exists — the route segment, the
+ * label, the maturity stage (maturity.ts) that decides whether a destination is a live surface or
+ * an honest stub, and the paragraph that stub prints. `matterStrip` is the strip's TOP LEVEL: some
+ * sections stand on the row by themselves, and the rest sit in a named group that opens a menu.
+ *
+ * WHY THE STRIP IS GROUPED (owner's ruling, 2026-09-01). Flat, fourteen sections could not fit any
+ * canvas: at 1440 the measured fold left seven on the row and put the other seven behind More, and
+ * WHICH seven was decided by pixel arithmetic rather than by meaning — Trust and Calendar were
+ * buried because of where they happened to sit in a list. Grouping the two neighbourhoods a member
+ * already thinks in — the money the matter has moved, the rest of what it has accumulated — takes
+ * the row to seven entries, which fits. The measured fold stays behind them as a backstop for a
+ * genuinely narrow canvas, not as the arrangement.
+ *
+ * A GROUP HOLDS AT LEAST TWO SECTIONS. One item behind a menu is the mistake the header's overflow
+ * control made — a glyph a member has to open to learn there was nothing in it worth the trip. The
+ * builder below refuses it, so the rule cannot be broken by an edit to this file.
+ *
+ * EVERY SECTION ALSO ANSWERS FOR SEARCH. Each one declares whether the matter's consolidated search
+ * can reach it — a source key, or `null` with the one line naming what a source there waits on. It
+ * is REQUIRED either way, and `pnpm run lint:matter-search-coverage` fails a section that declares
+ * neither. That is what makes the search's growth impossible to forget rather than merely unlikely:
+ * adding a fifteenth section forces somebody to answer the question, and the scope dropdown renders
+ * the unanswerable ones disabled with their reason instead of quietly omitting them.
  */
 import type { MaturityStage } from "$lib/maturity/maturity.ts";
 
@@ -17,9 +31,7 @@ export interface MatterSection {
   /** Route segment under matters/[id]/. */
   slug: string;
   label: string;
-  /** Core sections stay visible in the tab strip; the rest fold into "More" first. */
-  core: boolean;
-  /** Where this section is on the build ladder; drives its nav badge. */
+  /** Where this section is on the build ladder; drives whether it lands on a surface or a stub. */
   stage: MaturityStage;
   /** One paragraph, product voice: what lives here once the section is real. */
   description: string;
@@ -35,11 +47,11 @@ export interface MatterSection {
   searchWaitingOn?: string;
 }
 
+/** Every section a matter has, in the order the strip reads them. */
 export const matterSections: readonly MatterSection[] = [
   {
     slug: "overview",
     label: "Overview",
-    core: true,
     stage: "alpha",
     description: "The matter at a glance — its facts, status, and what has accrued against it.",
     // Deliberately never a source rather than one that is merely unbuilt: the overview holds no
@@ -51,7 +63,6 @@ export const matterSections: readonly MatterSection[] = [
   {
     slug: "files",
     label: "Files",
-    core: true,
     stage: "alpha",
     description:
       "The matter's versioned file record — every document the firm holds for this matter, " +
@@ -61,7 +72,6 @@ export const matterSections: readonly MatterSection[] = [
   {
     slug: "time",
     label: "Time",
-    core: true,
     stage: "alpha",
     description:
       "Time captured on this matter — timers, manual entries, and the weekly grid all land " +
@@ -69,19 +79,8 @@ export const matterSections: readonly MatterSection[] = [
     searchSource: "time",
   },
   {
-    slug: "costs",
-    label: "Costs",
-    core: true,
-    stage: "alpha",
-    description:
-      "Costs advanced and expenses incurred for this matter — filing fees, service, experts — " +
-      "with their recoverable and billable treatment.",
-    searchSource: "costs",
-  },
-  {
     slug: "fees",
     label: "Fees",
-    core: true,
     stage: "alpha",
     description:
       "Flat charges for professional services recorded on this matter — the fee agreement and " +
@@ -96,9 +95,17 @@ export const matterSections: readonly MatterSection[] = [
       "Fees you have billed are under Billing; an unbilled fee record does not exist yet",
   },
   {
+    slug: "costs",
+    label: "Costs",
+    stage: "alpha",
+    description:
+      "Costs advanced and expenses incurred for this matter — filing fees, service, experts — " +
+      "with their recoverable and billable treatment.",
+    searchSource: "costs",
+  },
+  {
     slug: "billing",
     label: "Billing",
-    core: true,
     stage: "alpha",
     description:
       "Invoices, payments, and the matter's billing arrangement — hourly, flat fee, or " +
@@ -106,27 +113,8 @@ export const matterSections: readonly MatterSection[] = [
     searchSource: "billing",
   },
   {
-    slug: "parties",
-    label: "Parties",
-    core: true,
-    stage: "alpha",
-    description:
-      "Every person and organization connected to this matter — clients, opposing parties, " +
-      "counsel, courts — linked from the firm Directory with conflict-aware roles.",
-    searchSource: "parties",
-  },
-  {
-    slug: "notes",
-    label: "Notes",
-    core: false,
-    stage: "alpha",
-    description: "Matter notes and memoranda — dated, attributed, and searchable.",
-    searchSource: "notes",
-  },
-  {
     slug: "trust",
     label: "Trust",
-    core: false,
     stage: "soon",
     description:
       "The matter's trust ledger — client funds held, disbursed, and reconciled under the " +
@@ -135,19 +123,23 @@ export const matterSections: readonly MatterSection[] = [
     searchWaitingOn: "The Trust section itself is not built yet",
   },
   {
-    slug: "custodian",
-    label: "Custodian",
-    core: false,
+    slug: "notes",
+    label: "Notes",
     stage: "alpha",
-    description:
-      "Physical items in the firm's custody for this matter — original wills, deeds, media — " +
-      "tracked to a location, safe, and box.",
-    searchSource: "custody",
+    description: "Matter notes and memoranda — dated, attributed, and searchable.",
+    searchSource: "notes",
+  },
+  {
+    slug: "emails",
+    label: "Emails",
+    stage: "soon",
+    description: "Email correspondence filed to this matter, threaded and searchable.",
+    searchSource: null,
+    searchWaitingOn: "The Emails section itself is not built yet",
   },
   {
     slug: "messaging",
     label: "Messaging",
-    core: false,
     stage: "soon",
     description:
       "Secure messages exchanged with the client through the portal, kept on the matter record.",
@@ -155,18 +147,26 @@ export const matterSections: readonly MatterSection[] = [
     searchWaitingOn: "The Messaging section itself is not built yet",
   },
   {
-    slug: "emails",
-    label: "Emails",
-    core: false,
-    stage: "soon",
-    description: "Email correspondence filed to this matter, threaded and searchable.",
-    searchSource: null,
-    searchWaitingOn: "The Emails section itself is not built yet",
+    slug: "custodian",
+    label: "Custodian",
+    stage: "alpha",
+    description:
+      "Physical items in the firm's custody for this matter — original wills, deeds, media — " +
+      "tracked to a location, safe, and box.",
+    searchSource: "custody",
+  },
+  {
+    slug: "parties",
+    label: "Parties",
+    stage: "alpha",
+    description:
+      "Every person and organization connected to this matter — clients, opposing parties, " +
+      "counsel, courts — linked from the firm Directory with conflict-aware roles.",
+    searchSource: "parties",
   },
   {
     slug: "calendar",
     label: "Calendar",
-    core: false,
     stage: "alpha",
     description:
       "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
@@ -174,16 +174,96 @@ export const matterSections: readonly MatterSection[] = [
     searchSource: "calendar",
   },
   {
-    slug: "other",
-    label: "Other",
-    core: false,
+    slug: "magnus",
+    label: "Magnus",
     stage: "soon",
     description:
-      "Everything else the matter accumulates — research, tasks, and tool output — finds its " +
-      "home here.",
-    searchSource: "matterAssets",
+      "Ask Magnus about this matter. The assistant answers in plain language from what you " +
+      "attach to the conversation, and every exchange is kept on the matter record.",
+    searchSource: null,
+    // Magnus is a way to ASK about the matter, not a record the matter keeps. Even once it is
+    // built, what a conversation holds is the reader's own questions and the assistant's answers —
+    // a transcript search is its own feature with its own retention question, not a scope option
+    // that quietly makes past conversations findable alongside the firm's records.
+    searchWaitingOn: "The Magnus section itself is not built yet",
   },
 ];
+
+/** One entry of the strip's top level: a section on the row, or a named group that opens a menu. */
+export type MatterStripEntry =
+  | { readonly kind: "section"; readonly section: MatterSection }
+  | { readonly kind: "group"; readonly label: string; readonly sections: readonly MatterSection[] };
+
+/*
+ * The arrangement, declared by slug so the two lists cannot drift: a section nobody placed, a slug
+ * that names no section, and a section placed twice are all module-load failures rather than a tab
+ * that silently stops existing.
+ *
+ * Overview leads because it is where the bare matter address lands. Files stands alone because it
+ * is the section members are in most — putting the busiest destination behind a menu would spend a
+ * click on nearly every visit. Parties and Calendar stand alone on the owner's ruling: a matter's
+ * dates are checked too often to sit behind a menu, and with Calendar on the row the group they
+ * shared would have held Parties by itself, which the rule below forbids. Magnus stands alone
+ * because it is not one of the matter's records; it is the way to ask about them.
+ *
+ * The order is also the fold order — the backstop folds from the tail — so what folds first is what
+ * a member can most afford to reach through a menu: Magnus (a stub), then the Record group (three
+ * of its four are stubs), then the dates and the people. Money stays on the row longest of the
+ * folding candidates, because all five of its sections are live working surfaces.
+ */
+const ARRANGEMENT: readonly (
+  | string
+  | { readonly label: string; readonly slugs: readonly string[] }
+)[] = [
+  "overview",
+  "files",
+  { label: "Money", slugs: ["time", "fees", "costs", "billing", "trust"] },
+  "parties",
+  "calendar",
+  { label: "Record", slugs: ["notes", "emails", "messaging", "custodian"] },
+  "magnus",
+];
+
+function buildStrip(): readonly MatterStripEntry[] {
+  const bySlug = new Map(matterSections.map((section) => [section.slug, section]));
+  const placed = new Set<string>();
+
+  const take = (slug: string): MatterSection => {
+    const section = bySlug.get(slug);
+    if (section === undefined) {
+      throw new Error(`The matter strip places "${slug}", which is not a section.`);
+    }
+    if (placed.has(slug)) {
+      throw new Error(`The matter strip places "${slug}" more than once.`);
+    }
+    placed.add(slug);
+    return section;
+  };
+
+  const entries = ARRANGEMENT.map((entry): MatterStripEntry => {
+    if (typeof entry === "string") return { kind: "section", section: take(entry) };
+    if (entry.slugs.length < 2) {
+      throw new Error(
+        `The matter strip's "${entry.label}" group holds ${entry.slugs.length} section(s). A group ` +
+          "of one is a menu that has to be opened to learn it holds nothing worth the trip; put " +
+          "the section on the row instead.",
+      );
+    }
+    return { kind: "group", label: entry.label, sections: entry.slugs.map(take) };
+  });
+
+  const unplaced = matterSections.filter((section) => !placed.has(section.slug));
+  if (unplaced.length > 0) {
+    throw new Error(
+      `The matter strip places no entry for: ${unplaced.map((section) => section.slug).join(", ")}. ` +
+        "Every section is reachable from the strip or it does not exist.",
+    );
+  }
+  return entries;
+}
+
+/** The strip's top level, in order. Validated at module load against the section registry. */
+export const matterStrip: readonly MatterStripEntry[] = buildStrip();
 
 /** The section a matter route is on, resolved from the address. Undefined off a section path. */
 export function sectionForPathname(matterId: string, pathname: string): MatterSection | undefined {

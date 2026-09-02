@@ -31,15 +31,17 @@
       // The build context is the REPOSITORY ROOT, not the container directory, and it has to be said
       // here rather than inferred: wrangler defaults the context to the Dockerfile's own directory,
       // and this image copies `crates/` because containers/search path-depends on crates/search-core
-      // (which in turn inherits its edition and dependency versions from the crates/ workspace root).
-      // Without this line every COPY in the Dockerfile fails with "not found" against an empty
-      // context — the first production build of this Worker failed exactly that way. The Dockerfile
-      // has always named the requirement in its own header; nothing was reading it.
+      // (which in turn inherits its edition and dependency versions from the crates/ workspace
+      // root). Without this line the context is containers/search, `COPY crates crates` fails with
+      // `"/crates": not found`, and the image never builds — the first two production builds of this
+      // Worker failed exactly that way. The root `.dockerignore` is then what keeps the wider
+      // context small; it allowlists `crates` and `containers` and nothing else.
       //
-      // Every sibling whose image reaches outside its own directory carries the same line
-      // (libreoffice, discovery, file-repair, ocr, recovery). The ones that do not — scan, bundle,
-      // raster — are self-contained: their Dockerfiles copy only `Cargo.toml` and `src` from beside
-      // themselves, so the default context is correct for them.
+      // Every sibling whose image reaches outside its own directory carries the same line (convert,
+      // discovery, file-repair, ocr, recovery). The ones that do not — scan, bundle, raster — are
+      // self-contained: their Dockerfiles copy only `Cargo.toml` and `src` from beside themselves,
+      // so the default context is correct for them, and Docker reads the `.dockerignore` beside
+      // that context rather than the root one.
       "image_build_context": "../../",
       "max_instances": 3,
       "instance_type": "standard-1",

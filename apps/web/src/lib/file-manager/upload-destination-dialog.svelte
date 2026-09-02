@@ -10,6 +10,12 @@
    *
    * Closing the dialog abandons nothing: whatever has landed stays where it landed, and the
    * dialog says so rather than implying a cancel un-uploads bytes that are already committed.
+   *
+   * TWO SIDES, TWO JOBS. The left is the DECISION — where this batch goes — and the right is the
+   * REPORT — what each file is doing about it. They belong apart because they move at different
+   * speeds: the reader makes one choice once, while the list underneath it changes every second,
+   * and stacking them meant the choice jumped down the dialog as lines arrived. Side by side, the
+   * controls hold still while the report runs.
    */
   import * as Dialog from "@magna-carta/design-system/dialog";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
@@ -71,78 +77,97 @@
     }
   }
 >
-  <Dialog.Content>
+  <Dialog.Content class="@container w-full max-w-record-pane">
     <Dialog.Title>Upload</Dialog.Title>
     <Dialog.Description>
       {countPhrase(items.length, "file")} — each is uploading now, and lands in the folder chosen
       below.
     </Dialog.Description>
 
-    <div class="flex flex-col gap-16">
-      <ul class="flex max-h-96 flex-col gap-4 overflow-y-auto" aria-label="Upload progress">
-        {#each items as item (item.name)}
-          <li class="flex items-center gap-8 text-sm">
-            {#if item.stage === "settled"}
-              <CircleCheck
-                class="size-16 shrink-0 text-status-success-subtle-foreground"
-                aria-hidden="true"
-              />
-            {:else if item.stage === "failed"}
-              <CircleAlert
-                class="size-16 shrink-0 text-status-danger-subtle-foreground"
-                aria-hidden="true"
-              />
-            {:else}
-              <LoaderCircle class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
-            {/if}
-            <span class="min-w-0 truncate">{item.name}</span>
-            <span class="ms-auto text-xs whitespace-nowrap text-text-subtle">
-              {item.stage === "failed"
-                ? "Did not land"
-                : item.stage === "settled"
-                  ? "Saved"
-                  : UPLOAD_STAGE_NARRATION[item.stage]}
-            </span>
-          </li>
-        {/each}
-      </ul>
-
-      <RadioGroup.Root
-        bind:value={() => choice, (next) => (choice = next as Destination)}
-        disabled={confirmed}
-      >
-        <div class="flex items-center gap-8">
-          <RadioGroup.Item value="here" id="upload-destination-here" />
-          <Label for="upload-destination-here">
-            {hereName === null ? `Home: ${matterTitle}` : `Current Folder: ${hereName}`}
-          </Label>
-        </div>
-        {#if hereName !== null}
+    <!-- Two equal columns once there is room: the decision on the left, what the files are doing on
+         the right. Below that width they stack, decision first. -->
+    <div class="grid gap-16 @md:grid-cols-2">
+      <!-- LEFT: the one decision this dialog exists to ask. -->
+      <div class="flex min-w-0 flex-col gap-12">
+        <p class="text-xs font-semibold text-text-muted">Where these go</p>
+        <RadioGroup.Root
+          bind:value={() => choice, (next) => (choice = next as Destination)}
+          disabled={confirmed}
+        >
           <div class="flex items-center gap-8">
-            <RadioGroup.Item value="root" id="upload-destination-root" />
-            <Label for="upload-destination-root">Home: {matterTitle}</Label>
+            <RadioGroup.Item value="here" id="upload-destination-here" />
+            <Label for="upload-destination-here">
+              {hereName === null ? `Home: ${matterTitle}` : `Current Folder: ${hereName}`}
+            </Label>
           </div>
+          {#if hereName !== null}
+            <div class="flex items-center gap-8">
+              <RadioGroup.Item value="root" id="upload-destination-root" />
+              <Label for="upload-destination-root">Home: {matterTitle}</Label>
+            </div>
+          {/if}
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value="other" id="upload-destination-other" />
+            <Label for="upload-destination-other">Select Folder</Label>
+          </div>
+        </RadioGroup.Root>
+
+        {#if choice === "other"}
+          <FolderPicker {index} bind:chosenFolderId={pickedFolderId} label="Upload destination" />
         {/if}
-        <div class="flex items-center gap-8">
-          <RadioGroup.Item value="other" id="upload-destination-other" />
-          <Label for="upload-destination-other">Select Folder</Label>
-        </div>
-      </RadioGroup.Root>
+      </div>
 
-      {#if choice === "other"}
-        <FolderPicker {index} bind:chosenFolderId={pickedFolderId} label="Upload destination" />
-      {/if}
+      <!-- RIGHT: what the batch is doing, file by file, while that choice is made. -->
+      <div class="flex min-w-0 flex-col gap-8 border-s border-border-default ps-16">
+        <p class="flex items-baseline gap-8 text-xs font-semibold text-text-muted">
+          Progress
+          <span class="font-regular text-text-subtle">
+            {settledCount} of {items.length} finished
+          </span>
+        </p>
+        <ul
+          class="mc-scrollbar flex flex-col gap-4 overflow-y-auto"
+          style="max-block-size: var(--mc-size-popover)"
+          aria-label="Upload progress"
+        >
+          {#each items as item (item.name)}
+            <li class="flex items-center gap-8 text-sm">
+              {#if item.stage === "settled"}
+                <CircleCheck
+                  class="size-16 shrink-0 text-status-success-subtle-foreground"
+                  aria-hidden="true"
+                />
+              {:else if item.stage === "failed"}
+                <CircleAlert
+                  class="size-16 shrink-0 text-status-danger-subtle-foreground"
+                  aria-hidden="true"
+                />
+              {:else}
+                <LoaderCircle class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
+              {/if}
+              <span class="min-w-0 truncate" title={item.name}>{item.name}</span>
+              <span class="ms-auto text-xs whitespace-nowrap text-text-subtle">
+                {item.stage === "failed"
+                  ? "Did not land"
+                  : item.stage === "settled"
+                    ? "Saved"
+                    : UPLOAD_STAGE_NARRATION[item.stage]}
+              </span>
+            </li>
+          {/each}
+        </ul>
 
-      {#if failures.length > 0}
-        <Alert.Root variant="warning">
-          <Alert.Title>Some of These Did Not Land</Alert.Title>
-          <Alert.Description>
-            {#each failures as failure (failure.name)}
-              <span class="block">{failure.name}: {failure.reason}</span>
-            {/each}
-          </Alert.Description>
-        </Alert.Root>
-      {/if}
+        {#if failures.length > 0}
+          <Alert.Root variant="warning">
+            <Alert.Title>Some of These Did Not Land</Alert.Title>
+            <Alert.Description>
+              {#each failures as failure (failure.name)}
+                <span class="block">{failure.name}: {failure.reason}</span>
+              {/each}
+            </Alert.Description>
+          </Alert.Root>
+        {/if}
+      </div>
     </div>
 
     <div class="flex items-center justify-end gap-8">

@@ -103,8 +103,6 @@ export const MATTER_SEARCH_PLAN_SCAN_ALLOWLIST: readonly string[] = [];
 //
 //   billing      — sorts on created_at; the matter index leads (matter_id, invoice_id).
 //   costs        — sorts on incurred_date; the matter index leads (matter_id, status).
-//   matterAssets — sorts on created_at; the matter index leads (matter_id, class, created_at, id),
-//                  and `class` sits between, so the order cannot be walked.
 //   notes        — sorts on COALESCE(occurred_on, date(created_at)), which is computed; the Notes
 //                  tab's own list orders by the same expression and materialises the same sort.
 //   parties      — sorts on the case-folded display name, resolved per row by subquery.
@@ -118,7 +116,6 @@ export const MATTER_SEARCH_PLAN_SCAN_ALLOWLIST: readonly string[] = [];
 export const MATTER_SEARCH_MATERIALISED_SORTS: readonly string[] = [
   "matter-search.billing",
   "matter-search.costs",
-  "matter-search.matterAssets",
   "matter-search.notes",
   "matter-search.parties",
   "matter-search.time",

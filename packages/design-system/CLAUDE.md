@@ -19,6 +19,10 @@ properties; off-token values are machine-rejected.
   `applyThemeToDocument` used by both the app and the Storybook toolbar
 - `src/lib/internal/floating.ts` — the ONLY home of z-index (`Z_LAYER_CLASSES`) and the presence
   animation constants; `floatingContentClasses()` is the canonical Tier 3/4 content-class builder
+- `src/lib/internal/close-guard.svelte.ts` + `discard-question.svelte` — the unsaved-work guard and
+  the question BOTH modal shells run every exit through; owned here, never re-implemented in a shell
+- `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
+  `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
 - `src/lib/styles/components.css` — the semantic component-class layer (`mc-*` recipes)
 - `src/stories/**.stories.svelte` — the catalog; stories triple as browser-mode behavior tests and
   per-story axe checks
@@ -26,6 +30,40 @@ properties; off-token values are machine-rejected.
 - `test/fitness/` — the golden-rule-2 gates (off-token, boundaries, components.css purity)
 - `test/csp-spike/` — the CSP probe + `VERDICT.md` (re-runnable; asserts the verdict)
 - `visual-regression/` — Playwright screenshots over the static Storybook build, theme×mode
+
+## Two modal shells, and never a third
+
+**Every modal surface in the product is `RecordWindow` (reading and changing a record) or
+`ActionDialog` (an act asked of a reader).** A screen does not compose `Dialog.Content` /
+`AlertDialog.Content` / `Sheet.Content` into a panel of its own — `lint:one-ui`'s
+`hand-composed-modal` rule fails it, and the homes allowed to compose one are DECLARED in
+`tooling/lint-one-ui/registry.json` (`modalShells`), not hardcoded in the rule. Being a registered
+component is not enough on its own: `RecordAttachments` is registered and still carries an allowance
+because the confirmation inside it should be an `ActionDialog`.
+
+- **What `ActionDialog` owns, it owns by having no prop for it**: the footer's geometry and the
+  order of its two controls, the dismissal's word, the busy state, whether the corner dismiss shows,
+  which primitive renders the panel, and the one close path every exit runs through. There is no
+  `class` prop. A caller differs on a closed set — `fields`, `notice`, `kind`, `width`, and a commit
+  returning `"committed" | "refused"`.
+- **`kind` selects the primitive.** `form` → `Dialog` (corner dismiss, dismissed by a press
+  outside, "Cancel"); `confirm`/`destructive` → `AlertDialog` (the `alertdialog` role, no incidental
+  dismiss, "Never mind"). The trait table describes what Bits already does rather than fighting it.
+- **The `notice` slot is the layering seam.** The design system cannot know what a failure reads
+  like, so the shell reserves the PLACE and the app puts `FailureNotice` in it. Never import an app
+  module here to close that gap.
+- **The commit owns the close.** `onCommit` reports an outcome; the shell closes on `"committed"`
+  and stands its ground on `"refused"`. A caller never writes `open` on the way out — that is what
+  keeps the close to one path, and a one-entrance close path is the only kind a guard can cover.
+- **Both shells stamp `data-modal-shell`** on their panel, and `ActionDialog`'s two footer controls
+  carry `data-action-dialog-action`. These are the hooks a scan and a rendered-DOM check read;
+  `footer-set` asserts the bar against the shell's source the way `header-set` asserts the record
+  window's header. Do not remove or rename them to tidy up markup.
+- **The unit test project carries `svelte()`** (in `vitest.config.ts`, at the top level AND on the
+  `unit` project) because `.svelte.ts` runes modules — the close guard — do not compile without it;
+  from the repo root only the top-level fallback is used, so a plugin on the project alone passes
+  locally and fails in `pnpm test`. The package still has no `vite.config.ts`; that note is about
+  the Storybook pipeline's plugin ORDER, which this does not touch.
 
 ## Invariants that apply here
 

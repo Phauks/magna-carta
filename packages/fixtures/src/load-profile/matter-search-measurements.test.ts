@@ -348,9 +348,9 @@ describe("a matter search narrows by matter before it scans", () => {
       limit: 50,
       includeDeleted: false,
     });
-    // The sources this fixture lays down rows for. The other three (costs, calendar, matterAssets)
-    // are covered by the plan assertions above, which need no rows — and their isolation is a
-    // property of the SHARED BUILDER, proven per source over every registered statement in
+    // The sources this fixture lays down rows for. The other four (costs, billing, parties and
+    // calendar) are covered by the plan assertions above, which need no rows — and their isolation
+    // is a property of the SHARED BUILDER, proven per source over every registered statement in
     // packages/matter-search/test/source-fitness.test.ts rather than per fixture here.
     const seeded = new Set(["files", "notes", "custody", "time"]);
     for (const group of answer.groups) {

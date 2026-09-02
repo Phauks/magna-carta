@@ -96,6 +96,23 @@ is usually the fastest way to understand the rule.
   thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
   agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,
   2026-08-30)_
+- **A column's controls are summoned from the column, not from a control anywhere else.**
+  Right-clicking a column heading opens that column's menu, and everything a column can be ASKED is
+  in it: filter it, hide it, pin it, and — one arrow to the right — the full roster of columns,
+  where a hidden column (which has no heading to point at) is brought back. A `Columns` button in
+  the action row is removed, not moved: it asked the reader to leave the thing they were looking
+  at, find a control, and then find the column again in a list. The in-header filter funnel goes
+  the same way, for the narrower version of the same reason — a control parked in a data cell,
+  hunted for on hover, when the column it belongs to is the thing already under the pointer. What
+  the header still does by DIRECT gesture it keeps and the menu does not repeat: clicking the label
+  sorts, the grip resizes and double-click fits. A surface's own display settings ride the same
+  Columns submenu, beside the columns they change. _(every list surface, 2026-08-31)_
+- **A state stays visible where a control was removed; it just stops being pressable.** Taking the
+  funnel out of the header cell must not take with it the answer to "is this column narrowed" —
+  that is the reader's, not the control's. So the cell keeps a MARK in the same reserved slot, in
+  the same accent-subtle treatment, drawn only while a filter is in play and carrying nothing to
+  press. Absence is still the signal; presence is still unmistakable. _(every list surface,
+  2026-08-31)_
 
 ### Data entry
 
@@ -126,6 +143,29 @@ is usually the fastest way to understand the rule.
   product says out loud. Enforced in the model: `alpha` and `beta` present as null in
   `apps/web/src/lib/maturity/maturity.ts`, exactly as `ready` does. _(matter section strip,
   2026-08-31)_
+- **Find which column sets a band's height before you spend design shrinking one.** Where two
+  columns share a band, the taller one owns the height and work on the other is invisible. The
+  matter chrome's inline-end column was the overflow control stacked over the section strip —
+  40px + 8px + 41px — and it floored the band at 90px, so three identity treatments that look
+  nothing alike measured at exactly 90px, and putting the whole identity on one line bought nothing
+  at all. Moving the control onto the strip's row made that column 41px and the identity block
+  mattered again. Measure the columns, not the thing you were about to change. _(matter chrome,
+  2026-09-01)_
+- **Drop a row before you shrink a face.** A row is twenty-odd pixels; a type step is a few, and it
+  is spent out of the scale contrast the register depends on. The matter's ledger line and status
+  seal moved down to lead the citation, which bought a whole row and cost the number nothing it
+  could not say from there — while the type step that would have matched it took the display face
+  close enough to the citation that the masthead stopped reading as one. Take the structural
+  saving first and the type step only if it is still needed. _(matter chrome, 2026-09-01)_
+- **The display step comes from the recipe, never a utility on the element.** A screen that needs a
+  smaller masthead title asks for a density on `Masthead.Root`; it does not put `text-2xl` on the
+  Title. The masthead is the one door to the display serif, and a call site that can set the step
+  itself has taken that door off its hinges — the next screen picks a different size and the
+  register is gone. Add the variant to the recipe instead. _(matter chrome, 2026-09-01)_
+- **A control sharing a row with navigation sits above the rule, not on it.** The rule under a
+  section strip belongs to the sections — their active mark draws on it — so a bordered control on
+  the same row stops short of it. Sitting on the rule, the control reads as one more tab.
+  _(matter chrome, 2026-09-01)_
 - **A vertical navigation rail belongs to the app shell, and there is only one.** A page that needs
   more room does not answer it by standing a second rail inside the work canvas beside the shell's
   own: two vertical navigations on one screen make the member ask which one they are in. Module
@@ -169,6 +209,37 @@ is usually the fastest way to understand the rule.
 - **A capability the backend does not serve yet still renders**, disabled, with the "Soon" badge and
   one honest line naming what it waits on. This is the standing rule from
   [`ui-design.md`](ui-design.md); it is repeated here because it is the one most often skipped.
+- **A Soon seam ships where it is legible at rest, never behind a glyph.** The rule above says a
+  designed-but-unwired capability stays VISIBLE, and an overflow menu is the one place that quietly
+  breaks it: the matter header's `...` held exactly one item, the status's lifecycle action,
+  disabled and marked Soon, so the menu had to be opened before a reader could learn there was
+  nothing in it to press. That is a control's width of chrome spent to say nothing, and the seam it
+  was protecting stopped being visible the moment it went in the drawer. A single unwired action
+  belongs on the row as a named disabled control, or it waits until it is wired. _(matter chrome,
+  2026-09-01)_
+- **A menu earns its glyph from what opening it offers.** An overflow is a container for a set that
+  is genuinely too long or too secondary for the row — not a place to put one thing so the row
+  looks tidy. Count the live items before drawing the trigger: at one, the item goes on the row; at
+  zero, neither the item nor the trigger is drawn. _(matter chrome, 2026-09-01)_
+- **A navigation strip that does not fit is GROUPED, not folded.** A measured overflow decides by
+  pixel arithmetic which half of a member's destinations they can see, and width is not a statement
+  about importance: the matter strip put Trust and Calendar behind More because of where they
+  happened to sit in a list, while seven others held the row. Name the neighbourhoods instead and
+  put those on the row — the matter's fourteen sections became Overview, Files, Money, Parties,
+  Calendar, Record and Magnus, which fit. Group only what a member can afford to reach through a
+  menu; a destination checked daily stays on the row even when it would tidy the arrangement to
+  file it away. A measured fold stays underneath as a backstop for a canvas narrower than the
+  arrangement; it is not the arrangement. _(matter section strip, 2026-09-01)_
+- **A folded group keeps its name.** When a group does reach the overflow, it goes in as a heading
+  over its own entries, never decanted into a flat list — otherwise the two routes to one
+  destination disagree about what it belongs to, and a member who learned "Trust is under Money"
+  finds it loose in a menu at a narrower window. _(matter section strip, 2026-09-01)_
+- **No navigation entry is called "Other".** A tab earns its place by naming something a reader
+  would go looking for, and "Other" names the absence of a category — it can only be found by
+  ruling every other tab out, and it exists as the drawer whatever nobody placed gets pushed into.
+  The matter registry's Other section was removed rather than described better: content with no
+  home yet waits for the section that will own it, which is a smaller debt than a permanent bin
+  that teaches members the file has an unsorted corner. _(matter section strip, 2026-09-01)_
 - **A result region is furniture, not a reward.** The structure that will hold results (a frame, a
   panel set, tabs) renders at rest, empty and calm, so arriving data fills a shape the reader
   already has and population is never a surprise. The list-screen "table holds the vertical space"
@@ -306,6 +377,25 @@ surface, which is most of the product.
   best of an arbitrary slice at the top and read as the best of the firm's record), and says so
   when more matches exist than were returned. A screen that has both shows them as two different
   objects. Never fake a listing out of a search. _(directory, 2026-08-30)_
+- **A tab strip is not a place to keep a report.** Where tabs beside a list hold answers the list
+  itself could give — everything under a hold, everything overdue — they are pre-set filters wearing
+  the costume of destinations, and a reader has to visit each one to find out whether it holds
+  anything. Either the narrowing belongs to the one table or the report does not belong on that
+  screen; what it never is, is a second screen. A genuine aggregate (counts per owner rather than a
+  list of packets) is a different object and is judged on its own, not carried along because it sat
+  in the same strip. _(Custodian register, 2026-09-01)_
+- **A screen with no way to create the thing it lists is not built.** A list, a detail window, a
+  filter set and a print sheet over records nobody can add is a reader for somebody else's data. The
+  entry path ships with the surface, and where the backend already serves it, its absence is the
+  defect rather than the roadmap. _(Custodian register, 2026-09-01)_
+- **A status word is legible against the others in its set, not on its own.** Where a state leaves a
+  reader asking what it is, the label takes a word the domain already writes for it — but the test
+  it has to pass is the PAIR: custody's "Out" became "Checked out" and was then read as the same
+  event as "Released", because both merely say the property left the building. "On loan" carries the
+  return, which is the one thing that distinguishes it from a release. Fixing a word in isolation
+  and shipping it beside the word it collides with is half the correction. This never licenses a
+  synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
+  own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
 
 ### Spacing and rhythm
 
@@ -328,6 +418,120 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-01 — the matter screens, chrome-removal round
+
+Two removals, one addition, and the strip regrouped. Both removals were issued the same way: the
+owner looked at the shipped chrome and could not name what a part of it was for. The generalizations
+are promoted above.
+
+- **The header band's overflow (`...`) control is gone.** Its only item was the status's lifecycle
+  action, disabled and marked Soon. Asked what it was buying, the honest answer was a control's
+  width and one glyph a member has to press to discover there is nothing behind it. The lifecycle
+  action returns as a named control on the row when it is wired, and the band now carries no
+  actions at all: the inline-end column is the section strip and nothing else.
+- **The Other section is gone from the registry and the route tree.** It was the only tab whose
+  label described no place — it named everything the other thirteen did not cover, which is a bin
+  rather than a destination, and its stub had to be written in the abstract because nothing concrete
+  was ever going to live there first.
+- **Magnus takes a matter section**, a `soon` stub for now. It stands alone on the row rather than
+  joining a group, because the assistant is not one of the matter's records — it is the way to ask
+  about them, and a member reaching for it is not reaching for a neighbourhood.
+- **The strip is grouped.** The owner raised it against the flat strip and chose grouped menus over
+  reordering and over nesting a Financials section. Seven top-level entries: **Overview · Files ·
+  Money ⌄ · Parties · Calendar · Record ⌄ · Magnus**. Money is Time, Fees, Costs, Billing and
+  Trust; Record is Notes, Emails, Messaging and Custodian. Overview leads because the bare matter
+  address lands there, Files stands alone because it is the busiest destination and a click on
+  nearly every visit is a real cost, and Magnus stands alone because it is not one of the matter's
+  records but the way to ask about them.
+- **Calendar is a top-level tab** — the owner's correction to the first build, which had it in a
+  People group beside Parties. A matter's dates are checked too often to sit behind a menu, and the
+  grouping was wrong on its own terms besides: Parties is people, a hearing date is not. Taking
+  Calendar out left that group holding Parties alone, which the one-item rule above forbids, so
+  Parties came up to the row with it and the group went away. The general lesson is promoted above:
+  group only what a member can afford to reach through a menu.
+- **The arrangement's order is also the fold order**, so the tail is what a member can most afford
+  to reach through a menu — Magnus first (a stub), then Record (three of its four are stubs), then
+  the dates and the people. Money stays on the row longest of the folding candidates because all
+  five of its sections are live working surfaces.
+
+  Measured after building: all seven hold the row at 1440, where the flat fourteen had already
+  folded seven away. Below that the backstop fold takes over and entries fold as groups — at 1360
+  Record and Magnus go, at 1024 four do. It is NOT true at every width that nothing is hidden. The
+  band's even split leaves the strip about 384px at 1024; recovering that would mean reopening the
+  even split (the identity block no longer needs half the band now the strip is bounded), which is
+  a separate ruling and was deliberately not touched here. The owner accepted this on 2026-09-01.
+
+### 2026-09-01 — the Custodian register
+
+The owner opened the register and reported, first, that there was no way to put anything in it. That
+was true: the whole `custody.*` write surface existed and the screen offered a disabled "Log a
+packet" button with a Soon mark, so a firm could read a register it could not begin. The rest of the
+round was the screen carrying more furniture than record.
+
+What is local to this surface:
+
+- **The three report tabs are gone, and the panels behind them with them.** By Owner, Holds and Due
+  stood beside Register as though they were four destinations. Asked which of them were really the
+  register narrowed, the owner's answer was that no firm they know uses holds or due dates yet, so
+  all three come out rather than being folded in. The endpoints stay; the surfaces do not. The
+  generalizable half is promoted above.
+- **The status dropdown above the table is gone rather than renamed.** The correction as issued was
+  "change standing to status" — but Status is already a column with its own set filter, so renaming
+  it would have kept the second mechanism the matters docket round removed. Removed, per that rule.
+- **The screen's own search box is gone.** A centralized search component is being built elsewhere
+  and will reach this listing; the server-side `search` filter stays plumbed through the register
+  component for it to use.
+- **The masthead's "Originals the firm holds in safekeeping" is gone**, under the standing rule that
+  a heading carries no explanatory sub-text, and so are the two paragraphs under the location tree
+  and the standing paragraph under the matter's Custodian section, which said that closing a matter
+  is never blocked by what the firm holds. That is true, and it is a fact about the close path, so
+  it is stated where closing happens rather than on a screen that is not closing anything.
+- **The primary action is "New".** The register creates one kind of thing, so it needs no menu.
+- **"Out" now reads "On loan", after a first pass at "Checked out" was rejected.** The owner
+  reported not knowing what Out meant, and listed the statuses they believed real: Held, Released,
+  Destroyed, Lost. Out is real — it is what the ledger derives from a `checked_out` movement, it
+  carries the borrower and the due-back date the overdue report is built from, and a checked-out
+  packet has nowhere else to render — so it was relabelled rather than removed. "Checked out" did
+  not survive contact: the owner's answer was that checked out and released are the same thing, and
+  read as labels alone they are, since both only say the property is not on the shelf. The pair has
+  to separate itself without a legend, so the state is "On loan" (the firm's to get back) against
+  "Released" (the firm's custody has ended), and both hovers now state the ending or the return
+  rather than only the handover. The ACT stays "Checked out" in the history, where it is read as a
+  sentence about what somebody did. Promoted above.
+- **The empty register was running off the right-hand edge**, and it was never this screen's defect:
+  the grid's cells are `white-space: nowrap` for the sake of aligned columns, the placeholder cell
+  inherited it, and a wordy empty state therefore widened the table past its own frame. Fixed in the
+  shared table recipe, the same way the empty docket's hover band was.
+- **An item needed a history of its own**, and the ledger had been recording one all along: rows
+  carry an optional item, so withdrawing one instrument or superseding it was already written
+  against the item rather than the envelope, and nothing could read them back at that scope. The
+  read is the same ledger with one more filter rather than a second record. Two things had to be
+  decided rather than assumed: an item's history INCLUDES the packet-wide rows, because an item goes
+  wherever its packet goes and a history of only the rows naming it would show "Contents described"
+  over a decade of moves; and each list marks whichever kind of row is the odd one out in it, so
+  neither reads as the other. Each item in Contents opens onto its own rail, and opening is what
+  reads the ledger.
+- **Entry is three modals**, at the owner's direction, over the register's existing write endpoints:
+  New Packet on the register and on a matter's section, Describe An Item and File A Copy inside the
+  packet window, each on the tab it belongs to. The owner also raised a centralized modal framework;
+  around thirty dialogs now compose `Dialog` by hand, so that is worth its own look and is not part
+  of this round.
+
+### 2026-09-01 — the matter chrome, identity-block round
+
+With the section strip in the band, the owner asked what more the left side could give back. Six
+settings were rendered and measured; the generalizable parts are promoted above. What was decided:
+
+- **The identity block folds to two rows and the title steps down once.** The ledger line and the
+  status seal lead the citation instead of holding a row above the title, and the title takes the
+  Masthead recipe's new `compact` density (2rem to 1.5rem).
+- **The overflow control moved onto the section strip's row.** This is the change that mattered:
+  it is the only one that got the band under 90px, because it is the only one that touched the
+  column actually setting the height. 111px became 76px — 152px before the strip moved at all.
+- **A third density step was built, measured and dropped.** At 1.25rem the display face is close
+  enough to the citation that the register's scale contrast nearly goes, and it bought nothing over
+  the structural saving, so it is not in the variant.
 
 ### 2026-08-31 — the matter chrome, section-navigation round
 

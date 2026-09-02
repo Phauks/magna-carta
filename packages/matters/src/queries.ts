@@ -18,7 +18,7 @@ import { MATTER_TYPE_TABLE } from "./matter-type-statements.ts";
 export type { Page };
 
 const MATTER_LIST_COLUMNS =
-  "id, title, status, matter_type_id, location_id, responsible_member_id, client_display_name, matter_number, created_at";
+  "id, title, status, matter_type_id, location_id, responsible_member_id, client_display_name, matter_number, consultation_number, created_at";
 
 export interface ListMattersFilters {
   readonly status?: MatterStatus;
@@ -63,9 +63,14 @@ export function listMattersStatement(
     bindings.push(filters.responsibleMemberId);
   }
   if (filters.search !== undefined && filters.search.length > 0) {
-    conditions.push("(title LIKE ? OR matter_number LIKE ? OR client_display_name LIKE ?)");
+    // The consultation number is searched alongside the matter number: for a file that is still a
+    // consultation it is the ONLY number anyone has, so leaving it out would make the number on the
+    // screen the one thing that finds nothing.
+    conditions.push(
+      "(title LIKE ? OR matter_number LIKE ? OR consultation_number LIKE ? OR client_display_name LIKE ?)",
+    );
     const term = `%${filters.search}%`;
-    bindings.push(term, term, term);
+    bindings.push(term, term, term, term);
   }
   appendCursorPredicate(conditions, bindings, cursor);
   bindings.push(limit);
@@ -85,6 +90,7 @@ interface MatterRowRaw {
   responsible_member_id: UserId;
   client_display_name: string | null;
   matter_number: string | null;
+  consultation_number: string | null;
   created_at: string;
 }
 
@@ -97,6 +103,9 @@ export interface MatterListItem {
   readonly responsibleMemberId: UserId;
   readonly clientDisplayName: string | null;
   readonly matterNumber: string | null;
+  // The tentative number a consultation carries. Kept beside the matter number rather than folded
+  // into it: which of the two a reader is looking at changes what it means.
+  readonly consultationNumber: string | null;
   readonly createdAt: string;
 }
 
@@ -110,6 +119,7 @@ function toMatterListItem(row: MatterRowRaw): MatterListItem {
     responsibleMemberId: row.responsible_member_id,
     clientDisplayName: row.client_display_name,
     matterNumber: row.matter_number,
+    consultationNumber: row.consultation_number,
     createdAt: row.created_at,
   };
 }
@@ -215,7 +225,7 @@ export function listConsultationsStatement(
   bindings.push(limit);
   return database
     .prepare(
-      `SELECT id, title, matter_number, created_at FROM ${MATTER_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
+      `SELECT id, title, matter_number, consultation_number, created_at FROM ${MATTER_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
     .bind(...bindings);
 }
@@ -224,6 +234,9 @@ export interface ConsultationItem {
   readonly id: MatterId;
   readonly title: string;
   readonly matterNumber: string | null;
+  // Always present on a consultation created since the sequence existed — this is the number the
+  // view is listed by.
+  readonly consultationNumber: string | null;
   readonly createdAt: string;
   readonly isStale: boolean;
 }
@@ -332,11 +345,18 @@ export async function listConsultations(
     params.responsibleMemberId,
     decodeCursor(params.cursor),
     pageSize + 1,
-  ).all<{ id: MatterId; title: string; matter_number: string | null; created_at: string }>();
+  ).all<{
+    id: MatterId;
+    title: string;
+    matter_number: string | null;
+    consultation_number: string | null;
+    created_at: string;
+  }>();
   return assemblePage(results, pageSize, (row) => ({
     id: row.id,
     title: row.title,
     matterNumber: row.matter_number,
+    consultationNumber: row.consultation_number,
     createdAt: row.created_at,
     isStale: row.created_at <= threshold,
   }));

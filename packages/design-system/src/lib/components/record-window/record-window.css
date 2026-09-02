@@ -258,11 +258,4 @@
    * row rather than the action bar's, because it belongs to the small panel that asks, not to the
    * window: keeping editing is the quiet answer and throwing the work away is the deliberate one.
    */
-  .mc-record-window-confirm-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--mc-space-8);
-    margin-block-start: var(--mc-space-16);
-  }
 }

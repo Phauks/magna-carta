@@ -6,6 +6,7 @@
  * or the debounce — ScreenSearch owns those, and the results page owns its own field — because a
  * second timer would make the two surfaces disagree about when a search has settled.
  */
+import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
 import { searchMatter, type MatterSearchAnswer } from "$lib/matters/matter-search-api.ts";
 import { matterSections, type MatterSection } from "$lib/matters/sections.ts";
 
@@ -83,7 +84,12 @@ export class MatterSearch {
    * offer, so turning this on cannot resurrect one.
    */
   includeDeleted = $state(false);
-  failure = $state<string | null>(null);
+  /**
+   * The whole failure record, not a sentence squeezed out of it — the panel and the results page
+   * both hand it to FailureNotice, which is what carries the Error ID and the remedy. The words
+   * travel WITH the failure (stated()) because the two surfaces say the same thing about it.
+   */
+  failure = $state<StatedFailure | null>(null);
   busy = $state(false);
 
   /**
@@ -153,12 +159,14 @@ export class MatterSearch {
       return;
     }
     this.answer = null;
-    this.failure =
-      outcome.kind === "transport"
-        ? "Nothing answered. The search could not be run."
-        : `${outcome.problem.detail ?? "The search could not be run."}${
-            outcome.problem.errorId === undefined ? "" : ` Error ID ${outcome.problem.errorId}.`
-          }`;
+    // Two sentences, because they say genuinely different things: a refusal means the search ran
+    // and was turned down, where silence means nothing was searched at all and the matter may hold
+    // a great deal the reader is not being shown.
+    this.failure = stated(
+      outcome.failure,
+      "The search could not be run.",
+      "Nothing answered. This matter was not searched.",
+    );
   }
 }
 

@@ -310,8 +310,11 @@ describe("POST /api/v1/files/{id}/restore", () => {
 interface HistoryRow {
   at: string;
   event: string;
-  fileId: string;
-  fileName: string;
+  // The trail covers folder acts as well as file ones, so a row names its SUBJECT rather than
+  // assuming a file: subjectKind says which, and the id and name follow from it.
+  subjectKind: "file" | "folder";
+  subjectId: string;
+  subjectName: string;
   versionNumber: number | null;
   actorUserId: string | null;
   actorName: string | null;
@@ -356,9 +359,10 @@ describe("GET /api/v1/matters/{matterId}/file-history", () => {
     }
 
     for (const row of body.data) {
-      expect(row.fileId).toBe(fileId);
+      expect(row.subjectKind).toBe("file");
+      expect(row.subjectId).toBe(fileId);
       // The CURRENT name, resolved at read time — including on rows recorded before the rename.
-      expect(row.fileName).toBe("renamed.txt");
+      expect(row.subjectName).toBe("renamed.txt");
       expect(row.actorUserId).toBe(ownerUserId);
       expect(row.actorName).toBe("Deleted Owner");
     }
@@ -439,7 +443,7 @@ describe("GET /api/v1/matters/{matterId}/file-history", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: HistoryRow[] };
     expect(body.data.length).toBeGreaterThan(0);
-    for (const row of body.data) expect(row.fileId).toBe(mine.fileId);
+    for (const row of body.data) expect(row.subjectId).toBe(mine.fileId);
   });
 
   it("pages on the (created_at, id) keyset", async () => {

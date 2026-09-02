@@ -920,6 +920,7 @@ export type AbortUploadResponse = {
 export type CreateMatterResponse = {
     matterId: string;
     matterNumber: string | null;
+    consultationNumber: string | null;
 };
 
 export type CreateMatterRequest = {
@@ -947,6 +948,7 @@ export type MatterSummary = {
     responsibleMemberId: string;
     clientDisplayName: string | null;
     matterNumber: string | null;
+    consultationNumber: string | null;
     createdAt: string;
 };
 
@@ -959,6 +961,7 @@ export type ConsultationItem = {
     id: string;
     title: string;
     matterNumber: string | null;
+    consultationNumber: string | null;
     createdAt: string;
     isStale: boolean;
 };
@@ -974,6 +977,7 @@ export type MatterDetail = {
     clientDisplayName: string | null;
     clientCode: string | null;
     matterNumber: string | null;
+    consultationNumber: string | null;
     eBilling: boolean;
     openedAt: string | null;
     closedAt: string | null;
@@ -1366,6 +1370,8 @@ export type MemberLocationsRequest = {
 
 export type NumberingSchemeResponse = {
     segments: Array<NumberSegment> | null;
+    purpose: 'matter' | 'consultation';
+    usingDefault: boolean;
 };
 
 export type NumberSegment = {
@@ -1401,6 +1407,7 @@ export type NumberSegment = {
 
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
+    purpose?: 'matter' | 'consultation';
 };
 
 export type NumberingPreviewResponse = {
@@ -1554,8 +1561,9 @@ export type FileHistoryResponse = {
 export type FileHistoryItem = {
     at: string;
     event: string;
-    fileId: string;
-    fileName: string;
+    subjectKind: 'file' | 'folder';
+    subjectId: string;
+    subjectName: string;
     versionNumber: number | null;
     actorUserId: string | null;
     actorName: string | null;
@@ -5839,6 +5847,7 @@ export type BillingContingencyResidualResponse = {
 
 export type TimeEntryAck = {
     timeEntryId: string;
+    entryNumber?: string;
 };
 
 export type CreateTimeEntryRequest = {
@@ -5854,6 +5863,10 @@ export type CreateTimeEntryRequest = {
     utbmsActivityCodeId?: string | null;
     rateCardId?: string | null;
     overrideRateE4?: number | null;
+    /**
+     * The firm's own note about the entry. Internal only: it never appears on a bill, a print sheet, or the client portal, and the audit trail records that it changed, never what it says.
+     */
+    memo?: string | null;
 };
 
 export type TimeEntryListResponse = {
@@ -5865,6 +5878,7 @@ export type TimeEntrySummary = {
     id: string;
     matterId: string;
     timekeeperUserId: string;
+    timekeeperName: string | null;
     workDate: string;
     durationMinutes: number;
     rawDurationMinutes: number;
@@ -5872,8 +5886,62 @@ export type TimeEntrySummary = {
     billable: boolean;
     amountMinor: number | null;
     currency: string;
+    rateE4: number | null;
+    rateSource: 'override' | 'matter' | 'client' | 'timekeeper' | 'role' | 'card_default' | null;
+    rateCardId: string | null;
+    utbmsTaskCodeId: string | null;
+    utbmsTaskCode: string | null;
+    utbmsTaskLabel: string | null;
+    utbmsActivityCodeId: string | null;
+    utbmsActivityCode: string | null;
+    utbmsActivityLabel: string | null;
     status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
-    timekeeperName?: string | null;
+    source: 'timer' | 'manual' | 'quick_add' | 'grid' | 'offline_sync' | 'calendar';
+    invoiceId: string | null;
+    memo: string | null;
+    entryNumber: string | null;
+    createdAt: string;
+    createdByUserId: string | null;
+    createdByName: string | null;
+    attachmentCount: number;
+};
+
+export type TimeEntryEventsResponse = {
+    data: Array<TimeEntryEventItem>;
+    nextCursor: string | null;
+};
+
+export type TimeEntryEventItem = {
+    at: string;
+    event: string;
+    actorUserId: string | null;
+    actorName: string | null;
+    detail?: unknown;
+};
+
+export type TimeEntryAttachmentListResponse = {
+    data: Array<TimeEntryAttachmentItem>;
+};
+
+export type TimeEntryAttachmentItem = {
+    fileId: string;
+    fileName: string | null;
+    createdAt: string;
+    createdByUserId: string | null;
+    createdByName: string | null;
+};
+
+export type TimeEntryAttachmentAck = {
+    timeEntryId: string;
+    fileId: string;
+};
+
+export type AttachTimeEntryFileRequest = {
+    fileId: string;
+};
+
+export type DetachTimeEntryFileRequest = {
+    fileId: string;
 };
 
 export type PatchTimeEntryRequest = {
@@ -5882,6 +5950,10 @@ export type PatchTimeEntryRequest = {
     workDate?: string;
     utbmsTaskCodeId?: string | null;
     utbmsActivityCodeId?: string | null;
+    /**
+     * The firm-internal note. Null clears it; absent leaves it unchanged.
+     */
+    memo?: string | null;
 };
 
 export type QuickAddPreviewResponse = {
@@ -5900,6 +5972,7 @@ export type QuickAddPreviewRequest = {
 
 export type GridBatchAck = {
     timeEntryIds: Array<string>;
+    entryNumbers?: Array<string>;
 };
 
 export type GridBatchRequest = {
@@ -5908,6 +5981,15 @@ export type GridBatchRequest = {
 
 export type KickBackRequest = {
     reason: string;
+};
+
+export type ConvertToCostAck = {
+    costEntryId: string;
+    timeEntryId: string;
+};
+
+export type ConvertToCostRequest = {
+    utbmsExpenseCodeId?: string | null;
 };
 
 export type TimerStartAck = {
@@ -5947,6 +6029,7 @@ export type TimerStateResponse = {
 
 export type TimerStopCommitAck = {
     timeEntryId: string;
+    entryNumber?: string;
 };
 
 export type RateCardAck = {
@@ -11998,7 +12081,9 @@ export type LocationsAssignMemberResponse = LocationsAssignMemberResponses[keyof
 export type NumberingGetData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        purpose?: 'matter' | 'consultation';
+    };
     url: '/api/v1/numbering-scheme';
 };
 
@@ -17858,6 +17943,7 @@ export type CustodyListMovementsData = {
     };
     query?: {
         cursor?: string;
+        itemId?: string;
     };
     url: '/api/v1/custody/packets/{packetId}/movements';
 };
@@ -27329,6 +27415,194 @@ export type TimeEntriesUpdateResponses = {
 
 export type TimeEntriesUpdateResponse = TimeEntriesUpdateResponses[keyof TimeEntriesUpdateResponses];
 
+export type TimeEntriesEventsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/time-entries/{id}/events';
+};
+
+export type TimeEntriesEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesEventsError = TimeEntriesEventsErrors[keyof TimeEntriesEventsErrors];
+
+export type TimeEntriesEventsResponses = {
+    /**
+     * The entry's events
+     */
+    200: TimeEntryEventsResponse;
+};
+
+export type TimeEntriesEventsResponse = TimeEntriesEventsResponses[keyof TimeEntriesEventsResponses];
+
+export type TimeEntriesListAttachmentsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/attachments';
+};
+
+export type TimeEntriesListAttachmentsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesListAttachmentsError = TimeEntriesListAttachmentsErrors[keyof TimeEntriesListAttachmentsErrors];
+
+export type TimeEntriesListAttachmentsResponses = {
+    /**
+     * The entry's attachments
+     */
+    200: TimeEntryAttachmentListResponse;
+};
+
+export type TimeEntriesListAttachmentsResponse = TimeEntriesListAttachmentsResponses[keyof TimeEntriesListAttachmentsResponses];
+
+export type TimeEntriesAttachFileData = {
+    body: AttachTimeEntryFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/attachments';
+};
+
+export type TimeEntriesAttachFileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesAttachFileError = TimeEntriesAttachFileErrors[keyof TimeEntriesAttachFileErrors];
+
+export type TimeEntriesAttachFileResponses = {
+    /**
+     * The file was attached
+     */
+    200: TimeEntryAttachmentAck;
+};
+
+export type TimeEntriesAttachFileResponse = TimeEntriesAttachFileResponses[keyof TimeEntriesAttachFileResponses];
+
+export type TimeEntriesDetachFileData = {
+    body: DetachTimeEntryFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/attachments/detach';
+};
+
+export type TimeEntriesDetachFileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesDetachFileError = TimeEntriesDetachFileErrors[keyof TimeEntriesDetachFileErrors];
+
+export type TimeEntriesDetachFileResponses = {
+    /**
+     * The file was detached
+     */
+    200: TimeEntryAttachmentAck;
+};
+
+export type TimeEntriesDetachFileResponse = TimeEntriesDetachFileResponses[keyof TimeEntriesDetachFileResponses];
+
 export type TimeEntriesPreviewQuickAddData = {
     body: QuickAddPreviewRequest;
     path?: never;
@@ -27633,6 +27907,60 @@ export type TimeEntriesVoidResponses = {
 };
 
 export type TimeEntriesVoidResponse = TimeEntriesVoidResponses[keyof TimeEntriesVoidResponses];
+
+export type TimeEntriesConvertToCostData = {
+    body: ConvertToCostRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/convert-to-cost';
+};
+
+export type TimeEntriesConvertToCostErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesConvertToCostError = TimeEntriesConvertToCostErrors[keyof TimeEntriesConvertToCostErrors];
+
+export type TimeEntriesConvertToCostResponses = {
+    /**
+     * The cost entry was created and the time entry voided
+     */
+    201: ConvertToCostAck;
+};
+
+export type TimeEntriesConvertToCostResponse = TimeEntriesConvertToCostResponses[keyof TimeEntriesConvertToCostResponses];
 
 export type TimerStartData = {
     body: TimerStartRequest;

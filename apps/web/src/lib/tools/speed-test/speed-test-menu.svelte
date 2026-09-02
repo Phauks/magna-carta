@@ -1,8 +1,10 @@
 <script lang="ts">
   /*
    * The `…` overflow menu for the two run preferences — low internet usage mode and auto-start.
-   * Follows the overflow-menu precedent in matter-header.svelte: a bordered ghost icon button opens
-   * a portaled DropdownMenu.Content holding toggleable rows.
+   * A bordered ghost icon button opens a portaled DropdownMenu.Content holding toggleable rows. The
+   * menu earns its glyph because every row in it is live and pressable — an overflow that has to be
+   * opened before a reader learns it holds nothing does not, which is why the matter header no
+   * longer has one.
    *
    * Disabled while a run is in progress (`running` or `paused`): the ladder is fixed at engine
    * construction (see speed-test-engine.svelte.ts), so flipping low-data mode mid-run could not

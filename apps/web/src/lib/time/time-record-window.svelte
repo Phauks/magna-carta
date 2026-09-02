@@ -28,13 +28,15 @@
    * Each is therefore rendered where it belongs, refused, saying what it waits on — so a reader can
    * see the record's real shape and can never mistake an unserved field for an empty one.
    */
+  import { parseDate } from "@internationalized/date";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
-  import RecordAttachments from "@magna-carta/design-system/record-attachments";
   import RecordChain from "@magna-carta/design-system/record-chain";
   import EventRail from "@magna-carta/design-system/event-rail";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
@@ -52,7 +54,8 @@
   import MatterPicker from "./matter-picker.svelte";
   import { timekeeperOf } from "./time-columns.ts";
   import { gapReason, TIME_LEDGER_GAPS } from "./time-gaps.ts";
-  import { matterDisplay, type SheetMatter } from "./time-sheet-model.ts";
+  import { timePreferences } from "./time-preferences.svelte.ts";
+  import { matterDisplay, provisionalTimeCode, type SheetMatter } from "./time-sheet-model.ts";
   import {
     createTimeEntry,
     draftRefusal,
@@ -76,6 +79,7 @@
     sessionUserId,
     canWorkDraft,
     onSaved,
+    onContinueNew,
   }: {
     open?: boolean;
     /** The entry being read, or null while a new one is being written. */
@@ -112,6 +116,12 @@
     /** Whether this account may work this draft, and why not when it may not. */
     canWorkDraft: (entry: TimeEntrySummary) => { allowed: boolean; reason: string };
     onSaved: () => void;
+    /**
+     * Save & New pressed on an entry the firm already holds: the change is saved, and the caller
+     * swaps this window onto a fresh entry seeded from these fields. Withheld, Save & New is
+     * offered only while creating, where the window can start the next one itself.
+     */
+    onContinueNew?: (prefill: TimeEntryDraftFields) => void;
   } = $props();
 
   const creating = $derived(entry === null);
@@ -137,6 +147,7 @@
    */
   let chosenMatterId = $state<string | null>(null);
   let billableChoice = $state("billable");
+  let billingListOpen = $state(false);
   let saving = $state(false);
   let saveFailure = $state<string | null>(null);
   let printOpen = $state(false);
@@ -169,6 +180,10 @@
    * never while it is being edited: a re-seed mid-edit would silently discard what somebody typed.
    */
   let seededFor = $state<string | null>(null);
+  /** How many provisional codes this window has minted, so each fresh entry reads its own. */
+  let provisionalSequence = $state(0);
+  /** The tentative code a new entry is held under until the record answers with its real one. */
+  let provisionalCode = $state<string | null>(null);
   $effect(() => {
     /*
      * A new entry started FROM something is a different seed from a new entry started from nothing,
@@ -189,10 +204,25 @@
     const start = entry ?? prefill;
     descriptionText = start?.narrative ?? "";
     workDateText = start?.workDate ?? new Date().toISOString().slice(0, 10);
-    durationText = start === null ? "" : formatDuration(start.rawDurationMinutes).clock;
-    timekeeperUserId = start?.timekeeperUserId ?? sessionUserId ?? "";
+    durationText =
+      start === null || start.rawDurationMinutes === 0
+        ? ""
+        : formatDuration(start.rawDurationMinutes).clock;
+    // Whether an unstarted entry's staff begins as the person creating it is the reader's own
+    // setting, in the window's menu. A prefill or a record still wins: those name a person.
+    timekeeperUserId =
+      start?.timekeeperUserId ??
+      (timePreferences.defaultStaffToSelf ? (sessionUserId ?? "") : "");
     chosenMatterId = entry?.matterId ?? matterId;
     billableChoice = start === null || start.billable ? "billable" : "nonbillable";
+    // A new entry is held under a tentative code from the moment the window opens on it; the
+    // firm's own number replaces it when the record answers.
+    if (entry === null) {
+      provisionalSequence += 1;
+      provisionalCode = provisionalTimeCode(provisionalSequence);
+    } else {
+      provisionalCode = null;
+    }
     rememberWhatIsInTheFields();
   });
 
@@ -223,6 +253,10 @@
   }
 
   let staffQuery = $state("");
+  /** Whether the reader is searching rather than reading the chosen name. */
+  let staffSearching = $state(false);
+  /** The list is a controlled open: arriving in the field shows everything, typing narrows. */
+  let staffListOpen = $state(false);
   const activeMembers = $derived(members.filter((member) => member.status === "active"));
   const matchingMembers = $derived(
     staffQuery.trim() === ""
@@ -381,8 +415,23 @@
     }
     onSaved();
     if (andKeepGoing) {
+      if (entry !== null) {
+        // A change to an entry the firm holds landed; the next entry is a fresh one carrying the
+        // context forward, and only the caller can swap the window onto it.
+        onContinueNew?.({
+          narrative: "",
+          workDate: workDateText,
+          rawDurationMinutes: 0,
+          billable,
+          timekeeperUserId,
+        });
+        return;
+      }
       descriptionText = "";
       durationText = "";
+      // A fresh entry, a fresh tentative code: the one just saved took its own number with it.
+      provisionalSequence += 1;
+      provisionalCode = provisionalTimeCode(provisionalSequence);
       // The next entry starts from these fields, so they are what "unchanged" now means: without
       // this, the emptied form would read as unsaved work and the window would argue on the way out.
       rememberWhatIsInTheFields();
@@ -395,6 +444,18 @@
 
 {#snippet subtitle()}
   {#if entry === null}
+    {#if provisionalCode !== null}
+      <!-- The tentative code is visible from the first frame: an entry is a thing with a number
+           from the moment somebody starts it, and the firm's own number replaces this on save. -->
+      <span
+        class="tabular-nums"
+        title="A tentative code, held until the entry is saved. The firm's own entry number replaces it, minted on the matter."
+      >
+        Entry {provisionalCode}
+      </span>
+      <Badge variant="neutral">Tentative</Badge>
+      <span aria-hidden="true">&middot;</span>
+    {/if}
     <span>{chosenMatterName === "" ? "No matter chosen yet" : chosenMatterName}</span>
   {:else}
     <span title={TIME_LEDGER_GAPS.entryNumber.field + " is not recorded yet."}>
@@ -441,9 +502,12 @@
 
     <div class="flex flex-col gap-4">
       <Label for="time-record-description">Description</Label>
+      <!-- No resize handle, deliberately: the window holds its size, so a long description scrolls
+           inside its own field and the pane scrolls past it — the entry never grows under it. -->
       <Textarea
         id="time-record-description"
-        rows={2}
+        class="resize-none"
+        rows={3}
         placeholder="Description"
         title="Description"
         disabled={readOnly}
@@ -453,8 +517,13 @@
 
     <div class="grid gap-12 @md:grid-cols-3">
       <div class="flex flex-col gap-4">
-        <Label for="time-record-work-date">Work Date</Label>
-        <Input id="time-record-work-date" type="date" disabled={readOnly} bind:value={workDateText} />
+        <!-- The product's own calendar, not the browser's: one themed picker on every surface. -->
+        <DatePicker
+          label="Work Date"
+          value={workDateText === "" ? undefined : parseDate(workDateText)}
+          disabled={readOnly}
+          onValueChange={(picked) => (workDateText = picked === undefined ? "" : picked.toString())}
+        />
       </div>
 
       <!--
@@ -487,17 +556,34 @@
           <Combobox.Root
             type="single"
             value={timekeeperUserId}
-            inputValue={staffQuery}
+            inputValue={staffSearching ? staffQuery : timekeeperName}
+            open={staffListOpen}
             onValueChange={pickTimekeeper}
             onOpenChange={(opened) => {
-              if (!opened) staffQuery = timekeeperName;
+              staffListOpen = opened;
+              if (!opened) {
+                staffSearching = false;
+                staffQuery = "";
+              }
             }}
           >
+            <!-- Arriving in the field shows the whole list at once — a dropdown a person has to
+                 type at before it says anything is a dropdown they cannot browse. -->
             <Combobox.Input
               id="time-record-staff"
               fieldName="Staff"
               title="Whose work this is. The record keeps the name it was captured with."
-              oninput={(event) => (staffQuery = event.currentTarget.value)}
+              onfocus={() => {
+                staffSearching = true;
+                staffQuery = "";
+                staffListOpen = true;
+              }}
+              onclick={() => (staffListOpen = true)}
+              oninput={(event) => {
+                staffSearching = true;
+                staffQuery = event.currentTarget.value;
+                staffListOpen = true;
+              }}
             />
             <Combobox.Content>
               {#each matchingMembers as member (member.userId)}
@@ -517,9 +603,17 @@
           value={billableChoice}
           inputValue={billingLabel}
           disabled={readOnly}
+          open={billingListOpen}
           onValueChange={pickBilling}
+          onOpenChange={(opened) => (billingListOpen = opened)}
         >
-          <Combobox.Input id="time-record-billing" fieldName="Billing" readonly />
+          <Combobox.Input
+            id="time-record-billing"
+            fieldName="Billing"
+            readonly
+            onfocus={() => (billingListOpen = true)}
+            onclick={() => (billingListOpen = true)}
+          />
           <Combobox.Content>
             {#each BILLING_CHOICES as choice (choice.value)}
               <Combobox.Item
@@ -594,12 +688,35 @@
   </div>
 {/snippet}
 
+<!-- THE WHOLE TAB IS THE DROPZONE. Attaching a file is the tab's one act, so the entire pane
+     takes a drop, the two deliberate doors sit at its top right, and the list of what is already
+     attached fills the rest. -->
 {#snippet attachmentsTab()}
-  <RecordAttachments
-    attachments={[]}
-    canEdit={false}
-    attachDisabledReason="Not built yet. Waiting on {gapReason('attachments')}."
-  />
+  <div class="flex h-full min-h-0 flex-col gap-8">
+    <div class="flex items-center justify-end gap-8">
+      <SoonAffordance reason={gapReason("attachments")}>
+        {#snippet control(soon)}
+          <Button variant="secondary" size="sm" {...soon}>From the Matter</Button>
+        {/snippet}
+      </SoonAffordance>
+      <SoonAffordance reason={gapReason("attachments")}>
+        {#snippet control(soon)}
+          <Button variant="secondary" size="sm" {...soon}>Upload</Button>
+        {/snippet}
+      </SoonAffordance>
+    </div>
+    <div
+      class="flex min-h-0 flex-1 flex-col rounded-md border border-dashed border-border-default"
+      role="presentation"
+    >
+      <div class="flex flex-1 flex-col items-center justify-center gap-4 p-16 text-center">
+        <p class="text-sm text-text-muted">Drop files anywhere on this pane to attach them.</p>
+        <p class="text-xs text-text-subtle">
+          Waiting on {gapReason("attachments")}.
+        </p>
+      </div>
+    </div>
+  </div>
 {/snippet}
 
 {#snippet historyTab()}
@@ -688,18 +805,30 @@
       </SoonAffordance>
     {/if}
     <Button onclick={() => (open = false)}>Close</Button>
-  {:else if creating}
+  {:else if creating || onContinueNew !== undefined}
     <!-- The one verb this record type adds: entering time is a run of entries, and a person who
-         has just logged one is usually about to log the next. -->
+         has just logged one is usually about to log the next. It carries the context forward —
+         the matter, the staff, the date — and clears what belonged to the entry just saved. -->
     <Button
       variant="secondary"
       disabled={saveRefusal !== undefined}
-      title={saveRefusal ?? "Save this draft and start another"}
+      title={saveRefusal ?? "Save this entry and start another carrying the matter and the date"}
       onclick={() => void save(true)}
     >
       Save &amp; New
     </Button>
   {/if}
+{/snippet}
+
+<!-- The window's own menu: the rare acts and the reader's settings, off the fields' way. -->
+{#snippet entryMenu()}
+  <DropdownMenu.GroupHeading>Settings</DropdownMenu.GroupHeading>
+  <DropdownMenu.CheckboxItem
+    checked={timePreferences.defaultStaffToSelf}
+    onCheckedChange={(next) => timePreferences.setDefaultStaffToSelf(next)}
+  >
+    Default staff member to self
+  </DropdownMenu.CheckboxItem>
 {/snippet}
 
 <RecordWindow
@@ -709,6 +838,7 @@
   {subtitle}
   {record}
   {actions}
+  menu={entryMenu}
   tabs={[
     { key: "attachments", label: "Attachments", content: attachmentsTab },
     { key: "history", label: "History", content: historyTab },
@@ -717,10 +847,12 @@
   defaultTab="history"
   editDisabledReason={editRefusal}
   saveDisabledReason={saveRefusal}
+  saveLabel={"Save & Close"}
   {unsavedChanges}
   onSave={() => void save(false)}
   onCancel={forgetChanges}
   onPrint={() => (printOpen = true)}
+  style="block-size: min(92vh, calc(var(--mc-size-record-window) * 0.625))"
 />
 
 {#if sheet !== null}

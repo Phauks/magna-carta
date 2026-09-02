@@ -137,29 +137,32 @@ describe("viewSafely", () => {
       "https://example.com/",
       respondWith({ title: "boom", status: 500, errorId: "error_abc123" }, 500),
     );
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 500, errorId: "error_abc123" } });
+    expect(outcome).toMatchObject({
+      kind: "problem",
+      problem: { status: 500, errorId: "error_abc123" },
+    });
   });
 
   it("returns a problem carrying the status when a 400 body has no Error ID field", async () => {
     const outcome = await viewSafely("https://bad.example/", respondWith("not a json body", 400));
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 400, errorId: undefined } });
+    expect(outcome).toMatchObject({ kind: "problem", problem: { status: 400 } });
   });
 
   it("reports a 502 renderer outage as a problem so the page can say try again", async () => {
     const outcome = await viewSafely("https://example.com/", respondWith({}, 502));
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 502, errorId: undefined } });
+    expect(outcome).toMatchObject({ kind: "problem", problem: { status: 502 } });
   });
 
   it("reports transport when nothing answers at all", async () => {
     const throwing = (async () => {
       throw new TypeError("network down");
     }) as unknown as typeof fetch;
-    expect(await viewSafely("https://example.com/", throwing)).toEqual({ kind: "transport" });
+    expect(await viewSafely("https://example.com/", throwing)).toMatchObject({ kind: "transport" });
   });
 
   it("reports transport when a 200 body is not valid JSON", async () => {
     const outcome = await viewSafely("https://example.com/", respondWith("<html>no</html>", 200));
-    expect(outcome).toEqual({ kind: "transport" });
+    expect(outcome).toMatchObject({ kind: "transport" });
   });
 });
 
@@ -191,10 +194,27 @@ describe("problemGuidance", () => {
   });
 
   it("never blames the input for a 404 — that is deploy skew, not an address fault", () => {
+    // A 404 with no problem document behind it was answered by no route at all: the page and the
+    // service are on different releases. Reading it as an input fault blamed the member for a
+    // deploy, which is what this pins.
     const guidance = problemGuidance({ status: 404 });
     expect(guidance.tone).toBe("warning");
     expect(guidance.message).not.toContain("address");
-    expect(guidance.message).toContain("Refresh");
+    expect(guidance.message).toContain("Reload");
+  });
+
+  it("does not call a genuinely missing record a deploy either", () => {
+    // The other way round is worse: a 404 the API composed carries a registered type and a handle,
+    // and telling somebody the platform was updating when their record is simply gone sends them
+    // to wait for a release that will not bring it back.
+    const guidance = problemGuidance({
+      status: 404,
+      type: "https://api.magnacarta.esq/problems/not-found",
+      errorId: "error_gone",
+      detail: "That capture is no longer held.",
+    });
+    expect(guidance.message).not.toContain("Reload");
+    expect(guidance.message).toContain("no longer held");
   });
 
   it("cannot echo the target back — guidance is a constant of the status alone", () => {
@@ -234,7 +254,7 @@ describe("viewSafelyStaged", () => {
       () => {},
       respondWithStream([{ stage: "probing" }, { stage: "failed", problem: { status: 502 } }]),
     );
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 502 } });
+    expect(outcome).toMatchObject({ kind: "problem", problem: { status: 502 } });
   });
 
   it("reads a pre-stream refusal as an ordinary problem document", async () => {
@@ -243,7 +263,10 @@ describe("viewSafelyStaged", () => {
         status: 403,
       })) as unknown as typeof fetch;
     const outcome = await viewSafelyStaged("https://example.com/", () => {}, refusing);
-    expect(outcome).toEqual({ kind: "problem", problem: { status: 403, errorId: "error_x" } });
+    expect(outcome).toMatchObject({
+      kind: "problem",
+      problem: { status: 403, errorId: "error_x" },
+    });
   });
 
   it("falls back to the non-streaming capture when the stream route is not deployed", async () => {
@@ -263,13 +286,13 @@ describe("viewSafelyStaged", () => {
       () => {},
       respondWithStream([{ stage: "probing" }]),
     );
-    expect(outcome).toEqual({ kind: "transport" });
+    expect(outcome).toMatchObject({ kind: "transport" });
   });
 
   it("reports transport when a line is not valid JSON", async () => {
     const garbled = (async () =>
       new Response("not json\n", { status: 200 })) as unknown as typeof fetch;
-    expect(await viewSafelyStaged("https://example.com/", () => {}, garbled)).toEqual({
+    expect(await viewSafelyStaged("https://example.com/", () => {}, garbled)).toMatchObject({
       kind: "transport",
     });
   });
@@ -278,7 +301,7 @@ describe("viewSafelyStaged", () => {
     const throwing = (async () => {
       throw new TypeError("network down");
     }) as unknown as typeof fetch;
-    expect(await viewSafelyStaged("https://example.com/", () => {}, throwing)).toEqual({
+    expect(await viewSafelyStaged("https://example.com/", () => {}, throwing)).toMatchObject({
       kind: "transport",
     });
   });

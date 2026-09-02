@@ -251,14 +251,14 @@
 
 - id: matters.lifecycle.consultations
   name: Consultations (prospective matters)
-  scope: Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake.
+  scope: Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake.
   status: partial
   surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0080
-  evidence: prospective status with no number/counter in matter-service.ts; consultation queries with staleness in queries.ts
+  evidence: prospective status drawing matter.consultation_number from the consultation-purpose scheme in matter-service.ts (numbering/consultation-scheme.ts holds the built-in default); consultation queries with staleness in queries.ts
   awaiting-owner: May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
-  notes: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers.
+  notes: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers.
 
 - id: matters.lifecycle.close-preconditions
   name: Close-precondition hook
@@ -395,7 +395,7 @@
   public-name: Search a matter
   public-summary: Search everything on a matter from one box — notes, files, parties and what the firm holds in custody — starting with the screen you are already on.
   awaiting-owner: Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
-  notes: PARTIAL because nine of the fourteen sections answer; the other five decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page.
+  notes: PARTIAL because eight of the fourteen sections answer; the other six decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page.
 
 - id: matters.search.sources
   name: Declared search sources
@@ -403,8 +403,8 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
-  evidence: packages/matter-search/src/sources/all.ts registers nine sources (files, time, costs, parties, notes, custody, billing, calendar, matter assets) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds
-  notes: PARTIAL because five sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. Review-set sources are structurally refused: a review set is its own corpus.
+  evidence: packages/matter-search/src/sources/all.ts registers eight sources (files, time, costs, billing, parties, calendar, notes, custody) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds
+  notes: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. The matter-asset register has a query but no screen to land a hit on, so it is deliberately unregistered until the register gets one. Review-set sources are structurally refused: a review set is its own corpus.
 
 - id: matters.search.file-contents
   name: File contents in a matter search

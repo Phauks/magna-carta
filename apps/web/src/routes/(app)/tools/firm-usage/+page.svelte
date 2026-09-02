@@ -10,6 +10,8 @@
    * still renders, disabled, honestly.
    */
   import { onMount } from "svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -30,7 +32,7 @@
   } from "$lib/tools/firm-usage/firm-usage-format.ts";
 
   let usage = $state<FirmUsageResponse | null>(null);
-  let failure = $state<{ message: string; errorId: string | null } | null>(null);
+  let failure = $state<StatedFailure | null>(null);
   let loading = $state(true);
 
   async function loadUsage(): Promise<void> {
@@ -39,18 +41,9 @@
     const outcome = await readFirmUsage(fetch);
     if (outcome.kind === "ok") {
       usage = outcome.value;
-    } else if (outcome.kind === "problem") {
-      usage = null;
-      failure = {
-        message: outcome.problem.detail ?? "The firm's usage could not be read.",
-        errorId: outcome.problem.errorId ?? null,
-      };
     } else {
       usage = null;
-      failure = {
-        message: "Nothing answered the request. Check your connection, then try again.",
-        errorId: null,
-      };
+      failure = stated(outcome.failure, "The firm's usage could not be read.");
     }
     loading = false;
   }
@@ -97,21 +90,12 @@
 </Masthead.Root>
 
 {#if failure !== null}
-  <Alert.Root variant="danger">
-    <Alert.Title>The Firm's Usage Could Not Be Read</Alert.Title>
-    <Alert.Description>
-      {failure.message}
-      {#if failure.errorId !== null}
-        <span class="mt-8 block">
-          Error ID: <span class="font-mono">{failure.errorId}</span>
-        </span>
-      {/if}
-      <Button variant="secondary" class="mt-8" onclick={() => void loadUsage()}>
-        <RotateCcw class="size-16" aria-hidden="true" />
-        Try again
-      </Button>
-    </Alert.Description>
-  </Alert.Root>
+  <FailureNotice
+    failure={failure.failure}
+    title="The Firm's Usage Could Not Be Read"
+    fallback={failure.fallback}
+    onRetry={() => void loadUsage()}
+  />
 {:else if usage === null}
   <!-- Skeletons at the final layout's height: each section keeps its heading, and the block below
        stands in for the table it will become, so the page does not reflow when the data lands. -->

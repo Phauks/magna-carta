@@ -13,14 +13,16 @@
    * the moment the shell learns about one of them, the next kind needs its own window and the
    * reader has two things to learn instead of one. tooling/lint-one-ui asserts it at the source.
    *
-   * THE HEADER CARRIES EXACTLY FOUR CONTROLS, IN ONE ORDER: Edit, Print, expand, close. A reader
-   * learns the window once. Edit lives here rather than in the surface that opened the record,
-   * because opening a record and editing one are different acts and only one of them belongs to a
-   * list. Print layers its sheet ABOVE this window rather than replacing it, so closing the sheet
-   * hands back the record that was being read — that is the caller's job in `onPrint`, and the
-   * reason this control does not close anything itself. The same source scan asserts the set and
-   * its order, which is also why the verbs that commit and abandon a change live in the action bar
-   * and never up here: editing must not cost the header a fifth control.
+   * THE HEADER CARRIES ONE ORDERED SET OF CONTROLS: the record kind's menu (when it has one),
+   * Edit, Print, expand, close. A reader learns the window once. Edit lives here rather than in
+   * the surface that opened the record, because opening a record and editing one are different
+   * acts and only one of them belongs to a list. Print layers its sheet ABOVE this window rather
+   * than replacing it, so closing the sheet hands back the record that was being read — that is
+   * the caller's job in `onPrint`, and the reason this control does not close anything itself. The
+   * menu is the one caller-supplied control, because a record kind's rare acts and its settings
+   * need a home that is not a fifth field or a wider action bar; its CONTENT is the caller's, its
+   * place and its glyph are the shell's. The same source scan asserts the set and its order, which
+   * is also why the verbs that commit a change live in the action bar and never up here.
    *
    * EDITING HAPPENS IN THIS WINDOW, IN PLACE. Edit does not call out to the caller to open
    * something; it raises the window's own `editing` flag, the left pane re-renders as fields in the
@@ -52,15 +54,18 @@
    * Expanding it to the full viewport is remembered for the session (record-window-session.svelte.ts).
    */
   import type { Snippet } from "svelte";
+  import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Printer from "@lucide/svelte/icons/printer";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import X from "@lucide/svelte/icons/x";
   import * as Dialog from "../dialog/index.ts";
-  import * as AlertDialog from "../alert-dialog/index.ts";
-  import Button, { buttonClasses } from "../button/index.ts";
+  import * as DropdownMenu from "../dropdown-menu/index.ts";
+  import Button from "../button/index.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
+  import { CloseGuard } from "../../internal/close-guard.svelte.ts";
+  import DiscardQuestion from "../../internal/discard-question.svelte";
   import RecordWindowContext from "./record-window-context.svelte";
   import { recordWindowSession } from "./record-window-session.svelte.ts";
   import type { RecordWindowTab } from "./types.ts";
@@ -75,13 +80,16 @@
     tabs,
     defaultTab,
     actions,
+    menu,
     onSave,
     onCancel,
     onPrint,
     editDisabledReason,
     saveDisabledReason,
+    saveLabel = "Save",
     unsavedChanges = true,
     class: className,
+    style,
   }: {
     /** Whether the window is showing. Bindable, so a surface can open and close it. */
     open?: boolean;
@@ -123,6 +131,12 @@
      */
     actions: Snippet<[{ editing: boolean }]>;
     /**
+     * The record kind's own menu: its rare acts and its settings, as DropdownMenu items. Given, the
+     * header leads its control set with the one caller-supplied control; withheld, nothing renders
+     * and the set is the shell's four.
+     */
+    menu?: Snippet;
+    /**
      * Commit the change. Given, the window can be edited; withheld, Edit refuses, because a mode
      * with no way to commit is worse than no mode at all. The window does NOT leave editing on its
      * own afterwards: a commit can fail, and only the caller knows whether this one landed, so it
@@ -149,12 +163,24 @@
      */
     saveDisabledReason?: string;
     /**
+     * What the commit says. It closes nothing itself — the caller decides what follows a landed
+     * save — but a record kind whose save always closes says so on the control ("Save & Close"),
+     * because a button that names its whole act needs no second reading.
+     */
+    saveLabel?: string;
+    /**
      * Whether leaving editing would lose something. Defaults to true, because the shell cannot see
      * the fields and must not guess that nothing was typed; a record kind that tracks its own
      * changes passes false and the reader is not asked a question with one answer.
      */
     unsavedChanges?: boolean;
     class?: string;
+    /**
+     * Inline sizing for the WINDOWED state, token-derived (e.g. a fixed block-size so a record
+     * whose tabs differ in length does not resize under the reader). Ignored while expanded:
+     * filling the screen is the gesture, and a cap would fight it.
+     */
+    style?: string;
   } = $props();
 
   const isExpanded = $derived(expanded ?? recordWindowSession.expanded);
@@ -176,8 +202,17 @@
     saveDisabledReason === undefined ? "Save" : `Save: ${saveDisabledReason}`,
   );
 
-  /** Which gesture is waiting on the reader to say whether the change may be thrown away. */
-  let pendingGesture = $state<"leaveEditing" | "closeWindow" | null>(null);
+  /*
+   * The unsaved-work guard, shared with the modal shell (../../internal/close-guard.svelte.ts).
+   * It was written here first and lived here alone until ActionDialog needed the same question; a
+   * second copy would have been two questions with two wordings, drifting apart the first time one
+   * of them was corrected. The predicate is read at the moment of the gesture rather than held,
+   * because a record goes dirty and clean again while the window is open.
+   *
+   * Only an EDITING window has anything to lose — a record being read has nothing to discard — so
+   * the editing check lives in the predicate rather than at each call site.
+   */
+  const guard = new CloseGuard(() => editing && unsavedChanges);
 
   /*
    * A window that closed while its fields were open must not reopen showing them: a record is read
@@ -203,11 +238,7 @@
 
   /** Leave editing, asking first while there is something to lose. */
   function requestLeaveEditing(): void {
-    if (unsavedChanges) {
-      pendingGesture = "leaveEditing";
-      return;
-    }
-    leaveEditing();
+    if (guard.request("leaveEditing")) leaveEditing();
   }
 
   /*
@@ -216,17 +247,11 @@
    * the question decorative.
    */
   function requestCloseWindow(): void {
-    if (editing && unsavedChanges) {
-      pendingGesture = "closeWindow";
-      return;
-    }
-    closeWindow();
+    if (guard.request("closeSurface")) closeWindow();
   }
 
   function discardAndContinue(): void {
-    const gesture = pendingGesture;
-    pendingGesture = null;
-    if (gesture === "closeWindow") {
+    if (guard.release() === "closeSurface") {
       closeWindow();
       return;
     }
@@ -262,6 +287,7 @@
 >
   <Dialog.Content
     showClose={false}
+    data-modal-shell="record-window"
     data-expanded={isExpanded ? "true" : "false"}
     data-editing={editing ? "true" : "false"}
     class={mergeClasses(
@@ -272,6 +298,7 @@
       isExpanded ? "h-screen w-screen max-w-none" : "max-h-screen w-full max-w-record-window",
       className,
     )}
+    style={isExpanded ? undefined : style}
   >
     <!-- Plain divs, not <header>/<footer>: those map to the banner and contentinfo landmarks, which
          may not sit inside a dialog. The classes carry the structure; the roles would be wrong. -->
@@ -283,6 +310,21 @@
         </Dialog.Description>
       </div>
       <div class="mc-record-window-header-actions">
+        {#if menu}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              data-record-window-action="menu"
+              class="mc-record-window-header-action"
+              title="More"
+              aria-label="More"
+            >
+              <EllipsisVertical class="mc-record-window-header-icon" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              {@render menu()}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        {/if}
         <button
           type="button"
           data-record-window-action="edit"
@@ -348,16 +390,17 @@
     <div class="mc-record-window-actions">
       {@render actions({ editing })}
       {#if editing}
-        <!-- The reserved pair, always last and always in this order: whatever a record kind adds
-             sits before it, so the commit is the final control in every window in the product. -->
-        <Button variant="secondary" onclick={requestLeaveEditing}>Cancel</Button>
+        <!-- The reserved commit, always last: whatever a record kind adds sits before it, so the
+             commit is the final control in every window in the product. There is no Cancel beside
+             it — the header's close and Escape already run the unsaved-work guard, and a second
+             way out at the reader's strong hand was pressed by accident more than on purpose. -->
         <Button
           disabled={saveDisabledReason !== undefined}
           title={saveDisabledReason ?? "Save this record"}
           aria-label={saveAccessibleName}
           onclick={() => onSave?.()}
         >
-          Save
+          {saveLabel}
         </Button>
       {/if}
     </div>
@@ -365,34 +408,13 @@
 </Dialog.Root>
 
 <!--
-  The question a close gesture asks while there is unsaved work. It names what would be lost and
-  offers going back to it first, because the reader who arrives here by pressing Escape meant to
-  dismiss something smaller than their own typing.
+  The question a close gesture asks while there is unsaved work. The question itself, its verbs and
+  its shape are the shared component's; only the sentence naming what would be lost is this
+  window's, because what is at stake in a record being changed is not what is at stake in a form
+  being filled.
 -->
-<AlertDialog.Root
-  bind:open={
-    () => pendingGesture !== null,
-    (showing) => {
-      if (!showing) pendingGesture = null;
-    }
-  }
->
-  <AlertDialog.Content>
-    <AlertDialog.Title>Discard Your Changes?</AlertDialog.Title>
-    <AlertDialog.Description>
-      This record has changes that have not been saved. Leaving now throws them away; the record
-      itself stays exactly as it was.
-    </AlertDialog.Description>
-    <div class="mc-record-window-confirm-actions">
-      <AlertDialog.Cancel class={buttonClasses({ variant: "ghost", size: "default" })}>
-        Keep Editing
-      </AlertDialog.Cancel>
-      <AlertDialog.Action
-        class={buttonClasses({ variant: "secondary", size: "default" })}
-        onclick={discardAndContinue}
-      >
-        Discard Changes
-      </AlertDialog.Action>
-    </div>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+<DiscardQuestion
+  {guard}
+  description="This record has changes that have not been saved. Leaving now throws them away; the record itself stays exactly as it was."
+  onDiscard={discardAndContinue}
+/>

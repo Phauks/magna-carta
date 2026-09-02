@@ -19,8 +19,9 @@
    */
   import Badge from "@magna-carta/design-system/badge";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import * as Alert from "@magna-carta/design-system/alert";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
     emptyGroupLine,
     presentationFor,
@@ -35,7 +36,8 @@
     onnavigate,
   }: {
     answer: MatterSearchAnswer | null;
-    failure: string | null;
+    /** The whole failure record with this search's own words, never a sentence squeezed out of it. */
+    failure: StatedFailure | null;
     busy: boolean;
     /** "compact" is the panel under the field; "comfortable" is the results page. */
     density?: "compact" | "comfortable";
@@ -52,9 +54,15 @@
 </script>
 
 {#if failure !== null}
-  <Alert.Root variant="danger">
-    <Alert.Description>{failure}</Alert.Description>
-  </Alert.Root>
+  <!-- The failure band, not a bare sentence: it carries the Error ID as a copyable chip and the
+       remedy, which is what golden rule 4 requires of every error surface. -->
+  <FailureNotice
+    failure={failure.failure}
+    subject="This matter"
+    title="This Matter Could Not Be Searched"
+    fallback={failure.fallback}
+    whenSilent={failure.whenSilent}
+  />
 {:else if answer === null && busy}
   <div class="flex flex-col gap-8 p-8">
     <Skeleton class="h-16 w-full" />

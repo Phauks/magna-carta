@@ -83,16 +83,24 @@ async function seedMember(database: BatchDatabase, userId: string): Promise<void
     .run();
 }
 
-async function seedScheme(database: BatchDatabase, segments: NumberSegment[]): Promise<void> {
-  // One active scheme: deactivate any existing, then insert the new active one.
-  await database.prepare("UPDATE numbering_scheme SET active = 0").run();
+async function seedScheme(
+  database: BatchDatabase,
+  segments: NumberSegment[],
+  purpose: "matter" | "consultation" = "matter",
+): Promise<void> {
+  // One active scheme per purpose: deactivate any existing of that purpose, then insert the new one.
+  await database
+    .prepare("UPDATE numbering_scheme SET active = 0 WHERE purpose = ?1")
+    .bind(purpose)
+    .run();
   await database
     .prepare(
-      "INSERT INTO numbering_scheme (id, segments, active, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?3)",
+      "INSERT INTO numbering_scheme (id, segments, purpose, active, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
     )
     .bind(
-      `numberingScheme_${Math.floor(performance.now())}_${segments.length}`,
+      `numberingScheme_${Math.floor(performance.now())}_${segments.length}_${purpose}`,
       JSON.stringify(segments),
+      purpose,
       clock.now(),
     )
     .run();
@@ -100,11 +108,14 @@ async function seedScheme(database: BatchDatabase, segments: NumberSegment[]): P
 
 async function readMatter(database: BatchDatabase, matterId: MatterId) {
   const { results } = await database
-    .prepare("SELECT status, matter_number, opened_at, closed_at FROM matter WHERE id = ?1")
+    .prepare(
+      "SELECT status, matter_number, consultation_number, opened_at, closed_at FROM matter WHERE id = ?1",
+    )
     .bind(matterId)
     .all<{
       status: string;
       matter_number: string | null;
+      consultation_number: string | null;
       opened_at: string | null;
       closed_at: string | null;
     }>();
@@ -131,16 +142,68 @@ async function setup(segments: NumberSegment[] = YEAR_COUNTER_SCHEME): Promise<B
 const baseInput = { title: "Smith v. Jones", responsibleMemberId: RESPONSIBLE } as const;
 
 describe("createMatter", () => {
-  it("creates a prospective consultation with no number", async () => {
+  it("creates a prospective consultation with a consultation number and no matter number", async () => {
     const database = await setup();
-    const { matterId, matterNumber } = await createMatter(
+    const { matterId, matterNumber, consultationNumber } = await createMatter(
       database,
       { ...baseInput, status: "prospective" },
       options,
     );
     expect(matterNumber).toBeNull();
+    // No consultation scheme is configured here, so the built-in default renders: a consultation is
+    // never left unnumbered while somebody gets round to the settings screen.
+    expect(consultationNumber).toBe("C2026-0001");
     const row = await readMatter(database, matterId);
-    expect(row).toMatchObject({ status: "prospective", matter_number: null, opened_at: null });
+    expect(row).toMatchObject({
+      status: "prospective",
+      matter_number: null,
+      consultation_number: "C2026-0001",
+      opened_at: null,
+    });
+  });
+
+  it("counts consultations on their own run, leaving the matter counter untouched", async () => {
+    const database = await setup();
+    const first = await createMatter(database, { ...baseInput, status: "prospective" }, options);
+    const second = await createMatter(database, { ...baseInput, status: "prospective" }, options);
+    expect([first.consultationNumber, second.consultationNumber]).toEqual([
+      "C2026-0001",
+      "C2026-0002",
+    ]);
+    // The first MATTER opened after two consultations still draws 0001: a consultation that never
+    // becomes a matter must consume no matter number, or the firm's own run reads as a lost file.
+    const opened = await createMatter(database, { ...baseInput, status: "open" }, options);
+    expect(opened.matterNumber).toBe("2026-0001");
+    expect(opened.consultationNumber).toBeNull();
+    // Both runs allocate in the same tables, kept apart by the scope-key prefix. The default
+    // consultation scheme scopes on the year, so its run restarts each January; the matter scheme
+    // here is firm-wide and its scope key is empty.
+    expect(await readAllocations(database)).toEqual([
+      { scope_key: "", drawn_value: 1 },
+      { scope_key: "consultation/2026", drawn_value: 1 },
+      { scope_key: "consultation/2026", drawn_value: 2 },
+    ]);
+  });
+
+  it("renders a consultation number from the firm's own consultation scheme when it has one", async () => {
+    const database = await setup();
+    await seedScheme(
+      database,
+      [
+        { kind: "literal", text: "INTAKE-" },
+        { kind: "counter", padWidth: 3, start: 40 },
+      ],
+      "consultation",
+    );
+    const { consultationNumber } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    expect(consultationNumber).toBe("INTAKE-040");
+    // The matter scheme is a different row and is not disturbed by the consultation one.
+    const opened = await createMatter(database, { ...baseInput, status: "open" }, options);
+    expect(opened.matterNumber).toBe("2026-0001");
   });
 
   it("draws a number when created directly as open", async () => {
@@ -179,6 +242,9 @@ describe("openMatter", () => {
     expect(await readMatter(database, matterId)).toMatchObject({
       status: "open",
       matter_number: "2026-0001",
+      // Opening ADDS the permanent number; the tentative one stays, so a document filed under it
+      // still resolves.
+      consultation_number: "C2026-0001",
     });
   });
 

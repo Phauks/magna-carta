@@ -1,26 +1,14 @@
-# The build context for every container image whose `image_build_context` is the repository root
-# (search, libreoffice, discovery, ocr, recovery, file-repair — see each Worker's wrangler.jsonc).
-#
-# THIS FILE WAS REFERENCED BEFORE IT EXISTED. `containers/search/Dockerfile` has always said "The
-# root .dockerignore keeps every crate's target/ out of the context", and there was no such file, so
-# every root-context build shipped the whole repository to the daemon: node_modules, every crate's
-# target/, the SPA build output, and .git. That is minutes of transfer per build for bytes no image
-# has ever copied.
-#
-# ALLOWLIST, NOT A DENYLIST, and deliberately. Every one of those Dockerfiles copies exactly two
-# things — `crates` and its own `containers/<name>` — so naming what may enter is both smaller and
-# safer than trying to enumerate what may not: a new build artifact somewhere in the tree cannot
-# quietly rejoin the context, because nothing rejoins it without a line here.
-#
-# This file does NOT affect scan, bundle or raster. Their images are built with their own directory
-# as the context, and Docker reads the .dockerignore beside the context — not this one.
+# Docker build-context filter for the engine containers whose image_build_context is the repo root
+# (convert, discovery, file-repair, ocr, recovery, search — see each Worker's wrangler.jsonc; the
+# rest build with their own directory as the context and read the .dockerignore beside it, not this
+# one). A .dockerignore is read from the build-context root, so an engine container that builds on
+# the crates/ workspace needs this file HERE, not beside its Dockerfile. Allowlist only the source
+# the engine images copy — the Rust workspace and the container hosts — so .git, secrets
+# (.dev.vars), node_modules, and every package's build output never transit to the builder. Each
+# Dockerfile still COPYs only its own subset.
 *
-
 !crates
 !containers
-
-# Rust build output inside the two allowed trees. Re-excluded after the un-ignore above, because
-# `!crates` would otherwise pull in gigabytes of `target/` from a developer's working tree — which is
-# the exact cost the comment in containers/search/Dockerfile promised this file was preventing.
-crates/**/target
-containers/**/target
+# Never ship build output even from the allowlisted trees.
+**/target
+**/node_modules

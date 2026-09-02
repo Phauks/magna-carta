@@ -24,7 +24,6 @@ const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
 const TIME_ENTRY_TABLE = "time_entry";
 const COST_ENTRY_TABLE = "cost_entry";
 const MATTER_EVENT_TABLE = "matter_event";
-const MATTER_ASSET_TABLE = "matter_asset";
 const INVOICE_LINE_TABLE = "invoice_line";
 const INVOICE_TABLE = "invoice";
 
@@ -415,48 +414,23 @@ const calendarSource: MatterSearchSource = {
   project: projectInto("calendar", "calendar"),
 };
 
-// ---- matter assets ---------------------------------------------------------------------------
+// ---- matter assets: no source, deliberately ---------------------------------------------------
 
-// The register of what the client or the estate owns, matched on the firm's own description of each
-// asset.
+// There is no matter-assets source, and the reason is a missing DESTINATION rather than a missing
+// query. Every hit here is a reference — `matterSectionLink` sends the reader to the section that
+// owns the row, on the screen built to show it — and the asset register has no such section: the
+// matter strip holds fourteen, none of which is an asset schedule. A source would return rows whose
+// link is a 404, which is worse for a reader than a scope option that is honestly absent.
 //
-// IT MATCHES THE DESCRIPTION AND NOTHING ELSE, and that is a confidentiality decision rather than an
-// omission. The register also holds typed identifiers — account, policy, certificate and tax numbers
-// — and those are protected() columns sealed with only the last four characters readable. A search
-// that matched them would be a decryption oracle: a member could confirm a full account number by
-// typing it and seeing whether a row came back, without ever holding the capability to read one. The
-// plaintext public-record identifiers (a parcel number, a vehicle identification number) are
-// deliberately searchable by design, and joining them is a later, deliberate step — not something to
-// widen into by accident.
-const matterAssetsSource: MatterSearchSource = {
-  key: "matterAssets",
-  sectionSlug: "other",
-  permission: assertPermission("matterAssets:read"),
-  answerShape: "listing",
-  matchedFields: ["asset descriptions"],
-  declaresSnippet: false,
-  minimumQueryLength: 2,
-  supportsDeleted: false,
-  buildStatements: (request) => {
-    if (tooShort(request, 2)) return [];
-    return [
-      boundedSearchSelect(request.database, {
-        request,
-        from: MATTER_ASSET_TABLE,
-        idColumn: `${MATTER_ASSET_TABLE}.id`,
-        matterExpression: `${MATTER_ASSET_TABLE}.matter_id`,
-        sortExpression: `${MATTER_ASSET_TABLE}.created_at`,
-        titleExpression: `${MATTER_ASSET_TABLE}.description`,
-        snippetExpression: "NULL",
-        secondaryExpression: `${MATTER_ASSET_TABLE}.class`,
-        actorExpression: "NULL",
-        conditions: [`${MATTER_ASSET_TABLE}.description LIKE ? ESCAPE '\\'`],
-        bindings: [likeContainsTerm(request.query.trim())],
-      }),
-    ];
-  },
-  project: projectInto("matterAssets", "other"),
-};
+// When the register does get a screen, the source is a small thing to write, and two constraints
+// found while designing it should survive to that day. It matches `matter_asset.description` and
+// NOTHING else: the register also holds typed identifiers — account, policy, certificate and tax
+// numbers — which are protected() columns sealed with only the last four characters readable, and a
+// search that matched them would be a decryption oracle (a member could confirm a full account
+// number by typing it and seeing whether a row came back, without ever holding the capability to
+// read one). The plaintext public-record identifiers — a parcel number, a vehicle identification
+// number — are searchable by design, and joining them is a later, deliberate step rather than
+// something to widen into by accident.
 
 // ---- billing ---------------------------------------------------------------------------------
 
@@ -521,10 +495,9 @@ export const matterSearchSources = new MatterSearchSourceRegistry([
   filesSource,
   timeSource,
   costsSource,
+  billingSource,
   partiesSource,
+  calendarSource,
   notesSource,
   custodySource,
-  billingSource,
-  calendarSource,
-  matterAssetsSource,
 ]);

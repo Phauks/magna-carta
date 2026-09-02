@@ -41,6 +41,11 @@ export const PROBLEM_TYPES = {
   // the bytes carry no readable zip end structures. DISTINCT from `validation` (request-shape) —
   // the request is well-formed; the file's content is not a browsable archive.
   "not-an-archive": "not-an-archive",
+  // The firm's object storage is unprovisioned, or is recorded against a bucket this deployment
+  // does not read through (HTTP 503, retryable once an operator has configured it). DISTINCT from
+  // `internal` — the condition is known and named, so the reader is told what is misconfigured
+  // rather than handed an Error ID for a fault they cannot act on.
+  "storage-unavailable": "storage-unavailable",
   // A decryption attempt that failed because the supplied password did not open the file (HTTP 400).
   // Generic — does not reveal whether the file or its format was otherwise valid; only that the
   // password was wrong. The client can retry with a different password without re-uploading.

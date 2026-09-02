@@ -123,6 +123,8 @@ describe("removeShelfItem", () => {
     const fakeFetch = (async () => {
       throw new TypeError("network down");
     }) as typeof fetch;
-    expect(await removeShelfItem(fakeFetch, "downloadItem_one")).toEqual({ kind: "transport" });
+    expect(await removeShelfItem(fakeFetch, "downloadItem_one")).toMatchObject({
+      kind: "transport",
+    });
   });
 });

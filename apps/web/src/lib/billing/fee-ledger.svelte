@@ -403,7 +403,6 @@
       <Plus class="size-16" aria-hidden="true" />
       New Fee
     </Button>
-    <DataTable.GridColumnsMenu {grid} />
     <Button
       variant="secondary"
       size="icon"
