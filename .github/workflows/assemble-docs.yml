@@ -39,7 +39,14 @@ permissions:
 
 jobs:
   assemble:
-    runs-on: ubuntu-latest
+    # The 1-vCPU runner, at a third of the 2-core rate: the assemblers are dependency-free node scripts
+    # over a few hundred markdown files, the formatter is seconds, and nothing here is parallel. This
+    # runs TWICE per merge — once on the merge itself and once more when its own assembly PR lands (that
+    # second run finds nothing and exits before installing anything) — so its cost is paid on every
+    # change that reaches `main`, which is why the toolchain install below waits until it is known to
+    # be needed.
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -48,11 +55,10 @@ jobs:
           # no such commit for any of them — every fragment ties, and ADR numbers get assigned
           # alphabetically by slug instead of chronologically, silently.
           fetch-depth: 0
-      # Toolchain is needed only to format the assembled output (below); the assemblers themselves are
-      # dependency-free Node scripts.
-      - uses: ./.github/actions/setup
 
       - name: Fold fragments into the rendered trackers
+        # Before any install: the assemblers import nothing outside node's own modules, so they run on
+        # the runner's node as checked out.
         run: |
           node tooling/doc-fragments/build-decisions.mjs
           node tooling/doc-fragments/build-changelog.mjs
@@ -63,22 +69,43 @@ jobs:
           # remote-tracking ref removes the assumption; it points at this very push.
           node tooling/doc-fragments/build-register.mjs --ref=origin/main
 
+      - name: Decide whether there is anything to deliver
+        # The auto-merged assembly commit contains no fragment files, so the run it triggers assembles
+        # nothing — and must not pay for a toolchain to find that out. Everything below is conditional
+        # on this answer.
+        id: assembled
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "nothing to assemble"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git status --short
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Toolchain is needed only to format the assembled output (below), so it is installed only once
+      # there is output to format.
+      - name: Toolchain and workspace
+        if: steps.assembled.outputs.changed == 'true'
+        uses: ./.github/actions/setup
+
       # The assemblers can produce output the formatter rejects — e.g. build-decisions rewrites
       # `ADR-<slug>` references to `ADR-NNNN`, which changes text width inside Markdown tables and breaks
       # their column alignment. Format the output here so the assembly PR always passes the gate's format
       # check, whatever the assemblers touched. Pristine `main` is format-clean, so this only ever fixes
       # freshly-rendered files.
       - name: Format the rendered output
+        if: steps.assembled.outputs.changed == 'true'
         run: pnpm exec vp check --no-lint --fix
 
       - name: Deliver as an auto-merging pull request
+        if: steps.assembled.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "nothing to assemble"
-            exit 0
-          fi
+          # The slim runner image ships the GitHub CLI; fail here, by name, rather than three commands
+          # later if an image revision ever drops it.
+          command -v gh > /dev/null || { echo "gh is not on this runner image — the delivery below needs it" >&2; exit 1; }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B docs-assembly
