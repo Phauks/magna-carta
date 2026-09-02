@@ -221,6 +221,17 @@ is usually the fastest way to understand the rule.
   is genuinely too long or too secondary for the row — not a place to put one thing so the row
   looks tidy. Count the live items before drawing the trigger: at one, the item goes on the row; at
   zero, neither the item nor the trigger is drawn. _(matter chrome, 2026-09-01)_
+- **A navigation strip that does not fit is GROUPED, not folded.** A measured overflow decides by
+  pixel arithmetic which half of a member's destinations they can see, and width is not a statement
+  about importance: the matter strip put Trust and Calendar behind More because of where they
+  happened to sit in a list, while seven others held the row. Name the neighbourhoods instead and
+  put those on the row — the matter's fourteen sections became Overview, Files, Money, Record,
+  People and Magnus, which fit. A measured fold stays underneath as a backstop for a canvas
+  narrower than the arrangement; it is not the arrangement. _(matter section strip, 2026-09-01)_
+- **A folded group keeps its name.** When a group does reach the overflow, it goes in as a heading
+  over its own entries, never decanted into a flat list — otherwise the two routes to one
+  destination disagree about what it belongs to, and a member who learned "Trust is under Money"
+  finds it loose in a menu at a narrower window. _(matter section strip, 2026-09-01)_
 - **No navigation entry is called "Other".** A tab earns its place by naming something a reader
   would go looking for, and "Other" names the absence of a category — it can only be found by
   ruling every other tab out, and it exists as the drawer whatever nobody placed gets pushed into.
@@ -389,8 +400,9 @@ in the round and never gets promoted.
 
 ### 2026-09-01 — the matter screens, chrome-removal round
 
-Two removals and one addition. Both removals were issued the same way: the owner looked at the
-shipped chrome and could not name what a part of it was for. The generalizations are promoted above.
+Two removals, one addition, and the strip regrouped. Both removals were issued the same way: the
+owner looked at the shipped chrome and could not name what a part of it was for. The generalizations
+are promoted above.
 
 - **The header band's overflow (`...`) control is gone.** Its only item was the status's lifecycle
   action, disabled and marked Soon. Asked what it was buying, the honest answer was a control's
@@ -401,15 +413,27 @@ shipped chrome and could not name what a part of it was for. The generalizations
   label described no place — it named everything the other thirteen did not cover, which is a bin
   rather than a destination, and its stub had to be written in the abstract because nothing concrete
   was ever going to live there first.
-- **Magnus takes a matter section**, a `soon` stub for now. Local to this round rather than
-  generalizable: it leads the NON-core group rather than sitting among the core record sections,
-  because the assistant reads a matter and records nothing on it, so it should not hold a working
-  section's width while it is a stub. It is visible at desk width and the last of its group to fold.
+- **Magnus takes a matter section**, a `soon` stub for now. It stands alone on the row rather than
+  joining a group, because the assistant is not one of the matter's records — it is the way to ask
+  about them, and a member reaching for it is not reaching for a neighbourhood.
+- **The strip is grouped.** The owner raised it against the flat strip and chose grouped menus over
+  reordering and over nesting a Financials section. Six top-level entries: **Overview · Files ·
+  Money ⌄ · Record ⌄ · People ⌄ · Magnus**. Money is Time, Fees, Costs, Billing and Trust;
+  Record is Notes, Emails, Messaging and Custodian; People is Parties and Calendar. Overview leads
+  because the bare matter address lands there, Files stands alone because it is the busiest
+  destination and a click on nearly every visit is a real cost, and Magnus stands alone because it
+  is not one of the matter's records but the way to ask about them.
 
-Left open by this round and not decided here: whether the fourteen sections should be
-GROUPED (time, fees, costs, billing and trust are one financial neighbourhood; files, emails,
-notes and messaging are a record-and-correspondence one) rather than sitting as one flat strip
-that folds by measurement. The owner raised it; nothing is built against it yet.
+  Measured after building: the whole strip holds the row down to a 1360 canvas, where the flat
+  fourteen had already folded seven away at 1440. Below 1360 the backstop fold takes over and
+  entries fold as groups. It is NOT true at every width that nothing is hidden — at 1024 the band's
+  even split leaves the strip about 384px and three entries fold. Recovering that would mean
+  reopening the even split (the identity block no longer needs half the band now that the strip is
+  bounded at six), which is a separate ruling and was not touched here.
+
+  **One thing to correct if it reads wrong:** _People_ holds Parties and Calendar. Parties is
+  people; a hearing date is not. The group is really "who this matter answers to and when", and no
+  short label for that was better than the one the owner picked, so it ships as People.
 
 ### 2026-09-01 — the matter chrome, identity-block round
 
