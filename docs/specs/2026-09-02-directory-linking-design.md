@@ -1,7 +1,7 @@
 # Directory Linking — One Way to Name a Person Anywhere, and the Matter's Parties Built On It
 
-**Date:** 2026-09-02 · **Status:** Proposed — analysis complete, plan awaiting the owner's rulings on
-the questions in §7 · **Subsystem:** Directory (`packages/directory`, `apps/web/src/lib/directory`,
+**Date:** 2026-09-02 · **Status:** Owner-reviewed 2026-09-02 — the questions of §7 are answered and every section they
+change has been rewritten to match; slice 1 is in build · **Subsystem:** Directory (`packages/directory`, `apps/web/src/lib/directory`,
 `apps/web/src/routes/(app)/contacts`), the design system, and every surface that links a record to a
 person or an organization — matters first · **Predecessors:**
 [`2026-08-30-directory-entity-model-design.md`](2026-08-30-directory-entity-model-design.md) (the
@@ -206,8 +206,10 @@ area. `matter_party` already has this shape; nothing about it changes.
    `listPartyRoles` (the `directory_party_role` catalog, with the platform's add row for a role the
    firm has not named yet), capacity as free text, `linkMatterParty` added to `party-api.ts`. The
    page's own removal dialog moves onto `ActionDialog`, which clears its allowance.
-2. **The client becomes a party.** The intake's client field becomes an `EntityPicker` over both
-   kinds with quick-create, and opening the matter writes the `client` party row. `client_display_name`
+2. **The client becomes a party, and there is no matter without one.** The intake's client field
+   becomes an `EntityPicker` over both kinds (quick-create follows the owner's later ruling on §7
+   Q-4), and creating the matter — `open` or `prospective` alike, because a prospective matter's
+   conflict check needs a person — writes the `client` party row in the same request. `client_display_name`
    keeps being written as the denormalized display until the contract step; readers switch to the
    party. `migrateClientDisplayFields` gets its production caller — an idempotent per-firm backfill
    run once — so existing matters gain their client party and billing and trust stop reading nothing.
@@ -236,8 +238,9 @@ area. `matter_party` already has this shape; nothing about it changes.
 **Slice 1 — the family, and the matter's parties.** `EntityIdentity`, `EntityPicker`,
 `RecordParties` in the design system (stories, axe, VRT, `registry.json`, package exports, CSS
 cascade position pinned by test); `directory-picker-source.ts`; the parties tab live; `linkMatterParty`;
-the parties page's dialog on `ActionDialog`; user doc for adding a party; changelog fragment;
-`roadmap.d/core-domain.md` corrected (the directory nodes' status and evidence are stale today).
+the parties page's dialog on `ActionDialog`; the route renamed from `/contacts` to `/directory`; user
+doc for adding a party; changelog fragment; `roadmap.d/core-domain.md` corrected (the directory nodes'
+status and evidence are stale today).
 
 **Slice 2 — the client is a party.** Intake picker with quick-create; the `client` party written at
 open; the backfill's production caller; header chip; intake conflict check enabled; `party-api.ts`
@@ -282,20 +285,40 @@ deploys.
 
 ---
 
-## 7. Questions for the owner
+## 7. The owner's rulings — every question of this section is answered
 
-1. **The seam lives in the design system** (recommended, §2.1) rather than the picker living in
-   `apps/web`. Confirm.
-2. **Is a client required to open a matter?** Recommended: required for `open`, optional for
-   `prospective` — an intake that has not yet identified the client is exactly what prospective is
-   for, and a matter cannot bill without a client party anyway.
-3. **`/contacts` or `/directory`?** The nav says Directory, the URL says contacts, and
-   `entityRecordHref` is the one place the address is built. Renaming now costs one function and the
-   navigation entry; renaming after links are in documents and emails costs a redirect forever.
-   Recommended: `/directory`, in slice 1.
-4. **Quick-create from a picker: the full new-entity dialog, or a two-field one?** Recommended: the
-   existing dialog (it already runs the duplicate check before creating, which is the whole reason the
-   directory exists), opened from the add row and returning the id.
+Put to the owner on 2026-09-02 and answered the same day. Kept with their answers so the reasoning
+behind a settled decision is the part that stops it being re-litigated.
+
+**Q-1 — The search seam lives in the design system. Answered: yes.** `EntityPicker` takes `onSearch`
+and never fetches; the app supplies the directory.
+
+**Q-2 — Is a client required to open a matter? Answered: required for `open` AND for `prospective`.**
+The owner's reasoning settles it better than the recommendation did: a prospective matter has a
+conflict check, and a conflict check needs a person. So there is no matter without a client party,
+whatever its status, and §3 is rewritten to match — the intake refuses to create a matter of either
+status without a chosen or newly created client entity.
+
+**Q-3 — `/contacts` or `/directory`? Answered: `/directory`.** Renamed in slice 1, while the address
+is built in one function (`entityRecordHref`) and one navigation entry. The old route is not kept as
+a redirect: nothing outside the app has linked to it yet, and a redirect that nobody needs is a second
+address to keep true.
+
+**Q-4 — Quick-create from a picker: the full dialog or a two-field one? Deferred by the owner** until
+the work is closer. Slice 1 therefore ships the picker WITHOUT an add row: a person the directory does
+not hold is created on the directory screen first, which is the same act one step away. `onCreate`
+stays in the contract as an optional prop so wiring it later is a caller change, not a component
+change; nothing about the picker's shape depends on the answer.
+
+**Concurrent stream, noted rather than ruled on: the consolidated matter search**
+(`claude/matter-consolidated-search-yba72d`, in active development). It is a search WITHIN a matter
+over the matter's own records — files, notes, custodian items, time, costs, calendar, assets, and the
+matter's parties by display name, read through `matter_party` — and it never reaches into the
+directory as a whole. It is therefore not the picker's search and does not change this design: the
+picker's seam is the directory's own ranked name search, which is the only thing that finds a maiden
+name. What the two streams share is files: `apps/web/src/lib/matters/matter-header.svelte`,
+`apps/web/src/lib/matters/sections.ts` and `roadmap.d/core-domain.md`. Slice 1 stays off the first
+two, and the matter header's client mark (§3 item 3) lands in slice 2 after that branch does.
 
 ---
 
