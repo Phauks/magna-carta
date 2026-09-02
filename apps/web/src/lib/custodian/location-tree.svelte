@@ -10,8 +10,9 @@
    *
    * TWO COUNTS, NOT ONE, AND THEY DIFFER ON PURPOSE. A node carries what is physically at it and
    * what is at it or anywhere beneath it. A shelf whose contents are all checked out reads as empty,
-   * because that is what a person standing in front of it would see: a packet that is out is at no
-   * location at all.
+   * because that is what a person standing in front of it would see: a packet that is checked out is
+   * at no location at all. Both counts say that on their own hover; the standing paragraph that used
+   * to explain them under the tree was an info line, which no screen here carries.
    *
    * The glyph is per kind rather than a folder on every row. A tree of safes and bank vaults drawn
    * entirely in folders claims every node is a folder, which is the one thing this tree is not.
@@ -102,7 +103,12 @@
 {#snippet trailing(context: TreeItemContext)}
   {@const node = byId.get(context.node.id)}
   {#if node !== undefined}
-    <span class="text-xs text-text-muted tabular-nums">
+    <!-- The counts carry their own meaning on the hover rather than through a paragraph under the
+         tree: what a reader needs is what THIS number is, at the moment they are looking at it. -->
+    <span
+      class="text-xs text-text-muted tabular-nums"
+      title="{node.directOccupancy} physically here. A packet that is checked out is at no location."
+    >
       {node.directOccupancy}
       {#if node.subtreeOccupancy !== node.directOccupancy}
         <span title="Here, and everywhere beneath it">of {node.subtreeOccupancy}</span>
@@ -119,17 +125,3 @@
   {icon}
   {trailing}
 />
-
-<p class="text-xs text-text-muted">
-  Each node shows what is physically at it, and where a branch holds more, what is at it or anywhere
-  beneath it. A packet that is checked out is at no location, so a shelf whose contents are all out
-  reads as empty.
-</p>
-
-{#if occupancy.length > 0}
-  <p class="text-xs text-text-muted">
-    {occupancy.filter((node) => node.status === "closed").length} of {occupancy.length} nodes are closed.
-    A location holding packets cannot be closed, and one a packet has ever been in is closed rather than
-    removed.
-  </p>
-{/if}

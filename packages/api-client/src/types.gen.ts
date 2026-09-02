@@ -19190,6 +19190,7 @@ export type CustodyListMovementsData = {
     };
     query?: {
         cursor?: string;
+        itemId?: string;
     };
     url: '/api/v1/custody/packets/{packetId}/movements';
 };

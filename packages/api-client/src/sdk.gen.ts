@@ -2308,7 +2308,7 @@ export const custodyAddOwner = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
- * Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in.
+ * Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in. Narrowing by itemId answers one item's own chain of custody, which is its own entries PLUS the packet-wide ones: an item inside a packet goes wherever the packet goes, so a history of only the rows naming the item would leave out every move it actually made. Each row carries itemId, so a reader can tell the two apart.
  */
 export const custodyListMovements = <ThrowOnError extends boolean = false>(options: Options<CustodyListMovementsData, ThrowOnError>): RequestResult<CustodyListMovementsResponses, CustodyListMovementsErrors, ThrowOnError> => (options.client ?? client).get<CustodyListMovementsResponses, CustodyListMovementsErrors, ThrowOnError>({ url: '/api/v1/custody/packets/{packetId}/movements', ...options });
 

@@ -5232,7 +5232,7 @@ export const custodyAddOwnerMutation = (options?: Partial<Options<CustodyAddOwne
 export const custodyListMovementsQueryKey = (options: Options<CustodyListMovementsData>) => createQueryKey('custodyListMovements', options);
 
 /**
- * Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in.
+ * Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in. Narrowing by itemId answers one item's own chain of custody, which is its own entries PLUS the packet-wide ones: an item inside a packet goes wherever the packet goes, so a history of only the rows naming the item would leave out every move it actually made. Each row carries itemId, so a reader can tell the two apart.
  */
 export const custodyListMovementsOptions = (options: Options<CustodyListMovementsData>) => queryOptions<CustodyListMovementsResponse, CustodyListMovementsError, CustodyListMovementsResponse, ReturnType<typeof custodyListMovementsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -5250,7 +5250,7 @@ export const custodyListMovementsOptions = (options: Options<CustodyListMovement
 export const custodyListMovementsInfiniteQueryKey = (options: Options<CustodyListMovementsData>): QueryKey<Options<CustodyListMovementsData>> => createQueryKey('custodyListMovements', options, true);
 
 /**
- * Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in.
+ * Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in. Narrowing by itemId answers one item's own chain of custody, which is its own entries PLUS the packet-wide ones: an item inside a packet goes wherever the packet goes, so a history of only the rows naming the item would leave out every move it actually made. Each row carries itemId, so a reader can tell the two apart.
  */
 export const custodyListMovementsInfiniteOptions = (options: Options<CustodyListMovementsData>) => infiniteQueryOptions<CustodyListMovementsResponse, CustodyListMovementsError, InfiniteData<CustodyListMovementsResponse>, QueryKey<Options<CustodyListMovementsData>>, string | Pick<QueryKey<Options<CustodyListMovementsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
