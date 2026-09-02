@@ -117,11 +117,6 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/components/bug-report-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/components/command-palette.svelte",
       "reason": "not an act asked of a reader — a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
     },
@@ -129,11 +124,6 @@
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/costs/cost-review-window.svelte",
       "reason": "a screen presented over the app rather than an act asked of a reader. It belongs to the full-screen presentation question, which is a separate design and deliberately not folded into this one."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/diagnostics/report-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog, and takes its failure as a bare string today so it gains the notice slot in the same pass."
     },
     {
       "rule": "hand-composed-modal",
@@ -158,11 +148,6 @@
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/documents/new-document-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/settings/components/request-change-dialog.svelte",
       "reason": "predates ActionDialog; migrates to ActionDialog."
     },
     {

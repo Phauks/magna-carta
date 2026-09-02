@@ -22,19 +22,19 @@
    * line and letting the person choose states what is actually known — and the section's own edit
    * right is still what the dialog is ABOUT, named in the sentence at the foot.
    *
-   * Honesty rule: filing is not wired yet. The real "File Request" action renders disabled with
-   * the Soon badge rather than being omitted — designed-but-not-wired actions keep their place
-   * so the dialog shows its final anatomy (owner rule) — and it lights up when requests ride
-   * the access-request rails with firm accounts; until then Copy carries it, and the footer
-   * says so plainly.
+   * Honesty rule: filing is not wired yet. The real "File Request" commit is the shell's, told
+   * what it waits on, so it renders disabled beside its Soon mark rather than being omitted —
+   * designed-but-not-wired actions keep their place so the dialog shows its final anatomy (owner
+   * rule) — and it lights up when requests ride the access-request rails with firm accounts. Until
+   * then Copy carries it, seated in the body beside the request it copies, and the foot says so.
    *
    * The page owns the trigger state (`bind:open`); this component renders no trigger.
    */
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Badge from "@magna-carta/design-system/badge";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
@@ -66,7 +66,8 @@
    * never ride along under a request about rounding. The stored composition is keyed by the
    * definition it was written for; while the key does not match, the fields read as pristine
    * (no recipients — assembling them is the deliberate act) and the first edit snapshots a
-   * fresh composition for the new setting.
+   * fresh composition for the new setting. Because the draft is kept, the shell is told there is
+   * nothing to lose on a close: nothing is.
    */
   interface RequestComposition {
     definitionId: string;
@@ -121,21 +122,6 @@
   // not required.
   const copyDisabled = $derived(reason.trim().length === 0 || selectedRecipientIds.length === 0);
 
-  /*
-   * Kill the reveal latch at the source. Bits' Dialog restores focus to its trigger when the
-   * dialog closes, and a focused per-row request trigger keeps ANY focus-based reveal latched
-   * open until the user clicks elsewhere (owner-reported twice: "the request a change text
-   * will not go away") — Chromium even marks the programmatically refocused button
-   * :focus-visible after an Escape close. Cancelling the restore through Bits' own
-   * close-auto-focus seam (no timing race against the exit animation, unlike a blur scheduled
-   * after close) leaves the row at rest the moment the dialog leaves. The trade, accepted for
-   * simplicity: keyboard users lose the restored tab position and re-enter with Tab — the
-   * affordance re-reveals on focus as they do.
-   */
-  function preventTriggerRefocus(event: Event): void {
-    event.preventDefault();
-  }
-
   async function copyRequest(): Promise<void> {
     const recipients = recipientRoster
       .filter((member) => selectedRecipientIds.includes(member.userId))
@@ -161,12 +147,29 @@
     copied = true;
     setTimeout(() => (copied = false), 2000);
   }
+
+  /** Unreachable until filing is wired: the shell refuses the commit while `commitSoon` is given. */
+  async function fileRequest(): Promise<ActionOutcome> {
+    return "refused";
+  }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false} onCloseAutoFocus={preventTriggerRefocus}>
-    <Dialog.Title>Request a change</Dialog.Title>
-
+<!-- restoreFocus={false}: Bits restores focus to the trigger when a dialog closes, and a focused
+     per-row request trigger keeps its focus-based reveal latched open until the user clicks
+     elsewhere (owner-reported twice: "the request a change text will not go away"). The trade,
+     accepted for simplicity: keyboard users re-enter the row with Tab, and the affordance
+     re-reveals on focus as they do. -->
+<ActionDialog
+  bind:open
+  kind="form"
+  heading="Request a Change"
+  commitLabel="File Request"
+  commitSoon={{ reason: "requests riding the access-request rails with firm accounts" }}
+  restoreFocus={false}
+  unsavedChanges={false}
+  onCommit={fileRequest}
+>
+  {#snippet fields()}
     <!-- The setting under discussion, stated as facts: name and what it reads today — the
          context the administrator needs before weighing the proposal. -->
     <div class="flex flex-col gap-4">
@@ -179,68 +182,57 @@
       </p>
     </div>
 
-    <div class="flex flex-col gap-4">
-      <Label for="request-change-recipients">Send to</Label>
-      <RecipientPicker
-        members={recipientRoster}
-        selectedIds={selectedRecipientIds}
-        onAdd={addRecipient}
-        onRemove={removeRecipient}
-        inputId="request-change-recipients"
-        placeholder="Search colleagues…"
-      />
-      {#if firmRoster.failure !== null}
-        <p class="text-xs text-text-muted">{firmRoster.failure}</p>
-      {/if}
-    </div>
+    <LabelledField label="Send to">
+      {#snippet children({ props })}
+        <RecipientPicker
+          members={recipientRoster}
+          selectedIds={selectedRecipientIds}
+          onAdd={addRecipient}
+          onRemove={removeRecipient}
+          inputId={props.id}
+          placeholder="Search colleagues…"
+        />
+      {/snippet}
+    </LabelledField>
+    {#if firmRoster.failure !== null}
+      <p class="text-xs text-text-muted">{firmRoster.failure}</p>
+    {/if}
 
-    <div class="flex flex-col gap-4">
-      <Label for="request-change-proposed-value">Proposed value</Label>
-      <p id="request-change-proposed-value-hint" class="text-xs text-text-muted">
-        In your own words — the administrator making the change interprets it
+    <LabelledField
+      label="Proposed value"
+      hint="In your own words — the administrator making the change interprets it"
+    >
+      {#snippet children({ props })}
+        <Input
+          {...props}
+          bind:value={
+            () => proposedValue,
+            (next) => editComposition((draft) => (draft.proposedValue = String(next ?? "")))
+          }
+        />
+      {/snippet}
+    </LabelledField>
+
+    <LabelledField label="Reason" hint="Why the firm should make this change">
+      {#snippet children({ props })}
+        <Textarea
+          {...props}
+          required
+          bind:value={
+            () => reason,
+            (next) => editComposition((draft) => (draft.reason = String(next ?? "")))
+          }
+        />
+      {/snippet}
+    </LabelledField>
+
+    <div class="flex flex-wrap items-center justify-between gap-8">
+      <p class="text-xs text-text-muted">
+        Filing this with your firm's administrators arrives with firm accounts — requests will ride
+        the same rails as access requests. Until then, send the copied request to the recipients
+        yourself.
       </p>
-      <Input
-        id="request-change-proposed-value"
-        bind:value={
-          () => proposedValue,
-          (next) => editComposition((draft) => (draft.proposedValue = String(next ?? "")))
-        }
-        aria-describedby="request-change-proposed-value-hint"
-      />
-    </div>
-
-    <div class="flex flex-col gap-4">
-      <Label for="request-change-reason">Reason</Label>
-      <p id="request-change-reason-hint" class="text-xs text-text-muted">
-        Why the firm should make this change
-      </p>
-      <Textarea
-        id="request-change-reason"
-        bind:value={
-          () => reason,
-          (next) => editComposition((draft) => (draft.reason = String(next ?? "")))
-        }
-        required
-        aria-describedby="request-change-reason-hint"
-      />
-    </div>
-
-    <p class="text-xs text-text-muted">
-      Filing this with your firm's administrators arrives with firm accounts — requests will ride
-      the same rails as access requests. Until then, send the copied request to the recipients
-      yourself.
-    </p>
-
-    <div class="flex justify-end gap-8">
-      <Button variant="ghost" onclick={() => (open = false)}>Close</Button>
-      <!-- Designed-but-not-wired actions render disabled + Soon rather than being omitted —
-           the dialog shows its final anatomy (owner rule). Filing lights up when requests ride
-           the access-request rails with firm accounts. -->
-      <Button variant="secondary" disabled>
-        File Request
-        <Badge variant="neutral">Soon</Badge>
-      </Button>
-      <Button variant="primary" disabled={copyDisabled} onclick={copyRequest}>
+      <Button variant="secondary" size="sm" disabled={copyDisabled} onclick={copyRequest}>
         {#if copied}
           <Check class="size-16" aria-hidden="true" />
           Copied
@@ -250,5 +242,5 @@
         {/if}
       </Button>
     </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

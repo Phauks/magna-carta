@@ -146,6 +146,14 @@
      * implies the record width.
      */
     width?: ActionDialogWidth;
+    /**
+     * Whether focus returns to the trigger when the panel closes. True, and the right default: a
+     * keyboard reader lands back where they were. False for the one shape that misbehaves — a
+     * trigger revealed on focus (a per-row "request a change"), which a restored focus keeps
+     * latched open after the panel has gone. The trade is that a keyboard reader re-enters the
+     * row with Tab.
+     */
+    restoreFocus?: boolean;
   };
 
   type Acting = Shared & {
@@ -207,6 +215,7 @@
     onDismiss,
     unsavedChanges,
     width = "default",
+    restoreFocus = true,
   }: Acting | Reading = $props();
 
   const traits = $derived(traitsOf(kind));
@@ -322,6 +331,10 @@
   const FOCUSABLE =
     "input:not([disabled]), textarea:not([disabled]), select:not([disabled]), " +
     'button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  function keepFocusWhereItIs(event: Event): void {
+    if (!restoreFocus) event.preventDefault();
+  }
 
   function focusFirstField(event: Event): void {
     const first = pane?.querySelector<HTMLElement>(FOCUSABLE);
@@ -497,6 +510,7 @@
       data-modal-shell="action-dialog"
       data-action-kind={kind}
       onOpenAutoFocus={focusFirstField}
+      onCloseAutoFocus={keepFocusWhereItIs}
     >
       <div class="mc-modal-frame-header">
         <div class="mc-modal-frame-identity">
@@ -533,6 +547,7 @@
       data-modal-shell="action-dialog"
       data-action-kind={kind}
       onOpenAutoFocus={focusFirstField}
+      onCloseAutoFocus={keepFocusWhereItIs}
     >
       <div class="mc-modal-frame-header">
         <div class="mc-modal-frame-identity">
