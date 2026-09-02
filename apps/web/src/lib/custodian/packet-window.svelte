@@ -43,7 +43,7 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import FileText from "@lucide/svelte/icons/file-text";
   import Plus from "@lucide/svelte/icons/plus";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
     listCustodyMovements,

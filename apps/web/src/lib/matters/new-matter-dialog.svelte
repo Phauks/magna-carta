@@ -58,9 +58,7 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import ScanSearch from "@lucide/svelte/icons/scan-search";
   import X from "@lucide/svelte/icons/x";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
-  import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, SoonAffordance, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import ClientPicker from "./client-picker.svelte";
   import MemberPicker from "./member-picker.svelte";
   import PracticeAreaPicker from "./practice-area-picker.svelte";

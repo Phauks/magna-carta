@@ -142,6 +142,7 @@
 <ActionDialog
   bind:open
   heading="Issue a Credit Note"
+  subtitle={`Against ${row?.summary.invoiceNumber ?? "this bill"} — a second permanent record standing beside it`}
   commitLabel="Issue Credit Note"
   commitBusyLabel="Issuing"
   commitRefusal={refusal}
@@ -149,10 +150,6 @@
   onOpen={reset}
   onCommit={issue}
 >
-  {#snippet subtitle()}
-    Against {row?.summary.invoiceNumber ?? "this bill"} — a second permanent record standing beside
-    it
-  {/snippet}
 
   {#snippet notice()}
     {#if failure !== null}

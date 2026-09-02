@@ -8,7 +8,7 @@ import {
   MATURITY_PRESENTATION,
   hasSurface,
   type MaturityStage,
-} from "../src/lib/maturity/maturity.ts";
+} from "../src/lib/components/maturity/maturity.ts";
 
 const ALL_STAGES = Object.keys(MATURITY_PRESENTATION) as MaturityStage[];
 

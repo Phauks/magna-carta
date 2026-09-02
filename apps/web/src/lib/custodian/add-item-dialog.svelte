@@ -143,6 +143,7 @@
 <ActionDialog
   bind:open
   heading="Describe An Item"
+  subtitle="One thing inside this packet. A packet holding a will and two codicils is three items."
   commitLabel="Record Item"
   commitBusyLabel="Recording"
   commitRefusal={refusal}
@@ -151,9 +152,6 @@
   onOpen={reset}
   onCommit={submit}
 >
-  {#snippet subtitle()}
-    One thing inside this packet. A packet holding a will and two codicils is three items.
-  {/snippet}
 
   {#snippet notice()}
     {#if failure !== null}

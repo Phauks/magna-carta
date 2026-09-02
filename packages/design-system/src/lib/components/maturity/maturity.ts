@@ -3,7 +3,9 @@
  * half-built feature reads as honestly in-progress instead of silently broken. Every surface still
  * under construction declares a stage; the same stage looks the same everywhere it appears.
  *
- * THIS MODULE IS THE ONE HOME. Everything the system needs lives in `maturity/`:
+ * THIS MODULE IS THE ONE HOME. Everything the system needs lives in this directory, in the design
+ * system rather than the app, because the "soon" stage is also what the ActionDialog shell renders
+ * on a commit that is not served yet, and a shell cannot import the app:
  *   - maturity.ts          — the model: the stages, and each stage's label + colour (this file).
  *   - maturity-badge.svelte — the labelled mark, where a badge fits (nav tabs, sidebar rows).
  *   - maturity-dot.svelte   — the colour dot, where a label won't fit (icon-only chrome).
@@ -12,9 +14,9 @@
  *     part of this module because a Soon control is the same vocabulary as a Soon surface, and
  *     letting call sites compose their own was how the two started to disagree.
  *
- * TO MARK A SURFACE: give its registry entry a `stage` (see MatterSection in matters/sections.ts
- * and Destination in navigation/destinations.ts for the field), then render <MaturityBadge> or
- * <MaturityDot> with it. Nothing else is wired — the components read this model.
+ * TO MARK A SURFACE: give its registry entry a `stage` (in apps/web, MatterSection in
+ * matters/sections.ts and Destination in navigation/destinations.ts carry the field), then render
+ * <MaturityBadge> or <MaturityDot> with it. Nothing else is wired — the components read this model.
  *
  * TO ADD A STAGE (e.g. a release candidate): add it to MaturityStage and give it one row in
  * MATURITY_PRESENTATION. Every consumer picks it up with no further change — the badge and dot
@@ -37,7 +39,7 @@
  * is that reaching a stage stopped being something the product says out loud. Giving `alpha` a
  * presentation again is a one-line change here if the firm ever wants the ladder visible.
  */
-import type { BadgeVariant } from "@magna-carta/design-system/badge";
+import type { BadgeVariant } from "../badge/variants.ts";
 
 export type MaturityStage = "soon" | "alpha" | "beta" | "ready";
 

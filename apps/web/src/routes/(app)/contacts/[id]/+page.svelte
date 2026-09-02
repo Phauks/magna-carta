@@ -26,7 +26,7 @@
   import Button from "@magna-carta/design-system/button";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import {
     readDirectoryEntity,

@@ -4,7 +4,7 @@
 # Cloudflare Workers Builds — always ship known-good code. The pre-push hook runs only a fast, diff-scoped
 # subset for local feedback; this workflow is the exhaustive sweep.
 #
-# Shape: one fan-out DAG, not a serial monolith. A `changes` job path-filters the diff, a `wasm` job
+# Shape: one fan-out DAG, not a serial monolith. A `classify` job path-filters the diff, a `build-wasm` job
 # builds the Rust→WASM artefacts once (cached across runs, shared to consumers as an artefact), and the
 # check dimensions — format, lint, type-check, rust, tests, governance, contracts, containers — run as
 # independent jobs in parallel. Each heavy job is skipped when the diff can't affect it (a docs-only push
@@ -48,6 +48,19 @@
 # the measurement behind its own choice; re-measure and move a job back if its honest time grows toward
 # the cap, the same way the timeout caps above are maintained.
 #
+# SUBSTRATES. The test battery is three jobs along the suite's natural substrates (plain node, the
+# Miniflare Workers runtime, Chromium), and the two expensive ones run only when the change can reach
+# them: `classify` already computes the changed packages plus their full dependent closure for the lint
+# scope, and a Workers suite whose package is absent from that closure has no changed input, exactly as
+# a lint path outside it has none. A UI-only change never boots a Workers runtime; an api-only change
+# never boots Chromium. The mechanism and its fail-safe reading of an un-narrowable change (a crate, a
+# container, a workflow) are on the SUBSTRATE step of `classify`.
+#
+# CACHES. Every cache here is also SEEDED FROM MAIN by seed-caches.yml (on every push to `main`),
+# because a pull request can only restore what its own branch or `main` saved: an entry that only pull
+# requests save is one every new branch starts without. The WASM artefacts are the seed that matters —
+# a miss is a ~7-minute cold Docker build on the critical path of every consumer job.
+#
 # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. Two of the three tiers above
 # are suspended while the Actions budget is exhausted: the push-to-main run and the nightly schedule.
 # What remains is the pull-request tier (the full battery at sink-deferred lint scope) and
@@ -70,7 +83,7 @@ on:
   # on the repository; harmless to carry until then.
   merge_group:
   # The nightly unscoped sweep. Its diff base resolves to nothing (there is no event base and HEAD is
-  # already `main`), which the `changes` job's empty-diff branch turns into "run everything, lint ALL" —
+  # already `main`), which the `classify` job's empty-diff branch turns into "run everything, lint ALL" —
   # exactly the cold, unscoped pass this tier is for.
   # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. The nightly sweep is the
   # single most expensive recurring spend here (a cold whole-repo pass every night, whether or not
@@ -94,9 +107,15 @@ permissions:
   contents: read
 
 jobs:
+  # ------------------------------------------------------------------------------------------------
+  # CLASSIFY — what changed, and therefore which jobs below have an input
+  # Runs first on every trigger and needs no install. Every other job reads its outputs; a job
+  # whose inputs did not move is skipped, and a skip counts as success in the aggregate.
+  # ------------------------------------------------------------------------------------------------
+
   # Path-filter the diff so downstream jobs run only when they can be affected. Hand-rolled `git diff`
   # (no third-party action) against the PR base or the push's previous tip.
-  changes:
+  classify:
     # 8 s measured: a `git diff` plus a dependency-free node classifier, no install and no build. The
     # slim runner's preinstalled git and node are the whole toolchain this needs.
     runs-on: ubuntu-slim
@@ -110,6 +129,9 @@ jobs:
       test_battery: ${{ steps.filter.outputs.test_battery }}
       worker_shards: ${{ steps.filter.outputs.worker_shards }}
       worker_shard_list: ${{ steps.filter.outputs.worker_shard_list }}
+      # Which test substrates the change can reach — see the SUBSTRATE step at the end of the classifier.
+      test_worker: ${{ steps.filter.outputs.test_worker }}
+      test_stories: ${{ steps.filter.outputs.test_stories }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -150,6 +172,7 @@ jobs:
             # widest lint scope and the widest shard split.
             emit code true; emit rust true; emit containers true; emit lint_scope ALL
             emit worker_shards 4; emit worker_shard_list '[1,2,3,4]'
+            emit test_worker true; emit test_stories true
             exit 0
           fi
           # Documentation and the rendered trackers cannot affect any build or test output, so they are
@@ -235,56 +258,36 @@ jobs:
             emit worker_shards 4; emit worker_shard_list '[1,2,3,4]'
           fi
 
-  # Build the Rust→WASM artefacts once. Cache them across runs keyed on the Rust sources, so a push that
-  # touches no crate restores in seconds instead of paying the ~7-minute cold Docker build; share them to
-  # the consumer jobs (lint/type-check/tests/contracts) as an artefact so each doesn't rebuild.
-  # The key covers the Rust inputs only — the build command itself (the rust-wasm-build task in
-  # vite.config.ts) is not keyed, a deliberate trade so config-only edits don't cold-build; if you change
-  # that task in a way that alters its output, also touch a keyed input so the cache busts.
-  wasm:
-    # TEMPORARY CI AUSTERITY 2026-08-07 — format is a ~2-minute tripwire before the expensive
-    # tier; a doomed-on-formatting run stops here instead of spending ~40 runner-minutes. Costs a
-    # green run ~2.5 minutes of latency. On revert, drop `format` from the three needs lists below
-    # (wasm, rust, containers). Deliberately not gated on governance: a new upstream advisory is
-    # external news and must not cancel testing.
-    needs: [changes, format]
-    if: needs.changes.outputs.code == 'true'
-    # Stays on the 2-core runner even though a cache hit is 14 s: on a MISS this shells out to
-    # `docker build`, and the 1-vCPU runner is an unprivileged container with the Docker client but no
-    # daemon. The cold build is ~7 min besides, which is most of that runner's 15-minute ceiling.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
+          # SUBSTRATE. Whether the two expensive test substrates can be reached at all. The Miniflare
+          # suites are the files under apps/api-worker and apps/status-worker, and the only things that
+          # can change their outcome are those two packages, something in their dependency closure, or
+          # a global input; the Storybook suite is packages/design-system on the same terms. The
+          # undeferred closure above is exactly "the changed packages plus everything that depends on
+          # them", so a substrate whose package is absent from it has no changed input — the same
+          # argument the type-aware lint's scoping rests on, applied to a whole test job instead of a
+          # lint path. The substrate runs whenever the closure is ALL (a global input moved) or NONE
+          # (the change sits outside every package — a crate that feeds the WASM packages, a container,
+          # a workflow — where nothing can be narrowed and the safe reading is "everything"). Only a
+          # concrete package list that omits the substrate's package skips it. A UI-only change
+          # therefore never boots a Workers runtime, and an api-only change never boots Chromium;
+          # test-node is not gated because nearly every package feeds it and it is the cheap substrate.
+          substrate_needed() {
+            case "$breadth" in ALL | NONE) return 0 ;; esac
+            for wanted in $1; do
+              for member in $breadth; do
+                [ "$member" = "$wanted" ] && return 0
+              done
+            done
+            return 1
+          }
+          if substrate_needed "apps/api-worker apps/status-worker"; then emit test_worker true; else emit test_worker false; fi
+          if substrate_needed "packages/design-system"; then emit test_stories true; else emit test_stories false; fi
 
-      - name: Restore the built WASM packages
-        id: cache
-        uses: actions/cache@v6
-        with:
-          path: |
-            packages/pdf/src/pkg
-            packages/decryption/src/pkg
-            packages/email/src/pkg
-          key: wasm-${{ runner.os }}-${{ hashFiles('crates/**/*.rs', 'crates/**/Cargo.toml', 'crates/Cargo.lock', 'crates/**/wasm.Dockerfile') }}
-
-      - name: Set up toolchain
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: ./.github/actions/setup
-
-      - name: Build the WASM artefacts (pinned Docker images)
-        # rust-wasm-build-dev refuses under CI on purpose; the canonical build is the Docker one and the
-        # runner has Docker. Builds pdf-core, decryption-core, and email-core into packages/*/src/pkg.
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: pnpm exec vp run rust-wasm-build
-
-      - name: Bundle the WASM packages for the consumer jobs
-        run: tar -czf wasm-pkg.tgz packages/pdf/src/pkg packages/decryption/src/pkg packages/email/src/pkg
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: wasm-pkg
-          path: wasm-pkg.tgz
-          retention-days: 1
+  # ------------------------------------------------------------------------------------------------
+  # ALWAYS-ON GUARDS — cheap, whole-repo, no WASM dependency
+  # Run on every change including docs-only pushes, on the 1-vCPU runner. format is also the
+  # tripwire the expensive tier waits on (TEMPORARY CI AUSTERITY 2026-08-07, see build-wasm).
+  # ------------------------------------------------------------------------------------------------
 
   # Formatting covers markdown too, so it runs on every change (including docs-only) and needs no WASM.
   format:
@@ -298,356 +301,6 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Format check (fmt only)
         run: pnpm exec vp check --no-lint
-
-  # The type-aware lint pass (oxlint + tsgolint). It is the tall pole (whole-program, single-threaded, no
-  # incremental cache upstream), so it runs as its own job in parallel with the others rather than ahead
-  # of them. Type-aware ⇒ needs the WASM packages to resolve @magna-carta/{pdf,decryption,email} types.
-  lint:
-    needs: [changes, wasm]
-    if: needs.changes.outputs.code == 'true'
-    # Disqualified from the 1-vCPU runner twice over: 26 min measured on a broad pull request before the
-    # fan-out sink was deferred, against its 15-minute cap, and the GOMEMLIMIT below is 10 GiB against
-    # its 5 GB of memory. The post-merge pass, which still lints the sink, is the binding case.
-    runs-on: ubuntu-latest
-    # tsgolint building the app worker's whole-program type graph is the tall pole. The whole-repo pass
-    # measured ~45 min on a 4-core/16 GB box (1851 files) — it was ~24 min when this cap was first set,
-    # and it grew with the package count, so the cap has to lead that growth rather than track it. Cap
-    # well above the honest time so a genuine tsgolint deadlock or runaway fails fast and visibly instead
-    # of burning the runner to GitHub's 6-hour default; re-measure and raise this when the repo grows.
-    # Only the merge and scheduled tiers pay the whole-repo pass — a pull request lints the affected
-    # packages with the fan-out sinks deferred, which is seconds to minutes and nowhere near this cap.
-    timeout-minutes: 75
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          name: wasm-pkg
-      - run: tar -xzf wasm-pkg.tgz
-      - name: Lint (type-aware, affected packages only)
-        # The `changes` job computed the affected set — the changed packages plus their full transitive
-        # dependent closure (a type-aware finding in an unchanged file can flip when a dependency
-        # changes), or ALL when a global input moved. Scoping the paths scopes tsgolint's cost; the
-        # whole repo is the ~45-min tall pole, one package is seconds. A pull request additionally
-        # defers the fan-out sinks — the packages whose type program is effectively the whole repo —
-        # when they are in scope only as dependents; every other trigger lints them, so the full
-        # closure is always proved before a change can ship. Only lint is scoped — type-check, tests
-        # and contracts still run whole-repo. Mechanism + soundness: tooling/affected-lint,
-        # tooling/affected-lint/scope-fitness.mjs, docs/conventions/build-performance.md.
-        env:
-          SCOPE: ${{ needs.changes.outputs.lint_scope }}
-          # tsgolint is a Go program: on the whole-repo pass its live type graph is only a few GB, but the
-          # Go runtime lets the heap balloon to ~2x the live set before collecting, and that transient
-          # overshoot crosses the 16 GB runner ceiling and OOM-aborts (SIGABRT) at whatever diagnostic it
-          # is formatting when memory runs out — a moving crash point, not a lint error. A soft heap limit
-          # forces the collector to run before the overshoot instead of after, keeping peak RSS under the
-          # runner. Sized well above the observed ~6 GB live set (no GC thrash) and well under 16 GB
-          # (headroom for the node/oxc driver + OS). Raise it if the honest live graph grows.
-          GOMEMLIMIT: 10GiB
-        run: |
-          # vp's stdout must be a FILE here, not the runner's pipe. Node flips a pipe stdout to
-          # non-blocking, and Vite+'s native lint printer panics on the resulting EAGAIN ("failed
-          # printing to stdout: Resource temporarily unavailable") when a large warning flood outruns
-          # the log reader — a whole-repo run with the advisory warn catalogs dies with SIGABRT after
-          # ~25 minutes, timing-dependent. A regular file cannot return EAGAIN, so the redirect makes
-          # the run deterministic; the output is replayed into the log afterward either way.
-          run_lint() {
-            local out="$RUNNER_TEMP/lint-output.txt" code=0
-            pnpm exec vp check --no-fmt "$@" > "$out" 2>&1 || code=$?
-            cat "$out"
-            return "$code"
-          }
-          if [ "$SCOPE" = "ALL" ]; then
-            # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. The whole-repo
-            # tier is the single most expensive thing this workflow runs (~45 min of runner time on
-            # one job), so it is suspended outright while the Actions budget is exhausted; restore by
-            # deleting this branch's echo and un-commenting `run_lint` below. ONLY this tier is
-            # suspended — a scope of specific package directories (what a pull request computes, the
-            # changed packages plus one hop) still lints exactly as before, so every change is still
-            # type-aware linted over the packages it can affect. What is given up is the fallback that
-            # a global input (the lint ruleset, the lockfile, the shared compiler options) or a
-            # lintable file outside every package triggers. The merge bar covering that gap, and the
-            # checklist for restoring it, are in docs/conventions/build-performance.md.
-            echo "affected-lint: whole-repo lint SUSPENDED (temporary CI austerity) — not linting"
-            # run_lint
-          elif [ "$SCOPE" = "NONE" ]; then
-            echo "affected-lint: no lintable package affected — nothing to lint"
-          elif [ -z "$SCOPE" ]; then
-            # The classifier's contract is ALL | NONE | dirs; empty means the changes job handed over
-            # something unexpected. Fail rather than guess a scope.
-            echo "affected-lint: empty scope — refusing to guess" >&2
-            exit 1
-          else
-            echo "affected-lint: linting affected packages — $SCOPE"
-            # Intentional word-splitting: each dir is a separate path argument to vp check.
-            run_lint $SCOPE
-          fi
-
-  # The authoritative type-check: tsc -b across the project-reference graph, the tsconfig-refs guard, the
-  # api-client type-check, and svelte-check for the SPA and the design system. Each surface is its own
-  # named step so a red run says WHICH one failed without reading logs. Lint is deliberately not here:
-  # the type-aware lint is the separate `lint` job above, so the tall pole never serializes behind these.
-  typecheck:
-    needs: [changes, wasm]
-    if: needs.changes.outputs.code == 'true'
-    # Stays: 126 s measured is the WARM number the incremental cache below buys. A cold whole-program
-    # `tsc -b` plus two svelte-check passes is a multi-gigabyte, several-minute job that uses every
-    # core it is given — the wrong shape for 1 vCPU / 5 GB under a 15-minute cap.
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    # A COLD `tsc -b` over the whole graph wants more than the ~2 GB old-space Node picks by default
-    # on this runner, and dies with "Ineffective mark-compacts near heap limit" (exit 134) before it
-    # reports a single diagnostic. That was invisible while the incremental cache below always hit;
-    # it surfaced when the cache went cold, and it reproduces on main as readily as on any branch.
-    # Measured cold, both here and on main: 5.1 GiB peak with no ceiling, 3.4 GiB peak and no slower
-    # under this explicit 4 GB one — a stated cap makes V8 collect rather than grow lazily, so this
-    # lowers real memory use as well as raising the limit.
-    env:
-      NODE_OPTIONS: --max-old-space-size=4096
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          name: wasm-pkg
-      - run: tar -xzf wasm-pkg.tgz
-
-      - name: Restore the TypeScript incremental state
-        # `tsc -b` is incremental by design — every project is composite and writes a .tsbuildinfo
-        # recording each input's content hash — but CI threw that state away after every run, so the
-        # authoritative type-check paid a cold whole-program build every time. Persisting the .tsbuild
-        # directories lets it re-check only the projects whose inputs actually moved, which is the
-        # remaining affected-graph work docs/conventions/build-performance.md calls out.
-        #
-        # Keyed on the commit, restoring the newest entry the branch can see: an incremental cache wants
-        # the CLOSEST previous state, not an exact match, and correctness does not depend on getting it.
-        # tsc compares the recorded content hashes against the files on disk, so a stale or partial
-        # restore costs re-checking, never a wrong answer — the failure mode of a bad guess here is a
-        # slow build, not a missed type error.
-        uses: actions/cache@v6
-        with:
-          path: |
-            apps/*/.tsbuild
-            packages/*/.tsbuild
-            plugins/*/.tsbuild
-          key: tsbuild-${{ runner.os }}-node22-${{ github.sha }}
-          restore-keys: |
-            tsbuild-${{ runner.os }}-node22-
-
-      - name: Type-check the project-reference graph (tsc -b)
-        run: pnpm exec vp run typecheck
-      - name: Guard the tsconfig project references
-        run: node tooling/tsconfig-refs/index.mjs --check
-      - name: Type-check the generated api-client
-        run: pnpm --filter @magna-carta/api-client run typecheck
-      - name: svelte-check — web app
-        run: pnpm --filter @magna-carta/web check
-      - name: svelte-check — design system
-        run: pnpm --filter @magna-carta/design-system check
-
-  # The Rust workspace gate (cargo fmt --check + clippy -D warnings + tests). Runs on the host toolchain
-  # with a cached cargo/target — independent of the Docker WASM build — and only when a crate changed.
-  rust:
-    needs: [changes, format]
-    if: needs.changes.outputs.rust == 'true'
-    # Stays: cargo scales with cores, and a cold clippy build of the crates workspace runs well past
-    # the 1-vCPU runner's 15-minute cap.
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-        with:
-          rust: "true"
-      - name: Rust gate (fmt + clippy + test)
-        run: pnpm exec vp run rust-check
-
-  # The Vitest suites, split along their NATURAL project boundaries rather than one blind shard over
-  # everything. The suite has three substrates with very different per-file cost and setup: plain node
-  # units (milliseconds), the Miniflare worker pool (a Workers runtime per file), and the design-system
-  # Storybook stories (Chromium via Playwright). Splitting by substrate lets each scale independently and,
-  # crucially, keeps the Playwright install in the ONE job that needs a browser instead of on every shard.
-  #
-  # Completeness is by construction — the three jobs partition every REGISTERED test file exactly once:
-  #   • test-stories runs the `storybook` project (the only browser suite);
-  #   • test-worker runs the files under apps/api-worker + apps/status-worker (the only Miniflare suites);
-  #   • test-node runs everything else — packages, apps/web, the standalone sibling workers
-  #     (default-pool unit tests with faked bindings), and tooling — with the `storybook` project
-  #     excluded, so no browser boots here.
-  # storybook is the only project that spans a path root (it lives under packages/design-system), so it
-  # is the only one that must be included-by-name in one job and excluded-by-name from another; every
-  # other file belongs to exactly one path root. Adding a new test area is TWO registrations: its vitest
-  # config into the root vite.config.ts `test.projects` list (a closed list — an unregistered project's
-  # tests run nowhere, and nothing can fail on their absence), and its path into test-node (or a new
-  # job). The `test-collection` job below proves both registrations landed.
-  # The heavy substrates (node, worker) shard within their job; bump the SHARD_TOTAL + matrix pair to
-  # change a count. fail-fast off so one shard's failure still lets its siblings report.
-  # TEMPORARY CI AUSTERITY 2026-08-07 — revert when Actions minutes reset: fail-fast flipped ON so a
-  # failing shard cancels its siblings (saves minutes, loses sibling reports). Restore `false` on revert.
-  #
-  # PASS THE PATHS ABSOLUTE — "$PWD/packages", never "packages". The runner matches a positional path
-  # filter PER PROJECT, against the candidate file's path relative to THAT PROJECT'S OWN root, not
-  # against the repository-relative path. A relative filter naming a directory that is an ANCESTOR of a
-  # project root reduces to `..` under that project and matches none of its files. An absolute filter
-  # takes the runner's other branch, a prefix test against the file's absolute path, and narrows the way
-  # a reader expects.
-  # WHY A MIS-SCOPED PATH IS DANGEROUS HERE — and it is NOT that an empty filter passes. A filter set
-  # that matches nothing at all fails: the runner prints "No test files found, exiting with code 1" and
-  # exits 1, measured on this version across `run`, `--shard=i/N` and `--project`. The hazard is a
-  # PARTIAL match. These jobs pass many paths at once, so one bad entry among good ones still collects
-  # the others and the run exits 0 over a silently narrowed selection — measured: swapping one absolute
-  # path for its relative spelling alongside a good one collected 34 files and reported a confident green
-  # `Test Files 34 passed (34)`, two orders of magnitude short of this job's real selection. Nothing in
-  # that output says a filter matched nothing, so the count needs a check rather than a reading; the
-  # honest current figures are whatever `pnpm run lint:test-collection` prints.
-  # Mechanism: docs/conventions/build-performance.md.
-
-  # Plain node/unit suites — packages + the web app's node tests + the standalone sibling workers +
-  # tooling. No Miniflare, no browser; the storybook project is excluded so no Chromium is needed here.
-  # The bulk of the tests, cheapest per file.
-  test-node:
-    needs: [changes, wasm]
-    # `test_battery` is false only on a push to `main`, where the pull request that produced this exact
-    # tree already ran these suites — see the tier note at the top of this file.
-    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
-    # 52 s and 47 s measured per shard. These are plain node units — milliseconds per file, no runtime
-    # to boot — so the shard split is what buys the parallelism, not the core count: shard 1 of 2 ran
-    # in 19 s pinned to a single core. Two shards at a third of the rate cost less than one at full.
-    runs-on: ubuntu-slim
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true # TEMPORARY CI AUSTERITY 2026-08-07 — restore false on revert
-      matrix:
-        shard: [1, 2]
-    env:
-      SHARD_TOTAL: 2
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          name: wasm-pkg
-      - run: tar -xzf wasm-pkg.tgz
-      - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
-        # Absolute paths, for the reason in the block comment above this job. Kept byte-identical to the
-        # copy in tooling/lint-test-collection/index.mjs, which fails if the two drift.
-        run: >-
-          pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
-          "$PWD/packages" "$PWD/tooling" "$PWD/apps/web" "$PWD/apps/bundle-worker"
-          "$PWD/apps/convert-worker" "$PWD/apps/discovery-worker" "$PWD/apps/email-worker"
-          "$PWD/apps/file-repair-worker" "$PWD/apps/edit-worker" "$PWD/apps/ocr-worker"
-          "$PWD/apps/recovery-worker" "$PWD/apps/scan-worker" "$PWD/apps/search-worker"
-          "$PWD/apps/sign-worker"
-
-  # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
-  # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
-  test-worker:
-    needs: [changes, wasm]
-    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
-    # Stays: 246-267 s per shard measured, and every file stands up its own Workers runtime, so the
-    # cost scales with cores rather than with the shard split. On 1 vCPU that lands close enough to the
-    # 15-minute cap to make a slow run a failure instead of a slow run.
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: true # TEMPORARY CI AUSTERITY 2026-08-07 — restore false on revert
-      matrix:
-        # Shard count comes from the `changes` job: 2 on a small diff, 4 otherwise. `--shard=i/N`
-        # partitions the whole suite for either N, so this trades wall-clock for the fixed per-shard
-        # setup cost and never changes which files run.
-        shard: ${{ fromJSON(needs.changes.outputs.worker_shard_list) }}
-    env:
-      SHARD_TOTAL: ${{ needs.changes.outputs.worker_shards }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          name: wasm-pkg
-      - run: tar -xzf wasm-pkg.tgz
-      - name: Tests — worker (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
-        # --project='!storybook' is belt-and-suspenders: the paths already exclude the browser project,
-        # this guarantees it can never lazily boot in a job that installs no browser. Absolute paths for
-        # the reason in the block comment above test-node — these two happen to resolve to project roots
-        # exactly, which is the one relative spelling that does collect, but the gate does not rely on
-        # that coincidence. Kept byte-identical to tooling/lint-test-collection/index.mjs.
-        run: >-
-          pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
-          "$PWD/apps/api-worker" "$PWD/apps/status-worker"
-
-  # The design-system Storybook story tests — the ONLY browser-mode suite (Chromium via Playwright), so
-  # this is the ONLY job that installs the browser. One runner: bounded by story count + a single browser
-  # boot, so it shards poorly and needs none.
-  test-stories:
-    needs: [changes, wasm]
-    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
-    # Stays: 136 s measured, and it boots Chromium with `--with-deps` — a browser plus its system
-    # libraries is the wrong load for 5 GB in an unprivileged container.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          name: wasm-pkg
-      - run: tar -xzf wasm-pkg.tgz
-
-      - name: Point Playwright's browser cache outside the checkout
-        # $RUNNER_TEMP is a sibling of the workspace so a whole-repo pass never walks the browser's own
-        # bundled files. `runner` context is step-scoped, hence GITHUB_ENV.
-        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/pw-browsers" >> "$GITHUB_ENV"
-
-      - name: Cache the Playwright browser
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/pw-browsers
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install the Playwright browser the test runner needs
-        # The vitest browser provider resolves playwright-core 1.60 (headless-shell build 1223); install
-        # through that CLI so an older top-level `playwright` doesn't resolve a different build.
-        run: |
-          cli="$(find node_modules/.pnpm -maxdepth 4 -path '*playwright@1.60*/node_modules/playwright/cli.js' | head -1)"
-          if [ -z "$cli" ]; then echo "could not locate the playwright 1.60 CLI"; exit 1; fi
-          node "$cli" install --with-deps chromium chromium-headless-shell
-
-      - name: Tests — stories (Storybook browser)
-        run: pnpm exec vp test run --project=storybook
-
-  # Prove the three test jobs above actually cover the suite. Nothing in the runner does, and the reason
-  # is SILENT NARROWING rather than an empty filter passing. An empty filter does fail — the runner prints
-  # "No test files found, exiting with code 1" and exits 1 (measured across `run`, `--shard=i/N` and
-  # `--project`), so do not delete this job on the theory that the runner already catches a bad path. What
-  # it cannot catch is a filter set that still matches SOME files: these jobs pass a dozen-odd paths each,
-  # so one wrong or dropped entry leaves the rest collecting and the job exits 0 over a fraction of the
-  # suite, reporting a confident green with a plausible-looking count. That is not hypothetical — ten of
-  # test-node's fourteen paths, lost in a copy out of the folded YAML block above, reported 649 files /
-  # 7434 tests twice running against the true 656 / 7475, and nothing in the output distinguished the two.
-  # This job re-runs each job's own invocation in list-only mode (no test executes) and asserts three
-  # things: the unfiltered whole-suite collection meets a committed floor, the union of the three jobs
-  # equals it, and they do not overlap. It reads the invocations out of this file, so a filter edited here
-  # without the same edit in the lint fails loudly.
-  test-collection:
-    needs: [changes, wasm]
-    # Deliberately NOT gated on test_battery: this verifies the SHAPE of the split, not the tests, and
-    # the tier that skips the battery is exactly the tier that would otherwise never notice a bad split.
-    if: needs.changes.outputs.code == 'true'
-    # 66 s measured on a 4-core dev box: four list-only collections, run serially. The work is Vite
-    # config resolution and file globbing over ~70 projects — single-threaded and I/O-shaped, not
-    # CPU-bound — so the slim runner suits it even allowing for several times that wall-clock. Re-measure
-    # and move it to ubuntu-latest if its honest time creeps toward that runner's 15-minute platform cap.
-    runs-on: ubuntu-slim
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          name: wasm-pkg
-      - run: tar -xzf wasm-pkg.tgz
-      - name: Test-collection floor and shard-union coverage
-        run: pnpm run lint:test-collection
 
   # Cheap whole-repo guards with no WASM dependency — run on every change so a governance regression can't
   # slip through a docs-only push.
@@ -783,23 +436,237 @@ jobs:
       - name: Drizzle snapshot freshness (both lineages)
         run: pnpm --filter @magna-carta/database run check-snapshots
 
+  # ------------------------------------------------------------------------------------------------
+  # WASM ARTEFACTS — built or restored once, published to every consumer below
+  # ------------------------------------------------------------------------------------------------
+
+  # Build the Rust→WASM artefacts once. Cache them across runs keyed on the Rust sources, so a push that
+  # touches no crate restores in seconds instead of paying the ~7-minute cold Docker build; share them to
+  # the consumer jobs (lint/type-check/tests/contracts) as an artefact so each doesn't rebuild.
+  # THE CACHE IS SEEDED FROM MAIN. A pull request can restore an Actions cache saved on its own branch
+  # or on `main`, and from nowhere else — so an entry that only pull requests ever save is one every
+  # NEW branch starts without, and with the push-to-main tier suspended nothing saved it on `main` for a
+  # month: every branch's first run paid the cold build. seed-caches.yml restores-or-builds under this
+  # exact key on every push to `main` (lint:cache-keys holds the two key expressions identical), so a
+  # branch's first run hits unless a crate genuinely changed.
+  # The key covers the Rust inputs only — the build command itself (the rust-wasm-build task in
+  # vite.config.ts) is not keyed, a deliberate trade so config-only edits don't cold-build; if you change
+  # that task in a way that alters its output, also touch a keyed input so the cache busts.
+  build-wasm:
+    # TEMPORARY CI AUSTERITY 2026-08-07 — format is a ~2-minute tripwire before the expensive
+    # tier; a doomed-on-formatting run stops here instead of spending ~40 runner-minutes. Costs a
+    # green run ~2.5 minutes of latency. On revert, drop `format` from the three needs lists below
+    # (build-wasm, rust, containers). Deliberately not gated on governance: a new upstream advisory is
+    # external news and must not cancel testing.
+    needs: [classify, format]
+    if: needs.classify.outputs.code == 'true'
+    # Stays on the 2-core runner even though a cache hit is 14 s: on a MISS this shells out to
+    # `docker build`, and the 1-vCPU runner is an unprivileged container with the Docker client but no
+    # daemon. The cold build is ~7 min besides, which is most of that runner's 15-minute ceiling.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Restore the built WASM packages
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            packages/pdf/src/pkg
+            packages/decryption/src/pkg
+            packages/email/src/pkg
+          key: wasm-${{ runner.os }}-${{ hashFiles('crates/**/*.rs', 'crates/**/Cargo.toml', 'crates/Cargo.lock', 'crates/**/wasm.Dockerfile') }}
+
+      - name: Set up toolchain
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup
+
+      - name: Build the WASM artefacts (pinned Docker images)
+        # rust-wasm-build-dev refuses under CI on purpose; the canonical build is the Docker one and the
+        # runner has Docker. Builds pdf-core, decryption-core, and email-core into packages/*/src/pkg.
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: pnpm exec vp run rust-wasm-build
+
+      - name: Bundle the WASM packages for the consumer jobs
+        run: tar -czf wasm-pkg.tgz packages/pdf/src/pkg packages/decryption/src/pkg packages/email/src/pkg
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wasm-pkg
+          path: wasm-pkg.tgz
+          retention-days: 1
+
+  # ------------------------------------------------------------------------------------------------
+  # CONSUMERS — the type-aware lint, the type-check, the contracts, and the test battery
+  # All need the WASM packages and run in parallel once build-wasm has published them. The three
+  # test jobs partition the suite along its substrates, and test-collection, last, proves the partition.
+  # ------------------------------------------------------------------------------------------------
+
+  # The type-aware lint pass (oxlint + tsgolint). It is the tall pole (whole-program, single-threaded, no
+  # incremental cache upstream), so it runs as its own job in parallel with the others rather than ahead
+  # of them. Type-aware ⇒ needs the WASM packages to resolve @magna-carta/{pdf,decryption,email} types.
+  lint:
+    needs: [classify, build-wasm]
+    # NONE is decided here, not inside the job: a scope of NONE means no lintable package changed, and
+    # paying a 2-core runner's checkout, install and artefact download to print that is a minute
+    # spent on nothing. (The job still handles NONE below, so a classifier that ever emits it to a
+    # running job stays correct.)
+    if: needs.classify.outputs.code == 'true' && needs.classify.outputs.lint_scope != 'NONE'
+    # Disqualified from the 1-vCPU runner twice over: 26 min measured on a broad pull request before the
+    # fan-out sink was deferred, against its 15-minute cap, and the GOMEMLIMIT below is 10 GiB against
+    # its 5 GB of memory. The post-merge pass, which still lints the sink, is the binding case.
+    runs-on: ubuntu-latest
+    # tsgolint building the app worker's whole-program type graph is the tall pole. The whole-repo pass
+    # measured ~45 min on a 4-core/16 GB box (1851 files) — it was ~24 min when this cap was first set,
+    # and it grew with the package count, so the cap has to lead that growth rather than track it. Cap
+    # well above the honest time so a genuine tsgolint deadlock or runaway fails fast and visibly instead
+    # of burning the runner to GitHub's 6-hour default; re-measure and raise this when the repo grows.
+    # Only the merge and scheduled tiers pay the whole-repo pass — a pull request lints the affected
+    # packages with the fan-out sinks deferred, which is seconds to minutes and nowhere near this cap.
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain, workspace and the WASM artefacts
+        uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+      - name: Lint (type-aware, affected packages only)
+        # The `classify` job computed the affected set — the changed packages plus their full transitive
+        # dependent closure (a type-aware finding in an unchanged file can flip when a dependency
+        # changes), or ALL when a global input moved. Scoping the paths scopes tsgolint's cost; the
+        # whole repo is the ~45-min tall pole, one package is seconds. A pull request additionally
+        # defers the fan-out sinks — the packages whose type program is effectively the whole repo —
+        # when they are in scope only as dependents; every other trigger lints them, so the full
+        # closure is always proved before a change can ship. Only lint is scoped — type-check, tests
+        # and contracts still run whole-repo. Mechanism + soundness: tooling/affected-lint,
+        # tooling/affected-lint/scope-fitness.mjs, docs/conventions/build-performance.md.
+        env:
+          SCOPE: ${{ needs.classify.outputs.lint_scope }}
+          # tsgolint is a Go program: on the whole-repo pass its live type graph is only a few GB, but the
+          # Go runtime lets the heap balloon to ~2x the live set before collecting, and that transient
+          # overshoot crosses the 16 GB runner ceiling and OOM-aborts (SIGABRT) at whatever diagnostic it
+          # is formatting when memory runs out — a moving crash point, not a lint error. A soft heap limit
+          # forces the collector to run before the overshoot instead of after, keeping peak RSS under the
+          # runner. Sized well above the observed ~6 GB live set (no GC thrash) and well under 16 GB
+          # (headroom for the node/oxc driver + OS). Raise it if the honest live graph grows.
+          GOMEMLIMIT: 10GiB
+        run: |
+          # vp's stdout must be a FILE here, not the runner's pipe. Node flips a pipe stdout to
+          # non-blocking, and Vite+'s native lint printer panics on the resulting EAGAIN ("failed
+          # printing to stdout: Resource temporarily unavailable") when a large warning flood outruns
+          # the log reader — a whole-repo run with the advisory warn catalogs dies with SIGABRT after
+          # ~25 minutes, timing-dependent. A regular file cannot return EAGAIN, so the redirect makes
+          # the run deterministic; the output is replayed into the log afterward either way.
+          run_lint() {
+            local out="$RUNNER_TEMP/lint-output.txt" code=0
+            pnpm exec vp check --no-fmt "$@" > "$out" 2>&1 || code=$?
+            cat "$out"
+            return "$code"
+          }
+          if [ "$SCOPE" = "ALL" ]; then
+            # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. The whole-repo
+            # tier is the single most expensive thing this workflow runs (~45 min of runner time on
+            # one job), so it is suspended outright while the Actions budget is exhausted; restore by
+            # deleting this branch's echo and un-commenting `run_lint` below. ONLY this tier is
+            # suspended — a scope of specific package directories (what a pull request computes, the
+            # changed packages plus one hop) still lints exactly as before, so every change is still
+            # type-aware linted over the packages it can affect. What is given up is the fallback that
+            # a global input (the lint ruleset, the lockfile, the shared compiler options) or a
+            # lintable file outside every package triggers. The merge bar covering that gap, and the
+            # checklist for restoring it, are in docs/conventions/build-performance.md.
+            echo "affected-lint: whole-repo lint SUSPENDED (temporary CI austerity) — not linting"
+            # run_lint
+          elif [ "$SCOPE" = "NONE" ]; then
+            echo "affected-lint: no lintable package affected — nothing to lint"
+          elif [ -z "$SCOPE" ]; then
+            # The classifier's contract is ALL | NONE | dirs; empty means the classify job handed over
+            # something unexpected. Fail rather than guess a scope.
+            echo "affected-lint: empty scope — refusing to guess" >&2
+            exit 1
+          else
+            echo "affected-lint: linting affected packages — $SCOPE"
+            # Intentional word-splitting: each dir is a separate path argument to vp check.
+            run_lint $SCOPE
+          fi
+
+  # The authoritative type-check: tsc -b across the project-reference graph, the tsconfig-refs guard, the
+  # api-client type-check, and svelte-check for the SPA and the design system. Each surface is its own
+  # named step so a red run says WHICH one failed without reading logs. Lint is deliberately not here:
+  # the type-aware lint is the separate `lint` job above, so the tall pole never serializes behind these.
+  typecheck:
+    needs: [classify, build-wasm]
+    if: needs.classify.outputs.code == 'true'
+    # Stays: 126 s measured is the WARM number the incremental cache below buys. A cold whole-program
+    # `tsc -b` plus two svelte-check passes is a multi-gigabyte, several-minute job that uses every
+    # core it is given — the wrong shape for 1 vCPU / 5 GB under a 15-minute cap.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # A COLD `tsc -b` over the whole graph wants more than the ~2 GB old-space Node picks by default
+    # on this runner, and dies with "Ineffective mark-compacts near heap limit" (exit 134) before it
+    # reports a single diagnostic. That was invisible while the incremental cache below always hit;
+    # it surfaced when the cache went cold, and it reproduces on main as readily as on any branch.
+    # Measured cold, both here and on main: 5.1 GiB peak with no ceiling, 3.4 GiB peak and no slower
+    # under this explicit 4 GB one — a stated cap makes V8 collect rather than grow lazily, so this
+    # lowers real memory use as well as raising the limit.
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain, workspace and the WASM artefacts
+        uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+
+      - name: Restore the TypeScript incremental state
+        # `tsc -b` is incremental by design — every project is composite and writes a .tsbuildinfo
+        # recording each input's content hash — but CI threw that state away after every run, so the
+        # authoritative type-check paid a cold whole-program build every time. Persisting the .tsbuild
+        # directories lets it re-check only the projects whose inputs actually moved, which is the
+        # remaining affected-graph work docs/conventions/build-performance.md calls out.
+        #
+        # Keyed on the commit, restoring the newest entry the branch can see: an incremental cache wants
+        # the CLOSEST previous state, not an exact match, and correctness does not depend on getting it.
+        # tsc compares the recorded content hashes against the files on disk, so a stale or partial
+        # restore costs re-checking, never a wrong answer — the failure mode of a bad guess here is a
+        # slow build, not a missed type error.
+        uses: actions/cache@v6
+        with:
+          path: |
+            apps/*/.tsbuild
+            packages/*/.tsbuild
+            plugins/*/.tsbuild
+          key: tsbuild-${{ runner.os }}-node22-${{ github.sha }}
+          restore-keys: |
+            tsbuild-${{ runner.os }}-node22-
+
+      - name: Type-check the project-reference graph (tsc -b)
+        run: pnpm exec vp run typecheck
+      - name: Guard the tsconfig project references
+        run: node tooling/tsconfig-refs/index.mjs --check
+      - name: Type-check the generated api-client
+        run: pnpm --filter @magna-carta/api-client run typecheck
+      - name: svelte-check — web app
+        run: pnpm --filter @magna-carta/web check
+      - name: svelte-check — design system
+        run: pnpm --filter @magna-carta/design-system check
+
   # The API contract is code-as-contract: the committed OpenAPI snapshot, the generated client, the
   # Spectral hygiene lint, and the generated design tokens must all match what the source produces.
   contracts:
-    needs: [changes, wasm]
-    if: needs.changes.outputs.code == 'true'
-    # 54 s measured. It CONSUMES the WASM artefact the wasm job built — downloads and untars it — and
+    needs: [classify, build-wasm]
+    if: needs.classify.outputs.code == 'true'
+    # 54 s measured. It CONSUMES the WASM artefact the build-wasm job built — downloads and untars it — and
     # never builds one, so it needs no Docker daemon. All four checks ran in 21 s pinned to a single
     # core, each peaking around 200 MB of resident memory against the slim runner's 5 GB.
     runs-on: ubuntu-slim
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
+      - name: Toolchain, workspace and the WASM artefacts
+        uses: ./.github/actions/setup
         with:
-          name: wasm-pkg
-      - run: tar -xzf wasm-pkg.tgz
+          wasm: "true"
 
       - name: OpenAPI snapshot drift
         run: |
@@ -819,6 +686,220 @@ jobs:
           pnpm --filter @magna-carta/design-tokens run build
           git diff --exit-code packages/design-tokens/generated
 
+  # The Vitest suites, split along their NATURAL project boundaries rather than one blind shard over
+  # everything. The suite has three substrates with very different per-file cost and setup: plain node
+  # units (milliseconds), the Miniflare worker pool (a Workers runtime per file), and the design-system
+  # Storybook stories (Chromium via Playwright). Splitting by substrate lets each scale independently and,
+  # crucially, keeps the Playwright install in the ONE job that needs a browser instead of on every shard.
+  #
+  # Completeness is by construction — the three jobs partition every REGISTERED test file exactly once:
+  #   • test-stories runs the `storybook` project (the only browser suite);
+  #   • test-worker runs the files under apps/api-worker + apps/status-worker (the only Miniflare suites);
+  #   • test-node runs everything else — packages, apps/web, the standalone sibling workers
+  #     (default-pool unit tests with faked bindings), and tooling — with the `storybook` project
+  #     excluded, so no browser boots here.
+  # storybook is the only project that spans a path root (it lives under packages/design-system), so it
+  # is the only one that must be included-by-name in one job and excluded-by-name from another; every
+  # other file belongs to exactly one path root. Adding a new test area is TWO registrations: its vitest
+  # config into the root vite.config.ts `test.projects` list (a closed list — an unregistered project's
+  # tests run nowhere, and nothing can fail on their absence), and its path into test-node (or a new
+  # job). The `test-collection` job below proves both registrations landed.
+  # The heavy substrates (node, worker) shard within their job; bump the SHARD_TOTAL + matrix pair to
+  # change a count. fail-fast off so one shard's failure still lets its siblings report.
+  # TEMPORARY CI AUSTERITY 2026-08-07 — revert when Actions minutes reset: fail-fast flipped ON so a
+  # failing shard cancels its siblings (saves minutes, loses sibling reports). Restore `false` on revert.
+  #
+  # PASS THE PATHS ABSOLUTE — "$PWD/packages", never "packages". The runner matches a positional path
+  # filter PER PROJECT, against the candidate file's path relative to THAT PROJECT'S OWN root, not
+  # against the repository-relative path. A relative filter naming a directory that is an ANCESTOR of a
+  # project root reduces to `..` under that project and matches none of its files. An absolute filter
+  # takes the runner's other branch, a prefix test against the file's absolute path, and narrows the way
+  # a reader expects.
+  # WHY A MIS-SCOPED PATH IS DANGEROUS HERE — and it is NOT that an empty filter passes. A filter set
+  # that matches nothing at all fails: the runner prints "No test files found, exiting with code 1" and
+  # exits 1, measured on this version across `run`, `--shard=i/N` and `--project`. The hazard is a
+  # PARTIAL match. These jobs pass many paths at once, so one bad entry among good ones still collects
+  # the others and the run exits 0 over a silently narrowed selection — measured: swapping one absolute
+  # path for its relative spelling alongside a good one collected 34 files and reported a confident green
+  # `Test Files 34 passed (34)`, two orders of magnitude short of this job's real selection. Nothing in
+  # that output says a filter matched nothing, so the count needs a check rather than a reading; the
+  # honest current figures are whatever `pnpm run lint:test-collection` prints.
+  # Mechanism: docs/conventions/build-performance.md.
+
+  # Plain node/unit suites — packages + the web app's node tests + the standalone sibling workers +
+  # tooling. No Miniflare, no browser; the storybook project is excluded so no Chromium is needed here.
+  # The bulk of the tests, cheapest per file.
+  test-node:
+    needs: [classify, build-wasm]
+    # `test_battery` is false only on a push to `main`, where the pull request that produced this exact
+    # tree already ran these suites — see the tier note at the top of this file.
+    if: needs.classify.outputs.code == 'true' && needs.classify.outputs.test_battery == 'true'
+    # 52 s and 47 s measured per shard when this was written; the 2026-09-02 runs show each shard at
+    # ten minutes and more on this runner, so RE-MEASURE before trusting either figure, and watch the
+    # 15-minute platform cap. These are plain node units — milliseconds per file, no runtime to boot —
+    # so the shard split is what buys the parallelism, not the core count: shard 1 of 2 ran in 19 s
+    # pinned to a single core. Two shards at a third of the rate cost less than one at full.
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true # TEMPORARY CI AUSTERITY 2026-08-07 — restore false on revert
+      matrix:
+        shard: [1, 2]
+    env:
+      SHARD_TOTAL: 2
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain, workspace and the WASM artefacts
+        uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+      - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
+        # Absolute paths, for the reason in the block comment above this job. Kept byte-identical to the
+        # copy in tooling/lint-test-collection/index.mjs, which fails if the two drift.
+        run: >-
+          pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
+          "$PWD/packages" "$PWD/tooling" "$PWD/apps/web" "$PWD/apps/bundle-worker"
+          "$PWD/apps/convert-worker" "$PWD/apps/discovery-worker" "$PWD/apps/email-worker"
+          "$PWD/apps/file-repair-worker" "$PWD/apps/edit-worker" "$PWD/apps/ocr-worker"
+          "$PWD/apps/recovery-worker" "$PWD/apps/scan-worker" "$PWD/apps/search-worker"
+          "$PWD/apps/sign-worker"
+
+  # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
+  # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
+  test-worker:
+    needs: [classify, build-wasm]
+    # Skipped outright when the classifier proved the change cannot reach apps/api-worker or
+    # apps/status-worker (the SUBSTRATE step in `classify`): this is the most expensive job in the
+    # workflow — two to four 2-core shards of eight to ten minutes each — and a UI-only change has no
+    # input to it.
+    if: needs.classify.outputs.code == 'true' && needs.classify.outputs.test_battery == 'true' && needs.classify.outputs.test_worker == 'true'
+    # Stays: 246-267 s per shard measured when this was written, eight to ten minutes per shard on the
+    # 2026-09-02 runs, and every file stands up its own Workers runtime, so the cost scales with cores
+    # rather than with the shard split. On 1 vCPU that lands close enough to the 15-minute cap to make
+    # a slow run a failure instead of a slow run. This is the most expensive job in the workflow, which
+    # is why the SUBSTRATE gate in `classify` exists.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: true # TEMPORARY CI AUSTERITY 2026-08-07 — restore false on revert
+      matrix:
+        # Shard count comes from the `classify` job: 2 on a small diff, 4 otherwise. `--shard=i/N`
+        # partitions the whole suite for either N, so this trades wall-clock for the fixed per-shard
+        # setup cost and never changes which files run.
+        shard: ${{ fromJSON(needs.classify.outputs.worker_shard_list) }}
+    env:
+      SHARD_TOTAL: ${{ needs.classify.outputs.worker_shards }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain, workspace and the WASM artefacts
+        uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+      - name: Tests — worker (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
+        # --project='!storybook' is belt-and-suspenders: the paths already exclude the browser project,
+        # this guarantees it can never lazily boot in a job that installs no browser. Absolute paths for
+        # the reason in the block comment above test-node — these two happen to resolve to project roots
+        # exactly, which is the one relative spelling that does collect, but the gate does not rely on
+        # that coincidence. Kept byte-identical to tooling/lint-test-collection/index.mjs.
+        run: >-
+          pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
+          "$PWD/apps/api-worker" "$PWD/apps/status-worker"
+
+  # The design-system Storybook story tests — the ONLY browser-mode suite (Chromium via Playwright), so
+  # this is the ONLY job that installs the browser. One runner: bounded by story count + a single browser
+  # boot, so it shards poorly and needs none.
+  test-stories:
+    needs: [classify, build-wasm]
+    # Skipped when the classifier proved the change cannot reach packages/design-system (the SUBSTRATE
+    # step in `classify`): no other package owns a story, so nothing else can move this suite.
+    if: needs.classify.outputs.code == 'true' && needs.classify.outputs.test_battery == 'true' && needs.classify.outputs.test_stories == 'true'
+    # Stays: 136 s measured, and it boots Chromium with `--with-deps` — a browser plus its system
+    # libraries is the wrong load for 5 GB in an unprivileged container.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain, workspace and the WASM artefacts
+        uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+
+      - name: Point Playwright's browser cache outside the checkout
+        # $RUNNER_TEMP is a sibling of the workspace so a whole-repo pass never walks the browser's own
+        # bundled files. `runner` context is step-scoped, hence GITHUB_ENV.
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/pw-browsers" >> "$GITHUB_ENV"
+
+      - name: Cache the Playwright browser
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/pw-browsers
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install the Playwright browser the test runner needs
+        # The vitest browser provider resolves playwright-core 1.60 (headless-shell build 1223); install
+        # through that CLI so an older top-level `playwright` doesn't resolve a different build.
+        run: |
+          cli="$(find node_modules/.pnpm -maxdepth 4 -path '*playwright@1.60*/node_modules/playwright/cli.js' | head -1)"
+          if [ -z "$cli" ]; then echo "could not locate the playwright 1.60 CLI"; exit 1; fi
+          node "$cli" install --with-deps chromium chromium-headless-shell
+
+      - name: Tests — stories (Storybook browser)
+        run: pnpm exec vp test run --project=storybook
+
+  # Prove the three test jobs above actually cover the suite. Nothing in the runner does, and the reason
+  # is SILENT NARROWING rather than an empty filter passing. An empty filter does fail — the runner prints
+  # "No test files found, exiting with code 1" and exits 1 (measured across `run`, `--shard=i/N` and
+  # `--project`), so do not delete this job on the theory that the runner already catches a bad path. What
+  # it cannot catch is a filter set that still matches SOME files: these jobs pass a dozen-odd paths each,
+  # so one wrong or dropped entry leaves the rest collecting and the job exits 0 over a fraction of the
+  # suite, reporting a confident green with a plausible-looking count. That is not hypothetical — ten of
+  # test-node's fourteen paths, lost in a copy out of the folded YAML block above, reported 649 files /
+  # 7434 tests twice running against the true 656 / 7475, and nothing in the output distinguished the two.
+  # This job re-runs each job's own invocation in list-only mode (no test executes) and asserts three
+  # things: the unfiltered whole-suite collection meets a committed floor, the union of the three jobs
+  # equals it, and they do not overlap. It reads the invocations out of this file, so a filter edited here
+  # without the same edit in the lint fails loudly.
+  test-collection:
+    needs: [classify, build-wasm]
+    # Deliberately NOT gated on test_battery: this verifies the SHAPE of the split, not the tests, and
+    # the tier that skips the battery is exactly the tier that would otherwise never notice a bad split.
+    if: needs.classify.outputs.code == 'true'
+    # 66 s measured on a 4-core dev box: four list-only collections, run serially. The work is Vite
+    # config resolution and file globbing over ~70 projects — single-threaded and I/O-shaped, not
+    # CPU-bound — so the slim runner suits it even allowing for several times that wall-clock. Re-measure
+    # and move it to ubuntu-latest if its honest time creeps toward that runner's 15-minute platform cap.
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain, workspace and the WASM artefacts
+        uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+      - name: Test-collection floor and shard-union coverage
+        run: pnpm run lint:test-collection
+
+  # ------------------------------------------------------------------------------------------------
+  # RUST AND CONTAINERS — only when their own trees changed
+  # ------------------------------------------------------------------------------------------------
+
+  # The Rust workspace gate (cargo fmt --check + clippy -D warnings + tests). Runs on the host toolchain
+  # with a cached cargo/target — independent of the Docker WASM build — and only when a crate changed.
+  rust:
+    needs: [classify, format]
+    if: needs.classify.outputs.rust == 'true'
+    # Stays: cargo scales with cores, and a cold clippy build of the crates workspace runs well past
+    # the 1-vCPU runner's 15-minute cap.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+      - name: Rust gate (fmt + clippy + test)
+        run: pnpm exec vp run rust-check
+
   # The container gate — two layers per CHANGED container: the workspace's own Rust gate (fmt --check
   # + clippy -D warnings + cargo test — each container is its own Cargo workspace, so the crates/-scoped
   # rust job never touches them), then the build-and-drive Docker acceptance suite where one exists
@@ -826,8 +907,8 @@ jobs:
   # to an acceptance suite nor explicitly listed as not-yet-covered FAILS the job — a new container must
   # opt in loudly, never silently join the untested set.
   containers:
-    needs: [changes, format]
-    if: needs.changes.outputs.containers == 'true'
+    needs: [classify, format]
+    if: needs.classify.outputs.containers == 'true'
     # Stays, and could not move: multi-gigabyte `docker build`s need a daemon the 1-vCPU runner does
     # not have, and the 90-minute cap below is six times its ceiling.
     runs-on: ubuntu-latest
@@ -850,7 +931,7 @@ jobs:
           echo "after:  $(df -h / | tail -1)"
 
       - name: Resolve the diff base
-        # Same resolution as the `changes` job: the event's base, else the merge-base with origin/main.
+        # Same resolution as the `classify` job: the event's base, else the merge-base with origin/main.
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
@@ -959,14 +1040,18 @@ jobs:
             docker buildx prune -af > /dev/null 2>&1 || true
           done
 
+  # ------------------------------------------------------------------------------------------------
+  # AGGREGATE — the single required status
+  # ------------------------------------------------------------------------------------------------
+
   # The single required status. It succeeds only if no required job failed or was cancelled; a job the
   # path-filter skipped counts as success. Require THIS in branch protection, not the individual jobs, so
   # the required set is stable as jobs are added or skipped.
   gate:
     needs:
       [
-        changes,
-        wasm,
+        classify,
+        build-wasm,
         format,
         lint,
         typecheck,

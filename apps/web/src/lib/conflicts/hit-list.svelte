@@ -15,7 +15,7 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import type { HitDetail } from "./conflicts-api.ts";
   import {
     adjudicationSummary,

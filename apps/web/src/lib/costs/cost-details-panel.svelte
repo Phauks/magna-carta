@@ -27,7 +27,7 @@
   import Send from "@lucide/svelte/icons/send";
   import Stamp from "@lucide/svelte/icons/stamp";
   import X from "@lucide/svelte/icons/x";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Receipt from "@lucide/svelte/icons/receipt";
   import { costStatusKey } from "$lib/matters/cost-api.ts";

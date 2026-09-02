@@ -1,6 +1,11 @@
 <script lang="ts">
   /*
-   * THE TIME KEEPER — the firm's Time Sheet, in the top bar, over whatever you were doing.
+   * THE TIME SHEET'S HANDLE — the firm's sheet, in the top bar, over whatever you were doing.
+   *
+   * It wears the top bar's own quiet chrome and no border. Three controls sit in that band — this,
+   * the download tray, the notification bell — and a box drawn round one of them made it read as a
+   * different kind of thing: a status readout rather than a control, or a control that had somehow
+   * been singled out. The elapsed figure is what says a timer is running; an outline never was.
    *
    * The owner's ruling is that the Time Sheet is firm-wide and lives here: capture never forces a
    * navigation, and the canvas behind stays exactly where it was. So this is the chip's whole job —
@@ -114,9 +119,8 @@
 
 <Tooltip.Root>
   <Tooltip.Trigger
-    class="mc-top-bar-icon-button gap-8 border text-xs tabular-nums"
-    style="border-color: var(--mc-chrome-border)"
-    aria-label="Time Keeper"
+    class="mc-top-bar-icon-button gap-8 text-xs tabular-nums"
+    aria-label="Time Sheet"
     aria-haspopup="dialog"
     aria-expanded={sheetOpen}
     onclick={() => (sheetOpen = true)}

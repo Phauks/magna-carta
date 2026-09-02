@@ -6,9 +6,11 @@
  * of stated strings: the sheet takes no markup and no formatter of its own, which is what makes it
  * possible to say with certainty what a client can read.
  *
- * The internal memo is not on this sheet and is not even named on it. That is not a filter applied
- * here — the record this surface holds carries no memo at all yet, and when it does, the print
- * sheet's own client-facing projection is what will keep it off the paper.
+ * THE INTERNAL MEMO IS NOT ON THIS SHEET AND IS NOT EVEN NAMED ON IT. The record now carries one,
+ * so that is a decision this file makes rather than an absence it inherits: the memo is the firm's
+ * own note, this sheet is what a client can be handed, and the two never meet. The way it is kept
+ * true is that this function names every field it prints — nothing here spreads the entry — so a
+ * field reaches the paper only by somebody writing it down here.
  *
  * A duration prints in both literacies, the same way it renders on screen: decimal leading, clock
  * beside it. Money and dates arrive already rendered, because the currency and the locale belong to
@@ -17,8 +19,13 @@
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
-import { chargeAmount, durationParts, timekeeperOf } from "./time-columns.ts";
-import { TIME_LEDGER_GAPS } from "./time-gaps.ts";
+import {
+  chargeAmount,
+  durationParts,
+  rateAmount,
+  timekeeperOf,
+  utbmsText,
+} from "./time-columns.ts";
 
 /** Everything the sheet needs that is not the entry itself. */
 export interface TimeSheetContext {
@@ -42,9 +49,10 @@ export function timeEntrySheet(
   const amount = chargeAmount(entry);
   return {
     heading: "Time Entry",
-    // The entry number is the sheet's reference and its only home on the page. Until the record
-    // carries one, the sheet states the gap rather than printing a number nothing issued.
-    reference: `${TIME_LEDGER_GAPS.entryNumber.field} not yet recorded`,
+    // The entry number is the sheet's reference and its only home on the page. An entry captured
+    // before the sequence existed carries none, and the sheet says so rather than printing a
+    // number nothing issued.
+    reference: entry.entryNumber ?? "Entry number not recorded",
     subtitle:
       context.matterNumber === undefined
         ? context.matterTitle
@@ -55,9 +63,28 @@ export function timeEntrySheet(
         kind: "fields",
         fields: [
           { label: "Work Date", value: context.date(entry.workDate) },
+          // Both dates and both people: the day the work was FOR and the day it was written down,
+          // whose work it is and who typed it.
+          ...(entry.createdAt === undefined
+            ? []
+            : [{ label: "Date Entered", value: context.date(entry.createdAt.slice(0, 10)) }]),
           { label: "Timekeeper", value: timekeeperOf(entry) },
+          ...(entry.createdByName === null || entry.createdByName === undefined
+            ? []
+            : [{ label: "Entered By", value: entry.createdByName }]),
           { label: "Status", value: statusEntry(entry.status).label },
           { label: "Billable", value: entry.billable ? "Yes" : "No" },
+          ...(utbmsText(entry.utbmsTaskCode, entry.utbmsTaskLabel) === ""
+            ? []
+            : [{ label: "Category", value: utbmsText(entry.utbmsTaskCode, entry.utbmsTaskLabel) }]),
+          ...(utbmsText(entry.utbmsActivityCode, entry.utbmsActivityLabel) === ""
+            ? []
+            : [
+                {
+                  label: "Activity",
+                  value: utbmsText(entry.utbmsActivityCode, entry.utbmsActivityLabel),
+                },
+              ]),
         ],
       },
       {
@@ -66,6 +93,9 @@ export function timeEntrySheet(
         fields: [
           { label: "Worked", value: worked.decimal, secondary: worked.clock },
           { label: "Billed", value: billed.decimal, secondary: billed.clock },
+          ...(rateAmount(entry) === null
+            ? []
+            : [{ label: "Rate", value: context.money(rateAmount(entry) ?? 0) }]),
           { label: "Amount", value: amount === null ? "No charge" : context.money(amount) },
         ],
       },

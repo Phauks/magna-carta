@@ -558,3 +558,39 @@ reading kind is not a way around that — it is the panel for a fact with a step
 context pane earns the record width without the record's tabs. The distinction the shells draw
 (read a record; be asked for an act) gains a third clause: read a fact and take a step from where
 it sits. Three panels are known to have this shape; the status window is the first to land.
+
+### 11.5 What the first fifteen callers asked for
+
+With fifteen panels on the shell, what they still repeated was measured rather than guessed at, and
+four of the findings became shell or design-system changes on 2026-09-02, owner-approved:
+
+- **Enter commits, from the shell.** None of the fifteen had wired Enter, because each would have had
+  to. The primary pane is now a real `<form>` and the commit is its submit button, associated by id
+  since the bar sits outside the pane; the platform's implicit submission does the rest, and a
+  disabled commit (a refusal, or an act not served yet) stops Enter for free. Ctrl+Enter or
+  Cmd+Enter commits from a textarea, where Enter must go on meaning a new line. `novalidate`,
+  because a refusal is the shell's and is stated beside the commit, never as a browser bubble.
+- **`subtitle` takes a string.** Twelve of fourteen subtitle snippets were plain text. The prop is
+  `string | Snippet`; the snippet arm stays for a subtitle that carries markup.
+- **`commitSoon`, and the maturity family moves into the design system.** Two panels composed
+  `SoonAffordance` around a commit of their own, and carried allowances for it because the affordance
+  lived in the app and the shell cannot import the app. The whole maturity vocabulary — the model,
+  the badge, the dot, the affordance — is now `@magna-carta/design-system/maturity`, with one home
+  and its tests moved with it; the acting arm gains `commitSoon: { reason }`, and the shell wraps its
+  own commit in the affordance. The bar still holds exactly one commit in the shell's source: the
+  control is one snippet rendered one of two ways, which is what keeps the `footer-set` rule true.
+- **`LabelledField` and `FieldRow`.** The label-over-control column was written by hand fifty-six
+  times across the fifteen, and the two-or-three-across row sixteen times; about a third of the
+  hints had no `aria-describedby`. `LabelledField` mints the id, joins the hint and the error into
+  the control's description, marks an error invalid, and hands the control its attributes as `props`
+  to spread — formsnap's own idiom. It is deliberately not the form family's `Field`, which is bound
+  to superforms; the two stack the same parts at different gaps (space-8 here, as every panel had
+  it; space-4 there), and that difference is stated on the recipe for the owner to settle rather
+  than smoothed over. `FieldRow` is utilities only, because a breakpoint is the one thing a recipe
+  cannot express.
+
+Two findings were deliberately not built. A third bar control (bug-report and request-change carry
+Close, Copy and Send) is refused on the same ground as before: the copy belongs in the body beside
+the text it copies, as the reading kind seats its step. And an app-side failure helper — the twelve
+lines every caller writes around `FailureNotice` — is the app's side of the notice seam and stays
+out of the design system; it is queued for the migration pass that touches every caller anyway.
