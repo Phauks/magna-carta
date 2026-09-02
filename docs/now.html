@@ -569,8 +569,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="chip done">Shipped</span>
 <span class="nm">The matter's Activity section</span>
 <code>calendar.timeline.activity-section</code>
-<p>The federated timeline as a screen — one chronology per matter, cut into days, narrowed by bands of sources, each entry following into the subsystem that owns it.</p>
-<p class="note">The screen names no source and switches on none — adding a subsystem to the platform's timeline is one entry in the presentation registry, and the test fails until it exists. The federated read still projects almost nothing, because it spans matters; the screen names its rows by following the deep link EAGERLY, one bounded read per subsystem per matter through that subsystem's own access gate, which is additive per source and costs a refusing subsystem only its own rows. Filters (bands, past/upcoming, a date range) narrow the read rather than the rows.</p>
+<p>The federated timeline as a screen — one chronology per matter on the product's shared table, sorted and filtered by its own columns, each row named by the subsystem that owns it and following into it.</p>
+<p class="note">The screen names no source and switches on none — adding a subsystem to the platform's timeline is one entry in the presentation registry, and the test fails until it exists. The federated read still projects almost nothing, because it spans matters; the screen names its rows by following the deep link EAGERLY, one bounded read per subsystem per matter through that subsystem's own access gate, which is additive per source, costs a refusing subsystem only its own rows, and is what keeps a narrower permission (notes:read) honest without the timeline knowing about one. Sorting and filtering are the shared grid's, on the owner's direction: there is no filter bar, and the Kind column's set filter declares the whole vocabulary rather than reading it off the loaded rows.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Firm events</span>

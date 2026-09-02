@@ -52,36 +52,20 @@ import { matterSections } from "./sections.ts";
 /** A Lucide icon, as the repository types one in a registry (see the alert variants). */
 type IconComponent = typeof FileText;
 
-/**
- * The bands the filter offers.
- *
- * Fifteen source keys is too many to put on screen as fifteen switches, and a reader does not think
- * in source keys — they think "show me the money" or "show me what we wrote". A band is a handful of
- * sources somebody would want together, and it is the unit the filter is built from. A new source
- * joins a band; a new band is a deliberate act, which is why they are a closed list.
- */
-export const ACTIVITY_BANDS = Object.freeze([
-  { key: "record", label: "Written Record" },
-  { key: "documents", label: "Documents & Mail" },
-  { key: "dates", label: "Dates" },
-  { key: "money", label: "Money" },
-  { key: "property", label: "Property" },
-  { key: "lifecycle", label: "The Matter Itself" },
-] as const);
-
-export type ActivityBandKey = (typeof ACTIVITY_BANDS)[number]["key"];
-
 export interface ActivitySourcePresentation {
   /** The wire source key, exactly as `packages/calendar` declares it. Permanent once shipped. */
   readonly key: string;
-  /** What this kind of thing is called, singular, for the filter and the count. */
+  /**
+   * What this kind of thing is called, singular. It is the Kind column's value, which makes it the
+   * vocabulary of that column's set filter — so it is the word a person narrows the register by, and
+   * two sources that would read as the same kind to a reader may deliberately share one.
+   */
   readonly noun: string;
   /**
    * What happened, as a whole sentence in the platform's own voice. It is the row's primary text on
    * every source that declares no label, so it never leans on a heading or an icon to make sense.
    */
   readonly happened: string;
-  readonly band: ActivityBandKey;
   readonly icon: IconComponent;
   /**
    * What the source's declared label actually IS, where it declares one — "Document type", "Time
@@ -98,15 +82,13 @@ export interface ActivitySourcePresentation {
 }
 
 /*
- * One entry per source key in `packages/calendar/src/sources/all.ts`. The order is the order the
- * filter offers them within a band.
+ * One entry per source key in `packages/calendar/src/sources/all.ts`.
  */
 const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
   {
     key: "matterNote",
     noun: "Note",
     happened: "A note was written",
-    band: "record",
     icon: NotebookPen,
     section: "notes",
   },
@@ -114,7 +96,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "emailFiled",
     noun: "Email",
     happened: "An email was saved to the matter",
-    band: "documents",
     icon: Mail,
     section: "emails",
   },
@@ -122,7 +103,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "documentFiled",
     noun: "Document",
     happened: "A document was added to the matter",
-    band: "documents",
     icon: FileText,
     labelMeaning: "Document type",
     section: "files",
@@ -131,7 +111,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "documentAssembly",
     noun: "Assembled document",
     happened: "A document was assembled from a template",
-    band: "documents",
     icon: FileStack,
     labelMeaning: "Outcome and the count of fields the matter had no value for",
     section: "files",
@@ -140,7 +119,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "matterEvent",
     noun: "Event",
     happened: "An event was recorded",
-    band: "dates",
     icon: CalendarDays,
     labelMeaning: "Event type",
     section: "calendar",
@@ -149,7 +127,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "matterDeadline",
     noun: "Deadline",
     happened: "A deadline was recorded",
-    band: "dates",
     icon: CalendarClock,
     labelMeaning: "Deadline",
     section: "calendar",
@@ -158,7 +135,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "timeEntry",
     noun: "Time entry",
     happened: "Time was booked",
-    band: "money",
     icon: Clock,
     labelMeaning: "Time booked",
     section: "time",
@@ -167,7 +143,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "costEntry",
     noun: "Cost",
     happened: "A cost was recorded",
-    band: "money",
     icon: Receipt,
     labelMeaning: "Cost",
     section: "costs",
@@ -176,7 +151,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "trustMovement",
     noun: "Trust movement",
     happened: "Client money moved",
-    band: "money",
     icon: Banknote,
     labelMeaning: "Movement",
     section: "trust",
@@ -185,7 +159,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "custodyMovement",
     noun: "Custody movement",
     happened: "An item in the firm's custody moved",
-    band: "property",
     icon: Package,
     labelMeaning: "Movement",
     section: "custodian",
@@ -194,7 +167,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "custodyReviewDue",
     noun: "Custody review",
     happened: "An item in custody is due for review",
-    band: "property",
     icon: ScanSearch,
     labelMeaning: "Review",
     section: "custodian",
@@ -203,7 +175,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "custodyDueBack",
     noun: "Custody return",
     happened: "An item checked out is due back",
-    band: "property",
     icon: PackageCheck,
     labelMeaning: "Return",
     section: "custodian",
@@ -212,7 +183,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "matterLifecycle",
     noun: "Matter",
     happened: "The matter changed standing",
-    band: "lifecycle",
     icon: Flag,
     section: "overview",
   },
@@ -220,7 +190,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "conflictsCheck",
     noun: "Conflicts check",
     happened: "A conflicts check was run",
-    band: "lifecycle",
     icon: CircleDot,
     labelMeaning: "Outcome",
     // No matter section owns a conflicts check, so an entry says what happened and offers nowhere
@@ -230,7 +199,6 @@ const PRESENTATIONS: readonly ActivitySourcePresentation[] = [
     key: "firmEvent",
     noun: "Firm event",
     happened: "A firm-wide event was recorded",
-    band: "dates",
     icon: Wallet,
     labelMeaning: "Event type",
     // Firm-anchored: it belongs to no matter, so it never appears on a matter's activity. The entry
@@ -276,9 +244,4 @@ export function followableLink(sourceKey: string, link: string): string | null {
   const registered = matterSections.find((candidate) => candidate.slug === section);
   if (registered === undefined || !hasSurface(registered.stage)) return null;
   return link;
-}
-
-/** The sources in one band, in registry order. */
-export function sourcesInBand(band: ActivityBandKey): readonly ActivitySourcePresentation[] {
-  return PRESENTATIONS.filter((presentation) => presentation.band === band);
 }

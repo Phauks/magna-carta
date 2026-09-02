@@ -56,11 +56,12 @@ test("the matter's activity reads every subsystem in one request", async ({ page
 
   // The seeded matter carries files and now carries a note, so two subsystems that share no table
   // reach this screen through the one federated read. Each row leads with what its own subsystem
-  // calls it, read back through that subsystem's own access gate.
-  await expect(page.getByText("Document", { exact: true }).first()).toBeVisible({
+  // calls it, read back through that subsystem's own access gate — a file by its name, a note by
+  // its opening line.
+  await expect(page.getByRole("cell", { name: "Client Letter.txt" })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByText(line)).toBeVisible();
+  await expect(page.getByRole("link", { name: line })).toBeVisible();
 
   expect(
     timelineReads,
@@ -69,28 +70,24 @@ test("the matter's activity reads every subsystem in one request", async ({ page
   expect(clientErrors).toEqual([]);
 });
 
-test("a band narrows the read itself, and All puts it back", async ({ page }) => {
-  const line = `Called opposing counsel about the schedule. ${crypto.randomUUID().slice(0, 8)}`;
+test("the register is the product's table: it sorts, and the columns menu is its own", async ({
+  page,
+}) => {
   await signIn(page);
-  await writeNote(page, line);
   await page.goto(`/matters/${seededMatterId}/activity`);
-  await expect(page.getByText("Document", { exact: true }).first()).toBeVisible({
+  await expect(page.getByRole("cell", { name: "Client Letter.txt" })).toBeVisible({
     timeout: 15_000,
   });
 
-  const narrowed = page.waitForRequest(
-    (request) => request.url().includes("/timeline") && request.url().includes("kind="),
-  );
-  await page.getByRole("button", { name: "Written Record" }).click();
-  // Narrowing is a NEW read with the sources named, not a filter applied to rows already on screen:
-  // the server narrows its registry before it builds a statement.
-  await narrowed;
-  await expect(page.getByText(line)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("Document", { exact: true })).toHaveCount(0);
+  // The chronology opens newest first, so the first row is the newest day. Pressing Date turns it
+  // round — the shared grid's sorting, not a control this screen wrote for itself.
+  const firstDate = () => page.getByRole("row").nth(1).getByRole("cell").first();
+  const newestFirst = ((await firstDate().textContent()) ?? "").trim();
+  await page.getByRole("button", { name: "Date" }).click();
+  await expect
+    .poll(async () => ((await firstDate().textContent()) ?? "").trim())
+    .not.toBe(newestFirst);
 
-  // All is a pressed control rather than an absence, and pressing it puts every band back.
-  await page.getByRole("button", { name: "All", exact: true }).click();
-  await expect(page.getByText("Document", { exact: true }).first()).toBeVisible({
-    timeout: 15_000,
-  });
+  // And the columns are the reader's to arrange, which is the whole reason this is the shared table.
+  await expect(page.getByRole("button", { name: "Columns" })).toBeVisible();
 });

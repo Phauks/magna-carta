@@ -20,7 +20,10 @@
  * wrong — an absent detail is an absent line, not a mistaken one.
  */
 import { listMatterFiles } from "$lib/file-manager/matter-file-api.ts";
+import { listMatterDeadlines, listMatterEvents } from "$lib/matters/calendar-api.ts";
+import { listMatterCosts } from "$lib/matters/cost-api.ts";
 import { listMatterNotes } from "$lib/matters/notes-api.ts";
+import { hoursFromMinutes, listMatterTimeEntries } from "$lib/matters/time-api.ts";
 
 /** What the owning subsystem can say about one row, beyond the fact that it happened. */
 export interface ActivityDetail {
@@ -30,10 +33,22 @@ export interface ActivityDetail {
   readonly secondary?: string;
 }
 
+/**
+ * What a loader is handed besides the transport.
+ *
+ * `money` comes from the surface rather than from the design system, and deliberately: importing the
+ * table package's formatter here would pull its Svelte components into a module the node-environment
+ * tests load, and this file has no business needing a browser to be tested.
+ */
+export interface DetailLoaderContext {
+  readonly money: (amount: number, currency: string) => string;
+}
+
 /** Reads one subsystem's own page and indexes it by the row identity the timeline carries. */
 type DetailLoader = (
   fetchImpl: typeof fetch,
   matterId: string,
+  context: DetailLoaderContext,
 ) => Promise<ReadonlyMap<string, ActivityDetail>>;
 
 /** A note's opening line, trimmed to something that sits on a row without pushing it around. */
@@ -86,6 +101,80 @@ const LOADERS: Readonly<Record<string, DetailLoader>> = {
     if (outcome.kind !== "ok") return new Map();
     return new Map(outcome.value.data.map((note) => [note.id, { title: openingLine(note.body) }]));
   },
+  // Time. The narrative is what the work was, which is the only thing worth leading a row with; the
+  // hours and whether it is billable ride beside it.
+  timeEntry: async (fetchImpl, matterId) => {
+    const outcome = await listMatterTimeEntries(fetchImpl, matterId);
+    if (outcome.kind !== "ok") return new Map();
+    return new Map(
+      outcome.value.data.map((entry) => [
+        entry.id,
+        {
+          title: openingLine(entry.narrative),
+          secondary: [
+            `${hoursFromMinutes(entry.durationMinutes)} h`,
+            entry.billable ? undefined : "Non-billable",
+            entry.timekeeperName ?? undefined,
+          ]
+            .filter((part) => part !== undefined)
+            .join(" · "),
+        },
+      ]),
+    );
+  },
+  // A cost. Its description names what was bought; the amount is the fact anybody scanning wants.
+  costEntry: async (fetchImpl, matterId, context) => {
+    const outcome = await listMatterCosts(fetchImpl, matterId);
+    if (outcome.kind !== "ok") return new Map();
+    return new Map(
+      outcome.value.data.map((cost) => [
+        cost.id,
+        {
+          title: openingLine(cost.description),
+          secondary: [
+            context.money(cost.amountMinor / 100, cost.currency),
+            cost.vendorName ?? undefined,
+          ]
+            .filter((part) => part !== undefined)
+            .join(" · "),
+        },
+      ]),
+    );
+  },
+  // An event. Its title is what a person calls the hearing, and where it is held is the second thing
+  // they look for.
+  matterEvent: async (fetchImpl, matterId) => {
+    const outcome = await listMatterEvents(fetchImpl, matterId);
+    if (outcome.kind !== "ok") return new Map();
+    return new Map(
+      outcome.value.data.map((event) => [
+        event.id,
+        {
+          title: event.title,
+          secondary: [event.eventTypeName ?? undefined, event.locationText ?? undefined]
+            .filter((part) => part !== undefined)
+            .join(" · "),
+        },
+      ]),
+    );
+  },
+  // A deadline. Whether it is overdue is the fact that changes what somebody does about it, so it is
+  // stated here rather than left for the Calendar section to reveal.
+  matterDeadline: async (fetchImpl, matterId) => {
+    const outcome = await listMatterDeadlines(fetchImpl, matterId);
+    if (outcome.kind !== "ok") return new Map();
+    return new Map(
+      outcome.value.data.map((deadline) => [
+        deadline.id,
+        {
+          title: deadline.title,
+          secondary: [deadline.overdue ? "Overdue" : undefined, deadline.authorityText ?? undefined]
+            .filter((part) => part !== undefined)
+            .join(" · "),
+        },
+      ]),
+    );
+  },
 };
 
 /** Which sources this build can say more about. Named for the tests, and for the next loader. */
@@ -127,11 +216,15 @@ export class ActivityDetails {
    * Concurrent, because they read unrelated subsystems and a serial pass would make the slowest one
    * decide when any detail appears. Each is absorbed as it lands, so the fast ones show immediately.
    */
-  async load(fetchImpl: typeof fetch, matterId: string): Promise<void> {
+  async load(
+    fetchImpl: typeof fetch,
+    matterId: string,
+    context: DetailLoaderContext,
+  ): Promise<void> {
     const generation = this.#generation;
     await Promise.all(
       Object.entries(LOADERS).map(async ([sourceKey, loader]) => {
-        const loaded = await loader(fetchImpl, matterId);
+        const loaded = await loader(fetchImpl, matterId, context);
         if (generation !== this.#generation) return;
         const merged = new Map(this.#details);
         for (const [rowId, detail] of loaded) merged.set(`${sourceKey}:${rowId}`, detail);

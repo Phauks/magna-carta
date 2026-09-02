@@ -13,6 +13,9 @@ interface StubbedRoute {
   readonly body: unknown;
 }
 
+/** The surface's money formatter, stated here so an assertion reads as a fact rather than a locale. */
+const MONEY = { money: (amount: number, currency: string) => `${currency} ${amount.toFixed(2)}` };
+
 function stubFetch(routes: readonly StubbedRoute[]): typeof fetch {
   return ((input: RequestInfo | URL) => {
     const url = String(input);
@@ -94,7 +97,7 @@ describe("what each subsystem says about its own rows", () => {
   it("names a document and states the facts about it worth the width", async () => {
     const details = new ActivityDetails();
     details.reset("matter_1");
-    await details.load(stubFetch([FILES, NOTES]), "matter_1");
+    await details.load(stubFetch([FILES, NOTES]), "matter_1", MONEY);
 
     const document = details.detailFor("documentFiled", "file_1");
     expect(document?.title).toBe("Motion to Dismiss.pdf");
@@ -104,14 +107,14 @@ describe("what each subsystem says about its own rows", () => {
   it("says a document is quarantined, beside it, rather than only in the Files section", async () => {
     const details = new ActivityDetails();
     details.reset("matter_1");
-    await details.load(stubFetch([FILES, NOTES]), "matter_1");
+    await details.load(stubFetch([FILES, NOTES]), "matter_1", MONEY);
     expect(details.detailFor("documentFiled", "file_2")?.secondary).toBe("Quarantined");
   });
 
   it("leads a note with its opening line, not its whole body", async () => {
     const details = new ActivityDetails();
     details.reset("matter_1");
-    await details.load(stubFetch([FILES, NOTES]), "matter_1");
+    await details.load(stubFetch([FILES, NOTES]), "matter_1", MONEY);
     expect(details.detailFor("matterNote", "note_1")?.title).toBe(
       "Called the client about the hearing.",
     );
@@ -120,7 +123,7 @@ describe("what each subsystem says about its own rows", () => {
   it("matches on the row identity the timeline carries, never on a name", async () => {
     const details = new ActivityDetails();
     details.reset("matter_1");
-    await details.load(stubFetch([FILES, NOTES]), "matter_1");
+    await details.load(stubFetch([FILES, NOTES]), "matter_1", MONEY);
     // Two documents could share a name; the timeline's row id is the file's id, so the join is exact.
     expect(details.detailFor("documentFiled", "file_absent")).toBeUndefined();
     expect(details.detailFor("matterNote", "file_1")).toBeUndefined();
@@ -131,7 +134,7 @@ describe("what each subsystem says about its own rows", () => {
     // documents named — the chronology is the subject, the detail is an enrichment of it.
     const details = new ActivityDetails();
     details.reset("matter_1");
-    await details.load(stubFetch([FILES, { ...NOTES, status: 403, body: {} }]), "matter_1");
+    await details.load(stubFetch([FILES, { ...NOTES, status: 403, body: {} }]), "matter_1", MONEY);
     expect(details.detailFor("documentFiled", "file_1")?.title).toBe("Motion to Dismiss.pdf");
     expect(details.detailFor("matterNote", "note_1")).toBeUndefined();
   });
@@ -139,7 +142,7 @@ describe("what each subsystem says about its own rows", () => {
   it("discards what it holds when the matter changes", async () => {
     const details = new ActivityDetails();
     details.reset("matter_1");
-    await details.load(stubFetch([FILES, NOTES]), "matter_1");
+    await details.load(stubFetch([FILES, NOTES]), "matter_1", MONEY);
     expect(details.showing("matter_1")).toBe(true);
 
     details.reset("matter_2");
@@ -148,6 +151,13 @@ describe("what each subsystem says about its own rows", () => {
   });
 
   it("names which sources it can say more about, so the next loader has a list to join", () => {
-    expect([...DETAILED_SOURCE_KEYS].toSorted()).toEqual(["documentFiled", "matterNote"]);
+    expect([...DETAILED_SOURCE_KEYS].toSorted()).toEqual([
+      "costEntry",
+      "documentFiled",
+      "matterDeadline",
+      "matterEvent",
+      "matterNote",
+      "timeEntry",
+    ]);
   });
 });

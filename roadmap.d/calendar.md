@@ -32,14 +32,14 @@
 
 - id: calendar.timeline.activity-section
   name: The matter's Activity section
-  scope: The federated timeline as a screen — one chronology per matter, cut into days, narrowed by bands of sources, each entry following into the subsystem that owns it.
+  scope: The federated timeline as a screen — one chronology per matter on the product's shared table, sorted and filtered by its own columns, each row named by the subsystem that owns it and following into it.
   status: shipped
   slices: 4-4-matter-notes
   surface: screen
   audience: public
   public-summary: See everything that has happened on a case, in order, in one place.
-  evidence: apps/web/src/routes/(app)/matters/[id]/activity/+page.svelte over GET /api/v1/matters/{matterId}/timeline; apps/web/src/lib/matters/activity-presentation.ts pairs one entry to each declared source, asserted against the calendar package's own declarations by apps/web/test/activity-presentation.test.ts; apps/web/src/lib/matters/activity-detail.svelte.ts names each row through its own subsystem's access-gated read; the two-subsystem walk in apps/web/e2e/matter-activity.spec.ts.
-  notes: The screen names no source and switches on none — adding a subsystem to the platform's timeline is one entry in the presentation registry, and the test fails until it exists. The federated read still projects almost nothing, because it spans matters; the screen names its rows by following the deep link EAGERLY, one bounded read per subsystem per matter through that subsystem's own access gate, which is additive per source and costs a refusing subsystem only its own rows. Filters (bands, past/upcoming, a date range) narrow the read rather than the rows.
+  evidence: apps/web/src/routes/(app)/matters/[id]/activity/+page.svelte over GET /api/v1/matters/{matterId}/timeline, rendered as a DataTable.Grid (activity-columns.ts); apps/web/src/lib/matters/activity-presentation.ts pairs one entry to each declared source, asserted against the calendar package's own declarations by apps/web/test/activity-presentation.test.ts; apps/web/src/lib/matters/activity-detail.svelte.ts names six sources' rows through their own access-gated reads; the two-subsystem walk and the sort walk in apps/web/e2e/matter-activity.spec.ts.
+  notes: The screen names no source and switches on none — adding a subsystem to the platform's timeline is one entry in the presentation registry, and the test fails until it exists. The federated read still projects almost nothing, because it spans matters; the screen names its rows by following the deep link EAGERLY, one bounded read per subsystem per matter through that subsystem's own access gate, which is additive per source, costs a refusing subsystem only its own rows, and is what keeps a narrower permission (notes:read) honest without the timeline knowing about one. Sorting and filtering are the shared grid's, on the owner's direction: there is no filter bar, and the Kind column's set filter declares the whole vocabulary rather than reading it off the loaded rows.
 
 - id: calendar.firm-events
   name: Firm events

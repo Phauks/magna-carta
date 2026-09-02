@@ -143,6 +143,21 @@ is usually the fastest way to understand the rule.
   nothing behind it swallows the gesture in silence: the person watches their file go in, sees
   nothing happen, and cannot tell that from a failure. Either wire it or leave it out — a control
   that does nothing is worse than an absent one. _(matter notes, 2026-09-01)_
+- **A list of records IS the product's table.** Not a hand-built list that resembles one. The shared
+  grid already carries sorting, per-column filtering, a set filter with counts, column
+  show/hide/pin/reorder/resize, and a footer that says how many rows a filter is hiding; a list
+  written by hand has none of it and earns each piece back one at a time, differently. _(matter
+  activity, 2026-09-02)_
+- **Filtering belongs to the columns, never to a bar above them.** Narrowing to one kind is a set
+  filter on the Kind column; narrowing to last month is the Date column's range; narrowing to one
+  person is Who. A row of chips over a table that can already do all three is a second filter to
+  learn and a second place for the two to disagree. _(matter activity, 2026-09-02)_
+- **A signed-in member is not a stranger, and a screen must not withhold from them.** Where the
+  record already decides who may see a matter, its own rows carry no further secret: a row that says
+  only that "a document was added" is a row a reader has to open something else to understand. State
+  what the thing IS. Where a narrower permission genuinely exists — a note behind `notes:read` — the
+  screen honours it by reading through that subsystem's own gate, which refuses on its own, rather
+  than by keeping every reader in the dark to cover one. _(matter activity, 2026-09-02)_
 
 ### Controls and patterns
 
@@ -383,6 +398,25 @@ promoted above; it binds everywhere. What is local to this surface:
   of them narrows the READ — the source keys and bounds travel with the request and the server
   narrows its registry before it builds a statement — so a filtered chronology is cheaper as well as
   shorter, and Clear Filters appears only while something is hidden.
+
+### 2026-09-02 — the matter Activity section, second review round
+
+The owner rejected the hand-built chronology outright: it should be the same table as every other
+register, filtering belongs in it, and withholding content from a signed-in member "is stupid and
+helps no one". All three are promoted above. What is local to this surface:
+
+- The register is `DataTable.Grid` with six columns — Date (anchored, the chronology's own order),
+  Time, Kind, What, Details, Who. Kind and Who carry set filters; Date carries its range.
+- **The band chips are gone.** Kind's set filter declares the platform's whole vocabulary through
+  `filterValues`, so a matter with no costs yet still offers "Cost" and does not tell a reader it can
+  never have one.
+- **Six of the fourteen sources now name their own rows** — documents, notes, time, costs, events,
+  deadlines — each through one bounded read of its own subsystem's listing, joined on the row
+  identity the timeline already carries. The remaining sources keep the platform's sentence, and
+  adding one is a single loader.
+- The What column's width claim is capped at 72 characters. The grid fits a column to its longest
+  text, and one paragraph-long note would otherwise push Who off the screen for every other row; the
+  cell truncates and the full text stays in its title, so the cap is on the column, never the record.
 
 ### 2026-09-01 — the matter Notes section, first review round
 

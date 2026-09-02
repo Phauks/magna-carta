@@ -2,13 +2,17 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { activityDays } from "$lib/matters/activity-days.ts";
+import type { ActivityEntry } from "$lib/matters/activity-api.ts";
 import {
-  ACTIVITY_BANDS,
+  ACTIVITY_KIND_VALUES,
+  activityColumns,
+  activityRows,
+} from "$lib/matters/activity-columns.ts";
+import {
   ACTIVITY_PRESENTATIONS,
   followableLink,
   happenedText,
   presentationFor,
-  sourcesInBand,
 } from "$lib/matters/activity-presentation.ts";
 import { matterSections } from "$lib/matters/sections.ts";
 
@@ -89,14 +93,14 @@ describe("what a row says", () => {
     expect(presentationFor("emailFiled")?.labelMeaning).toBeUndefined();
   });
 
-  it("puts every source in a band the filter offers", () => {
-    const offered = new Set(ACTIVITY_BANDS.map((band) => band.key));
+  it("offers every source's kind to the Kind column's filter, present on screen or not", () => {
+    // A set filter otherwise offers only what the loaded rows hold, and a matter with no costs yet
+    // would show a filter that cannot say "Cost" — which a reader takes for "it never can".
+    const offered = new Set(ACTIVITY_KIND_VALUES);
     for (const presentation of ACTIVITY_PRESENTATIONS) {
-      expect(offered.has(presentation.band)).toBe(true);
-    }
-    // And every band offers something, so the filter never shows a control that narrows to nothing.
-    for (const band of ACTIVITY_BANDS) {
-      expect(sourcesInBand(band.key).length).toBeGreaterThan(0);
+      expect(offered.has(presentation.noun), `${presentation.key} names ${presentation.noun}`).toBe(
+        true,
+      );
     }
   });
 });
@@ -167,5 +171,76 @@ describe("the chronology, cut into days", () => {
 
   it("answers an empty page with no days at all", () => {
     expect(activityDays([])).toEqual([]);
+  });
+});
+
+describe("the row model the table reads", () => {
+  const entry = (over: Partial<ActivityEntry> & { sourceKey: string; rowId: string }) => ({
+    kind: over.sourceKey,
+    sortKey: "2026-08-30",
+    matterId: "matter_1",
+    actorUserId: null,
+    label: null,
+    link: "/matters/matter_1/notes?entry=note_1",
+    ...over,
+  });
+  const bare = { detailFor: () => undefined, nameOf: () => null };
+
+  it("leads with what the subsystem calls the row, and falls back to what happened", () => {
+    const named = activityRows([entry({ sourceKey: "matterNote", rowId: "note_1" })], {
+      ...bare,
+      detailFor: () => ({ title: "Called the client." }),
+    });
+    expect(named[0]?.what).toBe("Called the client.");
+
+    const unnamed = activityRows([entry({ sourceKey: "matterNote", rowId: "note_1" })], bare);
+    expect(unnamed[0]?.what).toBe("A note was written");
+  });
+
+  it("caps how wide one long row may make the column, without losing the record", () => {
+    // The grid fits a column to its longest text, so one paragraph-long note would push Who and
+    // Details off screen for every other row. The cell keeps the full text in its title.
+    const long = "x".repeat(300);
+    const [row] = activityRows([entry({ sourceKey: "matterNote", rowId: "note_1" })], {
+      ...bare,
+      detailFor: () => ({ title: long }),
+    });
+    expect(row?.what.length).toBeLessThan(100);
+    expect(row?.what.endsWith("…")).toBe(true);
+  });
+
+  it("names what a declared label is, beside whatever the subsystem said", () => {
+    const [row] = activityRows(
+      [entry({ sourceKey: "documentFiled", rowId: "file_1", label: "Retainer Agreement" })],
+      { ...bare, detailFor: () => ({ title: "Retainer.pdf", secondary: "45 KB" }) },
+    );
+    expect(row?.details).toBe("45 KB · Document type: Retainer Agreement");
+  });
+
+  it("keys a row by source AND row, because two subsystems can share an identifier", () => {
+    const rows = activityRows(
+      [
+        entry({ sourceKey: "matterNote", rowId: "shared" }),
+        entry({ sourceKey: "documentFiled", rowId: "shared" }),
+      ],
+      bare,
+    );
+    expect(new Set(rows.map((row) => row.key)).size).toBe(2);
+  });
+
+  it("keeps the order the server sent, because the cursor continues that order", () => {
+    const rows = activityRows(
+      [
+        entry({ sourceKey: "matterNote", rowId: "a", sortKey: "2026-08-28" }),
+        entry({ sourceKey: "matterNote", rowId: "b", sortKey: "2026-08-30" }),
+      ],
+      bare,
+    );
+    expect(rows.map((row) => row.day)).toEqual(["2026-08-28", "2026-08-30"]);
+  });
+
+  it("offers no link where no built section owns the record", () => {
+    const [row] = activityRows([entry({ sourceKey: "conflictsCheck", rowId: "check_1" })], bare);
+    expect(row?.href).toBeNull();
   });
 });
