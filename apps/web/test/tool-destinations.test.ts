@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { toolDestinations } from "../src/lib/navigation/tool-destinations.ts";
 import { toolPresentation } from "../src/lib/tools/tool-presentation.ts";
-import { hasSurface } from "../src/lib/maturity/maturity.ts";
+import { hasSurface } from "@magna-carta/design-system/maturity";
 
 const entries = toolDestinations();
 const catalogIds = CATALOG.map((tool) => tool.id).sort();

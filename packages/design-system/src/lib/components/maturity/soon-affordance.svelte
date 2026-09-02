@@ -27,6 +27,11 @@
    * Either way the reason reaches a screen reader. A disabled control cannot be hovered or focused,
    * so a title alone would say nothing to anyone not using a mouse; the sentence is therefore
    * always the control's accessible description, whether or not it is drawn.
+   *
+   * It lives in the design system rather than the app because the ActionDialog shell is one of its
+   * callers: a panel whose commit is not served yet hands the shell `commitSoon`, and the shell
+   * wraps its own commit in this, so a not-yet-served act reads the same in a panel as it does in
+   * a menu or a record window.
    */
   import type { Snippet } from "svelte";
   import MaturityBadge from "./maturity-badge.svelte";

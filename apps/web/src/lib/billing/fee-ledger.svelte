@@ -45,8 +45,7 @@
   import type { RecordMenuAction, RecordMenuModel } from "$lib/records/record-menu-model.ts";
   import ReclassifyDialog from "$lib/records/reclassify-dialog.svelte";
   import { mayReclassify } from "$lib/records/reclassification.ts";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import { BILLING_PERMISSIONS, type ArrangementRecord } from "./billing-api.ts";

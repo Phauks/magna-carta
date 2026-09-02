@@ -38,8 +38,7 @@
   import CommandPalette from "$lib/components/command-palette.svelte";
   import TimeKeeperChip from "$lib/time/time-keeper-chip.svelte";
   import VersionChip from "$lib/versions/version-chip.svelte";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import MaturityDot from "$lib/maturity/maturity-dot.svelte";
+  import { MaturityBadge, MaturityDot } from "@magna-carta/design-system/maturity";
   import DownloadTray from "$lib/export/download-tray.svelte";
   import ProfileMenu from "$lib/components/profile-menu.svelte";
   import { DragReorderController } from "$lib/components/drag-reorder.svelte.ts";
