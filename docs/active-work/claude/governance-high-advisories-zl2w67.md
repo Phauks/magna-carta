@@ -1,8 +1,8 @@
 ---
 worktree: /home/user/magna-carta (remote session)
-area: Dependency audit — clear the HIGH advisories that turned the governance job red on every pull request
+area: The CI gate's cost — substrate gating on the dependent closure, WASM cache seeding from main, sectioning and naming, and a cheaper docs assembly
 status: review
-touches: pnpm-workspace.yaml, pnpm-lock.yaml, osv-scanner.toml, apps/api-worker/package.json, docs/conventions/api.md, docs/conventions/operations.md, docs/Magna-Carta-White-Paper.md, roadmap.d/platform.md, docs/now.md, changelog.d/
+touches: .github/workflows/gate.yml, .github/workflows/seed-caches.yml, .github/workflows/assemble-docs.yml, .github/actions/setup/action.yml, tooling/lint-cache-keys/, package.json, docs/conventions/build-performance.md, changelog.d/
 ---
 
-The governance job started failing on 2026-09-02 for every branch, on a lockfile identical to `main`: five HIGH advisories published against packages already in the tree (four on fast-uri 3.1.5, one on @faker-js/faker 5.5.3). This stream moves the fast-uri override to the fixed line and removes the Prism mock server from the dependency set, which is the only way the faker finding leaves: its carrier cannot load the fixed line. The docs that described Prism as a CI step are corrected to say it runs on demand. Anything touching `pnpm-workspace.yaml` overrides or `osv-scanner.toml` should merge `main` after this lands.
+Second stream on this branch, after the advisory fix landed. The gate's first month of real runs showed most of the bill in `test-worker` and in a WASM cache that no branch could ever restore; this stream gates the two expensive test substrates on the dependent closure `classify` already computes, seeds the WASM cache from `main`, and re-sections the workflow by tier. Anything else touching `gate.yml` or `.github/actions/setup` should merge `main` after this lands: the `changes` and `wasm` jobs are renamed (`classify`, `build-wasm`) and every consumer's preamble moved into the setup action.
