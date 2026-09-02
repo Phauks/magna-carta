@@ -48,7 +48,71 @@ const NAMES: CustodyNameLookup = {
   member: (userId) => (userId === "user_chase" ? "Marguerite Chase" : null),
   location: (locationId) => (locationId === "custodyLocation_safe" ? "Reno safe" : null),
   entity: (entityId) => (entityId === "directoryPerson_alvarez" ? "Rosa Alvarez" : null),
+  item: (itemId) => (itemId === "custodyItem_will" ? "Item 1: Original will" : null),
 };
+
+/*
+ * WHICH OBJECT A ROW IS ABOUT, read from the two places the same ledger is read from.
+ *
+ * The register keeps one ledger against a packet and it holds two kinds of row: entries about the
+ * packet, and entries about one item inside it. Read as a packet's history the item rows are the
+ * odd ones out; read as one item's history the packet rows are, because an item goes wherever its
+ * packet goes and those entries are the item's history too. Presenting either set unmarked is the
+ * failure worth a test: a reader would take a move of the whole deed box for a move of this will.
+ */
+describe("what a history row is about", () => {
+  it("names the item, reading a packet's history", () => {
+    const lines = movementDetailLines(
+      movement({ kind: "withdrawn", itemId: "custodyItem_will" }),
+      NAMES,
+    );
+    expect(lines[0]).toBe("About Item 1: Original will");
+  });
+
+  it("says an item row is about an item even where nothing names which", () => {
+    // The packet's items had not landed, or the row names one that is no longer described. The
+    // handle is never printed, and the row must not read as though it were about the packet.
+    const lines = movementDetailLines(
+      movement({ kind: "withdrawn", itemId: "custodyItem_gone" }),
+      NAMES,
+    );
+    expect(lines[0]).toBe("About one item inside");
+  });
+
+  it("says nothing about scope on a packet row, reading a packet's history", () => {
+    // Every row saying "the whole packet" in the packet's own history would be saying nothing.
+    expect(movementDetailLines(movement({ toLocationId: "custodyLocation_safe" }), NAMES)).toEqual([
+      "To Reno safe",
+    ]);
+  });
+
+  it("marks the packet-wide rows, reading one item's history", () => {
+    const lines = movementDetailLines(
+      movement({ toLocationId: "custodyLocation_safe" }),
+      NAMES,
+      "item",
+    );
+    expect(lines).toEqual(["The whole packet", "To Reno safe"]);
+  });
+
+  it("says nothing about scope on the item's own rows, reading its history", () => {
+    const lines = movementDetailLines(
+      movement({ kind: "withdrawn", itemId: "custodyItem_will" }),
+      NAMES,
+      "item",
+    );
+    expect(lines).toEqual([]);
+  });
+
+  it("carries the scope through the events a rail is handed", () => {
+    const [packetWide] = movementEvents(
+      [movement({ toLocationId: "custodyLocation_safe" })],
+      NAMES,
+      "item",
+    );
+    expect(packetWide?.detail).toBe("The whole packet. To Reno safe");
+  });
+});
 
 describe("who recorded a movement", () => {
   it("names the member the ledger row names", () => {

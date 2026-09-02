@@ -55872,7 +55872,7 @@
         }
       },
       "get": {
-        "description": "Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in.",
+        "description": "Returns a packet's full custody history, newest first and cursor-paginated. Ordered by when each event happened, not by when it was typed in. Narrowing by itemId answers one item's own chain of custody, which is its own entries PLUS the packet-wide ones: an item inside a packet goes wherever the packet goes, so a history of only the rows naming the item would leave out every move it actually made. Each row carries itemId, so a reader can tell the two apart.",
         "operationId": "custody.listMovements",
         "tags": [
           "custody"
@@ -55906,6 +55906,15 @@
             },
             "required": false,
             "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyItem_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "itemId",
             "in": "query"
           }
         ],

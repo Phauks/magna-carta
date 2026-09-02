@@ -259,6 +259,67 @@ describe("the custody register end to end", () => {
     ]);
   });
 
+  /*
+   * AN ITEM'S CHAIN OF CUSTODY IS ITS OWN ENTRIES PLUS THE PACKET'S.
+   *
+   * This is the case a naive `item_id = ?` filter gets wrong, and it gets it wrong silently: an
+   * original will that has moved safes twice and been out to a completion meeting would answer with
+   * "Contents described" and nothing else, which reads as a chain of custody and is not one. An item
+   * inside a packet goes wherever the packet goes, so those entries belong to it too, and the row's
+   * own `itemId` is what lets a reader tell which of the two each entry is.
+   */
+  it("answers one item's history as its own entries plus the packet-wide ones", async () => {
+    const safe = await createLocation("Item-history safe", "safe");
+    const other = await createLocation("Item-history annexe", "safe");
+    const ownerEntityId = await createPerson("Ada", "Item-History");
+
+    const logged = await post("/api/v1/custody/packets", {
+      name: "Two-instrument packet",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    const packet = (await logged.json()) as { id: string };
+
+    const firstItem = await post(`/api/v1/custody/packets/${packet.id}/items`, {
+      description: "Original will",
+    });
+    expect(firstItem.status).toBe(201);
+    const willId = ((await firstItem.json()) as { id: string }).id;
+
+    const secondItem = await post(`/api/v1/custody/packets/${packet.id}/items`, {
+      description: "Share certificate",
+    });
+    expect(secondItem.status).toBe(201);
+
+    // A packet-wide movement: both items went with it.
+    const moved = await post(`/api/v1/custody/packets/${packet.id}/movements`, {
+      kind: "moved",
+      toLocationId: other,
+    });
+    expect(moved.status).toBe(201);
+
+    const whole = await get(`/api/v1/custody/packets/${packet.id}/movements`);
+    const wholeBody = (await whole.json()) as { data: Array<{ kind: string }> };
+    expect(wholeBody.data.map((movement) => movement.kind)).toEqual([
+      "moved",
+      "itemized",
+      "itemized",
+      "logged",
+    ]);
+
+    const forItem = await get(
+      `/api/v1/custody/packets/${packet.id}/movements?itemId=${encodeURIComponent(willId)}`,
+    );
+    expect(forItem.status).toBe(200);
+    const itemBody = (await forItem.json()) as {
+      data: Array<{ kind: string; itemId: string | null }>;
+    };
+    // The move and the logging are the packet's and are the will's history too; the OTHER item's
+    // itemized row is not, and is the row a filter that merely dropped nothing would have left in.
+    expect(itemBody.data.map((movement) => movement.kind)).toEqual(["moved", "itemized", "logged"]);
+    expect(itemBody.data.map((movement) => movement.itemId)).toEqual([null, willId, null]);
+  });
+
   it("refuses a packet logged with no Directory owner (422)", async () => {
     const safe = await createLocation("No-owner safe", "safe");
     const response = await post("/api/v1/custody/packets", {

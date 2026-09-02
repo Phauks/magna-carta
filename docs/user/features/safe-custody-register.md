@@ -1,9 +1,10 @@
 # Safe custody register
 
-_The register, its reports, review dates, printable labels, and the checks made before an original is
-released are built, along with the API behind them. The screens — the register list, packet detail,
-the location tree, and check-out/check-in — are authored when those surfaces ship. Emailed reminders,
-printed receipts, destruction approval, and client-portal visibility are not built yet._
+_You can browse the register, walk the location tree, open a packet, log a new packet, describe what
+is inside one, and file copies against it. Check-out, check-in, release and destruction are recorded
+through the API and their screens are authored when those surfaces ship; the controls for them are on
+the packet and say what they are waiting on. Emailed reminders, printed receipts, and client-portal
+visibility are not built yet, and the by-owner, holds and overdue reports have no screen today._
 
 ## What it does
 
@@ -26,19 +27,25 @@ can never be returned to its owner and never be destroyed.
 
 ## Logging something into custody
 
-1. Open the register and choose to log a packet.
+1. Open the register and press **New**.
 2. Give it a name you would recognize on a shelf ("Smith family deeds").
-3. Link at least one **owner** from the directory. You can add more than one — a joint will packet has
+3. Choose the **container** it is going into — the safe, box, or shelf it will live in. Containers you
+   have closed are not offered.
+4. Link at least one **owner** from the directory. You can add more than one — a joint will packet has
    two — and you can give each a short role: owner, joint owner, life tenant, trustee, executor.
-4. Record the **depositor** if it was not the owner who handed it over. A son depositing his mother's
+5. Record who **handed it over** if it was not the owner, and when. A son depositing his mother's
    will, or a former solicitor transferring a file on a practice closure, is a fact about the deposit
-   that should not be lost when ownership later changes.
-5. Choose where it is going — the safe, box, or shelf it will live in.
+   that should not be lost when ownership later changes. The date is the day the firm actually took
+   it, which is often years before anybody types the row.
 6. Link a **matter** only if there is one. Most packets have none, and that is normal: a will held for
    a client whose last matter closed eleven years ago is the ordinary case, not an oversight. Where a
    packet is linked to a matter, closing that matter tells the person closing it that you still hold
    the property — and then closes the matter anyway. It never blocks, because holding a client's will
-   long after their last matter closed is what a safe-custody register is for.
+   long after their last matter closed is what a safe-custody register is for. Pressing **New** from
+   inside a matter's Custodian section fills this in for you and asks you everything else.
+
+The form will not let you record a packet without a name, an owner and a container, and it tells you
+which of the three is missing rather than leaving a button greyed out with no reason.
 
 If your firm has written down its own list of ownership roles, the role you choose has to be one of
 them, so a typo does not become a new category. If it has not, anything you type is accepted — the
@@ -49,8 +56,11 @@ over the phone. If you are moving in from a paper deeds register or another syst
 already have numbers on their labels, enter the existing number instead; the register will use it and
 you do not have to re-label the safe.
 
-Then itemize it: add one entry per thing inside, with a description, the type, and the item's own date
-where it has one (a will's date is what people actually search by).
+Then itemize it: open the packet, go to **Contents**, and press **Describe An Item** once per thing
+inside, with a description, the type, and the item's own date where it has one (a will's date is what
+people actually search by). A declared value is not asked for on this form, because the firm has not
+told the platform what currency it works in and a figure of record is not something a screen should
+guess at.
 
 **Irreplaceable originals are flagged.** Most types — wills, deeds, certificates — are flagged
 automatically as irreplaceable, and you can set or clear the flag on any specific item. The flag is
@@ -81,6 +91,11 @@ Give it a **due-back date**. This is the one field that does the most work in th
 overdue list is built from it, and it is the reason you find out that a deed has been in someone's
 office for five weeks.
 
+While it is out the packet reads **On loan**, which is deliberately not the same word as
+**Released**. A loan is still yours and has a date against it; a release has ended your custody for
+good and is the one step you cannot undo. They are the two states in which something is not on the
+shelf, and they are opposites.
+
 Checking it back in records where it went back to. You can also move a packet between locations, take
 a single item out of a packet, give an original back to its owner for good (see below — that one
 takes more), or record that something is **lost** — recording a loss honestly is far better than a
@@ -93,6 +108,13 @@ entered on Monday is the normal case.
 **History is never edited.** If you record something wrongly, you record a **correction** that points
 at the entry it corrects. Both stay visible. That is what makes the register worth something if it is
 ever questioned — nobody could have gone back and made it say something else.
+
+**Each item has a chain of custody too.** Open a packet, go to Contents, and click an item: its own
+history opens underneath it. It shows what happened to that item and everything that happened to the
+packet holding it, because an original will inside a deed box went to the Reno safe when the box did.
+Entries about the whole packet say so, so a move of the box is never mistaken for something that
+happened to this will alone. The packet's own history works the other way round: an entry about one
+item names which item, rather than leaving you to guess which of five instruments was withdrawn.
 
 ## Giving an original back
 
@@ -221,7 +243,8 @@ jurisdiction does have a verified answer.
 ## Scans
 
 You can attach scans, photographs, receipts, appraisals, and correspondence to a packet or to one item
-inside it. Upload the document the way you upload any other document, then link it to the packet.
+inside it. Upload the document the way you upload any other document, then open the packet, go to
+**Scans**, and press **File A Copy** to link it and say which of the five it is.
 
 **A scan is never a substitute for the original**, and the register will not treat it as one. Having a
 scan of a will does not make the will itself any more disposable — that is exactly the reasoning that
@@ -245,28 +268,31 @@ this" always has an answer.
 
 ## What the register is waiting on
 
-One list answers it: **reviews that have come round, and things checked out that have not come back**,
-oldest first. Nothing emails you yet — that arrives when notifications ship, and it will read from
-exactly this list, so what you are told will match what you can see today.
+The register knows what is waiting on it: **reviews that have come round, and things checked out that
+have not come back**, oldest first. There is no screen showing that list today — the one there was
+stood beside the register as a separate tab, and it went with the others — so this answer is available
+through the API and not yet on a page. Nothing emails you either; that arrives when notifications
+ship, and it will read from exactly this list.
 
 ## Reports
 
-Four views over what your firm holds:
+**Holdings by location is the register screen itself.** The storage tree runs down its left-hand side
+with counts on every node, both for a single shelf and for everything beneath it, and selecting a node
+narrows the register to that whole branch — the safe and every box and position inside it. A packet
+that is checked out counts at no location, so a safe whose contents are all out reads as empty, which
+is what you would see if you opened it.
 
-- **Holdings by owner** — for each person or organization, how many packets are in the safe, how many
-  are out, how many items are described inside them, and how many are under hold.
-- **Holdings by location** — the whole storage tree with counts, both for a single shelf and for
-  everything beneath a node. A packet that is checked out counts at no location, so a safe whose
-  contents are all out reads as empty, which is what you would see if you opened it.
-- **Holds in force** — every hold across the register, oldest first, so a hold placed two years ago
-  and forgotten is visible rather than only surfacing when it refuses something.
-- **Overdue check-outs** — the list described above.
+Three other reports exist behind the API and **have no screen today**: holdings by owner (per person
+or organization, how many packets are in the safe, how many are checked out, how many items are
+described, how many are under hold), holds in force, and overdue check-outs. They had one, as three
+tabs beside the register, and the tabs came off: two of the three were the register narrowed and
+belong to it rather than beside it, and a firm that is not yet using holds or due-back dates was
+being shown three empty screens to find that out. They come back when there is a firm using them and
+a shape that is not a tab strip.
 
-A long report is shown a page at a time rather than all at once, and you can keep asking for the next
-page until you reach the end. Holdings by owner works differently: it shows the biggest holders first
-and tells you when your firm holds for more people than the page names, because "biggest first" is not
-an order you can walk to the end of. Either way, a partial view says that it is partial — you will
-never be shown a short list that looks like a complete one.
+Nothing you can see is ever a short list wearing a complete one's clothes: the register tells you how
+much of itself is on screen and gives you the way to the rest, and the reports above answer a page at
+a time with holdings by owner saying when your firm holds for more people than the page names.
 
 ## Taking a stocktake
 
@@ -357,8 +383,13 @@ register the way you would treat the safe itself.
 
 ## What is not here yet
 
-- **Emailed reminders.** Reviews and overdue check-outs appear on a list you can look at; nothing is
-  sent to you yet.
+- **Emailed reminders.** Nothing is sent to you yet, and the list of reviews and overdue check-outs
+  has no screen either — both arrive together.
+- **Screens for check-out, check-in, release and destruction.** The rules above are enforced today and
+  the record is written through the API; the controls on a packet render with their real words,
+  disabled, saying what each is waiting on.
+- **Changing a packet after you have logged it.** Editing a packet, and correcting an entry in its
+  history, are recorded through the API and have no form yet.
 - **Retention periods.** The destruction workflow above exists, but the platform ships **no default
   retention periods** at all — deliberately. How long a firm must keep a client's property varies by
   jurisdiction, and the guidance that matters most says originals of intrinsic value sit outside any
