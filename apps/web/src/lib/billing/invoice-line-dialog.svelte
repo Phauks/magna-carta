@@ -13,8 +13,8 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Button from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
@@ -39,29 +39,26 @@
 
   let description = $state("");
   let amountText = $state("");
-  let working = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
-  $effect(() => {
-    if (!open || line === null) return;
+  function reset(): void {
+    if (line === null) return;
     description = line.description;
     amountText = amountFieldText(line.amountMinor);
     failure = null;
-  });
+  }
 
   const reading = $derived(readAmountMinor(amountText));
 
-  const refusal = $derived.by((): string | null => {
+  const refusal = $derived.by((): string | undefined => {
     if (description.trim() === "") return "A line the client reads cannot be blank.";
     if (reading.kind === "empty") return "Say what this line charges.";
     if (reading.kind === "refused") return reading.reason;
-    return null;
+    return undefined;
   });
 
-  async function save(): Promise<void> {
-    if (invoiceId === null || line === null || working || refusal !== null) return;
-    if (reading.kind !== "amount") return;
-    working = true;
+  async function save(): Promise<ActionOutcome> {
+    if (invoiceId === null || line === null || reading.kind !== "amount") return "refused";
     failure = null;
     const outcome = await updateInvoiceLine(
       fetch,
@@ -70,45 +67,54 @@
       { description: description.trim(), amountMinor: reading.minor },
       crypto.randomUUID(),
     );
-    working = false;
     if (outcome.kind === "ok") {
-      open = false;
+
       onSaved();
-      return;
+      return "committed";
     }
     failure = billingFailure(outcome, "The line is unchanged.");
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Edit Line</Dialog.Title>
-    <Dialog.Description>
-      Bill review edits what the client is told: the underlying entry stays the timekeeper&rsquo;s own
-      record.
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  heading="Edit Line"
+  commitLabel="Save Line"
+  commitBusyLabel="Saving"
+  commitRefusal={refusal}
+  unsavedChanges={
+    line !== null &&
+    (description !== line.description || amountText !== amountFieldText(line.amountMinor))
+  }
+  onOpen={reset}
+  onCommit={save}
+>
+  {#snippet subtitle()}
+    Bill review edits what the client is told: the underlying entry stays the timekeeper&rsquo;s own
+    record.
+  {/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
-      <FailureNotice
-        failure={failure.failure}
-        title="Nothing Changed"
-        fallback={failure.fallback}
-      />
+      <FailureNotice failure={failure.failure} title="Nothing Changed" fallback={failure.fallback} />
     {/if}
+  {/snippet}
 
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
         <Label for="{fieldPrefix}-description">Line Text</Label>
         <Textarea
           id="{fieldPrefix}-description"
           rows={3}
-          disabled={working}
+          disabled={busy}
           bind:value={description}
         />
       </div>
       <div class="flex flex-col gap-8">
         <Label for="{fieldPrefix}-amount">Amount</Label>
-        <Input id="{fieldPrefix}-amount" disabled={working} bind:value={amountText} />
+        <Input id="{fieldPrefix}-amount" disabled={busy} bind:value={amountText} />
       </div>
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
@@ -118,19 +124,5 @@
         </span>
       </p>
     </div>
-
-    <div class="flex justify-end gap-8">
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        disabled={working || refusal !== null}
-        title={refusal ?? "Save this line"}
-        onclick={() => void save()}
-      >
-        {working ? "Saving" : "Save Line"}
-      </Button>
-    </div>
-    {#if refusal !== null}
-      <p class="text-right text-xs text-text-muted">{refusal}</p>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

@@ -64,7 +64,6 @@
       "home": "packages/design-system/src/lib/components/record-parties"
     }
   ],
-
   "modalShellsComment": [
     "The homes allowed to compose a modal panel out of the Dialog / AlertDialog / Sheet parts.",
     "Everywhere else, a modal surface is one of the shells — RecordWindow for reading and changing a",
@@ -96,7 +95,6 @@
       "reason": "the shared unsaved-work question both shells ask, which is an AlertDialog by construction."
     }
   ],
-
   "allowancesComment": [
     "Pre-existing debt, declared out loud. Every entry here is a REAL violation that predates the",
     "rule catching it: the status register and the placeholder ruling both landed after the code",
@@ -117,53 +115,13 @@
   "allowances": [
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/amend-agreement-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/billing/apply-trust-funds-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
+      "reason": "NOT read-only, and not debt: an act whose commit is not served yet. Its control is wrapped in SoonAffordance — the product's own primitive for a designed-but-unbuilt capability (disabled control, Soon badge, the dependency as the accessible description) — and that primitive lives in the app, so the design-system shell cannot carry it. It becomes a plain ActionDialog the day a route hands out a trust account."
     },
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/billing/arrangement-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/credit-note-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/draft-bill-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/finalize-bill-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/invoice-line-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/record-delivery-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/void-draft-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family \u2014 a question, so it becomes kind=destructive and gains the alertdialog role it never had."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/write-off-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the billing family."
+      "reason": "Belongs to the OTHER shell. It reads a record — the fee arrangement in force, its terms, and its version history — and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
     },
     {
       "rule": "hand-composed-modal",
@@ -173,7 +131,7 @@
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/components/command-palette.svelte",
-      "reason": "not an act asked of a reader \u2014 a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
+      "reason": "not an act asked of a reader — a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
     },
     {
       "rule": "hand-composed-modal",
@@ -182,18 +140,8 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/costs/cost-kick-back-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the costs family."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/costs/cost-review-window.svelte",
       "reason": "a screen presented over the app rather than an act asked of a reader. It belongs to the full-screen presentation question, which is a separate design and deliberately not folded into this one."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/costs/cost-void-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the costs family as kind=destructive \u2014 it is already an AlertDialog, so the migration is the footer and the guard."
     },
     {
       "rule": "hand-composed-modal",
@@ -252,13 +200,13 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/matters/new-matter-dialog.svelte",
-      "reason": "a record being CREATED, not an act asked of a reader \u2014 its right shell is RecordWindow opened with editing raised, which that component already supports. ActionDialog would be the wrong shell, so this one is scheduled separately."
+      "file": "apps/web/src/lib/matters/note-delete-dialog.svelte",
+      "reason": "predates ActionDialog; migrates to ActionDialog as kind=destructive."
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/matters/note-delete-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog as kind=destructive."
+      "file": "apps/web/src/lib/matters/matter-status-dialog.svelte",
+      "reason": "Landed the same day as the rule, from a branch that was open when the rule was written (#473 beside #466), so the collision surfaced on the first pull request to run the merged tree. Belongs to the OTHER shell, on the same reading as arrangement-dialog: it reads a record (the status, what closing requires and whether each requirement is met, where the paper file is kept) and seats its one act beside the fact it changes, which is RecordWindow's shape, not ActionDialog's. The migration is owed to the stream that owns the screen and its design rationale, not to a dependency fix; this entry fails the day it lands."
     },
     {
       "rule": "hand-composed-modal",
@@ -283,12 +231,12 @@
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/time/time-sheet.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader \u2014 same full-screen family as cost-review-window, same separate design."
+      "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family as cost-review-window, same separate design."
     },
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/tools/safe-browse/website-shell.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader \u2014 same full-screen family, same separate design."
+      "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family, same separate design."
     },
     {
       "rule": "hand-composed-modal",
@@ -300,7 +248,6 @@
       "file": "apps/web/src/routes/developer-console/table-states/+page.svelte",
       "reason": "predates the status register; the dev gallery holds its own STATUS_BADGE map so the grid states have something to render. It should read the register instead, which is also what would make the gallery show the real tones."
     },
-
     {
       "rule": "placeholder",
       "file": "apps/web/src/lib/components/recipient-picker.svelte",

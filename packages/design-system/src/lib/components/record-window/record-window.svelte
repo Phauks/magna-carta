@@ -291,7 +291,7 @@
     data-expanded={isExpanded ? "true" : "false"}
     data-editing={editing ? "true" : "false"}
     class={mergeClasses(
-      "mc-record-window",
+      "mc-modal-frame mc-record-window",
       // Width and height are utilities, never the recipe: the dialog panel underneath arrives
       // wearing its own default cap as a utility, and only another utility can replace it.
       // Expanded drops the cap entirely, because filling the screen IS the gesture.
@@ -302,23 +302,23 @@
   >
     <!-- Plain divs, not <header>/<footer>: those map to the banner and contentinfo landmarks, which
          may not sit inside a dialog. The classes carry the structure; the roles would be wrong. -->
-    <div class="mc-record-window-header">
-      <div class="mc-record-window-identity">
-        <Dialog.Title class="mc-record-window-heading">{heading}</Dialog.Title>
-        <Dialog.Description class="mc-record-window-subtitle">
+    <div class="mc-modal-frame-header mc-record-window-header">
+      <div class="mc-modal-frame-identity mc-record-window-identity">
+        <Dialog.Title class="mc-modal-frame-heading mc-record-window-heading">{heading}</Dialog.Title>
+        <Dialog.Description class="mc-modal-frame-subtitle mc-record-window-subtitle">
           {@render subtitle()}
         </Dialog.Description>
       </div>
-      <div class="mc-record-window-header-actions">
+      <div class="mc-modal-frame-header-actions mc-record-window-header-actions">
         {#if menu}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger
               data-record-window-action="menu"
-              class="mc-record-window-header-action"
+              class="mc-modal-frame-header-action mc-record-window-header-action"
               title="More"
               aria-label="More"
             >
-              <EllipsisVertical class="mc-record-window-header-icon" aria-hidden="true" />
+              <EllipsisVertical class="mc-modal-frame-header-icon mc-record-window-header-icon" aria-hidden="true" />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
               {@render menu()}
@@ -328,38 +328,38 @@
         <button
           type="button"
           data-record-window-action="edit"
-          class="mc-record-window-header-action"
+          class="mc-modal-frame-header-action mc-record-window-header-action"
           disabled={editRefusal !== undefined}
           aria-pressed={editing}
           title={editRefusal ?? editVerb}
           aria-label={editAccessibleName}
           onclick={toggleEditing}
         >
-          <Pencil class="mc-record-window-header-icon" aria-hidden="true" />
+          <Pencil class="mc-modal-frame-header-icon mc-record-window-header-icon" aria-hidden="true" />
         </button>
         <button
           type="button"
           data-record-window-action="print"
-          class="mc-record-window-header-action"
+          class="mc-modal-frame-header-action mc-record-window-header-action"
           title="Print"
           aria-label="Print"
           onclick={onPrint}
         >
-          <Printer class="mc-record-window-header-icon" aria-hidden="true" />
+          <Printer class="mc-modal-frame-header-icon mc-record-window-header-icon" aria-hidden="true" />
         </button>
         <button
           type="button"
           data-record-window-action="expand"
-          class="mc-record-window-header-action"
+          class="mc-modal-frame-header-action mc-record-window-header-action"
           aria-pressed={isExpanded}
           title={isExpanded ? "Shrink back to a window" : "Fill the screen"}
           aria-label={isExpanded ? "Shrink back to a window" : "Fill the screen"}
           onclick={toggleExpanded}
         >
           {#if isExpanded}
-            <Minimize2 class="mc-record-window-header-icon" aria-hidden="true" />
+            <Minimize2 class="mc-modal-frame-header-icon mc-record-window-header-icon" aria-hidden="true" />
           {:else}
-            <Maximize2 class="mc-record-window-header-icon" aria-hidden="true" />
+            <Maximize2 class="mc-modal-frame-header-icon mc-record-window-header-icon" aria-hidden="true" />
           {/if}
         </button>
         <!-- A plain control rather than the dialog's own Close part, so that closing runs the
@@ -368,26 +368,26 @@
         <button
           type="button"
           data-record-window-action="close"
-          class="mc-record-window-header-action"
+          class="mc-modal-frame-header-action mc-record-window-header-action"
           title="Close"
           aria-label="Close"
           onclick={requestCloseWindow}
         >
-          <X class="mc-record-window-header-icon" aria-hidden="true" />
+          <X class="mc-modal-frame-header-icon mc-record-window-header-icon" aria-hidden="true" />
         </button>
       </div>
     </div>
 
-    <div class="mc-record-window-body">
-      <div class="mc-record-window-record">
+    <div class="mc-modal-frame-body mc-record-window-body">
+      <div class="mc-modal-frame-pane mc-record-window-record">
         {@render record({ editing })}
       </div>
-      <div class="mc-record-window-context">
+      <div class="mc-modal-frame-context mc-record-window-context">
         <RecordWindowContext {tabs} {defaultTab} />
       </div>
     </div>
 
-    <div class="mc-record-window-actions">
+    <div class="mc-modal-frame-actions mc-record-window-actions">
       {@render actions({ editing })}
       {#if editing}
         <!-- The reserved commit, always last: whatever a record kind adds sits before it, so the

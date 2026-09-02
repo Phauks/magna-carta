@@ -4178,6 +4178,49 @@
           "responsibleMemberName"
         ]
       },
+      "MatterCloseReadiness": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "prospective",
+              "open",
+              "closed"
+            ]
+          },
+          "closable": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "status",
+          "closable",
+          "blockers"
+        ]
+      },
       "MatterActionAck": {
         "type": "object",
         "properties": {
@@ -12208,6 +12251,130 @@
         },
         "required": [
           "fileId"
+        ]
+      },
+      "MatterSearchAnswer": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterSearchGroup"
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "query",
+          "groups"
+        ]
+      },
+      "MatterSearchGroup": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "answerShape": {
+            "type": "string",
+            "enum": [
+              "listing",
+              "ranked"
+            ]
+          },
+          "matchedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supportsDeleted": {
+            "type": "boolean"
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterSearchHit"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "skipped": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "permission",
+              "query-too-short",
+              "engine-unavailable",
+              null
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "section",
+          "answerShape",
+          "matchedFields",
+          "supportsDeleted",
+          "hits",
+          "hasMore",
+          "skipped"
+        ]
+      },
+      "MatterSearchHit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secondary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortKey": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "snippet",
+          "secondary",
+          "actorUserId",
+          "sortKey",
+          "link"
         ]
       },
       "CustodyLocation": {
@@ -38424,6 +38591,91 @@
         }
       }
     },
+    "/api/v1/matters/{id}/close-readiness": {
+      "get": {
+        "description": "Answers whether this matter would close right now, without closing it. Runs the same close preconditions the close runs and reports each one that stands in the way, with the balance and the movements that clear it, in the words of the subsystem that owns the rule. A matter that is already closed is reported as not closable, with that as its blocker. The answer is a reading of the present, never a guarantee: the close re-asserts every rule inside its own batch, so a balance that moves in between is caught there.",
+        "operationId": "matters.closeReadiness",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.closeReadiness",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:close",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether the matter can close, and what stands in the way",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterCloseReadiness"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/{id}/open": {
       "post": {
         "description": "Opens a Prospective matter: draws the firm's next matter number atomically and transitions it to open. Refuses a matter that is not Prospective.",
@@ -54546,6 +54798,141 @@
           },
           "422": {
             "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/search": {
+      "get": {
+        "description": "Searches one matter across every section the member may read, answering one group per source in the matter's own section order. Pass `in` (repeatable) to narrow to named sources; absent means every source the member may read, and there is no value meaning wider than this matter. A group that contributed nothing says why — a source the member lacks the capability for is reported as withheld rather than returned empty, so a search never reads as 'this matter holds nothing' when it holds something the reader cannot see.",
+        "operationId": "matterSearch.search",
+        "tags": [
+          "matterSearch"
+        ],
+        "x-mc-operationId": "matterSearch.search",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "search:matter",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterSearch"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "required": false,
+            "name": "in",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "includeDeleted",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One group per selected source",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterSearchAnswer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -86324,6 +86711,9 @@
     },
     {
       "name": "matterAssets"
+    },
+    {
+      "name": "matterSearch"
     },
     {
       "name": "matterTypes"

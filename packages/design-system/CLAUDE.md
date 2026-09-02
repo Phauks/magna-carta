@@ -23,6 +23,9 @@ properties; off-token values are machine-rejected.
   the question BOTH modal shells run every exit through; owned here, never re-implemented in a shell
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
+- `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
+  the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
+  Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
 - `src/lib/styles/components.css` — the semantic component-class layer (`mc-*` recipes)
 - `src/stories/**.stories.svelte` — the catalog; stories triple as browser-mode behavior tests and
   per-story axe checks
@@ -47,8 +50,17 @@ because the confirmation inside it should be an `ActionDialog`.
   `class` prop. A caller differs on a closed set — `fields`, `notice`, `kind`, `width`, and a commit
   returning `"committed" | "refused"`.
 - **`kind` selects the primitive.** `form` → `Dialog` (corner dismiss, dismissed by a press
-  outside, "Cancel"); `confirm`/`destructive` → `AlertDialog` (the `alertdialog` role, no incidental
-  dismiss, "Never mind"). The trait table describes what Bits already does rather than fighting it.
+  outside); `confirm`/`destructive` → `AlertDialog` (the `alertdialog` role, no incidental dismiss).
+  The dismissal says "Cancel" for every acting kind, held as one constant. The trait table describes
+  what Bits already does rather than fighting it.
+- **`kind="reading"` is the fourth kind, and it is an arm of a discriminated union, not an
+  optional commit.** A reading panel — the matter-status window is the model — states a fact and
+  seats any step it offers in the body beside that fact, so its bar holds one control that says
+  "Close" (nothing was begun). The props type has two arms: acting kinds REQUIRE `commitLabel` and
+  `onCommit`; the reading kind forbids them (`?: never`). Neither arm got weaker to admit the other.
+  Its row in the kind table carries `commitVariant: null`, which is what hides the commit; it runs
+  no unsaved-work guard unless the caller says `unsavedChanges`. It is not a read-only
+  `RecordWindow`: a record with tabs, history or an editing mode still opens in the record window.
 - **The `notice` slot is the layering seam.** The design system cannot know what a failure reads
   like, so the shell reserves the PLACE and the app puts `FailureNotice` in it. Never import an app
   module here to close that gap.
@@ -59,6 +71,25 @@ because the confirmation inside it should be an `ActionDialog`.
   carry `data-action-dialog-action`. These are the hooks a scan and a rendered-DOM check read;
   `footer-set` asserts the bar against the shell's source the way `header-set` asserts the record
   window's header. Do not remove or rename them to tidy up markup.
+- **Both shells sit on one frame — `styles/recipes/modal-frame.css` — and no panel builds a pane
+  system.** The frame is the record window's own, extracted: `mc-modal-frame` (the panel),
+  `-header` / `-identity` / `-heading` / `-subtitle` / `-header-actions` / `-header-action`,
+  `-body`, `-pane` (the primary pane, which stops at `size.record-pane` beside a context and fills
+  the frame when alone via `:only-child`), `-context` (+ `-context-body` for a context that is not
+  tabs), `-notice` (outside the scroll, directly above the bar; `:empty` collapses it), and
+  `-actions`. `RecordWindow` keeps every `mc-record-window-*` name as a hook beside the frame's
+  class; its own recipe is the tab strip only. Do not re-declare any of these in a shell's recipe,
+  and do not give `ActionDialog` a `class` prop to reach past them. A form that needs something
+  beside its fields hands `ActionDialog` a `context` snippet; a context pane implies the record
+  width, whatever `width` said.
+- **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
+  in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
+  specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the
+  import breaks one or the other silently.
+- **The standard for touching the frame is byte-identical screenshots** of the record window's four
+  frame-bearing stories (default, editing-in-place, fits-without-scrolling,
+  caps-and-scrolls-its-body) from the static catalog before and after. The extraction met it; a
+  change to the frame that cannot is a change to the owner's pane system and needs the owner.
 - **The unit test project carries `svelte()`** (in `vitest.config.ts`, at the top level AND on the
   `unit` project) because `.svelte.ts` runes modules — the close guard — do not compile without it;
   from the repo root only the top-level fallback is used, so a plugin on the project alone passes

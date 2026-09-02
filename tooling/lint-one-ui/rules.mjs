@@ -52,8 +52,12 @@ export const HEADER_ACTIONS = ["menu", "edit", "print", "expand", "close"];
 /** The marker each header control carries, which is also the harness's hook for finding it. */
 export const HEADER_ACTION_ATTRIBUTE = "data-record-window-action";
 
-/** The class that opens the header's action group. The controls sit between it and its `</div>`. */
-const HEADER_ACTIONS_CLASS = 'class="mc-record-window-header-actions"';
+/**
+ * The class that opens the header's action group. The controls sit between it and its `</div>`.
+ * A class TOKEN rather than the whole attribute, so the element may carry the modal frame's class
+ * beside its own — the frame supplies the group's geometry, this name is the rule's hook.
+ */
+const HEADER_ACTIONS_CLASS = "mc-record-window-header-actions";
 
 /**
  * Tags that are a control. `<button>` covers the shell's own; the dialog's Close part and the
@@ -130,6 +134,10 @@ export function findHeaderSetProblems(filePath, source) {
  * The action bar's two controls, in the one order a reader learns: the dismissal at the weak hand,
  * the commit last at the strong hand. Its sibling is HEADER_ACTIONS above, and it exists for the
  * same reason — the promise a shell makes is only worth what stops it being quietly rearranged.
+ *
+ * A reading panel renders no commit at all; that is a runtime branch on its kind, and this rule
+ * reads SOURCE, where the commit's marker is still the last control in the bar. What the rule
+ * asserts is therefore the order of the controls that exist, and that no third one joins them.
  */
 export const FOOTER_ACTIONS = ["dismiss", "commit"];
 

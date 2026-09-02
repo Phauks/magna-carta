@@ -1,6 +1,7 @@
 @layer components {
   /*
-   * The status register's one piece of dress: the bare mark for a clean, typed file.
+   * StatusMark (Tier 1) — the affirmative mark, and the status register's one piece of dress that
+   * is not a Badge.
    *
    * Every other status in the register wears a Badge, which already has its recipe. The clean
    * verdict deliberately does not — a Safety column that says "Clean" on nine rows in ten says

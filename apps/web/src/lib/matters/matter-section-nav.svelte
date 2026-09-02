@@ -13,11 +13,21 @@
    * that column. The band owns the rule; the gold active bar lands on it. A border here would
    * draw a second line a few pixels above the first.
    *
-   * Overflow is measurement-driven, not breakpoint-driven: an invisible mirror of the full strip
-   * reports each tab's width (bind:clientWidth), and as the column narrows, trailing sections fold
-   * into the More menu. The registry orders non-core sections last, so they fold first and
-   * trailing core sections follow only when the strip is genuinely too narrow. The arithmetic and
-   * the two rules it has to keep live in section-overflow.svelte.ts.
+   * THE ROW IS THE STRIP'S TOP LEVEL, NOT ITS SECTION LIST. Fourteen sections fit no canvas, so
+   * the arrangement in sections.ts gathers two neighbourhoods into named groups — Money and
+   * Record — and the row carries seven entries: five sections and the two group triggers. A group
+   * whose section is the current one wears the gold bar itself, so the strip always says where the
+   * reader is even when the destination is a menu away. The reasoning for the grouping, and for
+   * which sections stayed on the row, lives with the arrangement in sections.ts.
+   *
+   * THE MEASURED FOLD IS NOW A BACKSTOP, NOT THE MECHANISM. It stays because a canvas can always
+   * be narrower than the arrangement — an invisible mirror of the row reports each entry's width
+   * (bind:clientWidth), and trailing entries fold into More as the column narrows. At desk width
+   * with six entries it does not fire. The arithmetic and the two rules it has to keep live in
+   * section-overflow.svelte.ts. A GROUP that folds keeps its name inside More, as a menu group
+   * heading over its own sections — a folded group must not decant into a flat list, or the two
+   * ways of reaching a section disagree about what it belongs to. The arrangement's order is the
+   * fold order, so what a member can most afford to reach through a menu is what sits at the tail.
    *
    * THE STRIP CARRIES NO MATURITY BADGES. A tab names a place; how far along that place is belongs
    * to the place itself, where a reader is already looking at it. Eleven pillboxes strung across
@@ -30,7 +40,7 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { SectionOverflow } from "$lib/matters/section-overflow.svelte.ts";
-  import { matterSections, type MatterSection } from "$lib/matters/sections.ts";
+  import { matterStrip, type MatterSection, type MatterStripEntry } from "$lib/matters/sections.ts";
 
   let { matterId }: { matterId: string } = $props();
 
@@ -49,12 +59,24 @@
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  const overflow = new SectionOverflow(() => matterSections.length);
+  /** True when the reader is anywhere under this entry — the section itself, or one in its group. */
+  function isCurrentEntry(entry: MatterStripEntry, pathname: string): boolean {
+    return entry.kind === "section"
+      ? isCurrentSection(entry.section, pathname)
+      : entry.sections.some((section) => isCurrentSection(section, pathname));
+  }
 
-  const visibleSections = $derived(matterSections.slice(0, overflow.visibleCount));
-  const overflowSections = $derived(matterSections.slice(overflow.visibleCount));
-  const activeInOverflow = $derived(
-    overflowSections.some((section) => isCurrentSection(section, page.url.pathname)),
+  /** Stable key: a group is named, a lone section is its slug, and the two can never collide. */
+  function entryKey(entry: MatterStripEntry): string {
+    return entry.kind === "section" ? `section:${entry.section.slug}` : `group:${entry.label}`;
+  }
+
+  const overflow = new SectionOverflow(() => matterStrip.length);
+
+  const visibleEntries = $derived(matterStrip.slice(0, overflow.visibleCount));
+  const foldedEntries = $derived(matterStrip.slice(overflow.visibleCount));
+  const activeInFold = $derived(
+    foldedEntries.some((entry) => isCurrentEntry(entry, page.url.pathname)),
   );
 
   // The shared tab treatment — the Tabs recipe's geometry and inks, spoken in token utilities.
@@ -65,75 +87,105 @@
   const tabActiveClasses = "font-semibold text-text-default";
 </script>
 
+<!-- The gold bar over the band's rule — the active mark of the tabs register. -->
+{#snippet activeBar()}
+  <span
+    class="absolute inset-x-12 bottom-0 bg-accent-default"
+    style="block-size: var(--mc-focus-ring-width)"
+    aria-hidden="true"
+  ></span>
+{/snippet}
+
+<!-- The design-system menu Item keeps Bits' element delegation closed (see profile-menu.svelte),
+     so a section in a menu navigates programmatically — same destination as a strip anchor. -->
+{#snippet menuSection(section: MatterSection)}
+  {@const current = isCurrentSection(section, page.url.pathname)}
+  <DropdownMenu.Item
+    onSelect={() => goto(sectionHref(section))}
+    aria-current={current ? "page" : undefined}
+    class={current ? "font-semibold" : undefined}
+  >
+    {section.label}
+  </DropdownMenu.Item>
+{/snippet}
+
 <nav aria-label="Matter sections" class="relative w-full">
   <div class="flex items-center justify-end" bind:clientWidth={overflow.containerWidth}>
-    {#each visibleSections as section (section.slug)}
-      {@const current = isCurrentSection(section, page.url.pathname)}
-      <a
-        href={sectionHref(section)}
-        aria-current={current ? "page" : undefined}
-        class="{tabClasses} {current ? tabActiveClasses : tabInactiveClasses}"
-      >
-        {section.label}
-        {#if current}
-          <!-- The gold bar over the band's rule — the active mark of the tabs register. -->
-          <span
-            class="absolute inset-x-12 bottom-0 bg-accent-default"
-            style="block-size: var(--mc-focus-ring-width)"
-            aria-hidden="true"
-          ></span>
-        {/if}
-      </a>
+    {#each visibleEntries as entry (entryKey(entry))}
+      {@const current = isCurrentEntry(entry, page.url.pathname)}
+      {#if entry.kind === "section"}
+        <a
+          href={sectionHref(entry.section)}
+          aria-current={current ? "page" : undefined}
+          class="{tabClasses} {current ? tabActiveClasses : tabInactiveClasses}"
+        >
+          {entry.section.label}
+          {#if current}{@render activeBar()}{/if}
+        </a>
+      {:else}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            class="{tabClasses} {current
+              ? tabActiveClasses
+              : tabInactiveClasses} cursor-pointer"
+          >
+            {entry.label}
+            <ChevronDown class="size-16" aria-hidden="true" />
+            {#if current}{@render activeBar()}{/if}
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+            {#each entry.sections as section (section.slug)}
+              {@render menuSection(section)}
+            {/each}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      {/if}
     {/each}
-    {#if overflowSections.length > 0}
+    {#if foldedEntries.length > 0}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
-          class="{tabClasses} {activeInOverflow
+          class="{tabClasses} {activeInFold
             ? tabActiveClasses
             : tabInactiveClasses} cursor-pointer"
         >
           More
           <ChevronDown class="size-16" aria-hidden="true" />
-          {#if activeInOverflow}
-            <!-- The folded-away active section still shows on the strip: More carries its mark. -->
-            <span
-              class="absolute inset-x-12 bottom-0 bg-accent-default"
-              style="block-size: var(--mc-focus-ring-width)"
-              aria-hidden="true"
-            ></span>
-          {/if}
+          {#if activeInFold}{@render activeBar()}{/if}
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-          {#each overflowSections as section (section.slug)}
-            {@const current = isCurrentSection(section, page.url.pathname)}
-            <!-- The design-system menu Item keeps Bits' element delegation closed (see
-                 profile-menu.svelte), so a folded section navigates programmatically — same
-                 destination as its strip anchor. -->
-            <DropdownMenu.Item
-              onSelect={() => goto(sectionHref(section))}
-              aria-current={current ? "page" : undefined}
-              class={current ? "font-semibold" : undefined}
-            >
-              {section.label}
-            </DropdownMenu.Item>
+          {#each foldedEntries as entry (entryKey(entry))}
+            {#if entry.kind === "section"}
+              {@render menuSection(entry.section)}
+            {:else}
+              <DropdownMenu.Group>
+                <DropdownMenu.GroupHeading>{entry.label}</DropdownMenu.GroupHeading>
+                {#each entry.sections as section (section.slug)}
+                  {@render menuSection(section)}
+                {/each}
+              </DropdownMenu.Group>
+            {/if}
           {/each}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     {/if}
   </div>
 
-  <!-- The measuring mirror: every tab plus the More trigger, rendered identically (at the active
-       weight) but invisible, inert, and out of flow, so each width can be read
-       without ever being seen. overflow-hidden clips the full-width row so it never expands the
-       work canvas's scroll width (each child's clientWidth is intrinsic and unaffected by the
-       clip); without it the off-screen mirror grows a phantom horizontal scrollbar. -->
+  <!-- The measuring mirror: every top-level entry plus the More trigger, rendered identically (at
+       the active weight, group triggers with their chevron) but invisible, inert, and out of flow,
+       so each width can be read without ever being seen. overflow-hidden clips the full-width row
+       so it never expands the work canvas's scroll width (each child's clientWidth is intrinsic and
+       unaffected by the clip); without it the off-screen mirror grows a phantom horizontal
+       scrollbar. -->
   <div
     class="pointer-events-none invisible absolute inset-x-0 top-0 flex items-center overflow-hidden"
     aria-hidden="true"
   >
-    {#each matterSections as section, index (section.slug)}
+    {#each matterStrip as entry, index (entryKey(entry))}
       <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={overflow.itemWidths[index]}>
-        {section.label}
+        {entry.kind === "section" ? entry.section.label : entry.label}
+        {#if entry.kind === "group"}
+          <ChevronDown class="size-16" aria-hidden="true" />
+        {/if}
       </span>
     {/each}
     <span class="{tabClasses} {tabActiveClasses}" bind:clientWidth={overflow.moreTriggerWidth}>

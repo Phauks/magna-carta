@@ -16,12 +16,11 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Button from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Info from "@lucide/svelte/icons/info";
-  import Plus from "@lucide/svelte/icons/plus";
   import { billingFailure, createInvoice } from "./billing-api.ts";
   import { civilDatePlusDays, civilToday } from "./invoice-standing.ts";
 
@@ -48,22 +47,18 @@
 
   let periodStart = $state("");
   let periodEnd = $state("");
-  let working = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
   // A fresh opening starts from a fresh month: the period a firm bills is almost always the one just
   // finished, and carrying the last dialog's dates into this one is how a bill gets the wrong period.
-  $effect(() => {
-    if (!open) return;
+  function reset(): void {
     const today = civilToday();
     periodStart = `${today.slice(0, 8)}01`;
     periodEnd = today;
     failure = null;
-  });
+  }
 
-  async function openDraft(): Promise<void> {
-    if (working) return;
-    working = true;
+  async function openDraft(): Promise<ActionOutcome> {
     failure = null;
     const outcome = await createInvoice(
       fetch,
@@ -76,23 +71,29 @@
       // A retried open must not raise a second draft against the same client.
       crypto.randomUUID(),
     );
-    working = false;
     if (outcome.kind === "ok") {
-      open = false;
       onOpened(outcome.value.invoiceId);
-      return;
+      return "committed";
     }
     failure = billingFailure(outcome, "No draft was opened.");
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Draft a Bill</Dialog.Title>
-    <Dialog.Description>
-      {clientName}{matterNumber === null ? "" : ` · Matter ${matterNumber}`}
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  heading="Draft a Bill"
+  commitLabel="Open Draft"
+  commitBusyLabel="Opening"
+  unsavedChanges={false}
+  onOpen={reset}
+  onCommit={openDraft}
+>
+  {#snippet subtitle()}
+    {clientName}{matterNumber === null ? "" : ` · Matter ${matterNumber}`}
+  {/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
@@ -100,7 +101,9 @@
         fallback={failure.fallback}
       />
     {/if}
+  {/snippet}
 
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
@@ -116,7 +119,7 @@
           <Input
             id="{fieldPrefix}-period-start"
             type="date"
-            disabled={working}
+            disabled={busy}
             bind:value={periodStart}
           />
         </div>
@@ -125,7 +128,7 @@
           <Input
             id="{fieldPrefix}-period-end"
             type="date"
-            disabled={working}
+            disabled={busy}
             bind:value={periodEnd}
           />
         </div>
@@ -141,17 +144,12 @@
           claim held by one draft is refused to another, by name.
         </p>
       {/if}
-    </div>
 
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <span class="mr-auto max-w-sm text-xs text-text-subtle">
+      <!-- What pressing the commit actually does. It sat in the action bar before the shell owned
+           that bar; it is content rather than a control, so it reads here with the rest. -->
+      <p class="text-xs text-text-subtle">
         Opens a draft: a working document, voidable, asserting nothing to anybody.
-      </span>
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Cancel</Button>
-      <Button disabled={working} onclick={() => void openDraft()}>
-        <Plus class="size-16" aria-hidden="true" />
-        {working ? "Opening" : "Open Draft"}
-      </Button>
+      </p>
     </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>
