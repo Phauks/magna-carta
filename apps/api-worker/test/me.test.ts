@@ -192,10 +192,10 @@ describe("GET /api/v1/me", () => {
         // privilege: it is scoped to the session's own user id and every row is filtered by matter
         // visibility at read time, so the key grants sight of nothing the member could not already
         // reach, and a firm whose staff cannot see their own deadlines is a firm the feature failed.
-        // The three matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
-        // Attorney and Paralegal — and to neither Billing nor Read-only.
+        // The two matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
+        // Attorney and Paralegal — and to neither Billing nor Read-only. (The edit-and-delete model
+        // replaced the separate withdrawal key.)
         "notes:read",
-        "notes:retract",
         "notes:write",
         "notifications:read",
         // Every reports key is Owner/Admin alone — narrower than the trust and billing reads a firm
@@ -210,6 +210,8 @@ describe("GET /api/v1/me", () => {
         "reports:produce",
         "reports:productivity",
         "reports:trustCompliance",
+        // One search across a matter's sections; each source stays gated by its own read key.
+        "search:matter",
         "shipping:manage",
         "support:cosign",
         "support:manage",
