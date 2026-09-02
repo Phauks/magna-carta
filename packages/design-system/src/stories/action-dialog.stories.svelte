@@ -4,11 +4,14 @@
    * shows it whole: the heading, the subtitle, the notice slot, the body, and one action bar whose
    * two controls are always the same two in the same order.
    *
-   * Six stories, because six things about it can be wrong independently: the three KINDS, which are
-   * the variant axis and each carry a different primitive and a different dismissal verb; a commit
-   * refused with the reason it is refused, which must never be an absent control; a commit that the
-   * server turns down, where the panel must stand its ground rather than vanish; and the guard,
-   * which is the one behaviour none of the panels this shell replaces ever had. The shell is told
+   * Eight stories, because eight things about it can be wrong independently: the three KINDS, which
+   * are the variant axis and each carry a different primitive; a commit refused with the reason it
+   * is refused, which must never be an absent control; a commit that the server turns down, where
+   * the panel must stand its ground rather than vanish; the guard, which is the one behaviour none
+   * of the panels this shell replaces ever had; a CONTEXT PANE, which is the record window's right
+   * pane lent to a form and must open at the record width; and the sizing rule, which is a claim
+   * about rendered geometry and so is asserted as one — a long form caps at the viewport and its
+   * fields alone scroll, while the heading and the commit stay put. The shell is told
    * nothing about what kind of act it is asking for, so the fixture is deliberately plain.
    *
    * The panel portals to the body, so every play function queries `within(document.body)` rather
@@ -50,6 +53,8 @@
     refused: false,
     turnedDown: false,
     guarded: false,
+    withContext: false,
+    long: false,
   });
 
   let amount = $state("");
@@ -64,6 +69,8 @@
     showing.refused = false;
     showing.turnedDown = false;
     showing.guarded = false;
+    showing.withContext = false;
+    showing.long = false;
   }
 
   /** A commit that lands. The shell closes the panel; the caller never writes `open`. */
@@ -222,6 +229,70 @@
   />
 {/snippet}
 
+{#snippet clientContext()}
+  <div class="flex flex-col gap-12">
+    <p class="text-sm font-semibold">Acme Holdings Pty Ltd</p>
+    <p class="text-xs text-text-muted">
+      Four open matters, none overdue. The clearance this matter needs has been run against the
+      directory and came back clean.
+    </p>
+    <p class="text-xs text-text-muted">
+      Everything past the fields' own measure belongs to this pane: it is the side that can use the
+      room.
+    </p>
+  </div>
+{/snippet}
+
+{#snippet longFields({ busy }: { busy: boolean })}
+  {#each Array.from({ length: 24 }, (_, index) => index + 1) as line (line)}
+    <div class="flex flex-col gap-8">
+      <Label for="action-dialog-story-long-{line}">Field {line}</Label>
+      <Input id="action-dialog-story-long-{line}" disabled={busy} />
+    </div>
+  {/each}
+{/snippet}
+
+{#snippet contextTemplate(args: ActionDialogStoryArgs)}
+  <button
+    type="button"
+    class="mc-button mc-button-secondary mc-button-md"
+    onclick={() => (showing.withContext = true)}
+  >
+    Open a matter
+  </button>
+  <ActionDialog
+    {...args}
+    heading="Open a Matter"
+    commitLabel="Open the Matter"
+    bind:open={showing.withContext}
+    kind="form"
+    width="narrow"
+    unsavedChanges={false}
+    {fields}
+    context={clientContext}
+    onCommit={succeed}
+  />
+{/snippet}
+
+{#snippet longTemplate(args: ActionDialogStoryArgs)}
+  <button
+    type="button"
+    class="mc-button mc-button-secondary mc-button-md"
+    onclick={() => (showing.long = true)}
+  >
+    Write off with a long form
+  </button>
+  <ActionDialog
+    {...args}
+    bind:open={showing.long}
+    kind="form"
+    unsavedChanges={false}
+    {subtitle}
+    fields={longFields}
+    onCommit={succeed}
+  />
+{/snippet}
+
 {#snippet guardedTemplate(args: ActionDialogStoryArgs)}
   <button
     type="button"
@@ -274,6 +345,14 @@
 
     await step("A form keeps the corner dismiss, because something begun can be resumed", () => {
       expect(inside.getByRole("button", { name: "Close" })).toBeVisible();
+    });
+
+    await step("A notice with nothing to say costs the frame no height", () => {
+      // The caller's notice snippet renders nothing at rest; the band it would fill collapses
+      // rather than standing as sixteen pixels of padding above the action bar.
+      const band = panel.querySelector<HTMLElement>(".mc-modal-frame-notice");
+      expect(band).not.toBeNull();
+      expect(getComputedStyle(band!).display).toBe("none");
     });
 
     await step("Committing closes the panel — the caller never writes `open`", async () => {
@@ -434,6 +513,72 @@
       const question = await body.findByRole("alertdialog");
       await userEvent.click(within(question).getByRole("button", { name: "Discard Changes" }));
       await waitFor(() => expect(body.queryByRole("dialog")).not.toBeInTheDocument());
+    });
+
+    closeEveryPanel();
+  }}
+/>
+
+<Story
+  name="WithAContextPane"
+  template={contextTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Open a matter" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = await body.findByRole("dialog");
+    await waitFor(() => expect(panel).toBeVisible());
+
+    await step("The fields and the context stand side by side in the frame's two panes", () => {
+      expect(panel.querySelector(".mc-modal-frame-pane")).not.toBeNull();
+      expect(panel.querySelector(".mc-modal-frame-context")).not.toBeNull();
+    });
+
+    await step("A context pane opens the panel at the record width, whatever was asked for", () => {
+      // The template asked for `narrow`; two panes have a geometry of their own, and the shell
+      // decides it rather than letting a caller find out by eye.
+      expect(panel).toHaveClass("max-w-record-window");
+      expect(panel).not.toHaveClass("max-w-md");
+    });
+
+    await step("Focus lands on the first field, not on the header's own dismiss", () => {
+      expect(document.activeElement).toBe(panel.querySelector("input"));
+    });
+
+    closeEveryPanel();
+  }}
+/>
+
+<Story
+  name="CapsAndScrollsItsFields"
+  template={longTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Write off with a long form" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = (await body.findByRole("dialog")) as HTMLElement;
+    await waitFor(() => expect(panel).toBeVisible());
+    const pane = panel.querySelector<HTMLElement>(".mc-modal-frame-pane");
+    const bar = panel.querySelector<HTMLElement>(".mc-modal-frame-actions");
+    if (pane === null || bar === null) throw new Error("the frame's pane and action bar must exist");
+
+    await step("A form that does not fit caps at the viewport rather than growing past it", () => {
+      expect(panel.offsetHeight).toBeLessThanOrEqual(window.innerHeight);
+    });
+
+    await step("The panel itself does not scroll — only its fields do", async () => {
+      await expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
+      await expect(pane.scrollHeight).toBeGreaterThan(pane.clientHeight);
+    });
+
+    await step("The commit stays put while the fields scroll beneath it", async () => {
+      const before = bar.getBoundingClientRect().top;
+      pane.scrollTop = pane.scrollHeight;
+      await waitFor(() => expect(pane.scrollTop).toBeGreaterThan(0));
+      expect(bar.getBoundingClientRect().top).toBe(before);
+      expect(bar.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight);
     });
 
     closeEveryPanel();

@@ -62,6 +62,25 @@ because the confirmation inside it should be an `ActionDialog`.
   carry `data-action-dialog-action`. These are the hooks a scan and a rendered-DOM check read;
   `footer-set` asserts the bar against the shell's source the way `header-set` asserts the record
   window's header. Do not remove or rename them to tidy up markup.
+- **Both shells sit on one frame — `styles/recipes/modal-frame.css` — and no panel builds a pane
+  system.** The frame is the record window's own, extracted: `mc-modal-frame` (the panel),
+  `-header` / `-identity` / `-heading` / `-subtitle` / `-header-actions` / `-header-action`,
+  `-body`, `-pane` (the primary pane, which stops at `size.record-pane` beside a context and fills
+  the frame when alone via `:only-child`), `-context` (+ `-context-body` for a context that is not
+  tabs), `-notice` (outside the scroll, directly above the bar; `:empty` collapses it), and
+  `-actions`. `RecordWindow` keeps every `mc-record-window-*` name as a hook beside the frame's
+  class; its own recipe is the tab strip only. Do not re-declare any of these in a shell's recipe,
+  and do not give `ActionDialog` a `class` prop to reach past them. A form that needs something
+  beside its fields hands `ActionDialog` a `context` snippet; a context pane implies the record
+  width, whatever `width` said.
+- **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
+  in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
+  specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the
+  import breaks one or the other silently.
+- **The standard for touching the frame is byte-identical screenshots** of the record window's four
+  frame-bearing stories (default, editing-in-place, fits-without-scrolling,
+  caps-and-scrolls-its-body) from the static catalog before and after. The extraction met it; a
+  change to the frame that cannot is a change to the owner's pane system and needs the owner.
 - **The unit test project carries `svelte()`** (in `vitest.config.ts`, at the top level AND on the
   `unit` project) because `.svelte.ts` runes modules — the close guard — do not compile without it;
   from the repo root only the top-level fallback is used, so a plugin on the project alone passes
