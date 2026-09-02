@@ -17,13 +17,14 @@
    * destructible, and does not stand in for it. The register says so where it lists them; nothing on
    * this form implies otherwise by offering an action that would.
    */
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import Button from "@magna-carta/design-system/button";
   import X from "@lucide/svelte/icons/x";
+  import { parseDate, type DateValue } from "@internationalized/date";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { DocumentSummary } from "$lib/documents/document-api.ts";
@@ -58,9 +59,11 @@
   let draft = $state<ScanDraft>({ ...EMPTY_SCAN_DRAFT });
   /* The chosen file's name, held beside its handle so a filled field can name what it holds. */
   let chosenName = $state<string | null>(null);
-  let submitting = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
+  // The read, the failure wording and what a quarantined file does in the list all belong to the
+  // one file picker now: three surfaces had grown their own and had already drifted on the last of
+  // those, which is the one that matters.
   const kindItems = SCAN_KINDS.map((kind) => ({ value: kind, label: scanKindLabel(kind) }));
   const WHOLE_PACKET = "packet";
   const itemItems = $derived([
@@ -68,7 +71,19 @@
     ...items.map((item) => ({ value: item.id, label: `Item ${item.ordinal}: ${item.description}` })),
   ]);
   const shortfalls = $derived(scanDraftShortfalls(draft));
-  const ready = $derived(scanDraftReady(draft) && packetId !== null);
+
+  /*
+   * Why the commit is unavailable, or undefined when it is available. The window shows this beside
+   * the control it refuses rather than hiding the control, so a reader is told what is missing.
+   */
+  const refusal = $derived.by((): string | undefined => {
+    if (packetId === null) return "No packet is open.";
+    if (!scanDraftReady(draft)) return shortfalls[0];
+    return undefined;
+  });
+
+  /** Whether anything has been picked. Nothing chosen is nothing to lose, so leaving never asks. */
+  const started = $derived(draft.fileId !== null || draft.capturedAt !== null);
 
   /** When the copy was taken, as a calendar date, or undefined while it is empty. */
   const capturedAtValue = $derived.by(() => {
@@ -90,9 +105,8 @@
     failure = null;
   }
 
-  async function submit(): Promise<void> {
-    if (!ready || submitting || packetId === null) return;
-    submitting = true;
+  async function submit(): Promise<ActionOutcome> {
+    if (packetId === null) return "refused";
     failure = null;
     // A retried submit must not file the same copy twice, so every attempt carries its own key and
     // the server answers the repeat with the first result.
@@ -102,38 +116,55 @@
       scanDraftRequest(draft),
       crypto.randomUUID(),
     );
-    submitting = false;
     if (outcome.kind === "ok") {
       onLinked();
-      reset();
-      open = false;
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
       "The copy could not be linked.",
       "Nothing answered. Nothing was filed against this packet.",
     );
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-xl">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Dialog.Title>File A Copy</Dialog.Title>
-        <Dialog.Description>
-          A document the firm already holds, linked to this packet. It is never a substitute for the
-          original.
-        </Dialog.Description>
-      </div>
+<ActionDialog
+  bind:open
+  heading="File A Copy"
+  commitLabel="File Copy"
+  commitBusyLabel="Filing"
+  commitRefusal={refusal}
+  width="wide"
+  unsavedChanges={started}
+  onOpen={reset}
+  onCommit={submit}
+>
+  {#snippet subtitle()}
+    A document the firm already holds, linked to this packet. It is never a substitute for the
+    original.
+  {/snippet}
 
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="The Copy Was Not Filed"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+
+  {#snippet fields({ busy })}
+    <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
         <Label for="link-scan-file">Document</Label>
         {#if chosenName === null}
           <MatterFilePicker
             matterId={filingMatterId}
             inputId="link-scan-file"
+            disabled={busy}
             onPick={(document: DocumentSummary) => {
               draft.fileId = document.id;
               chosenName = document.name;
@@ -146,6 +177,7 @@
             <Button
               variant="ghost"
               size="icon"
+              disabled={busy}
               aria-label="Clear the chosen document"
               onclick={() => {
                 draft.fileId = null;
@@ -167,6 +199,7 @@
             value={draft.kind}
             onValueChange={(value) => (draft.kind = value as ScanDraft["kind"])}
             allowDeselect={false}
+            disabled={busy}
           >
             <Select.Trigger aria-labelledby="link-scan-kind-label">
               <Select.Value />
@@ -194,6 +227,7 @@
             value={draft.itemId ?? WHOLE_PACKET}
             onValueChange={(value) => (draft.itemId = value === WHOLE_PACKET ? null : value)}
             allowDeselect={false}
+            disabled={busy}
           >
             <Select.Trigger aria-labelledby="link-scan-item-label">
               <Select.Value />
@@ -206,30 +240,6 @@
           </Select.Root>
         </div>
       {/if}
-
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Copy Was Not Filed"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex items-center justify-end gap-8">
-        {#if shortfalls[0] !== undefined}
-          <span class="me-auto text-xs text-text-muted">{shortfalls[0]}</span>
-        {/if}
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button variant="primary" disabled={!ready || submitting} onclick={submit}>
-          {submitting ? "Filing" : "File Copy"}
-        </Button>
-      </div>
     </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

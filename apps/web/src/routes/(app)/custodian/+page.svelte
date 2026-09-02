@@ -107,6 +107,8 @@
   let windowOpen = $state(false);
   let dialogOpen = $state(false);
   let lastLogged = $state<CreatedCustodyPacket | null>(null);
+  /** Anything that did not land against the packet just logged. Named, never swallowed. */
+  let lastUnrecorded = $state<readonly string[]>([]);
   let grid = $state<DataTable.DataTableGridState<CustodyPacketSummary> | null>(null);
   let rereadRegister = $state<() => void>(() => {});
 
@@ -142,8 +144,9 @@
    * container it went into gained an occupant. The occupancy counts are the tree's whole content,
    * so leaving them stale would show a safe holding one fewer packet than it holds.
    */
-  function onLogged(created: CreatedCustodyPacket): void {
+  function onLogged(created: CreatedCustodyPacket, unrecorded: readonly string[]): void {
     lastLogged = created;
+    lastUnrecorded = unrecorded;
     rereadRegister();
     void readTree();
   }
@@ -202,6 +205,13 @@
         >
           {logged.custodyNumber}
         </button>
+        {#if lastUnrecorded.length > 0}
+          <!-- The packet is real; these are not on it. Said here rather than swallowed, because a
+               person who typed them will otherwise assume they landed. -->
+          <span class="block">
+            Not recorded against it, and addable from the packet: {lastUnrecorded.join(", ")}.
+          </span>
+        {/if}
       </Alert.Description>
     </Alert.Root>
   {/if}

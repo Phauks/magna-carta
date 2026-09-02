@@ -13,12 +13,11 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Button from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import FileMinus from "@lucide/svelte/icons/file-minus";
   import Info from "@lucide/svelte/icons/info";
   import { billingFailure, writeOffBalance } from "./billing-api.ts";
   import { amountFieldText, readBoundedAmountMinor } from "./amount-entry.ts";
@@ -45,29 +44,30 @@
   let amountText = $state("");
   let reason = $state("");
   let effectiveDate = $state(civilToday());
-  let working = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
-  $effect(() => {
-    if (!open) return;
+  function reset(): void {
     amountText = amountFieldText(ceiling);
     reason = "";
     effectiveDate = civilToday();
     failure = null;
-  });
+  }
+
+  /** Whether anything has been typed past what opening the panel filled in. */
+  const started = $derived(reason.trim() !== "" || amountText !== amountFieldText(ceiling));
 
   const reading = $derived(readBoundedAmountMinor(amountText, ceiling, money(ceiling)));
 
-  const refusal = $derived.by((): string | null => {
+  const refusal = $derived.by((): string | undefined => {
+    if (row === null) return "No bill is open.";
     if (reading.kind === "empty") return "Say how much the firm is giving up.";
     if (reading.kind === "refused") return reading.reason;
     if (reason.trim() === "") return "A reason is required. It is what the books are read against.";
-    return null;
+    return undefined;
   });
 
-  async function writeOff(): Promise<void> {
-    if (row === null || working || refusal !== null || reading.kind !== "amount") return;
-    working = true;
+  async function writeOff(): Promise<ActionOutcome> {
+    if (row === null || reading.kind !== "amount") return "refused";
     failure = null;
     const outcome = await writeOffBalance(
       fetch,
@@ -75,24 +75,30 @@
       { matterId, amountMinor: reading.minor, reason: reason.trim(), effectiveDate },
       crypto.randomUUID(),
     );
-    working = false;
     if (outcome.kind === "ok") {
-      const written = reading.minor;
-      open = false;
-      onWrittenOff(written);
-      return;
+      onWrittenOff(reading.minor);
+      return "committed";
     }
     failure = billingFailure(outcome, "The balance is unchanged.");
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Write Off a Balance</Dialog.Title>
-    <Dialog.Description>
-      {row?.summary.invoiceNumber ?? "This bill"} · this matter still owes {money(ceiling)}
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  heading="Write Off a Balance"
+  commitLabel="Write Off"
+  commitBusyLabel="Writing Off"
+  commitRefusal={refusal}
+  unsavedChanges={started}
+  onOpen={reset}
+  onCommit={writeOff}
+>
+  {#snippet subtitle()}
+    {row?.summary.invoiceNumber ?? "This bill"} · this matter still owes {money(ceiling)}
+  {/snippet}
 
+  {#snippet notice()}
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
@@ -100,7 +106,9 @@
         fallback={failure.fallback}
       />
     {/if}
+  {/snippet}
 
+  {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
@@ -114,14 +122,14 @@
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
           <Label for="{fieldPrefix}-amount">Amount</Label>
-          <Input id="{fieldPrefix}-amount" disabled={working} bind:value={amountText} />
+          <Input id="{fieldPrefix}-amount" disabled={busy} bind:value={amountText} />
         </div>
         <div class="flex flex-col gap-8">
           <Label for="{fieldPrefix}-effective">Effective Date</Label>
           <Input
             id="{fieldPrefix}-effective"
             type="date"
-            disabled={working}
+            disabled={busy}
             bind:value={effectiveDate}
           />
         </div>
@@ -132,26 +140,11 @@
         <Input
           id="{fieldPrefix}-reason"
           placeholder={placeholderOf("Reason")}
-          disabled={working}
+          disabled={busy}
           bind:value={reason}
         />
         <p class="text-xs text-text-muted">Why the firm is giving up this balance.</p>
       </div>
     </div>
-
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Cancel</Button>
-      <Button
-        disabled={working || refusal !== null}
-        title={refusal ?? "Give up this balance"}
-        onclick={() => void writeOff()}
-      >
-        <FileMinus class="size-16" aria-hidden="true" />
-        {working ? "Writing Off" : "Write Off"}
-      </Button>
-    </div>
-    {#if refusal !== null}
-      <p class="text-right text-xs text-text-muted">{refusal}</p>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

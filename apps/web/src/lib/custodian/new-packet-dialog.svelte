@@ -21,15 +21,18 @@
    * asking, so two people logging at once are shown the same number and only one of them gets it.
    * Saying "tentative" is the whole reason it can be shown at all.
    *
-   * NOTHING IS WRITTEN UNTIL THE SUBMIT. Items and attachments are collected here and posted after
-   * the packet exists, because they need its identifier. That makes the submit a short sequence
+   * NOTHING IS WRITTEN UNTIL THE COMMIT. Items and attachments are collected here and posted after
+   * the packet exists, because they need its identifier. That makes the commit a short sequence
    * rather than one call, and a failure partway through is reported as what it is: the packet was
-   * logged, and this part of it was not.
+   * logged, and this part of it was not — which is why such a run reports "committed" rather than
+   * "refused". A panel that stayed open saying the submit failed would invite a second packet for
+   * one envelope, which is the worst outcome available here.
    */
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -85,7 +88,13 @@
     locations: readonly CustodyLocationNode[];
     /** The matter this is being logged against, where the form was opened from one. */
     matterId?: string | null;
-    onCreated: (created: CreatedCustodyPacket) => void;
+    /**
+     * The packet was logged. `unrecorded` names anything that did not land against it — an item or
+     * an attachment the follow-up call refused. It is handed to the SURFACE rather than shown here
+     * because the panel has closed by then: the packet exists, so the commit committed, and the
+     * shortfall is a fact about a real packet for the screen that now lists it.
+     */
+    onCreated: (created: CreatedCustodyPacket, unrecorded: readonly string[]) => void;
     /** A container was described here, so the surface re-reads the tree. */
     onLocationsChanged: () => Promise<void> | void;
   } = $props();
@@ -97,10 +106,7 @@
   let attachments = $state<readonly { fileId: string; name: string }[]>([]);
   let itemTypes = $state<readonly CustodyItemType[]>([]);
   let tentativeNumber = $state<string | null>(null);
-  let submitting = $state(false);
   let failure = $state<StatedFailure | null>(null);
-  /** What went in before something went wrong, so a partial write is reported and not swallowed. */
-  let partial = $state<string | null>(null);
   let bootstrapped = false;
 
   const firmMatters = new FirmMatters();
@@ -134,7 +140,17 @@
 
   const typeItems = $derived(itemTypes.map((type) => ({ value: type.id, label: type.name })));
   const shortfalls = $derived(packetDraftShortfalls(draft));
-  const ready = $derived(packetDraftReady(draft));
+  /* Why the commit is unavailable, or undefined when it is available. The shell disables and
+     titles the control with this rather than hiding it: a refusal is stated where it is caused. */
+  const refusal = $derived(packetDraftReady(draft) ? undefined : shortfalls[0]);
+  /* Whether anything has been begun. Nothing entered is nothing to lose, so leaving never asks. */
+  const started = $derived(
+    draft.name.trim() !== "" ||
+      draft.owners.length > 0 ||
+      draft.items.length > 0 ||
+      attachments.length > 0 ||
+      draft.locationId !== null,
+  );
 
   /** A date as a calendar date, or undefined while it is empty or half-entered. */
   function asCalendarDate(value: string | null): DateValue | undefined {
@@ -184,25 +200,20 @@
     trustorName = null;
     attachments = [];
     failure = null;
-    partial = null;
   }
 
-  async function submit(): Promise<void> {
-    if (!ready || submitting) return;
-    submitting = true;
+  async function commit(): Promise<ActionOutcome> {
     failure = null;
-    partial = null;
     // A retried submit must not draw a second custody number for one envelope, so every attempt
     // carries its own key and the server answers the repeat with the first result.
     const created = await createCustodyPacket(fetch, packetDraftRequest(draft), crypto.randomUUID());
     if (created.kind !== "ok") {
-      submitting = false;
       failure = stated(
         created.failure,
         "The packet could not be logged.",
         "Nothing answered. Nothing was logged, so no number was drawn.",
       );
-      return;
+      return "refused";
     }
 
     // The packet exists from here on. Anything that fails after this point is reported as a
@@ -223,40 +234,55 @@
       );
       if (outcome.kind !== "ok") unrecorded.push(attachment.name);
     }
-    submitting = false;
 
-    if (unrecorded.length > 0) {
-      partial = `${packet.custodyNumber} was logged. These were not recorded against it and can be added from the packet: ${unrecorded.join(", ")}.`;
-      onCreated(packet);
-      return;
-    }
-    onCreated(packet);
+    // The packet EXISTS, so this committed however the rest went. Reporting a failed submit here
+    // would invite a second packet for one envelope, which is the worst outcome available.
+    onCreated(packet, unrecorded);
     reset();
-    open = false;
+    return "committed";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-4xl">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-wrap items-baseline justify-between gap-8">
-        <Dialog.Title>New Packet</Dialog.Title>
-        {#if tentativeNumber !== null}
-          <!-- What the number WOULD be. Said to be tentative because nothing is allocated by
-               asking, and a number written on a label before the record exists is the one kind of
-               wrong this register cannot tolerate. -->
-          <span class="flex items-center gap-8">
-            <span class="text-sm tabular-nums">{tentativeNumber}</span>
-            <Badge
-              variant="neutral"
-              title="Nothing is reserved by showing it. If somebody else logs a packet first, this one takes the next number."
-            >
-              Tentative
-            </Badge>
-          </span>
-        {/if}
-      </div>
+<ActionDialog
+  bind:open
+  kind="form"
+  heading="New Packet"
+  width="record"
+  unsavedChanges={started}
+  commitLabel="Log Packet"
+  commitBusyLabel="Logging"
+  commitRefusal={refusal}
+  onCommit={commit}
+>
+  {#snippet subtitle()}
+    {#if tentativeNumber !== null}
+      <!-- What the number WOULD be. Said to be tentative because nothing is allocated by asking,
+           and a number written on a label before the record exists is the one kind of wrong this
+           register cannot tolerate. -->
+      <span class="flex items-center gap-8">
+        <span class="tabular-nums">{tentativeNumber}</span>
+        <Badge
+          variant="neutral"
+          title="Nothing is reserved by showing it. If somebody else logs a packet first, this one takes the next number."
+        >
+          Tentative
+        </Badge>
+      </span>
+    {/if}
+  {/snippet}
 
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="The Packet Was Not Logged"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+
+  {#snippet fields()}
       <div class="grid gap-24 lg:grid-cols-2">
         <!-- The packet: what the firm is taking in, and where it goes. -->
         <div class="flex flex-col gap-16">
@@ -547,35 +573,5 @@
         </div>
       </div>
 
-      {#if partial !== null}
-        <!-- The packet EXISTS. Saying the submit failed would invite a second packet for one
-             envelope, which is the worst outcome available here. -->
-        <p class="text-sm">{partial}</p>
-      {/if}
-
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Packet Was Not Logged"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex items-center justify-end gap-8">
-        {#if shortfalls[0] !== undefined}
-          <span class="me-auto text-xs text-text-muted">{shortfalls[0]}</span>
-        {/if}
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          {partial === null ? "Cancel" : "Close"}
-        </Dialog.Close>
-        <Button variant="primary" disabled={!ready || submitting} onclick={submit}>
-          {submitting ? "Logging" : "Log Packet"}
-        </Button>
-      </div>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

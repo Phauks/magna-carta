@@ -203,7 +203,7 @@
   name: Assistant interface
   scope: The in-app chat surface, the firm-administrator enablement screen, and the member disclosure.
   status: not-started
-  evidence: No surface in apps/web; gated on the design-system chat surface. The backend is off by default and UI-less.
+  evidence: No surface in apps/web; gated on the design-system chat surface. The backend is off by default and UI-less. Two places are reserved for it and both are stubs: the always-reachable sidebar destination (apps/web/src/lib/navigation/destinations.ts) and a "magnus" slug at stage soon in the matter section registry (apps/web/src/lib/matters/sections.ts), which is where a conversation already scoped to one matter will live.
 
 - id: ai.magnus.context
   name: Explicit per-conversation context grants

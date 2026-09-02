@@ -209,6 +209,37 @@ is usually the fastest way to understand the rule.
 - **A capability the backend does not serve yet still renders**, disabled, with the "Soon" badge and
   one honest line naming what it waits on. This is the standing rule from
   [`ui-design.md`](ui-design.md); it is repeated here because it is the one most often skipped.
+- **A Soon seam ships where it is legible at rest, never behind a glyph.** The rule above says a
+  designed-but-unwired capability stays VISIBLE, and an overflow menu is the one place that quietly
+  breaks it: the matter header's `...` held exactly one item, the status's lifecycle action,
+  disabled and marked Soon, so the menu had to be opened before a reader could learn there was
+  nothing in it to press. That is a control's width of chrome spent to say nothing, and the seam it
+  was protecting stopped being visible the moment it went in the drawer. A single unwired action
+  belongs on the row as a named disabled control, or it waits until it is wired. _(matter chrome,
+  2026-09-01)_
+- **A menu earns its glyph from what opening it offers.** An overflow is a container for a set that
+  is genuinely too long or too secondary for the row — not a place to put one thing so the row
+  looks tidy. Count the live items before drawing the trigger: at one, the item goes on the row; at
+  zero, neither the item nor the trigger is drawn. _(matter chrome, 2026-09-01)_
+- **A navigation strip that does not fit is GROUPED, not folded.** A measured overflow decides by
+  pixel arithmetic which half of a member's destinations they can see, and width is not a statement
+  about importance: the matter strip put Trust and Calendar behind More because of where they
+  happened to sit in a list, while seven others held the row. Name the neighbourhoods instead and
+  put those on the row — the matter's fourteen sections became Overview, Files, Money, Parties,
+  Calendar, Record and Magnus, which fit. Group only what a member can afford to reach through a
+  menu; a destination checked daily stays on the row even when it would tidy the arrangement to
+  file it away. A measured fold stays underneath as a backstop for a canvas narrower than the
+  arrangement; it is not the arrangement. _(matter section strip, 2026-09-01)_
+- **A folded group keeps its name.** When a group does reach the overflow, it goes in as a heading
+  over its own entries, never decanted into a flat list — otherwise the two routes to one
+  destination disagree about what it belongs to, and a member who learned "Trust is under Money"
+  finds it loose in a menu at a narrower window. _(matter section strip, 2026-09-01)_
+- **No navigation entry is called "Other".** A tab earns its place by naming something a reader
+  would go looking for, and "Other" names the absence of a category — it can only be found by
+  ruling every other tab out, and it exists as the drawer whatever nobody placed gets pushed into.
+  The matter registry's Other section was removed rather than described better: content with no
+  home yet waits for the section that will own it, which is a smaller debt than a permanent bin
+  that teaches members the file has an unsorted corner. _(matter section strip, 2026-09-01)_
 - **A result region is furniture, not a reward.** The structure that will hold results (a frame, a
   panel set, tabs) renders at rest, empty and calm, so arriving data fills a shape the reader
   already has and population is never a surprise. The list-screen "table holds the vertical space"
@@ -442,6 +473,49 @@ The generalizable half is promoted above. What is local:
   empty register kept running off the screen. Recorded here because the lesson is not about CSS: a
   fix asserted only by its own presence in the source is not asserted at all. The test now reads the
   computed value.
+
+### 2026-09-01 — the matter screens, chrome-removal round
+
+Two removals, one addition, and the strip regrouped. Both removals were issued the same way: the
+owner looked at the shipped chrome and could not name what a part of it was for. The generalizations
+are promoted above.
+
+- **The header band's overflow (`...`) control is gone.** Its only item was the status's lifecycle
+  action, disabled and marked Soon. Asked what it was buying, the honest answer was a control's
+  width and one glyph a member has to press to discover there is nothing behind it. The lifecycle
+  action returns as a named control on the row when it is wired, and the band now carries no
+  actions at all: the inline-end column is the section strip and nothing else.
+- **The Other section is gone from the registry and the route tree.** It was the only tab whose
+  label described no place — it named everything the other thirteen did not cover, which is a bin
+  rather than a destination, and its stub had to be written in the abstract because nothing concrete
+  was ever going to live there first.
+- **Magnus takes a matter section**, a `soon` stub for now. It stands alone on the row rather than
+  joining a group, because the assistant is not one of the matter's records — it is the way to ask
+  about them, and a member reaching for it is not reaching for a neighbourhood.
+- **The strip is grouped.** The owner raised it against the flat strip and chose grouped menus over
+  reordering and over nesting a Financials section. Seven top-level entries: **Overview · Files ·
+  Money ⌄ · Parties · Calendar · Record ⌄ · Magnus**. Money is Time, Fees, Costs, Billing and
+  Trust; Record is Notes, Emails, Messaging and Custodian. Overview leads because the bare matter
+  address lands there, Files stands alone because it is the busiest destination and a click on
+  nearly every visit is a real cost, and Magnus stands alone because it is not one of the matter's
+  records but the way to ask about them.
+- **Calendar is a top-level tab** — the owner's correction to the first build, which had it in a
+  People group beside Parties. A matter's dates are checked too often to sit behind a menu, and the
+  grouping was wrong on its own terms besides: Parties is people, a hearing date is not. Taking
+  Calendar out left that group holding Parties alone, which the one-item rule above forbids, so
+  Parties came up to the row with it and the group went away. The general lesson is promoted above:
+  group only what a member can afford to reach through a menu.
+- **The arrangement's order is also the fold order**, so the tail is what a member can most afford
+  to reach through a menu — Magnus first (a stub), then Record (three of its four are stubs), then
+  the dates and the people. Money stays on the row longest of the folding candidates because all
+  five of its sections are live working surfaces.
+
+  Measured after building: all seven hold the row at 1440, where the flat fourteen had already
+  folded seven away. Below that the backstop fold takes over and entries fold as groups — at 1360
+  Record and Magnus go, at 1024 four do. It is NOT true at every width that nothing is hidden. The
+  band's even split leaves the strip about 384px at 1024; recovering that would mean reopening the
+  even split (the identity block no longer needs half the band now the strip is bounded), which is
+  a separate ruling and was deliberately not touched here. The owner accepted this on 2026-09-01.
 
 ### 2026-09-01 — the Custodian register
 
