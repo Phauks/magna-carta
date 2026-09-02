@@ -10,11 +10,11 @@
   status: partial
   slices: 6-3-tasks
   spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
-  evidence: The task record ships end to end — packages/tasks, the matter_task and matter_task_document tables, three permission keys, eleven routes, the matterTask timeline source, a matter close advisory, the Tasks section and My Work at /tasks. Matter plans are the unbuilt half and are what holds this node at partial rather than built.
+  evidence: The task record and the matter plan both ship — packages/tasks, the matter_task, matter_task_document, matter_plan_template and matter_plan_task_template tables, four permission keys, twenty-two routes, the matterTask timeline source, a matter close advisory, the Tasks section, My Work at /tasks and plan authoring under Settings. What holds this node at partial is the rest of the workflow surface: the time-entry link, the board and its firm-defined statuses, recurrence, watchers and comments.
   audience: public
   public-name: Tasks and matter plans
   public-summary: Task lists on a matter, and a plan that lays them out for you when a matter of that kind is opened.
-  awaiting-owner: W7 and W8 are both answered — W7 by event (the note primitive shipped first and tasks were built on the activity stream it settled), W8 by the owner on 2026-09-01 (a plan proposes its tasks and a member accepts them; acceptance is the write). Four calls raised by the 2026-09-01 scope study remain open and shape the remainder rather than the record: T2 (whether a time entry's task link is one-to-one or many-to-many), T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).
+  awaiting-owner: W7 and W8 are both answered and both built — W7 by event (the note primitive shipped first and tasks were built on the activity stream it settled), W8 by the owner on 2026-09-01 (a plan proposes its tasks and a member accepts them; acceptance is the write). Four calls raised by the 2026-09-01 scope study remain open and shape the remainder rather than the record: T2 (whether a time entry's task link is one-to-one or many-to-many), T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).
 
 - id: tasks.task-lists
   name: Task lists
@@ -27,11 +27,13 @@
 
 - id: tasks.matter-plans
   name: Matter plans
-  scope: Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.
-  status: designed
+  scope: Templated task sequences per matter type, offered when a matter is open and written only when a member accepts them; pairs with document automation and the calendar.
+  status: partial
+  slices: 6-3-tasks
+  surface: screen
   spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
-  evidence: No template or instantiation machinery. What the task slice built is the substrate a plan instantiates INTO — matter_task with its provenance columns still absent, and matter_assignment as the live team table a template's role would resolve against. The design narrows auto-instantiation to propose-and-confirm and ships no platform templates. Corrected from not-started: the design exists and is Proposed, which is what designed means.
-  awaiting-owner: Two calls about how far a plan may reach. Whether the platform ever ships curated matter plans of its own — the design ships none and gives the malpractice argument, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and keeping the vocabulary at one value is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
+  evidence: matter_plan_template and matter_plan_task_template, tasks:managePlans, eleven routes, and plan authoring under Settings. A proposal is a GET that writes nothing and acceptance is the POST that writes, so a plan is an offer a person edits and confirms rather than rows that appear. Provenance lands on matter_task as plan_template_id and plan_task_template_id, and nothing reconciles afterwards — the tasks are the firm's, not the template's. Partial because only task steps are templated: the design's event and document steps are unbuilt, and a plan cannot yet reach the calendar or document automation.
+  awaiting-owner: Two calls about how far a plan may reach, neither of them blocking — the build took the design's own answer to each. Whether the platform ever ships curated matter plans of its own: it ships none, the malpractice argument holds, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": it stays at that one value, because every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and one anchor is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
 
 - id: tasks.workflow-model
   name: Workflow model
@@ -40,4 +42,4 @@
   slices: 6-3-tasks
   surface: screen
   spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
-  evidence: Shipped — assignment and reassignment as separate acts behind their own permission, one-predecessor sequencing that renders and sorts but gates nothing, completion tracking with reopening, and notification of assignment through four topics and a new named-recipient audience. Unbuilt — template authoring, and escalation beyond the registry field that already carries it. Due-date derivation is deliberately absent rather than pending: nothing derives a date, and the plan-template offset that would is gated on flag W12.
+  evidence: Shipped — assignment and reassignment as separate acts behind their own permission, one-predecessor sequencing that renders and sorts but gates nothing, completion tracking with reopening, notification of assignment through four topics and a new named-recipient audience, and template authoring with role-based default assignment. Unbuilt — escalation beyond the registry field that already carries it. Due-date derivation stays deliberately absent: nothing derives a task's date, and the one piece of date arithmetic in the package is addCalendarDays, named and isolated so the source scan can see it, applied only to a template offset a person reviews before it becomes a task.

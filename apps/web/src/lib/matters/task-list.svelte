@@ -58,6 +58,8 @@
     type TaskState,
   } from "$lib/matters/tasks-api.ts";
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import PlanProposalReview from "$lib/matters/plan-proposal.svelte";
+  import { plansOfferedFor, type MatterPlan } from "$lib/matters/matter-plans-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
@@ -153,6 +155,15 @@
 
   let attachingTaskId = $state<string | null>(null);
 
+  // THE PLANS THIS MATTER IS OFFERED, and the one being reviewed if any.
+  //
+  // The offer lives here rather than on the new-matter screen, and that is a better reading of
+  // propose-and-confirm than hooking the moment a matter is created: a matter opened before its plan
+  // existed can still take it, and somebody who declined at open can come back. What it is not is
+  // automatic — reviewing is a thing a person starts.
+  let offeredPlans = $state<readonly MatterPlan[] | null>(null);
+  let reviewingPlan = $state<MatterPlan | null>(null);
+
   $effect(() => {
     if (taskList.showing(subject)) return;
     taskList.reset(subject);
@@ -174,7 +185,14 @@
     });
     void taskList.load((cursor) => read(cursor, { states: ["open"] }));
     void roster.load(fetch);
+    offeredPlans = null;
+    reviewingPlan = null;
     if (matterId !== null) {
+      void plansOfferedFor(fetch, matterId).then((outcome) => {
+        // A failed plan read never fails the screen: the task list is the point, and the offer is an
+        // addition to it.
+        offeredPlans = outcome.kind === "ok" ? outcome.value.data : [];
+      });
       void listMatterFiles(fetch, matterId).then((outcome) => {
         // A failed file read never fails the screen: tasks still read, and the attach control says
         // what it cannot offer rather than disappearing.
@@ -182,6 +200,7 @@
       });
     } else {
       matterFiles = [];
+      offeredPlans = [];
     }
   });
 
@@ -501,6 +520,37 @@
         <Button onclick={saveTask} disabled={saving || draftTitle.trim().length === 0}>
           Create Task
         </Button>
+      </div>
+    </div>
+  {/if}
+
+  {#if reviewingPlan !== null && matterId !== null}
+    <PlanProposalReview
+      {matterId}
+      planId={reviewingPlan.id}
+      planName={reviewingPlan.name}
+      onAccepted={() => {
+        reviewingPlan = null;
+        reload();
+      }}
+      onDismiss={() => (reviewingPlan = null)}
+    />
+  {:else if canWrite && offeredPlans !== null && offeredPlans.length > 0}
+    <!-- The offer, and it is only ever an offer. Nothing is written until somebody opens this and
+         accepts what they see. -->
+    <div class="flex flex-wrap items-center justify-between gap-8 rounded-md border border-border-subtle p-12">
+      <span class="text-xs text-text-muted">
+        {offeredPlans.length === 1
+          ? `This matter has a plan: ${offeredPlans[0]?.name ?? ""}.`
+          : `This matter has ${String(offeredPlans.length)} plans.`}
+        Reviewing one shows what it would add, and adds nothing until you say so.
+      </span>
+      <div class="flex flex-wrap gap-8">
+        {#each offeredPlans as plan (plan.id)}
+          <Button variant="secondary" disabled={saving} onclick={() => (reviewingPlan = plan)}>
+            Review {plan.name}
+          </Button>
+        {/each}
       </div>
     </div>
   {/if}

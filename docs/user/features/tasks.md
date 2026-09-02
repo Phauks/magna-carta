@@ -108,10 +108,57 @@ you assign to yourself, or about a change that leaves the task with whoever alre
 Reminders about tasks that are due or overdue are not built yet. They will arrive with the same
 change that brings deadline reminders, so that both use one idea of what "due" means.
 
-## What Is Not Built Yet
+## Matter Plans
 
-**Matter plans** — a template that lays out a standard set of tasks when a matter of a given kind is
-opened — are designed and not built.
+A matter plan is your firm's own list of what a kind of matter takes — the calls, the letters, the
+filings. Write one under **Settings → Matter Plans**, and it is offered every time a matter of that
+kind is opened.
+
+**A plan offers; it never imposes.** When a matter has a plan, its Tasks page says so. Press
+**Review** and you see exactly what the plan would add: each step, the date it worked out, and who it
+would go to. Nothing has been created at that point. Untick what this matter does not need, fix
+anything that is wrong, and press Add — and only then do the tasks exist. Closing the review adds
+nothing, which is all declining is.
+
+### Writing a Plan
+
+Give the plan a name, then add its steps. Each step has:
+
+- **What to do**, and detail underneath if the title is not enough.
+- **Due**, either "no date" or a number of days after the matter opens. **These are plain days.**
+  Nothing skips weekends and nothing knows about court holidays, so a step set to 14 days can land on
+  a Sunday — which is one of the reasons somebody reviews a plan before it becomes tasks.
+- **A role**, not a person. Write the role the way your firm records it on a matter, such as
+  `assigned_paralegal`. When the plan is offered, that role is matched against that matter's own team.
+  A plan naming a person would be wrong the moment their matters moved; a plan naming a role works on
+  every matter.
+- **Priority**, as on any task.
+
+Where a role matches nobody on the matter, the step arrives unassigned and says which role could not
+be filled, so you can fill it in the review rather than wondering why a seat is empty.
+
+### Changing a Plan Later
+
+Editing a plan changes what it offers **from now on**. It does not touch tasks already on a matter —
+those were reviewed and accepted as they stood, and a plan edit never reaches back into open matters
+to move a date somebody is working to.
+
+**Stop Offering** takes a plan out of circulation without deleting it, and there is no way to delete
+one. That is on purpose: every task a plan produced records the plan and the step it came from, and
+deleting the plan would strand that record. A plan you have stopped offering is not offered on any
+new matter and changes nothing on the matters that already took it.
+
+### What Magna Carta Does Not Give You
+
+**No plans come with the product, and that is deliberate.** A plan is a statement about how your firm
+practises in your jurisdiction. A plan written by us, with a missing step or a step in the wrong
+order, would look authoritative precisely because it shipped with the software. Yours will be right;
+ours could not be.
+
+## What Is Not Built Yet
 
 There is no board view, no recurring task, and no comment thread on a task. Sub-checklists inside a
 task are not built either; use a second task and the waiting-on link.
+
+A plan cannot yet be set to apply itself without review, and its dates can only count from the day
+the matter opened.

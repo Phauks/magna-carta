@@ -27,6 +27,9 @@ scoped against a wider brief in
 - `src/notifications.ts` — the four topics and the two comparison-shaped points declared and wired to
   nothing
 - `src/close-advisory.ts` — the count that rides a successful matter close and can never block one
+- `src/plan-statements.ts` — the plan's SQL: the offered-plans read, the matter anchor cut from
+  `opened_at`, the role resolution, and the template chain walk
+- `src/plan-service.ts` — authoring a plan, and the propose/accept pair that is the whole design
 
 ## The three things that decide this package's shape
 
@@ -50,6 +53,42 @@ firm.
 resolves them through `packages/calendar/src/time-zone.ts`. A task template with a "+14 days" offset
 is the docketing engine this platform has spent a subsystem refusing to build, wearing a different
 hat, and `test/no-arithmetic.test.ts` is the calendar's own source scan applied here.
+
+## The matter plan
+
+**A plan proposes; a person accepts.** `proposeMatterPlan` is a PURE read that computes what the plan
+would put on the matter and commits nothing; `acceptMatterPlan` writes only the subset a member kept,
+in one batch. Writing them outright was the obvious reading and the owner narrowed it on 2026-09-01,
+for three reasons that are properties of what a plan can get wrong rather than arguments from
+principle: the offset is plain calendar-day addition so a template can propose Christmas Day, a role
+can resolve to nobody on a matter opened before it is staffed, and assignment notifies — so writing
+silently would tell somebody they own work on a matter they have never heard of.
+
+**The platform ships no plans.** The migration creates the tables and inserts nothing, and it stays
+that way. A plan is a statement about how one firm practises in one jurisdiction, and a shipped plan
+with a step in the wrong order is a malpractice vector carrying the platform's name, trusted
+precisely because it shipped. If curated plans are ever wanted the shape is the Nevada court-form
+library's — jurisdiction-keyed reference data with attorney review in the loop — and that is a
+research workstream rather than a seed migration. Owner flag **W11**, still open.
+
+**The anchor vocabulary is `matter_opened` and `none`.** Held by a CHECK, so a third value is a
+migration somebody reviews. Every candidate beyond it — a service date, a filing date, a trigger
+event — is the front half of a docketing rule, and keeping the vocabulary at one value is the whole
+reason the offset arithmetic is defensible while `packages/calendar` refuses to compute deadlines.
+Owner flag **W12**, still open.
+
+**NOTHING RECONCILES.** A task accepted from a plan carries `plan_template_id` and
+`plan_task_template_id` as PROVENANCE and never as a live link: no read resolves them, editing a
+template does not touch a task on an open matter, deactivating one does not either, and there is no
+drift report and no "your plan has changed" prompt — both are the live link wearing a disguise. A
+template edit that silently moved a due date on an open matter would be a docketing change nobody
+authorized and nobody saw. `test/matter-plans.test.ts` edits every field of a template and asserts
+the accepted task comes back byte-identical.
+
+**`addCalendarDays` is the one piece of date arithmetic in this package**, and
+`test/no-arithmetic.test.ts` pins its uniqueness rather than the absence of arithmetic — an exception
+has to be visible to stay one. It adds whole calendar days to a civil date: no business days, no
+holiday calendar, no service-method offset, no jurisdiction, no clock.
 
 ## Invariants that apply here
 
@@ -139,7 +178,15 @@ against the same definition of overdue, not a second one.
   the actor's — the predicate carries no per-member narrowing — so passing the actor's reads
   correctly. The day an information-barrier overlay lands, this parameter is where the difference has
   to arrive, and it is named for whose it is so that day is a call-site change somebody can find.
-- **Matter plans are not built.** Templates, role-based default assignment, propose-and-confirm
-  instantiation and the anchor vocabulary are designed and gated on owner flags W8, W11 and W12. The
-  plan-provenance columns this table would need are not here either: they arrive with the slice that
-  fills them, and the schema comment says so rather than reserving columns nothing reads.
+- **The plan offer lives on the matter's Tasks section, not on the new-matter screen.** A better
+  reading of propose-and-confirm than hooking the moment a matter is created: a matter opened before
+  its plan existed can still take it, and somebody who declined at open can come back. What it is not
+  is automatic — reviewing is a thing a person starts.
+- **A step's `position` is not unique.** Reordering a list whose positions must stay distinct means
+  rewriting every row after the one that moved; the handle is the tiebreak that makes ties harmless.
+- **An accepted step whose predecessor was NOT accepted waits on nothing.** Dropping a predecessor is
+  a decision the reviewer made, and pointing at a task that was never created would be worse than
+  pointing at nothing.
+- **`opened_at` holds two shapes** — a civil date on some paths and an instant on others — so the
+  anchor read cuts the first ten characters rather than parsing. The same cut the note ordering and
+  the matter-team validity window already make.

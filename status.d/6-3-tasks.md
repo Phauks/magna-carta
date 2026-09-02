@@ -1,5 +1,5 @@
 ---
-slice: 6·3 — Tasks (the task record and its two screens)
+slice: 6·3 — Tasks (the task record, its two screens, and the matter plan)
 group: phase-6
 order: 3
 research: n/a
@@ -11,7 +11,7 @@ load-profile: todo
 tested: done
 branch: claude/tasks-feature-planning-ihaq2r
 active-work: docs/active-work/claude/tasks-feature-planning-ihaq2r.md
-next: matter plans — UNBLOCKED, W8 answered 2026-09-01 (a plan proposes and a member accepts); W11 and W12 stay open but the design's own answers to both are safe defaults the build proceeds under, so what remains is templates, role-based default assignment and propose-and-confirm instantiation. Then the time-entry link; due-soon and overdue reminders wait on the notifications comparison sweep; the board view waits on T3
+next: the time-entry link (shape waits on T2 — one-to-one or many-to-many); due-soon and overdue reminders wait on the notifications comparison sweep; the board view waits on T3; a plan's event and document steps wait on the calendar and document-automation seams; a task volume profile for the load-profile harness
 link-spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
 link-plan: docs/specs/2026-09-01-tasks-scope-study.md
 adrs:
@@ -30,4 +30,8 @@ blocked-by:
 
 **Surfaces:** the matter's Tasks section and My Work at `/tasks` are one component reading two routes. Open tasks register a close **advisory** and never a precondition; closing a matter changes no task, and they drop out of the default list through a filter so reopening brings them back with no backfill.
 
-Not built: matter plans and their templates, the time-entry link, the board and its firm-defined statuses, recurrence, watchers and comments. The load profile has no task volume profile yet.
+**The matter plan is an offer, not a write.** A `matter_plan_template` names a matter type and holds ordered `matter_plan_task_template` steps; each step carries a title, a priority, an offset in days from the matter's anchor, a role to assign to, and at most one predecessor. Asking for a proposal is a **GET** that writes nothing — it reads the matter's anchor, adds the offsets, resolves each role against `matter_assignment`, and hands back tasks a person edits, drops and confirms. Acceptance is the POST, and it writes only the subset kept, in one batch, with every identifier minted first so a step whose predecessor was dropped simply waits on nothing. Provenance lands on `matter_task` as `plan_template_id` and `plan_task_template_id`, and **nothing reconciles afterwards**: editing a template never touches a task already accepted, because the tasks are the firm's account of the work and the template is only where they came from. `tasks:managePlans` seats authoring with Owner, Admin and Attorney; authoring lives under Settings, and the offer appears on the matter's Tasks section rather than in the new-matter flow, so a plan is chosen when the work is being planned rather than while the file is being opened.
+
+**One named date-arithmetic exception.** `addCalendarDays` in `packages/tasks/src/validation.ts` is the only place in the package that adds days to a date, and it exists so the calendar's source scan can see it in exactly one spot. It is plain calendar addition — no holidays, no court rules, no weekend rolling — which is precisely why the result is a **proposal** a person reviews: a plan can and will put a task on Christmas Day, and the person accepting is the one who moves it. The anchor vocabulary stays at one value, `matter opened`, because every other candidate is the front half of a docketing rule this platform does not build.
+
+Not built: a plan's event and document steps, the time-entry link, the board and its firm-defined statuses, recurrence, watchers and comments. The platform ships no curated plans of its own. The load profile has no task volume profile yet.
