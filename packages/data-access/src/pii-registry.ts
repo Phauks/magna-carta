@@ -518,6 +518,22 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   },
   {
     table: "matter_task",
+    subjectKey: "updated_by",
+    action: "pseudonymize-keep",
+    note: "who touched it last; a reference the mirror reads to tell its own writes from a person's, replaced at the member tombstone rather than dropped",
+  },
+  {
+    // The tombstone a deleted task leaves behind, so a mirror learns the work is gone. It carries
+    // identifiers and nothing else -- no title, no body, no assignee -- so `deleted_by` is the only
+    // subject reference on it, and it is pseudonymized on the same terms as every other actor
+    // reference rather than dropping the row, which would take the deletion back out of the feed.
+    table: "matter_task_deletion",
+    subjectKey: "deleted_by",
+    action: "pseudonymize-keep",
+    note: "who deleted the task; the deletion itself is the fact the row exists to carry",
+  },
+  {
+    table: "matter_task",
     subjectKey: "created_by",
     action: "pseudonymize-keep",
     note: "who put the task there, and half of what makes a task on no matter reachable",
@@ -1086,6 +1102,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // directly above and for the same reason: whose document it is resolves through the file and the
   // matter, never through a column here.
   "matter_task_document",
+  // A task's identity in an outside system: the system's name, its opaque handle for the object, a
+  // URL and a revision token. `created_by` is firm-member provenance on the custody_hold line. The
+  // person the TASK concerns resolves through matter_task, never through a column here -- an
+  // external id is the remote's own key and this platform never parses it.
+  "matter_task_external_link",
   // A plan's steps. Free text, and deliberately NOT personal data: a step is written once and used
   // on every matter of its kind, so a step that named a client would be a step that is wrong on
   // every matter but one. `default_assignee_role` is a role string ("assigned_paralegal") matched

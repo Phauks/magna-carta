@@ -87,6 +87,10 @@ export interface MatterTaskRow {
   readonly plan_task_template_id: MatterPlanTaskTemplateId | null;
   readonly created_at: string;
   readonly updated_at: string;
+  // Who touched it last, and null on a row nothing has edited since it was written. A mirror reads
+  // this to tell its own writes from a person's; without it a two-way sync pushes back what it just
+  // pulled and the two sides oscillate.
+  readonly updated_by: UserId | null;
 }
 
 export interface MatterTaskDocumentRow {
@@ -101,7 +105,9 @@ export interface MatterTaskDocumentRow {
   readonly content_type: string | null;
 }
 
-const TASK_COLUMNS = [
+// Exported so the change feed projects exactly what every other task read projects — a sync that
+// saw a different shape from the screen would be a second definition of what a task is.
+export const TASK_COLUMNS = [
   "id",
   "matter_id",
   "title",
@@ -125,6 +131,7 @@ const TASK_COLUMNS = [
   "plan_task_template_id",
   "created_at",
   "updated_at",
+  "updated_by",
 ]
   .map((column) => `${MATTER_TASK_TABLE}.${column}`)
   .join(", ");
@@ -176,9 +183,12 @@ export function insertMatterTaskStatement(
       `INSERT INTO ${MATTER_TASK_TABLE} (id, matter_id, title, body, assignee_user_id, created_by, ` +
         `priority, due_on, due_at_time, time_zone, state, completed_at, completed_by, cancelled_at, ` +
         `cancelled_by, cancellation_reason, blocked_by_task_id, trigger_event_id, deadline_id, ` +
-        `plan_template_id, plan_task_template_id, created_at, updated_at) ` +
+        `plan_template_id, plan_task_template_id, created_at, updated_at, updated_by) ` +
+        // updated_by is the CREATOR on a fresh row: "who touched it last" at creation is whoever
+        // wrote it, and a feed where some rows have an actor and some do not would make echo
+        // suppression a special case at exactly the moment a sync first sees a task.
         `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'open', NULL, NULL, NULL, NULL, NULL, ` +
-        `?11, ?12, ?13, ?14, ?15, ?16, ?16)`,
+        `?11, ?12, ?13, ?14, ?15, ?16, ?16, ?6)`,
     )
     .bind(
       input.id,
@@ -221,13 +231,14 @@ export function updateMatterTaskStatement(
     readonly triggerEventId: MatterEventId | null;
     readonly deadlineId: MatterDeadlineId | null;
     readonly now: string;
+    readonly actor: UserId | null;
   },
 ): SqlStatement {
   return database
     .prepare(
       `UPDATE ${MATTER_TASK_TABLE} SET title = ?1, body = ?2, priority = ?3, due_on = ?4, ` +
         `due_at_time = ?5, time_zone = ?6, blocked_by_task_id = ?7, trigger_event_id = ?8, ` +
-        `deadline_id = ?9, updated_at = ?10 WHERE id = ?11`,
+        `deadline_id = ?9, updated_at = ?10, updated_by = ?11 WHERE id = ?12`,
     )
     .bind(
       input.title,
@@ -240,6 +251,7 @@ export function updateMatterTaskStatement(
       input.triggerEventId,
       input.deadlineId,
       input.now,
+      input.actor,
       input.id,
     );
 }
@@ -254,11 +266,14 @@ export function reassignMatterTaskStatement(
     readonly id: MatterTaskId;
     readonly assigneeUserId: UserId | null;
     readonly now: string;
+    readonly actor: UserId | null;
   },
 ): SqlStatement {
   return database
-    .prepare(`UPDATE ${MATTER_TASK_TABLE} SET assignee_user_id = ?1, updated_at = ?2 WHERE id = ?3`)
-    .bind(input.assigneeUserId, input.now, input.id);
+    .prepare(
+      `UPDATE ${MATTER_TASK_TABLE} SET assignee_user_id = ?1, updated_at = ?2, updated_by = ?3 WHERE id = ?4`,
+    )
+    .bind(input.assigneeUserId, input.now, input.actor, input.id);
 }
 
 export function completeMatterTaskStatement(
@@ -268,7 +283,7 @@ export function completeMatterTaskStatement(
   return database
     .prepare(
       `UPDATE ${MATTER_TASK_TABLE} SET state = 'done', completed_at = ?1, completed_by = ?2, ` +
-        `updated_at = ?1 WHERE id = ?3`,
+        `updated_at = ?1, updated_by = ?2 WHERE id = ?3`,
     )
     .bind(input.now, input.completedBy, input.id);
 }
@@ -278,15 +293,15 @@ export function completeMatterTaskStatement(
 // stays a fact about how the matter ran even though the row no longer shows it.
 export function reopenMatterTaskStatement(
   database: SqlDatabase,
-  input: { readonly id: MatterTaskId; readonly now: string },
+  input: { readonly id: MatterTaskId; readonly now: string; readonly actor: UserId | null },
 ): SqlStatement {
   return database
     .prepare(
       `UPDATE ${MATTER_TASK_TABLE} SET state = 'open', completed_at = NULL, completed_by = NULL, ` +
-        `cancelled_at = NULL, cancelled_by = NULL, cancellation_reason = NULL, updated_at = ?1 ` +
-        `WHERE id = ?2`,
+        `cancelled_at = NULL, cancelled_by = NULL, cancellation_reason = NULL, updated_at = ?1, ` +
+        `updated_by = ?3 WHERE id = ?2`,
     )
-    .bind(input.now, input.id);
+    .bind(input.now, input.id, input.actor);
 }
 
 export function cancelMatterTaskStatement(
@@ -301,8 +316,8 @@ export function cancelMatterTaskStatement(
   return database
     .prepare(
       `UPDATE ${MATTER_TASK_TABLE} SET state = 'cancelled', cancelled_at = ?1, cancelled_by = ?2, ` +
-        `cancellation_reason = ?3, completed_at = NULL, completed_by = NULL, updated_at = ?1 ` +
-        `WHERE id = ?4`,
+        `cancellation_reason = ?3, completed_at = NULL, completed_by = NULL, updated_at = ?1, ` +
+        `updated_by = ?2 WHERE id = ?4`,
     )
     .bind(input.now, input.cancelledBy, input.reason, input.id);
 }
@@ -332,14 +347,17 @@ export function deleteMatterTaskDocumentsStatement(
 // would render as blocked by a task nobody can open and no surface could explain it.
 export function clearBlockedByStatement(
   database: SqlDatabase,
-  input: { readonly taskId: MatterTaskId; readonly now: string },
+  input: { readonly taskId: MatterTaskId; readonly now: string; readonly actor: UserId | null },
 ): SqlStatement {
+  // The cascade stamps the actor too. A successor whose blocker vanished is a task that CHANGED, so
+  // it has to reach the change feed like any other edit — a mirror that missed it would keep showing
+  // work as blocked by something that no longer exists.
   return database
     .prepare(
-      `UPDATE ${MATTER_TASK_TABLE} SET blocked_by_task_id = NULL, updated_at = ?1 ` +
+      `UPDATE ${MATTER_TASK_TABLE} SET blocked_by_task_id = NULL, updated_at = ?1, updated_by = ?3 ` +
         `WHERE blocked_by_task_id = ?2`,
     )
-    .bind(input.now, input.taskId);
+    .bind(input.now, input.taskId, input.actor);
 }
 
 // ---- reads ----

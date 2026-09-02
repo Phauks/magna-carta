@@ -67,7 +67,22 @@ export type TaskValidationCode =
   | "plan-unknown-task-template"
   | "plan-task-template-mismatch"
   | "plan-blocking-cycle"
-  | "plan-nothing-accepted";
+  | "plan-nothing-accepted"
+  // A task's identity in a system that is not this one. The platform ships no adapter, so every one
+  // of these is a refusal an ADDON reads — which is why they say what is wrong rather than what to
+  // do about it: the caller knows its own remedy and this package does not.
+  | "external-system-required"
+  | "external-system-too-long"
+  | "external-id-required"
+  | "external-id-too-long"
+  | "external-url-too-long"
+  | "remote-revision-too-long"
+  // The two uniqueness rules, refused separately because they are different mistakes: the first
+  // means somebody else already claimed that remote object, the second means this task already has
+  // an identity in that system.
+  | "external-object-already-linked"
+  | "task-already-linked"
+  | "external-link-not-found";
 
 export class TaskValidationError extends Error {
   constructor(

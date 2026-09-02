@@ -30,6 +30,10 @@ scoped against a wider brief in
 - `src/plan-statements.ts` — the plan's SQL: the offered-plans read, the matter anchor cut from
   `opened_at`, the role resolution, and the template chain walk
 - `src/plan-service.ts` — authoring a plan, and the propose/accept pair that is the whole design
+- `src/sync-statements.ts` — the seam an addon writes through: the external-identity table, the
+  deletion tombstone, and the change feed's two independently-positioned keyset streams
+- `src/sync-service.ts` — link, record a round trip, unlink, and the lookup that makes a replayed
+  sync idempotent
 
 ## The three things that decide this package's shape
 
@@ -165,6 +169,57 @@ link is refused unless the task is on the entry's own matter and firm work has n
 own work is timeless by construction rather than by a rule somebody has to remember. And **the
 minutes are read for a whole page at once**: the route batches, because a per-row read would be an
 N+1 on the surface members open most, and the load profile counts the statements to prove it.
+
+## Mirroring a task into another system — what an ADDON may rely on
+
+**The platform integrates with nothing and ships no adapter.** It does not know what ClickUp is,
+schedules no sync, resolves no conflict and maps no vocabulary. Every one of those is a decision
+about somebody else's product; they belong to the adapter that knows it, built on
+`@magna-carta/integrations` where the credential and capability machinery already lives. What
+`src/sync-statements.ts` and `src/sync-service.ts` provide is only the part the platform cannot
+delegate.
+
+**Four primitives, and each one exists because it cannot be added afterwards.**
+
+- **`matter_task_external_link`** — that a task IS some object over there. `system` is open text, the
+  `directory_edge.edge_type` discipline, so a second system is an addon rather than a migration and
+  nothing in this repository names a vendor. Two uniqueness rules, and they are different claims:
+  one remote object maps to at most one task, one task holds at most one identity per system. **Both
+  are indexes, not the service pre-check** — the check turns the common case into a readable refusal
+  and a race between two syncs is precisely the case it loses.
+- **`matter_task_deletion`** — the tombstone, written in the SAME BATCH as the delete. A row that is
+  gone cannot be enumerated, so a mirror learns of a deletion there or never. It carries identifiers
+  and nothing else: a tombstone preserving the title would defeat the delete it records.
+- **`matter_task.updated_by`** — echo suppression. A two-way sync must tell its own writes from a
+  person's, or it pushes back everything it just pulled. Connect the addon as its own member and skip
+  the rows that name it.
+- **`readTaskChanges`** — "what moved since I last looked", as two keyset streams with **independent
+  positions**. One shared cursor looks sufficient and is wrong: its id half would come from whichever
+  stream produced the last row, and a deletion handle applied as the tie-break against `matter_task.id`
+  silently drops every live task sorting below it at that instant. That change is then never
+  reported again. The comment in `sync-statements.ts` carries the full reasoning.
+
+**Rules an adapter is held to.**
+
+- **Visibility is not relaxed for a sync.** The feed composes `taskVisibilityFragment` like every
+  other read, so an addon connected as a member syncs exactly what that member can see. There is no
+  privileged enumeration and there must never be one.
+- **The remote id is opaque.** This package never parses it, never orders by it and never assumes a
+  shape. `system` is normalized (trimmed, lower-cased) because "ClickUp" and "clickup" are one
+  system and the uniqueness rules are indexes that would not know it; the external id is trimmed and
+  otherwise untouched, because lower-casing it would be this platform deciding somebody else's
+  identifiers are case-insensitive.
+- **`remote_revision` is stored and handed back, never compared.** It is a vendor's token — an ETag,
+  a millisecond stamp, an opaque string. What it means is the adapter's business; not losing it is
+  the platform's.
+- **The identity is immutable.** `recordExternalSync` moves the URL, the revision and the sync
+  instant and never the correspondence. Changing what a task mirrors is unlink then link, so both
+  acts land in the audit trail.
+- **The platform's vocabulary does not bend to fit a remote's.** Three states and four priorities,
+  and an adapter maps a remote's many statuses onto them. Firm-defined statuses are owner flag
+  **T3**, still open — an adapter must not invent them by writing free text somewhere.
+- **A task on no matter can never carry a time entry**, so a mirrored firm-work task syncs its
+  content and never its time.
 
 ## Dependencies & contracts
 

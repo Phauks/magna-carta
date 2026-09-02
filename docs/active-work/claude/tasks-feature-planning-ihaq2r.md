@@ -42,6 +42,13 @@ bump to 16 and a `GENERATOR_VERSION` bump to 12 (both invalidate cached snapshot
 regenerated baseline, and two additions to the calendar's firm-window scan allowlist that were
 already outstanding on `main`.
 
-**Not in flight, and not this stream's:** a plan's event and document steps, starting a timer from a
+The owner then asked for tasks to be open-ended and modular against a future addon connecting
+ClickUp both ways. What that turned into is the SEAM and deliberately not an adapter: an
+external-identity table generic over an open `system` string, a deletion tombstone, `updated_by`
+for echo suppression, and a two-stream change feed. No vendor is named anywhere in the schema.
+
+**Not in flight, and not this stream's:** any adapter, a sync engine, conflict policy or field
+mapping — all of which belong to the addon on `@magna-carta/integrations`. Nor a plan's event and
+document steps, starting a timer from a
 task (which waits on the live-timer run store becoming plural), and the board view. Each is gated on
 an owner answer named in the scope study, or on a seam in another subsystem.

@@ -49,6 +49,10 @@ import {
   normalizeTaskPriority,
   normalizeTaskTitle,
 } from "./validation.ts";
+import {
+  deleteExternalLinksForTaskStatement,
+  insertTaskDeletionStatement,
+} from "./sync-statements.ts";
 
 // The task's write paths: create, edit, reassign, complete, reopen, cancel, delete, and the two that
 // attach and detach a file.
@@ -289,6 +293,7 @@ export async function editMatterTask(
           triggerEventId: input.triggerEventId ?? null,
           deadlineId: input.deadlineId ?? null,
           now,
+          actor: options.actorUserId,
         }),
         domainAuditStatement(database, {
           event: "tasks.task.edited",
@@ -327,7 +332,12 @@ export async function reassignMatterTask(
   return {
     effect: {
       statements: [
-        reassignMatterTaskStatement(database, { id: taskId, assigneeUserId, now }),
+        reassignMatterTaskStatement(database, {
+          id: taskId,
+          assigneeUserId,
+          now,
+          actor: options.actorUserId,
+        }),
         domainAuditStatement(database, {
           event: "tasks.task.reassigned",
           subjectId: taskId,
@@ -421,7 +431,7 @@ export async function reopenMatterTask(
   return {
     effect: {
       statements: [
-        reopenMatterTaskStatement(database, { id: taskId, now }),
+        reopenMatterTaskStatement(database, { id: taskId, now, actor: options.actorUserId }),
         domainAuditStatement(database, {
           event: "tasks.task.reopened",
           subjectId: taskId,
@@ -506,7 +516,25 @@ export async function deleteMatterTask(
         // self-reference, so a pointer left behind would dangle and render as blocked by a task
         // nobody can open.
         deleteMatterTaskDocumentsStatement(database, taskId),
-        clearBlockedByStatement(database, { taskId, now }),
+        clearBlockedByStatement(database, { taskId, now, actor: options.actorUserId }),
+        // The tombstone, in the SAME BATCH as the delete and never after it. A row that is gone
+        // cannot be enumerated afterwards, so anything mirroring this task learns of the deletion
+        // here or never — and a mirror that never learns keeps the work alive somewhere the firm
+        // has stopped looking, which is worse than the stale row the delete was meant to remove.
+        // It carries identifiers and nothing else: a tombstone preserving the title would defeat
+        // the delete it records.
+        insertTaskDeletionStatement(database, {
+          id: newIdentifier("matterTaskDeletion", options.randomSource),
+          taskId,
+          matterId: task.matter_id,
+          deletedBy: options.actorUserId,
+          now,
+        }),
+        // The external links go with it, for the reason the document links above go: they reference
+        // the row. A link left behind would point at a task nobody can open while still holding its
+        // remote object's uniqueness slot, which would stop the firm ever linking that object to a
+        // real task again.
+        deleteExternalLinksForTaskStatement(database, taskId),
         deleteMatterTaskStatement(database, taskId),
         domainAuditStatement(database, {
           event: "tasks.task.deleted",

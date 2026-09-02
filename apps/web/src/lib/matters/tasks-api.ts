@@ -66,8 +66,41 @@ export interface MatterTask {
    * screen cannot support.
    */
   timeLogged: TaskTimeLogged;
+  /**
+   * Where else this task is written down. Empty on nearly every task: Magna Carta integrates with
+   * nothing on its own, so a link exists only because an addon put it there.
+   */
+  externalLinks: TaskExternalLink[];
   createdAt: string;
   updatedAt: string;
+  /**
+   * Who touched it last. Null on a task nothing has edited since it was written. It is here for the
+   * mirrors: a system syncing both ways reads it to tell its own writes from a person's.
+   */
+  updatedBy: string | null;
+}
+
+export interface TaskExternalLink {
+  id: string;
+  /** The outside system, lower-cased at the write — "clickup", "asana". Never a fixed list. */
+  system: string;
+  externalId: string;
+  /** Where a person goes to see it over there. Null where the system has no addressable page. */
+  externalUrl: string | null;
+  remoteRevision: string | null;
+  lastSyncedAt: string | null;
+}
+
+/**
+ * A system's name as a person should read it.
+ *
+ * Stored lower-cased so the uniqueness rules hold however it was spelled, which makes it the
+ * platform's job to put a capital back. Deliberately a plain title-case rather than a lookup table
+ * of known vendors: the whole point of the seam is that a system nobody anticipated can appear, and
+ * a table would render exactly those as the raw handle.
+ */
+export function externalSystemLabel(system: string): string {
+  return system.length === 0 ? system : system.charAt(0).toUpperCase() + system.slice(1);
 }
 
 export interface TaskTimeLogged {

@@ -38,6 +38,7 @@
   import X from "@lucide/svelte/icons/x";
   import {
     describeTimeLogged,
+    externalSystemLabel,
     PRIORITY_LABELS,
     STATE_LABELS,
     TASK_PRIORITIES,
@@ -682,6 +683,32 @@
                       <dd class="text-text">{timeLogged}</dd>
                     </div>
                   {/if}
+                  <!-- Where else this task is written down. Absent on nearly every task, because
+                       the product integrates with nothing on its own — a row here means an addon
+                       put it there, and saying so is what stops somebody editing in two places
+                       without knowing the other exists. -->
+                  {#each task.externalLinks as link (link.id)}
+                    <div class="flex gap-4">
+                      <dt>{externalSystemLabel(link.system)}</dt>
+                      <dd class="text-text">
+                        {#if link.externalUrl === null}
+                          <!-- No addressable page over there. The platform will not invent a URL
+                               from an id pattern — that would be guessing at somebody else's
+                               routing — so the handle is the honest thing to show. -->
+                          {link.externalId}
+                        {:else}
+                          <a
+                            class="underline"
+                            href={link.externalUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                          >
+                            {link.externalId}
+                          </a>
+                        {/if}
+                      </dd>
+                    </div>
+                  {/each}
                   {#if task.state === "cancelled" && task.cancellationReason !== null}
                     <div class="flex gap-4">
                       <dt>Not doing it because</dt>

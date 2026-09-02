@@ -180,6 +180,24 @@ that is a report, and reports belong on the reporting screens.
 A task on no matter — the firm's own work — cannot carry time, because there is no client matter for
 that time to belong to.
 
+## Connecting Tasks To Another Tool
+
+Magna Carta does not connect to ClickUp, Asana or anything else on its own, and nothing in the
+product will offer to. What it has is the groundwork an **add-on** needs, so one can be built without
+changing how tasks work.
+
+What that means in practice: a task can carry its identity in another system, and when it does, the
+task's row says so and links straight to it. A task can be mirrored into more than one tool at once.
+Editing on either side is possible, and the record keeps enough to stop the two copies fighting —
+including who changed a task last, so an add-on can tell its own updates from a person's.
+
+Deleting a task is handled properly rather than quietly: the record keeps a note that the task
+existed and was deleted, so a connected tool learns the work is gone instead of leaving it sitting on
+somebody's board forever.
+
+**An add-on only ever sees what the person it is connected as can see.** Connecting one does not open
+a side door to matters that person has no access to.
+
 ## What Is Not Built Yet
 
 There is no board view, no recurring task, and no comment thread on a task. Sub-checklists inside a

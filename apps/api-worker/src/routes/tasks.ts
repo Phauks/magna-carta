@@ -12,6 +12,7 @@ import type {
   MatterEventId,
   MatterId,
   MatterTaskDocumentId,
+  MatterTaskExternalLinkId,
   MatterTaskId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -37,6 +38,18 @@ import {
   type MatterTaskRow,
 } from "@magna-carta/tasks/task-statements";
 import { readTaskTimeSummaries, NO_TIME_LOGGED } from "@magna-carta/timekeeping/task-time";
+import {
+  linkTaskToExternalSystem,
+  recordExternalSync,
+  unlinkTaskFromExternalSystem,
+} from "@magna-carta/tasks/sync-service";
+import {
+  MAX_TASK_CHANGE_PAGE_SIZE,
+  readExternalLinksForTasks,
+  readTaskChanges,
+  readTaskIdForExternalId,
+  type MatterTaskExternalLinkRow,
+} from "@magna-carta/tasks/sync-statements";
 import {
   MAX_CANCELLATION_REASON_LENGTH,
   MAX_TASK_BODY_LENGTH,
@@ -176,6 +189,24 @@ const TaskDetail = z
     // The scope rides WITH the numbers rather than once per page on purpose: the same two totals
     // mean "what this task cost the firm" under `firm` and "what I have put into it" under `own`,
     // and a consumer must not be able to render one without the other.
+    // Who touched it last, and null on a row nothing has edited since it was written. A mirror
+    // reads this to tell its OWN writes from a person's; without it a two-way sync pushes back
+    // everything it just pulled and the two sides oscillate.
+    updatedBy: z.string().nullable(),
+    // Where else this task is written down. Empty on nearly every task: the platform integrates
+    // with nothing and ships no adapter, so a row here exists only because an addon put it there.
+    externalLinks: z.array(
+      z
+        .object({
+          id: z.string(),
+          system: z.string(),
+          externalId: z.string(),
+          externalUrl: z.string().nullable(),
+          remoteRevision: z.string().nullable(),
+          lastSyncedAt: z.string().nullable(),
+        })
+        .openapi("MatterTaskExternalLink"),
+    ),
     timeLogged: z
       .object({
         billableMinutes: z.number().int(),
@@ -377,6 +408,204 @@ const listMyTasksRoute = defineOpenAPIRoute(readMeta("listMyTasks"), {
     401: authErrors[401],
     403: authErrors[403],
     404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const externalLinkIdParam = z.object({
+  linkId: identifierPathParam("matterTaskExternalLink", "linkId"),
+});
+
+const LinkTaskRequest = z
+  .object({
+    system: z
+      .string()
+      .min(1)
+      .max(64)
+      .openapi({
+        description:
+          "The outside system, in whatever the addon calls itself — never an enum here, because " +
+          "adding one is the point. Matched case-insensitively: 'ClickUp' and 'clickup' are one system.",
+      }),
+    externalId: z
+      .string()
+      .min(1)
+      .max(512)
+      .openapi({
+        description:
+          "The remote's own handle for the object. Opaque: this platform never parses it, never " +
+          "orders by it, and never assumes a shape.",
+      }),
+    externalUrl: z.string().max(2048).nullable().optional(),
+    remoteRevision: z
+      .string()
+      .max(512)
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "What the remote looked like when the two sides last agreed — a vendor revision token, an " +
+          "ETag, a timestamp they minted. Stored and handed back, never compared for order.",
+      }),
+    lastSyncedAt: z.string().nullable().optional(),
+  })
+  .openapi("LinkMatterTaskRequest");
+
+const RecordSyncRequest = z
+  .object({
+    externalUrl: z.string().max(2048).nullable().optional(),
+    remoteRevision: z.string().max(512).nullable().optional(),
+    syncedAt: z.string().nullable().optional(),
+  })
+  .openapi("RecordMatterTaskSyncRequest");
+
+const ExternalLinkCreated = z.object({ id: z.string() }).openapi("CreatedMatterTaskExternalLink");
+
+const TaskChangePage = z
+  .object({
+    changed: z.array(TaskDetail),
+    deleted: z.array(
+      z
+        .object({
+          taskId: z.string(),
+          matterId: z.string().nullable(),
+          deletedAt: z.string(),
+          deletedBy: z.string().nullable(),
+        })
+        .openapi("MatterTaskDeletion"),
+    ),
+    // Absent when both streams are exhausted, which is how a caller knows it has caught up rather
+    // than counting rows itself.
+    nextCursor: z.string().nullable(),
+  })
+  .openapi("MatterTaskChangePage");
+
+const ExternalLookupResult = z
+  .object({ taskId: z.string().nullable() })
+  .openapi("MatterTaskExternalLookup");
+
+const readTaskChangesRoute = defineOpenAPIRoute(readMeta("readTaskChanges"), {
+  method: "get",
+  path: "/api/v1/tasks/changes",
+  description:
+    "What moved since the cursor: tasks that changed and tasks that were deleted, oldest first. " +
+    "The deletions come from a tombstone written in the same batch as the delete, because a row " +
+    "that is gone cannot be enumerated afterwards. Visibility applies to the changed tasks exactly " +
+    "as it does to any other task read, so this is not a back door. Each caller keeps its own " +
+    "cursor; the token is opaque and a malformed one replays from the beginning rather than failing.",
+  request: {
+    query: z.object({
+      cursor: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(MAX_TASK_CHANGE_PAGE_SIZE).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "One page of changes",
+      content: { "application/json": { schema: TaskChangePage } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const lookupExternalTaskRoute = defineOpenAPIRoute(readMeta("lookupExternalTask"), {
+  method: "get",
+  path: "/api/v1/tasks/external-lookup",
+  description:
+    "Which task, if any, corresponds to an object in an outside system. The lookup an addon makes " +
+    "before it creates anything, so a replayed sync does not produce a second task. A null taskId " +
+    "means either no correspondence exists or the caller cannot see the task it names — the two " +
+    "are deliberately indistinguishable.",
+  request: {
+    query: z.object({ system: z.string().min(1).max(64), externalId: z.string().min(1).max(512) }),
+  },
+  responses: {
+    200: {
+      description: "The corresponding task, or null",
+      content: { "application/json": { schema: ExternalLookupResult } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const linkTaskRoute = defineOpenAPIRoute(writeMeta("linkExternalTask"), {
+  method: "post",
+  path: "/api/v1/tasks/{taskId}/external-links",
+  description:
+    "Record that this task IS an object in an outside system. One remote object maps to at most " +
+    "one task, and one task holds at most one identity per system; both are unique indexes rather " +
+    "than service checks, because a race between two syncs is the case a check loses.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: { content: { "application/json": { schema: LinkTaskRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The link",
+      content: { "application/json": { schema: ExternalLinkCreated } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const recordSyncRoute = defineOpenAPIRoute(writeMeta("recordExternalSync"), {
+  method: "patch",
+  path: "/api/v1/task-external-links/{linkId}",
+  description:
+    "What an addon writes after a round trip: where it lives now, what the remote looked like " +
+    "when the two sides agreed, and when. The identity itself is immutable — changing what a task " +
+    "mirrors is unlink then link, so both acts land in the audit trail.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: externalLinkIdParam,
+    body: { content: { "application/json": { schema: RecordSyncRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "Recorded",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const unlinkTaskRoute = defineOpenAPIRoute(writeMeta("unlinkExternalTask"), {
+  method: "delete",
+  path: "/api/v1/task-external-links/{linkId}",
+  description:
+    "Stop mirroring. The task is untouched: unlinking is a statement about the correspondence and " +
+    "never about the work, so nothing here completes, cancels or deletes anything.",
+  request: { headers: idempotencyKeyHeader, params: externalLinkIdParam },
+  responses: {
+    200: {
+      description: "Unlinked",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
     429: authErrors[429],
   },
 });
@@ -615,6 +844,7 @@ function serviceOptions(userId: UserId) {
 function taskDetail(
   row: MatterTaskRow,
   documents: readonly MatterTaskDocumentRow[],
+  externalLinks: readonly MatterTaskExternalLinkRow[],
   timeLogged: z.infer<typeof TaskDetail>["timeLogged"],
 ): z.infer<typeof TaskDetail> {
   return {
@@ -647,9 +877,20 @@ function taskDetail(
         linkedAt: document.linked_at,
         linkedBy: document.linked_by,
       })),
+    externalLinks: externalLinks
+      .filter((link) => link.task_id === row.id)
+      .map((link) => ({
+        id: link.id,
+        system: link.system,
+        externalId: link.external_id,
+        externalUrl: link.external_url,
+        remoteRevision: link.remote_revision,
+        lastSyncedAt: link.last_synced_at,
+      })),
     timeLogged,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    updatedBy: row.updated_by,
   };
 }
 
@@ -712,10 +953,17 @@ async function pageFrom(
     taskIds,
     onlyTimekeeperUserId: seesFirmTime ? null : viewerUserId,
   });
+  // And the page's external identities on the same terms. Empty for every firm that has connected
+  // nothing, which is every firm the platform ships to — an IN over an indexed column against no
+  // rows costs nothing, and the alternative is a surface that cannot say a task is mirrored.
+  const externalLinks = await readExternalLinksForTasks(database, taskIds);
   const scope = seesFirmTime ? ("firm" as const) : ("own" as const);
   return {
     data: rows.map((row) =>
-      taskDetail(row, documents, { ...(timeByTask.get(row.id) ?? NO_TIME_LOGGED), scope }),
+      taskDetail(row, documents, externalLinks, {
+        ...(timeByTask.get(row.id) ?? NO_TIME_LOGGED),
+        scope,
+      }),
     ),
     // Keyed on the same composite the list is ordered by, so the walk cannot skip or repeat.
     nextCursor:
@@ -813,6 +1061,158 @@ export function registerTasksRoutes(
         includeClosedMatters: query.includeClosedMatters === "true",
       }).all<TaskListRow>();
       return c.json(await pageFrom(firm.firmDatabase, userId, seesFirmTime(c), results), 200);
+    },
+  );
+
+  // GET /api/v1/tasks/changes — registered ahead of the {taskId} routes so the literal segment
+  // wins the match, the discipline the time-entry surface already follows for quick-add-preview.
+  app.openapi(
+    { ...readTaskChangesRoute, middleware: chokepointMiddleware(chokepoint, readTaskChangesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const query = c.req.valid("query");
+      const page = await readTaskChanges(firm.firmDatabase, {
+        cursor: query.cursor,
+        limit: query.limit ?? MAX_TASK_CHANGE_PAGE_SIZE,
+        visibility: visibleMatterPredicate(),
+        viewerUserId: userId,
+      });
+      // The changed tasks are projected exactly as a list projects them — same shape, same links,
+      // same time — because a sync reading a different shape from the screen would be a second
+      // definition of what a task is.
+      const documents = await readMatterTaskDocuments(
+        firm.firmDatabase,
+        page.changed.map((row) => row.id),
+        visibleMatterPredicate(),
+        userId,
+      );
+      const externalLinks = await readExternalLinksForTasks(
+        firm.firmDatabase,
+        page.changed.map((row) => row.id),
+      );
+      const firmTime = seesFirmTime(c);
+      const timeByTask = await readTaskTimeSummaries(firm.firmDatabase, {
+        taskIds: page.changed.map((row) => row.id),
+        onlyTimekeeperUserId: firmTime ? null : userId,
+      });
+      const scope = firmTime ? ("firm" as const) : ("own" as const);
+      return c.json(
+        {
+          changed: page.changed.map((row) =>
+            taskDetail(row, documents, externalLinks, {
+              ...(timeByTask.get(row.id) ?? NO_TIME_LOGGED),
+              scope,
+            }),
+          ),
+          deleted: page.deleted.map((row) => ({
+            taskId: row.task_id,
+            matterId: row.matter_id,
+            deletedAt: row.deleted_at,
+            deletedBy: row.deleted_by,
+          })),
+          nextCursor: page.nextCursor ?? null,
+        },
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/tasks/external-lookup
+  app.openapi(
+    {
+      ...lookupExternalTaskRoute,
+      middleware: chokepointMiddleware(chokepoint, lookupExternalTaskRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { system, externalId } = c.req.valid("query");
+      const link = await readTaskIdForExternalId(
+        firm.firmDatabase,
+        system.trim().toLowerCase(),
+        externalId.trim(),
+      );
+      if (link === undefined) return c.json({ taskId: null }, 200);
+      // Visibility applies to the ANSWER, not just the task: a caller that cannot see the task is
+      // told the same "no" it would get for a correspondence that does not exist, so the lookup
+      // cannot be used to probe for tasks on matters the caller has no reach into.
+      const task = await readMatterTask(
+        firm.firmDatabase,
+        link.task_id,
+        visibleMatterPredicate(),
+        userId,
+      );
+      return c.json({ taskId: task === undefined ? null : link.task_id }, 200);
+    },
+  );
+
+  // POST /api/v1/tasks/{taskId}/external-links
+  app.openapi(
+    { ...linkTaskRoute, middleware: chokepointMiddleware(chokepoint, linkTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+        const linked = await linkTaskToExternalSystem(
+          firm.firmDatabase,
+          { taskId: taskId as MatterTaskId, ...request },
+          serviceOptions(userId),
+        );
+        return { id: linked.linkId, effect: linked.effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // PATCH /api/v1/task-external-links/{linkId}
+  app.openapi(
+    { ...recordSyncRoute, middleware: chokepointMiddleware(chokepoint, recordSyncRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { linkId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const recorded = await recordExternalSync(
+          firm.firmDatabase,
+          linkId as MatterTaskExternalLinkId,
+          request,
+          serviceOptions(userId),
+        );
+        return { id: linkId, effect: recorded.effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // DELETE /api/v1/task-external-links/{linkId}
+  app.openapi(
+    { ...unlinkTaskRoute, middleware: chokepointMiddleware(chokepoint, unlinkTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { linkId } = c.req.valid("param");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const unlinked = await unlinkTaskFromExternalSystem(
+          firm.firmDatabase,
+          linkId as MatterTaskExternalLinkId,
+          serviceOptions(userId),
+        );
+        return { id: linkId, effect: unlinked.effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
     },
   );
 

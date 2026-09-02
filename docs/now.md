@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 776 nodes of the feature ledger in
+is the complete register rather than a digest: all 777 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**776 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**777 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 137 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **639 that are units of work**, for the reason set out under [What a roll-up is
+count the **640 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 277 | 43% |
+| Done | shipped | 278 | 44% |
 | Part-built | partial, in-build | 116 | 18% |
 | Ahead | designed, planned, researching, not-started | 205 | 32% |
-| Parked | deferred, cut | 41 | 7% |
-| **All units of work** | | **639** | **100%** |
+| Parked | deferred, cut | 41 | 6% |
+| **All units of work** | | **640** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 277 | 43% |
+| `shipped` | 278 | 43% |
 | `partial` | 115 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 45 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 139 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **639** | **100%** |
+| **All statuses** | **640** | **100%** |
 
 ### What a roll-up is not
 
-**137 of the 776 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**137 of the 777 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 277 of 639 (43%). Shipped plus partial is 392 (61%).**
+**Shipped alone is 278 of 640 (43%). Shipped plus partial is 393 (61%).**
 
 The 115 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**393 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**394 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 36 | 9% |
+| A person can open it today (`screen`) | 37 | 9% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
 | No user surface by nature (`internal`) | 177 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **393** | **100%** |
+| **Everything with something built** | **394** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -124,9 +124,9 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
-| Tasks and Workflows / Matter Plans | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 33% |
+| Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **277** | **115** | **1** | **45** | **16** | **5** | **139** | **38** | **3** | **639** | **43%** |
+| **All areas** | **278** | **115** | **1** | **45** | **16** | **5** | **139** | **38** | **3** | **640** | **43%** |
 
 ## Where we have been
 
@@ -1355,11 +1355,12 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Tasks and Workflows / Matter Plans
 
-[`roadmap.d/tasks.md`](../roadmap.d/tasks.md) — 3 units of work, 33% shipped. 1 done, 2 part-built, 0 ahead, 0 parked.
+[`roadmap.d/tasks.md`](../roadmap.d/tasks.md) — 4 units of work, 50% shipped. 2 done, 2 part-built, 0 ahead, 0 parked.
 
 - `tasks` · `partial` · **Tasks and workflows** — Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.
   - `tasks.task-lists` · `shipped` · **Task lists** — Tasks with assignments and due dates, on a matter or on none.
   - `tasks.matter-plans` · `partial` · **Matter plans** — Templated task sequences per matter type, offered when a matter is open and written only when a member accepts them; pairs with document automation and the calendar.
+  - `tasks.external-mirroring` · `shipped` · **Mirroring a task into another system** — The seam an addon writes through to keep tasks in step with an outside tool, both ways. The platform ships no adapter. _Note: Shipped means the SEAM is complete, not that anything is integrated. No adapter, no sync engine, no conflict policy and no field mapping exist, and none of them belongs here — they are the addon's, on @magna-carta/integrations._
   - `tasks.workflow-model` · `partial` · **Workflow model** — Template authoring, task dependencies/sequencing, assignment and reassignment, due-date derivation (including from docketing), notification/escalation, completion tracking.
 
 ### Translation Services

@@ -271,6 +271,13 @@ export const ENTITY_PREFIXES = {
   // leaves the document where it lives.
   matterTask: "matterTask",
   matterTaskDocument: "matterTaskDocument",
+  // A task's identity in a system that is not this one. The platform ships no such system and never
+  // will — this is the seam an ADDON writes through, so the `system` it names is open text rather
+  // than an enum and adding a second one is not a migration. A `matterTaskDeletion` is the tombstone
+  // a hard delete leaves behind: a row that is gone cannot be enumerated afterwards, and a mirror
+  // that never learns of the deletion keeps the work alive somewhere the firm stopped looking.
+  matterTaskExternalLink: "matterTaskExternalLink",
+  matterTaskDeletion: "matterTaskDeletion",
   // The matter plan: a firm's own statement of the work a kind of matter takes. A
   // `matterPlanTemplate` is the plan; a `matterPlanTaskTemplate` is one task it PROPOSES, carrying a
   // due-date anchor rather than a date and a role rather than a member, because both alternatives are

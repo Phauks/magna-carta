@@ -12,7 +12,9 @@
     "./notifications": "./src/notifications.ts",
     "./close-advisory": "./src/close-advisory.ts",
     "./plan-statements": "./src/plan-statements.ts",
-    "./plan-service": "./src/plan-service.ts"
+    "./plan-service": "./src/plan-service.ts",
+    "./sync-statements": "./src/sync-statements.ts",
+    "./sync-service": "./src/sync-service.ts"
   },
   "scripts": {
     "test": "vp test run"

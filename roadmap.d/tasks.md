@@ -10,7 +10,7 @@
   status: partial
   slices: 6-3-tasks
   spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
-  evidence: The task record, the matter plan and the time link all ship — packages/tasks, the matter_task, matter_task_document, matter_plan_template and matter_plan_task_template tables, a nullable task_id on time_entry, four permission keys, twenty-two routes, the matterTask timeline source, a matter close advisory, the Tasks section, My Work at /tasks, plan authoring under Settings, and a task volume in the load-profile harness. What holds this node at partial is the rest of the workflow surface: the board and its firm-defined statuses, recurrence, watchers and comments.
+  evidence: The task record, the matter plan, the time link and the integration seam all ship — packages/tasks, the matter_task, matter_task_document, matter_plan_template, matter_plan_task_template, matter_task_external_link and matter_task_deletion tables, a nullable task_id on time_entry, four permission keys, twenty-seven routes, the matterTask timeline source, a matter close advisory, the Tasks section, My Work at /tasks, plan authoring under Settings, and a task volume in the load-profile harness. What holds this node at partial is the rest of the workflow surface: the board and its firm-defined statuses, recurrence, watchers and comments.
   audience: public
   public-name: Tasks and matter plans
   public-summary: Task lists on a matter, and a plan that lays them out for you when a matter of that kind is opened.
@@ -34,6 +34,15 @@
   spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
   evidence: matter_plan_template and matter_plan_task_template, tasks:managePlans, eleven routes, and plan authoring under Settings. A proposal is a GET that writes nothing and acceptance is the POST that writes, so a plan is an offer a person edits and confirms rather than rows that appear. Provenance lands on matter_task as plan_template_id and plan_task_template_id, and nothing reconciles afterwards — the tasks are the firm's, not the template's. Partial because only task steps are templated: the design's event and document steps are unbuilt, and a plan cannot yet reach the calendar or document automation.
   awaiting-owner: Two calls about how far a plan may reach, neither of them blocking — the build took the design's own answer to each. Whether the platform ever ships curated matter plans of its own: it ships none, the malpractice argument holds, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": it stays at that one value, because every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and one anchor is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
+
+- id: tasks.external-mirroring
+  name: Mirroring a task into another system
+  scope: The seam an addon writes through to keep tasks in step with an outside tool, both ways. The platform ships no adapter.
+  status: shipped
+  slices: 6-3-tasks
+  surface: screen
+  evidence: matter_task_external_link (system as open text, so a second system is an addon rather than a migration), matter_task_deletion written in the delete's own batch, matter_task.updated_by stamped by every write path, and readTaskChanges as two keyset streams with independent positions. Five routes plus the links folded into the page read. Both uniqueness rules are indexes rather than service checks, because the race is what a pre-check loses. Visibility is never relaxed: an addon connected as a member syncs what that member can see. The adapter-author contract is in packages/tasks/CLAUDE.md.
+  notes: Shipped means the SEAM is complete, not that anything is integrated. No adapter, no sync engine, no conflict policy and no field mapping exist, and none of them belongs here — they are the addon's, on @magna-carta/integrations.
 
 - id: tasks.workflow-model
   name: Workflow model

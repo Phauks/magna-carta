@@ -2967,6 +2967,8 @@ export type MatterTaskDetail = {
     triggerEventId: string | null;
     deadlineId: string | null;
     documents: Array<MatterTaskDocument>;
+    updatedBy: string | null;
+    externalLinks: Array<MatterTaskExternalLink>;
     timeLogged: MatterTaskTimeLogged;
     createdAt: string;
     updatedAt: string;
@@ -2981,11 +2983,68 @@ export type MatterTaskDocument = {
     linkedBy: string | null;
 };
 
+export type MatterTaskExternalLink = {
+    id: string;
+    system: string;
+    externalId: string;
+    externalUrl: string | null;
+    remoteRevision: string | null;
+    lastSyncedAt: string | null;
+};
+
 export type MatterTaskTimeLogged = {
     billableMinutes: number;
     nonBillableMinutes: number;
     entryCount: number;
     scope: 'firm' | 'own';
+};
+
+export type MatterTaskChangePage = {
+    changed: Array<MatterTaskDetail>;
+    deleted: Array<MatterTaskDeletion>;
+    nextCursor: string | null;
+};
+
+export type MatterTaskDeletion = {
+    taskId: string;
+    matterId: string | null;
+    deletedAt: string;
+    deletedBy: string | null;
+};
+
+export type MatterTaskExternalLookup = {
+    taskId: string | null;
+};
+
+export type CreatedMatterTaskExternalLink = {
+    id: string;
+};
+
+export type LinkMatterTaskRequest = {
+    /**
+     * The outside system, in whatever the addon calls itself — never an enum here, because adding one is the point. Matched case-insensitively: 'ClickUp' and 'clickup' are one system.
+     */
+    system: string;
+    /**
+     * The remote's own handle for the object. Opaque: this platform never parses it, never orders by it, and never assumes a shape.
+     */
+    externalId: string;
+    externalUrl?: string | null;
+    /**
+     * What the remote looked like when the two sides last agreed — a vendor revision token, an ETag, a timestamp they minted. Stored and handed back, never compared for order.
+     */
+    remoteRevision?: string | null;
+    lastSyncedAt?: string | null;
+};
+
+export type MatterTaskAcknowledged = {
+    ok: true;
+};
+
+export type RecordMatterTaskSyncRequest = {
+    externalUrl?: string | null;
+    remoteRevision?: string | null;
+    syncedAt?: string | null;
 };
 
 export type CreatedMatterTask = {
@@ -3004,10 +3063,6 @@ export type CreateMatterTaskRequest = {
     dueOn?: string | null;
     dueAtTime?: string | null;
     timeZone?: string | null;
-};
-
-export type MatterTaskAcknowledged = {
-    ok: true;
 };
 
 export type EditMatterTaskRequest = {
@@ -17751,6 +17806,248 @@ export type TasksCreateTaskResponses = {
 };
 
 export type TasksCreateTaskResponse = TasksCreateTaskResponses[keyof TasksCreateTaskResponses];
+
+export type TasksReadTaskChangesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/v1/tasks/changes';
+};
+
+export type TasksReadTaskChangesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksReadTaskChangesError = TasksReadTaskChangesErrors[keyof TasksReadTaskChangesErrors];
+
+export type TasksReadTaskChangesResponses = {
+    /**
+     * One page of changes
+     */
+    200: MatterTaskChangePage;
+};
+
+export type TasksReadTaskChangesResponse = TasksReadTaskChangesResponses[keyof TasksReadTaskChangesResponses];
+
+export type TasksLookupExternalTaskData = {
+    body?: never;
+    path?: never;
+    query: {
+        system: string;
+        externalId: string;
+    };
+    url: '/api/v1/tasks/external-lookup';
+};
+
+export type TasksLookupExternalTaskErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksLookupExternalTaskError = TasksLookupExternalTaskErrors[keyof TasksLookupExternalTaskErrors];
+
+export type TasksLookupExternalTaskResponses = {
+    /**
+     * The corresponding task, or null
+     */
+    200: MatterTaskExternalLookup;
+};
+
+export type TasksLookupExternalTaskResponse = TasksLookupExternalTaskResponses[keyof TasksLookupExternalTaskResponses];
+
+export type TasksLinkExternalTaskData = {
+    body: LinkMatterTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/external-links';
+};
+
+export type TasksLinkExternalTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksLinkExternalTaskError = TasksLinkExternalTaskErrors[keyof TasksLinkExternalTaskErrors];
+
+export type TasksLinkExternalTaskResponses = {
+    /**
+     * The link
+     */
+    201: CreatedMatterTaskExternalLink;
+};
+
+export type TasksLinkExternalTaskResponse = TasksLinkExternalTaskResponses[keyof TasksLinkExternalTaskResponses];
+
+export type TasksUnlinkExternalTaskData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        linkId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-external-links/{linkId}';
+};
+
+export type TasksUnlinkExternalTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksUnlinkExternalTaskError = TasksUnlinkExternalTaskErrors[keyof TasksUnlinkExternalTaskErrors];
+
+export type TasksUnlinkExternalTaskResponses = {
+    /**
+     * Unlinked
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksUnlinkExternalTaskResponse = TasksUnlinkExternalTaskResponses[keyof TasksUnlinkExternalTaskResponses];
+
+export type TasksRecordExternalSyncData = {
+    body: RecordMatterTaskSyncRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        linkId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-external-links/{linkId}';
+};
+
+export type TasksRecordExternalSyncErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksRecordExternalSyncError = TasksRecordExternalSyncErrors[keyof TasksRecordExternalSyncErrors];
+
+export type TasksRecordExternalSyncResponses = {
+    /**
+     * Recorded
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksRecordExternalSyncResponse = TasksRecordExternalSyncResponses[keyof TasksRecordExternalSyncResponses];
 
 export type TasksDeleteTaskData = {
     body?: never;

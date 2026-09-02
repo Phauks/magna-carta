@@ -111,6 +111,8 @@ import type {
   MatterPlanTemplateId,
   MatterRecoveryId,
   MatterTaskDocumentId,
+  MatterTaskDeletionId,
+  MatterTaskExternalLinkId,
   MatterTaskId,
   MatterTypeId,
   MemberLocationId,
@@ -6483,10 +6485,23 @@ export const matterTask = sqliteTable(
       .references(() => matterPlanTaskTemplate.id),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
+    // WHO TOUCHED IT LAST. Null on a row nothing has edited since it was written, and on every row
+    // that predates this column — an honest gap rather than a backfilled guess.
+    //
+    // It exists for the mirror. A system syncing this task both ways has to tell its OWN writes from
+    // a person's, or it pushes back everything it just pulled and the two sides oscillate forever.
+    // Reading the actor off the audit log would work and would make the cheapest question in the
+    // feed ("did I do this?") a second query per row.
+    updatedBy: text("updated_by").$type<UserId>(),
   },
   (table) => [
     // The provenance read: which matters came off this plan.
     index("matter_task_plan_template_index").on(table.planTemplateId),
+    // THE CHANGE FEED. "What moved since I last looked", as a keyset over the pair — the instant
+    // alone is not a cursor, because two tasks written in the same millisecond would make a page
+    // boundary either skip one or repeat it. The id breaks the tie and the pair is what a caller
+    // carries.
+    index("matter_task_updated_at_id_index").on(table.updatedAt, table.id),
     // "What is on my plate", which is the read a member makes most often and the one that decides
     // whether this subsystem gets used. Leads with the assignee and the state so the open ones come
     // off the index without a scan.
@@ -6573,6 +6588,89 @@ export const matterTaskDocument = sqliteTable(
     // One document rides one task once. A second identical link is a row a person reads as the same
     // file twice, and detaching one would leave the other behind.
     uniqueIndex("matter_task_document_task_file_unique_index").on(table.taskId, table.fileId),
+  ],
+);
+
+// A TASK'S IDENTITY SOMEWHERE ELSE, and the tombstone a deleted task leaves behind. Both exist for
+// one reason: this platform is not the only place a firm's work is written down, and an ADDON that
+// mirrors tasks to an outside system needs two things the task row alone cannot give it.
+//
+// THE PLATFORM SHIPS NO ADAPTER and integrates with nothing here. What ships is the seam: `system`
+// is open text constrained to a non-empty value — the `directory_edge.edge_type` discipline — so a
+// second system is an addon rather than a migration, and nothing in this schema names a vendor.
+//
+// TWO UNIQUENESS RULES, and they are different claims. One remote object maps to at most one task
+// here, or two tasks would fight over the same mirror and each would win half the time. One task
+// holds at most one identity per system, or a change here would have two places to go and no way to
+// choose. Both are indexes rather than service checks, because a race between two syncs is exactly
+// the case a service check loses.
+export const matterTaskExternalLink = sqliteTable(
+  "matter_task_external_link",
+  {
+    id: text("id").primaryKey().$type<MatterTaskExternalLinkId>(), // matterTaskExternalLink_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    // The outside system, in whatever the addon calls itself. Never an enum: adding one is the whole
+    // point, and an enum would make every new addon a reviewed migration in this file.
+    system: text("system").notNull(),
+    // The remote's own handle for this thing. Opaque here — this platform never parses it, never
+    // orders by it, and never derives anything from its shape.
+    externalId: text("external_id").notNull(),
+    // Where a person goes to see it over there. Nullable: a system may have no addressable page, and
+    // inventing a URL from an id pattern would be this schema guessing at somebody else's routing.
+    externalUrl: text("external_url"),
+    // What the remote looked like when the two sides last agreed — a vendor's own revision token, an
+    // ETag, a timestamp they minted. OPAQUE: stored, handed back, never compared for order or
+    // parsed. It is the addon's business what it means; the platform's business is not losing it.
+    remoteRevision: text("remote_revision"),
+    lastSyncedAt: text("last_synced_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    uniqueIndex("matter_task_external_link_system_external_id_unique_index").on(
+      table.system,
+      table.externalId,
+    ),
+    uniqueIndex("matter_task_external_link_task_system_unique_index").on(
+      table.taskId,
+      table.system,
+    ),
+    index("matter_task_external_link_task_index").on(table.taskId),
+    check("matter_task_external_link_system_nonempty_check", sql`length(${table.system}) > 0`),
+    check(
+      "matter_task_external_link_external_id_nonempty_check",
+      sql`length(${table.externalId}) > 0`,
+    ),
+  ],
+);
+
+// The tombstone. A task DELETE removes the row, which is the right behaviour for a record that
+// should not exist — and it makes the deletion unobservable to anything that was not watching at the
+// time. A mirror that never learns of it keeps the work alive somewhere the firm has stopped
+// looking, which is worse than the stale row it was meant to prevent.
+//
+// It carries IDENTIFIERS AND NOTHING ELSE. No title, no body, no assignee — a tombstone that
+// preserved the content would defeat the delete it records. `task_id` is deliberately NOT a foreign
+// key: the row it names is gone, which is the entire point.
+export const matterTaskDeletion = sqliteTable(
+  "matter_task_deletion",
+  {
+    id: text("id").primaryKey().$type<MatterTaskDeletionId>(), // matterTaskDeletion_ handle
+    taskId: text("task_id").notNull().$type<MatterTaskId>(),
+    // The matter it was on, or null for the firm's own work. Kept so a mirror scoped to one matter
+    // can tell whether a deletion is any of its business without resolving a task that no longer
+    // exists.
+    matterId: text("matter_id").$type<MatterId>(),
+    deletedAt: text("deleted_at").notNull(),
+    deletedBy: text("deleted_by").$type<UserId>(),
+  },
+  (table) => [
+    // The same keyset shape the change feed uses for live rows, for the same reason.
+    index("matter_task_deletion_deleted_at_id_index").on(table.deletedAt, table.id),
   ],
 );
 
