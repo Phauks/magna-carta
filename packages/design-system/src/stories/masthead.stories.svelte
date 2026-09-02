@@ -118,14 +118,18 @@
         </Masthead.Actions>
       </Masthead.Root>
 
-      <Masthead.Root>
-        <Masthead.Heading>
-          <Masthead.Title level={2}>Pemberton v. Hale</Masthead.Title>
-          <Masthead.Meta>
-            <span>Litigation</span>
-          </Masthead.Meta>
-        </Masthead.Heading>
-      </Masthead.Root>
+      <!-- The comparison masthead sits inside a labelled section: a page has ONE banner landmark,
+           and a <header> inside a section is that section's header rather than a second banner. -->
+      <section aria-label="Default density, for comparison">
+        <Masthead.Root>
+          <Masthead.Heading>
+            <Masthead.Title level={2}>Pemberton v. Hale</Masthead.Title>
+            <Masthead.Meta>
+              <span>Litigation</span>
+            </Masthead.Meta>
+          </Masthead.Heading>
+        </Masthead.Root>
+      </section>
     </div>
   {/snippet}
 </Story>

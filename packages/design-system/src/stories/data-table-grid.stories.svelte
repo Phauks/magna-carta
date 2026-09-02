@@ -589,15 +589,20 @@
       await expect(detailRow(2)).not.toHaveAttribute("data-state", "selected");
     });
 
-    await step("The columns menu holds the trailing pin — it is not the member's to move", async () => {
-      await userEvent.click(canvas.getByRole("button", { name: "Columns" }));
+    await step("The header menu holds the trailing pin — it is not the member's to move", async () => {
+      // The column's controls live in its own header's right-click menu (see "Columns and pinning").
+      const statusHead = canvas.getByRole("button", { name: "Status" }).closest("th")!;
+      await fireEvent.contextMenu(statusHead);
       const body = within(document.body);
-      const heldPin = await body.findByRole("button", {
-        name: "Status always keeps its place at the trailing edge",
-      });
-      await expect(heldPin).toBeDisabled();
-      await expect(heldPin).toHaveAttribute("aria-pressed", "true");
+      await body.findByRole("menu");
+      const heldPin = body.getByRole("menuitem", { name: "Unpin Status" });
+      await expect(heldPin).toHaveAttribute("data-disabled");
+      await expect(heldPin).toHaveAttribute(
+        "title",
+        "Status always keeps its place at the trailing edge",
+      );
       await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
       await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
     });
   }}
