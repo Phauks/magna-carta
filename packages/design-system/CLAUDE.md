@@ -23,6 +23,9 @@ properties; off-token values are machine-rejected.
   the question BOTH modal shells run every exit through; owned here, never re-implemented in a shell
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
+- `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
+  the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
+  Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
 - `src/lib/styles/components.css` — the semantic component-class layer (`mc-*` recipes)
 - `src/stories/**.stories.svelte` — the catalog; stories triple as browser-mode behavior tests and
   per-story axe checks
