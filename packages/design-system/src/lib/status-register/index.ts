@@ -3,7 +3,6 @@ export {
   STATUS_VOCABULARIES,
   statusBadgeAttributes,
   statusEntry,
-  statusMarkClasses,
   statusRepeatsHeading,
   statusVocabulary,
   type StatusEntry,

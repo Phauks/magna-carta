@@ -1,202 +1,22 @@
 @layer components {
   /*
-   * RecordWindow — the two-pane record window. It dresses the Dialog panel rather than replacing
-   * it, so this recipe is imported AFTER dialog.css in styles/components.css and its overrides win
-   * at equal specificity.
+   * RecordWindow — the two-pane window a record opens in, on the modal frame.
    *
-   * The panel is a three-band column: a header band that never moves, a body, and an action bar of
-   * fixed geometry.
+   * THE FRAME IS NOT HERE. The panel, the header band and its quiet controls, the identity, the
+   * body, the record pane that stops at its measure beside the context pane that takes the rest,
+   * the action bar of fixed geometry, and the fit-first/cap-second sizing rule they all obey — every
+   * one of those lives in styles/recipes/modal-frame.css, which both modal shells sit on. The
+   * record window was where that frame was designed and measured; it moved out the day the second
+   * shell needed the same pane system, so that neither shell rebuilds it.
    *
-   * FIT FIRST, THEN CAP — AND THE ORDER OF THOSE TWO IS THE RULE, NOT A DETAIL. Two true things
-   * about this window read as contradictory and have been re-litigated more than once, so they are
-   * written here as one ordered preference:
+   * WHAT REMAINS HERE IS WHAT ONLY A RECORD WINDOW HAS: the tab strip in its context pane. The
+   * `mc-record-window-*` class names stay on every element regardless — they are the hooks the
+   * catalog's sizing assertions and the header-set rule in tooling/lint-one-ui read, and a hook
+   * with no declarations is still a hook.
    *
-   *   1. A record that FITS does not scroll. The panel sizes to its content (`block-size:
-   *      fit-content`), so a short record opens as a short window: no scrollbar, no band of empty
-   *      space beneath the last field, nothing to move. This is the preferred outcome and most
-   *      records reach it.
-   *   2. A record that genuinely does NOT fit caps at the viewport, and then the BODY ALONE moves.
-   *      The header and the action bar are `flex: none`, so they never shrink and never scroll away
-   *      — a long record can no more push its own close control off the screen than it can hide the
-   *      commit. Only the panes inside the body scroll, and each scrolls in itself, so a tab holding
-   *      a history that grows for years costs the window no height at all.
-   *
-   * Both are true; the first is preferred and the second is what happens when the first is
-   * impossible. Nothing here should be changed to make the panel always full height or always
-   * scrolling: that trades the common case away to simplify the rare one.
-   *
-   * The panel's own width and height are layout, so they ride utilities on the element; only the
-   * look, and the block-size rule the whole behaviour rests on, live here.
+   * This recipe is imported AFTER the frame and after Tabs in styles/components.css, so what it
+   * says about the strip wins at equal specificity.
    */
-  .mc-record-window {
-    padding: var(--mc-space-0);
-    gap: var(--mc-space-0);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    /* Stated here rather than inherited from the dialog, because rule 1 above depends on it: a
-       window whose height came from anywhere but its content would scroll a record that fits. */
-    block-size: fit-content;
-    /*
-     * HOW WIDE A RECORD OPENS IS NOT DECLARED HERE, AND THAT IS DELIBERATE. It rides the element
-     * as `max-w-record-window`, a utility fed by the same token. A recipe cannot win it: the
-     * dialog panel this dresses already carries a default cap as a Tailwind utility, and utilities
-     * outrank the components layer whatever the selector, so a `max-inline-size` written here is
-     * overridden silently and the token governs nothing. (It did exactly that until it was
-     * measured in a browser.) The cap is wider than the record itself is allowed to be, on
-     * purpose — see the body below, where the width past the record's own measure goes to the pane
-     * beside it.
-     */
-  }
-
-  /* --- the header band ------------------------------------------------------------------- */
-
-  .mc-record-window-header {
-    flex: none;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--mc-space-16);
-    padding-block: var(--mc-space-16);
-    padding-inline: var(--mc-space-24);
-    border-block-end-style: solid;
-    border-block-end-width: var(--mc-border-width-default);
-    border-block-end-color: var(--mc-border-default);
-  }
-  .mc-record-window-identity {
-    display: flex;
-    flex-direction: column;
-    gap: var(--mc-space-4);
-    min-inline-size: var(--mc-space-0);
-  }
-  .mc-record-window-heading {
-    font-family: var(--mc-font-sans);
-    font-size: var(--mc-font-size-lg);
-    font-weight: var(--mc-weight-semibold);
-    line-height: var(--mc-leading-tight);
-    color: var(--mc-text-default);
-  }
-  /* The subtitle is the reference number's one home, so it stays legible rather than decorative. */
-  .mc-record-window-subtitle {
-    font-family: var(--mc-font-sans);
-    font-size: var(--mc-font-size-sm);
-    line-height: var(--mc-leading-normal);
-    color: var(--mc-text-muted);
-  }
-  .mc-record-window-header-actions {
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: var(--mc-space-4);
-  }
-  /*
-   * The four header controls, one shape between them: quiet icon buttons that lift to the default
-   * ink on hover. They frame the work rather than being part of it, so they carry no fill and no
-   * chrome of their own; the disabled one mutes its colour at rest, not only under the pointer.
-   */
-  .mc-record-window-header-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-inline-size: var(--mc-density-control-sm);
-    min-block-size: var(--mc-density-control-sm);
-    padding: var(--mc-space-4);
-    background-color: transparent;
-    border-style: none;
-    border-radius: var(--mc-radius-md);
-    color: var(--mc-text-muted);
-    cursor: pointer;
-    transition-property: color, outline-color;
-    transition-duration: var(--mc-duration-fast);
-    transition-timing-function: var(--mc-easing-standard);
-    outline-color: transparent;
-    outline-style: solid;
-    outline-width: var(--mc-space-0);
-    outline-offset: var(--mc-focus-ring-offset);
-  }
-  .mc-record-window-header-action:hover {
-    color: var(--mc-text-default);
-  }
-  .mc-record-window-header-action:focus-visible {
-    outline-color: var(--mc-focus-ring);
-    outline-width: var(--mc-focus-ring-width);
-    outline-offset: var(--mc-space-0);
-  }
-  .mc-record-window-header-action[aria-pressed="true"] {
-    color: var(--mc-text-default);
-  }
-  /* After the hover and pressed rules, so it wins at equal specificity. */
-  .mc-record-window-header-action:disabled {
-    color: var(--mc-action-disabled-foreground);
-    cursor: not-allowed;
-  }
-  .mc-record-window-header-icon {
-    inline-size: var(--mc-space-16);
-    block-size: var(--mc-space-16);
-  }
-
-  /* --- the body: the record beside its context --------------------------------------------- */
-
-  /*
-   * WHERE EXTRA WIDTH GOES: THE RECORD STOPS, THE CONTEXT CONTINUES. The record is prose and rows
-   * of fields, and a description set across a wide monitor is harder to read, not easier — so the
-   * left pane stops at its own measure (size.record-pane) and holds it however wide the window
-   * gets. Everything past that goes to the tabs, which are the side that can use room: a list of
-   * attachments, a history, a chain all read better wide and worse cramped.
-   *
-   * That is a bound, not a ratio, and the two panes are flex items rather than grid tracks for
-   * exactly that reason — a track ratio cannot say "this one stops and that one carries on", and a
-   * cap applied inside a ratio-sized track would leave the extra width as dead space on the
-   * record's side instead of handing it over. Each pane's `inline-size` is its flex BASIS, the
-   * width it asks for; the record's `max-inline-size` is the point it stops at, and flex hands the
-   * surplus to the only pane still willing to take it. While the window is too narrow for both
-   * bases, the two bases are also what decide the panes' share of what there is, so the record
-   * keeps the larger half of a small window.
-   */
-  .mc-record-window-body {
-    flex: auto;
-    display: flex;
-    min-block-size: var(--mc-space-0);
-    overflow: hidden;
-  }
-  /*
-   * The record pane. Top-aligned and dense: the reader's eye starts at the first fact, never below
-   * a band of empty space, and the pane does not stretch its rows to fill a tall window.
-   */
-  .mc-record-window-record {
-    justify-content: flex-start;
-    display: flex;
-    flex-direction: column;
-    flex: auto;
-    inline-size: var(--mc-size-record-pane);
-    max-inline-size: var(--mc-size-record-pane);
-    gap: var(--mc-space-12);
-    padding-block: var(--mc-space-16);
-    padding-inline: var(--mc-space-24);
-    overflow-y: auto;
-    min-inline-size: var(--mc-space-0);
-    color: var(--mc-text-default);
-    font-family: var(--mc-font-sans);
-    font-size: var(--mc-font-size-sm);
-    line-height: var(--mc-leading-normal);
-  }
-  /*
-   * The context pane sits on the quieter surface behind the record, and takes the hairline that
-   * separates the two. It clips; its tab panel is what scrolls. It carries no cap of its own: it is
-   * the pane the window's spare width belongs to.
-   */
-  .mc-record-window-context {
-    display: flex;
-    flex-direction: column;
-    flex: auto;
-    inline-size: var(--mc-size-record-context);
-    min-inline-size: var(--mc-space-0);
-    overflow: hidden;
-    background-color: var(--mc-surface-sunken);
-    border-inline-start-style: solid;
-    border-inline-start-width: var(--mc-border-width-default);
-    border-inline-start-color: var(--mc-border-default);
-  }
   .mc-record-window-tabs {
     flex: auto;
     min-block-size: var(--mc-space-0);
@@ -238,18 +58,4 @@
    * that was reaching for it. That holds across the two modes as well: reading and editing differ
    * only in which verbs the bar carries, never in where the bar is or how tall it stands.
    */
-  .mc-record-window-actions {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--mc-space-8);
-    min-block-size: var(--mc-density-control-lg);
-    padding-block: var(--mc-space-12);
-    padding-inline: var(--mc-space-24);
-    border-block-start-style: solid;
-    border-block-start-width: var(--mc-border-width-default);
-    border-block-start-color: var(--mc-border-default);
-    background-color: var(--mc-surface-raised);
-  }
 }

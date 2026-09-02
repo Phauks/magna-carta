@@ -47,6 +47,7 @@
     "@magna-carta/locations": "workspace:*",
     "@magna-carta/magnus": "workspace:*",
     "@magna-carta/matter-assets": "workspace:*",
+    "@magna-carta/matter-search": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/metadata": "workspace:*",
     "@magna-carta/money": "workspace:*",

@@ -72,7 +72,15 @@ describe("how wide a panel opens", () => {
   });
 
   it("gives the four widths four distinct answers", () => {
-    expect(new Set(EVERY_WIDTH.map(widthClass)).size).toBe(EVERY_WIDTH.length);
+    expect(new Set(EVERY_WIDTH.map((width) => widthClass(width))).size).toBe(EVERY_WIDTH.length);
+  });
+
+  it("opens at the record width whenever there is a context pane, whatever was asked for", () => {
+    // Two panes have bases of their own; a frame narrower than both squeezes each into something
+    // neither was designed for. The shell decides it rather than letting a caller find out by eye.
+    for (const width of EVERY_WIDTH) {
+      expect(widthClass(width, { withContext: true })).toBe("max-w-record-window");
+    }
   });
 });
 

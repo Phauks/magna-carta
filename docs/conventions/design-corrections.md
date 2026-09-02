@@ -419,6 +419,31 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-01 — the matter status window
+
+Six corrections against the window behind the matter's status seal, all from the owner. What is
+local to this surface:
+
+- The seal itself is the control. The lifecycle action left the masthead's overflow menu, which held
+  nothing else and went with it: the status was read in one corner and changed in another.
+- The requirements to close are not checkboxes. A checkbox asks a person to work through what the
+  program already decides, so the window lists the requirements and the program marks each met or
+  unmet from its own reading of the firm's rules.
+- The word is **status**, not standing. The page is called Matter Status.
+- Two sides, and the physical file is the right one. It is a standing fact rather than a consequence
+  of closing: a firm keeps a matter's folder in a box, a cabinet, a safe or on a shelf, commonly with
+  other matters' folders and commonly at a remote store, and closing the matter moves none of that.
+  Nor may the row name a medium, because firms do not agree on one.
+- The step does not sit at the foot of the window. Somebody may open this window to read where the
+  paper file is kept, and a bottom-right primary button puts the act they did not come for where a
+  hand goes by habit. The step is a quiet control on the status row, beside the fact it changes; the
+  window's corner offers only the way out of it.
+- The Soon rows carry no dependency sentence and no note about the close. A row reading "Not
+  recorded" beside the Soon mark has already said it is not built; the paragraphs repeating it were
+  the loudest copy on a window whose point is to be short. Recorded here rather than promoted: the
+  standing Soon rule still holds for a CONTROL, where the sentence is the only thing that explains a
+  disabled affordance.
+
 ### 2026-09-01 — the matter screens, chrome-removal round
 
 Two removals, one addition, and the strip regrouped. Both removals were issued the same way: the
