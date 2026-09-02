@@ -36,7 +36,7 @@ import {
   type MatterTaskDocumentRow,
   type MatterTaskRow,
 } from "@magna-carta/tasks/task-statements";
-import { readTaskTimeSummary } from "@magna-carta/timekeeping/task-time";
+import { readTaskTimeSummaries, NO_TIME_LOGGED } from "@magna-carta/timekeeping/task-time";
 import {
   MAX_CANCELLATION_REASON_LENGTH,
   MAX_TASK_BODY_LENGTH,
@@ -171,6 +171,19 @@ const TaskDetail = z
     triggerEventId: z.string().nullable(),
     deadlineId: z.string().nullable(),
     documents: z.array(TaskDocument),
+    // How long this task has actually taken, from the time entries that name it. Minutes only —
+    // what a task COST is a billing question with a different audience and a different permission.
+    // The scope rides WITH the numbers rather than once per page on purpose: the same two totals
+    // mean "what this task cost the firm" under `firm` and "what I have put into it" under `own`,
+    // and a consumer must not be able to render one without the other.
+    timeLogged: z
+      .object({
+        billableMinutes: z.number().int(),
+        nonBillableMinutes: z.number().int(),
+        entryCount: z.number().int(),
+        scope: z.enum(["firm", "own"]),
+      })
+      .openapi("MatterTaskTimeLogged"),
     createdAt: z.string(),
     updatedAt: z.string(),
   })
@@ -360,39 +373,6 @@ const listMyTasksRoute = defineOpenAPIRoute(readMeta("listMyTasks"), {
     200: {
       description: "One page of tasks",
       content: { "application/json": { schema: TaskPage } },
-    },
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    429: authErrors[429],
-  },
-});
-
-const TaskTimeSummary = z
-  .object({
-    billableMinutes: z.number().int(),
-    nonBillableMinutes: z.number().int(),
-    entryCount: z.number().int(),
-    // WHOSE time this counts, and it is not decoration: the same two numbers mean "what this task
-    // has cost the firm" under "firm" and "what I have put into it" under "own". A surface that
-    // rendered them without saying which would be stating a number it cannot support.
-    scope: z.enum(["firm", "own"]),
-  })
-  .openapi("MatterTaskTimeSummary");
-
-const readTaskTimeRoute = defineOpenAPIRoute(readMeta("readTaskTime"), {
-  method: "get",
-  path: "/api/v1/tasks/{taskId}/time",
-  description:
-    "How much time has been logged against this task, in minutes. Void entries are left out; every " +
-    "other status counts, because a billed hour is still an hour the work took. Minutes only — " +
-    "what a task was BILLED is a billing question asked on a billing surface. A reader who may not " +
-    "see other timekeepers' time gets their own entries and the scope says so.",
-  request: { params: taskIdParam },
-  responses: {
-    200: {
-      description: "The time logged against the task",
-      content: { "application/json": { schema: TaskTimeSummary } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -635,6 +615,7 @@ function serviceOptions(userId: UserId) {
 function taskDetail(
   row: MatterTaskRow,
   documents: readonly MatterTaskDocumentRow[],
+  timeLogged: z.infer<typeof TaskDetail>["timeLogged"],
 ): z.infer<typeof TaskDetail> {
   return {
     id: row.id,
@@ -666,9 +647,17 @@ function taskDetail(
         linkedAt: document.linked_at,
         linkedBy: document.linked_by,
       })),
+    timeLogged,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// Whether this reader may see other timekeepers' time. Not one of this file's own permissions — the
+// task routes ride the three above — and it gates nothing: it decides WHOSE time the page counts,
+// so a member without it gets their own entries rather than an error or a blank.
+function seesFirmTime(c: Context): boolean {
+  return requireChokepointPermissions(c).has(VIEW_FIRM_TIME as unknown as Permission);
 }
 
 // A comma-separated query value narrowed to a closed vocabulary. Anything the vocabulary does not
@@ -702,20 +691,32 @@ type TaskListRow = MatterTaskRow & { priority_rank: number };
 async function pageFrom(
   database: SqlDatabase,
   viewerUserId: UserId,
+  seesFirmTime: boolean,
   results: TaskListRow[],
 ): Promise<{ data: z.infer<typeof TaskDetail>[]; nextCursor: string | null }> {
   const hasMore = results.length > MAX_TASK_PAGE_SIZE;
   const rows = hasMore ? results.slice(0, MAX_TASK_PAGE_SIZE) : results;
   const last = rows.at(-1);
+  const taskIds = rows.map((row) => row.id);
   // The page's attachments in ONE bounded read keyed by the tasks on it, never one read per task.
   const documents = await readMatterTaskDocuments(
     database,
-    rows.map((row) => row.id),
+    taskIds,
     visibleMatterPredicate(),
     viewerUserId,
   );
+  // The page's time on the same terms, and for the same reason. Whose time it counts is the
+  // reader's `time:viewFirm` answer, which is the line My Day already draws: with it, what the task
+  // cost the firm; without it, what this member put into it and nobody else's.
+  const timeByTask = await readTaskTimeSummaries(database, {
+    taskIds,
+    onlyTimekeeperUserId: seesFirmTime ? null : viewerUserId,
+  });
+  const scope = seesFirmTime ? ("firm" as const) : ("own" as const);
   return {
-    data: rows.map((row) => taskDetail(row, documents)),
+    data: rows.map((row) =>
+      taskDetail(row, documents, { ...(timeByTask.get(row.id) ?? NO_TIME_LOGGED), scope }),
+    ),
     // Keyed on the same composite the list is ordered by, so the walk cannot skip or repeat.
     nextCursor:
       hasMore && last !== undefined ? encodeCursor(encodeTaskSortKey(last), last.id) : null,
@@ -792,7 +793,7 @@ export function registerTasksRoutes(
           filters: filtersFrom(query),
         },
       ).all<TaskListRow>();
-      return c.json(await pageFrom(firm.firmDatabase, userId, results), 200);
+      return c.json(await pageFrom(firm.firmDatabase, userId, seesFirmTime(c), results), 200);
     },
   );
 
@@ -811,44 +812,7 @@ export function registerTasksRoutes(
         filters: filtersFrom(query),
         includeClosedMatters: query.includeClosedMatters === "true",
       }).all<TaskListRow>();
-      return c.json(await pageFrom(firm.firmDatabase, userId, results), 200);
-    },
-  );
-
-  // GET /api/v1/tasks/{taskId}/time
-  app.openapi(
-    { ...readTaskTimeRoute, middleware: chokepointMiddleware(chokepoint, readTaskTimeRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c);
-      const { taskId } = c.req.valid("param");
-      // The task is read first and through the same visibility predicate every other task read
-      // composes. A member who cannot see the task learns nothing about it here either — including
-      // whether it exists, which a bare summary read would leak by returning zeroes for a real task
-      // and the same zeroes for a made-up one. Both come back as 404.
-      const task = await readMatterTask(
-        firm.firmDatabase,
-        taskId as MatterTaskId,
-        visibleMatterPredicate(),
-        userId,
-      );
-      if (task === undefined) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Not found",
-          status: 404,
-          detail: "No such task.",
-        });
-      }
-      const seesFirmTime = requireChokepointPermissions(c).has(
-        VIEW_FIRM_TIME as unknown as Permission,
-      );
-      const summary = await readTaskTimeSummary(
-        firm.firmDatabase,
-        taskId,
-        seesFirmTime ? null : userId,
-      );
-      return c.json({ ...summary, scope: seesFirmTime ? "firm" : "own" } as const, 200);
+      return c.json(await pageFrom(firm.firmDatabase, userId, seesFirmTime(c), results), 200);
     },
   );
 

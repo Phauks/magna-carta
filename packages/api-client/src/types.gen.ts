@@ -2967,6 +2967,7 @@ export type MatterTaskDetail = {
     triggerEventId: string | null;
     deadlineId: string | null;
     documents: Array<MatterTaskDocument>;
+    timeLogged: MatterTaskTimeLogged;
     createdAt: string;
     updatedAt: string;
 };
@@ -2980,7 +2981,7 @@ export type MatterTaskDocument = {
     linkedBy: string | null;
 };
 
-export type MatterTaskTimeSummary = {
+export type MatterTaskTimeLogged = {
     billableMinutes: number;
     nonBillableMinutes: number;
     entryCount: number;
@@ -17750,45 +17751,6 @@ export type TasksCreateTaskResponses = {
 };
 
 export type TasksCreateTaskResponse = TasksCreateTaskResponses[keyof TasksCreateTaskResponses];
-
-export type TasksReadTaskTimeData = {
-    body?: never;
-    path: {
-        taskId: string;
-    };
-    query?: never;
-    url: '/api/v1/tasks/{taskId}/time';
-};
-
-export type TasksReadTaskTimeErrors = {
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the task is unknown
-     */
-    404: Problem;
-    /**
-     * Rate limited
-     */
-    429: Problem;
-};
-
-export type TasksReadTaskTimeError = TasksReadTaskTimeErrors[keyof TasksReadTaskTimeErrors];
-
-export type TasksReadTaskTimeResponses = {
-    /**
-     * The time logged against the task
-     */
-    200: MatterTaskTimeSummary;
-};
-
-export type TasksReadTaskTimeResponse = TasksReadTaskTimeResponses[keyof TasksReadTaskTimeResponses];
 
 export type TasksDeleteTaskData = {
     body?: never;

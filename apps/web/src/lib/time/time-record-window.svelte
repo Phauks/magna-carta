@@ -65,6 +65,7 @@
     type TimeEntryDraftFields,
   } from "./time-operations.ts";
   import { timeEntrySheet } from "./time-print-sheet.ts";
+  import { listMatterTasks, type MatterTask } from "$lib/matters/tasks-api.ts";
 
   let {
     open = $bindable(false),
@@ -146,6 +147,23 @@
    * is for somebody to choose one in the field.
    */
   let chosenMatterId = $state<string | null>(null);
+  /*
+   * The task this time was worked on, and the matter's open tasks to choose it from.
+   *
+   * The link is optional and will be null on nearly every entry: time is captured against a MATTER,
+   * and naming a task is an extra somebody chooses. What the field must never do is offer a task
+   * from a different matter — the server refuses that, and offering it would be inviting a refusal
+   * — so the options are read for whichever matter this entry is on and re-read when it changes.
+   */
+  /*
+   * A combobox value is a string, and "no task" has to be expressible as one. The sentinel never
+   * leaves this file: it is turned back into null the moment it is picked, so nothing downstream —
+   * the save, the dirty check, the record — ever sees it.
+   */
+  const NO_TASK = "__none__";
+  let chosenTaskId = $state<string | null>(null);
+  let matterTasks = $state<readonly MatterTask[]>([]);
+  let taskListOpen = $state(false);
   let billableChoice = $state("billable");
   let billingListOpen = $state(false);
   let saving = $state(false);
@@ -163,6 +181,7 @@
     duration: "",
     timekeeperUserId: "",
     matterId: null as string | null,
+    taskId: null as string | null,
     billing: "billable",
   });
 
@@ -172,6 +191,7 @@
     seeded.duration = durationText;
     seeded.timekeeperUserId = timekeeperUserId;
     seeded.matterId = chosenMatterId;
+    seeded.taskId = chosenTaskId;
     seeded.billing = billableChoice;
   }
 
@@ -214,6 +234,7 @@
       start?.timekeeperUserId ??
       (timePreferences.defaultStaffToSelf ? (sessionUserId ?? "") : "");
     chosenMatterId = entry?.matterId ?? matterId;
+    chosenTaskId = entry?.taskId ?? null;
     billableChoice = start === null || start.billable ? "billable" : "nonbillable";
     // A new entry is held under a tentative code from the moment the window opens on it; the
     // firm's own number replaces it when the record answers.
@@ -226,12 +247,40 @@
     rememberWhatIsInTheFields();
   });
 
+  /*
+   * The matter's open tasks, re-read whenever the entry's matter changes. Open only: a done or
+   * cancelled task is not work somebody is still putting time into, and offering one would be
+   * offering to file today's hour under something the firm has finished with. A task already NAMED
+   * on this entry stays selectable even if it has since been closed — the record says what it says,
+   * and the field must be able to show it.
+   *
+   * A failed read leaves the field empty and disabled rather than failing the window: the entry is
+   * the point and the task is an extra.
+   */
+  $effect(() => {
+    const forMatter = chosenMatterId;
+    if (forMatter === null) {
+      matterTasks = [];
+      return;
+    }
+    void listMatterTasks(fetch, forMatter, undefined, { states: ["open"] }).then((outcome) => {
+      matterTasks = outcome.kind === "ok" ? outcome.value.data : [];
+    });
+  });
+
+  const taskName = $derived(
+    chosenTaskId === null
+      ? ""
+      : (matterTasks.find((task) => task.id === chosenTaskId)?.title ?? "A task on this matter"),
+  );
+
   const unsavedChanges = $derived(
     descriptionText !== seeded.description ||
       workDateText !== seeded.workDate ||
       durationText !== seeded.duration ||
       timekeeperUserId !== seeded.timekeeperUserId ||
       chosenMatterId !== seeded.matterId ||
+      chosenTaskId !== seeded.taskId ||
       billableChoice !== seeded.billing,
   );
 
@@ -392,6 +441,7 @@
               rawDurationMinutes: minutes,
               narrative: descriptionText.trim(),
               billable,
+              taskId: chosenTaskId,
             },
             writeKey(),
           )
@@ -402,6 +452,7 @@
               narrative: descriptionText.trim(),
               rawDurationMinutes: minutes,
               workDate: workDateText,
+              taskId: chosenTaskId,
             },
             writeKey(),
           );
@@ -631,6 +682,58 @@
 
       {@render unservedField("Category", "category", "Category")}
       {@render unservedField("Activity Code", "activity", "Activity Code")}
+    </div>
+
+    <!--
+      THE TASK THIS TIME WAS WORKED ON, and it is genuinely optional: most entries name none, and
+      the field's first option is the one that says so. Only this matter's OPEN tasks are offered,
+      because a task on another matter is refused by the server and a finished task is not work
+      somebody is still putting time into. Before a new entry has a matter there is nothing to
+      offer, so the field says that rather than presenting an empty list.
+    -->
+    <div class="grid gap-12 @md:grid-cols-3">
+      <div class="flex flex-col gap-4">
+        <Label for="time-record-task">Task</Label>
+        {#if readOnly}
+          <Input
+            id="time-record-task"
+            value={chosenTaskId === null ? "No task" : taskName}
+            disabled
+            placeholder="Task"
+          />
+        {:else if chosenMatterId === null}
+          <Input id="time-record-task" value="" disabled placeholder="Task" />
+          <!-- The reason stays on screen. Ghost text would vanish at the moment it is needed, and
+               this is a condition the reader has to act on rather than a name for the field. -->
+          <span class="text-xs text-text-muted">
+            A task belongs to a matter, so there is nothing to choose from until this entry has one.
+          </span>
+        {:else}
+          <Combobox.Root
+            type="single"
+            value={chosenTaskId ?? NO_TASK}
+            inputValue={chosenTaskId === null ? "No task" : taskName}
+            open={taskListOpen}
+            onValueChange={(picked) => (chosenTaskId = picked === NO_TASK ? null : picked)}
+            onOpenChange={(opened) => (taskListOpen = opened)}
+          >
+            <Combobox.Input
+              id="time-record-task"
+              fieldName="Task"
+              readonly
+              title="Which piece of work on this matter this time went to. Optional — most entries name none."
+              onfocus={() => (taskListOpen = true)}
+              onclick={() => (taskListOpen = true)}
+            />
+            <Combobox.Content>
+              <Combobox.Item value={NO_TASK} label="No task" />
+              {#each matterTasks as task (task.id)}
+                <Combobox.Item value={task.id} label={task.title} />
+              {/each}
+            </Combobox.Content>
+          </Combobox.Root>
+        {/if}
+      </div>
     </div>
 
     <!-- Worked, rounded to billed, times rate, equals amount: one relationship on one line. -->

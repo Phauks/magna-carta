@@ -56,8 +56,40 @@ export interface MatterTask {
   triggerEventId: string | null;
   deadlineId: string | null;
   documents: TaskDocument[];
+  /**
+   * How long this task has actually taken, from the time entries that name it.
+   *
+   * MINUTES, NEVER MONEY — what a task cost is a billing question with a different audience. The
+   * scope travels with the numbers because they mean two different things: `firm` is what the task
+   * cost the firm, `own` is what this member put into it, and a member without `time:viewFirm` only
+   * ever gets the second. Rendering the totals without saying which would state something the
+   * screen cannot support.
+   */
+  timeLogged: TaskTimeLogged;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TaskTimeLogged {
+  billableMinutes: number;
+  nonBillableMinutes: number;
+  entryCount: number;
+  scope: "firm" | "own";
+}
+
+/**
+ * The time on a task as one line, or null where there is none to show.
+ *
+ * Most tasks carry no time at all, and a row that printed "0m" on every one of them would be
+ * noise standing in for a fact nobody recorded. So the absence renders as nothing.
+ */
+export function describeTimeLogged(timeLogged: TaskTimeLogged): string | null {
+  const total = timeLogged.billableMinutes + timeLogged.nonBillableMinutes;
+  if (total === 0) return null;
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  const clock = hours === 0 ? `${String(minutes)}m` : `${String(hours)}h ${String(minutes)}m`;
+  return timeLogged.scope === "own" ? `${clock} by you` : clock;
 }
 
 /** What a caller may say about when a task is due. All three travel together or not at all. */

@@ -24,6 +24,11 @@ export interface TimeEntrySummary {
   status: TimeEntryStatus;
   /** Resolved by the listing; null where the member row is gone. */
   timekeeperName?: string | null;
+  /**
+   * The task this time was worked on, where the timekeeper named one. Null on most entries, and
+   * always a task on this entry's own matter — the server refuses any other.
+   */
+  taskId?: string | null;
 }
 
 /**

@@ -37,6 +37,7 @@
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
   import {
+    describeTimeLogged,
     PRIORITY_LABELS,
     STATE_LABELS,
     TASK_PRIORITIES,
@@ -579,6 +580,7 @@
       {#each tasks as task (task.id)}
         {@const overdue = isOverdue(task)}
         {@const due = dueText(task)}
+        {@const timeLogged = describeTimeLogged(task.timeLogged)}
         <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
           {#if editingTaskId === task.id}
             <div class="flex flex-col gap-4">
@@ -668,6 +670,16 @@
                     <div class="flex gap-4">
                       <dt>Matter</dt>
                       <dd class="text-text">The firm's own work</dd>
+                    </div>
+                  {/if}
+                  <!-- Only where there IS time. Most tasks carry none, and "0m" on every row would
+                       be noise standing in for a fact nobody recorded. "by you" appears where the
+                       reader may not see other timekeepers' time, so the number is never mistaken
+                       for the whole task's. -->
+                  {#if timeLogged !== null}
+                    <div class="flex gap-4">
+                      <dt>Time logged</dt>
+                      <dd class="text-text">{timeLogged}</dd>
                     </div>
                   {/if}
                   {#if task.state === "cancelled" && task.cancellationReason !== null}

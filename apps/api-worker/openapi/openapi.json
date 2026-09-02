@@ -12350,6 +12350,9 @@
               "$ref": "#/components/schemas/MatterTaskDocument"
             }
           },
+          "timeLogged": {
+            "$ref": "#/components/schemas/MatterTaskTimeLogged"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -12378,6 +12381,7 @@
           "triggerEventId",
           "deadlineId",
           "documents",
+          "timeLogged",
           "createdAt",
           "updatedAt"
         ]
@@ -12419,7 +12423,7 @@
           "linkedBy"
         ]
       },
-      "MatterTaskTimeSummary": {
+      "MatterTaskTimeLogged": {
         "type": "object",
         "properties": {
           "billableMinutes": {
@@ -55985,91 +55989,6 @@
           },
           "422": {
             "description": "The request body is not a shape this operation accepts",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/tasks/{taskId}/time": {
-      "get": {
-        "description": "How much time has been logged against this task, in minutes. Void entries are left out; every other status counts, because a billed hour is still an hour the work took. Minutes only — what a task was BILLED is a billing question asked on a billing surface. A reader who may not see other timekeepers' time gets their own entries and the scope says so.",
-        "operationId": "tasks.readTaskTime",
-        "tags": [
-          "tasks"
-        ],
-        "x-mc-operationId": "tasks.readTaskTime",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "tasks:read",
-        "x-mc-resource": "firm",
-        "x-mc-audited": false,
-        "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "tasks"
-        ],
-        "x-mc-deprecated": false,
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
-            },
-            "required": true,
-            "name": "taskId",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The time logged against the task",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MatterTaskTimeSummary"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks the required permission",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {

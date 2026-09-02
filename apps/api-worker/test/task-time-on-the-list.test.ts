@@ -16,15 +16,14 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// GET /api/v1/tasks/{taskId}/time — how long a task actually took.
+// The time a task has taken, as the task list carries it.
 //
-// Two things this surface has to get right and neither is in the domain package. The reader must be
-// able to see the TASK before they learn anything about its time, including whether it exists at
-// all: a summary that returned zeroes for a task the reader cannot see and the same zeroes for a
-// made-up id would confirm the first by elimination. And the number means two different things
-// depending on the reader — `time:viewFirm` sees what the task cost the firm, everybody else sees
-// what THEY put into it — so the scope field says which, and a screen that showed the number
-// without it would be stating something it cannot support.
+// It rides the list rather than a route of its own because the list is the only task surface, and a
+// per-task read would put a round-trip on every row of every page. What that leaves this test to
+// pin is the part the domain package cannot: the number means two different things depending on who
+// is asking — `time:viewFirm` sees what the task cost the firm, everybody else sees what THEY put
+// into it — so the scope rides with the totals, and a task the reader cannot see carries no time
+// because it is not on their page at all.
 
 let poolFirmId: FirmId;
 let ownerCookie: string;
@@ -35,6 +34,7 @@ let paralegalUserId: UserId;
 const MATTER_ID = "matter_taskTimeMatter0000000";
 const TASK_ID = "matterTask_taskTimeTask000000000";
 const PRIVATE_TASK_ID = "matterTask_taskTimePrivate000000";
+const UNTOUCHED_TASK_ID = "matterTask_taskTimeUntouched0000";
 
 async function seedMemberWithRole(
   userId: UserId,
@@ -95,6 +95,8 @@ beforeAll(async () => {
 
   for (const [taskId, matterId] of [
     [TASK_ID, MATTER_ID],
+    // On the matter and with nothing logged against it, which is what nearly every task looks like.
+    [UNTOUCHED_TASK_ID, MATTER_ID],
     // A task on NO matter, created by and assigned to the owner: private to the two of them, so the
     // paralegal must not reach it.
     [PRIVATE_TASK_ID, null],
@@ -130,20 +132,29 @@ function get(path: string, cookie: string): Promise<Response> {
   });
 }
 
-interface TimeSummaryBody {
+interface TimeLogged {
   billableMinutes: number;
   nonBillableMinutes: number;
   entryCount: number;
   scope: "firm" | "own";
 }
 
+interface TaskRow {
+  id: string;
+  timeLogged: TimeLogged;
+}
+
+async function tasksOnMatter(cookie: string): Promise<TaskRow[]> {
+  const response = await get(`/api/v1/matters/${MATTER_ID}/tasks`, cookie);
+  expect(response.status).toBe(200);
+  return ((await response.json()) as { data: TaskRow[] }).data;
+}
+
 describe("the time logged against a task", () => {
   it("gives a member who may see the firm's time the whole task's, and says so", async () => {
-    const response = await get(`/api/v1/tasks/${TASK_ID}/time`, ownerCookie);
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as TimeSummaryBody;
+    const task = (await tasksOnMatter(ownerCookie)).find((row) => row.id === TASK_ID);
     // 90 + 30, with the void entry's 600 left out.
-    expect(body).toEqual({
+    expect(task?.timeLogged).toEqual({
       billableMinutes: 120,
       nonBillableMinutes: 0,
       entryCount: 2,
@@ -152,10 +163,8 @@ describe("the time logged against a task", () => {
   });
 
   it("gives a member without time:viewFirm only their own, and says that instead", async () => {
-    const response = await get(`/api/v1/tasks/${TASK_ID}/time`, paralegalCookie);
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as TimeSummaryBody;
-    expect(body).toEqual({
+    const task = (await tasksOnMatter(paralegalCookie)).find((row) => row.id === TASK_ID);
+    expect(task?.timeLogged).toEqual({
       billableMinutes: 30,
       nonBillableMinutes: 0,
       entryCount: 1,
@@ -163,18 +172,30 @@ describe("the time logged against a task", () => {
     });
   });
 
-  it("answers 404 for a task the reader cannot see, exactly as it does for one that does not exist", async () => {
-    const unreachable = await get(`/api/v1/tasks/${PRIVATE_TASK_ID}/time`, paralegalCookie);
-    const phantom = await get(
-      "/api/v1/tasks/matterTask_phantomTaskNoRow00000/time",
-      paralegalCookie,
-    );
-    expect(unreachable.status).toBe(404);
-    expect(phantom.status).toBe(404);
+  // Most tasks have no time against them, and a consumer needs that to be a value it can print
+  // rather than a missing key it has to remember to default.
+  it("carries zeroes rather than nothing for a task nobody has logged time to", async () => {
+    const tasks = await tasksOnMatter(ownerCookie);
+    const untouched = tasks.find((row) => row.id === UNTOUCHED_TASK_ID);
+    expect(untouched?.timeLogged).toEqual({
+      billableMinutes: 0,
+      nonBillableMinutes: 0,
+      entryCount: 0,
+      scope: "firm",
+    });
+  });
+
+  // A task on no matter is private to its assignee and whoever created it, so it never reaches this
+  // reader's page — and nothing about its time reaches them either.
+  it("never puts a task the reader cannot see on their page at all", async () => {
+    const mine = await get("/api/v1/tasks", paralegalCookie);
+    expect(mine.status).toBe(200);
+    const rows = ((await mine.json()) as { data: TaskRow[] }).data;
+    expect(rows.some((row) => row.id === PRIVATE_TASK_ID)).toBe(false);
   });
 
   it("refuses an unauthenticated reader", async () => {
-    const response = await SELF.fetch(`https://example.com/api/v1/tasks/${TASK_ID}/time`, {
+    const response = await SELF.fetch(`https://example.com/api/v1/matters/${MATTER_ID}/tasks`, {
       headers: { origin: "https://example.com" },
     });
     expect(response.status).toBe(401);
