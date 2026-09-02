@@ -29,12 +29,14 @@ import {
 import {
   decodeTaskCursor,
   encodeTaskSortKey,
+  readMatterTask,
   readMatterTaskDocuments,
   selectMatterTasksStatement,
   selectMyTasksStatement,
   type MatterTaskDocumentRow,
   type MatterTaskRow,
 } from "@magna-carta/tasks/task-statements";
+import { readTaskTimeSummary } from "@magna-carta/timekeeping/task-time";
 import {
   MAX_CANCELLATION_REASON_LENGTH,
   MAX_TASK_BODY_LENGTH,
@@ -76,6 +78,10 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 // different act from fixing a due date, and a firm may reserve it without reserving the rest.
 
 const READ = "tasks:read" as const;
+// Not this route file's own permission — the task routes are gated on the three above. This one is
+// read in the time handler to decide WHOSE time the summary counts, which is the same line My Day
+// draws: with it, the task's whole time; without it, the reader's own and nobody else's.
+const VIEW_FIRM_TIME = "time:viewFirm" as const;
 const WRITE = "tasks:write" as const;
 const ASSIGN = "tasks:assign" as const;
 
@@ -354,6 +360,39 @@ const listMyTasksRoute = defineOpenAPIRoute(readMeta("listMyTasks"), {
     200: {
       description: "One page of tasks",
       content: { "application/json": { schema: TaskPage } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const TaskTimeSummary = z
+  .object({
+    billableMinutes: z.number().int(),
+    nonBillableMinutes: z.number().int(),
+    entryCount: z.number().int(),
+    // WHOSE time this counts, and it is not decoration: the same two numbers mean "what this task
+    // has cost the firm" under "firm" and "what I have put into it" under "own". A surface that
+    // rendered them without saying which would be stating a number it cannot support.
+    scope: z.enum(["firm", "own"]),
+  })
+  .openapi("MatterTaskTimeSummary");
+
+const readTaskTimeRoute = defineOpenAPIRoute(readMeta("readTaskTime"), {
+  method: "get",
+  path: "/api/v1/tasks/{taskId}/time",
+  description:
+    "How much time has been logged against this task, in minutes. Void entries are left out; every " +
+    "other status counts, because a billed hour is still an hour the work took. Minutes only — " +
+    "what a task was BILLED is a billing question asked on a billing surface. A reader who may not " +
+    "see other timekeepers' time gets their own entries and the scope says so.",
+  request: { params: taskIdParam },
+  responses: {
+    200: {
+      description: "The time logged against the task",
+      content: { "application/json": { schema: TaskTimeSummary } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -773,6 +812,43 @@ export function registerTasksRoutes(
         includeClosedMatters: query.includeClosedMatters === "true",
       }).all<TaskListRow>();
       return c.json(await pageFrom(firm.firmDatabase, userId, results), 200);
+    },
+  );
+
+  // GET /api/v1/tasks/{taskId}/time
+  app.openapi(
+    { ...readTaskTimeRoute, middleware: chokepointMiddleware(chokepoint, readTaskTimeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { taskId } = c.req.valid("param");
+      // The task is read first and through the same visibility predicate every other task read
+      // composes. A member who cannot see the task learns nothing about it here either — including
+      // whether it exists, which a bare summary read would leak by returning zeroes for a real task
+      // and the same zeroes for a made-up one. Both come back as 404.
+      const task = await readMatterTask(
+        firm.firmDatabase,
+        taskId as MatterTaskId,
+        visibleMatterPredicate(),
+        userId,
+      );
+      if (task === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such task.",
+        });
+      }
+      const seesFirmTime = requireChokepointPermissions(c).has(
+        VIEW_FIRM_TIME as unknown as Permission,
+      );
+      const summary = await readTaskTimeSummary(
+        firm.firmDatabase,
+        taskId,
+        seesFirmTime ? null : userId,
+      );
+      return c.json({ ...summary, scope: seesFirmTime ? "firm" : "own" } as const, 200);
     },
   );
 

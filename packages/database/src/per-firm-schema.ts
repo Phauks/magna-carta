@@ -2202,6 +2202,15 @@ export const timeEntry = sqliteTable(
       enum: ["timer", "manual", "quick_add", "grid", "offline_sync", "calendar"],
     }).notNull(),
     liveRunId: text("live_run_id"), // set for source = timer; the stop-commit dedup anchor
+    // The task this time was worked on, if the timekeeper named one. Nullable and expected to be
+    // null on most rows: time is captured against a matter, and naming a task is an extra the
+    // timekeeper chooses. ONE task per entry, never a set — an entry split across two tasks is a
+    // narrative problem (write two entries), and a set would need an allocation of the minutes
+    // between them, which turns a link into a second ledger. The task must be on this entry's own
+    // matter; the service refuses anything else, including a task on no matter at all.
+    taskId: text("task_id")
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
     invoiceId: text("invoice_id"), // set at billing; null until billed
     // The reviewer's note set on kick-back, cleared when the timekeeper resubmits. Stored here
     // (not audit_log.metadata) so it inherits the entry's tenancy, RBAC, and retention, and
@@ -2230,6 +2239,11 @@ export const timeEntry = sqliteTable(
     index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
     index("time_entry_matter_status_index").on(table.matterId, table.status),
     index("time_entry_status_work_date_index").on(table.status, table.workDate),
+    // The grouped read behind "how long did this task actually take". Partial, because the column
+    // is null on nearly every row and an index over those nulls would be mostly dead weight.
+    index("time_entry_task_index")
+      .on(table.taskId)
+      .where(sql`${table.taskId} IS NOT NULL`),
     // Collapses racing stop-commits of one live timer to one entry.
     uniqueIndex("time_entry_live_run_id_unique_index")
       .on(table.liveRunId)

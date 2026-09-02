@@ -1223,6 +1223,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "tasks.editTask",
       "tasks.listMatterTasks",
       "tasks.listMyTasks",
+      "tasks.readTaskTime",
       "tasks.reassignTask",
       "tasks.reopenTask",
       "templates.addVersion",

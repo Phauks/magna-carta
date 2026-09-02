@@ -2980,6 +2980,13 @@ export type MatterTaskDocument = {
     linkedBy: string | null;
 };
 
+export type MatterTaskTimeSummary = {
+    billableMinutes: number;
+    nonBillableMinutes: number;
+    entryCount: number;
+    scope: 'firm' | 'own';
+};
+
 export type CreatedMatterTask = {
     id: string;
 };
@@ -6015,6 +6022,10 @@ export type CreateTimeEntryRequest = {
     rateCardId?: string | null;
     overrideRateE4?: number | null;
     /**
+     * The task this time was worked on. Must be a task on this same matter: a task on another matter, or on no matter at all, is refused. One task per entry — time that served two tasks is recorded as two entries.
+     */
+    taskId?: string | null;
+    /**
      * The firm's own note about the entry. Internal only: it never appears on a bill, a print sheet, or the client portal, and the audit trail records that it changed, never what it says.
      */
     memo?: string | null;
@@ -6049,6 +6060,7 @@ export type TimeEntrySummary = {
     status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
     source: 'timer' | 'manual' | 'quick_add' | 'grid' | 'offline_sync' | 'calendar';
     invoiceId: string | null;
+    taskId: string | null;
     memo: string | null;
     entryNumber: string | null;
     createdAt: string;
@@ -6101,6 +6113,10 @@ export type PatchTimeEntryRequest = {
     workDate?: string;
     utbmsTaskCodeId?: string | null;
     utbmsActivityCodeId?: string | null;
+    /**
+     * The task this time was worked on. Null unlinks it; absent leaves it unchanged. A task named here must be on the entry's own matter.
+     */
+    taskId?: string | null;
     /**
      * The firm-internal note. Null clears it; absent leaves it unchanged.
      */
@@ -17734,6 +17750,45 @@ export type TasksCreateTaskResponses = {
 };
 
 export type TasksCreateTaskResponse = TasksCreateTaskResponses[keyof TasksCreateTaskResponses];
+
+export type TasksReadTaskTimeData = {
+    body?: never;
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/time';
+};
+
+export type TasksReadTaskTimeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksReadTaskTimeError = TasksReadTaskTimeErrors[keyof TasksReadTaskTimeErrors];
+
+export type TasksReadTaskTimeResponses = {
+    /**
+     * The time logged against the task
+     */
+    200: MatterTaskTimeSummary;
+};
+
+export type TasksReadTaskTimeResponse = TasksReadTaskTimeResponses[keyof TasksReadTaskTimeResponses];
 
 export type TasksDeleteTaskData = {
     body?: never;
