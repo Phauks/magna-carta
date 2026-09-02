@@ -1,8 +1,8 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/matter-consolidated-search-yba72d
-area: consolidated search within a matter — the source registry, the one route, the control in the matter header
+area: consolidated search within a matter — the source registry, the one route, the control in the matter header; and the conflicts read surface, at design stage
 status: review
-touches: packages/matter-search, packages/access-control, packages/database, apps/api-worker, apps/web/src/lib/matters, apps/web/src/lib/api/request.ts, tooling/lint-matter-search-coverage, docs/specs, docs/user/features, roadmap.d/core-domain.md, status.d
+touches: packages/matter-search, packages/access-control, packages/database, apps/api-worker, apps/web/src/lib/matters, apps/web/src/lib/api/request.ts, packages/design-system/src/lib/components/screen-search, tooling/lint-matter-search-coverage, docs/conventions/design-corrections.md, docs/specs, docs/user/features, roadmap.d/core-domain.md, status.d
 ---
 
 # matter-consolidated-search
@@ -44,3 +44,23 @@ sources whose text is already in D1 are done (time narratives, cost descriptions
 invoice line descriptions and numbers), each behind the load-profile measurement, because a `LIKE`
 scan bounded by one matter is genuinely bounded for notes and was NOT bounded for parties until the
 gate caught it.
+
+## The conflicts read surface — design only, nothing built
+
+Second stream on this branch, on the owner's direction of 2026-09-02. Design is at
+[`docs/specs/2026-09-02-conflicts-read-surface-design.md`](../../specs/2026-09-02-conflicts-read-surface-design.md).
+
+The conflicts engine, its append-only log and the screens are all built; what is missing is six
+READS the screens already render disabled affordances for, each named in
+`apps/web/src/lib/conflicts/conflicts-gaps.ts`. The design's one substantive finding is that the
+first and most valuable of them needs no new machinery — `readSubjectFactsBatch` already resolves a
+set of entity ids to names on the write path, so naming the matched party is an enrichment of the
+existing check read rather than a new Directory batch endpoint (which would be a wider grant than
+this surface should own).
+
+**Anyone touching conflicts should know:** this stream has written no code there, and the three log
+tables are append-only with `RAISE(ABORT)` triggers — nothing in the planned work writes to them.
+
+**Waiting on the owner:** two questions in section 8 — who may read the firm's conflicts policy, and
+what makes a re-surfaced hit "the same hit" as one a reviewer already answered. Four of the six reads
+do not wait on either.

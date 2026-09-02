@@ -1,0 +1,234 @@
+# Conflicts read surface — design
+
+**Date:** 2026-09-02
+**Status:** Design. Nothing built. Section 8 carries the questions the owner has to answer before
+the two reads that depend on them can be built; the other four do not wait on anything.
+**Scope:** The **reads** the conflicts screens are already built against and the contract does not
+serve. Six of them, each named today in
+[`apps/web/src/lib/conflicts/conflicts-gaps.ts`](../../apps/web/src/lib/conflicts/conflicts-gaps.ts)
+and rendered as a disabled affordance saying what it waits on.
+**Excludes:** the matching engine, the graph expansion, imputation, the disposition writes and the
+append-only log — all shipped, all tested, none of them changed by this. Also excludes the
+pre-engagement screen (a check with no matter to raise an event about) and the assembled report
+document, which are their own work and are named in section 9.
+
+**Binding inputs, in order of authority:**
+
+- The append-only rule on the three log tables
+  ([`per-firm-schema.ts`](../../packages/database/src/per-firm-schema.ts)) — no UPDATE and no DELETE
+  ever touches `conflicts_check`, `conflicts_hit` or `conflicts_disposition`, enforced by
+  `RAISE(ABORT)` triggers and probed at runtime by `assertConflictsFitness`. Every read here is a
+  read; nothing in this design writes to the log.
+- The existing gap register — the seven entries in `conflicts-gaps.ts`. Six are reads and are this
+  design; the seventh (`reportDocument`) is section 9.
+- The standing rulings in [`design-corrections.md`](../conventions/design-corrections.md), and the
+  professional-responsibility posture the surface already takes: a value that cannot be read says
+  what it waits on, and never renders as absence.
+- ADR-0013 (the conflicts subsystem) and
+  [`2026-07-09-slice-4-1-conflicts-design.md`](2026-07-09-slice-4-1-conflicts-design.md).
+
+---
+
+## 1. What this is, in one paragraph
+
+The conflicts engine is built. A firm can run a check, the engine walks the Directory graph and the
+firm's own members, and every candidate it surfaces is written to an append-only log along with the
+scope that actually ran. A reviewer can answer a hit, and that answer is appended too. What a
+reviewer **cannot** do today is read most of it back: the hit list cannot name the party that
+matched, the firm cannot see the checks it has run, a hit shows only its latest word rather than the
+trail, and the firm's own policy floor is unreadable from the screen that is judged against it. This
+design is the six reads that close that, and one finding that makes the first of them much smaller
+than the gap register assumes.
+
+## 2. The finding: the batch machinery already exists
+
+`conflicts-gaps.ts` says the Party column waits on "a read that names many Directory entities in one
+request, so a hit list can say who matched without one request per row".
+
+**That read exists.** `readSubjectFactsBatch`
+([`subject-facts.ts`](../../packages/conflicts/src/subject-facts.ts)) takes a set of entity ids and
+returns each one's kind and current name parts, in one query per node table per hundred ids —
+chunked at `MAX_SUBJECT_BOUND_PARAMETERS`, mirroring D1's bound-parameter cap. It skips an id whose
+row is absent rather than failing the whole read. It is used on the WRITE path, by the matcher, to
+seed a check.
+
+So the Party column is not blocked on new machinery. It is blocked on the check read not
+**projecting** what the check already knows how to fetch: `GET /conflicts/checks/{checkId}` selects
+`entity_id` from `conflicts_hit` and puts it on the wire unresolved
+([`conflicts.ts:128`](../../apps/api-worker/src/routes/conflicts.ts)).
+
+**Consequence for the build order:** gap 1 is an enrichment of an existing response, not a new
+endpoint. That matters beyond effort — a second endpoint returning names for a set of entity ids
+would be a general Directory batch read reachable with `conflicts:read`, which is a wider grant than
+this surface needs and a worse thing to own.
+
+## 3. The six reads
+
+Each names the gap entry it removes. Nothing else in the surface changes when one lands.
+
+### 3.1 The matched party's name — `matchedPartyName`
+
+**Shape:** not a new route. `GET /conflicts/checks/{checkId}` resolves every hit's `entity_id`
+through `readSubjectFactsBatch` and adds a `party` object to each hit: the display name and the kind
+(person or organization).
+
+**Bounded by construction.** The hit set is one check's hits, already read in full to build the
+response, so the entity set is bounded by that same set and the batch read chunks it.
+
+**An unresolved entity is stated, never blank.** An entity whose row the batch read did not return is
+a real outcome — the Directory hard-deletes nothing, but a merge resolves a subordinate away, and the
+log is append-only so an old hit can name an entity the Directory has since reshaped. The hit carries
+`party: null` and the column says the entity could not be resolved, naming the id. It must never read
+as "no party matched", which is the opposite of what a conflicts hit means.
+
+### 3.2 The adjudication trail — `adjudicationTrail`
+
+**Shape:** `GET /api/v1/conflicts/hits/{hitId}/dispositions` on `conflicts:read`. Every disposition
+recorded against the hit, oldest first, each with its kind, rationale, reviewer and instant, and the
+waiver record where the kind is `waiver_obtained`.
+
+**Why it is a route and not another enrichment.** `readCurrentDisposition` and
+`readHitDispositionStates` already resolve the latest word, which is what a list needs. The trail is
+the whole history and is read one hit at a time, when a reviewer opens it. Putting every disposition
+of every hit on the check response would grow the list read by the one thing only the detail view
+uses.
+
+**This is the compliance artifact.** The schema comment is explicit that a reviewer who clears a hit
+and later reverses must leave both acts visible — a reversal is a second row, never an edit. A trail
+read that showed only the latest word would defeat the reason the table is append-only.
+
+### 3.3 The firm's conflicts policy — `firmPolicy`
+
+**Shape:** `GET /api/v1/firm/conflicts-policy`. `readConflictsPolicy`
+([`settings.ts`](../../packages/conflicts/src/settings.ts)) already resolves it, including the union
+that puts the party class back into the floor on every read so a stored policy cannot drop the
+firm-wide corpus. This is that function behind a route.
+
+**Open question on the permission — see section 8, Q1.** The read tells a member what the firm's
+floor is, which is not sensitive; a WRITE would be an administrative act on the same key family as
+`firm:manageScanPolicy`. This design builds the read only.
+
+### 3.4 The firm's check history — `checkHistory`
+
+**Shape:** `GET /api/v1/conflicts/checks`, a keyset-paginated listing on `conflicts:read`, newest
+first, filterable by `matterId`.
+
+**The matter-filtered read is index-served and the unfiltered one is not.** The table carries
+`conflicts_check_subject_matter_created_id_index` on `(subject_matter_id, created_at, id)` — leading
+with the matter, which is what confines the walk. An unfiltered firm-wide listing has no index
+leading with `created_at` and will plan a scan of every check the firm has ever run.
+
+**So this read is measured before it ships**, against the load-profile harness, exactly as the matter
+search's sources were — that gate found a full table scan in the parties source that no amount of
+reading the SQL had. If the unfiltered listing scans, the answer is an index on `(created_at, id)`
+added with this read, not a note to revisit.
+
+### 3.5 A re-surfaced hit's earlier conclusion — `previouslyConcluded`
+
+**Shape:** part of the check response. Each hit carries whether an EARLIER check surfaced what is
+recognisably the same hit, and how that one was answered.
+
+**This is the read with a real design question in it — see section 8, Q2.** "The same hit" is not
+defined by the schema. Two hits in different checks share an `entity_id`, but a hit is also a
+`source_class`, an `evidence_tier`, a matched-field set and a graph path, and two of those can differ
+while the conflict is plainly the same one. Getting it wrong is not a display bug in either
+direction: too loose and a reviewer is shown a clearance that answered a different conflict, too
+tight and they re-adjudicate something the firm already decided and the record grows two answers to
+one question.
+
+### 3.6 Re-check this matter, on demand — `rescanNow`
+
+**Shape:** `POST /api/v1/matters/{matterId}/conflicts-rechecks` on `conflicts:run`.
+
+**The machinery is built and has no door.** `recheck-request.ts`, `recheck-run.ts` and
+`readOpenRecheckRequestsForMatter` already serve the event-driven and scheduled paths; this is a
+person asking for one now. It is a WRITE (it enqueues a run), so it is `conflicts:run`, not
+`conflicts:read` — the only one of the six that is not a read, kept here because it is the last
+disabled affordance on the same screen.
+
+**Idempotency.** It rides the platform's `Idempotency-Key` chokepoint like every other write, so a
+double-press does not produce two checks and two log rows.
+
+## 4. What the whole thing costs
+
+| #   | Read                 | New route                    | Blocked on an answer              |
+| --- | -------------------- | ---------------------------- | --------------------------------- |
+| 1   | Matched party name   | no — enriches the check read | no                                |
+| 2   | Adjudication trail   | yes                          | no                                |
+| 3   | Firm policy          | yes                          | Q1 (permission only)              |
+| 4   | Check history        | yes                          | no — but must clear the plan gate |
+| 5   | Previously concluded | no — enriches the check read | **yes, Q2**                       |
+| 6   | Re-check on demand   | yes                          | no                                |
+
+Four are buildable now. One waits on a permission answer that does not block its shape. One waits on
+a real ruling.
+
+## 5. Build order
+
+1. **The matched party name.** Highest value per unit of work by a wide margin, and it needs nothing
+   new. A hit list that cannot say who matched is the gap that makes the surface unusable rather
+   than merely incomplete.
+2. **The adjudication trail.** The compliance artifact, and the reason the table is append-only.
+3. **Re-check on demand**, then **firm policy**. Both small; both remove a disabled control.
+4. **Check history**, behind its load-profile measurement.
+5. **Previously concluded**, once Q2 is answered.
+
+Each step is a vertical slice — data access, route, contract, client, tests, docs — and each one
+deletes its entry from `conflicts-gaps.ts` and nothing else.
+
+## 6. What does not change
+
+The engine, the expansion, the imputation, the matching bands, the disposition writes, the three log
+tables and their triggers. This design adds no column, no table and no trigger. Every read is a read.
+
+## 7. Testing
+
+- **The append-only guarantee stays probed.** `assertConflictsFitness` runs at runtime and
+  `conflicts-append-only.test.ts` holds the triggers; neither changes, and both must still pass.
+- **Every new route gets a conformance entry.** The api-worker conformance suite asserts each
+  operation id and its permission binding; a route added without one fails it.
+- **The unresolved-entity path is tested, not assumed** — a hit whose entity the batch read does not
+  return must render as unresolved and never as absence.
+- **The check history is plan-gated** before it ships, per 3.4.
+
+## 8. Questions for the owner
+
+**Q1 — who may read the firm's conflicts policy?** The read says what the firm's floor is: which
+source classes are mandatory, the balanced band's name roles, the edge-class budgets. It is not
+client data and every member is judged against it. **Recommendation:** `conflicts:read`, which every
+member who can read a check already holds. The alternative is a new `firm:readConflictsPolicy`, which
+buys separation nobody has asked for. Reversible either way — it is one line of `RouteMeta`.
+
+**Q2 — when is a re-surfaced hit "the same hit" as one already answered?** This one is not
+reversible in the same way: it decides what a reviewer is shown about a decision the firm has already
+made. Three candidates, narrowest first:
+
+- **(a) Same entity, same source class.** The conflict came from the same place about the same party.
+  Misses a party that was reached directly last time and through the graph this time — arguably the
+  same conflict, differently evidenced.
+- **(b) Same entity only.** Broadest. Shows the earlier answer whenever the same party surfaces
+  again, whatever the route. Risks presenting a clearance that answered a genuinely different
+  conflict — the party was cleared as a co-party once, and now surfaces as a prior client.
+- **(c) Same entity, and the earlier hit is shown as CONTEXT rather than as an answer.** The hit is
+  never marked pre-concluded; the panel says "this party was answered before" and links the earlier
+  check, leaving the reviewer to decide whether it is the same question.
+
+**Recommendation: (c).** It is the only one that cannot silently carry a clearance across two
+different conflicts, and on this surface the cost of being wrong is a professional-conduct problem
+rather than a presentation one. (a) and (b) both make the machine's judgment about sameness look like
+the firm's.
+
+## 9. What this design deliberately does not do
+
+- **The pre-engagement screen** — the check run before a matter exists, at intake, against a
+  prospective client. `conflicts_check.subject_matter_id` is already nullable and the schema comment
+  already names the case, so the log is ready for it; what is missing is the trigger (every one today
+  rides a Directory outbox topic and there is no matter row to raise an event about), the subject
+  shape, and an answer to what becomes of a screen against somebody the firm then declines. Its own
+  design.
+- **The assembled report document** — `report-text.ts` renders the plain-language statement today and
+  the gap register wants it filed as a document through the document-assembly arm. Deliberately after
+  this: a report that cannot name the matched parties (3.1) or show the full trail (3.2) would be
+  filed incomplete, and a filed document is the one artifact that cannot be quietly corrected later.
+- **Any widening of what a check searches.** Beider-Morse, document-content scanning and the
+  strictness/depth screens are all named on the roadmap and none of them is a read.
