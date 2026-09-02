@@ -98,8 +98,9 @@
     color: var(--mc-text-muted);
   }
   /*
-   * The native clear affordance is off by ruling: a search that clears with Escape does not also
-   * carry a glyph that clears it, and the browser's own control is neither tokenized nor themed.
+   * The native clear affordance stays off. The field DOES carry a clear glyph now (see below), but
+   * it is ours: the browser's own is neither tokenized nor themed, sits at a size and inset we do
+   * not control, and would sit beside ours as a second X saying the same thing.
    */
   .mc-screen-search-input::-webkit-search-cancel-button {
     display: none;
@@ -124,6 +125,42 @@
     font-size: var(--mc-font-size-xs);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  /*
+   * The clear glyph, at the field's inline end and inside its edge — the field is one object, so
+   * the control that empties it belongs within the same hairline rather than beside it.
+   *
+   * It is quiet at rest (subtle ink, no ground) and only takes a ground on hover: it sits next to
+   * the text a person is reading, and a button that competes with the query for attention would
+   * make the field harder to read for a control most searches never use.
+   */
+  .mc-screen-search-clear {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-0);
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: var(--mc-text-subtle);
+    cursor: pointer;
+    transition-property: background-color, color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-screen-search-clear:hover {
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-text-default);
+  }
+  .mc-screen-search-clear:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
   }
 
   /*
@@ -182,5 +219,16 @@
   }
   .mc-screen-search[data-searching="true"] .mc-screen-search-field .mc-screen-search-icon {
     color: var(--mc-accent-default);
+  }
+
+  /* The clear glyph takes the leading icon's size, and the button squares off around it. */
+  .mc-screen-search-clear-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    flex: none;
+  }
+  .mc-screen-search-clear {
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
   }
 }

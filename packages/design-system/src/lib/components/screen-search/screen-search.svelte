@@ -14,8 +14,22 @@
    *   - it expands on use and collapses again when left empty;
    *   - a live query keeps it open and takes a single accent hairline at the field's edge, so a
    *     narrowed list always carries its reason on screen;
-   *   - there is no clear button. Escape clears the query; a second Escape collapses the control
-   *     and hands focus back to the icon that opened it.
+   *   - a live query also carries an X at the field's trailing edge, which clears it and leaves the
+   *     caret where it was. Escape still clears, and a second Escape collapses the control and
+   *     hands focus back to the icon that opened it.
+   *
+   * TWO RULES HERE WERE REVERSED ON THE OWNER'S REVIEW (2026-09-02), and both had been deliberate:
+   *
+   *   1. There was no clear button, on the reasoning that Escape already clears. Escape is a
+   *      keyboard affordance and nothing on screen advertises it, so a pointer user had no way to
+   *      empty the field but to select the text and delete it. A glyph that says what it does beats
+   *      a key that does not.
+   *   2. A click on bare background did NOT collapse an empty field, because focus landing on the
+   *      body was read as "focus went nowhere". To a person there is no such place: they clicked
+   *      away, and the field should have closed. It now does — see the pointerdown watch below.
+   *
+   * The ruling is recorded in docs/conventions/design-corrections.md; this comment states the
+   * reasoning so the next reader does not have to find it.
    *
    * THE CALLING SHAPE is the same whether the query is answered in the browser or over the network,
    * which is what makes one component serve every screen. A screen hands over `onsearch` and says
@@ -30,7 +44,7 @@
    *   - `scope` — the surface's own scope control, seated at the field's leading edge. Its
    *     vocabulary belongs to the surface ("Everything on this matter", "Files only", "This
    *     folder") and never says "everywhere", because searching everything is the top bar's job.
-   *     The matter file manager's scope dropdown is the first thing that will sit here.
+   *     WIRED: the matter's consolidated search is its first production consumer.
    *   - `matchSummary` — a short count inside the field's trailing edge, for a screen that wants
    *     the answer's size where the eye already is.
    *   - `shortcut` — a key that expands and focuses the control from anywhere on the page. Off by
@@ -43,6 +57,7 @@
    */
   import { flushSync, onDestroy, type Snippet } from "svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
+  import XIcon from "@lucide/svelte/icons/x";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { InputSize } from "../input/variants.ts";
   import { SEARCH_PAUSE_MILLISECONDS } from "./pause.ts";
@@ -67,6 +82,14 @@
      * stop, so one request goes out per thought).
      */
     searchOn?: "keystroke" | "pause";
+    /**
+     * What Enter does, where the screen has somewhere to go with the whole query — a results page,
+     * usually. Optional: a screen that narrows rows in place has no such destination, and Enter on
+     * a field that already searched every keystroke should do nothing rather than something
+     * invented. The pending debounce is flushed first, so the destination never opens on a query
+     * one keystroke behind the field.
+     */
+    onsubmit?: (query: string) => void;
     /** Whether a search is in flight. Bindable, so a screen that fetches itself can drive it. */
     busy?: boolean;
     /** Control height, from the same scale the Button and Input use. */
@@ -93,6 +116,7 @@
     placeholder = "Search",
     onsearch,
     searchOn = "keystroke",
+    onsubmit,
     busy = $bindable(false),
     size = "default",
     disabled = false,
@@ -143,11 +167,14 @@
    * about the code, and one that comes straight back if this settles for asking the event.
    *
    * Waiting for focus to settle and then asking where it actually IS answers the question the event
-   * cannot, in whatever order the browser moves focus. Two consequences worth stating: it is
+   * cannot, in whatever order the browser moves focus. One consequence worth stating: it is
    * measured against the WHOLE control, so reaching for the scope control (a sibling in the same
-   * row) keeps the field open; and focus landing NOWHERE — the body, after a click on bare
-   * background — is not somewhere else, so the field stays. Every deliberate way out still works:
-   * Escape, tabbing on, or clicking another control.
+   * row) keeps the field open.
+   *
+   * This watch cannot see a click on bare background, and that is why the pointer watch below
+   * exists rather than this one growing a case. Focus does not move when a person clicks a page's
+   * empty margin — activeElement stays put or falls to the body — so there is no focus event to
+   * read and no settled element that means "away". The click itself is the only evidence.
    */
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -161,6 +188,40 @@
       if (root?.contains(settled) === true) return;
       expanded = false;
     });
+  }
+
+  /*
+   * Collapse on a click that lands outside the control. This is the half the focus watch above
+   * structurally cannot do: clicking a page's empty margin moves focus nowhere, so nothing fires
+   * that says "away" — but the person plainly went away, and an empty field left open after it is
+   * the defect the owner reported.
+   *
+   * pointerdown, not click: a click that starts inside the field and ends outside (a drag that
+   * selects the query and overshoots) is not a way out, and pointerdown is where the two can still
+   * be told apart. An EMPTY field only — a live query keeps the control open, which is the standing
+   * rule that a narrowed list always carries its reason on screen, and the X is how you empty it.
+   */
+  $effect(() => {
+    if (!expanded || searching) return;
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target;
+      if (target instanceof Node && root?.contains(target) === true) return;
+      expanded = false;
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  });
+
+  /*
+   * Clear, from the glyph rather than the key. The caret goes back into the field: a person who
+   * cleared a search is nearly always about to type another one, and sending focus to the resting
+   * icon instead would make them click twice to do it.
+   */
+  function clearQuery(): void {
+    value = "";
+    // Clearing is not typing: the screen gets its rows back at once, with no pause to sit out.
+    dispatch("");
+    inputRef?.focus();
   }
 
   // --- the query lifecycle -------------------------------------------------------------------
@@ -204,14 +265,22 @@
   }
 
   function handleKeyDown(event: KeyboardEvent): void {
+    if (event.key === "Enter") {
+      if (onsubmit === undefined) return;
+      event.preventDefault();
+      // The debounce is flushed rather than waited out: pressing Enter IS the person saying they
+      // have finished typing, so the destination must not open on the query as it stood a
+      // keystroke ago. cancelPending() alone would strand a "pause" screen with no search at all.
+      dispatch(value);
+      onsubmit(value);
+      return;
+    }
     if (event.key !== "Escape") return;
     // The screen behind this control may also answer Escape (a dialog, a menu); a search that is
     // clearing or closing has consumed the key.
     event.stopPropagation();
     if (value !== "") {
-      value = "";
-      // Clearing is not typing: the screen gets its rows back at once, with no pause to sit out.
-      dispatch("");
+      clearQuery();
       return;
     }
     collapse();
@@ -272,6 +341,18 @@
     />
     {#if matchSummary !== undefined && matchSummary !== ""}
       <span class="mc-screen-search-summary">{matchSummary}</span>
+    {/if}
+    {#if searching && !disabled}
+      <!-- Only while there is something to clear: an X on an empty field is a control that does
+           nothing, and it would sit in the row at rest pretending otherwise. -->
+      <button
+        type="button"
+        class="mc-screen-search-clear"
+        aria-label="Clear search"
+        onclick={clearQuery}
+      >
+        <XIcon class="mc-screen-search-clear-icon" aria-hidden="true" />
+      </button>
     {/if}
   </div>
   <button

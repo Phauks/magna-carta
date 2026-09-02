@@ -8,10 +8,10 @@
    * production consumer: the component ships the seam naming a matter scope dropdown as the thing
    * that would sit there, and this is it. Nothing in the design system changed to build this.
    *
-   * THE ROW ORDER IS LOAD-BEARING. The search sits to the inline start of the overflow menu, because
-   * ScreenSearch always grows toward the inline start — a field placed after the overflow would
-   * shove it sideways on the first keystroke. That is the file-manager ruling about New keeping its
-   * place, applied to a right-aligned rail.
+   * IT SITS ABOVE THE SECTION STRIP, NOT ON ITS ROW, and that is measured rather than aesthetic:
+   * ScreenSearch always grows toward the inline start, so sharing the strip's row would shove the
+   * tabs sideways on the first keystroke and make the strip's measured fold re-run mid-typing. That
+   * is the file-manager ruling about New keeping its place, applied to a right-aligned rail.
    *
    * The panel is the fast path; most searches end in it. "Open full results" sits on the scope line,
    * where the ruling puts it, and leads to the matter's own results page — the query rides in the
@@ -91,7 +91,30 @@
     return `/matters/${matterId}/search?${parameters.toString()}`;
   });
 
-  const panelOpen = $derived(expanded && query.trim() !== "");
+  /*
+   * The panel opens with the FIELD, not with the first keystroke. Two things live in its header
+   * that a person needs before they have typed anything — the scope, and the way through to the
+   * full search — and gating the panel on a query put both behind a search you had to start in
+   * order to change where it looked. Expanded and empty, the panel is its header row and nothing
+   * else; the results region below only exists once there is a query to answer.
+   */
+  const panelOpen = $derived(expanded);
+  const hasQuery = $derived(query.trim() !== "");
+
+  /*
+   * Through to the full search — from Enter, and from the panel's own link. Enter has to mean the
+   * next thing rather than "search again": the panel is the fast path and is already showing by the
+   * time a person could press it, so the whole result set, with room to act on it, is the only
+   * thing left to go to.
+   *
+   * It works on an EMPTY field too, which is the point of the panel opening before anything is
+   * typed. The results page carries its own empty state inviting a search, so arriving there with
+   * no query lands on a screen that says what to do rather than a blank one.
+   */
+  function openFullResults(): void {
+    expanded = false;
+    void goto(resultsHref);
+  }
 </script>
 
 <div class="relative">
@@ -105,6 +128,7 @@
     fieldClass="w-2xs sm:w-xs"
     matchSummary={search.answer === null ? undefined : String(totalHits(search.answer))}
     onsearch={run}
+    onsubmit={openFullResults}
   >
     {#snippet scope()}
       <!-- The vocabulary names the matter and no wider: searching everything is the top bar's job,
@@ -145,7 +169,11 @@
       style="z-index: var(--mc-z-dropdown);
              inline-size: min(var(--mc-size-prose), calc(100vw - var(--mc-space-32)))"
     >
-      <div class="flex items-center gap-8 border-b border-border-default px-12 py-8">
+      <div
+        class="flex items-center gap-8 px-12 py-8"
+        class:border-b={hasQuery}
+        class:border-border-default={hasQuery}
+      >
         <span class="text-xs text-text-muted">{scopeLabel}</span>
         {#if search.deletedOptionApplies}
           <!-- Off by default, and offered only where a selected source has a deleted set to offer —
@@ -172,23 +200,24 @@
           class="{buttonClasses({ variant: 'ghost', size: 'sm' })} ms-auto"
           onclick={(event) => {
             event.preventDefault();
-            expanded = false;
-            void goto(resultsHref);
+            openFullResults();
           }}
         >
-          Open full results
+          {hasQuery ? "Open full results" : "Open full search"}
           <ArrowRight class="size-16" aria-hidden="true" />
         </a>
       </div>
-      <div class="overflow-y-auto p-8" style="max-block-size: var(--mc-size-record-pane)">
-        <MatterSearchResults
-          answer={search.answer}
-          failure={search.failure}
-          busy={search.busy}
-          density="compact"
-          onnavigate={() => (expanded = false)}
-        />
-      </div>
+      {#if hasQuery}
+        <div class="overflow-y-auto p-8" style="max-block-size: var(--mc-size-record-pane)">
+          <MatterSearchResults
+            answer={search.answer}
+            failure={search.failure}
+            busy={search.busy}
+            density="compact"
+            onnavigate={() => (expanded = false)}
+          />
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
