@@ -1224,6 +1224,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "timeEntries.list",
       "timeEntries.listAttachments",
       "timeEntries.previewQuickAdd",
+      "timeEntries.refile",
       "timeEntries.submit",
       "timeEntries.update",
       "timeEntries.void",

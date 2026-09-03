@@ -31,9 +31,13 @@
 #   • schedule — the full battery with an unscoped lint, from a cold start, every night. This is the
 #     backstop for the interleaving window above, and it lands long before any deliberate
 #     `git push main:release` turns `main` into a deploy.
-#   • merge_group — the full battery. If a merge queue is ever enabled (a repository setting), the queue
-#     builds the exact post-merge tree, which closes the interleaving window at its source rather than
-#     catching it after the fact. Wired now so enabling the setting needs no workflow change.
+#   • merge_group — the full battery on the exact post-merge tree the queue built, which closes the
+#     interleaving window at its source rather than catching it after the fact: every red check the
+#     gate found on 2026-09-02 was two branches that merged minutes apart and were never tested
+#     together. The setting that turns the queue on is the repository's, not this file's
+#     (docs/deploy-queue.md names it); the workflow side is ready either way. While the austerity
+#     below holds, this tier defers the fan-out sinks exactly as the pull request does — the sink
+#     lint alone is ~26 min of a 2-core runner per merge, and the merge bar covers it.
 #
 # RUNNERS. Two sizes, chosen per job. `ubuntu-slim` is GitHub's 1-vCPU / 5 GB Linux runner and bills at
 # $0.002 a minute against the 2-core `ubuntu-latest`'s $0.006 — a third of the rate for the same work —
@@ -79,8 +83,8 @@ on:
   # up. Uncomment to restore.
   # push:
   #   branches: [main]
-  # Full-battery proof of a queued merge's real post-merge tree. Inert until a merge queue is enabled
-  # on the repository; harmless to carry until then.
+  # Full-battery proof of a queued merge's real post-merge tree. Fires only once the merge queue is
+  # enabled on the repository (docs/deploy-queue.md); harmless to carry until then.
   merge_group:
   # The nightly unscoped sweep. Its diff base resolves to nothing (there is no event base and HEAD is
   # already `main`), which the `classify` job's empty-diff branch turns into "run everything, lint ALL" —
@@ -140,7 +144,9 @@ jobs:
       - name: Classify the changed paths
         id: filter
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          # A queued merge carries its base on the merge_group payload; a pull request on its own;
+          # a push as `before`. Anything else falls through to the merge-base with origin/main below.
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           EVENT_NAME: ${{ github.event_name }}
           # A push to `main` is the one trigger that re-verifies a tree a pull request already proved.
           # `github.ref` is checked as well as the event so a push to any other branch (there are none
@@ -216,7 +222,11 @@ jobs:
           # nothing while narrowing coverage everywhere it was cheap. Deferring by measured weight is
           # a MOVE, not a hole — the unscoped pass below runs before the change can ship, and
           # tooling/affected-lint/scope-fitness.mjs asserts the two tiers' union covers the whole closure.
-          if [ "$EVENT_NAME" = "pull_request" ]; then
+          # TEMPORARY CI AUSTERITY 2026-09-02 — revert when Actions minutes reset: a queued merge defers
+          # the fan-out sinks exactly as the pull request does. Linting the sink is ~26 min of a 2-core
+          # runner, and paying it on every merge is the whole month's budget; the merge bar covers it.
+          # On revert, drop the merge_group clause so the queue lints the full closure, sinks included.
+          if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
             echo "affected-lint: full dependent closure, fan-out sinks deferred to the post-merge pass"
             scope="$(node tooling/affected-lint/index.mjs --base "$base" --max-hops all --defer-fanout-sinks)" || {
               echo "affected-lint: classifier failed — no sound lint scope" >&2
@@ -933,7 +943,7 @@ jobs:
       - name: Resolve the diff base
         # Same resolution as the `classify` job: the event's base, else the merge-base with origin/main.
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: |
           base="$BASE"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base" 2>/dev/null; then

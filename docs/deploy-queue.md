@@ -11,7 +11,7 @@
 
 What this document is for now: **the account-side actions that no session can perform** — Cloudflare dashboard steps, DNS, R2 lifecycle rules, secrets, account entitlements, repository settings, and the GitHub Actions billing block. Every one of them is a step the repository cannot take on its own no matter what merges. Kept current by the orchestration stream.
 
-**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and the gate of record is still blocked account-side (the first entry below), so that verification is the scoped local gate plus whatever tests the change carries. **The billing step is now the single most consequential item on this list**, not the housekeeping item it was when a deliberate push stood between a merge and production.
+**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and for the month the gate of record was blocked account-side (2026-08-05 to 2026-09-01) that verification was the scoped local gate plus whatever tests the change carries. The gate executes again; what stands between a merge and production now is the pull-request tier, and — once the first entry below is done — a run of the exact tree that lands.
 
 _Position, 2026-08-29: `main` is production for the app Worker and the SPA. Everything else about the account is read live, not recorded here — including which projects are connected, what branch each builds from, and what is deployed on any of them. The 2026-08-24 API pass that this file used to treat as its "evidentiary floor" is exactly the thing that stopped being one: it was accurate on the day and had decayed within the week, and a floor that decays silently is worse than no floor. Read the account instead._
 
@@ -29,37 +29,47 @@ refusal, and the improvement it argues for are recorded once, in
 [`operations.md`](conventions/operations.md) under_ Control-plane database migrations _— read that
 before diagnosing any "the code creates this table and production does not have it" report._
 
-## GitHub Actions is blocked account-side — one billing step, and it gates all CI
+## Enable the merge queue on `main` — one repository setting, and it closes the gap every red check of 2026-09-02 came through
 
-**Nothing in the repository can fix this and no session can perform it.** Since 2026-08-05 GitHub has
-refused to start any billable job for `Phauks/magna-carta`, so the gate of record has not executed a
-single step in that time. The diagnosis and its evidence are in
-[`operations.md`](conventions/operations.md) under _Quality gates_; this entry is only the step.
+**Why.** On 2026-09-02, the first day the gate ran a full battery in a month, every failure it found
+was the same defect: two branches that merged minutes apart, each green against the `main` it had
+seen, never tested together. A permission list that did not know a key another merge added; a story
+still clicking a button another merge removed; a lint rule and the screen that trips it landing the
+same afternoon. The pull-request tier cannot see this by construction. A merge queue can: it builds
+the exact tree that will land and runs the gate on that, so the interleaving is caught before the
+deploy rather than by the next branch to run. The workflow side is already wired: `gate.yml`
+carries the `merge_group` trigger, resolves its diff base from the queue's payload, and defers the
+fan-out sinks on that tier for as long as the austerity holds. Only the setting is missing.
 
-**What to click.** GitHub → **Settings** → **Billing and licensing** → **Budgets and alerts** (and the
-**Payment information** tab beside it). Check, in this order:
+**What to click.** GitHub → **Settings** → **Rules** → **Rulesets** → the ruleset that protects
+`main` → under _Branch rules_, enable **Require merge queue**, then:
 
-1. **A valid payment method is on file and no recent charge has failed.** A failed payment blocks
-   Actions on its own, and settling it is what unblocks it — raising a limit will not.
-2. **The Actions spending limit is greater than $0.** The account is on the Free plan, which includes
-   2,000 Actions minutes a month for private repositories; `magna-carta` is private, so every gate
-   minute is billed against that allotment. Once it is spent, a $0 limit is a hard stop, and GitHub's
-   documented behaviour with no valid payment method is that "usage is blocked once you use up your
-   quota."
-3. **Whether the monthly allotment has simply reset.** The block began 2026-08-05. If the billing
-   month has since rolled over and jobs still do not start, the cause is item 1 or 2, not the quota.
+1. **Merge method: Squash.** The repository squash-merges, and the landing detection in
+   `tooling/branch-landing/` assumes it.
+2. **Build concurrency: 1.** One battery at a time. Raising it lets the queue test several
+   speculative groups in parallel, which is speed bought with runner-minutes the budget does not have.
+3. **Minimum group size 1, maximum group size 5, wait time 5 minutes.** A lone pull request waits
+   five minutes for company; several that queue together are tested as one group with one battery,
+   which is the queue paying for itself.
+4. **Status check timeout: 60 minutes**, comfortably above the 17-minute battery, so a slow run is a
+   slow run rather than a dropped entry.
+5. **Require all queue entries to pass required checks: on** (the default). The required check stays
+   the aggregate **`gate`** job, exactly as today; nothing else needs requiring.
+6. Leave **Require branches to be up to date before merging** off. The queue makes it redundant, and
+   on, it would force a rebase and a second pull-request run before every entry.
 
-**How to confirm it worked**, without guessing: re-run any gate workflow and look at a job's
-`runner_id`. A job that GitHub refused to start reports `runner_id: 0` with an empty `runner_name` and
-has no logs to fetch; a job that genuinely ran reports a real runner id. That check is the subject of
-the recognition rule in `operations.md`, and it is the only way to tell this outage from a red build.
+**Two things to watch on the first day.** The docs-assembly workflow enables auto-merge on its own
+pull request with `gh pr merge --auto --rebase`; with a queue on, that call adds the entry to the
+queue and the queue's own method applies. Confirm the first assembly pull request after the change
+lands on its own, and drop the method flag if `gh` refuses it. And the first queued merge's `gate`
+run is the end-to-end proof of the `merge_group` tier: read it.
 
-**Last confirmed still blocked: 2026-08-30**, by running exactly that check. Run 33282129484 was
-re-run on pull request #414; attempt 2 reproduced attempt 1 exactly — `changes` and `governance`
-completed in two seconds, no job reported a runner, and no log was fetchable on either attempt. The
-block also shows in the shape of the whole history rather than one run: every gate run on every
-branch back through `docs-sync/2026-08-24` finishes inside twenty seconds. Re-confirming costs one
-re-run, so date the observation here rather than repeating it per branch.
+**History.** This entry replaces the one that stood here from 2026-08-05 to 2026-09-01: GitHub had
+refused to start any billable job for the repository, so the gate executed nothing for a month. The
+billing step cleared it (jobs with real runner ids from 2026-09-01). The recognition rule for that
+state — a red aggregate over a field of `skipped`, `runner_id: 0`, no log to fetch — stays in
+[`operations.md`](conventions/operations.md) under _Quality gates_, because it is the only way to
+tell that outage from a red build if it recurs.
 
 **What it is costing, and it went up on 2026-08-29.** Every merge since 2026-08-05 has landed on the
 strength of local verification alone. Since the branch move, every merge also **deploys** on the
