@@ -639,3 +639,23 @@ What the migration left for the next pass: the fifteen panels that landed before
 existed still write the label-over-control column by hand, and every caller still writes the same
 twelve lines around `FailureNotice`. Both are mechanical, both are the app's side of a seam the
 shell already has, and neither should be done panel by panel.
+
+### 11.8 Filling the screen is the frame's
+
+The owner asked whether full-screen should be an expansion available to every modal, and whether
+the full-screen parts should be combined. Both, and the tree said why. The record window had a
+corner control that fills the viewport, remembered for the session; the action dialog had none;
+and the three surfaces excluded as "full-screen" were three different things — the time sheet had
+rebuilt the record window's expand by hand inside a raw dialog, the screenshot viewer was a reading
+panel that opens filling the screen, and the cost review was a queue walked one cost at a time, not
+full-screen at all. The ruling that full-screen is a design choice each time had been read as "each
+surface builds its own"; it reads just as well as "each surface decides whether to open that way".
+
+So the frame owns expand (`internal/frame-expansion.svelte.ts`): the state, the control's two
+names, the expanded geometry, and one session memory per shell — records at full viewport is a
+posture for a sitting, a form filled to the screen is a choice about that form, and the two are
+kept apart. Each shell keeps its own control in its own header set, because the record window's
+set is asserted at the source. `ActionDialog` offers it on the Dialog kinds, `form` and `reading`,
+and never on a question. Both shells take a bindable `expanded`, which is how a panel opens
+expanded by design. The record window's frame-bearing stories are byte-identical before and after,
+per the standard for touching the frame; the three surfaces migrate in the pass that follows.

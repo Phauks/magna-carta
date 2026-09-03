@@ -106,6 +106,15 @@ is still an `ActionDialog` inside it, not a panel of its own.
   and do not give `ActionDialog` a `class` prop to reach past them. A form that needs something
   beside its fields hands `ActionDialog` a `context` snippet; a context pane implies the record
   width, whatever `width` said.
+- **The frame owns expand, and each shell keeps its own control.** `internal/frame-expansion.svelte.ts`
+  holds the state, the per-shell session memory (`recordWindowExpansion`, `actionDialogExpansion`
+  — never persisted, never shared between the shells), the two control names, and the expanded
+  geometry (`EXPANDED_FRAME_CLASSES`, utilities, since only a utility can replace the panel's own
+  cap). The corner control's markup stays in each shell's source because `header-set` asserts the
+  record window's set at the source. `ActionDialog` offers expand on the kinds with something to
+  gain — `form` and `reading`, the Dialog kinds; `expandable` in the trait table — and never on a
+  question. Both shells take a bindable `expanded`, which is also how a panel OPENS expanded by
+  design; the caller's binding wins over the memory.
 - **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
   in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
   specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the
