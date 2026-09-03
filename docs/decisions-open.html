@@ -169,8 +169,8 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   at the bottom and paste them into the conversation, and they get applied from there.</p>
   <div class="band" style="margin-top:8px">
     <div class="k "><span>Open questions</span><b>65</b><em>Every one is on this page.</em></div>
-    <div class="k n"><span>Holding a build</span><b>33</b><em>Nothing is written behind these.</em></div>
-    <div class="k y"><span>Not holding a build</span><b>32</b><em>Mostly built already; some are parked.</em></div>
+    <div class="k n"><span>Holding a build</span><b>32</b><em>Nothing is written behind these.</em></div>
+    <div class="k y"><span>Not holding a build</span><b>33</b><em>Mostly built already; some are parked.</em></div>
     <div class="k g"><span>Answered here</span><b data-answered-count="">0</b><em>Saved in this browser until you copy them out.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:66ch">Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in <code>docs/deploy-queue.md</code>, which is their one home.</p>
@@ -185,7 +185,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 </section>
 
 <section class="group" data-group="blocking">
-  <h2>Nothing is built behind these <span class="ac">33</span></h2>
+  <h2>Nothing is built behind these <span class="ac">32</span></h2>
   <p class="lede">An answer here decides what gets written next. Until one lands, the work has no shape to take — so these are the questions that cost time by staying open.</p>
   <div class="cards">
     <article class="card" data-node="ai.consent" data-name="Client-consent model" data-area="ai.md">
@@ -485,17 +485,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
-    <article class="card" data-node="tasks.matter-plans" data-name="Matter plans" data-area="tasks.md">
-      <div class="chips"><span class="chip todo">Not started</span><span class="chip todo">Not built</span><code>tasks.matter-plans</code></div>
-      <h3>Matter plans</h3>
-      <p class="q">Two calls about how far a plan may reach. Whether the platform ever ships curated matter plans of its own — the design ships none and gives the malpractice argument, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and keeping the vocabulary at one value is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
     <article class="card" data-node="translation.pasted-text" data-name="Pasted-text translation" data-area="translation.md">
       <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>translation.pasted-text</code></div>
       <h3>Pasted-text translation</h3>
@@ -555,7 +544,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 </section>
 
 <section class="group" data-group="changing">
-  <h2>These are not holding a build still <span class="ac">32</span></h2>
+  <h2>These are not holding a build still <span class="ac">33</span></h2>
   <p class="lede">Nobody is waiting on these to start writing something. Most have code behind them already, so an answer changes what is built rather than deciding it; the parked ones are set aside by an earlier decision and an answer is what would bring them back.</p>
   <div class="cards">
     <article class="card" data-node="ai.inference.embedding-pin-window" data-name="Embedding pin held open until the first index" data-area="ai.md">
@@ -889,11 +878,22 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="tasks" data-name="Tasks and workflows" data-area="tasks.md">
-      <div class="chips"><span class="chip todo">Not started</span><span class="chip live">A group of capabilities</span><code>tasks</code></div>
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>tasks</code></div>
       <h3>Tasks and workflows</h3>
-      <p class="q">Two calls decide the shape of the first slice. Whether tasks wait for the note primitive or ship independently of it — they are separable in schema but not in surface, and tasks built first would be the subsystem tempted to invent an activity stream of its own. And whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Tasks and matter plans design flags W7 and W8.</p>
+      <p class="q">W7 and W8 are both answered and both built — W7 by event (the note primitive shipped first and tasks were built on the activity stream it settled), W8 by the owner on 2026-09-01 (a plan proposes its tasks and a member accepts them; acceptance is the write). T2 is answered and built the way the scope study recommended: one nullable task_id on time_entry, because an entry split across two tasks needs an allocation of its minutes and an allocation is a second ledger. Three calls raised by that study remain open and shape the remainder rather than the record: T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).</p>
       <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="tasks.matter-plans" data-name="Matter plans" data-area="tasks.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip done">Built · in use</span><code>tasks.matter-plans</code></div>
+      <h3>Matter plans</h3>
+      <p class="q">Two calls about how far a plan may reach, neither of them blocking — the build took the design's own answer to each. Whether the platform ever ships curated matter plans of its own: it ships none, the malpractice argument holds, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": it stays at that one value, because every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and one anchor is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.</p>
+      <p class="reach">This runs and a person can open it today. Changing it changes something live.</p>
+      <p class="scope">Templated task sequences per matter type, offered when a matter is open and written only when a member accepts them; pairs with document automation and the calendar.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>

@@ -231,7 +231,11 @@
     return undefined;
   });
 
-  function openAddRow(): void {
+  /**
+   * Opens the add row. Exported so a screen with a create control of its own — the matter header's
+   * New Party — can open the same row the tab's inline Add… opens, rather than a second form.
+   */
+  export function openAddRow(): void {
     adding = true;
   }
 

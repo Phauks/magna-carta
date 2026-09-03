@@ -1,14 +1,19 @@
 # Fee arrangements
 
-> Backend built, screens pending: everything below works through the API today and the billing
-> screens will surface it.
-
 ## What it does
 
 Records how each matter is billed, and bills it that way. A matter can be billed by the hour (the
 default — nothing to set up), for a flat fee, on contingency (a share of what is recovered), or on
 an evergreen retainer that is meant to stay topped up. Multi-matter bills can be presented as one
 document or as a page per matter with a summary, at your firm's choice.
+
+## Where the arrangement lives
+
+Open the matter and press its status seal, in the top-left corner of the masthead. The status
+window's **Engagement** section shows the agreement on file, how the matter is billed, the terms,
+and when the version in force started; **Show the earlier versions** unfolds the history, and
+**Amend** beside the arrangement records a new version. The Fees screen no longer states the
+arrangement: fees are recorded against whatever the status window says.
 
 ## Setting how a matter is billed
 
@@ -23,6 +28,11 @@ Record the arrangement on the matter: the kind, and its terms —
 For a fee paid in advance, record where the deal says the money sits until it is earned — the client
 trust account or the firm's operating account. There is no default: rules differ by state, and it is
 your firm's agreement that answers it.
+
+**Name the signed agreement.** When you record or amend the arrangement, pick the intake agreement
+or amendment the client signed from the matter's own files, so the version points at the paper the
+firm can produce. It is optional: a version can be recorded before the paper is filed and the
+agreement named on the next one. The status window links to the file.
 
 **Changing the deal keeps the history.** Amending an arrangement creates a new version; the old one
 stays with the dates it governed, and every bill shows which version it was computed under. You

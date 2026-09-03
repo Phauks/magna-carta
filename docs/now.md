@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 781 nodes of the feature ledger in
+is the complete register rather than a digest: all 782 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**781 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**782 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 138 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **643 that are units of work**, for the reason set out under [What a roll-up is
+count the **644 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 276 | 43% |
-| Part-built | partial, in-build | 116 | 18% |
-| Ahead | designed, planned, researching, not-started | 210 | 33% |
-| Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **643** | **100%** |
+| Done | shipped | 278 | 43% |
+| Part-built | partial, in-build | 118 | 18% |
+| Ahead | designed, planned, researching, not-started | 207 | 32% |
+| Parked | deferred, cut | 41 | 7% |
+| **All units of work** | | **644** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 276 | 43% |
-| `partial` | 115 | 18% |
+| `shipped` | 278 | 43% |
+| `partial` | 117 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 143 | 22% |
+| `not-started` | 140 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **643** | **100%** |
+| **All statuses** | **644** | **100%** |
 
 ### What a roll-up is not
 
-**138 of the 781 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
+**138 of the 782 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 276 of 643 (43%). Shipped plus partial is 391 (61%).**
+**Shipped alone is 278 of 644 (43%). Shipped plus partial is 395 (61%).**
 
-The 115 units between those two numbers are work that is engineered and paid for and is not
+The 117 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**392 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**396 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 39 | 10% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 176 | 45% |
+| A person can open it today (`screen`) | 43 | 11% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 176 | 44% |
 | No user surface by nature (`internal`) | 177 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **392** | **100%** |
+| **Everything with something built** | **396** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -124,9 +124,9 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
-| Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
+| Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **276** | **115** | **1** | **46** | **16** | **5** | **143** | **38** | **3** | **643** | **43%** |
+| **All areas** | **278** | **117** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **644** | **43%** |
 
 ## Where we have been
 
@@ -289,7 +289,7 @@ in this one.
 
 ## Waiting on you
 
-**33 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**32 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -318,14 +318,13 @@ in this one.
 - **Quota ceilings** (`self-serve.entitlements.quotas`) — **Not built.** The free tier's actual numbers: the storage ceiling, the member ceiling and the matter ceiling. This is the flag the founding-a-firm screen is waiting on — it already tells a visitor their firm starts on the free tier while nothing in the tree defines what that tier is, and the registration screen, the upgrade panel, the refusal body and the enforcement are all meant to read the same catalog so a limit cannot be right in one place and stale in another. Two recommendations on shape rather than value: the member ceiling is the single most effective anti-abuse limit and should be small, and the storage ceiling should be small enough that an abandoned free tenant's bytes are never individually worth worrying about. Self-serve provisioning design flag F1.
 - **Free evaluation tier** (`self-serve.free-tier`) — **Not built.** Whether trust accounting unlocks on verification or for any paying firm. The design argues verification: a card proves somebody will pay and does not prove a real practice is holding real client funds, and withholding trust from a free tenant is also what makes the rule against reaping a firm holding client money absolute rather than a judgement call. Unlocking it for any paying firm is a real revenue edge and it means an unverified stranger with a card keeps a ledger the platform's own jurisdiction rules have not certified. Self-serve provisioning design flag F3.
 - **Firm verification** (`self-serve.verification`) — **Not built.** What verification is at launch — a human reviewing each firm, or an attestation the firm makes that a person spot-checks and an operator can revoke. Review is stronger and becomes a bottleneck at exactly the volume self-serve exists to reach; attestation plus spot-check is the recommendation, and it decides whether this ships as a review queue or as a form. Either way there is no national registry to call and per-state scraping is a maintenance liability, so the first version records a claimed bar number and jurisdiction and control of a matching domain, and must never be worded anywhere as though the platform checked something it did not. Self-serve provisioning design flag F4.
-- **Matter plans** (`tasks.matter-plans`) — **Not built.** Two calls about how far a plan may reach. Whether the platform ever ships curated matter plans of its own — the design ships none and gives the malpractice argument, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and keeping the vocabulary at one value is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
 - **Pasted-text translation** (`translation.pasted-text`) — **Not built.** Whether a pasted run is recorded or ephemeral. Recommended recorded: a firm has to be able to answer what it sent to which engine, about which client and when, and a retention story with a hole in it labelled the paste box is not one — the platform already answered the same question the same way for what a member types into its assistant. Ephemeral is the intuitive answer and it means privileged text passes through a place nothing accounts for. Recording it costs a run row and an object per paste. Translation design flag T4.
 - **Document translation** (`translation.documents`) — **Not built.** Whether a translated document is a new file beside its source or a new version of it. Recommended a derived sibling linked to the source version: a version chain means successive states of one document, and a Spanish original and its English rendering are two documents that both stay current, so folding them into one chain means a member downloading the latest version of a Spanish contract silently gets English. Choosing the version chain instead removes the link table and breaks the "show me the original" read. Translation design flag T5.
 - **Side-by-side and target-only renditions** (`translation.renditions`) — **Not built.** Whether the statement that this is machine output appears as a visible header on every generated rendition, or only in the closing provenance appendix. Recommended the header, removable only by a human certification path if one is ever built: an appendix is the part that gets detached first, and the artifact that survives detachment is a fluent translation with nothing on it saying no person has read it. The appendix-only answer produces a cleaner document a firm can hand over, and a cleaner document is exactly the one that gets mistaken for a certified one. Translation design flag T8.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**32 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**33 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -357,7 +356,8 @@ in this one.
 - **Payments** (`payments`) — **A group of capabilities.** The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
 - **Trust-compliance reports** (`reports.trust-compliance`) — **Built; no screen yet.** What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
 - **Entitlement model** (`self-serve.entitlements`) — **A group of capabilities.** Whether a withheld capability can be metered rather than locked. The container-backed tools — recognition, conversion, repair, unlocking — cost real compute per invocation, and a handful of runs demonstrates the tool while a locked button demonstrates nothing. Metering is a third enforcement shape, a counter with a period beside the mask and the quota ceilings, and it is real work; the alternative is to lock them for the first version and say so plainly in the catalog. Self-serve provisioning design flag F6.
-- **Tasks and workflows** (`tasks`) — **A group of capabilities.** Two calls decide the shape of the first slice. Whether tasks wait for the note primitive or ship independently of it — they are separable in schema but not in surface, and tasks built first would be the subsystem tempted to invent an activity stream of its own. And whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Tasks and matter plans design flags W7 and W8.
+- **Tasks and workflows** (`tasks`) — **A group of capabilities.** W7 and W8 are both answered and both built — W7 by event (the note primitive shipped first and tasks were built on the activity stream it settled), W8 by the owner on 2026-09-01 (a plan proposes its tasks and a member accepts them; acceptance is the write). T2 is answered and built the way the scope study recommended: one nullable task_id on time_entry, because an entry split across two tasks needs an allocation of its minutes and an allocation is a second ledger. Three calls raised by that study remain open and shape the remainder rather than the record: T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).
+- **Matter plans** (`tasks.matter-plans`) — **Built and reachable.** Two calls about how far a plan may reach, neither of them blocking — the build took the design's own answer to each. Whether the platform ever ships curated matter plans of its own: it ships none, the malpractice argument holds, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": it stays at that one value, because every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and one anchor is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
 - **Human-attested certification** (`translation.certification`) — **Parked.** Whether the platform offers human-attested certification at all. It is the difference between a reading aid and something a firm can file — under the governing federal standard a competent person may run an engine, review the output line by line and then sign, at which point the certificate is true — and it is also the part with the most ways to go wrong, so the recommendation is yes but only once the artifacts it would certify exist. A no means the product ships permanently as an explicitly non-certifying reading aid, which changes nothing else in this area. Translation design flag T3.
 
 Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.
@@ -625,7 +625,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `matters.types` · `partial` · **Flexible matter types** — Matter types carrying type-specific fields for mixed practices, via the shared custom-fields engine. _Note: Backend shipped; practice-area templates explicitly deferred (status.d/1-4: "before first client"); UI not built._
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
-  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the status, what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
+  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the status, how the matter is engaged (the signed agreement on file and the fee arrangement it rests on, with Amend beside it and the history folded away; moved here from the Fees screen by the owner's ruling of 2026-09-03), what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
     - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
     - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
     - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
@@ -710,7 +710,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.components.storybook-catalog` · `shipped` · **Component catalog** — Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks. _Note: Histoire dead without Svelte 5 support, as the white paper records._
     - `design-system.components.icons` · `shipped` · **Lucide icons, no emojis** — Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   - `design-system.enforcement` · `partial` · **Machine enforcement** — Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
-  - `design-system.modal-shells` · `partial` · **Two modal shells and never a third** — Every modal surface in the product is one of two shells — RecordWindow for reading and changing a record, ActionDialog for an act asked of a reader — with one shared unsaved-work guard, and a source scan that recognizes a panel built outside them. _Note: The shell, the shared guard, the two rules, and the frame both shells sit on (styles/recipes/modal-frame.css — the record window's pane system, extracted with byte-identical screenshots as proof) are built. Three families have migrated — the custodian's three panels, ten across billing and costs, and the new-matter window as the frame's first context-pane caller — and the matter-status window landed on a fourth kind, `reading`, added as a strict arm of the props union for a panel that states a fact and seats its step beside it. The shell then took the seams its first fifteen callers repeated: Enter commits (the pane is a form, the commit its submit), `subtitle` takes a string, and `commitSoon` renders a commit not served yet inside the Soon affordance — for which the maturity family moved whole into the design system — beside two field primitives, `LabelledField` and `FieldRow`. The confirmation family followed — the file manager's three panels, the note and party removals, the settings recap and the attachment detach — and the shell gained the `done` outcome for a commit that stays to show what it came to. The four forms followed — move to another ledger (the first caller of `commitSoon`), fold two directory records, a new person or organization (the first caller of `LabelledField` and `FieldRow`), and the conflicts answer. The three send panels followed — the issue report, the problem report and the settings change request — each staying open on `done` to show its reference, its copy seated beside what it copies. The new-document flow was the last: its two paths share the one commit, whose verb follows the open path, and a document that landed leaves the panel done. Apply Trust Funds, excluded while the Soon affordance lived in the app, is a plain form with `commitSoon`. The four directory panes had been excluded as panes, and were carrying five real form dialogs; those migrated too. Every panel in scope is migrated. Six printed allowances remain, every one a named exclusion: a launcher, a Sheet, three full-screen surfaces, and a record window's shape. Filling the screen then became the frame's: the record window's expand moved beneath both shells, and ActionDialog offers it on its Dialog kinds with a session memory of its own, so a panel can open expanded by design — and the three full-screen surfaces came onto the shells: the time sheet as a reading panel opened expanded (its hand-built expand deleted), the safe-browse screenshot viewer likewise, and the cost review as a reading panel whose three answers sit beside the facts. Three printed allowances remain: the command palette, the settings ledger's Sheet, and the fee-arrangement window._
+  - `design-system.modal-shells` · `partial` · **Two modal shells and never a third** — Every modal surface in the product is one of two shells — RecordWindow for reading and changing a record, ActionDialog for an act asked of a reader — with one shared unsaved-work guard, and a source scan that recognizes a panel built outside them. _Note: The shell, the shared guard, the two rules, and the frame both shells sit on (styles/recipes/modal-frame.css — the record window's pane system, extracted with byte-identical screenshots as proof) are built. Three families have migrated — the custodian's three panels, ten across billing and costs, and the new-matter window as the frame's first context-pane caller — and the matter-status window landed on a fourth kind, `reading`, added as a strict arm of the props union for a panel that states a fact and seats its step beside it. The shell then took the seams its first fifteen callers repeated: Enter commits (the pane is a form, the commit its submit), `subtitle` takes a string, and `commitSoon` renders a commit not served yet inside the Soon affordance — for which the maturity family moved whole into the design system — beside two field primitives, `LabelledField` and `FieldRow`. The confirmation family followed — the file manager's three panels, the note and party removals, the settings recap and the attachment detach — and the shell gained the `done` outcome for a commit that stays to show what it came to. The four forms followed — move to another ledger (the first caller of `commitSoon`), fold two directory records, a new person or organization (the first caller of `LabelledField` and `FieldRow`), and the conflicts answer. The three send panels followed — the issue report, the problem report and the settings change request — each staying open on `done` to show its reference, its copy seated beside what it copies. The new-document flow was the last: its two paths share the one commit, whose verb follows the open path, and a document that landed leaves the panel done. Apply Trust Funds, excluded while the Soon affordance lived in the app, is a plain form with `commitSoon`. The four directory panes had been excluded as panes, and were carrying five real form dialogs; those migrated too. Every panel in scope is migrated. Six printed allowances remain, every one a named exclusion: a launcher, a Sheet, three full-screen surfaces, and a record window's shape. Filling the screen then became the frame's: the record window's expand moved beneath both shells, and ActionDialog offers it on its Dialog kinds with a session memory of its own, so a panel can open expanded by design — and the three full-screen surfaces came onto the shells: the time sheet as a reading panel opened expanded (its hand-built expand deleted), the safe-browse screenshot viewer likewise, and the cost review as a reading panel whose three answers sit beside the facts. Two printed allowances remain: the command palette and the settings ledger's Sheet; the fee-arrangement window is gone, its facts moved into the matter status window by the owner's ruling._
   - `design-system.directory-linking` · `partial` · **Directory-linking family** — One mark (EntityIdentity), one field (EntityPicker, which takes a search and never fetches) and one tab (RecordParties) for every surface that names, picks or links a person or an organization. _Note: Built against the matter's parties. The conflicts, custodian and cost pickers still carry their own combobox over the directory search and fold onto EntityPicker in a later slice; quick-create from the picker waits on the owner._
     - `design-system.enforcement.off-token-lint` · `shipped` · **Off-token value gates** — Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.
     - `design-system.enforcement.visual-regression` · `partial` · **Visual regression testing** — Playwright screenshots across every theme and mode over the story matrix; Argos the named upgrade. _Note: Harness and CI job built; first container-rendered baselines still pending; Argos not adopted._
@@ -1362,12 +1362,13 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Tasks and Workflows / Matter Plans
 
-[`roadmap.d/tasks.md`](../roadmap.d/tasks.md) — 3 units of work, 0% shipped. 0 done, 0 part-built, 3 ahead, 0 parked.
+[`roadmap.d/tasks.md`](../roadmap.d/tasks.md) — 4 units of work, 50% shipped. 2 done, 2 part-built, 0 ahead, 0 parked.
 
-- `tasks` · `not-started` · **Tasks and workflows** — Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.
-  - `tasks.task-lists` · `not-started` · **Task lists** — Tasks with assignments and due dates on matters.
-  - `tasks.matter-plans` · `not-started` · **Matter plans** — Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.
-  - `tasks.workflow-model` · `not-started` · **Workflow model** — Template authoring, task dependencies/sequencing, assignment and reassignment, due-date derivation (including from docketing), notification/escalation, completion tracking.
+- `tasks` · `partial` · **Tasks and workflows** — Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.
+  - `tasks.task-lists` · `shipped` · **Task lists** — Tasks with assignments and due dates, on a matter or on none.
+  - `tasks.matter-plans` · `partial` · **Matter plans** — Templated task sequences per matter type, offered when a matter is open and written only when a member accepts them; pairs with document automation and the calendar.
+  - `tasks.external-mirroring` · `shipped` · **Mirroring a task into another system** — The seam an addon writes through to keep tasks in step with an outside tool, both ways. The platform ships no adapter. _Note: Shipped means the SEAM is complete, not that anything is integrated. No adapter, no sync engine, no conflict policy and no field mapping exist, and none of them belongs here — they are the addon's, on @magna-carta/integrations._
+  - `tasks.workflow-model` · `partial` · **Workflow model** — Template authoring, task dependencies/sequencing, assignment and reassignment, due-date derivation (including from docketing), notification/escalation, completion tracking.
 
 ### Translation Services
 

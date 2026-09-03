@@ -22,6 +22,11 @@ export default defineConfig({
   // SvelteKit while matching what `.svelte-kit/tsconfig.json` maps for the type-checker.
   resolve: {
     alias: { $lib: fileURLToPath(new URL("./src/lib", import.meta.url)) },
+    // A test that mounts a component (opted into happy-dom per file) needs Svelte's CLIENT build:
+    // under the default node conditions `svelte` resolves to its server entry, where `mount` is
+    // "not available on the server". The data-module tests are indifferent to the condition — an
+    // icon component compiles the same either way — so it is set once here rather than per file.
+    conditions: ["browser"],
   },
   test: {
     name: "web",

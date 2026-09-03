@@ -19,6 +19,8 @@
     "./checkbox": "./src/lib/components/checkbox/index.ts",
     "./choice-row": "./src/lib/components/choice-row/index.ts",
     "./combobox": "./src/lib/components/combobox/index.ts",
+    "./create-control": "./src/lib/components/create-control/index.ts",
+    "./create-label": "./src/lib/components/create-control/create-label.ts",
     "./command": "./src/lib/components/command/index.ts",
     "./context-menu": "./src/lib/components/context-menu/index.ts",
     "./data-table": "./src/lib/components/data-table/index.ts",

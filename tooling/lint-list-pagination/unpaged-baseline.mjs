@@ -31,6 +31,26 @@ export const BOUNDED_BY_CONSTRUCTION = {
   // import, or the ingest pipeline — which is what separates a vocabulary from a record. A
   // vocabulary grows with the firm's decisions and stops; a record grows with the firm's activity
   // and does not.
+  // A matter plan is the same species as the six vocabularies below, with the same claim: a row
+  // appears when a PERSON authors a plan through a route behind tasks:managePlans
+  // (apps/api-worker/src/routes/matter-plans.ts, createPlan), and by no other path. There is exactly
+  // one insert statement in the workspace — insertPlanTemplateStatement in
+  // packages/tasks/src/plan-statements.ts — and it is unreachable from a queue consumer, a cron
+  // sweep, an import or the ingest pipeline. The platform seeds none, so the table starts empty and
+  // grows only with a firm's own decisions about how it practises.
+  //
+  // Both reads additionally carry MAX_PLAN_TEMPLATE_PAGE_SIZE as a backstop in SQL. That is a guard
+  // against a pathological firm rather than the bound being claimed here; the bound is the insert
+  // path.
+  "matterPlans.listPlans":
+    "The firm's matter plans. Rows come only from the createPlan route behind tasks:managePlans " +
+    "(apps/api-worker/src/routes/matter-plans.ts), whose one insert is " +
+    "insertPlanTemplateStatement in packages/tasks/src/plan-statements.ts; no queue, sweep or " +
+    "import reaches the table, and the platform seeds nothing into it.",
+  "matterPlans.listOffered":
+    "The plans offered on one matter — a filter over matterPlans.listPlans above (active, and " +
+    "bound to this matter's type or to no type), so it is bounded by the same insert path and is " +
+    "strictly smaller than it.",
   "matterTypes.list":
     "The firm's matter-type vocabulary. Rows come only from the create route of the shared " +
     "classification-type factory (apps/api-worker/src/routes/classification-type-routes.ts), " +

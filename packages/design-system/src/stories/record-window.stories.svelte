@@ -230,12 +230,23 @@
     await step("The expand control says what pressing it will do, and flips", async () => {
       const expand = body.getByRole("button", { name: "Fill the screen" });
       await expect(expand).toHaveAttribute("aria-pressed", "false");
+      // Rounded at window size: the panel is a sheet lying on top of the application.
+      await expect(getComputedStyle(dialog).borderTopLeftRadius).not.toBe("0px");
+
       await userEvent.click(expand);
       const shrink = await body.findByRole("button", { name: "Shrink back to a window" });
       await expect(shrink).toHaveAttribute("aria-pressed", "true");
+
+      // SQUARE at full screen. There is nothing underneath for it to lie on any more, so a curve
+      // reads as four notches of desktop showing through the corners of the application.
+      await expect(dialog).toHaveAttribute("data-expanded", "true");
+      await expect(getComputedStyle(dialog).borderTopLeftRadius).toBe("0px");
+      await expect(getComputedStyle(dialog).borderBottomRightRadius).toBe("0px");
+
       // Put it back: the choice is remembered for the session, so leaving it on would follow the
       // next story into its own assertions.
       await userEvent.click(shrink);
+      await expect(getComputedStyle(dialog).borderTopLeftRadius).not.toBe("0px");
     });
 
     await step("The first tab opens, and its panel is the one showing", async () => {

@@ -302,6 +302,11 @@ export async function timelinePageBounds(
 // the author said so and on the day it was typed otherwise — and no plain index serves an expression
 // the source composes at read time, so it joins the list on the same terms rather than gaining an
 // expression index for one read.
+//
+// `matterTask` joins them for its own reason: it carries composite indexes led by `matter_id` (and
+// an `(assignee_user_id, state, due_on)` one for the member's own list), and a firm-wide window
+// naming no matter and no member can seek either. A date-led index would cost a write path a firm
+// touches all day, for the slowest read the calendar does.
 export const CALENDAR_PLAN_SCAN_ALLOWLIST: readonly string[] = [
   "timeline.firm-window.matterDeadline",
   "timeline.firm-window.emailFiled",
@@ -312,6 +317,7 @@ export const CALENDAR_PLAN_SCAN_ALLOWLIST: readonly string[] = [
   "timeline.firm-window.conflictsCheck",
   "timeline.firm-window.trustMovement",
   "timeline.firm-window.matterNote",
+  "timeline.firm-window.matterTask",
 ];
 
 function capturedStatement(statement: SqlStatement): NodeSqlStatement {

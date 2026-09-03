@@ -143,6 +143,20 @@
     columnWidths?: Record<string, number>;
     /** The surface's own empty state, where a story is exercising one. */
     empty?: Snippet;
+    /**
+     * The scroll frame's own sizing classes. Capped by default, which is how most stories want it.
+     */
+    frameClass?: string;
+    /**
+     * A definite height for the frame, as an inline length on the box around it.
+     *
+     * It is a raw length and not a utility on purpose: the spacing scale stops at 96px, which is
+     * about what this table's header, one row and its totals already measure — so no utility in
+     * the theme can make a frame TALLER than its own content, and a story about the space below a
+     * short table needs exactly that. Scaffolding for a measurement, in a fixture that is not part
+     * of the design-system API; nothing shipped sizes a table this way.
+     */
+    frameHeight?: string;
     onActivate?: (row: TimeEntry) => void;
     onSelectionChange?: (keys: readonly string[], rows: readonly TimeEntry[]) => void;
   };
@@ -157,6 +171,8 @@
     rowDetail,
     columnWidths,
     empty,
+    frameClass = "max-h-96",
+    frameHeight,
     onActivate,
     onSelectionChange,
   }: Props = $props();
@@ -186,7 +202,7 @@
   });
 </script>
 
-<div class="flex flex-col gap-8">
+<div class="flex flex-col gap-8" style={frameHeight === undefined ? undefined : `block-size: ${frameHeight}`}>
   <DataTable.Grid
     {grid}
     caption="Time entries"
@@ -194,7 +210,7 @@
     {density}
     {rowDetail}
     {empty}
-    class="max-h-96"
+    class={frameClass}
   >
     {#snippet cell({ row, column, text })}
       {#if column.id === "status"}

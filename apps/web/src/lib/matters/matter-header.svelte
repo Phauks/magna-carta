@@ -8,12 +8,17 @@
    * strip moved off its own row, and 76px when the identity block stopped spending three rows on
    * itself; the search takes the space the strip's row left behind rather than a row of its own.
    *
-   * THE BAND CARRIES NO ACTIONS — the search is a way IN to the matter, not something done to it.
-   * The band held one overflow (...) control whose only item was the status's lifecycle action,
-   * shipped disabled and marked Soon. The owner removed it on 2026-09-01: a menu that has to be
-   * opened to find out it holds nothing pressable is chrome that costs a control's width and
-   * returns nothing. When the lifecycle action is wired it comes back as a named button, on the row
-   * and legible at rest, not behind a glyph.
+   * THE BAND CARRIES ONE ACTION, AND IT IS THE CREATE CONTROL. The search is a way IN to the
+   * matter; the create control beside it (owner's placement, 2026-09-03) is the one way something
+   * new is made on it — "New Fee" on Fees, "New File" on Files, its label answered by the section
+   * registry and its behaviour claimed by the section's page (create-action.svelte.ts). It is one
+   * width on every section, so the search it sits beside never moves. It replaces the create
+   * button each section used to carry in its own action row, which sat a different distance down
+   * the screen on every tab. The band's earlier overflow (...) control, whose only item was the
+   * status's lifecycle action shipped disabled and marked Soon, was removed on 2026-09-01: a menu
+   * that has to be opened to find out it holds nothing pressable is chrome that costs a control's
+   * width and returns nothing. When the lifecycle action is wired it comes back as a named button,
+   * on the row and legible at rest, not behind a glyph.
    *
    * THE LEDGER LINE HAS NO ROW OF ITS OWN. The matter number and its status seal lead the citation
    * beneath the title, where they still read first, instead of costing a full line above it. That
@@ -52,12 +57,14 @@
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import MatterCreateControl from "$lib/matters/matter-create-control.svelte";
+  import type { MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
   import MatterSearchControl from "$lib/matters/matter-search-control.svelte";
   import MatterSectionNav from "$lib/matters/matter-section-nav.svelte";
   import MatterStatusDialog from "$lib/matters/matter-status-dialog.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
-  let { matter }: { matter: MatterRecord } = $props();
+  let { matter, createSlot }: { matter: MatterRecord; createSlot: MatterCreateSlot } = $props();
 
   // The citation line's entries in reading order, nulls dropped — a consultation simply has a
   // shorter citation, never an empty slot.
@@ -130,11 +137,17 @@
        the field grows toward the inline start as it opens, so sharing the row would shove the tabs
        sideways on the first keystroke — and the strip's own fold would then re-measure mid-typing.
        Rendering it in the HEADER, which the matter layout draws over every section, is what puts
-       one search on every screen and stops a section growing its own. -->
+       one search on every screen and stops a section growing its own.
+
+       THE CREATE CONTROL ENDS THE ROW, AFTER THE SEARCH. The search grows toward the inline start,
+       so a control placed after it is the one place on the row the field's growth cannot reach —
+       the file manager's own ruling about New keeping its place, applied here. The control's width
+       is a token, so the row is the same shape on every section. -->
   {#snippet trailing()}
     <div class="flex min-w-0 flex-1 flex-col items-end justify-between gap-8">
-      <div class="flex flex-none items-center pt-4">
+      <div class="flex flex-none items-center gap-8 pt-4">
         <MatterSearchControl matterId={matter.id} />
+        <MatterCreateControl slot={createSlot} matterId={matter.id} />
       </div>
       <MatterSectionNav matterId={matter.id} />
     </div>

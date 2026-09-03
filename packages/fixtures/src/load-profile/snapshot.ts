@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { backup } from "node:sqlite";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import type { LocationId, MatterId } from "@magna-carta/identifiers/types";
+import type { LocationId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import {
   loadMigrationsFromDisk,
   openNodeDatabaseFile,
@@ -37,6 +37,7 @@ import {
 import { generateTrustVolume, type TrustProbes } from "./trust-generate.ts";
 import { generateCustodianVolume, type CustodianProbes } from "./custodian-generate.ts";
 import { generateCalendarVolume, type CalendarProbes } from "./calendar-generate.ts";
+import { generateTaskVolume, type TaskProbes } from "./tasks-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -141,6 +142,14 @@ export interface SnapshotManifest {
   readonly firmResourceCount: number;
   readonly firmResourceBookingCount: number;
   readonly calendarProbes: CalendarProbes;
+  // The task volume laid over the practice book: what the firm still owes on its matters, its own
+  // work on no matter at all, and the time logged against some of it — plus the probe identifiers
+  // the task measurement layer binds its paged / firm-wide / filtered / search / grouped-time reads
+  // to.
+  readonly taskCount: number;
+  readonly matterlessTaskCount: number;
+  readonly taskTimeEntryCount: number;
+  readonly taskProbes: TaskProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -204,6 +213,20 @@ async function readVisibleMatterIds(database: SqlDatabase): Promise<MatterId[]> 
     .prepare("SELECT id FROM matter WHERE system_key IS NULL ORDER BY id")
     .all<{ id: string }>();
   return results.map((row) => row.id as MatterId);
+}
+
+// A second member for the task volume to assign work to. "Assigned to somebody else" is a real
+// shape the assignee filter has to skip past, and a corpus where every task belonged to the probe
+// member would make that filter look free. Falls back to the probe member when the firm holds only
+// one, which is what the smallest scale multiplier produces.
+async function readSecondMemberUserId(database: SqlDatabase, besides: UserId): Promise<UserId> {
+  const { results } = await database
+    .prepare(
+      "SELECT user_id FROM member WHERE status = 'active' AND user_id != ?1 ORDER BY user_id LIMIT 1",
+    )
+    .bind(besides)
+    .all<{ user_id: string }>();
+  return (results[0]?.user_id as UserId | undefined) ?? besides;
 }
 
 export function snapshotCacheKey(profile: LedgerVolumeProfile, seed: string): string {
@@ -359,6 +382,24 @@ export async function loadProfileSnapshot(
         },
         options,
       );
+      // The task volume rides after the calendar, for the same reason the calendar rides last: the
+      // deep-list probe matter is the one every other generator has already made busiest, and the
+      // time this volume links is captured on matters those generators opened.
+      const tasks = await generateTaskVolume(
+        generated.database,
+        context,
+        profile.tasks,
+        {
+          matterIds: await readVisibleMatterIds(generated.database),
+          deepTaskMatterId: practice.probes.busiestMatterId,
+          memberUserId: practice.probes.responsibleMemberId,
+          otherMemberUserId: await readSecondMemberUserId(
+            generated.database,
+            practice.probes.responsibleMemberId,
+          ),
+        },
+        options,
+      );
       const manifest: SnapshotManifest = {
         profile,
         seed,
@@ -422,6 +463,10 @@ export async function loadProfileSnapshot(
         firmResourceCount: calendar.firmResourceCount,
         firmResourceBookingCount: calendar.firmResourceBookingCount,
         calendarProbes: calendar.probes,
+        taskCount: tasks.taskCount,
+        matterlessTaskCount: tasks.matterlessTaskCount,
+        taskTimeEntryCount: tasks.taskTimeEntryCount,
+        taskProbes: tasks.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

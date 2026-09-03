@@ -107,7 +107,13 @@ import type {
   MatterEventTypeId,
   MatterId,
   MatterPartyId,
+  MatterPlanTaskTemplateId,
+  MatterPlanTemplateId,
   MatterRecoveryId,
+  MatterTaskDocumentId,
+  MatterTaskDeletionId,
+  MatterTaskExternalLinkId,
+  MatterTaskId,
   MatterTypeId,
   MemberLocationId,
   MemberRoleId,
@@ -2198,6 +2204,15 @@ export const timeEntry = sqliteTable(
       enum: ["timer", "manual", "quick_add", "grid", "offline_sync", "calendar"],
     }).notNull(),
     liveRunId: text("live_run_id"), // set for source = timer; the stop-commit dedup anchor
+    // The task this time was worked on, if the timekeeper named one. Nullable and expected to be
+    // null on most rows: time is captured against a matter, and naming a task is an extra the
+    // timekeeper chooses. ONE task per entry, never a set — an entry split across two tasks is a
+    // narrative problem (write two entries), and a set would need an allocation of the minutes
+    // between them, which turns a link into a second ledger. The task must be on this entry's own
+    // matter; the service refuses anything else, including a task on no matter at all.
+    taskId: text("task_id")
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
     invoiceId: text("invoice_id"), // set at billing; null until billed
     // The reviewer's note set on kick-back, cleared when the timekeeper resubmits. Stored here
     // (not audit_log.metadata) so it inherits the entry's tenancy, RBAC, and retention, and
@@ -2226,6 +2241,11 @@ export const timeEntry = sqliteTable(
     index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
     index("time_entry_matter_status_index").on(table.matterId, table.status),
     index("time_entry_status_work_date_index").on(table.status, table.workDate),
+    // The grouped read behind "how long did this task actually take". Partial, because the column
+    // is null on nearly every row and an index over those nulls would be mostly dead weight.
+    index("time_entry_task_index")
+      .on(table.taskId)
+      .where(sql`${table.taskId} IS NOT NULL`),
     // Collapses racing stop-commits of one live timer to one entry.
     uniqueIndex("time_entry_live_run_id_unique_index")
       .on(table.liveRunId)
@@ -5763,6 +5783,14 @@ export const matterBillingArrangement = sqliteTable(
     currency: text("currency").notNull(),
     validFrom: text("valid_from").notNull(), // civil PlainDate
     validTo: text("valid_to"), // null = in force; set once, by the version that superseded it
+    // The signed agreement this version rests on — the intake agreement the client signed at
+    // opening, or the amendment they signed later — as an ordinary matter file, like the conflicts
+    // waiver's evidencing document. A reference the firm can produce on demand rather than a
+    // belief that one exists. Nullable: a version may be recorded before the paper is filed, and
+    // every version on the books predates the column.
+    agreementFileId: text("agreement_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
     createdAt: text("created_at").notNull(),
     createdBy: text("created_by").$type<UserId>(),
   },
@@ -6339,6 +6367,434 @@ export const matterNoteDocument = sqliteTable(
     // One document rides one note once. A second identical link is a duplicate row a person reads as
     // the same file twice, and detaching one would leave the other behind.
     uniqueIndex("matter_note_document_note_file_unique_index").on(table.noteId, table.fileId),
+  ],
+);
+
+// THE TASK: one piece of work with somebody's name on it and a state that says whether the firm
+// still owes it. Three things distinguish it from the two dated records already here, and all three
+// are why it is its own table rather than a column on one of them.
+//
+// It has an ASSIGNEE and a COMPLETION STATE, which neither a matter_event nor a matter_deadline has.
+// And it has no external reality: nobody continues a task, nothing vacates it, and no court knows it
+// exists. Modelling one as an event would import the continuance discipline, under which a hearing
+// moved from the 3rd to the 17th is two rows because both settings really happened — but a task's
+// due date moving is somebody changing their mind, and two rows would put two items on one person's
+// list. Modelling one as a deadline would dilute the table whose whole purpose is that a missing
+// entry is a malpractice event; a deadline surface that is mostly "call the client back" is a
+// deadline surface people stop reading.
+//
+// MATTER_ID IS NULLABLE, and this is a deliberate departure from firm_event immediately below, which
+// took the opposite decision for its own scope. Read both before copying either. The calendar's
+// argument was that a null matter puts a does-not-apply branch inside the visibility seam, and that
+// dropping a NOT NULL on a shipped table is a rebuild the additive-only lineage forbids. The second
+// half does not apply to a table that is nullable from its first migration. The first half is real
+// and is answered by confinement rather than by a second table: the branch lives in exactly one
+// function, taskVisibilityFragment in packages/tasks/src/task-statements.ts, and every read composes
+// it. The reason not to take firm_event's answer is that the two records differ in where they are
+// read: a firm event is read on the firm's calendar and a matter event on the matter's, so two
+// tables match two surfaces. Tasks have one surface either way — "what is on my plate" spans a
+// member's client work and their firm work in one list, and splitting the table would mean unioning
+// it back together on the read every member makes most often. magnus_conversation is the precedent
+// this follows: an optional matter link on a record whose tenancy root is the firm.
+//
+// A task with no matter is PRIVATE to its assignee and whoever created it. A task on a matter is
+// firm-visible within that matter, screened by the same visible-matter predicate every calendar
+// source composes. Those are two rules in one predicate, not two subsystems.
+//
+// NO OVERDUE COLUMN, and there is deliberately no way to add one here. Overdue is a comparison
+// against now, computed where the reader is, through packages/calendar/src/overdue.ts. The argument
+// the calendar makes for deadlines is stronger here: tasks are numerous, a nightly per-firm sweep
+// over them is exactly the heavy scheduled work that belongs off this platform, and a stored flag is
+// stale in precisely the window where it matters.
+export const matterTask = sqliteTable(
+  "matter_task",
+  {
+    id: text("id").primaryKey().$type<MatterTaskId>(), // matterTask_ handle
+    // Nullable — see the table comment. Not a foreign key we can lean on for tenancy, so every read
+    // composes the visibility predicate rather than trusting the column.
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    title: text("title").notNull(),
+    body: text("body"),
+    // Nullable, and an unassigned task is a real state rather than a defect: a backlog item nobody
+    // has picked up, or a plan template whose role resolved to nobody. An unresolved assignment is
+    // shown as unassigned and never silently given to the responsible attorney.
+    assigneeUserId: text("assignee_user_id").$type<UserId>(),
+    // Who put the task there. Never nulls and never repoints — it is half of what makes a matterless
+    // task reachable, and an unattributed obligation is worth a fraction of an attributed one.
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    // A closed platform vocabulary rather than a firm picklist. Four values with an inherent order,
+    // so a list sorts by urgency without a join and the notification facts can carry a value their
+    // reader knows. There is no separate 'none': `normal` IS the absence of a signal, and two ways to
+    // say that is how a filter ends up with a checkbox nobody understands.
+    priority: text("priority", { enum: ["low", "normal", "high", "urgent"] })
+      .notNull()
+      .default("normal"),
+    // The deadline's own column shape, and reached through the same resolver
+    // (packages/calendar/src/time-zone.ts). A civil date, an optional wall-clock time, and the zone
+    // that time is read in. NOT a UTC instant, for the reason the calendar states as an invariant: no
+    // column stores midnight-local-as-UTC, which is the daylight-saving off-by-one that moves a dated
+    // record by a day when the clocks change. A task due "Friday" that fires Thursday night twice a
+    // year is that bug with lower stakes and far higher frequency.
+    //
+    // All three are optional TOGETHER: a task with no due date is ordinary, not a gap. The zone is
+    // required whenever there is a date, because a task due "Friday" for somebody in Reno and
+    // somebody in Boston is due at two different moments and the row has to say which.
+    dueOn: text("due_on"), // civil date, YYYY-MM-DD
+    dueAtTime: text("due_at_time"), // wall clock, HH:MM
+    // The ASSIGNEE'S zone, frozen at the write from their office — the discipline
+    // firm_resource_booking already uses, so an office zone change never reinterprets an existing
+    // row. A task reassigned across offices keeps its zone unless somebody changes the date: silently
+    // moving a due date by three hours on a reassignment is worse than a mismatch a person can see.
+    timeZone: text("time_zone"),
+    state: text("state", { enum: ["open", "done", "cancelled"] })
+      .notNull()
+      .default("open"),
+    // Completion is one-way in the product and reversible in the record. Reopening moves the state
+    // back and clears these, and the audit row carries that it happened — a task that was closed and
+    // reopened is a fact about how the matter ran.
+    completedAt: text("completed_at"), // UTC instant
+    completedBy: text("completed_by").$type<UserId>(),
+    // Cancellation is the third state and it is not optional. Without it, a task that should not have
+    // been created has only `done` — a lie about work — or deletion to reach for. A reason is
+    // required, because "we decided not to" is the entire content of the record.
+    cancelledAt: text("cancelled_at"), // UTC instant
+    cancelledBy: text("cancelled_by").$type<UserId>(),
+    cancellationReason: text("cancellation_reason"),
+    // One predecessor, and it GATES NOTHING. A blocked task renders as blocked and sorts below; it is
+    // not refused and completing it out of order is allowed. A firm's real sequence has exceptions
+    // constantly, and a checklist that enforces order is a checklist people stop using. Cycles are
+    // refused at the write, where the chain is short and the walk is bounded.
+    blockedByTaskId: text("blocked_by_task_id").$type<MatterTaskId>(),
+    // Both are LINKS and never inputs to a calculation — the rule packages/calendar/CLAUDE.md states
+    // for matter_deadline.trigger_event_id, inherited verbatim. `deadline_id` is what lets a firm ask
+    // which obligations have no work scheduled against them; neither column moves a date.
+    triggerEventId: text("trigger_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    deadlineId: text("deadline_id")
+      .$type<MatterDeadlineId>()
+      .references(() => matterDeadline.id),
+    // WHERE THIS TASK CAME FROM, where a matter plan proposed it and somebody accepted. Provenance
+    // and never a live link: nothing resolves these on a read, editing a template does not touch a
+    // task already on a matter, and deactivating one does not either. What they buy is the question
+    // a firm actually asks — which matters came off the old intake plan — answered by matching a
+    // handle rather than by a join that would make a template edit reach into open matters.
+    //
+    // They carry foreign keys for the same reason trigger_event_id above does: a link that is never
+    // an input to a calculation is still a link that should point at something real, and a template
+    // soft-deactivates rather than deleting, so nothing dangles.
+    planTemplateId: text("plan_template_id")
+      .$type<MatterPlanTemplateId>()
+      .references(() => matterPlanTemplate.id),
+    planTaskTemplateId: text("plan_task_template_id")
+      .$type<MatterPlanTaskTemplateId>()
+      .references(() => matterPlanTaskTemplate.id),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    // WHO TOUCHED IT LAST. Null on a row nothing has edited since it was written, and on every row
+    // that predates this column — an honest gap rather than a backfilled guess.
+    //
+    // It exists for the mirror. A system syncing this task both ways has to tell its OWN writes from
+    // a person's, or it pushes back everything it just pulled and the two sides oscillate forever.
+    // Reading the actor off the audit log would work and would make the cheapest question in the
+    // feed ("did I do this?") a second query per row.
+    updatedBy: text("updated_by").$type<UserId>(),
+  },
+  (table) => [
+    // The provenance read: which matters came off this plan.
+    index("matter_task_plan_template_index").on(table.planTemplateId),
+    // THE CHANGE FEED. "What moved since I last looked", as a keyset over the pair — the instant
+    // alone is not a cursor, because two tasks written in the same millisecond would make a page
+    // boundary either skip one or repeat it. The id breaks the tie and the pair is what a caller
+    // carries.
+    index("matter_task_updated_at_id_index").on(table.updatedAt, table.id),
+    // "What is on my plate", which is the read a member makes most often and the one that decides
+    // whether this subsystem gets used. Leads with the assignee and the state so the open ones come
+    // off the index without a scan.
+    index("matter_task_assignee_state_due_on_index").on(
+      table.assigneeUserId,
+      table.state,
+      table.dueOn,
+    ),
+    // The matter's own task list, and the federated timeline's read of it.
+    index("matter_task_matter_due_on_id_index").on(table.matterId, table.dueOn, table.id),
+    index("matter_task_matter_created_at_id_index").on(table.matterId, table.createdAt, table.id),
+    // The matterless list, which no matter index can serve.
+    index("matter_task_created_by_index").on(table.createdBy, table.createdAt),
+    index("matter_task_blocked_by_index").on(table.blockedByTaskId),
+    index("matter_task_deadline_index").on(table.deadlineId),
+    check("matter_task_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "matter_task_priority_check",
+      sql`${table.priority} IN ('low', 'normal', 'high', 'urgent')`,
+    ),
+    check("matter_task_state_check", sql`${table.state} IN ('open', 'done', 'cancelled')`),
+    check(
+      "matter_task_due_on_shape_check",
+      sql`${table.dueOn} IS NULL OR ${table.dueOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_task_due_at_time_shape_check",
+      sql`${table.dueAtTime} IS NULL OR ${table.dueAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    // A time with no date is not a moment anybody can place, and a date with no zone is not a moment
+    // either — the second in both directions, because a zone on a task with no due date says nothing.
+    check(
+      "matter_task_due_shape_check",
+      sql`(${table.dueAtTime} IS NULL OR ${table.dueOn} IS NOT NULL)
+        AND (${table.dueOn} IS NULL) = (${table.timeZone} IS NULL)`,
+    ),
+    // Each terminal state carries its own evidence, and neither carries the other's. A `done` task
+    // has a completion actor and instant; a `cancelled` task has both plus the reason; an `open` task
+    // has none of it. Held here so a repair script cannot invent a completion nobody performed.
+    check(
+      "matter_task_completion_shape_check",
+      sql`(${table.state} = 'done' AND ${table.completedAt} IS NOT NULL AND ${table.completedBy} IS NOT NULL)
+        OR (${table.state} != 'done' AND ${table.completedAt} IS NULL AND ${table.completedBy} IS NULL)`,
+    ),
+    check(
+      "matter_task_cancellation_shape_check",
+      sql`(${table.state} = 'cancelled' AND ${table.cancelledAt} IS NOT NULL AND ${table.cancelledBy} IS NOT NULL
+          AND ${table.cancellationReason} IS NOT NULL AND length(${table.cancellationReason}) > 0)
+        OR (${table.state} != 'cancelled' AND ${table.cancelledAt} IS NULL AND ${table.cancelledBy} IS NULL
+          AND ${table.cancellationReason} IS NULL)`,
+    ),
+    // A task never blocks on itself. The longer chains are walked at the write; this closes the
+    // one-hop case at the database, where it costs nothing.
+    check("matter_task_blocked_by_self_check", sql`${table.blockedByTaskId} != ${table.id}`),
+  ],
+);
+
+// A file on the task's matter, linked to a task. Modelled on matter_note_document, whose reasoning
+// carries over unchanged: bytes never reach a task route, the link names a handle the File Manager
+// already holds, and detaching leaves the document exactly where it lives.
+//
+// A TASK WITH NO MATTER POINTS AT NO DOCUMENTS, and that is a consequence rather than a rule anybody
+// had to invent: every row in `file` carries a NOT NULL matter_id, so there is no such thing as a
+// firm-wide file for a matterless task to point at. The write path refuses the link with its own
+// code rather than failing a join.
+export const matterTaskDocument = sqliteTable(
+  "matter_task_document",
+  {
+    id: text("id").primaryKey().$type<MatterTaskDocumentId>(), // matterTaskDocument_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    linkedAt: text("linked_at").notNull(),
+    linkedBy: text("linked_by").$type<UserId>(),
+  },
+  (table) => [
+    index("matter_task_document_task_index").on(table.taskId),
+    index("matter_task_document_file_index").on(table.fileId),
+    // One document rides one task once. A second identical link is a row a person reads as the same
+    // file twice, and detaching one would leave the other behind.
+    uniqueIndex("matter_task_document_task_file_unique_index").on(table.taskId, table.fileId),
+  ],
+);
+
+// A TASK'S IDENTITY SOMEWHERE ELSE, and the tombstone a deleted task leaves behind. Both exist for
+// one reason: this platform is not the only place a firm's work is written down, and an ADDON that
+// mirrors tasks to an outside system needs two things the task row alone cannot give it.
+//
+// THE PLATFORM SHIPS NO ADAPTER and integrates with nothing here. What ships is the seam: `system`
+// is open text constrained to a non-empty value — the `directory_edge.edge_type` discipline — so a
+// second system is an addon rather than a migration, and nothing in this schema names a vendor.
+//
+// TWO UNIQUENESS RULES, and they are different claims. One remote object maps to at most one task
+// here, or two tasks would fight over the same mirror and each would win half the time. One task
+// holds at most one identity per system, or a change here would have two places to go and no way to
+// choose. Both are indexes rather than service checks, because a race between two syncs is exactly
+// the case a service check loses.
+export const matterTaskExternalLink = sqliteTable(
+  "matter_task_external_link",
+  {
+    id: text("id").primaryKey().$type<MatterTaskExternalLinkId>(), // matterTaskExternalLink_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    // The outside system, in whatever the addon calls itself. Never an enum: adding one is the whole
+    // point, and an enum would make every new addon a reviewed migration in this file.
+    system: text("system").notNull(),
+    // The remote's own handle for this thing. Opaque here — this platform never parses it, never
+    // orders by it, and never derives anything from its shape.
+    externalId: text("external_id").notNull(),
+    // Where a person goes to see it over there. Nullable: a system may have no addressable page, and
+    // inventing a URL from an id pattern would be this schema guessing at somebody else's routing.
+    externalUrl: text("external_url"),
+    // What the remote looked like when the two sides last agreed — a vendor's own revision token, an
+    // ETag, a timestamp they minted. OPAQUE: stored, handed back, never compared for order or
+    // parsed. It is the addon's business what it means; the platform's business is not losing it.
+    remoteRevision: text("remote_revision"),
+    lastSyncedAt: text("last_synced_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    uniqueIndex("matter_task_external_link_system_external_id_unique_index").on(
+      table.system,
+      table.externalId,
+    ),
+    uniqueIndex("matter_task_external_link_task_system_unique_index").on(
+      table.taskId,
+      table.system,
+    ),
+    index("matter_task_external_link_task_index").on(table.taskId),
+    check("matter_task_external_link_system_nonempty_check", sql`length(${table.system}) > 0`),
+    check(
+      "matter_task_external_link_external_id_nonempty_check",
+      sql`length(${table.externalId}) > 0`,
+    ),
+  ],
+);
+
+// The tombstone. A task DELETE removes the row, which is the right behaviour for a record that
+// should not exist — and it makes the deletion unobservable to anything that was not watching at the
+// time. A mirror that never learns of it keeps the work alive somewhere the firm has stopped
+// looking, which is worse than the stale row it was meant to prevent.
+//
+// It carries IDENTIFIERS AND NOTHING ELSE. No title, no body, no assignee — a tombstone that
+// preserved the content would defeat the delete it records. `task_id` is deliberately NOT a foreign
+// key: the row it names is gone, which is the entire point.
+export const matterTaskDeletion = sqliteTable(
+  "matter_task_deletion",
+  {
+    id: text("id").primaryKey().$type<MatterTaskDeletionId>(), // matterTaskDeletion_ handle
+    taskId: text("task_id").notNull().$type<MatterTaskId>(),
+    // The matter it was on, or null for the firm's own work. Kept so a mirror scoped to one matter
+    // can tell whether a deletion is any of its business without resolving a task that no longer
+    // exists.
+    matterId: text("matter_id").$type<MatterId>(),
+    deletedAt: text("deleted_at").notNull(),
+    deletedBy: text("deleted_by").$type<UserId>(),
+  },
+  (table) => [
+    // The same keyset shape the change feed uses for live rows, for the same reason.
+    index("matter_task_deletion_deleted_at_id_index").on(table.deletedAt, table.id),
+  ],
+);
+
+// THE MATTER PLAN: a firm's own statement of the work a kind of matter takes, as a template that
+// PROPOSES tasks rather than one that writes them.
+//
+// THE PLATFORM SHIPS NONE OF THESE, and that is a competitive decision made against the grain. Every
+// competitor ships plan libraries and a firm evaluating this platform will notice their absence. A
+// plan is a statement about how THIS FIRM practises in THIS jurisdiction, and a platform-shipped plan
+// with a missing step, or a step in the wrong order, or a step that is right in Nevada and wrong in
+// California, is a malpractice vector carrying the platform's name — and it gets trusted precisely
+// because it shipped, which is the calendar's exact argument about computed dates. The migration
+// creates these tables and inserts nothing.
+//
+// A template soft-deactivates and is never deleted, the discipline matter_type and firm_resource
+// already use: instantiated tasks carry the template's handle as provenance, and a firm asking which
+// matters came off the old intake plan needs the row to still be there.
+export const matterPlanTemplate = sqliteTable(
+  "matter_plan_template",
+  {
+    id: text("id").primaryKey().$type<MatterPlanTemplateId>(), // matterPlanTemplate_ handle
+    name: text("name").notNull(),
+    description: text("description"),
+    // Which kind of matter this plan is offered on. NULL means every kind — a firm whose intake steps
+    // are the same whatever the matter is should not have to author the plan once per type.
+    matterTypeId: text("matter_type_id")
+      .$type<MatterTypeId>()
+      .references(() => matterType.id),
+    active: integer("active").notNull().default(1),
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The read that matters: which plans are offered when a matter of this type opens.
+    index("matter_plan_template_matter_type_active_index").on(table.matterTypeId, table.active),
+    uniqueIndex("matter_plan_template_name_unique_index").on(table.name),
+    check("matter_plan_template_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("matter_plan_template_active_check", sql`${table.active} IN (0, 1)`),
+  ],
+);
+
+// One task a plan proposes. It carries a due-date ANCHOR rather than a date, and a ROLE rather than a
+// member, because both of the alternatives are wrong the moment a template is used twice.
+//
+// THE ANCHOR VOCABULARY IS DELIBERATELY ALMOST EMPTY: `matter_opened` and `none`, held by a CHECK so
+// growing it is a migration somebody reviews. There is no `service_date` anchor, no `filing_date`
+// anchor and no trigger-event anchor, because each of those is the FRONT HALF OF A DOCKETING RULE and
+// adding one invites the back half — which is the engine packages/calendar has spent a subsystem
+// refusing to build, on the reasoning that a computed deadline which is wrong gets trusted precisely
+// because it was computed.
+//
+// What keeps the offset honest is that it is PLAIN CALENDAR-DAY ADDITION: no business days, no
+// holiday calendar, no service-method offset. Adding fourteen days to a date is not the arithmetic
+// the calendar forbids; deriving a court deadline from a rule is, and this does not do that. The
+// visible cost is that a template can propose a task due on a Sunday or on Christmas Day, and that
+// cost is exactly why instantiation is propose-and-confirm rather than automatic: a person moves the
+// date in a second, and a template cannot know to.
+export const matterPlanTaskTemplate = sqliteTable(
+  "matter_plan_task_template",
+  {
+    id: text("id").primaryKey().$type<MatterPlanTaskTemplateId>(), // matterPlanTaskTemplate_ handle
+    templateId: text("template_id")
+      .notNull()
+      .$type<MatterPlanTemplateId>()
+      .references(() => matterPlanTemplate.id),
+    title: text("title").notNull(),
+    body: text("body"),
+    priority: text("priority", { enum: ["low", "normal", "high", "urgent"] })
+      .notNull()
+      .default("normal"),
+    // Matched against matter_assignment.assignment_role at instantiation, never against a member. A
+    // template that named Sarah would be wrong the moment Sarah's matters were reassigned. An
+    // unresolved role leaves the proposed task UNASSIGNED and visibly so — never silently given to
+    // the responsible attorney, which would be the platform inventing an obligation for somebody.
+    defaultAssigneeRole: text("default_assignee_role"),
+    dueAnchor: text("due_anchor", { enum: ["matter_opened", "none"] })
+      .notNull()
+      .default("none"),
+    // Days added to the anchor, plain calendar days. Null exactly when the anchor is `none`.
+    offsetDays: integer("offset_days"),
+    // One predecessor within the SAME template. Cycles are refused at authoring time, where the graph
+    // is small and static rather than at instantiation where a firm would meet the refusal.
+    blockedByTemplateTaskId: text("blocked_by_template_task_id").$type<MatterPlanTaskTemplateId>(),
+    // The order the authoring surface lists them in and the proposal presents them in. Not unique:
+    // reordering a list whose positions must stay distinct means rewriting every row after the one
+    // that moved, and the handle is the tiebreak that makes ties harmless.
+    position: integer("position").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("matter_plan_task_template_template_position_index").on(table.templateId, table.position),
+    index("matter_plan_task_template_blocked_by_index").on(table.blockedByTemplateTaskId),
+    check("matter_plan_task_template_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "matter_plan_task_template_priority_check",
+      sql`${table.priority} IN ('low', 'normal', 'high', 'urgent')`,
+    ),
+    // The anchor vocabulary, as a CHECK so a third value is a reviewed migration rather than a commit.
+    check(
+      "matter_plan_task_template_due_anchor_check",
+      sql`${table.dueAnchor} IN ('matter_opened', 'none')`,
+    ),
+    // An offset without an anchor computes nothing; an anchor without an offset is the anchor date
+    // itself and would silently mean "+0" rather than saying so.
+    check(
+      "matter_plan_task_template_offset_shape_check",
+      sql`(${table.dueAnchor} = 'none' AND ${table.offsetDays} IS NULL)
+        OR (${table.dueAnchor} != 'none' AND ${table.offsetDays} IS NOT NULL)`,
+    ),
+    // A template task never waits on itself. Longer chains are walked at the write.
+    check(
+      "matter_plan_task_template_blocked_by_self_check",
+      sql`${table.blockedByTemplateTaskId} != ${table.id}`,
+    ),
   ],
 );
 
@@ -8385,6 +8841,7 @@ export const notificationEvent = sqliteTable(
       enum: [
         "deadlines",
         "calendar",
+        "tasks",
         "trust",
         "billing",
         "documents",
@@ -8431,6 +8888,7 @@ export const notificationEvent = sqliteTable(
         "searchIndexJob",
         "recoveryJob",
         "member",
+        "matterTask",
       ],
     }).notNull(),
     // The record's own handle. A LINK, never a copy, and deliberately no cross-domain foreign key —
@@ -8473,7 +8931,7 @@ export const notificationEvent = sqliteTable(
     index("notification_event_occurred_at_index").on(table.occurredAt, table.id),
     check(
       "notification_event_category_check",
-      sql`${table.category} IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')`,
+      sql`${table.category} IN ('deadlines', 'calendar', 'tasks', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')`,
     ),
     check(
       "notification_event_severity_check",
@@ -8481,7 +8939,7 @@ export const notificationEvent = sqliteTable(
     ),
     check(
       "notification_event_subject_kind_check",
-      sql`${table.subjectKind} IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member')`,
+      sql`${table.subjectKind} IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member', 'matterTask')`,
     ),
   ],
 );
@@ -8717,6 +9175,7 @@ export const notificationInAppSuppression = sqliteTable(
       enum: [
         "deadlines",
         "calendar",
+        "tasks",
         "trust",
         "billing",
         "documents",
@@ -8748,7 +9207,7 @@ export const notificationInAppSuppression = sqliteTable(
     ),
     check(
       "notification_in_app_suppression_category_check",
-      sql`${table.category} IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')`,
+      sql`${table.category} IN ('deadlines', 'calendar', 'tasks', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')`,
     ),
     check(
       "notification_in_app_suppression_reason_check",
