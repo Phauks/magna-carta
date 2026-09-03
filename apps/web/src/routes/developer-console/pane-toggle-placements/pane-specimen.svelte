@@ -14,6 +14,11 @@
    * The panel's CONTENT is a stand-in rather than the shipping details panel or inspector. What is
    * under review is where a reader reaches to open a pane and what that reach costs the screen;
    * the real panels would drag four ledgers' worth of record types into a gallery about a button.
+   *
+   * The TOGGLE, though, is the shipping one — `PaneToggle`, the same component the ledgers and the
+   * file manager render. A gallery that drew its own copy of the control would be comparing
+   * placements for a button that does not exist, and would go stale the first time the real one
+   * changed.
    */
   import { untrack } from "svelte";
   import Button from "@magna-carta/design-system/button";
@@ -26,9 +31,8 @@
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import PanelLeft from "@lucide/svelte/icons/panel-left";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
   import Search from "@lucide/svelte/icons/search";
+  import { PaneToggle } from "$lib/records/index.ts";
   import { SPECIMEN_ENTRIES, type SpecimenEntry } from "./specimen-entries.ts";
 
   /**
@@ -110,9 +114,6 @@
   /** True where the surface draws a row above the table for reasons of its own. */
   const drawsRowAbove = $derived(isFiles || filtered || placement === "row");
 
-  const panelTitle = $derived(panelOpen ? "Hide the details panel" : "Show the details panel");
-  const railTitle = $derived(railOpen ? "Hide the folder tree" : "Show the folder tree");
-
   /*
    * The panes are told their share explicitly. Two of the three mount and unmount as the toggles
    * are pressed, and a pane group left to infer the middle pane's size hands the freed width back
@@ -134,38 +135,29 @@
   {/if}
 {/snippet}
 
-{#snippet railGlyph(size: "icon" | "icon-sm")}
-  <Button
-    variant="ghost"
-    {size}
-    aria-pressed={railOpen}
-    title={railTitle}
-    aria-label={railTitle}
-    onclick={() => (railOpenState = !railOpenState)}
-  >
-    <PanelLeft class="size-16" aria-hidden="true" />
-  </Button>
+{#snippet railGlyph()}
+  <PaneToggle
+    open={railOpen}
+    side="start"
+    pane="the folder tree"
+    onToggle={() => (railOpenState = !railOpenState)}
+  />
 {/snippet}
 
-{#snippet panelGlyph(size: "icon" | "icon-sm")}
-  <Button
-    variant="ghost"
-    {size}
-    aria-pressed={panelOpen}
-    title={panelTitle}
-    aria-label={panelTitle}
-    onclick={() => (openedByHand = !openedByHand)}
-  >
-    <PanelRight class="size-16" aria-hidden="true" />
-  </Button>
+{#snippet panelGlyph()}
+  <PaneToggle
+    open={panelOpen}
+    pane="the details panel"
+    onToggle={() => (openedByHand = !openedByHand)}
+  />
 {/snippet}
 
 <!-- Both glyphs, in the order the panes they open sit on the screen. -->
-{#snippet bothGlyphs(size: "icon" | "icon-sm")}
+{#snippet bothGlyphs()}
   {#if isFiles && railToggle}
-    {@render railGlyph(size)}
+    {@render railGlyph()}
   {/if}
-  {@render panelGlyph(size)}
+  {@render panelGlyph()}
 {/snippet}
 
 {#snippet paneBody()}
@@ -217,7 +209,7 @@
           Search this matter
         </span>
         <Button variant="secondary">New {isFiles ? "File" : "Time"}</Button>
-        {@render bothGlyphs("icon")}
+        {@render bothGlyphs()}
       </span>
     </div>
   {/if}
@@ -253,7 +245,7 @@
         </Button>
       {/if}
       {#if placement === "row"}
-        {@render bothGlyphs("icon")}
+        {@render bothGlyphs()}
       {/if}
     </div>
   {/if}
@@ -306,11 +298,11 @@
            rather than as an act on the records. -->
       {#if isFiles && railToggle}
         <div class="absolute inset-y-0 start-0 flex items-center ps-4">
-          {@render railGlyph("icon-sm")}
+          {@render railGlyph()}
         </div>
       {/if}
       <div class="absolute inset-y-0 end-0 flex items-center pe-4">
-        {@render panelGlyph("icon-sm")}
+        {@render panelGlyph()}
       </div>
     {/if}
   </div>
@@ -322,7 +314,7 @@
         <span class="font-semibold tabular-nums">$6,262.50</span>
       </span>
       {#if placement === "footer"}
-        {@render bothGlyphs("icon-sm")}
+        {@render bothGlyphs()}
       {/if}
     {/snippet}
   </DataTable.GridFooter>

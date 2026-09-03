@@ -29,8 +29,12 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FileMinus from "@lucide/svelte/icons/file-minus";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
-  import { LedgerPanes, RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
+  import {
+    LedgerPanes,
+    PaneToggle,
+    RecordMenu,
+    type RecordMenuAction,
+  } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import type { CostSummary } from "$lib/matters/cost-api.ts";
@@ -443,11 +447,21 @@
       <span class="text-text-subtle">{figure.label}</span>
     </span>
   {/each}
+  <!-- The pane toggle ends the strip, after the figures: the last thing on the line, on every
+       surface in the product that has a pane. -->
+  <PaneToggle
+    open={panelOpen}
+    pane="the details panel"
+    onToggle={() => panelPreference.set(panelOpen ? "closed" : "open")}
+  />
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-12">
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
+  <!-- The row above the table exists ONLY when something has to be in it. The pane toggle rides the
+       counts strip beneath the table, so what is left is the way out of a filter — which is there
+       only while a filter is on. Unfiltered, the register starts at the top of the screen. -->
+  {#if grid.isFiltered}
+    <div class="flex flex-wrap items-center justify-end gap-8">
       <Button
         variant="secondary"
         size="sm"
@@ -457,20 +471,8 @@
         <FunnelX class="size-16" aria-hidden="true" />
         Clear Filters
       </Button>
-    {/if}
-    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-         border of its own, and last in the row on every ledger. -->
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
-  </div>
+    </div>
+  {/if}
 
   {#if actionFailure !== null}
     <FailureNotice

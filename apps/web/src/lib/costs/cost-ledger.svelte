@@ -35,9 +35,9 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import ListChecks from "@lucide/svelte/icons/list-checks";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
   import {
     LedgerPanes,
+    PaneToggle,
     RecordMenu,
     type RecordMenuAction,
     type RecordMenuModel,
@@ -419,48 +419,49 @@
       <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
     </span>
   {/each}
+  <!-- The pane toggle ends the strip, after the figures: the last thing on the line, on every
+       surface in the product that has a pane. -->
+  <PaneToggle
+    open={panelOpen}
+    pane="the details panel"
+    onToggle={() => panelPreference.set(panelOpen ? "closed" : "open")}
+  />
 {/snippet}
 
 <!-- The list region takes the remaining height and keeps it, so the screen does not reflow as
      rows arrive, as a filter narrows them, or as an empty state replaces them. -->
 <section class="flex min-h-0 flex-1 flex-col gap-12">
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
-      <Button
-        variant="secondary"
-        size="sm"
-        title="Clear all filters and show all {grid.totalRowCount} costs"
-        onclick={() => grid.clearAllFilters()}
-      >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
-      </Button>
-    {/if}
-    {#if REVIEW_GATE_ENABLED}
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={waitingForReview === 0}
-        title={reviewTitle}
-        onclick={openReview}
-      >
-        <ListChecks class="size-16" aria-hidden="true" />
-        {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
-      </Button>
-    {/if}
-    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-         border of its own, and last in the row on every ledger. -->
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
-  </div>
+  <!-- The row above the table exists ONLY when something has to be in it. The pane toggle rides the
+       counts strip beneath the table, so what is left are two acts that are genuinely acts: the way
+       out of a filter, while a filter is on, and Review where the firm runs review. A firm that does
+       not, reading an unfiltered ledger, gets no row at all and the table starts at the top. -->
+  {#if grid.isFiltered || REVIEW_GATE_ENABLED}
+    <div class="flex flex-wrap items-center justify-end gap-8">
+      {#if grid.isFiltered}
+        <Button
+          variant="secondary"
+          size="sm"
+          title="Clear all filters and show all {grid.totalRowCount} costs"
+          onclick={() => grid.clearAllFilters()}
+        >
+          <FunnelX class="size-16" aria-hidden="true" />
+          Clear Filters
+        </Button>
+      {/if}
+      {#if REVIEW_GATE_ENABLED}
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={waitingForReview === 0}
+          title={reviewTitle}
+          onclick={openReview}
+        >
+          <ListChecks class="size-16" aria-hidden="true" />
+          {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
+        </Button>
+      {/if}
+    </div>
+  {/if}
 
   {#if actionFailure !== null}
     <FailureNotice failure={actionFailure.failure} title="Nothing Changed" fallback={actionFailure.fallback}>

@@ -15,6 +15,13 @@
    * that lets a reader close its own navigation, so whatever answer the ledgers take, Files has to
    * be able to take as well — or has to be a deliberate exception.
    *
+   * WHAT WAS CHOSEN: the counts strip's inline end, on every surface, Files included — and both of
+   * Files' toggles kept for now rather than the folder tree's being dropped. The ruling and its
+   * reasoning live in docs/conventions/design-corrections.md and docs/conventions/file-manager-rulings.md;
+   * this page stays as what the choice was made against, so a later round can see what was weighed
+   * rather than re-deriving it. The specimens are candidates, not the product: the shipping
+   * arrangement is the real ledgers and the real file manager.
+   *
    * This is a decision surface, not a screen: nothing here ships as it stands. Dev builds only,
    * like the rest of the developer console — behind the import.meta.env.DEV gate.
    */
@@ -55,6 +62,11 @@
       <p class="text-sm text-text-muted">
         The ledger specimens come first, then the file manager, which carries two of these toggles
         and is the only screen in the product that lets a reader close its own folder tree.
+      </p>
+      <p class="text-sm text-text-default">
+        <strong>Chosen: the counts strip's inline end</strong>, on every surface — and both of the
+        file manager's toggles kept for now. This page stays as the record of what that was weighed
+        against; the shipping arrangement is the real ledgers and the real file manager.
       </p>
     </header>
 

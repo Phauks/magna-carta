@@ -30,9 +30,9 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
   import {
     LedgerPanes,
+    PaneToggle,
     RecordMenu,
     ledgerRecordMenu,
     type RecordMenuAction,
@@ -430,11 +430,23 @@
       <span class="font-semibold tabular-nums">{money(figure.amountMinor / 100)}</span>
     </span>
   {/each}
+  <!-- The pane toggle ends the strip, after the figures: the last thing on the line, on every
+       surface in the product that has a pane. -->
+  <PaneToggle
+    open={panelOpen}
+    pane="the details panel"
+    onToggle={() => panelPreference.set(panelOpen ? "closed" : "open")}
+  />
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-12">
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
+  <!-- The row above the table exists ONLY when something has to be in it. Recording one entry on
+       this matter is the matter header's New Time; the Time Sheet is the top bar's, reachable from
+       every screen including this one; and the pane toggle rides the counts strip beneath the
+       table. What is left is the way out of a filter, which is there only while a filter is on —
+       so on an unfiltered ledger the table starts at the top of the screen. -->
+  {#if grid.isFiltered}
+    <div class="flex flex-wrap items-center justify-end gap-8">
       <Button
         variant="secondary"
         size="sm"
@@ -444,23 +456,8 @@
         <FunnelX class="size-16" aria-hidden="true" />
         Clear Filters
       </Button>
-    {/if}
-    <!-- Recording one entry on this matter is the matter header's New Time; the Time Sheet is the
-         top bar's, reachable from every screen including this one, and a second door to it here was
-         a control that took a reader somewhere they were already standing in front of. -->
-    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-         border of its own, reading its state through the glyph and never a filled box. -->
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
-  </div>
+    </div>
+  {/if}
 
   {#if actionFailure !== null}
     <FailureNotice
