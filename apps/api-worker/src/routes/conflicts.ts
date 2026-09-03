@@ -3,6 +3,7 @@ import { loadEffectivePermissions } from "../session-context.ts";
 import { runConflictsCheck } from "@magna-carta/conflicts/run-check";
 import {
   recordDisposition,
+  readDispositionTrail,
   readHitDispositionStates,
   EmptyRationaleError,
   InvalidWaiverDateError,
@@ -121,6 +122,17 @@ interface HitRow {
   readonly graph_path_json: string;
   readonly co_party: number;
   readonly created_at: string;
+}
+
+// Whether a hit exists in THIS firm's database. The firm scoping is the handle to the per-firm
+// database itself, as everywhere else here — there is no firm column to filter on because there is
+// no cross-firm table to filter.
+async function readHitById(database: SqlDatabase, hitId: string): Promise<{ id: string } | null> {
+  const { results } = await database
+    .prepare(`SELECT id FROM ${CONFLICTS_HIT_TABLE} WHERE id = ?1`)
+    .bind(hitId)
+    .all<{ id: string }>();
+  return results[0] ?? null;
 }
 
 async function readHitRows(database: SqlDatabase, checkId: string): Promise<HitRow[]> {
@@ -501,6 +513,39 @@ const RecordDispositionRequest = z
   })
   .openapi("RecordConflictsDispositionRequest");
 
+// Every answer recorded against one hit, oldest first — the trail, not the latest word. The list is
+// unpaginated on purpose: it is bounded by how many times human reviewers have answered one
+// candidate, which is a handful, and a cursor on a compliance record a firm reads end to end would
+// be machinery serving nobody.
+/*
+ * A trail entry carries the same fields as the check response's `disposition`, and is deliberately a
+ * SEPARATE component rather than a reuse of it. Two reasons, one mechanical and one about meaning.
+ *
+ * Mechanically: `DispositionDetail` is used there as `.nullable()`, and zod-to-openapi carries the
+ * component name onto the nullable schema — so reusing the bare object here registers one name under
+ * two shapes, which that library resolves first-write-wins and the conformance gate refuses. It
+ * caught this on the first emit.
+ *
+ * In meaning: they answer different questions. There, `disposition` is the reviewer's LATEST word and
+ * null means nobody has answered. Here every entry is an act that happened, and there is no null to
+ * express — an unanswered hit is an empty trail.
+ */
+const DispositionTrailEntry = z
+  .object({
+    id: z.string(),
+    kind: z.enum(DISPOSITION_KINDS),
+    rationale: z.string(),
+    reviewerUserId: z.string(),
+    waiver: WaiverDetail.nullable(),
+    shortfalls: z.array(z.enum(WAIVER_SHORTFALLS)),
+    createdAt: z.string(),
+  })
+  .openapi("ConflictsDispositionTrailEntry");
+
+const DispositionTrailResponse = z
+  .object({ hitId: z.string(), dispositions: z.array(DispositionTrailEntry) })
+  .openapi("ConflictsDispositionTrailResponse");
+
 const CreatedDispositionResponse = z
   .object({ id: z.string() })
   .openapi("CreatedConflictsDispositionResponse");
@@ -651,6 +696,31 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
     200: {
       description: "The check, the statement of what it searched, and its hits",
       content: { "application/json": { schema: GetCheckResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const dispositionTrailRoute = defineOpenAPIRoute(readMeta("hitDispositions", "conflicts:read"), {
+  method: "get",
+  path: "/api/v1/conflicts/hits/{hitId}/dispositions",
+  description:
+    "Every adjudication recorded against one hit, oldest first — the whole trail rather than the " +
+    "reviewer's latest word. The conflicts log is append-only, so a reviewer who cleared a hit and " +
+    "later reversed that call leaves both acts standing: the reversal is a second row, never an " +
+    "edit. This read is what makes that history producible. Each entry names the reviewer, carries " +
+    "the rationale they gave, and for a waiver carries the waiver's own record and what that record " +
+    "is short of, so an answer the firm cannot evidence never reads the same as one it can. A hit " +
+    "no reviewer has answered returns an empty trail, which is a fact about the hit and not about " +
+    "whether an interest is adverse.",
+  request: { params: hitIdParam },
+  responses: {
+    200: {
+      description: "Every disposition recorded against the hit, oldest first",
+      content: { "application/json": { schema: DispositionTrailResponse } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -875,6 +945,50 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         createdAt: checkRow.created_at,
       };
       return c.json({ check, statement, hits } as unknown as z.infer<typeof GetCheckResponse>, 200);
+    },
+  );
+
+  // GET /api/v1/conflicts/hits/{hitId}/dispositions
+  app.openapi(
+    {
+      ...dispositionTrailRoute,
+      middleware: chokepointMiddleware(chokepoint, dispositionTrailRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { hitId } = c.req.valid("param");
+      // The hit's existence IS checked here, unlike the matter posture read — and for the opposite
+      // reason. A hit is a row this firm either has or does not; "no such hit" is not a state with a
+      // meaning of its own to report, so an empty trail must mean "nobody has answered this hit"
+      // and nothing else. Conflating the two would let a mistyped handle read as an unanswered
+      // candidate.
+      const hit = await readHitById(firm.firmDatabase, hitId);
+      if (hit === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such conflicts hit in this firm.",
+        });
+      }
+      const dispositions = await readDispositionTrail(firm.firmDatabase, hitId);
+      return c.json(
+        {
+          hitId,
+          dispositions: dispositions.map((row) => ({
+            id: row.id,
+            kind: row.kind,
+            rationale: row.rationale,
+            reviewerUserId: row.reviewerUserId,
+            waiver: row.waiver,
+            // Derived on every read from the row itself, never stored: filing the confirmation later
+            // is a second disposition row, and this answer moves with it.
+            shortfalls: waiverShortfalls(row.kind, row.waiver),
+            createdAt: row.createdAt,
+          })),
+        } as unknown as z.infer<typeof DispositionTrailResponse>,
+        200,
+      );
     },
   );
 

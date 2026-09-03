@@ -5,7 +5,11 @@ import { seededRandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { expect, test } from "vitest";
 import type { ConflictsWriteOptions } from "../src/audit.ts";
-import { readCurrentDisposition, recordDisposition } from "../src/disposition.ts";
+import {
+  readCurrentDisposition,
+  readDispositionTrail,
+  recordDisposition,
+} from "../src/disposition.ts";
 import { DISPOSITION_KINDS } from "../src/types.ts";
 import { waiverShortfalls } from "../src/waiver.ts";
 
@@ -92,6 +96,77 @@ test("a reversal appends a second row and becomes the current disposition", asyn
     .all();
   // A COUNT(*) always returns exactly one row, which is what makes this indexed read safe.
   expect(results[0]!.count).toBe(2); // the cleared row survives — the audit trail is the point
+});
+
+test("the trail keeps a reversed answer standing, oldest first", async () => {
+  /*
+   * The reason the table is append-only, read back. A reviewer clears a hit and later reverses; the
+   * CURRENT word is the reversal, and the clearance is still an act the firm performed and can be
+   * asked about. A trail that returned only the surviving answer would destroy on the read exactly
+   * what the triggers refuse to destroy on the write.
+   */
+  const { ctx, options, hitId } = await hitFixture("trail");
+  await recordDisposition(
+    ctx.database,
+    { hitId, kind: "cleared", rationale: "former client, unrelated matter", reviewerUserId: ACTOR },
+    options,
+  );
+  await recordDisposition(
+    ctx.database,
+    {
+      hitId,
+      kind: "representation_declined",
+      rationale: "on review, the parent is a current client",
+      reviewerUserId: ACTOR,
+    },
+    { ...options, clock: { now: () => "2026-07-09T01:00:00.000Z" } },
+  );
+
+  const trail = await readDispositionTrail(ctx.database, hitId);
+  expect(trail).toHaveLength(2);
+  // Oldest first, which is the OPPOSITE of readCurrentDisposition's ordering: a reversal only makes
+  // sense read after the thing it reverses.
+  expect(trail.map((entry) => entry.kind)).toEqual(["cleared", "representation_declined"]);
+  expect(trail[0]?.rationale).toBe("former client, unrelated matter");
+  expect(trail[1]?.createdAt).toBe("2026-07-09T01:00:00.000Z");
+
+  // And the two reads agree about which one is current.
+  const current = await readCurrentDisposition(ctx.database, hitId);
+  expect(current?.id).toBe(trail[1]?.id);
+});
+
+test("a hit nobody has answered has an empty trail rather than an error", async () => {
+  // Distinct from a hit that does not exist, which the route answers 404. An empty trail is a fact
+  // about the hit: no reviewer has spoken to it. It says nothing about whether an interest is adverse.
+  const { ctx, hitId } = await hitFixture("untouched");
+  expect(await readDispositionTrail(ctx.database, hitId)).toEqual([]);
+});
+
+test("the trail carries each answer's own waiver record rather than the latest one's", async () => {
+  // A waiver recorded and then superseded must keep its own record on the trail: a reader asking how
+  // a decision was reached needs what the reviewer had in front of them at the time.
+  const { ctx, options, hitId } = await hitFixture("waiver-trail");
+  await recordDisposition(
+    ctx.database,
+    {
+      hitId,
+      kind: "waiver_obtained",
+      rationale: "client consented by telephone",
+      reviewerUserId: ACTOR,
+      waiver: { ...WAIVER, givenOn: "2026-07-01" },
+    },
+    options,
+  );
+  await recordDisposition(
+    ctx.database,
+    { hitId, kind: "wall_erected", rationale: "wall put up as well", reviewerUserId: ACTOR },
+    { ...options, clock: { now: () => "2026-07-09T02:00:00.000Z" } },
+  );
+
+  const trail = await readDispositionTrail(ctx.database, hitId);
+  expect(trail[0]?.waiver?.givenOn).toBe("2026-07-01");
+  // The later act carries none, because only waiver_obtained does — not because the record was lost.
+  expect(trail[1]?.waiver).toBeNull();
 });
 
 test("same-millisecond dispositions resolve to the genuinely-latest by insertion order, not by id", async () => {

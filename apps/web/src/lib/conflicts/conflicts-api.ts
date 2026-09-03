@@ -151,6 +151,27 @@ export interface DispositionDetail {
 }
 
 /** Who a hit is about, as the Directory names them today. */
+/**
+ * One act on a hit's trail. The same fields the check response's `disposition` carries, and a
+ * separate type for the same reason the wire keeps them separate: there, null means nobody has
+ * answered; here every entry is something that happened and there is no null to express.
+ */
+export interface DispositionTrailEntry {
+  id: string;
+  kind: DispositionKind;
+  rationale: string;
+  reviewerUserId: string;
+  waiver: WaiverDetail | null;
+  shortfalls: WaiverShortfall[];
+  createdAt: string;
+}
+
+export interface DispositionTrail {
+  hitId: string;
+  /** Oldest first: the trail reads as a narrative, and a reversal only makes sense after what it reverses. */
+  dispositions: DispositionTrailEntry[];
+}
+
 export interface HitParty {
   kind: "person" | "organization";
   /** Null when the record exists and carries no name — not the same as an unresolved entity. */
@@ -399,6 +420,19 @@ export function readConflictsCheck(
   checkId: string,
 ): Promise<ApiOutcome<CheckWithHits>> {
   return requestJson(fetchImpl, `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}`);
+}
+
+/**
+ * Every answer recorded against one hit, oldest first — the trail rather than the latest word.
+ *
+ * Read when a reviewer OPENS a hit, not with the list: the whole history of one candidate is the one
+ * thing only this view uses, and carrying it on the check response would grow every page view by it.
+ */
+export function readConflictsDispositionTrail(
+  fetchImpl: typeof fetch,
+  hitId: string,
+): Promise<ApiOutcome<DispositionTrail>> {
+  return requestJson(fetchImpl, `/api/v1/conflicts/hits/${encodeURIComponent(hitId)}/dispositions`);
 }
 
 /** Where one matter stands. Derived at read time, so a policy change shows up immediately. */

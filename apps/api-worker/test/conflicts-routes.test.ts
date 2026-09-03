@@ -136,6 +136,68 @@ describe("conflicts check routes", () => {
     expect(id).toMatch(/^conflictsCheck_/);
   });
 
+  it("serves every answer on a hit, oldest first, with the reversed one still standing", async () => {
+    /*
+     * The compliance artifact. The log is append-only so that a reviewer who cleared a hit and later
+     * reversed leaves both acts on the books; this read is what makes that history producible. A
+     * response carrying only the surviving answer would destroy on the read what the triggers refuse
+     * to destroy on the write.
+     */
+    const subjectId = await createPerson("Trailed", "Subject");
+    const matchId = await createPerson("Trailed", "Subject");
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const { id: checkId } = (await created.json()) as { id: string };
+
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    const body = (await read.json()) as { hits: Array<{ id: string; entityId: string }> };
+    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    expect(hit).toBeDefined();
+
+    // Nobody has answered it yet: an empty trail, not a 404 and not an error.
+    const empty = await get(`/api/v1/conflicts/hits/${hit?.id}/dispositions`);
+    expect(empty.status, await empty.clone().text()).toBe(200);
+    expect((await empty.json()).dispositions).toEqual([]);
+
+    const cleared = await post(`/api/v1/conflicts/hits/${hit?.id}/dispositions`, {
+      kind: "cleared",
+      rationale: "former client, unrelated matter",
+    });
+    expect(cleared.status, await cleared.clone().text()).toBe(201);
+    const reversed = await post(`/api/v1/conflicts/hits/${hit?.id}/dispositions`, {
+      kind: "representation_declined",
+      rationale: "on review, the parent is a current client",
+    });
+    expect(reversed.status, await reversed.clone().text()).toBe(201);
+
+    const trail = await get(`/api/v1/conflicts/hits/${hit?.id}/dispositions`);
+    expect(trail.status, await trail.clone().text()).toBe(200);
+    const trailBody = (await trail.json()) as {
+      hitId: string;
+      dispositions: Array<{ kind: string; rationale: string; shortfalls: string[] }>;
+    };
+    expect(trailBody.hitId).toBe(hit?.id);
+    expect(trailBody.dispositions.map((entry) => entry.kind)).toEqual([
+      "cleared",
+      "representation_declined",
+    ]);
+    // The clearance keeps its own words, which is the whole point of not editing it.
+    expect(trailBody.dispositions[0]?.rationale).toBe("former client, unrelated matter");
+  });
+
+  it("answers 404 for a hit that does not exist, rather than an empty trail", async () => {
+    // "No such hit" and "nobody has answered this hit" are different facts, and conflating them
+    // would let a mistyped handle read as an unanswered candidate.
+    const response = await get(
+      `/api/v1/conflicts/hits/${newIdentifier("conflictsHit")}/dispositions`,
+    );
+    expect(response.status).toBe(404);
+  });
+
   it("names the party each hit is about, resolved from the Directory on the read", async () => {
     // The gap this closed: a hit carried entity_id and nothing else, so a reviewer looking at the
     // candidate list could not tell who had surfaced without opening every row one at a time.

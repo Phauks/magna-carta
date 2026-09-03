@@ -354,6 +354,57 @@ export async function readHitDispositionStates(
   }));
 }
 
+/*
+ * EVERY answer recorded against one hit, oldest first — the adjudication trail.
+ *
+ * This is the compliance artifact the append-only rule exists for. A reviewer who clears a hit and
+ * later reverses leaves both acts standing, because a reversal is a second row rather than an edit;
+ * a read that returned only the latest word would hide exactly the history the table refuses to
+ * destroy, and the firm would be unable to produce the sequence when somebody asks how a decision
+ * was reached.
+ *
+ * OLDEST FIRST, which is the opposite of readCurrentDisposition's ordering and deliberately so: this
+ * is read as a narrative from the first answer forward, where that one is picking a winner. The
+ * `rowid` tie-break is kept for the same reason it exists there — identifiers are random tokens with
+ * no time order, so two rows written inside the same millisecond would otherwise order at random,
+ * and the pair that most needs a stable order is an answer and its reversal.
+ *
+ * Read one hit at a time, when a reviewer opens it. The check response deliberately does not carry
+ * every disposition of every hit: that is the one thing only this view uses, and putting it on the
+ * list read would grow every page view by it.
+ */
+export async function readDispositionTrail(
+  database: SqlDatabase,
+  hitId: string,
+): Promise<DispositionRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, hit_id, kind, rationale, reviewer_user_id, waiver_given_by_entity_id, waiver_confirmed_in_writing, waiver_document_file_id, waiver_given_on, created_at FROM ${CONFLICTS_DISPOSITION_TABLE} WHERE hit_id = ?1 ORDER BY created_at ASC, rowid ASC`,
+    )
+    .bind(hitId)
+    .all<{
+      id: string;
+      hit_id: string;
+      kind: string;
+      rationale: string;
+      reviewer_user_id: string;
+      waiver_given_by_entity_id: string | null;
+      waiver_confirmed_in_writing: number | null;
+      waiver_document_file_id: string | null;
+      waiver_given_on: string | null;
+      created_at: string;
+    }>();
+  return results.map((row) => ({
+    id: row.id,
+    hitId: row.hit_id,
+    kind: row.kind as DispositionKind,
+    rationale: row.rationale,
+    reviewerUserId: row.reviewer_user_id,
+    waiver: waiverFromRow(row),
+    createdAt: row.created_at,
+  }));
+}
+
 export async function readCurrentDisposition(
   database: SqlDatabase,
   hitId: string,

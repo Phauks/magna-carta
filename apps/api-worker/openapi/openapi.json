@@ -9751,6 +9751,74 @@
           "givenOn"
         ]
       },
+      "ConflictsDispositionTrailResponse": {
+        "type": "object",
+        "properties": {
+          "hitId": {
+            "type": "string"
+          },
+          "dispositions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsDispositionTrailEntry"
+            }
+          }
+        },
+        "required": [
+          "hitId",
+          "dispositions"
+        ]
+      },
+      "ConflictsDispositionTrailEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cleared",
+              "waiver_obtained",
+              "wall_erected",
+              "representation_declined"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "reviewerUserId": {
+            "type": "string"
+          },
+          "waiver": {
+            "$ref": "#/components/schemas/ConflictsWaiverDetail"
+          },
+          "shortfalls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "consenting-party-unrecorded",
+                "consent-not-confirmed-in-writing",
+                "confirmation-not-filed",
+                "date-given-unrecorded"
+              ]
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "rationale",
+          "reviewerUserId",
+          "waiver",
+          "shortfalls",
+          "createdAt"
+        ]
+      },
       "MatterConflictsPostureResponse": {
         "type": "object",
         "properties": {
@@ -49747,14 +49815,14 @@
         }
       }
     },
-    "/api/v1/matters/{matterId}/conflicts-posture": {
+    "/api/v1/conflicts/hits/{hitId}/dispositions": {
       "get": {
-        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
-        "operationId": "conflicts.matterPosture",
+        "description": "Every adjudication recorded against one hit, oldest first — the whole trail rather than the reviewer's latest word. The conflicts log is append-only, so a reviewer who cleared a hit and later reversed that call leaves both acts standing: the reversal is a second row, never an edit. This read is what makes that history producible. Each entry names the reviewer, carries the rationale they gave, and for a waiver carries the waiver's own record and what that record is short of, so an answer the firm cannot evidence never reads the same as one it can. A hit no reviewer has answered returns an empty trail, which is a fact about the hit and not about whether an interest is adverse.",
+        "operationId": "conflicts.hitDispositions",
         "tags": [
           "conflicts"
         ],
-        "x-mc-operationId": "conflicts.matterPosture",
+        "x-mc-operationId": "conflicts.hitDispositions",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "conflicts:read",
@@ -49771,20 +49839,20 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+              "pattern": "^conflictsHit_[A-Za-z0-9_-]{21}$"
             },
             "required": true,
-            "name": "matterId",
+            "name": "hitId",
             "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "The matter's conflicts posture, derived at read time",
+            "description": "Every disposition recorded against the hit, oldest first",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MatterConflictsPostureResponse"
+                  "$ref": "#/components/schemas/ConflictsDispositionTrailResponse"
                 }
               }
             }
@@ -49819,16 +49887,6 @@
               }
             }
           },
-          "422": {
-            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
           "429": {
             "description": "Rate limit exceeded",
             "content": {
@@ -49840,9 +49898,7 @@
             }
           }
         }
-      }
-    },
-    "/api/v1/conflicts/hits/{hitId}/dispositions": {
+      },
       "post": {
         "description": "Records a reviewer's adjudication of a surfaced hit — clearing it, noting a waiver, recording that an ethical wall was erected, or declining the representation. Every call appends a new row; a reviewer who reverses an earlier call records a second disposition rather than editing the first, so the full history of the adjudication stays visible. A waiver carries a record of its own: who consented, whether that consent was confirmed in writing, the filed document evidencing the confirmation, and the date the waiver was given. The consenting party and the date are required, because they are the act being recorded. The written confirmation and its document are not, because a waiver can be given orally and confirmed afterwards — a waiver recorded without them is accepted and reports what it is short of, so it never reads the same as one the firm can evidence.",
         "operationId": "conflicts.recordDisposition",
@@ -49945,6 +50001,101 @@
           },
           "409": {
             "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/conflicts-posture": {
+      "get": {
+        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
+        "operationId": "conflicts.matterPosture",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.matterPosture",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's conflicts posture, derived at read time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterConflictsPostureResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {

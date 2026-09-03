@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02
 **Status:** Both questions answered by the owner on 2026-09-02 — Q1 `conflicts:read`, Q2 option (c).
-**Read 1 of 6 is built** (the matched party's name); five remain, none blocked.
+**Reads 1 and 2 of 6 are built** (the matched party's name; the adjudication trail); four remain, none blocked.
 **Scope:** The **reads** the conflicts screens are already built against and the contract does not
 serve. Six of them, each named today in
 [`apps/web/src/lib/conflicts/conflicts-gaps.ts`](../../apps/web/src/lib/conflicts/conflicts-gaps.ts)
@@ -173,7 +173,14 @@ a real ruling.
    two set-valued reads. The printed report gained the most: it could previously only name a party a
    reviewer had opened, so every other candidate printed as a raw handle on the document a firm hands
    a court.
-2. **The adjudication trail.** The compliance artifact, and the reason the table is append-only.
+2. ~~**The adjudication trail.**~~ **BUILT.** `GET /api/v1/conflicts/hits/{hitId}/dispositions`, on
+   `conflicts:read`, oldest first. The hit's existence IS checked here — unlike the matter posture
+   read, and for the opposite reason: "no such hit" is not a state with a meaning of its own, so an
+   empty trail has to mean "nobody has answered this hit" and nothing else. The conformance gate
+   caught a real contract bug on the first emit: reusing `DispositionDetail` registered one component
+   name under two shapes, because the check response uses it as `.nullable()` and zod-to-openapi
+   carries the name onto the nullable schema. A trail entry is now its own component, which is also
+   the honest reading — there, null means unanswered; here every entry is an act that happened.
 3. **Re-check on demand**, then **firm policy**. Both small; both remove a disabled control.
 4. **Check history**, behind its load-profile measurement.
 5. **Previously concluded**, once Q2 is answered.

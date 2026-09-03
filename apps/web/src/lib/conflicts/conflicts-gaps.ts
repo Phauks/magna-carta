@@ -28,11 +28,6 @@ export const CONFLICTS_GAPS = {
     field: "Earlier Checks",
     waitsOn: "a read that lists the checks a firm has run",
   },
-  adjudicationTrail: {
-    field: "Adjudication Trail",
-    waitsOn:
-      "a read that serves every disposition recorded against a hit, not only the reviewer's latest word",
-  },
   firmPolicy: {
     field: "Firm Floor",
     waitsOn: "a read that serves the firm's own conflicts policy",

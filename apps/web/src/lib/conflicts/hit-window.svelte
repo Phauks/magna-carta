@@ -35,9 +35,14 @@
   import Gavel from "@lucide/svelte/icons/gavel";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
   import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
-  import { gapCellTitle, gapReason } from "./conflicts-gaps.ts";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { hitSheet } from "./conflicts-report.ts";
-  import type { HitDetail } from "./conflicts-api.ts";
+  import {
+    readConflictsDispositionTrail,
+    type DispositionTrailEntry,
+    type HitDetail,
+  } from "./conflicts-api.ts";
   import {
     adjudicationSummary,
     edgeTypeLabel,
@@ -73,9 +78,6 @@
     onAnswer: () => void;
   } = $props();
 
-  const trailDescription = $props.id();
-  const soonTrail = soonControlProperties(gapReason("adjudicationTrail"), trailDescription);
-
   const EDIT_REFUSAL =
     "The conflicts log is append-only. A hit is never edited; answering it records a new row.";
 
@@ -85,11 +87,38 @@
   const partyName = $derived(hit?.party?.displayName ?? null);
   const heading = $derived(partyName ?? (hit === null ? "" : partyText(hit)));
 
-  /**
-   * The history this window can honestly show: the check that surfaced the hit, and the reviewer's
-   * latest word on it. Every earlier answer is on the record and nothing reads it back yet, which
-   * is stated beneath the rail rather than left as an absence.
+  /*
+   * The whole adjudication trail, read when the window opens.
+   *
+   * This used to be the check that surfaced the hit plus the reviewer's LATEST word, with a line
+   * underneath saying the earlier answers were on the record and unreadable. They are readable now,
+   * and that matters more here than anywhere else on the surface: the log is append-only precisely
+   * so that a reviewer who cleared a hit and later reversed leaves both acts standing, and a rail
+   * showing only the surviving one would hide the history the table refuses to destroy.
    */
+  let trail = $state<DispositionTrailEntry[]>([]);
+  let trailFailure = $state<StatedFailure | null>(null);
+  let trailLoading = $state(false);
+
+  $effect(() => {
+    const hitId = hit?.id ?? null;
+    if (!open || hitId === null) return;
+    trail = [];
+    trailFailure = null;
+    trailLoading = true;
+    void (async () => {
+      const outcome = await readConflictsDispositionTrail(fetch, hitId);
+      // A hit the reviewer has already moved past says nothing about this window.
+      if ((hit?.id ?? null) !== hitId) return;
+      trailLoading = false;
+      if (outcome.kind === "ok") {
+        trail = outcome.value.dispositions;
+        return;
+      }
+      trailFailure = stated(outcome.failure, "This hit's answers could not be read.");
+    })();
+  });
+
   const events = $derived.by((): EventRailEvent[] => {
     if (hit === null) return [];
     const rail: EventRailEvent[] = [
@@ -101,15 +130,18 @@
         detail: hit.matchedFields.join("; "),
       },
     ];
-    if (hit.disposition !== null) {
+    for (const entry of trail) {
       rail.push({
-        id: hit.disposition.id,
+        id: entry.id,
         // The summary rather than the bare kind: on the trail as everywhere else, an answer whose
         // record the platform cannot produce must not read as one it can.
-        action: adjudicationSummary(hit.disposition).label,
-        at: hit.disposition.createdAt,
-        source: personName(reviewerName),
-        detail: hit.disposition.rationale,
+        action: adjudicationSummary(entry).label,
+        at: entry.createdAt,
+        // Only the LATEST answer's reviewer is resolved to a name by the caller; an earlier one
+        // prints the handle rather than borrowing a name that belongs to a different act.
+        source:
+          entry.id === hit.disposition?.id ? personName(reviewerName) : entry.reviewerUserId,
+        detail: entry.rationale,
       });
     }
     return rail;
@@ -319,10 +351,28 @@
         {/each}
       </div>
     {/if}
-    <div class="flex items-center gap-8">
-      <MaturityBadge stage="soon" />
-      <p id={trailDescription} class="text-xs text-text-muted">{soonTrail.title}</p>
-    </div>
+    {#if trailFailure !== null}
+      <!-- A trail that could not be read says so. An append-only record that silently showed fewer
+           acts than it holds would be the one failure this whole surface exists to prevent. -->
+      <FailureNotice
+        failure={trailFailure.failure}
+        subject="This hit's answers"
+        fallback={trailFailure.fallback}
+      />
+    {:else if trailLoading}
+      <p class="text-xs text-text-muted" aria-busy="true">Reading every answer on this hit.</p>
+    {:else if trail.length === 0}
+      <p class="text-xs text-text-muted">
+        No reviewer has answered this hit. That is a fact about the hit, not about whether an
+        interest is adverse.
+      </p>
+    {:else if trail.length > 1}
+      <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
+      <p class="text-xs text-text-muted">
+        {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
+        their mind records another, and both stay on the log.
+      </p>
+    {/if}
   </div>
 {/snippet}
 

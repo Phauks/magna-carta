@@ -2416,6 +2416,21 @@ export type ConflictsWaiverDetail = {
     givenOn: string | null;
 } | null;
 
+export type ConflictsDispositionTrailResponse = {
+    hitId: string;
+    dispositions: Array<ConflictsDispositionTrailEntry>;
+};
+
+export type ConflictsDispositionTrailEntry = {
+    id: string;
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    rationale: string;
+    reviewerUserId: string;
+    waiver: ConflictsWaiverDetail;
+    shortfalls: Array<'consenting-party-unrecorded' | 'consent-not-confirmed-in-writing' | 'confirmation-not-filed' | 'date-given-unrecorded'>;
+    createdAt: string;
+};
+
 export type MatterConflictsPostureResponse = {
     matterId: string;
     neverChecked: boolean;
@@ -15403,16 +15418,16 @@ export type ConflictsGetCheckResponses = {
 
 export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];
 
-export type ConflictsMatterPostureData = {
+export type ConflictsHitDispositionsData = {
     body?: never;
     path: {
-        matterId: string;
+        hitId: string;
     };
     query?: never;
-    url: '/api/v1/matters/{matterId}/conflicts-posture';
+    url: '/api/v1/conflicts/hits/{hitId}/dispositions';
 };
 
-export type ConflictsMatterPostureErrors = {
+export type ConflictsHitDispositionsErrors = {
     /**
      * No valid session
      */
@@ -15426,25 +15441,21 @@ export type ConflictsMatterPostureErrors = {
      */
     404: Problem;
     /**
-     * The request is invalid, or the Idempotency-Key was reused with a different payload
-     */
-    422: Problem;
-    /**
      * Rate limit exceeded
      */
     429: Problem;
 };
 
-export type ConflictsMatterPostureError = ConflictsMatterPostureErrors[keyof ConflictsMatterPostureErrors];
+export type ConflictsHitDispositionsError = ConflictsHitDispositionsErrors[keyof ConflictsHitDispositionsErrors];
 
-export type ConflictsMatterPostureResponses = {
+export type ConflictsHitDispositionsResponses = {
     /**
-     * The matter's conflicts posture, derived at read time
+     * Every disposition recorded against the hit, oldest first
      */
-    200: MatterConflictsPostureResponse;
+    200: ConflictsDispositionTrailResponse;
 };
 
-export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
+export type ConflictsHitDispositionsResponse = ConflictsHitDispositionsResponses[keyof ConflictsHitDispositionsResponses];
 
 export type ConflictsRecordDispositionData = {
     body: RecordConflictsDispositionRequest;
@@ -15499,6 +15510,49 @@ export type ConflictsRecordDispositionResponses = {
 };
 
 export type ConflictsRecordDispositionResponse = ConflictsRecordDispositionResponses[keyof ConflictsRecordDispositionResponses];
+
+export type ConflictsMatterPostureData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/conflicts-posture';
+};
+
+export type ConflictsMatterPostureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsMatterPostureError = ConflictsMatterPostureErrors[keyof ConflictsMatterPostureErrors];
+
+export type ConflictsMatterPostureResponses = {
+    /**
+     * The matter's conflicts posture, derived at read time
+     */
+    200: MatterConflictsPostureResponse;
+};
+
+export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
 
 export type CalendarMatterTimelineData = {
     body?: never;
