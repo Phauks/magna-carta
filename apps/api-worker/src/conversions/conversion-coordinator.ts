@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import {
   isWebSocketUpgrade,
   JobProgressSockets,
@@ -38,7 +39,11 @@ export class ConversionJob extends DurableObject<Bindings> implements Conversion
   private progress(): JobProgressSockets<Awaited<ReturnType<typeof resolveConversionProgress>>> {
     return new JobProgressSockets(this.ctx, {
       stateFor: async (attachment: JobProgressAttachment) =>
-        resolveConversionProgress(this.env, attachment.bucketName, await this.status()),
+        resolveConversionProgress(
+          this.env,
+          resolveFirmBucket(this.env, attachment.bucketName),
+          await this.status(),
+        ),
       isTerminal: isConversionProgressTerminal,
     });
   }

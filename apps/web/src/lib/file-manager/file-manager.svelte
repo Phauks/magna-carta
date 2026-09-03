@@ -20,6 +20,7 @@
    * reader changed view.
    */
   import * as ContextMenu from "@magna-carta/design-system/context-menu";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
@@ -724,7 +725,7 @@
     // call yet, so asking for several opens several rather than pretending to zip them here.
     for (const row of fileRows) {
       if (row.kind !== "file") continue;
-      globalThis.open(fileDownloadUrl(row.file.id), "_blank", "noopener");
+      openBeside(fileDownloadUrl(row.file.id), "file");
     }
   }
 
@@ -1915,7 +1916,7 @@
               onVerifyIntegrity={() => void runIntegrityCheck()}
               onOpenVersion={(version) => {
                 if (inspectedRow?.kind === "file") {
-                  globalThis.open(fileDownloadUrl(inspectedRow.file.id), "_blank", "noopener");
+                  openBeside(fileDownloadUrl(inspectedRow.file.id), "file");
                 }
                 void version;
               }}

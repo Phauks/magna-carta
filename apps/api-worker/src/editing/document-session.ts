@@ -9,6 +9,7 @@ import {
 } from "@magna-carta/file-manager/file-statements";
 import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { copyObjectPreservingDimensions } from "../files/object-stamping.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { shouldCutVersion } from "./version-cut-trigger.ts";
@@ -178,6 +179,9 @@ export class DocumentSession extends DurableObject<Bindings> {
     const state = await this.load();
     if (Object.keys(state.participants).length === 0) return;
     if (state.fileId !== null && state.bucketName !== null) {
+      // The session already carries the firm's bucket name — the same name resolveFirmDatabase looks the
+      // firm up by — so the working copy is promoted inside that bucket rather than the bound one.
+      const { bucket } = resolveFirmBucket(this.env, state.bucketName);
       const database = await this.resolveFirmDatabase(state.bucketName);
       if (database !== null) {
         const fileId = state.fileId as FileId;
@@ -202,7 +206,7 @@ export class DocumentSession extends DurableObject<Bindings> {
             },
             { clock: { now }, actorUserId: author },
             async (fromKey, toKey) => {
-              await copyObjectPreservingDimensions(this.env.R2, fromKey, toKey, "working-document");
+              await copyObjectPreservingDimensions(bucket, fromKey, toKey, "working-document");
             },
           );
           statements.push(...committed.effect.statements);

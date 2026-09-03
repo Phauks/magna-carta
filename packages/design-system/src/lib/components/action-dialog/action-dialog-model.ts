@@ -42,6 +42,12 @@ export interface KindTraits {
   readonly dismissOnPressOutside: boolean;
   /** The commit control's variant. A reading panel has no commit, and says so. */
   readonly commitVariant: "primary" | "destructive" | null;
+  /**
+   * Whether the panel offers to fill the screen. A form and a reading panel can have something to
+   * gain from the room; a question never does, and a question that could be expanded would be a
+   * question with a control it does not need in the one place a reader looks for the answer.
+   */
+  readonly expandable: boolean;
 }
 
 const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
@@ -50,24 +56,28 @@ const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
     showsCornerDismiss: true,
     dismissOnPressOutside: true,
     commitVariant: "primary",
+    expandable: true,
   },
   confirm: {
     primitive: "alert-dialog",
     showsCornerDismiss: false,
     dismissOnPressOutside: false,
     commitVariant: "primary",
+    expandable: false,
   },
   destructive: {
     primitive: "alert-dialog",
     showsCornerDismiss: false,
     dismissOnPressOutside: false,
     commitVariant: "destructive",
+    expandable: false,
   },
   reading: {
     primitive: "dialog",
     showsCornerDismiss: true,
     dismissOnPressOutside: true,
     commitVariant: null,
+    expandable: true,
   },
 };
 

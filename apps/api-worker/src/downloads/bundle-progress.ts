@@ -12,6 +12,7 @@
 // The signed URL is minted per call and never stored: it is short-lived by design, and a URL held in
 // durable state would outlive the reason the caller was allowed to have it.
 import type { Bindings } from "../app.ts";
+import type { FirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import type { BundleJobState } from "./bundle-types.ts";
 
@@ -26,23 +27,25 @@ export interface BundleProgressState {
 
 export async function resolveBundleProgress(
   env: Bindings,
-  bucketName: string,
+  firmBucket: FirmBucket,
   state: BundleJobState,
 ): Promise<BundleProgressState> {
   if (state.status === "ready" && state.volumes !== undefined) {
     const presigner = presignerForEnv(env);
     const urls: string[] = [];
     for (const volume of state.volumes) {
-      if ((await env.R2.head(volume.key)) === null) return { status: "expired" };
-      urls.push(await presigner.presignGet(bucketName, volume.key, SIGNED_URL_TTL_SECONDS));
+      if ((await firmBucket.bucket.head(volume.key)) === null) return { status: "expired" };
+      urls.push(
+        await presigner.presignGet(firmBucket.bucketName, volume.key, SIGNED_URL_TTL_SECONDS),
+      );
     }
     return { status: "ready", urls };
   }
 
   if (state.status === "ready" && state.r2Key !== null) {
-    if ((await env.R2.head(state.r2Key)) === null) return { status: "expired" };
+    if ((await firmBucket.bucket.head(state.r2Key)) === null) return { status: "expired" };
     const url = await presignerForEnv(env).presignGet(
-      bucketName,
+      firmBucket.bucketName,
       state.r2Key,
       SIGNED_URL_TTL_SECONDS,
     );

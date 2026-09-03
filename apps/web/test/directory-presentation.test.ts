@@ -142,7 +142,7 @@ describe("the entity handle", () => {
   });
 
   it("addresses a record one way", () => {
-    expect(entityRecordHref("directoryPerson_abc")).toBe("/contacts/directoryPerson_abc");
+    expect(entityRecordHref("directoryPerson_abc")).toBe("/directory/directoryPerson_abc");
   });
 
   it("labels both kinds, and passes an unrecognized one through as it came", () => {

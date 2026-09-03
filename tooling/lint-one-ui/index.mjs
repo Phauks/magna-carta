@@ -8,7 +8,7 @@
  * screens start disagreeing about something a reader was told was settled. Review does not scale
  * to catching that across dozens of surfaces; a scan does.
  *
- * Nine rules run here. Their reasoning, and the pure functions that decide them, are in rules.mjs;
+ * Eleven rules run here. Their reasoning, and the pure functions that decide them, are in rules.mjs;
  * the registry of what may exist once — and the recorded allowances — are in registry.json.
  *
  * TWO OF THE RULES BORROW THE PRODUCT'S OWN JUDGEMENT rather than restating it. The placeholder
@@ -42,10 +42,15 @@
  *   - The imperative-DOM rule reads three names. `document.body.append`, `outerHTML`, `insertAdjacentHTML`
  *     and the rest of the imperative surface are not enumerated — the three named are the mockups'
  *     actual idiom, and a list of everything would be noise.
- *   - NO RULE HERE LOOKS AT `<table>` IN AN APP SCREEN, or at a second record window found by file
- *     name. Those are the port plan's rules 1 and 2, and they are not built: the screens they
- *     govern mostly do not exist yet, and rule 2's structural form is documented as heuristic.
- *     They belong here when those screens land.
+ *   - The two table rules read markup and five named signals. A table built in a module as a markup
+ *     string, a sort wired to a plain button with neither the recipe class nor `aria-sort` on it,
+ *     and a record list composed from the presentational primitives whose only machinery is its
+ *     own selection checkboxes all pass. Whether a primitive-composed list SHOULD be the Grid is a
+ *     design question the ledger answers, not a scan; the scan holds the line at "nothing outside
+ *     the one table's home writes a table element or re-implements what the Grid carries".
+ *   - NO RULE HERE LOOKS FOR A SECOND RECORD WINDOW found by file name. That is the port plan's
+ *     rule 2, and it is not built: its structural form is documented as heuristic. It belongs here
+ *     when the screens it governs land.
  *   - A violation carried in one of registry.json's ALLOWANCES is not caught, by construction. The
  *     list is printed on every run and an entry that outlives its violation fails — but a rule with
  *     a standing allowance is a rule that is not yet true of this repository, and the run says so.
@@ -68,7 +73,9 @@ import {
   findImperativeDomUse,
   findInventedStatusTones,
   findPlaceholderProblems,
+  findRawTables,
   findRegistryProblems,
+  findTableMachinery,
   kebabCase,
   stripReExports,
 } from "./rules.mjs";
@@ -379,6 +386,18 @@ mustHaveRead(
   BOTH_SIDES,
 );
 
+// Rule: no raw table, on both sides of the line. The data-table home is the only place `<table>` is
+// written, and a second one inside the design system would be as expensive as one outside it.
+mustHaveRead(sweep(BOTH_SIDES, findRawTables), "raw table", BOTH_SIDES);
+
+// Rule: no table machinery beside the one table. Modules as well as components, because the headless
+// engine is as readily composed in a `.svelte.ts` state module as in a screen.
+mustHaveRead(
+  sweep(BOTH_SIDES, findTableMachinery, { svelteOnly: false }),
+  "table machinery",
+  BOTH_SIDES,
+);
+
 // Rule: one status register. Modules as well as components — the second registers that exist on
 // this repository are `.ts` files holding a label map and a tone map side by side.
 mustHaveRead(
@@ -460,9 +479,9 @@ console.log(
   `lint:one-ui: the record window's header set is exactly the kind's menu, Edit, Print, expand, close; the ` +
     "action dialog's bar is exactly the dismissal then the commit; neither shell names a kind of " +
     `thing; ${entries.length} registered component(s) each have one ` +
-    "home; no app screen rolls its own select, dialog, scrim or glyph; and the ported surfaces " +
-    "reach for no node by id, selector or markup string; every modal surface is one of the " +
-    "declared shells." +
+    "home; no app screen rolls its own select, dialog, scrim, glyph or table; nothing outside the " +
+    "one table's home carries table machinery; the ported surfaces reach for no node by id, " +
+    "selector or markup string; and every modal surface is one of the declared shells." +
     (excused.length === 0
       ? " No surface outside the register gives a status word a tone, and every literal" +
         " placeholder reads as a field's name."
@@ -474,8 +493,10 @@ console.log(
     "through a generically named prop; a look-alike panel nobody named recognizably; a select, " +
     "scrim or glyph assembled at runtime rather than written out; a placeholder that is not a " +
     "literal, or that names the wrong field; a status mapper keyed on codes with its labels " +
-    "elsewhere; imperative DOM beyond the three names the mockups actually used; and a modal " +
-    "whose parts are aliased on import or chosen at runtime, which is why both shells also stamp " +
-    "`data-modal-shell` on the panel they render — a marker a rendered-DOM check can require of " +
-    "anything carrying the dialog or alertdialog role.",
+    "elsewhere; imperative DOM beyond the three names the mockups actually used; a table built " +
+    "as a markup string in a module, a sort wired to a plain button with neither the recipe nor " +
+    "`aria-sort`, or a primitive-composed list whose only machinery is its own selection " +
+    "checkboxes; and a modal whose parts are aliased on import or chosen at runtime, which is " +
+    "why both shells also stamp `data-modal-shell` on the panel they render — a marker a " +
+    "rendered-DOM check can require of anything carrying the dialog or alertdialog role.",
 );

@@ -2,6 +2,7 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { buildSafeDeliveryHeaders } from "./preview-headers.ts";
+import { resolveFirmBucket } from "./firm-bucket.ts";
 import { verifyPreviewDeliveryToken } from "./preview-token.ts";
 
 // Parse a single byte range against the object size. null = no Range header (serve the full body);
@@ -97,15 +98,16 @@ export function registerPreviewServeRoute(
     // Resolve the object. The null-object race (reaped between mint and fetch) is guarded explicitly
     // so a .body deref never throws into the telemetry error boundary (which would emit an error_ id
     // on the untrusted edge).
-    // Today, there is exactly one R2 binding (c.env.R2), so bytes are fetched via the signed, opaque
-    // payload.r2Key. The payload.bucket field is a forward seam for per-firm buckets: when multiple
-    // R2 bindings exist in the future, select the binding by payload.bucket here.
+    // Both the bucket and the key come from the signed payload and never from the URL, and they are
+    // resolved together through files/firm-bucket.ts — the handle these bytes are read through is the
+    // one that names payload.bucket, so a preview can only ever serve from the bucket its token named.
     // Any transient R2 infrastructure failure is caught here so it never propagates to the global
     // telemetry boundary (which would emit an error_ correlation id on the untrusted cookieless edge).
     // Infrastructure errors are indistinguishable from a reaped object from the caller's perspective.
+    const { bucket } = resolveFirmBucket(c.env, payload.bucket);
     let head: R2Object | null;
     try {
-      head = await c.env.R2.head(payload.r2Key);
+      head = await bucket.head(payload.r2Key);
     } catch {
       return previewNoLongerValid();
     }
@@ -144,7 +146,7 @@ export function registerPreviewServeRoute(
     if (range === null) {
       let object: R2ObjectBody | null;
       try {
-        object = await c.env.R2.get(payload.r2Key);
+        object = await bucket.get(payload.r2Key);
       } catch {
         return previewNoLongerValid();
       }
@@ -155,7 +157,7 @@ export function registerPreviewServeRoute(
 
     let object: R2ObjectBody | null;
     try {
-      object = await c.env.R2.get(payload.r2Key, {
+      object = await bucket.get(payload.r2Key, {
         range: { offset: range.offset, length: range.length },
       });
     } catch {

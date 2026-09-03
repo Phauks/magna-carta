@@ -45,6 +45,7 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { extractAndFileAttachments } from "./attachment-extraction.ts";
 import { createAutoFileDecisionPort } from "./auto-file-evaluation.ts";
@@ -84,8 +85,12 @@ export async function handleCaptureMessage(
   correlationId: string = newCorrelationId(),
 ): Promise<void> {
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
+  // The staged MIME, the verbatim original written below, and the staged pointer dropped at the end
+  // are all this firm's bytes, so they resolve through the one bucket seam rather than the binding —
+  // the same handle attachment extraction is handed on the message below.
+  const { bucket } = resolveFirmBucket(env, message.bucketName);
 
-  const staged = await env.R2.get(message.stagedR2Key);
+  const staged = await bucket.get(message.stagedR2Key);
   if (staged === null) {
     // Not yet readable — a transient window between the entrance's PUT and this delivery. Retry.
     throw new Error(`emails-capture: staged object not readable: ${message.stagedR2Key}`);
@@ -120,7 +125,7 @@ export async function handleCaptureMessage(
       // filings on several matters — the same message forwarded into two matters writes here once.
       // It therefore carries no matter, because there is no single true answer, and the matters it
       // was filed onto are recorded as links in the firm's database where several of them fit.
-      await env.R2.put(originalR2Key, input, {
+      await bucket.put(originalR2Key, input, {
         customMetadata: firmScopedObjectDimensions("email-original"),
       });
       return { originalR2Key, contentSha256 };
@@ -284,7 +289,7 @@ export async function handleCaptureMessage(
   });
 
   // The staged pointer is transient — the verbatim original now lives under its content-addressed key.
-  await env.R2.delete(message.stagedR2Key);
+  await bucket.delete(message.stagedR2Key);
 }
 
 // What the rules did, as rows: the evaluation ledger entry, the audit row, and — where a rule has

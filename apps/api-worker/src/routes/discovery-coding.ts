@@ -65,6 +65,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -1192,7 +1193,7 @@ export function registerDiscoveryCodingRoutes(app: DiscoveryApp, chokepoint: Cho
         await commitEffectBatch(firm.firmDatabase, plan.openEffect, { now: options.clock.now });
         // Then the selection itself, BEFORE any row moves: the list is the record of what executed,
         // and a run whose rows landed without it would be a bulk act nobody could reconstruct.
-        await c.env.R2.put(
+        await resolveFirmBucket(c.env, firm.bucketName).bucket.put(
           plan.selectionR2Key,
           canonicalJsonStringify({
             reviewTagEventId: plan.reviewTagEventId,

@@ -38,21 +38,45 @@ export interface SeededFirm {
 export async function seedFirm(options?: {
   readonly name?: string;
   readonly databaseIdentifier?: string;
+  readonly bucketName?: string;
 }): Promise<SeededFirm> {
   const firmId = newIdentifier("firm");
   const databaseIdentifier = options?.databaseIdentifier ?? `d1-test-${firmId}`;
+  // Every provisioned firm has a bucket, and every firm-scoped read resolves it through
+  // src/files/firm-bucket.ts, which refuses a firm that has none. A fixture firm without one is a
+  // shape production never has, so the default is a per-seed name — firm.bucket_name is UNIQUE, and
+  // the resolver's name/handle reconciliation is inert here because the R2 S3 credential set is
+  // deliberately incomplete under the test pool.
+  const bucketName = options?.bucketName ?? `magna-carta-test-${firmId}`;
   await env.DB_CONTROL.prepare(
-    "INSERT INTO firm (id, name, database_identifier, created_at) VALUES (?1, ?2, ?3, ?4)",
+    "INSERT INTO firm (id, name, database_identifier, bucket_name, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
   )
     // firm.name is UNIQUE (the provisioner's resume identity), so the default is per-seed unique.
     .bind(
       firmId,
       options?.name ?? `Test Firm ${firmId}`,
       databaseIdentifier,
+      bucketName,
       new Date().toISOString(),
     )
     .run();
   return { firmId, databaseIdentifier };
+}
+
+// A control-plane firm row for a firm id a test minted itself. Queue consumers and Durable Objects
+// resolve a firm's bucket from this row (src/files/firm-bucket.ts), so a test that drives one with a
+// bare newIdentifier("firm") needs the firm to exist here even when it never signs anybody in.
+export async function seedFirmRow(firmId: string, name?: string): Promise<void> {
+  await env.DB_CONTROL.prepare(
+    "INSERT OR IGNORE INTO firm (id, name, bucket_name, status, created_at) VALUES (?1, ?2, ?3, 'active', ?4)",
+  )
+    .bind(
+      firmId,
+      name ?? `Test Firm ${firmId}`,
+      `magna-carta-test-${firmId}`,
+      new Date().toISOString(),
+    )
+    .run();
 }
 
 // Mints + stores a wrapped firm key on a seeded firm — the provisioner's step 4c, done directly so

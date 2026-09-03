@@ -29,6 +29,8 @@ export interface MatterSummary {
   locationId: string | null;
   responsibleMemberId: string;
   clientDisplayName: string | null;
+  /** The directory entity linked as the client, or null on a matter that predates the link. */
+  clientEntityId: string | null;
   /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
   /**
@@ -187,6 +189,11 @@ export interface CreateMatterRequest {
   responsibleMemberId: string;
   clientDisplayName?: string | null;
   clientCode?: string | null;
+  /**
+   * The directory entity the firm acts for. The server writes the client's party link in the same
+   * batch as the matter, so the matter is never readable without its client.
+   */
+  clientEntityId?: string | null;
 }
 
 /** What the server answers: the matter, and the number it drew if the matter was opened. */

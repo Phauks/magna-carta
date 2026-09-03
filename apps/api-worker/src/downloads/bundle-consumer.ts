@@ -2,6 +2,7 @@ import { zipEntriesFromR2 } from "@magna-carta/file-manager/zip-entries-from-r2"
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import { makeZip } from "client-zip";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { bundleContainerAdapter } from "./bundle-container-adapter.ts";
 import type { BundleBuildMessage } from "./bundle-types.ts";
 
@@ -83,11 +84,12 @@ async function putStreamMultipart(
 }
 
 async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<void> {
-  // Reads and writes both go through env.R2 — the single bound bucket, which IS the firm's bucket in
-  // today's single-bucket deployment, so it matches the bucket the download/bundle-status routes
-  // presign against. message.bucketName is the forward-looking routing key for when per-firm buckets
-  // are provisioned: at that point this consumer and the routes must resolve the SAME per-firm R2
-  // handle from bucketName (read inputs, write the artifact, head, and presign all against it).
+  // Reads and writes both go through the handle resolved from message.bucketName, which is the same
+  // seam (files/firm-bucket.ts) the download and bundle-status routes presign against — so the inputs
+  // read, the artifact written, and the URL later signed all name one bucket. Resolving the pair here
+  // rather than reaching for the binding is what keeps this consumer correct once a firm resolves to
+  // its own bucket rather than the bound one.
+  const { bucket } = resolveFirmBucket(env, message.bucketName);
   const coordinator = env.BUNDLE_COORDINATOR.get(
     env.BUNDLE_COORDINATOR.idFromName(`${message.firmId}:${message.manifestHash}`),
   );
@@ -112,7 +114,7 @@ async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<voi
     // R2 object, then mark ready with that one artifact key. zipEntriesFromR2 fetches and skips reaped
     // objects (shared with the inline download path in routes/downloads.ts).
     const key = `bundles/${message.manifestHash}.zip`;
-    await putStreamMultipart(env.R2, key, makeZip(zipEntriesFromR2(env.R2, message.entries)));
+    await putStreamMultipart(bucket, key, makeZip(zipEntriesFromR2(bucket, message.entries)));
     await coordinator.markReady(key);
   } catch (error) {
     // markFailed only transitions a still-`building` job (the coordinator guards it), so a transient

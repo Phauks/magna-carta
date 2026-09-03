@@ -235,9 +235,9 @@ export const DESTINATIONS: readonly Destination[] = [
     defaultStarred: true,
   },
   {
-    id: "contacts",
+    id: "directory",
     label: "Directory",
-    href: "/contacts",
+    href: "/directory",
     icon: Users,
     description: "Clients, parties, counsel, and courts in one book.",
     group: "top",
