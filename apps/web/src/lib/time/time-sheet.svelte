@@ -553,7 +553,7 @@
   is the choice that lets the row be written at all; on one that has, picking another matter MOVES
   the entry — number, memo, codes, files and history intact — and re-reads its rate and rounding on
   the matter it moved to. Past draft the cell states where the entry is and why it stays: an
-  approved or billed entry is evidence somebody is relying on, and the answer there is a strike and
+  approved or billed entry is evidence somebody is relying on, and the answer there is a void and
   a fresh record rather than a move nobody can see.
 -->
 {#snippet matterCell(row: SheetRow)}
@@ -585,7 +585,7 @@
   {#if row.entryNumber !== null}
     <span
       class="whitespace-nowrap tabular-nums"
-      title="The firm's own entry number. It is drawn once, never reused, and a struck entry keeps it.{row.provisionalCode ===
+      title="The firm's own entry number. It is drawn once, never reused, and a voided entry keeps it.{row.provisionalCode ===
       null
         ? ''
         : ` It was held on this sheet as ${row.provisionalCode}.`}"
@@ -689,11 +689,11 @@
       size="icon"
       disabled={row.status === "void"}
       title={row.status === "void"
-        ? "Already struck. It stays on the record."
+        ? "Already voided. It stays on the record."
         : row.entryIdentifier === null
           ? "Remove this row. It has not been written to the record."
-          : "Strike this entry. It stays on the record, numbered, and counts toward nothing."}
-      aria-label="Strike this entry"
+          : "Void this entry. It stays on the record, numbered, and counts toward nothing."}
+      aria-label="Void this entry"
       onclick={() => void store.voidRow(row.key)}
     >
       <Trash2 class="size-16" aria-hidden="true" />
@@ -724,18 +724,25 @@
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.worked}
     {@render durationCell(row)}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.hours}
-    <!-- Billed hours are the worked time under the firm's rounding increment, which is a firm
-         setting nothing serves yet. The field is real and refused rather than quietly absent. -->
-    <SoonAffordance reason={gapReason("rounding")}>
-      {#snippet control(soon)}
-        <Input
-          class="text-end"
-          value={row.billedMinutes === null ? "" : formatDuration(row.billedMinutes).decimal}
-          placeholder="Hours"
-          {...soon}
-        />
-      {/snippet}
-    </SoonAffordance>
+    <!--
+      Billed hours are the worked time under the firm's rounding increment — DERIVED, never typed,
+      which is why this states a figure rather than offering a field.
+      A row the firm holds carries its own billed figure, sent with the entry, so it simply reads.
+      A row nobody has written yet cannot know: the increment is a per-matter setting and this
+      sheet is one person's day across every matter they touched, so one answer would be wrong for
+      some of the rows on it. That row says what it waits on instead of showing a number it guessed.
+    -->
+    {#if row.billedMinutes === null}
+      <SoonAffordance reason={gapReason("rounding")}>
+        {#snippet control(soon)}
+          <Input class="text-end" placeholder="Hours" {...soon} />
+        {/snippet}
+      </SoonAffordance>
+    {:else}
+      <span class="block text-end tabular-nums" title="The time worked, rounded as the firm bills.">
+        {formatDuration(row.billedMinutes).decimal}
+      </span>
+    {/if}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.total}
     <span class="whitespace-nowrap tabular-nums">
       {row.amountMinor === null ? "—" : money(row.amountMinor)}

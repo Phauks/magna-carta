@@ -11,6 +11,7 @@ import {
   refileTimeEntry,
   submitTimeEntry,
   updateDraftTimeEntry,
+  unvoidTimeEntry,
   voidTimeEntry,
 } from "../src/time-entry-service.ts";
 import { TimeEntryValidationError } from "../src/time-entry-validation.ts";
@@ -587,5 +588,135 @@ describe("time-entry lifecycle (review gate on)", () => {
     await expect(
       updateDraftTimeEntry(database, id as never, { narrative: "no" }, options),
     ).rejects.toMatchObject({ code: "frozen-entry" });
+  });
+});
+
+/*
+ * UNVOIDING. The point of these is the pair of refusals as much as the restore: a void that cannot
+ * be undone is a repair somebody has to do by re-typing, and a void that CAN always be undone is a
+ * way to charge converted work twice.
+ */
+describe("unvoidTimeEntry", () => {
+  async function voidedEntry(database: BatchDatabase): Promise<string> {
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    const voided = await voidTimeEntry(database, id as never, options);
+    await commitEffectBatch(database, voided.effect, { now: clock.now });
+    return id;
+  }
+
+  it("puts a voided entry back to draft, so the row can be worked again", async () => {
+    const database = freshDatabase();
+    const id = await voidedEntry(database);
+
+    const restored = await unvoidTimeEntry(
+      database,
+      id as never,
+      { convertedToCost: false },
+      options,
+    );
+    await commitEffectBatch(database, restored.effect, { now: clock.now });
+
+    expect(await statusOf(database, id)).toBe("draft");
+    // A draft again in the full sense: the edit path that refuses a frozen row now accepts it.
+    const edited = await updateDraftTimeEntry(
+      database,
+      id as never,
+      { narrative: "reworked" },
+      options,
+    );
+    await commitEffectBatch(database, edited.effect, { now: clock.now });
+    expect((await readEntry(database, id))?.narrative).toBe("reworked");
+  });
+
+  it("keeps everything the row carries, which is the whole reason not to re-type it", async () => {
+    const database = freshDatabase();
+    const id = await voidedEntry(database);
+    const before = await readEntry(database, id);
+
+    const restored = await unvoidTimeEntry(
+      database,
+      id as never,
+      { convertedToCost: false },
+      options,
+    );
+    await commitEffectBatch(database, restored.effect, { now: clock.now });
+
+    const after = await readEntry(database, id);
+    expect(after?.narrative).toBe(before?.narrative);
+    expect(after?.entry_number).toBe(before?.entry_number);
+    expect(after?.rate_e4).toBe(before?.rate_e4);
+    expect(after?.amount_minor).toBe(before?.amount_minor);
+    expect(after?.duration_minutes).toBe(before?.duration_minutes);
+  });
+
+  it("records the restore, so a reader of the history sees both acts", async () => {
+    const database = freshDatabase();
+    const id = await voidedEntry(database);
+    const restored = await unvoidTimeEntry(
+      database,
+      id as never,
+      { convertedToCost: false },
+      options,
+    );
+    await commitEffectBatch(database, restored.effect, { now: clock.now });
+
+    expect(await countAudits(database, "time_entry.voided")).toBe(1);
+    expect(await countAudits(database, "time_entry.unvoided")).toBe(1);
+  });
+
+  it("refuses an entry that was never voided — there is nothing to restore", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+
+    await expect(
+      unvoidTimeEntry(database, id as never, { convertedToCost: false }, options),
+    ).rejects.toMatchObject({ code: "not-void" });
+  });
+
+  it("refuses the one void that must stay one: an entry whose value became a cost", async () => {
+    const database = freshDatabase();
+    const id = await voidedEntry(database);
+
+    await expect(
+      unvoidTimeEntry(database, id as never, { convertedToCost: true }, options),
+    ).rejects.toMatchObject({ code: "converted-to-cost" });
+    // And it really is still void: a refusal that left the row half-restored would be worse than
+    // no restore at all.
+    expect(await statusOf(database, id)).toBe("void");
+  });
+
+  it("restores to draft and never to the review states it was withdrawn from", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    const submitted = await submitTimeEntry(database, id as never, {
+      ...options,
+      approvalRequired: true,
+    });
+    await commitEffectBatch(database, submitted.effect, { now: clock.now });
+    const approved = await approveTimeEntry(database, id as never, {
+      ...options,
+      approvalRequired: true,
+    });
+    await commitEffectBatch(database, approved.effect, { now: clock.now });
+    const voided = await voidTimeEntry(database, id as never, options);
+    await commitEffectBatch(database, voided.effect, { now: clock.now });
+
+    const restored = await unvoidTimeEntry(
+      database,
+      id as never,
+      { convertedToCost: false },
+      options,
+    );
+    await commitEffectBatch(database, restored.effect, { now: clock.now });
+
+    // An approval is a reviewer's judgement about an entry that was then withdrawn. Restoring the
+    // entry does not restore the judgement: it has to be given again.
+    expect(await statusOf(database, id)).toBe("draft");
   });
 });

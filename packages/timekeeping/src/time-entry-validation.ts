@@ -25,7 +25,12 @@ export type TimeEntryValidationCode =
   | "claimed-by-draft"
   // Refile guard: the entry is already on the matter it was asked to move to. Refusing rather than
   // no-opping keeps the act's meaning — a move that moved nothing still reported success.
-  | "same-matter";
+  | "same-matter"
+  // Unvoid guards. `not-void` is an entry that was never voided, so there is nothing to undo.
+  // `converted-to-cost` is the one void that must stay a void: the entry's value was carried over
+  // to a cost entry, and putting the time back would bill the same work twice.
+  | "not-void"
+  | "converted-to-cost";
 
 export class TimeEntryValidationError extends Error {
   constructor(

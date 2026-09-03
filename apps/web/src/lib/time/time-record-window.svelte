@@ -59,7 +59,11 @@
   import { historyEvents } from "./time-entry-history.ts";
   import type { UtbmsCode } from "./time-operations.ts";
   import { UtbmsCatalogue } from "./time-utbms-codes.svelte.ts";
-  import { timePreferences } from "./time-preferences.svelte.ts";
+  import {
+    timePreferences,
+    TIME_ENTRY_MODES,
+    TIME_ENTRY_MODE_LABELS,
+  } from "./time-preferences.svelte.ts";
   import { matterDisplay, provisionalTimeCode, type SheetMatter } from "./time-sheet-model.ts";
   import {
     attachTimeEntryFile,
@@ -69,9 +73,14 @@
     listTimeEntryAttachments,
     listTimeEntryEvents,
     parseDurationText,
+    parseTimeSpan,
     patchTimeEntry,
+    readRoundingPolicy,
     refileTimeEntry,
+    roundToIncrement,
+    unvoidTimeEntry,
     writeKey,
+    type RoundingPolicy,
     type TimeEntryAttachment,
     type TimeEntryDraftFields,
     type TimeEntryEvent,
@@ -140,15 +149,109 @@
   const creating = $derived(entry === null);
 
   /*
-   * The firm's rounding increment is a firm setting, not a per-entry choice, and it is not served.
-   * Until it is, the window shows the time worked as the time billed and says nothing about
-   * rounding — a rounding sentence written against a number nobody configured would be fiction.
+   * THE FIRM'S ROUNDING POLICY, READ WHEN THE WINDOW OPENS.
+   *
+   * It decides two things this window has to be able to say: what the entry will actually be
+   * BILLED at once the worked time is rounded, and what one billing UNIT is worth. Both were
+   * previously registered as gaps and answered with an apology, because the increment was resolved
+   * on the server at capture and never served back — so the window showed the worked time as the
+   * billed time, which is right for a firm on one-minute increments and wrong for everybody else.
+   *
+   * It is scoped, because the setting is: a matter can carry its own increment, and so can a
+   * member. Until the read lands the window falls back to the platform's own default rather than
+   * to nothing, so the fields work from the first frame; the answer replaces it in place.
    */
-  const roundingUnserved =
-    "The firm's rounding increment is not served, so this window shows the worked time as billed.";
+  const DEFAULT_ROUNDING: RoundingPolicy = { incrementMinutes: 6, roundingDirection: "nearest" };
+  let rounding = $state<RoundingPolicy>(DEFAULT_ROUNDING);
+  /** Which scope the policy in hand was read for, so a change of matter or staff re-reads it. */
+  let roundingReadFor = $state<string | null>(null);
+  $effect(() => {
+    if (!open) return;
+    const scope = `${chosenMatterId ?? ""}:${timekeeperUserId}`;
+    if (roundingReadFor === scope) return;
+    roundingReadFor = scope;
+    void (async () => {
+      const outcome = await readRoundingPolicy(fetch, {
+        matterId: chosenMatterId,
+        timekeeperUserId,
+      });
+      if (roundingReadFor !== scope) return;
+      // A failed read leaves the platform default standing: the field must keep working, and the
+      // default is the prevailing one rather than a guess.
+      if (outcome.kind === "ok") rounding = outcome.value;
+    })();
+  });
+
+  /** How the rounding reads, for the hover on the billed figure and the line under the row. */
+  const roundingLine = $derived(
+    `Billed time is the time worked rounded ${rounding.roundingDirection === "nearest" ? "to the nearest" : rounding.roundingDirection === "up" ? "up to the next" : "down to the last"} ${formatDuration(rounding.incrementMinutes).text}. One unit is ${formatDuration(rounding.incrementMinutes).text}.`,
+  );
 
   let descriptionText = $state("");
   let memoText = $state("");
+  /*
+   * THE RATE IS NOW A FIELD, AND THE SNAPSHOT RULE IS UNTOUCHED.
+   *
+   * It used to be read-only here, on the reasoning that an entry keeps the rate in force on its
+   * work date for ever. That reasoning is still right and still enforced — a rate card edited later
+   * never re-rates a standing entry — but it was answering a different question from the one people
+   * actually have, which is "this entry was priced wrong, and I would like to price it". The rate
+   * chain has always ranked a per-entry override above every stored tier, and capture has always
+   * accepted one; what was missing was a way to say it, and a way to say it on an entry the firm
+   * already holds. Both exist now.
+   *
+   * Typed in whole currency, held in ten-thousandths: the field is what a person says out loud
+   * ("four fifty an hour"), and the wire unit is the contract's.
+   */
+  let rateDraft = $state<string | null>(null);
+
+  /** The rate in force on the entry, in whole currency units, or null where nothing is charged. */
+  const rateAmountNow = $derived(entry === null ? null : rateAmount(entry));
+
+  /** What the rate field shows: what is being typed, else what the entry carries. */
+  const rateFieldText = $derived(
+    rateDraft ?? (rateAmountNow === null ? "" : String(rateAmountNow)),
+  );
+
+  /** The override this window would write, or undefined to leave the entry's rate alone. */
+  const overrideRateE4 = $derived.by((): number | null | undefined => {
+    if (rateDraft === null) return undefined;
+    const trimmed = rateDraft.trim();
+    // Emptied deliberately: clear the override and let the chain answer again.
+    if (trimmed === "") return null;
+    const typed = Number(trimmed.replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(typed) || typed <= 0) return undefined;
+    return Math.round(typed * 10_000);
+  });
+
+  /** Why a typed rate cannot be written, or null when it can. */
+  const rateRefusal = $derived.by((): string | null => {
+    if (rateDraft === null || rateDraft.trim() === "") return null;
+    const typed = Number(rateDraft.trim().replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(typed) || typed <= 0) return "Enter the rate as an amount per hour";
+    return null;
+  });
+
+  /*
+   * DOCUMENTS PICKED FOR AN ENTRY THAT DOES NOT EXIST YET.
+   *
+   * Attaching is a write against an entry id, so until the entry is written there is nothing to
+   * write against — which is why this tab used to answer "Save the entry first". That is a true
+   * statement about the route and a wrong one about the work: a person writing up an afternoon has
+   * the document open in front of them, and telling them to save, reopen and come back makes the
+   * record window a two-visit form for a one-visit thought.
+   *
+   * So the picks are held here and applied the moment the entry exists. Nothing is written early
+   * and nothing is invented: this is a list of intentions, and the save is still the only thing
+   * that touches the record.
+   *
+   * THEY BELONG TO A MATTER, NOT JUST TO THE ENTRY. The picker offers one matter's documents, so
+   * moving the entry to another matter before saving invalidates every pick — the files simply are
+   * not on the new matter. That is what `stagedForMatter` watches.
+   */
+  let stagedFileIds = $state<readonly string[]>([]);
+  let stagedForMatter = $state<string | null>(null);
+
   let workDateText = $state("");
   let durationText = $state("");
   let timekeeperUserId = $state("");
@@ -260,8 +363,47 @@
     } else {
       provisionalCode = null;
     }
+    // A different record means different documents: picks made for the last one do not follow.
+    stagedFileIds = [];
+    attachmentFailure = null;
+    // The alternative ways of stating the duration are views of it, not facts about the record, so
+    // they start clear and re-derive from whatever the entry actually holds.
+    unitsDraft = null;
+    spanFrom = "";
+    spanTo = "";
+    rateDraft = null;
     rememberWhatIsInTheFields();
   });
+
+  /** Whether a restore is in flight, so the verb cannot be pressed twice. */
+  let unvoiding = $state(false);
+
+  /**
+   * Put a voided entry back to draft.
+   *
+   * Two of the server's refusals are worth saying in the reader's own words rather than as a
+   * status: an entry that was never voided (which usually means somebody else already restored it,
+   * so the answer is to re-read), and one whose value became a cost, which is the void that has to
+   * stay. Everything else is reported honestly as a failure that changed nothing.
+   */
+  async function restore(): Promise<void> {
+    if (entry === null || unvoiding) return;
+    unvoiding = true;
+    saveFailure = null;
+    const outcome = await unvoidTimeEntry(fetch, entry.id, writeKey());
+    unvoiding = false;
+    if (outcome.kind !== "ok") {
+      saveFailure =
+        outcome.kind === "problem" && outcome.problem.status === 409
+          ? "This entry was not restored. Either it is not voided any more, or its value was moved onto a cost — restoring it would charge the same work twice."
+          : "The entry was not restored. It is still voided on the record.";
+      return;
+    }
+    // The listing carries the status, so the row and the panel follow the window; the history is
+    // one event longer than it was.
+    onSaved();
+    await refreshAttachments();
+  }
 
   const unsavedChanges = $derived(
     descriptionText !== seeded.description ||
@@ -272,7 +414,11 @@
       chosenMatterId !== seeded.matterId ||
       billableChoice !== seeded.billing ||
       taskCodeId !== seeded.taskCodeId ||
-      activityCodeId !== seeded.activityCodeId,
+      activityCodeId !== seeded.activityCodeId ||
+      // Documents picked for an entry not yet written are work that walking away would lose, and
+      // so is a rate somebody typed.
+      stagedFileIds.length > 0 ||
+      overrideRateE4 !== undefined,
   );
 
   /*
@@ -291,6 +437,12 @@
     billableChoice = seeded.billing;
     taskCodeId = seeded.taskCodeId;
     activityCodeId = seeded.activityCodeId;
+    stagedFileIds = [];
+    attachmentFailure = null;
+    unitsDraft = null;
+    spanFrom = "";
+    spanTo = "";
+    rateDraft = null;
     saveFailure = null;
     if (entry === null) open = false;
   }
@@ -302,6 +454,14 @@
    * spelled here once rather than at each place that compares against it.
    */
   const NO_CODE_VALUE = "no-code";
+  /*
+   * WHAT "NO CODE" IS CALLED, AND WHY IT IS ALWAYS THERE. Every firm gets this row, whether it
+   * codes its time or not: a firm with nothing turned on then has a field that works and a value
+   * that is true, instead of a disabled control under a sentence explaining its own emptiness.
+   * It is also the field's RESTING reading rather than a blank — an empty box says "somebody has
+   * not filled this in yet", and (None) says "this entry carries no code", which is the fact.
+   */
+  const NO_CODE_LABEL = "(None)";
   /** Which code field is being typed into, by field id, or null while neither is. */
   let codeSearching = $state<string | null>(null);
   let codeListOpen = $state<string | null>(null);
@@ -382,9 +542,43 @@
     })();
   });
 
+  /*
+   * The same read for an entry that is not written yet, keyed on the matter the reader has CHOSEN
+   * rather than one the record names — on a firm-wide sheet a new entry starts on no matter at all,
+   * and the picker has nothing to offer until one is picked. Re-picking re-reads, and drops the
+   * picks made against the matter being left: those documents are not on the new one.
+   */
+  $effect(() => {
+    if (!open || entry !== null) return;
+    const forMatter = chosenMatterId;
+    if (stagedForMatter !== forMatter) {
+      stagedForMatter = forMatter;
+      stagedFileIds = [];
+      attachmentFailure = null;
+      matterFiles = null;
+    }
+    if (forMatter === null) return;
+    void (async () => {
+      const outcome = await listMatterFiles(fetch, forMatter);
+      if (chosenMatterId !== forMatter) return;
+      matterFiles = outcome.kind === "ok" ? outcome.value.data : [];
+    })();
+  });
+
+  /** The staged picks as documents, in the order they were picked. */
+  const stagedFiles = $derived.by((): readonly MatterFile[] =>
+    stagedFileIds.flatMap((fileId) => {
+      const file = (matterFiles ?? []).find((candidate) => candidate.id === fileId);
+      return file === undefined ? [] : [file];
+    }),
+  );
+
   /** The matter's documents this entry does not already point at. */
   const attachableFiles = $derived.by((): readonly MatterFile[] => {
-    const already = new Set((attachments ?? []).map((attachment) => attachment.fileId));
+    const already = new Set([
+      ...(attachments ?? []).map((attachment) => attachment.fileId),
+      ...stagedFileIds,
+    ]);
     const wanted = fileQuery.trim().toLowerCase();
     return (matterFiles ?? [])
       .filter((file) => !already.has(file.id))
@@ -392,8 +586,12 @@
   });
 
   async function attachFile(fileId: string): Promise<void> {
-    if (entry === null) return;
     attachmentFailure = null;
+    if (entry === null) {
+      // Nothing to write against yet: remember the pick and let the save apply it.
+      if (!stagedFileIds.includes(fileId)) stagedFileIds = [...stagedFileIds, fileId];
+      return;
+    }
     const outcome = await attachTimeEntryFile(fetch, entry.id, fileId, writeKey());
     if (outcome.kind !== "ok") {
       attachmentFailure =
@@ -406,8 +604,11 @@
   }
 
   async function detachFile(fileId: string): Promise<void> {
-    if (entry === null) return;
     attachmentFailure = null;
+    if (entry === null) {
+      stagedFileIds = stagedFileIds.filter((staged) => staged !== fileId);
+      return;
+    }
     const outcome = await detachTimeEntryFile(fetch, entry.id, fileId, writeKey());
     if (outcome.kind !== "ok") {
       attachmentFailure = "The file was not detached. It is still attached to this entry.";
@@ -445,19 +646,21 @@
   }
 
   /*
-   * The four billing dispositions the record is designed to carry. The two the model actually holds
-   * are live; the two that need a disposition beyond a boolean stay visible, refused, saying what
-   * they wait on — a choice that exists and is not offered is a choice a reader cannot know about.
+   * The billing dispositions the record is designed to carry. The two the model actually holds are
+   * live; the one that needs a disposition beyond a boolean stays visible, refused, saying what it
+   * waits on — a choice that exists and is not offered is a choice a reader cannot know about.
+   *
+   * THERE IS NO FOURTH. A "no charge, on the bill at nothing" row sat here and was withdrawn: it
+   * is non-billable under a longer name. Both mean the client is charged nothing for this work,
+   * both leave the entry on the ledger carrying no value, and the only difference anybody could
+   * name was whether the line is printed — which is a question about what a bill shows, not about
+   * what this entry is. Two rows for one disposition make a member choose between them, and there
+   * is no right answer to that choice.
    */
   const BILLING_CHOICES = [
     { value: "billable", label: "Billable, next invoice", waitsOn: null },
     { value: "nonbillable", label: "Non-billable", waitsOn: null },
     { value: "hold", label: "Billable, hold", waitsOn: gapReason("billingDisposition") },
-    {
-      value: "nocharge",
-      label: "No charge, on the bill at nothing",
-      waitsOn: gapReason("billingDisposition"),
-    },
   ] as const;
 
   const billingLabel = $derived(
@@ -474,9 +677,60 @@
       : (activeMembers.find((member) => member.userId === timekeeperUserId)?.displayName ?? ""),
   );
 
+  /*
+   * THE SAME DURATION, THREE WAYS OF SAYING IT.
+   *
+   * `durationText` stays the one source of truth — it is what the save reads, and it is what the
+   * hours field binds to. The other two are PROJECTIONS of it that can also be typed into: while a
+   * person is typing in one, that field shows their keystrokes (the draft), and the moment what
+   * they typed makes sense it is written back into `durationText`, which is what makes the other
+   * fields follow. This is the same rest-versus-typing split the code and staff fields already use;
+   * without it, a half-typed "1." would be parsed, rounded and re-rendered under the cursor.
+   */
+  let unitsDraft = $state<string | null>(null);
+  let spanFrom = $state("");
+  let spanTo = $state("");
+
   const workedMinutes = $derived(parseDurationText(durationText));
-  const billedMinutes = $derived(workedMinutes);
+  /** The billed figure: the worked time rounded on the firm's own policy. */
+  const billedMinutes = $derived(
+    workedMinutes === null ? null : roundToIncrement(workedMinutes, rounding),
+  );
   const billable = $derived(billableChoice === "billable");
+
+  /** The worked time counted in the firm's billing increments, at rest. */
+  const unitsDisplay = $derived(
+    unitsDraft ??
+      (workedMinutes === null
+        ? ""
+        : String(Math.round((workedMinutes / rounding.incrementMinutes) * 100) / 100)),
+  );
+
+  /** A duration typed as a count of units, written back as the canonical hours text. */
+  function typeUnits(text: string): void {
+    unitsDraft = text;
+    const count = Number(text.trim());
+    if (text.trim() === "" || !Number.isFinite(count) || count < 0) return;
+    durationText = minutesAsText(Math.round(count * rounding.incrementMinutes));
+  }
+
+  /** A duration typed as the two times it happened between. */
+  function typeSpan(from: string, to: string): void {
+    spanFrom = from;
+    spanTo = to;
+    const minutes = parseTimeSpan(from, to);
+    if (minutes !== null) durationText = minutesAsText(minutes);
+  }
+
+  /** Minutes in the clock form the hours field holds them in. */
+  function minutesAsText(minutes: number): string {
+    return formatDuration(minutes).clock;
+  }
+
+  /** The modes on screen, always in the one order the fields are laid out in. */
+  const entryModes = $derived(TIME_ENTRY_MODES.filter((mode) => timePreferences.showsEntryMode(mode)));
+  /** The one that leads the arithmetic sentence; the rest follow on their own row. */
+  const leadMode = $derived(entryModes[0] ?? "hours");
 
   /** Where a resolved rate came from, in the words the chain uses. */
   const RATE_SOURCE_WORDS: Readonly<Record<string, string>> = {
@@ -489,9 +743,8 @@
   };
 
   /*
-   * The rate the entry froze at capture. Not a field: an entry keeps the rate in force on its work
-   * date for ever, so this states a fact rather than offering a change. Non-billable internal time
-   * has no rate at all, which is a statement that nothing is charged and not a rate of zero.
+   * The rate as a sentence, for the read-only record. Non-billable internal time has no rate at
+   * all, which is a statement that nothing is charged and not a rate of zero.
    */
   const rateLine = $derived.by((): string => {
     const amount = entry === null ? null : rateAmount(entry);
@@ -524,6 +777,7 @@
   const refusal = $derived.by((): string | null => {
     if (!editing) return null;
     if (creating && chosenMatterId === null) return "Choose the matter this time belongs to";
+    if (rateRefusal !== null) return rateRefusal;
     return draftRefusal({ durationText, description: descriptionText });
   });
 
@@ -614,6 +868,9 @@
               // Null clears rather than omits: a memo somebody emptied must be emptied on the
               // record, not left standing because the field went blank.
               memo: memoText.trim() === "" ? null : memoText,
+              // Absent unless somebody actually typed a rate: an untouched field must not send a
+              // null and clear a rate the chain had resolved perfectly well.
+              ...(overrideRateE4 === undefined ? {} : { overrideRateE4 }),
             },
             writeKey(),
           )
@@ -627,6 +884,7 @@
               utbmsTaskCodeId: taskCodeId,
               utbmsActivityCodeId: activityCodeId,
               memo: memoText.trim() === "" ? null : memoText,
+              ...(overrideRateE4 === undefined ? {} : { overrideRateE4 }),
             },
             writeKey(),
           );
@@ -637,6 +895,34 @@
           ? `The entry was not saved. The server answered ${String(outcome.problem.status)}.`
           : "Nothing answered. The entry was not saved and the record is unchanged.";
       return;
+    }
+    /*
+     * THE PICKS BECOME ATTACHMENTS, NOW THAT THERE IS SOMETHING TO ATTACH THEM TO. This is the
+     * whole of what staging deferred, and it runs only here — after the entry is on the record,
+     * with the id the record answered with.
+     *
+     * A failure here is REPORTED AND NOT SWALLOWED, and it is a different fact from a failed save:
+     * the entry exists and is correct, and some documents did not get linked to it. So the window
+     * stays open saying exactly that, the listing is refreshed either way because the entry is
+     * real, and the picks that DID land are dropped so that trying again cannot attach them twice.
+     */
+    // A create answers with the new entry's id; a change answers with the record it changed.
+    const savedEntryId = "timeEntryId" in outcome.value ? outcome.value.timeEntryId : outcome.value.id;
+    if (stagedFileIds.length > 0) {
+      const stillWaiting: string[] = [];
+      for (const fileId of stagedFileIds) {
+        const attached = await attachTimeEntryFile(fetch, savedEntryId, fileId, writeKey());
+        if (attached.kind !== "ok") stillWaiting.push(fileId);
+      }
+      stagedFileIds = stillWaiting;
+      if (stillWaiting.length > 0) {
+        onSaved();
+        saveFailure =
+          stillWaiting.length === 1
+            ? "The entry was saved. One document was not attached to it: open the entry and attach it there."
+            : `The entry was saved. ${String(stillWaiting.length)} documents were not attached to it: open the entry and attach them there.`;
+        return;
+      }
     }
     onSaved();
     if (andKeepGoing) {
@@ -655,6 +941,12 @@
       descriptionText = "";
       memoText = "";
       durationText = "";
+      // The documents just attached belong to the entry that took them, not to the next one.
+      stagedFileIds = [];
+      unitsDraft = null;
+      spanFrom = "";
+      spanTo = "";
+      rateDraft = null;
       // A fresh entry, a fresh tentative code: the one just saved took its own number with it.
       provisionalSequence += 1;
       provisionalCode = provisionalTimeCode(provisionalSequence);
@@ -691,13 +983,72 @@
       class="tabular-nums"
       title={entry.entryNumber === null
         ? "This entry was captured before entry numbers existed. Nothing backfills one."
-        : "The firm's own entry number. Drawn once, never reused; a struck entry keeps it."}
+        : "The firm's own entry number. Drawn once, never reused; a voided entry keeps it."}
     >
       {entry.entryNumber === null ? "No entry number" : `Entry ${entry.entryNumber}`}
     </span>
     <span aria-hidden="true">&middot;</span>
     <span>{chosenMatterName}</span>
     <Badge {...statusBadgeAttributes(entry.status)}>{statusEntry(entry.status).label}</Badge>
+  {/if}
+{/snippet}
+
+<!--
+  ONE WAY OF STATING A DURATION, RENDERED. Three modes, one snippet, for the same reason the two
+  code fields are one snippet: two copies of a field is how the two start behaving differently.
+  Each writes back into the single duration the entry records, so whichever a person types in, the
+  others are already showing the same time.
+-->
+{#snippet workedField(
+  mode: (typeof TIME_ENTRY_MODES)[number],
+  fieldId: string,
+  readOnly: boolean,
+)}
+  {#if mode === "span"}
+    <span class="text-xs text-text-subtle">Worked Between</span>
+    <div class="flex items-center gap-4">
+      <Input
+        id={fieldId}
+        class="w-96"
+        placeholder="9:00"
+        title="When the work started. Typed as you say it: 9, 9:30, 9:30 am."
+        aria-label="Started at"
+        disabled={readOnly}
+        value={spanFrom}
+        oninput={(event) => typeSpan(event.currentTarget.value, spanTo)}
+      />
+      <span class="text-text-subtle" aria-hidden="true">&ndash;</span>
+      <Input
+        class="w-96"
+        placeholder="10:30"
+        title="When it finished. An end earlier than the start is read as crossing midnight."
+        aria-label="Finished at"
+        disabled={readOnly}
+        value={spanTo}
+        oninput={(event) => typeSpan(spanFrom, event.currentTarget.value)}
+      />
+    </div>
+  {:else if mode === "units"}
+    <Label for={fieldId}>Units</Label>
+    <Input
+      id={fieldId}
+      class="w-96"
+      placeholder="Units"
+      title={`Counted in the firm's own billing increment: one unit is ${formatDuration(rounding.incrementMinutes).text}.`}
+      disabled={readOnly}
+      value={unitsDisplay}
+      oninput={(event) => typeUnits(event.currentTarget.value)}
+      onblur={() => (unitsDraft = null)}
+    />
+  {:else}
+    <Label for={fieldId}>Time Worked</Label>
+    <Input
+      id={fieldId}
+      placeholder="Time Worked"
+      title="Time worked, typed either way: 1:30 or 1.5"
+      disabled={readOnly}
+      bind:value={durationText}
+    />
   {/if}
 {/snippet}
 
@@ -734,8 +1085,9 @@
   readOnly: boolean,
 )}
   {@const refusal = set.pickerRefusal}
-  {@const committed =
+  {@const recorded =
     set.labelFor(chosen) === "" ? recordedCodeText(label, chosen) : set.labelFor(chosen)}
+  {@const committed = recorded === "" ? NO_CODE_LABEL : recorded}
   <div class="flex flex-col gap-4">
     <Label for={fieldId}>{label}</Label>
     {#if readOnly}
@@ -745,7 +1097,7 @@
         type="single"
         disabled={refusal !== null && chosen === null}
         items={[
-          { value: NO_CODE_VALUE, label: `No ${label.toLowerCase()}` },
+          { value: NO_CODE_VALUE, label: NO_CODE_LABEL },
           ...set.available.map((code) => ({
             value: code.id,
             label: `${code.code} · ${code.label}`,
@@ -785,7 +1137,7 @@
           }}
         />
         <Combobox.Content>
-          <Combobox.Item value={NO_CODE_VALUE} label={`No ${label.toLowerCase()}`} />
+          <Combobox.Item value={NO_CODE_VALUE} label={NO_CODE_LABEL} />
           {#each matchingCodes(set) as code (code.id)}
             <Combobox.Item value={code.id} label={`${code.code} · ${code.label}`} />
           {/each}
@@ -835,6 +1187,33 @@
       />
     </div>
 
+    <!--
+      THE INTERNAL MEMO SITS UNDER THE DESCRIPTION BECAUSE THEY ARE THE SAME ACT. Both are what a
+      person writes about this work; they differ only in who reads them, and the pair reads as one
+      thought when the private half follows the public one. Down by the arithmetic it was a
+      stranded field a reader met after they had finished with the entry.
+
+      It is shown on a read-only record too: internal is not the same as hidden. And it is absent
+      by construction from everything client-facing — the print sheet names every field it prints
+      rather than spreading the entry, so this text has no way to reach paper.
+
+      NO BADGE. It wore an "Internal" chip beside its label, which said in a second voice what the
+      word Internal in the label had already said.
+    -->
+    <div class="flex flex-col gap-4" data-internal-only="true">
+      <Label for="time-record-memo">Internal Memo</Label>
+      <Textarea
+        id="time-record-memo"
+        class="resize-none"
+        rows={2}
+        placeholder="Internal Memo"
+        title="The firm's own note on this entry. It never reaches a bill, an export or a client."
+        disabled={readOnly}
+        spellcheck={true}
+        bind:value={memoText}
+      />
+    </div>
+
     <div class="grid gap-12 @md:grid-cols-3">
       <div class="flex flex-col gap-4">
         <!-- The product's own calendar, not the browser's: one themed picker on every surface. -->
@@ -857,7 +1236,7 @@
         moves it there — its number, its memo, its codes, its files and its history come with it,
         and its rate and rounding are re-read on the matter it moved to, because both resolve
         through the matter. Past draft the field states where the entry is and refuses: an approved
-        or billed entry is evidence, and the answer there is a strike and a fresh record.
+        or billed entry is evidence, and the answer there is a void and a fresh record.
       -->
       <div class="flex flex-col gap-4">
         <Label for="time-record-matter">Matter</Label>
@@ -973,22 +1352,19 @@
       )}
     </div>
 
-    <!-- Worked, rounded to billed, times rate, equals amount: one relationship on one line. -->
+    <!--
+      Worked, rounded to billed, times rate, equals amount: one relationship on one line. The
+      sentence does not change shape when a reader changes how they enter time — whichever way they
+      chose simply becomes its leading term, and any others they kept are on the row beneath.
+    -->
     <div class="flex flex-wrap items-end gap-8">
       <div class="flex min-w-0 flex-1 flex-col gap-4">
-        <Label for="time-record-worked">Time Worked</Label>
-        <Input
-          id="time-record-worked"
-          placeholder="Time Worked"
-          title="Time worked, typed either way: 1:30 or 1.5"
-          disabled={readOnly}
-          bind:value={durationText}
-        />
+        {@render workedField(leadMode, "time-record-worked", readOnly)}
       </div>
       <span class="pb-8 text-text-subtle" aria-hidden="true">&rarr;</span>
       <div class="flex flex-col gap-4">
         <span class="text-xs text-text-subtle">Billed</span>
-        <span class="pb-8 tabular-nums" title={roundingUnserved}>
+        <span class="pb-8 tabular-nums" title={roundingLine}>
           {#if billedMinutes === null}
             —
           {:else}
@@ -999,14 +1375,20 @@
       </div>
       <span class="pb-8 text-text-subtle" aria-hidden="true">&times;</span>
       <div class="flex min-w-0 flex-1 flex-col gap-4">
-        <span class="text-xs text-text-subtle">Rate</span>
-        <!--
-          The rate the entry FROZE at capture, named with where it came from. It is not a field: an
-          entry keeps the rate in force on its work date for ever, so changing a card later never
-          re-rates it, and a per-entry override is a permission question nobody has answered yet.
-          Read, therefore, and not typed.
-        -->
-        <span class="pb-8 tabular-nums" title={rateExplanation}>{rateLine}</span>
+        <Label for="time-record-rate">Rate</Label>
+        {#if readOnly || !billable}
+          <!-- Nothing is charged on non-billable time, so there is no rate to set: the line says
+               so rather than offering a field whose value could never be used. -->
+          <span class="pb-8 tabular-nums" title={rateExplanation}>{rateLine}</span>
+        {:else}
+          <Input
+            id="time-record-rate"
+            placeholder="Rate"
+            title={`${rateExplanation} Typing a rate here prices THIS entry and nothing else; emptying the field hands it back to the rate chain.`}
+            value={rateFieldText}
+            oninput={(event) => (rateDraft = event.currentTarget.value)}
+          />
+        {/if}
       </div>
       <span class="pb-8 text-text-subtle" aria-hidden="true">=</span>
       <div class="flex flex-col gap-4">
@@ -1014,29 +1396,27 @@
         <span class="pb-8 tabular-nums">{amountLine}</span>
       </div>
     </div>
-    <p class="text-xs text-text-subtle">{roundingUnserved}</p>
 
     <!--
-      THE INTERNAL MEMO IS REAL, and it is shown on a read-only record too: internal is not the same
-      as hidden. It is absent by construction from everything client-facing — the print sheet names
-      every field it prints rather than spreading the entry, so this text has no way to reach paper.
+      The other ways of saying the same duration, for a reader who kept more than one. They are
+      live in both directions: type in any of them and the rest follow, because all of them are
+      views of the one number the entry actually records.
     -->
-    <div class="flex flex-col gap-4" data-internal-only="true">
-      <div class="flex items-center gap-8">
-        <Label for="time-record-memo">Internal Memo</Label>
-        <Badge variant="neutral">Internal</Badge>
+    {#if entryModes.length > 1}
+      <div class="flex flex-wrap items-end gap-12">
+        {#each entryModes.slice(1) as mode (mode)}
+          <div class="flex min-w-0 flex-col gap-4">
+            {@render workedField(mode, `time-record-worked-${mode}`, readOnly)}
+          </div>
+        {/each}
       </div>
-      <Textarea
-        id="time-record-memo"
-        class="resize-none"
-        rows={2}
-        placeholder="Internal Memo"
-        title="The firm's own note on this entry. It never reaches a bill, an export or a client."
-        disabled={readOnly}
-        spellcheck={true}
-        bind:value={memoText}
-      />
-    </div>
+    {/if}
+
+    {#if rateRefusal !== null}
+      <p class="text-xs text-text-danger">{rateRefusal}</p>
+    {/if}
+    <p class="text-xs text-text-subtle">{roundingLine}</p>
+
   </div>
 {/snippet}
 
@@ -1055,9 +1435,9 @@
         <Alert.Description>{attachmentFailure}</Alert.Description>
       </Alert.Root>
     {/if}
-    {#if entry === null}
+    {#if entry === null && chosenMatterId === null}
       <p class="text-sm text-text-muted">
-        Save the entry first: a file is attached to a record the firm holds.
+        Choose the matter first: the documents offered here are that matter's own.
       </p>
     {:else}
       <Combobox.Root
@@ -1101,7 +1481,46 @@
         </Combobox.Content>
       </Combobox.Root>
 
-      {#if attachments === null}
+      {#if entry === null}
+        <!--
+          THE PICKS, BEFORE THERE IS A RECORD TO HANG THEM ON. They read exactly like attachments,
+          because that is what saving makes them; what differs is the one line under the list
+          saying when it happens, so nobody believes a document has been linked to something that
+          does not exist yet.
+        -->
+        {#if stagedFiles.length === 0}
+          <div
+            class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-md border border-dashed border-border-default p-16 text-center"
+          >
+            <p class="text-sm text-text-muted">Nothing is attached to this entry.</p>
+            <p class="text-xs text-text-subtle">
+              Pick one of the matter's documents above. The file stays where it is.
+            </p>
+          </div>
+        {:else}
+          <ul class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+            {#each stagedFiles as file (file.id)}
+              <li class="flex items-center gap-8 rounded-md border border-border-default p-8">
+                <Paperclip class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
+                <span class="min-w-0 flex-1 truncate text-sm">{file.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Remove this document from the entry being written. It stays in the matter's documents."
+                  aria-label="Remove {file.name}"
+                  onclick={() => void detachFile(file.id)}
+                >
+                  <X class="size-16" aria-hidden="true" />
+                </Button>
+              </li>
+            {/each}
+          </ul>
+          <p class="text-xs text-text-subtle">
+            {stagedFiles.length === 1 ? "This document is" : "These documents are"} attached when the
+            entry is saved. Nothing is written until then.
+          </p>
+        {/if}
+      {:else if attachments === null}
         <p class="text-sm text-text-muted">Reading what is attached.</p>
       {:else if attachments.length === 0}
         <div
@@ -1220,7 +1639,23 @@
       working. Each appears only against the status it belongs to: a verb offered where it could
       never apply says nothing true even when it is refused.
     -->
-    {#if entry?.status === "submitted"}
+    {#if entry?.status === "void"}
+      <!--
+        THE ONE VERB A VOIDED ENTRY HAS. It is offered here rather than in the ledger's menu alone
+        because this window is where somebody lands when they open the entry to find out what
+        happened to it, and finding out is usually the moment they realise the void was a mistake.
+        The refusals are the server's — an entry whose value became a cost stays void — and the
+        window says which one it hit rather than a generic failure.
+      -->
+      <Button
+        variant="secondary"
+        disabled={unvoiding}
+        title="Put this entry back to draft. It keeps its number, its note, its codes, its documents and its history."
+        onclick={() => void restore()}
+      >
+        Unvoid
+      </Button>
+    {:else if entry?.status === "submitted"}
       <SoonAffordance reason={gapReason("unsubmit")}>
         {#snippet control(soon)}
           <Button variant="secondary" {...soon}>Unsubmit</Button>
@@ -1258,6 +1693,26 @@
   >
     Default staff member to self
   </DropdownMenu.CheckboxItem>
+  <DropdownMenu.Separator />
+  <!--
+    HOW MANY WAYS OF SAYING A DURATION THIS READER WANTS TO SEE. All three are live whichever are
+    shown; this is about the screen, not the capability. The last one standing is disabled rather
+    than hidden — a window with no way to state how long the work took cannot record time, so the
+    control says "this one has to stay" by refusing rather than by vanishing.
+  -->
+  <DropdownMenu.GroupHeading>Enter time as</DropdownMenu.GroupHeading>
+  {#each TIME_ENTRY_MODES as mode (mode)}
+    {@const shown = timePreferences.showsEntryMode(mode)}
+    {@const last = shown && timePreferences.entryModes.length === 1}
+    <DropdownMenu.CheckboxItem
+      checked={shown}
+      disabled={last}
+      title={last ? "One way of entering time has to stay on screen." : undefined}
+      onCheckedChange={(next) => timePreferences.setEntryMode(mode, next)}
+    >
+      {TIME_ENTRY_MODE_LABELS[mode]}
+    </DropdownMenu.CheckboxItem>
+  {/each}
 {/snippet}
 
 <RecordWindow

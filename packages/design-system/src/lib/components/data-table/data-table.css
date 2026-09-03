@@ -347,6 +347,23 @@
     outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
     outline-offset: var(--mc-focus-ring-offset);
   }
+  /*
+   * The row the slack goes into, so the totals strip below has something to be held down against.
+   *
+   * THE TWO HEIGHTS THIS NEEDS ARE UTILITIES, NOT DECLARATIONS HERE — `min-h-full` on the table
+   * and `h-full` on this row, both applied in data-table-grid.svelte. They are percentages, and a
+   * percentage cannot be a token; the recipe layer is token-pure by gate, and this is the same
+   * division that already puts `w-full` on the table rather than `inline-size: 100%` here. What
+   * remains in the recipe is the part that IS design: this row draws nothing at all, so the
+   * surface simply continues below the last real row.
+   *
+   * It deliberately does NOT wear .mc-table-cell, which would impose the density's row height and
+   * make an empty row a visible one on a table that exactly fits its frame.
+   */
+  .mc-table-grid-filler-cell {
+    padding: var(--mc-space-0);
+    border-style: none;
+  }
   /* Once a member resizes a column the layout is theirs: fixed, overflowing text ellipsized. */
   .mc-table-grid[data-fixed-columns="on"] {
     table-layout: fixed;

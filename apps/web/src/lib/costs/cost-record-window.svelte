@@ -438,28 +438,38 @@
       </div>
     </div>
 
-    <div class="grid gap-12 sm:grid-cols-2">
-      <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-description">Description</Label>
-        <Textarea
-          id="{fieldPrefix}-description"
-          rows={3}
-          placeholder={placeholderOf("Description")}
-          title="Description"
-          disabled={readOnly}
-          bind:value={descriptionText}
-        />
-        <p class="text-xs text-text-muted">What the cost was, as the client will read it.</p>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label>Internal Memo</Label>
-        <SoonAffordance reason={gapReason("memo")} reasonPlacement="line">
-          {#snippet control(soon)}
-            <Textarea rows={3} placeholder={placeholderOf("Internal Memo")} {...soon} />
-          {/snippet}
-        </SoonAffordance>
-        <p class="text-xs text-text-muted">An internal note. It never appears on a bill.</p>
-      </div>
+    <!--
+      THE SAME PAIR THE TIME ENTRY WRITES, IN THE SAME SHAPE. Description then Internal Memo,
+      stacked and full width, each a label over its field with the help on the hover rather than a
+      caption under it. They were side by side in a two-column grid, which made the private note
+      look like a second, equal fact about the cost instead of the quieter half of one act of
+      writing — and made a member who had learned the time window learn this one again.
+
+      A cost and a time entry are the two things a matter accrues, they are recorded minutes apart
+      by the same person, and the fields they share should not move between them.
+    -->
+    <div class="flex flex-col gap-4">
+      <Label for="{fieldPrefix}-description">Description</Label>
+      <Textarea
+        id="{fieldPrefix}-description"
+        class="resize-none"
+        rows={3}
+        placeholder={placeholderOf("Description")}
+        title="What the cost was, as the client will read it on the bill."
+        disabled={readOnly}
+        bind:value={descriptionText}
+      />
+    </div>
+
+    <div class="flex flex-col gap-4" data-internal-only="true">
+      <Label>Internal Memo</Label>
+      <SoonAffordance reason={gapReason("memo")} reasonPlacement="line">
+        {#snippet control(soon)}
+          <!-- No title of its own: the Soon composition supplies the hover, which says what the
+               field is waiting on — the more useful sentence while it cannot be typed in. -->
+          <Textarea class="resize-none" rows={2} placeholder={placeholderOf("Internal Memo")} {...soon} />
+        {/snippet}
+      </SoonAffordance>
     </div>
   </div>
 {/snippet}
@@ -587,6 +597,7 @@
   defaultTab="billing"
   editDisabledReason={editRefusal}
   saveDisabledReason={saveRefusal}
+  saveLabel={"Save & Close"}
   {unsavedChanges}
   onSave={() => void save(false)}
   onCancel={forgetChanges}
