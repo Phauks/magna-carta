@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 780 nodes of the feature ledger in
+is the complete register rather than a digest: all 781 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**780 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**781 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 138 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **642 that are units of work**, for the reason set out under [What a roll-up is
+count the **643 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,17 +31,17 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 276 | 43% |
-| Part-built | partial, in-build | 115 | 18% |
+| Part-built | partial, in-build | 116 | 18% |
 | Ahead | designed, planned, researching, not-started | 210 | 33% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **642** | **100%** |
+| **All units of work** | | **643** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 276 | 43% |
-| `partial` | 114 | 18% |
+| `partial` | 115 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 3% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 143 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **642** | **100%** |
+| **All statuses** | **643** | **100%** |
 
 ### What a roll-up is not
 
-**138 of the 780 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
+**138 of the 781 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 276 of 642 (43%). Shipped plus partial is 390 (61%).**
+**Shipped alone is 276 of 643 (43%). Shipped plus partial is 391 (61%).**
 
-The 114 units between those two numbers are work that is engineered and paid for and is not
+The 115 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**391 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**392 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 34 | 9% |
+| A person can open it today (`screen`) | 35 | 9% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 180 | 46% |
 | No user surface by nature (`internal`) | 177 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **391** | **100%** |
+| **Everything with something built** | **392** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -100,7 +100,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 11 | 45% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
-| Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
+| Conflicts Check | 4 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 50% |
 | Core Domain — Directory, Matters & Locations | 32 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 52% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 16 | 69% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **276** | **114** | **1** | **46** | **16** | **5** | **143** | **38** | **3** | **642** | **43%** |
+| **All areas** | **276** | **115** | **1** | **46** | **16** | **5** | **143** | **38** | **3** | **643** | **43%** |
 
 ## Where we have been
 
@@ -583,7 +583,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 7 units of work, 57% shipped. 4 done, 3 part-built, 0 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 50% shipped. 4 done, 4 part-built, 0 ahead, 0 parked.
 
 - `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
@@ -594,6 +594,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `conflicts.firm-wide-scope` · `shipped` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph. _Note: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph._
   - `conflicts.clearance` · `shipped` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected. _Note: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything._
   - `conflicts.log` · `shipped` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log. _Note: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it._
+  - `conflicts.read-surface` · `partial` · **Reading the log back** — The reads the conflicts screens are built against — naming the party a hit is about, the full adjudication trail, the firm's own policy floor, the checks a firm has run, an earlier answer about the same party, and asking for a re-check on demand. _Note: PARTIAL because five reads remain, none of them blocked — the adjudication trail, the firm policy read, an on-demand re-check, the firm's check history (which ships behind a load-profile plan measurement, since the check index leads with the matter and a firm-wide listing has nothing leading with created_at), and a re-surfaced hit's earlier conclusion. The owner ruled on 2026-09-02 that an earlier answer is shown as CONTEXT and a hit is never marked pre-concluded: a company cleared under Rule 1.9 as a former client can re-surface through the graph as a current client's subsidiary, which is a Rule 1.7 question, and matching on the entity alone would present the first answer as the firm's own answer to the second._
 
 ### Core Domain — Directory, Matters & Locations
 

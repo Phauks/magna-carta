@@ -3,7 +3,7 @@ import { loadEffectivePermissions } from "../session-context.ts";
 import { runConflictsCheck } from "@magna-carta/conflicts/run-check";
 import {
   recordDisposition,
-  readCurrentDisposition,
+  readHitDispositionStates,
   EmptyRationaleError,
   InvalidWaiverDateError,
   UnknownConsentingPartyError,
@@ -12,6 +12,7 @@ import {
   WaiverRecordNotApplicableError,
   WaiverRecordRequiredError,
 } from "@magna-carta/conflicts/disposition";
+import { readEntityDisplayNames } from "@magna-carta/conflicts/subject-facts";
 import {
   parseCheckInputs,
   parseCheckScope,
@@ -248,10 +249,27 @@ const DispositionDetail = z
   })
   .openapi("ConflictsDispositionDetail");
 
+// Who the hit is ABOUT, resolved from the Directory at read time rather than copied onto the log.
+// The log is append-only and records the entity by reference, so the name a reader sees is the name
+// the firm holds today — which is the right answer for a reviewer deciding now, and is why this is
+// not a column on conflicts_hit.
+const HitParty = z
+  .object({
+    kind: z.enum(["person", "organization"]),
+    // Null when the Directory holds the record and it carries no name at all. Distinct from the
+    // whole `party` being null, which says the entity does not resolve.
+    displayName: z.string().nullable(),
+  })
+  .openapi("ConflictsHitParty");
+
 const HitDetail = z
   .object({
     id: z.string(),
     entityId: z.string(),
+    // Null when the entity does not resolve to a live Directory record — a hit whose party the
+    // firm has since merged away, which the log's append-only rule makes reachable. The surface
+    // says so and names the id; it must never read as "no party matched".
+    party: HitParty.nullable(),
     sourceClass: z.enum(SOURCE_CLASSES),
     evidenceTier: z.number().int().min(1).max(4),
     matchedFields: z.array(z.string()),
@@ -762,35 +780,63 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         });
       }
       const hitRows = await readHitRows(firm.firmDatabase, checkId);
-      const hits = await Promise.all(
-        hitRows.map(async (hitRow) => {
-          const disposition = await readCurrentDisposition(firm.firmDatabase, hitRow.id);
-          return {
-            id: hitRow.id,
-            entityId: hitRow.entity_id,
-            sourceClass: hitRow.source_class,
-            evidenceTier: hitRow.evidence_tier,
-            matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],
-            graphPath: JSON.parse(hitRow.graph_path_json) as unknown[],
-            coParty: hitRow.co_party === 1,
-            createdAt: hitRow.created_at,
-            disposition:
-              disposition === null
-                ? null
-                : {
-                    id: disposition.id,
-                    kind: disposition.kind,
-                    rationale: disposition.rationale,
-                    reviewerUserId: disposition.reviewerUserId,
-                    waiver: disposition.waiver,
-                    // Derived on every read from the row itself, never stored: filing the
-                    // confirmation later is a second disposition row, and this answer moves with it.
-                    shortfalls: waiverShortfalls(disposition.kind, disposition.waiver),
-                    createdAt: disposition.createdAt,
-                  },
-          };
-        }),
+
+      /*
+       * Two set-valued reads, not two per hit.
+       *
+       * The dispositions were a per-hit readCurrentDisposition inside a Promise.all — the exact N+1
+       * readHitDispositionStates exists to replace, and whose own comment names this shape as the
+       * mistake: a check against a wide corpus surfaces hundreds of hits. It resolves every hit's
+       * latest word in one query, by the same created_at/rowid tie-break, so the answer is identical
+       * and the read is one round trip instead of one per hit.
+       *
+       * The party names are the second read, and they are what lets the hit list say who matched.
+       * The entity set is bounded by the hits already read, and the reader chunks it at D1's
+       * bound-parameter cap.
+       */
+      const [dispositionStates, partyNames] = await Promise.all([
+        readHitDispositionStates(firm.firmDatabase, checkId),
+        readEntityDisplayNames(
+          firm.firmDatabase,
+          hitRows.map((hitRow) => hitRow.entity_id),
+        ),
+      ]);
+      const dispositionByHit = new Map(
+        dispositionStates.map((state) => [state.hitId, state.disposition]),
       );
+
+      const hits = hitRows.map((hitRow) => {
+        const disposition = dispositionByHit.get(hitRow.id) ?? null;
+        // An entity the Directory no longer resolves is reported as UNRESOLVED, never as absent:
+        // the log is append-only, so an old hit can name an entity a later merge reshaped, and a
+        // hit whose party read as absent would invert what a conflicts hit means.
+        const party = partyNames.get(hitRow.entity_id) ?? null;
+        return {
+          id: hitRow.id,
+          entityId: hitRow.entity_id,
+          party,
+          sourceClass: hitRow.source_class,
+          evidenceTier: hitRow.evidence_tier,
+          matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],
+          graphPath: JSON.parse(hitRow.graph_path_json) as unknown[],
+          coParty: hitRow.co_party === 1,
+          createdAt: hitRow.created_at,
+          disposition:
+            disposition === null
+              ? null
+              : {
+                  id: disposition.id,
+                  kind: disposition.kind,
+                  rationale: disposition.rationale,
+                  reviewerUserId: disposition.reviewerUserId,
+                  waiver: disposition.waiver,
+                  // Derived on every read from the row itself, never stored: filing the
+                  // confirmation later is a second disposition row, and this answer moves with it.
+                  shortfalls: waiverShortfalls(disposition.kind, disposition.waiver),
+                  createdAt: disposition.createdAt,
+                },
+        };
+      });
       const scope = parseCheckScope(checkRow.scope_json);
       const inputs = parseCheckInputs(checkRow.inputs_json);
       const sources: ReportedSource[] = reportedSourcesFor(scope, {

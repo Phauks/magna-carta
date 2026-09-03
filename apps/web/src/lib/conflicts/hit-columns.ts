@@ -35,7 +35,6 @@ import {
   pathSummary,
   sourceVocabulary,
 } from "./conflicts-vocabulary.ts";
-import { gapCellTitle } from "./conflicts-gaps.ts";
 
 /** The column identities, so the screen's cell snippet and the model cannot drift apart. */
 export const HIT_COLUMN_IDENTIFIERS = {
@@ -109,9 +108,11 @@ export function hitColumns(): GridColumn<HitDetail>[] {
     {
       id: HIT_COLUMN_IDENTIFIERS.party,
       label: "Party",
-      // Real column, unread value. The hover carries what it waits on; the cell shows the gap.
-      value: () => null,
-      text: () => "",
+      filter: "text",
+      // The name the Directory holds TODAY, which the server resolves on the read rather than
+      // copying onto the append-only log — so a reviewer deciding now is looking at the current
+      // name rather than the one that was current when the check ran.
+      value: (hit) => partyText(hit),
     },
     {
       id: HIT_COLUMN_IDENTIFIERS.entityKind,
@@ -160,7 +161,32 @@ export function hitColumns(): GridColumn<HitDetail>[] {
   ];
 }
 
-/** What the unread Party cell's hover says. */
-export function partyCellTitle(): string {
-  return gapCellTitle("matchedPartyName");
+/*
+ * How a hit's party reads, including the two ways it can fail to name anybody. Neither is blank and
+ * neither reads as "no party": a conflicts hit always HAS a party, and a cell that said otherwise
+ * would invert the one thing the row is for.
+ *
+ *   - the entity does not resolve — the firm merged it away after this check was written, which the
+ *     append-only log makes reachable. The row says so and the hover names the id.
+ *   - the record resolves and carries no name at all. Rarer, and a different fact: the Directory
+ *     holds it, nobody has named it.
+ */
+export function partyText(hit: HitDetail): string {
+  if (hit.party === null) return "Entity not resolved";
+  return hit.party.displayName ?? "Unnamed record";
+}
+
+/** What the Party cell's hover says, where the cell could not name anybody. */
+export function partyCellTitle(hit: HitDetail): string | undefined {
+  if (hit.party === null) {
+    return (
+      `This check surfaced ${hit.entityId}, which the Directory no longer resolves — most often ` +
+      "because the record was merged into another after the check ran. The conflicts log is " +
+      "append-only, so the hit still names the entity it matched."
+    );
+  }
+  if (hit.party.displayName === null) {
+    return `The Directory holds ${hit.entityId} and it carries no name.`;
+  }
+  return undefined;
 }

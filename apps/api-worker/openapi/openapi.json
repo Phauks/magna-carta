@@ -9557,6 +9557,9 @@
           "entityId": {
             "type": "string"
           },
+          "party": {
+            "$ref": "#/components/schemas/ConflictsHitParty"
+          },
           "sourceClass": {
             "type": "string",
             "enum": [
@@ -9596,6 +9599,7 @@
         "required": [
           "id",
           "entityId",
+          "party",
           "sourceClass",
           "evidenceTier",
           "matchedFields",
@@ -9603,6 +9607,31 @@
           "coParty",
           "createdAt",
           "disposition"
+        ]
+      },
+      "ConflictsHitParty": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "displayName"
         ]
       },
       "ConflictsGraphPathStep": {

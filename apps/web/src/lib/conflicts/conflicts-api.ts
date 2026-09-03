@@ -7,11 +7,11 @@
  * reads. Four facts about this contract shape every screen above it, and all four are recorded here
  * rather than rediscovered:
  *
- *   - THE SERVER NAMES NO ENTITY. A hit carries `entityId` and nothing else about who matched, and
- *     there is no batch entity-name read. Naming every row would be one request per row, which is
- *     the fan-out the platform forbids, so the list states the gap and a hit names its party when a
- *     reviewer opens it — one read for the hit under review, through the Directory surface's own
- *     module rather than through a second copy of it here.
+ *   - THE SERVER NAMES THE ENTITY, since 2026-09-02. A hit carries `party` — the kind and the name
+ *     the Directory holds for it TODAY, resolved on the read rather than copied onto the append-only
+ *     log, so a reviewer deciding now sees the current name. It is null when the entity does not
+ *     resolve at all, which the log's append-only rule makes reachable (a merge can reshape an
+ *     entity an old hit names); that is an unresolved party and is never rendered as no party.
  *   - THERE IS NO LISTING OF CHECKS. A check is reachable by its own identifier, and a matter's
  *     latest check through that matter's standing. Nothing answers "every check this firm has run",
  *     so no screen here offers one.
@@ -150,9 +150,18 @@ export interface DispositionDetail {
   createdAt: string;
 }
 
+/** Who a hit is about, as the Directory names them today. */
+export interface HitParty {
+  kind: "person" | "organization";
+  /** Null when the record exists and carries no name — not the same as an unresolved entity. */
+  displayName: string | null;
+}
+
 export interface HitDetail {
   id: string;
   entityId: string;
+  /** Null when the entity does not resolve to a live Directory record. Never "no party matched". */
+  party: HitParty | null;
   sourceClass: SourceClass;
   evidenceTier: EvidenceTier;
   /** Every channel that fired, in the domain's own words. Never a score. */

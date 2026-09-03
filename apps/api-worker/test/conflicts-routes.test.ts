@@ -136,6 +136,79 @@ describe("conflicts check routes", () => {
     expect(id).toMatch(/^conflictsCheck_/);
   });
 
+  it("names the party each hit is about, resolved from the Directory on the read", async () => {
+    // The gap this closed: a hit carried entity_id and nothing else, so a reviewer looking at the
+    // candidate list could not tell who had surfaced without opening every row one at a time.
+    const subjectId = await createPerson("Ines", "Herrera");
+    const matchId = await createPerson("Ines", "Herrera");
+
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const { id: checkId } = (await created.json()) as { id: string };
+
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    expect(read.status, await read.clone().text()).toBe(200);
+    const body = (await read.json()) as {
+      hits: Array<{
+        entityId: string;
+        party: { kind: string; displayName: string | null } | null;
+      }>;
+    };
+
+    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    expect(hit, "the name-twin should surface as a hit").toBeDefined();
+    expect(hit?.party).toEqual({ kind: "person", displayName: "Ines Herrera" });
+  });
+
+  it("says an entity could not be resolved rather than leaving the party blank", async () => {
+    /*
+     * The conflicts log is append-only, so a hit keeps naming the entity it matched even after the
+     * Directory has reshaped that entity — a merge is the ordinary way this happens. The wire must
+     * carry that as an UNRESOLVED party, because a null read as "no party" would invert the meaning
+     * of the one thing a conflicts hit is: a party the firm may have a problem with.
+     *
+     * The hit is written directly, because the only supported way to reach this state through the
+     * API is to merge an entity away, which is a different subsystem's act.
+     */
+    const subjectId = await createPerson("Absent", "Reference");
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const { id: checkId } = (await created.json()) as { id: string };
+
+    await firmDatabase
+      .prepare(
+        `INSERT INTO conflicts_hit (id, check_id, entity_id, source_class, evidence_tier,
+           matched_fields_json, graph_path_json, co_party, created_at)
+         VALUES (?1, ?2, ?3, 'party', 2, '[]', '[]', 0, ?4)`,
+      )
+      .bind(
+        newIdentifier("conflictsHit"),
+        checkId,
+        "directoryPerson_mergedAwayAfterTheCheck",
+        new Date().toISOString(),
+      )
+      .run();
+
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    expect(read.status, await read.clone().text()).toBe(200);
+    const body = (await read.json()) as {
+      hits: Array<{ entityId: string; party: unknown }>;
+    };
+    const orphan = body.hits.find(
+      (candidate) => candidate.entityId === "directoryPerson_mergedAwayAfterTheCheck",
+    );
+    expect(orphan, "the unresolvable hit still comes back").toBeDefined();
+    expect(orphan?.party).toBeNull();
+  });
+
   it("reads a check back with its hits, and dispositions a surfaced hit", async () => {
     // Two persons sharing a name so the check surfaces one as a conflicts hit for the other.
     const subjectId = await createPerson("Marguerite", "Castellane");

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02
 **Status:** Both questions answered by the owner on 2026-09-02 — Q1 `conflicts:read`, Q2 option (c).
-Nothing is blocked. Building in the section 5 order.
+**Read 1 of 6 is built** (the matched party's name); five remain, none blocked.
 **Scope:** The **reads** the conflicts screens are already built against and the contract does not
 serve. Six of them, each named today in
 [`apps/web/src/lib/conflicts/conflicts-gaps.ts`](../../apps/web/src/lib/conflicts/conflicts-gaps.ts)
@@ -165,9 +165,14 @@ a real ruling.
 
 ## 5. Build order
 
-1. **The matched party name.** Highest value per unit of work by a wide margin, and it needs nothing
-   new. A hit list that cannot say who matched is the gap that makes the surface unusable rather
-   than merely incomplete.
+1. ~~**The matched party name.**~~ **BUILT.** It cost no new machinery, as section 2 predicted, and
+   it removed two reads rather than adding one: the check handler was resolving dispositions with a
+   per-hit `readCurrentDisposition` inside a `Promise.all` — the exact N+1 `readHitDispositionStates`
+   was written to replace, and whose own comment names that shape as the mistake — and the checks
+   screen was spending a Directory read per hit a reviewer opened. Both are gone; the handler makes
+   two set-valued reads. The printed report gained the most: it could previously only name a party a
+   reviewer had opened, so every other candidate printed as a raw handle on the document a firm hands
+   a court.
 2. **The adjudication trail.** The compliance artifact, and the reason the table is append-only.
 3. **Re-check on demand**, then **firm policy**. Both small; both remove a disabled control.
 4. **Check history**, behind its load-profile measurement.

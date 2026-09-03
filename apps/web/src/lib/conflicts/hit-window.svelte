@@ -47,13 +47,11 @@
     waiverShortfallText,
   } from "./conflicts-vocabulary.ts";
   import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
-  import { entityKindText, surfacedAgainstText } from "./hit-columns.ts";
+  import { entityKindText, partyCellTitle, partyText, surfacedAgainstText } from "./hit-columns.ts";
 
   let {
     open = $bindable(false),
     hit,
-    partyName = null,
-    partyNameFailed = false,
     consentingPartyName = null,
     reviewerName = null,
     checkInstant,
@@ -61,10 +59,6 @@
   }: {
     open?: boolean;
     hit: HitDetail | null;
-    /** The matched party's name, once one read has answered it. */
-    partyName?: string | null;
-    /** True when the read ran and could not name the entity, which is not the same as not asked. */
-    partyNameFailed?: boolean;
     /**
      * The name of the entity that gave the waiver, once one read has answered it. Null where the
      * disposition names none, or where the read has not returned — the handle prints either way, so
@@ -85,9 +79,11 @@
   const EDIT_REFUSAL =
     "The conflicts log is append-only. A hit is never edited; answering it records a new row.";
 
-  const heading = $derived(
-    partyName ?? (partyNameFailed ? "Party could not be named" : "Reading the party"),
-  );
+  // The matched party comes ON the hit — the check read resolves every hit's entity — so this window
+  // takes no name of its own to be told. It used to, and a caller could hand it one that disagreed
+  // with the hit it was showing.
+  const partyName = $derived(hit?.party?.displayName ?? null);
+  const heading = $derived(partyName ?? (hit === null ? "" : partyText(hit)));
 
   /**
    * The history this window can honestly show: the check that surfaced the hit, and the reviewer's
@@ -164,9 +160,7 @@
           <dt class="text-text-muted">Party</dt>
           <dd class="text-right">
             {#if partyName === null}
-              <span title={gapCellTitle("matchedPartyName")}>
-                {partyNameFailed ? "Not named" : "Reading"}
-              </span>
+              <span title={partyCellTitle(hit)}>{partyText(hit)}</span>
             {:else}
               <!-- The entity's own record, so a reviewer can read what the firm holds about it
                    rather than taking the hit's word for who it is. -->

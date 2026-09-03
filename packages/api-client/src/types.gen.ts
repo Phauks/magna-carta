@@ -2376,6 +2376,7 @@ export type ConflictsCandidateRecord = {
 export type ConflictsHitDetail = {
     id: string;
     entityId: string;
+    party: ConflictsHitParty;
     sourceClass: 'party' | 'graph' | 'imputation' | 'content';
     evidenceTier: number;
     matchedFields: Array<string>;
@@ -2384,6 +2385,11 @@ export type ConflictsHitDetail = {
     createdAt: string;
     disposition: ConflictsDispositionDetail;
 };
+
+export type ConflictsHitParty = {
+    kind: 'person' | 'organization';
+    displayName: string | null;
+} | null;
 
 export type ConflictsGraphPathStep = {
     edgeId: string;

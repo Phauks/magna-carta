@@ -24,11 +24,6 @@ export interface ConflictsGap {
 }
 
 export const CONFLICTS_GAPS = {
-  matchedPartyName: {
-    field: "Party",
-    waitsOn:
-      "a read that names many Directory entities in one request, so a hit list can say who matched without one request per row",
-  },
   checkHistory: {
     field: "Earlier Checks",
     waitsOn: "a read that lists the checks a firm has run",

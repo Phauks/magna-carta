@@ -105,10 +105,9 @@
   );
   const signedInName = $derived(session?.user.name ?? null);
   const check = $derived(result?.check ?? null);
-  const openPartyName = $derived(
-    openHit === null ? null : (entityNames.get(openHit.entityId) ?? null),
-  );
-  const openPartyFailed = $derived(openHit !== null && unnameable.has(openHit.entityId));
+  // The matched party arrives ON THE HIT — the check read resolves every hit's entity in one query
+  // — so opening one costs no read at all. It used to cost one per hit opened, cached for the visit.
+  const openPartyName = $derived(openHit?.party?.displayName ?? null);
   // A waiver names the entity that consented, which is often not the entity that matched. It costs
   // the same one read, on the same cache, for the same reason: the log answers handles.
   const openConsentingPartyName = $derived.by((): string | null => {
@@ -116,7 +115,7 @@
     return consentingPartyId === null ? null : (entityNames.get(consentingPartyId) ?? null);
   });
 
-  /** One read, for the one entity a reviewer opened. What it learns is kept for the rest of the visit. */
+  /** One read, for a waiver's consenting party. What it learns is kept for the rest of the visit. */
   async function nameEntity(entityId: string): Promise<void> {
     if (entityNames.has(entityId) || unnameable.has(entityId)) return;
     const outcome = await readDirectoryEntity(fetch, entityId);
@@ -130,7 +129,9 @@
   function openOne(hit: HitDetail): void {
     openHit = hit;
     windowOpen = true;
-    void nameEntity(hit.entityId);
+    // Only the CONSENTING party still needs a read: a waiver names the entity that consented, which
+    // is often not the entity that matched, and the disposition carries it as a handle. The matched
+    // party came with the hit.
     const consentingPartyId = hit.disposition?.waiver?.givenByEntityId ?? null;
     if (consentingPartyId !== null) void nameEntity(consentingPartyId);
   }
@@ -226,8 +227,6 @@
   <HitWindow
     bind:open={windowOpen}
     hit={openHit}
-    partyName={openPartyName}
-    partyNameFailed={openPartyFailed}
     consentingPartyName={openConsentingPartyName}
     {reviewerName}
     checkInstant={check.createdAt}

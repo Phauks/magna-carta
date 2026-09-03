@@ -11,7 +11,7 @@
   slices: slice-4-1-conflicts
   adrs: ADR-0013
   spec: docs/specs/2026-07-09-slice-4-1-conflicts-design.md
-  evidence: packages/conflicts on main — the check orchestrator, the six comparison channels over the Directory corpus, the append-only three-table log, the disposition stream, the re-check ledger and its consumers, plus apps/api-worker/src/routes/conflicts.ts. No web surface yet, and the intake trigger has no intake flow to fire from.
+  evidence: packages/conflicts on main — the check orchestrator, the six comparison channels over the Directory corpus, the append-only three-table log, the disposition stream, the re-check ledger and its consumers, plus apps/api-worker/src/routes/conflicts.ts. The web surface is built (apps/web/src/lib/conflicts and the routes under /conflicts); what it is short of is READS rather than screens, tracked on conflicts.read-surface. The intake trigger still has no intake flow to fire from.
   audience: public
   public-name: Conflicts checking
   public-summary: Check a prospective client or matter against everyone the firm has acted for or against, and keep a permanent record of what the check returned and who cleared it.
@@ -88,3 +88,12 @@
   slices: slice-4-1-conflicts
   evidence: Three append-only per-firm tables — conflicts_check, conflicts_hit and conflicts_disposition in packages/database/src/per-firm-schema.ts — each carrying BEFORE UPDATE, BEFORE DELETE and a BEFORE INSERT guard against REPLACE, asserted by packages/database/test/conflicts-append-only.test.ts and probed at runtime by assertConflictsFitness in packages/conflicts/src/fitness.ts. A check row records the trigger, its source, the accumulated causes, the scope asked for against the scope that ran, the strictness, the depth and whether the floor was raised; packages/conflicts/src/report-text.ts renders that into the plain-language statement GET /api/v1/conflicts/checks/{checkId} returns beside the hits.
   notes: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it.
+
+- id: conflicts.read-surface
+  name: Reading the log back
+  scope: The reads the conflicts screens are built against — naming the party a hit is about, the full adjudication trail, the firm's own policy floor, the checks a firm has run, an earlier answer about the same party, and asking for a re-check on demand.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-09-02-conflicts-read-surface-design.md
+  evidence: One of six built. GET /api/v1/conflicts/checks/{checkId} now resolves every hit's entity through readEntityDisplayNames in packages/conflicts/src/subject-facts.ts and carries a `party` on each hit — the name the Directory holds today, resolved on the read rather than copied onto the append-only log. The same change replaced two N+1s: the handler was calling readCurrentDisposition per hit inside a Promise.all (readHitDispositionStates answers the whole check in one query, and its own comment names the per-hit loop as the mistake), and the checks screen was spending one Directory read per hit a reviewer opened. Held by packages/conflicts/test/entity-display-names.test.ts and two route tests, including the unresolved-entity path a merge makes reachable.
+  notes: PARTIAL because five reads remain, none of them blocked — the adjudication trail, the firm policy read, an on-demand re-check, the firm's check history (which ships behind a load-profile plan measurement, since the check index leads with the matter and a firm-wide listing has nothing leading with created_at), and a re-surfaced hit's earlier conclusion. The owner ruled on 2026-09-02 that an earlier answer is shown as CONTEXT and a hit is never marked pre-concluded: a company cleared under Rule 1.9 as a former client can re-surface through the graph as a current client's subsidiary, which is a Rule 1.7 question, and matching on the entity alone would present the first answer as the firm's own answer to the second.
