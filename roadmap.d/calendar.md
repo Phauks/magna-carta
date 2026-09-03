@@ -64,8 +64,8 @@
   scope: Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved.
   status: shipped
   surface: screen
-  notes: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to. Related links are recorded through the API only until the links surface lands.
-  evidence: calendar_event_link with two hand-written partial uniques; packages/calendar/src/continuance-service.ts (one-batch operation, depth-capped chain read, trigger-linked deadline lookup as pure SELECT); continue and continuance-chain routes.
+  notes: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to, and the settings related by hand with their titles, Relate (a setting on the same matter, or a firm event within six months) and Remove.
+  evidence: calendar_event_link with two hand-written partial uniques; packages/calendar/src/continuance-service.ts (one-batch operation, depth-capped chain read, trigger-linked deadline lookup as pure SELECT); continue, continuance-chain and the two per-event links routes (GET /api/v1/events/{eventId}/links, /firm-events/{firmEventId}/links, asserted in apps/api-worker/test/calendar-routes.test.ts); the Links tab in apps/web/src/lib/calendar/entry-window.svelte.
 
 - id: calendar.surface
   name: Calendar surface
@@ -122,6 +122,16 @@
   spec: docs/specs/2026-09-02-calendar-interface-design.md
   notes: A firm setting, never a personal preference (owner ruling 2026-09-02); Sunday by default. Read by every member who can read the calendar, moved only under calendar:manage, audited, idempotent. The page is the first settings page with a server behind it and shows no per-browser history.
   evidence: packages/calendar/src/settings.ts over the setting table; GET/PATCH /api/v1/calendar/settings in apps/api-worker/src/routes/calendar.ts, asserted over Miniflare in apps/api-worker/test/calendar-settings-routes.test.ts; apps/web/src/routes/(app)/settings/calendar/+page.svelte over apps/web/src/lib/calendar/calendar-settings-draft.svelte.ts (apps/web/test/calendar-settings-draft.test.ts); CalendarView reads it once in apps/web/src/lib/calendar/calendar-context.svelte.ts and hands it to every grid.
+
+- id: calendar.surface.event-types
+  name: Event-type catalog
+  scope: The vocabulary a setting is classified under, kept under Settings › Practice › Event Types: the platform's shipped types (recategorized or retired, never renamed) and the firm's own (added, renamed, retired).
+  status: shipped
+  surface: screen
+  slices: 6-1-case-calendar
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  notes: Retiring is one way, as the contract is; a word wanted back is added again as the firm's own. Gated on the session's calendar:manage.
+  evidence: apps/web/src/routes/(app)/settings/event-types/+page.svelte over the event-type routes in apps/api-worker/src/routes/calendar.ts.
 
 - id: calendar.surface.kind-narrowing
   name: Layers, the colleague picker and the settled filter

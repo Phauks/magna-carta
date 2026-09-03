@@ -729,6 +729,24 @@ describe("continuance: the record shows what was continued from what", () => {
     expect(linked.status).toBe(201);
     const { id: linkId } = (await linked.json()) as { id: string };
 
+    // Both ends list the link, from either side, as identifiers and a note — never a title.
+    const fromSide = await get(`/api/v1/events/${prepId}/links`);
+    expect(fromSide.status).toBe(200);
+    const fromBody = (await fromSide.json()) as {
+      data: { id: string; kind: string; from: unknown; to: unknown; note: string | null }[];
+    };
+    expect(fromBody.data.map((link) => [link.id, link.kind])).toEqual([[linkId, "related"]]);
+    expect(fromBody.data[0]).toMatchObject({
+      from: { matterEventId: prepId, firmEventId: null },
+      to: { matterEventId: null, firmEventId },
+      note: "Prep for the Malloy deposition",
+    });
+    const toSide = await get(`/api/v1/firm-events/${firmEventId}/links`);
+    expect(toSide.status).toBe(200);
+    expect(
+      ((await toSide.json()) as { data: { id: string }[] }).data.map((link) => link.id),
+    ).toEqual([linkId]);
+
     const duplicate = await post("/api/v1/event-links", {
       fromFirmEventId: firmEventId,
       toMatterEventId: prepId,
