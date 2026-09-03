@@ -248,7 +248,9 @@ describe("one query, answered from every section the member may read", () => {
   it("says what each source matched on, so a hit never has to be guessed at", async () => {
     const answer = await search("easement");
     expect(group(answer, "notes").matchedFields).toEqual(["the note's text"]);
-    expect(group(answer, "files").matchedFields).toEqual(["file names"]);
+    // Two fields, because the Files group answers for the matter's folders as well as its files —
+    // and a reader has to be told that, or a folder in the results reads as a file.
+    expect(group(answer, "files").matchedFields).toEqual(["file names", "folder names"]);
   });
 
   it("answers nothing for a word the matter does not hold, without skipping anything", async () => {

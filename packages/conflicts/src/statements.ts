@@ -143,3 +143,73 @@ export function insertDispositionStatement(
       row.createdAt,
     );
 }
+
+// ---- reading the log back ---------------------------------------------------------------------
+
+/*
+ * The checks a firm has run, newest first, keyset-paginated over (created_at, id).
+ *
+ * TWO SHAPES OF READ, ONE STATEMENT, AND THEY PLAN DIFFERENTLY. Filtered by matter, the table's
+ * (subject_matter_id, created_at, id) index serves both the narrowing and the order — which is what
+ * that index was added for. UNFILTERED, there is no index leading with created_at, so the firm-wide
+ * listing sorts what it reads. That is measured rather than assumed: see the plan assertion in
+ * packages/fixtures/src/load-profile/conflicts-measurements.ts, which is what would catch it
+ * degrading into a scan of every check the firm has ever run.
+ *
+ * The row is deliberately NARROW — it is a listing, and the whole check with its hits and its
+ * statement is one identifier away. Reading inputs_json here would carry the recorded scope of every
+ * check on the page for a surface that shows none of it.
+ */
+export interface ConflictsCheckSummaryRow {
+  readonly id: string;
+  readonly trigger: string;
+  readonly subject_matter_id: string | null;
+  readonly strictness: string;
+  readonly depth: number;
+  readonly floor_raised: number;
+  readonly actor_user_id: string | null;
+  readonly trigger_source: string | null;
+  readonly created_at: string;
+  /** Counted in the same read: a listing that could not say how many candidates surfaced would
+   * make a reader open every row to find the one that matters. */
+  readonly hit_count: number;
+}
+
+export function selectConflictsChecksStatement(
+  database: SqlDatabase,
+  options: {
+    readonly matterId?: string;
+    readonly cursor?: { readonly createdAt: string; readonly id: string };
+    readonly limit: number;
+  },
+): SqlStatement {
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  if (options.matterId !== undefined) {
+    conditions.push(`${CONFLICTS_CHECK_TABLE}.subject_matter_id = ?`);
+    bindings.push(options.matterId);
+  }
+  if (options.cursor !== undefined) {
+    conditions.push(
+      `(${CONFLICTS_CHECK_TABLE}.created_at < ? OR (${CONFLICTS_CHECK_TABLE}.created_at = ? AND ${CONFLICTS_CHECK_TABLE}.id < ?))`,
+    );
+    bindings.push(options.cursor.createdAt, options.cursor.createdAt, options.cursor.id);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  bindings.push(options.limit);
+  return database
+    .prepare(
+      `SELECT ${CONFLICTS_CHECK_TABLE}.id, ${CONFLICTS_CHECK_TABLE}.trigger, ` +
+        `${CONFLICTS_CHECK_TABLE}.subject_matter_id, ${CONFLICTS_CHECK_TABLE}.strictness, ` +
+        `${CONFLICTS_CHECK_TABLE}.depth, ${CONFLICTS_CHECK_TABLE}.floor_raised, ` +
+        `${CONFLICTS_CHECK_TABLE}.actor_user_id, ${CONFLICTS_CHECK_TABLE}.trigger_source, ` +
+        `${CONFLICTS_CHECK_TABLE}.created_at, ` +
+        // A correlated count rather than a GROUP BY join: the page is at most a few dozen rows, the
+        // (check_id) index on conflicts_hit serves each one, and a join would have to de-duplicate
+        // the check row per hit before the limit could be applied.
+        `(SELECT COUNT(*) FROM ${CONFLICTS_HIT_TABLE} WHERE ${CONFLICTS_HIT_TABLE}.check_id = ${CONFLICTS_CHECK_TABLE}.id) AS hit_count ` +
+        `FROM ${CONFLICTS_CHECK_TABLE} ${where} ` +
+        `ORDER BY ${CONFLICTS_CHECK_TABLE}.created_at DESC, ${CONFLICTS_CHECK_TABLE}.id DESC LIMIT ?`,
+    )
+    .bind(...bindings);
+}

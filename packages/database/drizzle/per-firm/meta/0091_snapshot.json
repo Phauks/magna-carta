@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c0cd9587-0253-4974-a57b-aa1eb78d3a8a",
+  "id": "4f008456-f68a-4c49-a82e-e71328343d46",
   "prevId": "67a90c4e-686e-424b-820e-fd2b72adfd49",
   "tables": {
     "account_balance": {
@@ -915,6 +915,14 @@
           "name": "conflicts_check_subject_matter_created_id_index",
           "columns": [
             "subject_matter_id",
+            "created_at",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "conflicts_check_created_id_index": {
+          "name": "conflicts_check_created_id_index",
+          "columns": [
             "created_at",
             "id"
           ],
@@ -4639,13 +4647,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "value_ciphertext": {

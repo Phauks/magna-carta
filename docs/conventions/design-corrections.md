@@ -78,6 +78,16 @@ is usually the fastest way to understand the rule.
   scanned before anything else touches it"). It is read once, skipped ever after, and it takes room
   from the answer the reader came for. A fact that a reader must have to read the result correctly
   is part of the result, in its own row. _(file workbench, 2026-08-31)_
+- **A failed act states itself where it happened, with the way to try again beside it.** A download
+  that fails gets "Download failed" and a **Retry** button on its own row, on the Downloads page and
+  in the top-bar tray alike, never only in a toast: a toast vanishes, and the reader who watched it
+  go has nothing left to press. _(downloads, 2026-09-03)_
+- **Nothing is saved until the commit is pressed, and a panel never says otherwise.** The Upload
+  dialog opens before any byte moves and sends only on **Upload**; "Closing keeps what has already
+  landed in EWAAAE" was the line that made the owner afraid something had been saved behind their
+  back, and it had. The commit carries the act's own verb ("Upload", not "Save"), a failure reads as
+  one ("Upload failed", not "did not land"), and a panel carries no running commentary about what
+  it is doing on the reader's behalf. _(file manager upload, 2026-09-03)_
 
 ### Lists and tables
 
@@ -490,6 +500,28 @@ surface, which is most of the product.
   filter set and a print sheet over records nobody can add is a reader for somebody else's data. The
   entry path ships with the surface, and where the backend already serves it, its absence is the
   defect rather than the roadmap. _(Custodian register, 2026-09-01)_
+- **A control that clears or dismisses says so on screen, not only on a key.** A keyboard way out
+  is not an affordance: nothing advertises it, and a pointer user is left to select the contents and
+  delete them. ScreenSearch shipped with Escape-to-clear and no glyph on the reasoning that the key
+  was enough; it was not. Where a control can be emptied or closed, the visible way to do it is
+  present whenever there is something to empty — and the key keeps working, routed through the same
+  function so the two cannot drift. _(matter search, 2026-09-02)_
+- **A click on bare background is a click away.** A person who clicks a page's empty margin has left
+  the control, and a transient thing — an unused field, a popover — closes. Reading focus alone
+  cannot see this: clicking a margin moves focus nowhere, so nothing fires that says "away", and
+  code that waits to be told will wait forever. Watch the pointer as well as the focus. What stays
+  open is a control still carrying STATE a reader needs — a live query keeps its field open, because
+  a narrowed list must carry its reason on screen. _(matter search, 2026-09-02)_
+- **Enter means the next thing, not the same thing again.** On a field that already searches as you
+  type, the answer is on screen before Enter could be pressed, so re-running the search is a no-op
+  wearing the costume of a response. Enter goes to wherever the whole answer lives, and pending
+  debounce is flushed first so the destination never opens on a query one keystroke stale. A screen
+  with no such destination leaves Enter alone rather than inventing one. _(matter search, 2026-09-02)_
+- **A way through to the full surface does not require starting the task first.** A panel that only
+  appears once a query is typed puts everything in its header — the scope, the link onward — behind
+  work the reader has not decided to do yet. The panel opens with its control; it is its header row
+  until there is something to answer. _(matter search, 2026-09-02)_
+
 - **A status word is legible against the others in its set, not on its own.** Where a state leaves a
   reader asking what it is, the label takes a word the domain already writes for it — but the test
   it has to pass is the PAIR: custody's "Out" became "Checked out" and was then read as the same
@@ -498,6 +530,38 @@ surface, which is most of the product.
   and shipping it beside the word it collides with is half the correction. This never licenses a
   synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
   own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
+
+### Screen search
+
+- **A live query carries an X that clears it**, at the field's trailing edge, shown only while there
+  is something to clear. This REVERSES the original rule that Escape was clearing enough: Escape is
+  a keyboard affordance and nothing on screen advertises it, so a pointer user had no way to empty
+  the field but to select the text and delete it. Escape still clears, and both paths run the same
+  code so they cannot drift. _(matter search, 2026-09-02)_
+- **Clicking outside an empty search closes it.** Also a reversal: focus landing on the document
+  body was read as "focus went nowhere", so the control stayed open. To a person there is no such
+  place — they clicked away. A live query still holds the control open, because a narrowed list has
+  to carry its reason on screen; the X is how you empty it. _(matter search, 2026-09-02)_
+- **Enter goes to the fuller surface, where the screen has one.** A search that already answers on
+  every keystroke has nothing to re-run, so Enter must mean the next thing rather than nothing at
+  all. A screen that narrows rows in place has no such destination and leaves Enter alone rather
+  than inventing one. _(matter search, 2026-09-02)_
+- **The control opens in two directions, and each one has a job.** To the inline START it opens
+  into the field, which is for WRITING the query; DOWNWARD it opens into a panel, which is for
+  everything else — what the query reaches, and what it found. Aiming a search is not part of typing
+  it, and a scope named in full ("Everything on this matter") took most of the width the field had
+  on a header line. ScreenSearch's `scope` seam, which seats a scope control inside the field's
+  leading edge, is therefore NOT what a long scope vocabulary should use. _(matter search,
+  2026-09-02)_
+- **The downward panel belongs to the control, not beside it.** A panel rendered as a sibling is
+  outside the control's root, so the collapse watches read a click into it as a click away and shut
+  the whole thing on first use. `ScreenSearch`'s `panel` seam renders it inside that root, which
+  makes the correct behaviour structural rather than something each surface has to rediscover.
+  _(matter search, 2026-09-02)_
+- **A search panel opens with the field, not with the first keystroke.** Anything a person needs
+  before they have typed — the scope, the way through to the full results — is unreachable if the
+  panel is gated on a query, and gating it made changing where the search looked require starting a
+  search first. Empty, the panel is its header row and nothing else. _(matter search, 2026-09-02)_
 
 ### Layout
 
@@ -539,6 +603,30 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-02 — the matter search, first deployed round
+
+Five corrections against the matter's consolidated search, the first time it was walked on the
+deployed site. Four were plain defects and are fixed in the shared component rather than the one
+screen, because ScreenSearch is every list screen's search and a divergence here would have been a
+second search box with second behaviour. The generalizations are promoted above.
+
+- An empty field did not close when clicked away from. The cause was deliberate and wrong: focus
+  landing on the body was read as "focus went nowhere" and treated as staying. There is no such
+  place from where a person sits.
+- No X. Escape cleared the field and nothing said so.
+- Enter did nothing at all.
+- The full search page could not be reached without typing something first, because the panel that
+  holds the way to it did not open until there was a query.
+- Searching for a folder by name found nothing. Local to the matter search rather than general: the
+  files source queried file names and joined the folder table only to LABEL which folder a file was
+  in. Recorded here because the shape recurs — a table joined for display is easy to mistake for a
+  table being searched.
+
+Still open at the end of the round: where the scope filter sits. It spells out "Everything on this
+matter" on the header line and takes most of the rail. Three placements were put to the owner (a
+chip inside the field, the panel's header row, chips beneath the field); this entry gets the ruling
+when it is issued.
 
 ### 2026-09-03 — the create control, moved up and made one component
 

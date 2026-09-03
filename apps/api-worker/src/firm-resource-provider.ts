@@ -4,6 +4,7 @@ import {
   locationHintForRegion,
   type DataRegion,
 } from "@magna-carta/database/data-region";
+import { browserUploadCorsRules } from "./files/browser-upload-cors.ts";
 
 // The provisioning port: how the firm provisioner obtains a firm's physical resources. The
 // per-firm database needs none — it is the firmId-addressed FirmDatabase Durable Object, which
@@ -23,6 +24,12 @@ export interface FirmResourceProvider {
   // downloaded or converted accumulates in its bucket forever, metered and paid for. Idempotent (a
   // PUT of the whole rule set), and re-runnable for the same reason notifications are.
   configureBucketLifecycle(firmId: FirmId, region: DataRegion): Promise<void>;
+  // Apply the firm bucket's CORS policy. The file-manager upload PUTs bytes from the browser straight
+  // to a presigned URL on the bucket — a cross-origin request — and a bucket with no policy refuses
+  // the preflight before a byte moves, leaving the app able to say only that nothing answered. The
+  // rules are files/browser-upload-cors.ts plus the origins the deployment names.
+  // Idempotent (a PUT of the whole rule set) and re-runnable, like the two above.
+  configureBucketCors(firmId: FirmId, region: DataRegion): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +61,12 @@ export function createDevFirmResourceProvider(): FirmResourceProvider {
     configureBucketLifecycle(_firmId: FirmId, _region: DataRegion): Promise<void> {
       return Promise.resolve();
     },
+
+    // Local uploads go same-origin through the development R2 route, so no browser ever preflights
+    // against the bound bucket and there is nothing to configure. A no-op marks the step complete.
+    configureBucketCors(_firmId: FirmId, _region: DataRegion): Promise<void> {
+      return Promise.resolve();
+    },
   };
 }
 
@@ -74,6 +87,10 @@ export interface CloudflareRestFirmResourceProviderOptions {
   // for the bulk/ prefix. The lane benefit is queue topology and max_concurrency settings; bulk
   // objects still meter under the files/ dimension. Absent → only the interactive lane is configured.
   readonly bulkEventNotificationQueueId?: string;
+  // Origins a browser uploads from beyond the ones files/browser-upload-cors.ts names — the deployment's own
+  // APP_BASE_URL, so a deployment serving at an address the artifact does not list still takes
+  // uploads. Duplicates of the artifact's origins are folded away.
+  readonly browserOrigins?: readonly string[];
   readonly fetchImplementation?: typeof fetch;
 }
 
@@ -322,6 +339,26 @@ export function createCloudflareRestFirmResourceProvider(
       );
       if (!configured.envelope.success) {
         throw describeFailure("configureBucketLifecycle", configured.status, configured.envelope);
+      }
+    },
+
+    // PUT the whole CORS rule set onto the firm's bucket — the same rules the runbook has the owner
+    // paste onto the shared bucket, in the API's shape. The API replaces what is there, so a resume
+    // re-applies rather than accumulates, and the jurisdiction header rides for the same reason it
+    // rides the others.
+    async configureBucketCors(firmId: FirmId, region: DataRegion): Promise<void> {
+      const bucketName = await firmResourceName(firmId);
+      const jurisdiction = jurisdictionForRegion(region);
+      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
+      const configured = await callApi<unknown>(
+        "configureBucketCors",
+        "PUT",
+        `${accountBase}/r2/buckets/${bucketName}/cors`,
+        { rules: browserUploadCorsRules(options.browserOrigins ?? []) },
+        extraHeaders,
+      );
+      if (!configured.envelope.success) {
+        throw describeFailure("configureBucketCors", configured.status, configured.envelope);
       }
     },
   };
