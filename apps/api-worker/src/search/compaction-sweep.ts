@@ -9,6 +9,7 @@ import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { listReachableActiveFirms } from "../scheduled.ts";
 import { corpusNeedsCompaction } from "./compaction-consumer.ts";
 import { searchCompactionJobName } from "./compaction-types.ts";
@@ -105,8 +106,10 @@ export async function runSearchCompactionSweep(
         new Date(nowMs - gracePeriodMs).toISOString(),
         retirementCap,
       );
+      // A retired split is this firm's object, so it is deleted from this firm's bucket.
+      const { bucket } = resolveFirmBucket(env, firm.bucketName);
       for (const split of collectable) {
-        await env.R2.delete(split.objectKey);
+        await bucket.delete(split.objectKey);
         await commitEffectBatch(
           firm.database,
           {

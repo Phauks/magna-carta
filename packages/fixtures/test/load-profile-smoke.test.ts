@@ -110,12 +110,10 @@ describe("load-profile smoke", () => {
     }
   });
 
-  // One test body seeds a snapshot and measures every operation in the catalogue (a warm-up and two
-  // timed iterations each), so its wall time is the sum of forty-odd measured statements. Under two
-  // seconds on a workstation; on a single-core runner sharing that core with the other test workers
-  // it passed vitest's five-second default on 2026-09-03 with every assertion still green. The
-  // timeout is generous because the test measures, and a measured operation that slows is reported
-  // by the measurement itself, not by a wall-clock cap on the harness.
+  // A seeded snapshot plus warm-up and measured iterations over every group is real work, and how
+  // long it takes is a fact about the machine: 1.6 s here, past the 5 s default on a shared two-core
+  // CI shard running the rest of this suite beside it. The budget states what the test costs, on the
+  // same terms as the other load-profile measurement tests in this package (60 s and 120 s).
   it("snapshots, measures every v1 operation, and keeps hot-path statements scan-free", async () => {
     const cacheDirectory = mkdtempSync(join(tmpdir(), "mc-smoke-cache-"));
     temporaryDirectories.push(cacheDirectory);
@@ -704,5 +702,5 @@ describe("load-profile smoke", () => {
     expect(findFullScans(reportsPlans, REPORTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
-  }, 120_000);
+  }, 60_000);
 });

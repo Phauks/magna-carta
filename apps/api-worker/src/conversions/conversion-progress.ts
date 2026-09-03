@@ -7,6 +7,7 @@
 // that resolves to nothing. The URL is minted per call and never stored — it is short-lived by
 // design, and storing one would outlive the reason the caller was allowed to have it.
 import type { Bindings } from "../app.ts";
+import type { FirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import type { ConversionJobState } from "./conversion-types.ts";
 
@@ -22,13 +23,13 @@ export interface ConversionProgressState {
 
 export async function resolveConversionProgress(
   env: Bindings,
-  bucketName: string,
+  firmBucket: FirmBucket,
   state: ConversionJobState,
 ): Promise<ConversionProgressState> {
   if (state.status === "done" && state.resultKey !== null) {
-    if ((await env.R2.head(state.resultKey)) === null) return { status: "expired" };
+    if ((await firmBucket.bucket.head(state.resultKey)) === null) return { status: "expired" };
     const url = await presignerForEnv(env).presignGet(
-      bucketName,
+      firmBucket.bucketName,
       state.resultKey,
       SIGNED_URL_TTL_SECONDS,
     );

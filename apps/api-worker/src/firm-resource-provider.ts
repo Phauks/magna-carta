@@ -17,6 +17,12 @@ export interface FirmResourceProvider {
   // bucket step, so a run that created the bucket but crashed before this still configures on retry.
   // The region must match what createBucket used — the notification PUTs target the SAME bucket.
   configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void>;
+  // Apply the firm bucket's object-expiry rules. The transient prefixes are regenerable caches, and
+  // nothing else expires them: `bundles/` is rebuilt on demand from its manifest, `conversions/` is
+  // re-derivable from the source document. Without these rules every artifact a firm has ever
+  // downloaded or converted accumulates in its bucket forever, metered and paid for. Idempotent (a
+  // PUT of the whole rule set), and re-runnable for the same reason notifications are.
+  configureBucketLifecycle(firmId: FirmId, region: DataRegion): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -40,6 +46,12 @@ export function createDevFirmResourceProvider(): FirmResourceProvider {
     // Miniflare delivers no R2 event notifications, so there is nothing to configure locally — the
     // ingest consumer is driven by synthetic events in dev/tests. A no-op marks the step complete.
     configureBucketNotifications(_firmId: FirmId, _region: DataRegion): Promise<void> {
+      return Promise.resolve();
+    },
+
+    // Miniflare has no lifecycle engine either, and every local firm shares the bound bucket whose
+    // rules are not this provider's to set. A no-op marks the step complete.
+    configureBucketLifecycle(_firmId: FirmId, _region: DataRegion): Promise<void> {
       return Promise.resolve();
     },
   };
@@ -70,6 +82,22 @@ export interface CloudflareRestFirmResourceProviderOptions {
 const FILES_NOTIFICATION_PREFIX = "files/";
 // The R2 key prefix for bulk-uploaded objects — the notification rule targets the bulk-ingest queue.
 const BULK_NOTIFICATION_PREFIX = "bulk/";
+
+// The transient prefixes and how long an object under each may live. Both hold REGENERABLE artifacts:
+// a bundle is rebuilt from its manifest hash on the next request, and a conversion result is
+// re-derived from the source document. Expiry therefore costs a rebuild and never a document — which
+// is exactly why these prefixes can carry a rule and the firm's own files cannot.
+const LIFECYCLE_RULES = [
+  // A download bundle: the shelf hands out short-TTL signed URLs against it, so a week outlives every
+  // link ever minted for it.
+  { id: "expire-download-bundles", prefix: "bundles/", maxAgeSeconds: 7 * 24 * 60 * 60 },
+  // A conversion result: handed back as one presigned GET and never referenced again.
+  { id: "expire-conversion-results", prefix: "conversions/", maxAgeSeconds: 24 * 60 * 60 },
+] as const;
+
+// An upload the client began and never completed. R2 keeps its parts, and they are metered, so they
+// are reclaimed a day after the last one was written.
+const ABANDONED_MULTIPART_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 
@@ -260,6 +288,40 @@ export function createCloudflareRestFirmResourceProvider(
             configuredBulk.envelope,
           );
         }
+      }
+    },
+
+    // PUT the whole rule set onto the firm's bucket. The API replaces what is there, so this is
+    // idempotent and a resumed provisioning re-applies the same rules rather than accumulating them.
+    // The jurisdiction header rides this call for the same reason it rides the others.
+    async configureBucketLifecycle(firmId: FirmId, region: DataRegion): Promise<void> {
+      const bucketName = await firmResourceName(firmId);
+      const jurisdiction = jurisdictionForRegion(region);
+      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
+      const configured = await callApi<unknown>(
+        "configureBucketLifecycle",
+        "PUT",
+        `${accountBase}/r2/buckets/${bucketName}/lifecycle`,
+        {
+          rules: LIFECYCLE_RULES.map((rule) => ({
+            id: rule.id,
+            enabled: true,
+            conditions: { prefix: rule.prefix },
+            deleteObjectsTransition: {
+              condition: { type: "Age", maxAge: rule.maxAgeSeconds },
+            },
+            // A multipart upload the client abandoned holds its parts, and its parts are metered.
+            // Nothing else reclaims them, so every prefix that can be written by multipart carries
+            // the abort rule beside its expiry.
+            abortMultipartUploadsTransition: {
+              condition: { type: "Age", maxAge: ABANDONED_MULTIPART_MAX_AGE_SECONDS },
+            },
+          })),
+        },
+        extraHeaders,
+      );
+      if (!configured.envelope.success) {
+        throw describeFailure("configureBucketLifecycle", configured.status, configured.envelope);
       }
     },
   };
