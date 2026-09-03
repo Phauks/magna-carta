@@ -744,22 +744,24 @@ jobs:
     # `test_battery` is false only on a push to `main`, where the pull request that produced this exact
     # tree already ran these suites — see the tier note at the top of this file.
     if: needs.classify.outputs.code == 'true' && needs.classify.outputs.test_battery == 'true'
-    # Four shards, not two, because of the 15-minute platform cap on this runner: on 2026-09-03, with
+    # Six shards, because of the 15-minute platform cap on this runner. On 2026-09-03 morning, with
     # two shards, shard 1 finished in 13 minutes and shard 2 was cancelled mid-run at 15 — every test it
     # had reached was passing, and `timeout-minutes` below never came into it, since the platform's
-    # cap is the lower one. These are plain node units — milliseconds per file, no runtime to boot —
-    # so the shard split is what buys the parallelism, not the core count: a shard ran in 19 s pinned
-    # to a single core when the suite was small. Four shards at a quarter of the wall each cost the
-    # same test minutes as two, plus one setup apiece, and leave the cap a margin worth having.
+    # cap is the lower one. Four shards held until the same afternoon, when the suite had grown enough
+    # (tasks, the directory-linking family, the calendar interface) that shard 3 was cancelled at 15
+    # again and shard 1 took 12½ — so six. These are plain node units — milliseconds per file, no
+    # runtime to boot — so the shard split is what buys the parallelism, not the core count: a shard
+    # ran in 19 s pinned to a single core when the suite was small. More shards cost the same test
+    # minutes plus one setup apiece, and leave the cap a margin worth having.
     # RE-MEASURE when a shard passes ten minutes; the fix is another shard, not a bigger runner.
     runs-on: ubuntu-slim
     timeout-minutes: 30
     strategy:
       fail-fast: true # TEMPORARY CI AUSTERITY 2026-08-07 — restore false on revert
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     env:
-      SHARD_TOTAL: 4
+      SHARD_TOTAL: 6
     steps:
       - uses: actions/checkout@v7
       - name: Toolchain, workspace and the WASM artefacts
