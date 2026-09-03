@@ -28,11 +28,13 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import Plus from "@lucide/svelte/icons/plus";
@@ -191,16 +193,19 @@
   // kind-filtered list and never has to be corrected after the fact.
   let newType = $state<DirectoryIdentifierType>("account");
   let newValue = $state("");
-  let submitting = $state(false);
   let failure = $state<StatedFailure | null>(null);
+
+  function resetDraft(): void {
+    newValue = "";
+    failure = null;
+  }
 
   const typeItems = $derived(
     types.map((entry) => ({ value: entry.type, label: entry.label })),
   );
 
-  async function submit(): Promise<void> {
-    if (newValue.trim() === "" || submitting) return;
-    submitting = true;
+  async function submit(): Promise<ActionOutcome> {
+    if (newValue.trim() === "") return "refused";
     failure = null;
     const outcome = await addDirectoryIdentifier(
       fetch,
@@ -208,21 +213,20 @@
       { type: newType, value: newValue.trim() },
       crypto.randomUUID(),
     );
-    submitting = false;
     if (outcome.kind === "ok") {
       // The stored value is sealed on arrival, so what was typed is discarded here too: the pane
       // never keeps a plaintext copy of something it just sealed.
       newValue = "";
       reveals = { ...reveals, [newType]: { phase: "sealed" } };
-      open = false;
       reloadToken += 1;
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
       "The identifier could not be recorded.",
       "Nothing was sealed.",
     );
+    return "refused";
   }
 </script>
 
@@ -333,72 +337,60 @@
   {/if}
 </section>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-xl">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Dialog.Title>Record An Identifier</Dialog.Title>
-        <Dialog.Description>
-          The value is sealed under the firm's key as it arrives. Nothing stores it in the clear, and
-          reading it back later is recorded.
-        </Dialog.Description>
-      </div>
+<ActionDialog
+  bind:open
+  kind="form"
+  heading="Record An Identifier"
+  subtitle="The value is sealed under the firm's key as it arrives. Nothing stores it in the clear, and reading it back later is recorded."
+  commitLabel="Seal And Record"
+  commitBusyLabel="Sealing"
+  commitRefusal={newValue.trim() === "" ? "A value is required." : undefined}
+  unsavedChanges={newValue.trim() !== ""}
+  onOpen={resetDraft}
+  onCommit={submit}
+>
+  {#snippet fields({ busy })}
+    <div class="flex flex-col gap-8">
+      <Label id="new-identifier-type-label">Type</Label>
+      <Select.Root
+        type="single"
+        items={typeItems}
+        bind:value={() => newType, (chosen) => (newType = chosen as DirectoryIdentifierType)}
+        allowDeselect={false}
+        disabled={busy}
+      >
+        <Select.Trigger class="min-w-64" aria-labelledby="new-identifier-type-label">
+          <Select.Value />
+        </Select.Trigger>
+        <Select.Content>
+          {#each typeItems as item (item.value)}
+            <Select.Item value={item.value} label={item.label} />
+          {/each}
+        </Select.Content>
+      </Select.Root>
+    </div>
 
-      <div class="flex flex-col gap-8">
-        <Label id="new-identifier-type-label">Type</Label>
-        <Select.Root
-          type="single"
-          items={typeItems}
-          bind:value={
-            () => newType, (chosen) => (newType = chosen as DirectoryIdentifierType)
-          }
-          allowDeselect={false}
-        >
-          <Select.Trigger class="min-w-64" aria-labelledby="new-identifier-type-label">
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {#each typeItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label for="new-identifier-value">Value</Label>
+    <LabelledField label="Value">
+      {#snippet children({ props })}
         <Input
-          id="new-identifier-value"
+          {...props}
+          disabled={busy}
           bind:value={newValue}
           autocomplete="off"
           placeholder={placeholderOf("Value")}
         />
-      </div>
+      {/snippet}
+    </LabelledField>
+  {/snippet}
 
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Identifier Was Not Recorded"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex justify-end gap-8">
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button
-          variant="primary"
-          disabled={newValue.trim() === "" || submitting}
-          onclick={submit}
-        >
-          {submitting ? "Sealing" : "Seal And Record"}
-        </Button>
-      </div>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="The Identifier Was Not Recorded"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>
