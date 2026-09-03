@@ -9,12 +9,22 @@
    * is the firm's own catalogue, so an empty catalogue shows as empty rather than being padded with
    * examples. The ceremonies themselves live in create-document.ts; this component owns the form,
    * the running state, and how an outcome reads.
+   *
+   * ONE COMMIT, WHICH PATH IS OPEN DECIDES ITS VERB. The two paths used to carry a button each;
+   * the shell's bar holds one, so the commit reads "Add Document" on the file path and "Build
+   * Document" on the template path, and refuses with the reason until that path has what it needs.
+   *
+   * A DOCUMENT THAT LANDED IS A DONE PANEL. Whether it was created, rejected by the scan, or is
+   * still being checked, it is on the matter and the list behind has been told — so the panel
+   * stays to say which of those happened, with nothing left to ask, and leaves through Close. A
+   * request that never reached the server, or a problem the server stated, is a refusal: the
+   * panel stands with the reason in the notice band and the form still in hand.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import * as Tabs from "@magna-carta/design-system/tabs";
-  import Button from "@magna-carta/design-system/button";
   import Dropzone from "@magna-carta/design-system/dropzone";
   import Label from "@magna-carta/design-system/label";
   import Skeleton from "@magna-carta/design-system/skeleton";
@@ -42,6 +52,8 @@
     onCreated: (fileId: string) => void;
   } = $props();
 
+  type Path = "file" | "template";
+  let path = $state<Path>("file");
   let chosenFile = $state<File | null>(null);
   let templates = $state<readonly TemplateSummary[] | null>(null);
   let templatesFailed = $state(false);
@@ -54,8 +66,6 @@
   let absentFieldKeys = $state<readonly string[]>([]);
   let frozenMergeFieldNames = $state<readonly string[]>([]);
   let producedFormat = $state<AssemblyOutputFormat | null>(null);
-
-  const running = $derived(stage !== null && stage !== "settled");
 
   // The catalogue is read when the dialog first opens, not on mount: a matter screen that is never
   // used to create a document should not spend a request on the template list.
@@ -101,7 +111,7 @@
     settled: "Finished.",
   };
 
-  function reset(): void {
+  function clearOutcome(): void {
     stage = null;
     outcome = null;
     absentFieldKeys = [];
@@ -109,165 +119,77 @@
     producedFormat = null;
   }
 
-  async function runUpload(): Promise<void> {
-    if (chosenFile === null) return;
-    reset();
-    outcome = await uploadDocument({
-      fetchImpl: fetch,
-      matterId,
-      file: chosenFile,
-      onStage: (next) => (stage = next),
-    });
-    settle();
+  function reset(): void {
+    clearOutcome();
+    path = "file";
+    chosenFile = null;
+    selectedTemplateVersionId = "";
+    outputFormat = "docx";
   }
 
-  async function runAssembly(): Promise<void> {
-    if (selectedTemplateVersionId === "") return;
-    reset();
-    const result = await assembleDocument({
-      fetchImpl: fetch,
-      matterId,
-      templateVersionId: selectedTemplateVersionId,
-      outputFormat,
-      onStage: (next) => (stage = next),
-    });
-    outcome = result.creation;
-    absentFieldKeys = result.absentFieldKeys;
-    frozenMergeFieldNames = result.frozenMergeFieldNames;
-    producedFormat = result.outputFormat;
-    settle();
-  }
+  const refusal = $derived.by((): string | undefined => {
+    if (path === "file") return chosenFile === null ? "Choose a document first." : undefined;
+    if (templatesFailed) return "The template catalogue could not be read.";
+    if (templates === null) return "The template catalogue is still being read.";
+    if (templates.length === 0) return "This firm has no templates to build from.";
+    return selectedTemplateVersionId === "" ? "Choose a template first." : undefined;
+  });
 
-  function settle(): void {
+  /** A request that reached the server and was answered stands; anything else is a refusal. */
+  const landed = $derived(
+    outcome !== null &&
+      (outcome.kind === "created" || outcome.kind === "rejected" || outcome.kind === "still-settling"),
+  );
+
+  async function create(): Promise<ActionOutcome> {
+    if (refusal !== undefined) return "refused";
+    clearOutcome();
+    if (path === "file") {
+      if (chosenFile === null) return "refused";
+      outcome = await uploadDocument({
+        fetchImpl: fetch,
+        matterId,
+        file: chosenFile,
+        onStage: (next) => (stage = next),
+      });
+    } else {
+      const result = await assembleDocument({
+        fetchImpl: fetch,
+        matterId,
+        templateVersionId: selectedTemplateVersionId,
+        outputFormat,
+        onStage: (next) => (stage = next),
+      });
+      outcome = result.creation;
+      absentFieldKeys = result.absentFieldKeys;
+      frozenMergeFieldNames = result.frozenMergeFieldNames;
+      producedFormat = result.outputFormat;
+    }
     stage = "settled";
     const settled = outcome;
-    if (settled === null) return;
+    if (settled === null) return "refused";
     if (settled.kind === "created" || settled.kind === "rejected" || settled.kind === "still-settling") {
       onCreated(settled.fileId);
+      return "done";
     }
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content>
-    <Dialog.Title>Add a document</Dialog.Title>
-    <Dialog.Description>
-      Bring a document onto this matter, either from a file you have or from one of the firm's
-      templates.
-    </Dialog.Description>
-
-    <Tabs.Root value="file">
-      <Tabs.List>
-        <Tabs.Trigger value="file">From a file</Tabs.Trigger>
-        <Tabs.Trigger value="template">From a template</Tabs.Trigger>
-      </Tabs.List>
-
-      <Tabs.Content value="file">
-        <div class="flex flex-col gap-12">
-          <Dropzone
-            label="Choose a document to add"
-            prompt="Drag a document here, or use the button"
-            disabled={running}
-            onFiles={(files) => {
-              chosenFile = files[0] ?? null;
-              reset();
-            }}
-          />
-          {#if chosenFile !== null}
-            <p class="text-sm text-text-muted">Ready to add: {chosenFile.name}</p>
-          {/if}
-          <Button
-            class="self-start"
-            disabled={chosenFile === null || running}
-            onclick={runUpload}
-          >
-            Add document
-          </Button>
-        </div>
-      </Tabs.Content>
-
-      <Tabs.Content value="template">
-        <div class="flex flex-col gap-12">
-          {#if templatesFailed}
-            <Alert.Root variant="warning">
-              <Alert.Title>The template catalogue could not be read.</Alert.Title>
-              <Alert.Description>
-                Adding a document from a file still works. Reopen this dialog to try again.
-              </Alert.Description>
-            </Alert.Root>
-          {:else if templates === null}
-            <Skeleton class="h-32 w-full" />
-          {:else if templates.length === 0}
-            <Alert.Root variant="info">
-              <Alert.Title>This firm has no templates yet.</Alert.Title>
-              <Alert.Description>
-                A template is registered once and then assembled against any matter. Until one is
-                registered there is nothing to build from, so this list is genuinely empty rather
-                than showing examples.
-              </Alert.Description>
-            </Alert.Root>
-          {:else}
-            <div class="flex flex-col gap-8">
-              <Label id="new-document-template-label">Template</Label>
-              <Select.Root
-                type="single"
-                items={templateItems}
-                bind:value={selectedTemplateVersionId}
-                allowDeselect={false}
-                disabled={running}
-              >
-                <Select.Trigger class="max-w-sm" aria-labelledby="new-document-template-label">
-                  <Select.Value placeholder="Choose a template" />
-                </Select.Trigger>
-                <Select.Content>
-                  {#each templateItems as item (item.value)}
-                    <Select.Item value={item.value} label={item.label} />
-                  {/each}
-                </Select.Content>
-              </Select.Root>
-            </div>
-            <div class="flex flex-col gap-8">
-              <Label id="new-document-format-label">Build it as</Label>
-              <Select.Root
-                type="single"
-                items={[...OUTPUT_FORMAT_ITEMS]}
-                bind:value={outputFormat}
-                allowDeselect={false}
-                disabled={running}
-              >
-                <Select.Trigger class="max-w-sm" aria-labelledby="new-document-format-label">
-                  <Select.Value placeholder="Choose a format" />
-                </Select.Trigger>
-                <Select.Content>
-                  {#each OUTPUT_FORMAT_ITEMS as item (item.value)}
-                    <Select.Item value={item.value} label={item.label} />
-                  {/each}
-                </Select.Content>
-              </Select.Root>
-              <p class="text-sm text-text-muted">
-                A PDF is converted from the merged document before it is filed, so it takes a little
-                longer. Choose it when the document is going out to be signed.
-              </p>
-            </div>
-            <Button
-              class="self-start"
-              disabled={selectedTemplateVersionId === "" || running}
-              onclick={runAssembly}
-            >
-              Build document
-            </Button>
-          {/if}
-        </div>
-      </Tabs.Content>
-    </Tabs.Root>
-
-    {#if stage !== null}
-      <p class="text-sm text-text-muted" role="status" aria-live="polite">
-        {STAGE_NARRATION[stage]}
-      </p>
-    {/if}
-
-    {#if outcome !== null}
+<ActionDialog
+  bind:open
+  kind="form"
+  heading="Add a Document"
+  subtitle="Bring a document onto this matter, either from a file you have or from one of the firm's templates."
+  commitLabel={path === "file" ? "Add Document" : "Build Document"}
+  commitBusyLabel={path === "file" ? "Adding" : "Building"}
+  commitRefusal={refusal}
+  unsavedChanges={false}
+  onOpen={reset}
+  onCommit={create}
+>
+  {#snippet fields({ busy, done })}
+    {#if done && outcome !== null && landed}
       {#if outcome.kind === "created"}
         <Alert.Root variant="success">
           <Alert.Title>The document is on the matter.</Alert.Title>
@@ -286,21 +208,141 @@
             rejection is visible, but it has no readable content.
           </Alert.Description>
         </Alert.Root>
-      {:else if outcome.kind === "still-settling"}
+      {:else}
         <Alert.Root variant="info">
           <Alert.Title>The document is still being checked.</Alert.Title>
           <Alert.Description>
             It is on the matter and will show its outcome the next time the list is read.
           </Alert.Description>
         </Alert.Root>
-      {:else if outcome.kind === "transport"}
+      {/if}
+
+      {#if absentFieldKeys.length > 0 || frozenMergeFieldNames.length > 0}
+        <Alert.Root variant="warning">
+          <Alert.Title>The document has blanks in it.</Alert.Title>
+          <Alert.Description>
+            {#if absentFieldKeys.length > 0}
+              <span class="block">The matter could not supply: {absentFieldKeys.join(", ")}.</span>
+            {/if}
+            {#if frozenMergeFieldNames.length > 0}
+              <span class="block">
+                These fields print whatever text was last saved into the template, not a merged
+                value: {frozenMergeFieldNames.join(", ")}.
+              </span>
+            {/if}
+          </Alert.Description>
+        </Alert.Root>
+      {/if}
+    {:else}
+      <Tabs.Root bind:value={() => path, (next) => (path = next as Path)}>
+        <Tabs.List>
+          <Tabs.Trigger value="file" disabled={busy}>From a file</Tabs.Trigger>
+          <Tabs.Trigger value="template" disabled={busy}>From a template</Tabs.Trigger>
+        </Tabs.List>
+
+        <Tabs.Content value="file">
+          <div class="flex flex-col gap-12">
+            <Dropzone
+              label="Choose a document to add"
+              prompt="Drag a document here, or use the button"
+              disabled={busy}
+              onFiles={(files) => {
+                chosenFile = files[0] ?? null;
+                clearOutcome();
+              }}
+            />
+            {#if chosenFile !== null}
+              <p class="text-sm text-text-muted">Ready to add: {chosenFile.name}</p>
+            {/if}
+          </div>
+        </Tabs.Content>
+
+        <Tabs.Content value="template">
+          <div class="flex flex-col gap-12">
+            {#if templatesFailed}
+              <Alert.Root variant="warning">
+                <Alert.Title>The template catalogue could not be read.</Alert.Title>
+                <Alert.Description>
+                  Adding a document from a file still works. Reopen this dialog to try again.
+                </Alert.Description>
+              </Alert.Root>
+            {:else if templates === null}
+              <Skeleton class="h-32 w-full" />
+            {:else if templates.length === 0}
+              <Alert.Root variant="info">
+                <Alert.Title>This firm has no templates yet.</Alert.Title>
+                <Alert.Description>
+                  A template is registered once and then assembled against any matter. Until one is
+                  registered there is nothing to build from, so this list is genuinely empty rather
+                  than showing examples.
+                </Alert.Description>
+              </Alert.Root>
+            {:else}
+              <div class="flex flex-col gap-8">
+                <Label id="new-document-template-label">Template</Label>
+                <Select.Root
+                  type="single"
+                  items={templateItems}
+                  bind:value={selectedTemplateVersionId}
+                  allowDeselect={false}
+                  disabled={busy}
+                >
+                  <Select.Trigger class="max-w-sm" aria-labelledby="new-document-template-label">
+                    <Select.Value placeholder="Choose a template" />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each templateItems as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+              <div class="flex flex-col gap-8">
+                <Label id="new-document-format-label">Build it as</Label>
+                <Select.Root
+                  type="single"
+                  items={[...OUTPUT_FORMAT_ITEMS]}
+                  bind:value={outputFormat}
+                  allowDeselect={false}
+                  disabled={busy}
+                >
+                  <Select.Trigger class="max-w-sm" aria-labelledby="new-document-format-label">
+                    <Select.Value placeholder="Choose a format" />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each OUTPUT_FORMAT_ITEMS as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <p class="text-sm text-text-muted">
+                  A PDF is converted from the merged document before it is filed, so it takes a
+                  little longer. Choose it when the document is going out to be signed.
+                </p>
+              </div>
+            {/if}
+          </div>
+        </Tabs.Content>
+      </Tabs.Root>
+
+      {#if stage !== null}
+        <p class="text-sm text-text-muted" role="status" aria-live="polite">
+          {STAGE_NARRATION[stage]}
+        </p>
+      {/if}
+    {/if}
+  {/snippet}
+
+  {#snippet notice()}
+    {#if outcome !== null && !landed}
+      {#if outcome.kind === "transport"}
         <Alert.Root variant="danger">
           <Alert.Title>Nothing answered.</Alert.Title>
           <Alert.Description>
             The request did not reach the server. Check the connection and try again.
           </Alert.Description>
         </Alert.Root>
-      {:else}
+      {:else if outcome.kind === "problem"}
         {@const guidance = problemGuidance(outcome.problem)}
         <Alert.Root variant={guidance.tone === "info" ? "info" : guidance.tone}>
           <Alert.Title>{guidance.title}</Alert.Title>
@@ -313,24 +355,5 @@
         </Alert.Root>
       {/if}
     {/if}
-
-    {#if absentFieldKeys.length > 0 || frozenMergeFieldNames.length > 0}
-      <Alert.Root variant="warning">
-        <Alert.Title>The document has blanks in it.</Alert.Title>
-        <Alert.Description>
-          {#if absentFieldKeys.length > 0}
-            <span class="block">
-              The matter could not supply: {absentFieldKeys.join(", ")}.
-            </span>
-          {/if}
-          {#if frozenMergeFieldNames.length > 0}
-            <span class="block">
-              These fields print whatever text was last saved into the template, not a merged value:
-              {frozenMergeFieldNames.join(", ")}.
-            </span>
-          {/if}
-        </Alert.Description>
-      </Alert.Root>
-    {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>

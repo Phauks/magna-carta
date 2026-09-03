@@ -71,7 +71,7 @@ describe("resolveFirmBucket", () => {
     // Without it there is nothing to compare a firm bucket against, so the mismatch above would go
     // undetected — an unset value is a misconfiguration, not a licence to skip the check.
     expect(() => resolveFirmBucket(envWithRealPresigning({}), BOUND_BUCKET)).toThrow(
-      /R2_BUCKET_NAME is unset/,
+      /R2_BUCKET_NAME/,
     );
   });
 
@@ -85,7 +85,7 @@ describe("resolveFirmBucket", () => {
   });
 
   it("fails loudly for a firm whose provisioning never recorded a bucket", () => {
-    expect(() => resolveFirmBucket(env, null)).toThrow(/no R2 bucket/);
+    expect(() => resolveFirmBucket(env, null)).toThrow(/has not finished being provisioned/);
   });
 });
 

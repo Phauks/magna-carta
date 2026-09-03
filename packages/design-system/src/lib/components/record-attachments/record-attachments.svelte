@@ -26,7 +26,8 @@
   import FolderSearch from "@lucide/svelte/icons/folder-search";
   import Unlink from "@lucide/svelte/icons/unlink";
   import * as Alert from "../alert/index.ts";
-  import * as AlertDialog from "../alert-dialog/index.ts";
+  import ActionDialog from "../action-dialog/action-dialog.svelte";
+  import type { ActionOutcome } from "../action-dialog/types.ts";
   import * as Command from "../command/index.ts";
   import * as Popover from "../popover/index.ts";
   import Button from "../button/button.svelte";
@@ -144,10 +145,12 @@
     onAttachExisting?.(chosen);
   }
 
-  function confirmDetach(): void {
+  async function confirmDetach(): Promise<ActionOutcome> {
     const attachment = pendingDetach;
-    pendingDetach = null;
-    if (attachment !== null) onDetach?.(attachment);
+    if (attachment === null) return "refused";
+    onDetach?.(attachment);
+    // The shell closes the panel; the binding below clears the pending record as it goes.
+    return "committed";
   }
 
   /**
@@ -372,30 +375,14 @@
   The confirmation. It names what stops and, in the same breath, where the document will still be —
   because the fear this dialog has to answer is that pressing Detach destroys the file.
 -->
-<AlertDialog.Root
-  bind:open={
-    () => pendingDetach !== null,
-    (open) => {
-      if (!open) pendingDetach = null;
-    }
-  }
->
-  <AlertDialog.Content>
-    <AlertDialog.Title>Detach This Document?</AlertDialog.Title>
-    <AlertDialog.Description>
-      {pendingDetach?.name} stops being attached to this record. The document itself stays in this
-      matter's files, with everything else recorded about it.
-    </AlertDialog.Description>
-    <div class="mc-record-attachments-confirm-actions">
-      <AlertDialog.Cancel class={buttonClasses({ variant: "ghost", size: "default" })}>
-        Cancel
-      </AlertDialog.Cancel>
-      <AlertDialog.Action
-        class={buttonClasses({ variant: "secondary", size: "default" })}
-        onclick={confirmDetach}
-      >
-        Detach
-      </AlertDialog.Action>
-    </div>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+<ActionDialog
+  kind="confirm"
+  bind:open={() => pendingDetach !== null, (open) => {
+    if (!open) pendingDetach = null;
+  }}
+  heading="Detach This Document?"
+  subtitle={`${pendingDetach?.name ?? "It"} stops being attached to this record. The document itself stays in this matter's files, with everything else recorded about it.`}
+  commitLabel="Detach"
+  unsavedChanges={false}
+  onCommit={confirmDetach}
+/>

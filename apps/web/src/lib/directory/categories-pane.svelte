@@ -19,10 +19,11 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Label from "@magna-carta/design-system/label";
   import Skeleton from "@magna-carta/design-system/skeleton";
@@ -93,30 +94,31 @@
 
   let open = $state(false);
   let chosen = $state<string>("");
-  let submitting = $state(false);
   let assignFailure = $state<StatedFailure | null>(null);
 
-  async function submit(): Promise<void> {
-    if (chosen === "" || submitting) return;
-    submitting = true;
+  function resetAssignment(): void {
+    chosen = "";
+    assignFailure = null;
+  }
+
+  async function submit(): Promise<ActionOutcome> {
+    if (chosen === "") return "refused";
     assignFailure = null;
     const outcome = await assignDirectoryCategory(
       fetch,
       { entityId, categoryId: chosen },
       crypto.randomUUID(),
     );
-    submitting = false;
     if (outcome.kind === "ok") {
-      chosen = "";
-      open = false;
       reloadToken += 1;
-      return;
+      return "committed";
     }
     assignFailure = stated(
       outcome.failure,
       "The category could not be assigned.",
       "The category was not assigned.",
     );
+    return "refused";
   }
 </script>
 
@@ -189,50 +191,48 @@
   {/if}
 </section>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-lg">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Dialog.Title>Assign A Category</Dialog.Title>
-        <Dialog.Description>
-          Only the firm's own categories that fit this side of the directory are offered.
-        </Dialog.Description>
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label id="assign-category-label">Category</Label>
-        <Select.Root type="single" items={categoryItems} bind:value={chosen} allowDeselect={false}>
-          <Select.Trigger class="min-w-64" aria-labelledby="assign-category-label">
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {#each categoryItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      {#if assignFailure !== null}
-        <FailureNotice
-          failure={assignFailure.failure}
-          title="The Category Was Not Assigned"
-          fallback={assignFailure.fallback}
-          whenSilent={assignFailure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex justify-end gap-8">
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button variant="primary" disabled={chosen === "" || submitting} onclick={submit}>
-          {submitting ? "Assigning" : "Assign Category"}
-        </Button>
-      </div>
+<ActionDialog
+  bind:open
+  kind="form"
+  heading="Assign A Category"
+  subtitle="Only the firm's own categories that fit this side of the directory are offered."
+  commitLabel="Assign Category"
+  commitBusyLabel="Assigning"
+  commitRefusal={chosen === "" ? "Choose a category first." : undefined}
+  unsavedChanges={false}
+  onOpen={resetAssignment}
+  onCommit={submit}
+>
+  {#snippet fields({ busy })}
+    <div class="flex flex-col gap-8">
+      <Label id="assign-category-label">Category</Label>
+      <Select.Root
+        type="single"
+        items={categoryItems}
+        bind:value={chosen}
+        allowDeselect={false}
+        disabled={busy}
+      >
+        <Select.Trigger class="min-w-64" aria-labelledby="assign-category-label">
+          <Select.Value />
+        </Select.Trigger>
+        <Select.Content>
+          {#each categoryItems as item (item.value)}
+            <Select.Item value={item.value} label={item.label} />
+          {/each}
+        </Select.Content>
+      </Select.Root>
     </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+
+  {#snippet notice()}
+    {#if assignFailure !== null}
+      <FailureNotice
+        failure={assignFailure.failure}
+        title="The Category Was Not Assigned"
+        fallback={assignFailure.fallback}
+        whenSilent={assignFailure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>

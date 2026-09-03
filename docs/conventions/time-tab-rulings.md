@@ -417,17 +417,17 @@ same commit that built the Time Sheet: the entry number, the entered date and it
 resolved rate, both UTBMS codes, the internal memo, the attachment relation and the per-entry event
 history were all being served while three screens said "not recorded yet" about them.
 
-| #   | Ruling                                                                                                                                                                                                                                                                                                                          | Status  |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| S1  | **Every served field is read.** The web `TimeEntrySummary` declares all 28 fields the contract answers with, not the 12 a screen happened to need. A type that names a subset is not a smaller truth — it is a screen that cannot see what the server sent, and it is what made eight gaps outlive their routes.                | settled |
-| S2  | **TL7's entry number is live** — on the ledger column, the sheet's Time Code cell, the record window's subtitle (its one home there), the details panel and the print sheet. An entry captured before the sequence existed carries none and says so; nothing backfills a guess.                                                | settled |
-| S3  | **TL8's two dates and TD9's two people are live**, on every row rather than only the delegated ones: a person recording their own work appears in both columns, which is what makes delegation a comparison rather than a column blank on almost every row.                                                                    | settled |
-| S4  | **TD3's rate is READ, not typed.** An entry keeps the rate in force on its work date for ever, so the record window states the figure and names where it resolved from; a per-entry override stays TP4's open permission question rather than a field somebody can reach.                                                    | settled |
-| S5  | **TL3/TL4's two codes are typable comboboxes** over the firm's own catalogue, one component rendered twice. A refused catalogue costs the picker and not the field: the entry's own code and label are served on the record, so the ledger still reads correctly and the line under the field says which refusal applies.      | settled |
-| S6  | **M6's internal memo is real everywhere it belongs** — the sheet's third row line, the record window's field, written, saved and read back — and its exclusion is PROVED against a rendered print sheet holding a real memo, not asserted in a comment.                                                                       | settled |
-| S7  | **M3/M9's attachments are real**: the record window lists what an entry points at, attaches one of the matter's own documents, and detaches without deleting. There is no upload here on purpose — a document arrives in a matter through the file manager, and a second door would be a second place one can come from.       | settled |
+| #   | Ruling                                                                                                                                                                                                                                                                                                                           | Status  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1  | **Every served field is read.** The web `TimeEntrySummary` declares all 28 fields the contract answers with, not the 12 a screen happened to need. A type that names a subset is not a smaller truth — it is a screen that cannot see what the server sent, and it is what made eight gaps outlive their routes.                 | settled |
+| S2  | **TL7's entry number is live** — on the ledger column, the sheet's Time Code cell, the record window's subtitle (its one home there), the details panel and the print sheet. An entry captured before the sequence existed carries none and says so; nothing backfills a guess.                                                  | settled |
+| S3  | **TL8's two dates and TD9's two people are live**, on every row rather than only the delegated ones: a person recording their own work appears in both columns, which is what makes delegation a comparison rather than a column blank on almost every row.                                                                      | settled |
+| S4  | **TD3's rate is READ, not typed.** An entry keeps the rate in force on its work date for ever, so the record window states the figure and names where it resolved from; a per-entry override stays TP4's open permission question rather than a field somebody can reach.                                                        | settled |
+| S5  | **TL3/TL4's two codes are typable comboboxes** over the firm's own catalogue, one component rendered twice. A refused catalogue costs the picker and not the field: the entry's own code and label are served on the record, so the ledger still reads correctly and the line under the field says which refusal applies.        | settled |
+| S6  | **M6's internal memo is real everywhere it belongs** — the sheet's third row line, the record window's field, written, saved and read back — and its exclusion is PROVED against a rendered print sheet holding a real memo, not asserted in a comment.                                                                          | settled |
+| S7  | **M3/M9's attachments are real**: the record window lists what an entry points at, attaches one of the matter's own documents, and detaches without deleting. There is no upload here on purpose — a document arrives in a matter through the file manager, and a second door would be a second place one can come from.         | settled |
 | S8  | **M2's History tab is the served event read**, oldest first, with the audit's own event names translated into a reader's words and an unknown event read back rather than dropped. Only a reason somebody WROTE is quoted beneath an event: the audit's metadata is a field list by construction, and a field list is not prose. | settled |
-| S9  | **The register is re-asked, not just appended to.** `time-gaps.ts` carries the eight that remain, and its own comment says what re-asking is for. Both it and the API-gap list above now point at the served summary as the thing to check against.                                                                            | settled |
+| S9  | **The register is re-asked, not just appended to.** `time-gaps.ts` carries the eight that remain, and its own comment says what re-asking is for. Both it and the API-gap list above now point at the served summary as the thing to check against.                                                                              | settled |
 
 **What is still a gap, and still rendered as one:** moving a written entry to another matter,
 recording one member's work under another's hand (capture and PATCH both refuse a foreign
@@ -435,6 +435,35 @@ timekeeper), the review gate as a served firm setting, unsubmit, delete-draft, b
 beyond the boolean, the firm's rounding increment, capture of an entry that has no description or
 duration yet, the non-billable category on the listing, and the invoice's own number and dates
 beside its identifier.
+
+## R10 — round ten: a misfiled entry moves
+
+The owner, on reading that refiling was still listed as a gap: **"you should be able to refile to
+another matter."** L4 settled the design in round six — the RECORD carries a matter field so a
+misfiled entry moves — and it had stayed a registered API gap ever since, because the route it
+needs is a cross-matter write with its own permission rather than a `PATCH` of `matterId`. This
+round builds it.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                             | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| L4b | **A misfiled entry MOVES; it is not struck and re-typed.** The remedy keeps the record — its number, its memo, its codes, its files and its history. Striking and re-recording loses all five and leaves a struck row on a matter the work was never really on.                                                    | settled |
+| L4c | **It is its own route, not a field on the update.** `POST /time-entries/{id}/refile`. Two ledgers change, two matters' totals move, and the rate the entry froze was resolved against the matter it is leaving; a patch field would let anything that can edit a narrative move money between matters by accident. | settled |
+| L4d | **The entry number is KEPT** (R3, applied to matters as it was to ledgers). After a move its prefix names the matter the entry was FIRST written on — provenance, not an assertion about where it lives now — and the record says so on its hover.                                                                 | settled |
+| L4e | **The rate and the rounding are RE-ASKED against the destination**, on the entry's own work date. Both resolve through the matter, so the answers the old matter gave are answers to a different question. The snapshot invariant is untouched: it forbids a later card edit re-rating a standing entry, not this. | settled |
+| L4f | **What it refuses:** anything past draft, anything on a bill, anything a draft invoice has claimed, a matter this firm does not have, and the matter it is already on. The last is refused rather than treated as a no-op — a move that moved nothing still reported success.                                      | settled |
+| L4g | **Every move is on the record**, one audit event naming both matters (R5, applied to matters). A move nobody can see is indistinguishable from a misfiling nobody noticed.                                                                                                                                         | settled |
+| L4h | **A written entry cannot be taken OFF a matter.** The record has to be somewhere, so the field offers other matters and refuses the empty choice — the one thing a move cannot do.                                                                                                                                 | settled |
+
+**Notes recorded this round:**
+
+- The Matter field is now settable on every DRAFT, on both surfaces — the sheet's cell and the
+  record window — and states where the entry is and why it stays on anything past draft.
+- Recorded judgement: no undo step is pushed for a move on the Time Sheet. Moving it back is another
+  refile, which the reader can simply do; a stack entry that silently re-ran a cross-matter write on
+  a record two people may be looking at is a different act from putting a typed cell back.
+- Recorded judgement: the entry keeps the rate CARD it resolved on, so a firm with several cards
+  keeps the entry on the one it was captured under; the TIER within that card is what the
+  destination re-answers.
 
 ## API gaps the mockup is honest about
 
@@ -492,9 +521,11 @@ need:
     contracts must serve, because with it off the submitted and approved statuses must never be
     reachable — the client cannot be the only thing enforcing that. Gap: no firm-level
     `reviewGateEnabled` is served or settable.
-18. **Round six, moving an entry between matters (L4):** no route refiles a draft time entry or
-    fee onto another matter. It is a cross-matter write (both matters' ledgers change), so it
-    needs its own route with its own permission, not a `PATCH` of `matterId`.
+18. **Round six, moving an entry between matters (L4):** **CLOSED FOR TIME** —
+    `POST /time-entries/{id}/refile` exists, on exactly the shape this entry asked for: its own
+    route rather than a `PATCH` of `matterId`, refusing anything past draft, on a bill or claimed,
+    keeping the entry number and re-resolving the rate and rounding against the destination. FEES
+    still want the same route.
 19. **Round six, attachments (M3):** every WIP record type needs a MANY-attachment relation, an
     attach and a DETACH route (detach must not delete the underlying file), and the counts served
     on the listing — the cost half of this is the existing `receiptFileId` gap (13), generalized

@@ -86,7 +86,7 @@
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import X from "@lucide/svelte/icons/x";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { autoSizeTextarea } from "./auto-size-textarea.ts";
   import { FirmMatters } from "./firm-matters.svelte.ts";
   import MatterPicker from "./matter-picker.svelte";
@@ -548,28 +548,28 @@
   </div>
 {/snippet}
 
+<!--
+  THE MATTER IS SETTABLE ON EVERY DRAFT, written or not. On a row that has not reached the record it
+  is the choice that lets the row be written at all; on one that has, picking another matter MOVES
+  the entry — number, memo, codes, files and history intact — and re-reads its rate and rounding on
+  the matter it moved to. Past draft the cell states where the entry is and why it stays: an
+  approved or billed entry is evidence somebody is relying on, and the answer there is a strike and
+  a fresh record rather than a move nobody can see.
+-->
 {#snippet matterCell(row: SheetRow)}
   {@const refusal = editRefusal(row)}
-  {#if row.entryIdentifier === null}
-    <!-- A row that is not on the record yet: the matter is still the reader's to choose, and
-         choosing it is what lets the row be written at all. -->
+  {#if refusal === undefined}
     <MatterPicker
       matters={matters}
       value={row.matterId}
       capped={firmMatters.capped}
-      disabled={refusal !== undefined}
-      title={refusal ??
-        "Where this time belongs. Type the number or the name; either finds it. A row with no matter stays on the sheet until one is set."}
+      title={row.entryIdentifier === null
+        ? "Where this time belongs. Type the number or the name; either finds it. A row with no matter stays on the sheet until one is set."
+        : "Where this time belongs. Picking another matter moves the entry there, with its number, its note and its files; its rate is re-read on the matter it moves to."}
       onpick={(matterId) => store.setMatter(row.key, matterId)}
     />
   {:else}
-    <!-- An entry the firm holds. Nothing in the contract moves one between matters, so the cell
-         names the matter it is on and says what moving it waits on rather than offering a control
-         that would change the screen and not the record. -->
-    <span
-      class="block truncate"
-      title="{matterText(row)}. Moving an entry to another matter waits on {gapReason('matter')}."
-    >
+    <span class="block truncate" title="{matterText(row)}. {refusal}">
       {matterText(row)}
     </span>
   {/if}

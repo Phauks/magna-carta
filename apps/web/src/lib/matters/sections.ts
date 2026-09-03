@@ -33,7 +33,7 @@
  * owned twice. Ownership lives HERE rather than in the Activity section's own files so that "where
  * does this row open" has one answer, and it is the answer the section registry already gives.
  */
-import type { MaturityStage } from "$lib/maturity/maturity.ts";
+import type { MaturityStage } from "@magna-carta/design-system/maturity";
 
 export interface MatterSection {
   /** Route segment under matters/[id]/. */

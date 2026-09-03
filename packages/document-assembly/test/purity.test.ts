@@ -42,6 +42,10 @@ const ALLOWED_EXTERNALS: ReadonlySet<string> = new Set([
   // second implementation of half-to-even or of a largest-remainder split.
   "@magna-carta/money/rounding",
   "@magna-carta/money/allocate",
+  // A tabular export composes into the platform's ONE renderable document model, the same shape the
+  // export printer reads, so a report and a merge document print through the same printer. Restating
+  // the model here would be a second document shape for the printer to learn.
+  "@magna-carta/export-document/renderable",
 ]);
 
 // Specifiers that would mean the package had stopped being pure, listed by the thing they drag in.

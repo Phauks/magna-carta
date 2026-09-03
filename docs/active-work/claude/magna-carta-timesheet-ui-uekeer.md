@@ -1,16 +1,21 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/magna-carta-timesheet-ui-uekeer
-area: The time surfaces — the Time Sheet, the matter Time tab, and the chrome the four financial ledgers share with them
+area: The Time Sheet and the Time tab — chrome, the served-but-unrendered fields, and refiling onto another matter
 status: building
-touches: apps/web/src/lib/time, apps/web/src/lib/costs, apps/web/src/lib/billing, apps/web/src/lib/records, apps/web/src/lib/components, apps/web/src/routes/(app)/matters/[id], packages/design-system/src/lib/components/data-table, changelog.d/, status.d/
+touches: packages/timekeeping, apps/api-worker/src/routes/time-entries.ts, apps/api-worker/test/conformance.test.ts, apps/api-worker/openapi/openapi.json, apps/web/src/lib/time, apps/web/src/lib/records, docs/conventions/time-tab-rulings.md, changelog.d/
 ---
 
-The owner's review round on the time surfaces. The first pass is chrome the four financial ledgers
-(Time, Fees, Costs, Billing) hold in common — the pane toggles, the pane frame, the empty state and
-the page height — so the corrections land in one shared component rather than four times. The second
-is the time surfaces' own: the served listing carries the entry number, both dates and both people,
-the resolved rate, the UTBMS codes, the internal memo, the attachment count and an event history,
-and the screens still render those as gaps.
+The standing stream on the time surfaces. Landed so far: the chrome round the owner called (one
+sidebar-toggle vocabulary shared with the file manager, the four ledgers filling the remaining
+height, an empty state that centres in the frame rather than in the scrollable row), the fields the
+listing was already serving and the screens were still calling unbuilt, and the refile —
+`POST /time-entries/{id}/refile`, which keeps the record and re-resolves the rate and the rounding
+against the destination, reached from the Matter cell on the sheet and from the record window.
 
-A concurrent stream editing `packages/design-system/src/lib/components/data-table` should know this
-one touches the grid's placeholder row (the empty state's frame) and nothing else in that directory.
+In flight now: the conformance suite's not-vacuous operation list, which the refile route's
+`timeEntries.refile` was added to the contract without. That list is what stops every positive
+assertion in the file from passing over an empty document, so it fails until a new operation is
+named in it — the step `apps/api-worker/CLAUDE.md` calls for in the same commit as a new route, and
+the one this stream missed.
+
+Touches `apps/api-worker/openapi/openapi.json`, which another stream also declares.

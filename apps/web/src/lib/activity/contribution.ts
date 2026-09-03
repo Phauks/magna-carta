@@ -24,7 +24,7 @@
  */
 import type { Component } from "svelte";
 import type { ActivityEntry } from "$lib/matters/activity-api.ts";
-import { hasSurface } from "$lib/maturity/maturity.ts";
+import { hasSurface } from "@magna-carta/design-system/maturity";
 import {
   UNSECTIONED_TIMELINE_SOURCES,
   sectionOwningTimelineSource,

@@ -558,3 +558,84 @@ reading kind is not a way around that — it is the panel for a fact with a step
 context pane earns the record width without the record's tabs. The distinction the shells draw
 (read a record; be asked for an act) gains a third clause: read a fact and take a step from where
 it sits. Three panels are known to have this shape; the status window is the first to land.
+
+### 11.5 What the first fifteen callers asked for
+
+With fifteen panels on the shell, what they still repeated was measured rather than guessed at, and
+four of the findings became shell or design-system changes on 2026-09-02, owner-approved:
+
+- **Enter commits, from the shell.** None of the fifteen had wired Enter, because each would have had
+  to. The primary pane is now a real `<form>` and the commit is its submit button, associated by id
+  since the bar sits outside the pane; the platform's implicit submission does the rest, and a
+  disabled commit (a refusal, or an act not served yet) stops Enter for free. Ctrl+Enter or
+  Cmd+Enter commits from a textarea, where Enter must go on meaning a new line. `novalidate`,
+  because a refusal is the shell's and is stated beside the commit, never as a browser bubble.
+- **`subtitle` takes a string.** Twelve of fourteen subtitle snippets were plain text. The prop is
+  `string | Snippet`; the snippet arm stays for a subtitle that carries markup.
+- **`commitSoon`, and the maturity family moves into the design system.** Two panels composed
+  `SoonAffordance` around a commit of their own, and carried allowances for it because the affordance
+  lived in the app and the shell cannot import the app. The whole maturity vocabulary — the model,
+  the badge, the dot, the affordance — is now `@magna-carta/design-system/maturity`, with one home
+  and its tests moved with it; the acting arm gains `commitSoon: { reason }`, and the shell wraps its
+  own commit in the affordance. The bar still holds exactly one commit in the shell's source: the
+  control is one snippet rendered one of two ways, which is what keeps the `footer-set` rule true.
+- **`LabelledField` and `FieldRow`.** The label-over-control column was written by hand fifty-six
+  times across the fifteen, and the two-or-three-across row sixteen times; about a third of the
+  hints had no `aria-describedby`. `LabelledField` mints the id, joins the hint and the error into
+  the control's description, marks an error invalid, and hands the control its attributes as `props`
+  to spread — formsnap's own idiom. It is deliberately not the form family's `Field`, which is bound
+  to superforms; the two stack the same parts at different gaps (space-8 here, as every panel had
+  it; space-4 there), and that difference is stated on the recipe for the owner to settle rather
+  than smoothed over. `FieldRow` is utilities only, because a breakpoint is the one thing a recipe
+  cannot express.
+
+Two findings were deliberately not built. A third bar control (bug-report and request-change carry
+Close, Copy and Send) is refused on the same ground as before: the copy belongs in the body beside
+the text it copies, as the reading kind seats its step. And an app-side failure helper — the twelve
+lines every caller writes around `FailureNotice` — is the app's side of the notice seam and stays
+out of the design system; it is queued for the migration pass that touches every caller anyway.
+
+### 11.6 A commit that stays: the `done` outcome
+
+The confirmation family — the file manager's three panels, the note and party removals, the
+settings recap, the attachment detach — was the first to need something the seams above did not
+give: the upload panel saves its destination and then **stays open while the batch lands**, its
+report column ticking, until the host closes it. Two of the panels still to migrate have the same
+shape (bug-report shows its filed reference; new-document shows what it made). So `ActionOutcome`
+gains a third value. `"done"` leaves the panel standing as a panel with nothing left to ask: the
+commit leaves the bar, the dismissal reads Close, the guard stands down, and `fields` and `context`
+are handed `done` beside `busy` so one snippet renders the panel before and after. It is the reading
+kind's bar arrived at by acting, which is why it costs the shell one flag and no new branch.
+
+The same family put the upload panel's report in the **context pane**, where it had been a second
+grid column inside a `max-w-record-pane` dialog: the decision on the left is the fields, the report
+on the right is the context, and the frame's rule — the primary pane stops, the context takes the
+room — is exactly what a live list beside a still choice wants. The bar's hint ("closing keeps what
+has landed") moved into the body, because the bar is the shell's.
+
+### 11.7 Where the migration ended
+
+Twenty-seven panels moved onto the shells across six pull requests on 2026-09-02, in families:
+custodian (3), billing and costs (10), the new-matter window, the status window (the reading kind),
+the confirmations (7, with the `done` outcome), the forms (4, the first callers of `commitSoon` and
+`LabelledField`), the send panels (3, with `restoreFocus`), and the last two — the new-document flow
+and Apply Trust Funds, which the Soon affordance's move into the design system admitted.
+
+Six `hand-composed-modal` allowances remain, and every one is a named exclusion rather than debt:
+the command palette (a launcher, the documented Command-in-a-Dialog pattern), the settings ledger
+(a Sheet holding context), the three full-screen surfaces (a separate design, deliberately not
+folded into this one), and the fee-arrangement window (`RecordWindow`'s shape, migrated when that
+stream is open). The register prints them on every run with the reason each stands on, so the list
+stays read.
+
+A correction, recorded because it is the kind of mistake the register exists to catch: the four
+directory panes were excluded as "panes inside a surface, not modals," which described the files
+and not the hits. Each pane composed a real form dialog — Assign A Category, Record A Way To Reach
+Them, Record An Identifier, and the names pane's Change and Record — and those five migrated on
+2026-09-03 once the reason was re-read against the line it excused. An allowance's reason should
+name the panel it excuses, not the file that holds it.
+
+What the migration left for the next pass: the fifteen panels that landed before `LabelledField`
+existed still write the label-over-control column by hand, and every caller still writes the same
+twelve lines around `FailureNotice`. Both are mechanical, both are the app's side of a seam the
+shell already has, and neither should be done panel by panel.
