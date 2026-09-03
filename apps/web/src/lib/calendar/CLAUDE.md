@@ -18,7 +18,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-window.ts` — a view plus an anchor as a civil-date window, on `CalendarDate`; the
   previous and next anchors; the window's name; the address helpers
 - `calendar-api.ts` — every read and write, mirroring the contract; the shared label helpers
-- `calendar-vocabulary.ts` — how each kind reads: word, tone, the type catalog by code
+- `calendar-vocabulary.ts` — how each kind reads: word, tone, the type catalog by code; the
+  LAYERS a reader can turn on over the firm calendar (`CALENDAR_LAYERS`: only the timeline's
+  date-bearing sources, custody dates first)
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
 - `calendar-reads.ts` — the read plan per scope: which reads, walked to the end or the ceiling,
   failing independently
@@ -40,7 +42,12 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 
 - **A host embeds `CalendarView` with a scope and records through the dialogs. It writes no
   calendar read of its own.** A feature that needs "the next thirty days on this matter" is the
-  component with a matter scope and `toolbar={false}`, not a new fetch.
+  component with a matter scope, `toolbar={false}`, `agendaDays={30}` and a `limit`, not a new
+  fetch; Home's Today card and the matter overview's Coming up card are exactly that.
+- **A layer is a date-bearing source, never a history source.** A custody due-back falls due, so
+  it reads on a calendar; a time entry or a filed email is history and belongs to the matter
+  timeline. Adding a layer is one row in `CALENDAR_LAYERS` naming the source keys the read is
+  widened to and the word each kind paints as.
 - **Every question the pure modules can answer is asserted in `apps/web/test/calendar-*.test.ts`
   without a browser**: the window arithmetic, the projection, the read plan over a fake fetch, the
   draft shortfalls and request shapes. A Svelte file renders those answers and decides none of them.

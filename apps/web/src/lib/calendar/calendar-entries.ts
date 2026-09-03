@@ -25,7 +25,7 @@ import { isMatterScope, type CalendarScope } from "./calendar-scope.ts";
 import {
   eventTypeNameForCode,
   eventTypeTone,
-  humanizeKind,
+  layeredKindLabel,
   UNCLASSIFIED_EVENT_LABEL,
   UNCLASSIFIED_FIRM_EVENT_LABEL,
 } from "./calendar-vocabulary.ts";
@@ -40,6 +40,12 @@ export interface CalendarEntry extends CalendarGridEntry {
   readonly matterId: string | null;
   /** The federated read's own deep link, where the entry came from it. */
   readonly link: string | null;
+  /**
+   * True for an entry whose record is no longer coming: a cancelled setting, a satisfied, vacated
+   * or superseded deadline. Painted by default (struck where it was called off), and what the
+   * agenda's "hide settled" filter narrows out of "what is coming".
+   */
+  readonly settled: boolean;
 }
 
 /** What the projection needs to know beyond the row: the names identifiers resolve to. */
@@ -64,8 +70,9 @@ function matterLine(matterId: string | null, context: EntryContext): string | un
 /**
  * A row of the federated read. A matter event paints its type's name; a deadline is skipped,
  * because the deadlines read carries its title and paints it instead; a firm event is skipped for
- * the same reason (its own listing carries the title); any other kind paints its humanized word,
- * which is what a custody due-back reads as when slice 2 turns it on.
+ * the same reason (its own listing carries the title); any other kind (a custody due-back, a
+ * review date, from a layer the reader turned on) paints the word its layer gives it, with the
+ * source's own declared label (a custody number) beside the matter number.
  */
 export function entryFromTimelineRow(
   row: TimelineEntry,
@@ -73,28 +80,35 @@ export function entryFromTimelineRow(
 ): CalendarEntry | null {
   if (row.kind === "deadline" || row.kind === "firmEvent") return null;
   const date = row.sortKey.slice(0, 10);
-  if (row.kind === "event") {
+  if (row.kind === "event" || row.kind === "cancelledEvent") {
+    // The source says a setting was called off as its own kind, so the firm grid can strike it.
+    const cancelled = row.kind === "cancelledEvent";
     return {
       id: entryId("event", row.rowId),
       kind: "event",
       recordId: row.rowId,
       matterId: row.matterId,
       link: row.link,
+      settled: cancelled,
       date,
       label: eventTypeNameForCode(row.label, context.eventTypesByCode),
       detail: matterLine(row.matterId, context),
-      tone: eventTypeTone(row.label),
+      tone: cancelled ? "warning" : eventTypeTone(row.label),
+      struck: cancelled,
     };
   }
+  const matter = matterLine(row.matterId, context);
   return {
     id: entryId("other", `${row.sourceKey}:${row.rowId}`),
     kind: "other",
     recordId: row.rowId,
     matterId: row.matterId,
     link: row.link,
+    settled: false,
     date,
-    label: humanizeKind(row.kind),
-    detail: matterLine(row.matterId, context),
+    label: layeredKindLabel(row.kind),
+    detail:
+      [matter, row.label].filter((part): part is string => part != null).join(" · ") || undefined,
     tone: "neutral",
   };
 }
@@ -105,20 +119,21 @@ export function entryFromDeadline(
   context: EntryContext,
   scope: CalendarScope,
 ): CalendarEntry {
-  const settled = deadline.state === "vacated" || deadline.state === "superseded";
+  const struck = deadline.state === "vacated" || deadline.state === "superseded";
   return {
     id: entryId("deadline", deadline.id),
     kind: "deadline",
     recordId: deadline.id,
     matterId: deadline.matterId,
     link: null,
+    settled: deadline.state !== "open",
     date: deadline.dueOn,
     label: deadline.title,
     detail: isMatterScope(scope) ? undefined : matterLine(deadline.matterId, context),
     time:
       formatWallClock(deadline.dueAtTime, deadline.timeZone, context.readerTimeZone) ?? undefined,
     tone: deadlineTone(deadline),
-    struck: settled,
+    struck,
   };
 }
 
@@ -139,6 +154,7 @@ export function entryFromMatterEvent(
     recordId: event.id,
     matterId: event.matterId,
     link: null,
+    settled: event.status === "cancelled",
     date: event.startsOn,
     endDate: event.endsOn ?? undefined,
     label: event.title,
@@ -167,6 +183,7 @@ export function entryFromFirmEvent(event: FirmEvent, context: EntryContext): Cal
     recordId: event.id,
     matterId: null,
     link: null,
+    settled: event.status === "cancelled",
     date: event.startsOn,
     endDate: event.endsOn ?? undefined,
     label: event.title,

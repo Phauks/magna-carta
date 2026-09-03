@@ -14,7 +14,12 @@ import {
   orderEntries,
   type EntryContext,
 } from "$lib/calendar/calendar-entries.ts";
-import { eventTypesByCode, humanizeKind } from "$lib/calendar/calendar-vocabulary.ts";
+import {
+  eventTypesByCode,
+  firmCalendarKinds,
+  humanizeKind,
+  layeredKindLabel,
+} from "$lib/calendar/calendar-vocabulary.ts";
 
 const HEARING: EventType = {
   id: "matterEventType_hearing",
@@ -147,6 +152,21 @@ describe("entryFromTimelineRow", () => {
     });
   });
 
+  it("strikes a setting the source says was called off, and counts it settled", () => {
+    const entry = entryFromTimelineRow(
+      timelineRow({ kind: "cancelledEvent", rowId: "off", label: "HEARING" }),
+      context,
+    );
+    expect(entry).toMatchObject({
+      id: "event:off",
+      kind: "event",
+      label: "Hearing",
+      tone: "warning",
+      struck: true,
+      settled: true,
+    });
+  });
+
   it("reads a filing as neutral and an unknown or firm-authored type as Event", () => {
     expect(entryFromTimelineRow(timelineRow({ label: "FILING" }), context)?.tone).toBe("neutral");
     expect(entryFromTimelineRow(timelineRow({ label: null }), context)?.label).toBe("Event");
@@ -163,14 +183,32 @@ describe("entryFromTimelineRow", () => {
     expect(entryFromTimelineRow(timelineRow({ kind: "firmEvent" }), context)).toBeNull();
   });
 
-  it("gives any other kind its humanized word", () => {
+  it("gives a layered kind its layer's word, with the source's label beside the matter", () => {
     const entry = entryFromTimelineRow(
-      timelineRow({ sourceKey: "custodyDueBack", kind: "dueBack", rowId: "x" }),
+      timelineRow({ sourceKey: "custodyDueBack", kind: "dueBack", rowId: "x", label: "C-0001" }),
       context,
     );
-    expect(entry).toMatchObject({ kind: "other", label: "Due back", tone: "neutral" });
-    expect(humanizeKind("packetReviewDue")).toBe("Packet review due");
-    expect(humanizeKind("matter_transfer")).toBe("Matter transfer");
+    expect(entry).toMatchObject({
+      kind: "other",
+      label: "Due back",
+      detail: "2026-0042 · C-0001",
+      tone: "neutral",
+      settled: false,
+    });
+    expect(layeredKindLabel("packetReviewDue")).toBe("Packet review due");
+    expect(layeredKindLabel("itemReviewDue")).toBe("Item review due");
+    // A kind no layer names still reads as something rather than as its key.
+    expect(layeredKindLabel("matter_transfer")).toBe(humanizeKind("matter_transfer"));
+  });
+
+  it("widens the firm read's kinds by the layers turned on, and never past the vocabulary", () => {
+    expect(firmCalendarKinds(new Set())).toEqual(["matterEvent"]);
+    expect(firmCalendarKinds(new Set(["custody"]))).toEqual([
+      "matterEvent",
+      "custodyDueBack",
+      "custodyReviewDue",
+    ]);
+    expect(firmCalendarKinds(new Set(["timeEntries"]))).toEqual(["matterEvent"]);
   });
 });
 
@@ -276,5 +314,26 @@ describe("orderEntries", () => {
       ),
     ]);
     expect(ordered.map((entry) => entry.recordId)).toEqual(["c", "d", "a", "b"]);
+  });
+});
+
+describe("settled", () => {
+  it("marks what is no longer coming, and only that", () => {
+    expect(entryFromDeadline(deadline({ state: "open" }), context, firmScope).settled).toBe(false);
+    expect(entryFromDeadline(deadline({ state: "satisfied" }), context, firmScope).settled).toBe(
+      true,
+    );
+    expect(entryFromDeadline(deadline({ state: "vacated" }), context, firmScope).settled).toBe(
+      true,
+    );
+    expect(entryFromDeadline(deadline({ state: "superseded" }), context, firmScope).settled).toBe(
+      true,
+    );
+    expect(entryFromMatterEvent(matterEvent({}), context, firmScope).settled).toBe(false);
+    expect(
+      entryFromMatterEvent(matterEvent({ status: "cancelled" }), context, firmScope).settled,
+    ).toBe(true);
+    expect(entryFromFirmEvent(firmEvent({}), context).settled).toBe(false);
+    expect(entryFromFirmEvent(firmEvent({ status: "cancelled" }), context).settled).toBe(true);
   });
 });

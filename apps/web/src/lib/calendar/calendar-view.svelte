@@ -28,7 +28,11 @@
   import { describeReadFailure, type CalendarReadName } from "./calendar-reads.ts";
   import type { CalendarScope } from "./calendar-scope.ts";
   import CalendarToolbar from "./calendar-toolbar.svelte";
-  import { todayCivil, type CalendarView as CalendarViewKind } from "./calendar-window.ts";
+  import {
+    AGENDA_SPAN_DAYS,
+    todayCivil,
+    type CalendarView as CalendarViewKind,
+  } from "./calendar-window.ts";
   import EntryWindow from "./entry-window.svelte";
   import {
     entryReferenceFromIdentifier,
@@ -45,6 +49,8 @@
     openEntry = null,
     refreshToken = 0,
     viewSwitch = true,
+    agendaDays = AGENDA_SPAN_DAYS,
+    limit = null,
     class: className,
   }: {
     /** What this calendar is a calendar of: the firm, one member's own day, or one matter. */
@@ -63,6 +69,13 @@
     refreshToken?: number;
     /** Whether the toolbar carries the month / week / agenda switch. A host with its own switch passes false and keeps the navigation. */
     viewSwitch?: boolean;
+    /** How many days the agenda spans from its anchor. A fortnight by default; a card on Home passes two, a matter overview thirty. */
+    agendaDays?: number;
+    /**
+     * At most this many entries are painted, and a line says how many more are on the calendar,
+     * linking to it. For an embedded card; the full screens pass nothing and paint the window.
+     */
+    limit?: number | null;
     class?: string;
   } = $props();
 
@@ -78,6 +91,7 @@
     // The firm's own week, read once with the rest of the context: two members of one firm looking
     // at the same week see the same columns.
     weekStartsOn: () => context.weekStartsOn,
+    agendaDays: () => agendaDays,
     memberId: () => context.memberId,
     context: () => context.entryContext,
     contextReady: () => context.ready,
@@ -191,22 +205,45 @@
 
   // ---- how the grid is named and what it says when empty --------------------------------------
 
-  const gridLabel = $derived.by((): string => {
-    switch (scope.kind) {
-      case "matter":
-        return "This matter's calendar";
-      case "mine":
-        return "Your calendar";
-      case "firm":
-        return controller.scopeChoice === "mine" ? "Your calendar" : "The firm's calendar";
+  /** Whose calendar the grid is, in the possessive: "your", "Ada Lovelace's", "the firm's". */
+  const whose = $derived.by((): string => {
+    if (scope.kind === "matter") return "this matter's";
+    if (scope.kind === "mine" || controller.scopeChoice === "mine") return "your";
+    if (controller.scopeChoice === "member" && controller.memberChoice !== null) {
+      return `${context.memberName(controller.memberChoice)}'s`;
     }
+    return "the firm's";
   });
 
-  const emptyMessage = $derived(
-    controller.firmSide && controller.scopeChoice === "mine"
-      ? `Nothing on your calendar in ${controller.title}.`
-      : `Nothing recorded in ${controller.title}.`,
+  const gridLabel = $derived(
+    `${whose.charAt(0).toUpperCase()}${whose.slice(1)} calendar`,
   );
+
+  const emptyMessage = $derived(
+    whose === "the firm's" || whose === "this matter's"
+      ? `Nothing recorded in ${controller.title}.`
+      : `Nothing on ${whose} calendar in ${controller.title}.`,
+  );
+
+  /*
+   * A capped host paints the first N and points at the rest. The link opens the same calendar on
+   * the same span, on the screen that owns the scope, so "N more" is one press from the answer.
+   */
+  const painted = $derived.by((): readonly CalendarGridEntry[] => {
+    const entries = controller.visibleEntries ?? [];
+    return limit === null ? entries : entries.slice(0, Math.max(0, limit));
+  });
+  const beyondLimit = $derived(
+    limit === null ? 0 : Math.max(0, (controller.visibleEntries?.length ?? 0) - limit),
+  );
+  const moreHref = $derived.by((): string => {
+    const query = new URLSearchParams({ view: "agenda", date: controller.anchor });
+    if (scope.kind === "matter") {
+      return `/matters/${encodeURIComponent(scope.matterId)}/calendar?${query.toString()}`;
+    }
+    query.set("scope", scope.kind === "mine" ? "mine" : controller.scopeChoice);
+    return `/calendar?${query.toString()}`;
+  });
 
   const FAILURE_TITLES: Record<CalendarReadName, string> = {
     events: "The Events Could Not Be Read",
@@ -217,7 +254,7 @@
 
 <div class="flex h-full min-h-0 flex-col gap-12 {className ?? ''}">
   {#if toolbar}
-    <CalendarToolbar {controller} {viewSwitch} />
+    <CalendarToolbar {controller} {viewSwitch} members={context.members} />
   {/if}
 
   {#each controller.failures as failed (failed.read)}
@@ -232,7 +269,7 @@
   <div class="min-h-0 flex-1 overflow-y-auto">
     {#if view === "month"}
       <CalendarGrid.Month
-        entries={controller.entries ?? []}
+        entries={painted}
         label={gridLabel}
         anchor={controller.anchor}
         weekStartsOn={controller.weekStartsOn}
@@ -244,7 +281,7 @@
       />
     {:else if view === "week"}
       <CalendarGrid.Week
-        entries={controller.entries ?? []}
+        entries={painted}
         label={gridLabel}
         anchor={controller.anchor}
         weekStartsOn={controller.weekStartsOn}
@@ -256,7 +293,7 @@
     {:else}
       <CalendarGrid.Agenda
         class="h-full"
-        entries={controller.entries ?? []}
+        entries={painted}
         label={gridLabel}
         from={controller.window.from}
         to={controller.window.to}
@@ -266,6 +303,22 @@
       />
     {/if}
   </div>
+
+  {#if beyondLimit > 0}
+    <!-- A capped host says what it left out and where the rest is. -->
+    <p class="text-xs text-text-muted">
+      <a href={moreHref} class="underline underline-offset-2 hover:text-text-default">
+        {beyondLimit} more on the calendar
+      </a>
+    </p>
+  {/if}
+
+  {#if controller.hiddenCount > 0 && view === "agenda"}
+    <!-- What the agenda's hide left out, counted, so a narrowed list never reads as the whole. -->
+    <p class="text-xs text-text-muted">
+      {controller.hiddenCount} settled {controller.hiddenCount === 1 ? "entry" : "entries"} hidden.
+    </p>
+  {/if}
 
   {#if controller.truncated && controller.entries !== null}
     <!-- A walk that hit its ceiling says so: a page that read as the whole month when it is not

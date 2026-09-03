@@ -18,12 +18,19 @@
  * a result that lands after a newer read began is dropped rather than painted over the newer one.
  *
  * "TODAY" IS THE READER'S, resolved once through Intl: the today mark answers where the reader is.
+ *
+ * THREE REFINEMENTS BEYOND THE VIEW, all on the firm side and all mirrored: whose calendar (Mine,
+ * Everyone, or one colleague, which is the same member filter the read already takes), which LAYERS
+ * are turned on (the timeline's other date-bearing sources, custody dates first), and whether the
+ * agenda hides what is settled. Layers and the hide are refinements of the read and of the
+ * painting respectively; neither is a destination.
  */
 import { replaceState } from "$app/navigation";
 import { page } from "$app/state";
 import type { CalendarEntry, EntryContext } from "./calendar-entries.ts";
 import { readCalendarWindow, type CalendarReadFailure } from "./calendar-reads.ts";
 import { scopeKey, type CalendarScope } from "./calendar-scope.ts";
+import { calendarLayer } from "./calendar-vocabulary.ts";
 import {
   anchorFromAddress,
   calendarWindow,
@@ -36,13 +43,18 @@ import {
   type WeekStart,
 } from "./calendar-window.ts";
 
-/** The two halves of the firm-side scope toggle. */
-export type ScopeChoice = "everyone" | "mine";
+/** Whose calendar, on the firm side: everyone's, the reader's own, or one chosen colleague's. */
+export type ScopeChoice = "everyone" | "mine" | "member";
 
 /** The address keys the controller mirrors. */
 const VIEW_KEY = "view";
 const DATE_KEY = "date";
 const SCOPE_KEY = "scope";
+const LAYERS_KEY = "layers";
+const HIDE_KEY = "hide";
+/** The `scope` value naming one colleague: `member:<userId>`. */
+const MEMBER_SCOPE_PREFIX = "member:";
+const HIDE_SETTLED = "settled";
 
 /** What the controller reads from, and writes back to, the component that owns it. */
 export interface CalendarHost {
@@ -56,6 +68,8 @@ export interface CalendarHost {
   address(): boolean;
   /** The day the firm's week begins on. A firm setting, never a personal one. */
   weekStartsOn(): WeekStart;
+  /** How many days the agenda spans from its anchor; the default is a fortnight. */
+  agendaDays(): number;
   /** The member asking, once the session is known. Mine reads through it. */
   memberId(): string | null;
   /** The names identifiers resolve to. */
@@ -71,8 +85,14 @@ export class CalendarController {
   /** The reader's civil date today, in their own zone. */
   readonly today: string;
 
-  /** Mine or Everyone, on the firm side. Meaningless for a matter scope. */
+  /** Mine, Everyone or one colleague, on the firm side. Meaningless for a matter scope. */
   scopeChoice = $state<ScopeChoice>("everyone");
+  /** The colleague chosen, when the choice is `member`. */
+  memberChoice = $state<string | null>(null);
+  /** The layers turned on over the firm calendar, by key (calendar-vocabulary.ts). */
+  layers = $state<ReadonlySet<string>>(new Set());
+  /** Whether the agenda leaves out what is settled: cancelled, satisfied, vacated, superseded. */
+  hideSettled = $state(false);
   /** The entries the window holds, or null while they are being read. */
   entries = $state<readonly CalendarEntry[] | null>(null);
   failures = $state<readonly CalendarReadFailure[]>([]);
@@ -90,6 +110,20 @@ export class CalendarController {
       const scope = parameters.get(SCOPE_KEY);
       if (scope === "mine") this.scopeChoice = "mine";
       if (scope === "everyone") this.scopeChoice = "everyone";
+      if (scope !== null && scope.startsWith(MEMBER_SCOPE_PREFIX)) {
+        const memberId = scope.slice(MEMBER_SCOPE_PREFIX.length);
+        if (memberId !== "") {
+          this.scopeChoice = "member";
+          this.memberChoice = memberId;
+        }
+      }
+      // A layer the vocabulary does not carry is dropped rather than sent: the read refuses an
+      // unknown source key, and a mistyped address is a wrong turn, not a fault.
+      const layers = (parameters.get(LAYERS_KEY) ?? "")
+        .split(",")
+        .filter((key) => calendarLayer(key) !== undefined);
+      this.layers = new Set(layers);
+      this.hideSettled = parameters.get(HIDE_KEY) === HIDE_SETTLED;
     }
   }
 
@@ -114,6 +148,13 @@ export class CalendarController {
     const hostScope = this.#host.scope();
     if (hostScope.kind === "matter") return hostScope;
     if (this.scopeChoice === "everyone") return { kind: "firm" };
+    if (this.scopeChoice === "member") {
+      // A colleague's calendar is the same member filter the reader's own is: what is on THEIR
+      // calendar, read under the reader's own visibility.
+      return this.memberChoice === null
+        ? { kind: "firm" }
+        : { kind: "mine", memberId: this.memberChoice };
+    }
     const memberId = hostScope.kind === "mine" ? hostScope.memberId : this.#host.memberId();
     return memberId === null ? null : { kind: "mine", memberId };
   }
@@ -128,7 +169,7 @@ export class CalendarController {
   // The derived fields read the host through a closure: a field initializer runs before the
   // constructor assigns the host, and a derived is only evaluated when something reads it.
   readonly window: CalendarWindow = $derived.by(() =>
-    calendarWindow(this.view, this.anchor, this.#host.weekStartsOn()),
+    calendarWindow(this.view, this.anchor, this.#host.weekStartsOn(), this.#host.agendaDays()),
   );
 
   /** The window's own name, as the toolbar reads it. */
@@ -149,6 +190,22 @@ export class CalendarController {
   );
 
   /**
+   * What the grid paints: everything, except that the agenda leaves out settled entries when the
+   * reader asked it to. The month and the week keep them (struck where they were called off),
+   * because on a grid a thing that was cancelled and a thing that never existed are different facts.
+   */
+  readonly visibleEntries: readonly CalendarEntry[] | null = $derived.by(() => {
+    if (this.entries === null) return null;
+    if (this.view !== "agenda" || !this.hideSettled) return this.entries;
+    return this.entries.filter((entry) => !entry.settled);
+  });
+
+  /** How many entries the agenda's hide left out, so the surface can say so. */
+  readonly hiddenCount: number = $derived(
+    (this.entries?.length ?? 0) - (this.visibleEntries?.length ?? 0),
+  );
+
+  /**
    * Everything a fresh read depends on, as one string. The component reads it in an effect and
    * re-reads when it changes, so the dependencies of a read are stated here once rather than
    * discovered by whatever the effect happened to touch.
@@ -158,6 +215,7 @@ export class CalendarController {
       this.scope === null ? "waiting" : scopeKey(this.scope),
       this.window.from,
       this.window.to,
+      [...this.layers].toSorted().join(","),
       this.#host.contextReady() ? "ready" : "settling",
     ].join("|"),
   );
@@ -166,9 +224,9 @@ export class CalendarController {
     this.#host.setView(view);
   }
 
-  /** One step back or forward: a month, a week, or a fortnight. */
+  /** One step back or forward: a month, a week, or the agenda's span. */
   navigate(direction: -1 | 1): void {
-    this.#host.setAnchor(shiftAnchor(this.view, this.anchor, direction));
+    this.#host.setAnchor(shiftAnchor(this.view, this.anchor, direction, this.#host.agendaDays()));
   }
 
   goToday(): void {
@@ -183,6 +241,27 @@ export class CalendarController {
 
   chooseScope(choice: ScopeChoice): void {
     this.scopeChoice = choice;
+  }
+
+  /** One colleague's calendar; null returns to Everyone. */
+  chooseMember(memberId: string | null): void {
+    this.memberChoice = memberId;
+    this.scopeChoice = memberId === null ? "everyone" : "member";
+  }
+
+  toggleLayer(key: string): void {
+    if (calendarLayer(key) === undefined) return;
+    const next = new Set(this.layers);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    this.layers = next;
+  }
+
+  toggleHideSettled(): void {
+    this.hideSettled = !this.hideSettled;
   }
 
   /**
@@ -202,7 +281,9 @@ export class CalendarController {
     }
     const scope = this.scope;
     if (scope === null || !this.#host.contextReady()) return;
-    const result = await readCalendarWindow(fetchImpl, scope, this.window, this.#host.context());
+    const result = await readCalendarWindow(fetchImpl, scope, this.window, this.#host.context(), {
+      layers: this.layers,
+    });
     if (generation !== this.#generation) return;
     this.entries = result.entries;
     this.failures = result.failures;
@@ -223,9 +304,27 @@ export class CalendarController {
     url.searchParams.set(VIEW_KEY, this.view);
     url.searchParams.set(DATE_KEY, this.anchor);
     if (this.firmSide) {
-      url.searchParams.set(SCOPE_KEY, this.scopeChoice);
+      url.searchParams.set(
+        SCOPE_KEY,
+        this.scopeChoice === "member" && this.memberChoice !== null
+          ? `${MEMBER_SCOPE_PREFIX}${this.memberChoice}`
+          : this.scopeChoice === "member"
+            ? "everyone"
+            : this.scopeChoice,
+      );
+      if (this.layers.size > 0) {
+        url.searchParams.set(LAYERS_KEY, [...this.layers].toSorted().join(","));
+      } else {
+        url.searchParams.delete(LAYERS_KEY);
+      }
     } else {
       url.searchParams.delete(SCOPE_KEY);
+      url.searchParams.delete(LAYERS_KEY);
+    }
+    if (this.hideSettled) {
+      url.searchParams.set(HIDE_KEY, HIDE_SETTLED);
+    } else {
+      url.searchParams.delete(HIDE_KEY);
     }
     if (url.href === page.url.href) return;
     replaceState(url, page.state);

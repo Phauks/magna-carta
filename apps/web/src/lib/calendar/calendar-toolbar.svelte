@@ -2,9 +2,16 @@
   /*
    * The calendar's one action row, at the reading edge.
    *
-   * Three groups, left to right: whose calendar (Mine or Everyone, on the firm side only), which
-   * view (month, week, agenda, as icon buttons held pressed), and where in time (previous, the
-   * window's name, next, and Today). Nothing above the grid that is not the grid is anywhere else.
+   * Four groups, left to right: whose calendar (Mine, Everyone, or one colleague, on the firm side
+   * only), what is painted (the layers a reader turns on, and on the agenda whether settled entries
+   * are hidden), which view (month, week, agenda, as icon buttons held pressed), and where in time
+   * (previous, the window's name, next, and Today). Nothing above the grid that is not the grid is
+   * anywhere else.
+   *
+   * THE COLLEAGUE PICKER IS A SELECT, NOT A THIRD BUTTON. Mine and Everyone are two answers; a
+   * firm's roster is many, so it is a dropdown seated after the pair, reading the chosen name and
+   * "Colleague" otherwise. Choosing one presses neither button, because the calendar is then
+   * neither the reader's nor everyone's.
    *
    * THE WINDOW'S NAME SITS IN A FIXED-WIDTH SLOT. "September 2026" and "Sep 28 – Oct 11, 2026" are
    * different lengths, and a name that reflowed the controls beside it would move the very button
@@ -16,22 +23,37 @@
    * in $lib/view-shell/view-switch.svelte.
    */
   import Button from "@magna-carta/design-system/button";
+  import * as Select from "@magna-carta/design-system/select";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import CalendarRange from "@lucide/svelte/icons/calendar-range";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import List from "@lucide/svelte/icons/list";
+  import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { CalendarController, ScopeChoice } from "./calendar-controller.svelte.ts";
+  import { CALENDAR_LAYERS } from "./calendar-vocabulary.ts";
   import { CALENDAR_VIEWS, type CalendarView as CalendarViewKind } from "./calendar-window.ts";
 
   let {
     controller,
     viewSwitch = true,
+    members = [],
   }: {
     controller: CalendarController;
     /** Whether the month / week / agenda switch is drawn; a host with its own switch passes false. */
     viewSwitch?: boolean;
+    /** The firm's roster, for the colleague picker on the firm side. */
+    members?: readonly FirmMemberSummary[];
   } = $props();
+
+  const memberItems = $derived(
+    members
+      .map((member) => ({ value: member.userId, label: member.displayName }))
+      .toSorted((left, right) => left.label.localeCompare(right.label)),
+  );
+  const chosenMember = $derived(
+    controller.scopeChoice === "member" ? (controller.memberChoice ?? "") : "",
+  );
 
   const VIEW_PRESENTATION: Record<CalendarViewKind, { label: string; icon: typeof List }> = {
     month: { label: "Month", icon: CalendarDays },
@@ -39,7 +61,7 @@
     agenda: { label: "Agenda", icon: List },
   };
 
-  const SCOPE_CHOICES: ReadonlyArray<{ value: ScopeChoice; label: string }> = [
+  const SCOPE_CHOICES: ReadonlyArray<{ value: Exclude<ScopeChoice, "member">; label: string }> = [
     { value: "mine", label: "Mine" },
     { value: "everyone", label: "Everyone" },
   ];
@@ -69,6 +91,57 @@
           {choice.label}
         </Button>
       {/each}
+      {#if memberItems.length > 0}
+        <Select.Root
+          type="single"
+          items={memberItems}
+          bind:value={() => chosenMember, (next) => controller.chooseMember(next === "" ? null : next)}
+        >
+          <Select.Trigger aria-label="A colleague's calendar" style="inline-size: var(--mc-size-popover)">
+            <Select.Value placeholder="Colleague" />
+          </Select.Trigger>
+          <Select.Content>
+            {#each memberItems as item (item.value)}
+              <Select.Item value={item.value} label={item.label} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      {/if}
+    </div>
+
+    <div class="flex items-center gap-4" role="group" aria-label="What is shown">
+      {#each CALENDAR_LAYERS as layer (layer.key)}
+        {@const on = controller.layers.has(layer.key)}
+        <Button
+          variant={on ? "secondary" : "ghost"}
+          size="sm"
+          aria-pressed={on}
+          onclick={() => controller.toggleLayer(layer.key)}
+        >
+          {layer.label}
+        </Button>
+      {/each}
+      {#if controller.view === "agenda"}
+        <Button
+          variant={controller.hideSettled ? "secondary" : "ghost"}
+          size="sm"
+          aria-pressed={controller.hideSettled}
+          onclick={() => controller.toggleHideSettled()}
+        >
+          Hide settled
+        </Button>
+      {/if}
+    </div>
+  {:else if controller.view === "agenda"}
+    <div class="flex items-center gap-4" role="group" aria-label="What is shown">
+      <Button
+        variant={controller.hideSettled ? "secondary" : "ghost"}
+        size="sm"
+        aria-pressed={controller.hideSettled}
+        onclick={() => controller.toggleHideSettled()}
+      >
+        Hide settled
+      </Button>
     </div>
   {/if}
 

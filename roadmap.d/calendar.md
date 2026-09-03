@@ -114,18 +114,24 @@
   evidence: packages/calendar/src/settings.ts over the setting table; GET/PATCH /api/v1/calendar/settings in apps/api-worker/src/routes/calendar.ts, asserted over Miniflare in apps/api-worker/test/calendar-settings-routes.test.ts; apps/web/src/routes/(app)/settings/calendar/+page.svelte over apps/web/src/lib/calendar/calendar-settings-draft.svelte.ts (apps/web/test/calendar-settings-draft.test.ts); CalendarView reads it once in apps/web/src/lib/calendar/calendar-context.svelte.ts and hands it to every grid.
 
 - id: calendar.surface.kind-narrowing
-  name: Kind narrowing and state filters
-  scope: Turning the timeline's other sources (custody dates, review dates) on for the firm calendar, and narrowing the agenda by state.
-  status: designed
+  name: Layers, the colleague picker and the settled filter
+  scope: Turning the timeline's date-bearing sources (custody due-backs and review dates) on over the firm calendar as a layer, reading one colleague's calendar beside Mine and Everyone, and narrowing the agenda to what is still coming.
+  status: shipped
+  surface: screen
+  slices: 6-1-case-calendar
   spec: docs/specs/2026-09-02-calendar-interface-design.md
-  evidence: The read is narrowed to the event kind in apps/web/src/lib/calendar/calendar-vocabulary.ts (FIRM_CALENDAR_KINDS) and no control widens it yet; the plan's slice 2.
+  notes: Only date-bearing sources are offered as layers; the timeline's history sources (time, costs, mail, documents, trust) stay in the matter timeline rather than flooding a month. Every refinement is mirrored into the address.
+  evidence: CALENDAR_LAYERS and firmCalendarKinds in apps/web/src/lib/calendar/calendar-vocabulary.ts, read through calendar-reads.ts; the controls in calendar-toolbar.svelte over calendar-controller.svelte.ts (layers, memberChoice, hideSettled); asserted in apps/web/test/calendar-reads.test.ts and calendar-entries.test.ts.
 
 - id: calendar.surface.embedded
   name: Calendar embedded on other surfaces
   scope: The Today card on Home, the matter overview's agenda, and a directory entity's appearances, each the one component with a narrower scope.
-  status: designed
+  status: partial
+  surface: screen
+  slices: 6-1-case-calendar
   spec: docs/specs/2026-09-02-calendar-interface-design.md
-  evidence: No host beyond the firm screen and the matter section embeds the component; the plan's slice 2.
+  notes: Home's Today card (today and tomorrow, the reader's own scope, six rows) and the matter overview's Coming up card (the next thirty days, six rows) are built; a directory entity's appearances wait on a participant read filterable by entity.
+  evidence: apps/web/src/routes/(app)/home/+page.svelte and apps/web/src/routes/(app)/matters/[id]/overview/+page.svelte embed apps/web/src/lib/calendar/calendar-view.svelte with agendaDays and limit; nothing on a directory entity page reads the calendar.
 
 - id: calendar.surface.room-grid
   name: Room grid and bookings

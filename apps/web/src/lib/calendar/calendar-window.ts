@@ -25,7 +25,7 @@ import {
 export const CALENDAR_VIEWS = ["month", "week", "agenda"] as const;
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
 
-/** 0 is Sunday, 1 is Monday. The preference seam; Sunday until the preference exists. */
+/** 0 is Sunday, 1 is Monday: the firm's setting, read by the calendar context. */
 export type WeekStart = 0 | 1;
 
 export interface CalendarWindow {
@@ -40,8 +40,12 @@ export interface CalendarWindow {
 const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** The locale used for week arithmetic only; the first day of the week is passed explicitly. */
 const WEEK_LOCALE = "en-US";
-/** How far an agenda reads ahead from its anchor: two weeks, inclusive of the anchor. */
-const AGENDA_SPAN_DAYS = 14;
+/**
+ * How far an agenda reads ahead from its anchor by default: two weeks, inclusive of the anchor. A
+ * host that embeds a narrower agenda (today and tomorrow on Home, the next thirty days on a matter
+ * overview) passes its own span.
+ */
+export const AGENDA_SPAN_DAYS = 14;
 
 function firstDayOf(weekStartsOn: WeekStart): "sun" | "mon" {
   return weekStartsOn === 1 ? "mon" : "sun";
@@ -81,6 +85,7 @@ export function calendarWindow(
   view: CalendarView,
   anchor: string,
   weekStartsOn: WeekStart = 0,
+  agendaDays: number = AGENDA_SPAN_DAYS,
 ): CalendarWindow {
   const date = parseDate(anchor);
   switch (view) {
@@ -95,14 +100,19 @@ export function calendarWindow(
       return { view, anchor, from: first.toString(), to: last.toString() };
     }
     case "agenda": {
-      const last = date.add({ days: AGENDA_SPAN_DAYS - 1 });
+      const last = date.add({ days: Math.max(1, agendaDays) - 1 });
       return { view, anchor, from: anchor, to: last.toString() };
     }
   }
 }
 
-/** The anchor one step back or forward: a month, a week, or a fortnight. */
-export function shiftAnchor(view: CalendarView, anchor: string, direction: -1 | 1): string {
+/** The anchor one step back or forward: a month, a week, or the agenda's own span. */
+export function shiftAnchor(
+  view: CalendarView,
+  anchor: string,
+  direction: -1 | 1,
+  agendaDays: number = AGENDA_SPAN_DAYS,
+): string {
   const date = parseDate(anchor);
   switch (view) {
     case "month": {
@@ -114,7 +124,7 @@ export function shiftAnchor(view: CalendarView, anchor: string, direction: -1 | 
     case "week":
       return date.add({ days: 7 * direction }).toString();
     case "agenda":
-      return date.add({ days: AGENDA_SPAN_DAYS * direction }).toString();
+      return date.add({ days: Math.max(1, agendaDays) * direction }).toString();
   }
 }
 

@@ -23,9 +23,17 @@ and separately, the dates you must act by.
 **Calendar**, in the sidebar, is the firm's calendar. It opens on the whole firm's month: every
 setting and deadline on every matter you can see, and the firm's own events beside them.
 
-- **Mine or Everyone.** Mine narrows the month to what is on your own calendar: settings you are a
-  participant at or the responsible attorney for, and every firm event whose audience is everyone.
-  The address remembers the choice, so a link you send opens the same way.
+- **Mine, Everyone, or a colleague.** Mine narrows the month to what is on your own calendar:
+  settings you are a participant at or the responsible attorney for, and every firm event whose
+  audience is everyone. The colleague picker beside the pair reads one colleague's calendar the
+  same way, over the matters you can see. The address remembers the choice, so a link you send
+  opens the same way.
+- **Custody dates.** Press it to add the safe custody register's dates to the calendar: when an
+  original checked out is due back, and when a packet or an item is due for review. Each shows its
+  custody number and opens the register. Off unless you turn it on, and the address remembers.
+- **Hide settled.** On the agenda, press it to leave out what is no longer coming: cancelled
+  settings and satisfied, vacated or superseded deadlines. The agenda says how many it left out.
+  The month and the week always show them, struck through.
 - **Month, week, agenda.** Three views of the same calendar. The month grid shows a few entries per
   day and says how many more there are; press that and the agenda opens on that day. The week is
   seven days side by side with each day's entries listed. The agenda is a fortnight as a list. The
@@ -45,6 +53,11 @@ setting and deadline on every matter you can see, and the firm's own events besi
 **A matter's Calendar section** keeps its two tables (Deadlines, then Events) as the **List** view and
 adds **Month** and **Agenda** beside them, which are the firm calendar narrowed to this one matter
 and showing titles. **Record a deadline** and **Record an event** are on the section's own row.
+
+**Two cards read the same calendar.** **Today** on Home is what is on your own calendar today and
+tomorrow, six entries deep, with a line to the rest. **Coming up** on a matter's Overview is that
+matter's next thirty days, six entries deep, with a line to its Calendar section. Neither is a
+second calendar: press an entry on either and it opens the same window.
 
 **Opening an entry.** Every entry opens in the same window: the record on the left, its people, its
 links and its history on the right, and the verbs it allows along the bottom. Edit changes the

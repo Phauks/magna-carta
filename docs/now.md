@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 281 | 43% |
-| Part-built | partial, in-build | 114 | 18% |
-| Ahead | designed, planned, researching, not-started | 213 | 33% |
+| Done | shipped | 282 | 43% |
+| Part-built | partial, in-build | 115 | 18% |
+| Ahead | designed, planned, researching, not-started | 211 | 33% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **649** | **100%** |
 
@@ -40,10 +40,10 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 281 | 43% |
-| `partial` | 113 | 17% |
+| `shipped` | 282 | 43% |
+| `partial` | 114 | 18% |
 | `in-build` | 1 | 0% |
-| `designed` | 49 | 8% |
+| `designed` | 47 | 7% |
 | `planned` | 16 | 3% |
 | `researching` | 5 | 1% |
 | `not-started` | 143 | 22% |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 281 of 649 (43%). Shipped plus partial is 394 (61%).**
+**Shipped alone is 282 of 649 (43%). Shipped plus partial is 396 (61%).**
 
-The 113 units between those two numbers are work that is engineered and paid for and is not
+The 114 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**395 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**397 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 40 | 10% |
+| A person can open it today (`screen`) | 42 | 10% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 178 | 45% |
 | No user surface by nature (`internal`) | 177 | 45% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **395** | **100%** |
+| **Everything with something built** | **397** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -97,7 +97,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 17 | 3 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 59% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
-| Calendar and Rules-Based Docketing | 10 | 0 | 0 | 3 | 0 | 1 | 4 | 0 | 0 | 18 | 56% |
+| Calendar and Rules-Based Docketing | 11 | 1 | 0 | 1 | 0 | 1 | 4 | 0 | 0 | 18 | 61% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **281** | **113** | **1** | **49** | **16** | **5** | **143** | **38** | **3** | **649** | **43%** |
+| **All areas** | **282** | **114** | **1** | **47** | **16** | **5** | **143** | **38** | **3** | **649** | **43%** |
 
 ## Where we have been
 
@@ -368,8 +368,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Next up
 
-- `calendar.surface.kind-narrowing` · **Kind narrowing and state filters** — Turning the timeline's other sources (custody dates, review dates) on for the firm calendar, and narrowing the agenda by state.
-- `calendar.surface.embedded` · **Calendar embedded on other surfaces** — The Today card on Home, the matter overview's agenda, and a directory entity's appearances, each the one component with a narrower scope.
 - `calendar.surface.room-grid` · **Room grid and bookings** — A resource's schedule over the availability read with conflicts painted, bookings on an event's window, and the resource catalog under Settings.
 - `community` · **Community and feedback forum** — Public, platform-level, cross-firm surface for feature requests with voting, peer discussion, known issues, and roadmap/changelog views; never touches per-firm confidential data.
 - `community.board` · **Feedback board** — Feature requests with popularity-ranked upvotes, comments, tags, status pipeline, and roadmap-as-filtered-view-by-status.
@@ -526,7 +524,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Calendar and Rules-Based Docketing
 
-[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 18 units of work, 56% shipped. 10 done, 0 part-built, 8 ahead, 0 parked.
+[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 18 units of work, 61% shipped. 11 done, 1 part-built, 6 ahead, 0 parked.
 
 - `calendar` · `partial` · **Calendar and docketing** — Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: Read on the matter's Calendar section and on the firm calendar; recorded, edited, cancelled, continued, satisfied, vacated and superseded from those screens through the record forms and the entry window._
@@ -540,8 +538,8 @@ to change a line here, edit the node in its area file and re-run the build.
     - `calendar.surface.entry-window` · `shipped` · **Entry window** — The one window an event, a firm event or a deadline opens in: the record, its participants and links, in-place editing, and the verbs (cancel, continue, satisfy, vacate, supersede). _Note: The History tab is a marked Soon seam until a per-record audit read exists; a deadline reached by deep link outside the window on screen says so rather than reading one by id, because no single-deadline route exists._
     - `calendar.surface.record-forms` · `shipped` · **Record forms** — Recording an event on a matter, a deadline on a matter (including superseding one), and a firm event from a screen, with a participant picker over the roster, the directory and external names.
     - `calendar.surface.firm-settings` · `shipped` · **Firm calendar settings** — What the firm decides once about how it reads its calendar, held in the per-firm setting table and edited under Settings › Practice › Calendar; today the day the week begins on. _Note: A firm setting, never a personal preference (owner ruling 2026-09-02); Sunday by default. Read by every member who can read the calendar, moved only under calendar:manage, audited, idempotent. The page is the first settings page with a server behind it and shows no per-browser history._
-    - `calendar.surface.kind-narrowing` · `designed` · **Kind narrowing and state filters** — Turning the timeline's other sources (custody dates, review dates) on for the firm calendar, and narrowing the agenda by state.
-    - `calendar.surface.embedded` · `designed` · **Calendar embedded on other surfaces** — The Today card on Home, the matter overview's agenda, and a directory entity's appearances, each the one component with a narrower scope.
+    - `calendar.surface.kind-narrowing` · `shipped` · **Layers, the colleague picker and the settled filter** — Turning the timeline's date-bearing sources (custody due-backs and review dates) on over the firm calendar as a layer, reading one colleague's calendar beside Mine and Everyone, and narrowing the agenda to what is still coming. _Note: Only date-bearing sources are offered as layers; the timeline's history sources (time, costs, mail, documents, trust) stay in the matter timeline rather than flooding a month. Every refinement is mirrored into the address._
+    - `calendar.surface.embedded` · `partial` · **Calendar embedded on other surfaces** — The Today card on Home, the matter overview's agenda, and a directory entity's appearances, each the one component with a narrower scope. _Note: Home's Today card (today and tomorrow, the reader's own scope, six rows) and the matter overview's Coming up card (the next thirty days, six rows) are built; a directory entity's appearances wait on a participant read filterable by entity._
     - `calendar.surface.room-grid` · `designed` · **Room grid and bookings** — A resource's schedule over the availability read with conflicts painted, bookings on an event's window, and the resource catalog under Settings.
   - `calendar.sync` · `not-started` · **Two-way Google/Outlook sync** — Two-way calendar synchronization via the email/calendar plugin.
   - `calendar.docketing` · `researching` · **Rules-based docketing** — Compute court dates and deadlines from jurisdiction/court rule sets, defaulting from the matter's jurisdiction or home Location.

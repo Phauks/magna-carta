@@ -19,6 +19,60 @@ import type { EventType } from "./calendar-api.ts";
 export const FIRM_CALENDAR_KINDS: readonly string[] = ["matterEvent"];
 
 /**
+ * A LAYER is a set of the timeline's other sources a reader can turn on over the firm calendar.
+ * Only sources whose rows are DATES belong here: a custody due-back and a review date are things
+ * that fall due, so they read on a calendar; a time entry, a filed email or a trust movement is
+ * history, and belongs to the matter timeline rather than to a month grid it would flood.
+ *
+ * Each layer names its source keys (the read's `kind` filter takes source keys, and refuses one
+ * the registry does not hold) and the word each of those sources' kinds paints as.
+ */
+export interface CalendarLayer {
+  readonly key: string;
+  /** The toggle's word. */
+  readonly label: string;
+  readonly sources: readonly string[];
+  /** The kind word a row of this layer carries, to the word a person reads. */
+  readonly kindLabels: Readonly<Record<string, string>>;
+}
+
+export const CALENDAR_LAYERS: readonly CalendarLayer[] = [
+  {
+    key: "custody",
+    label: "Custody dates",
+    sources: ["custodyDueBack", "custodyReviewDue"],
+    kindLabels: {
+      dueBack: "Due back",
+      packetReviewDue: "Packet review due",
+      itemReviewDue: "Item review due",
+    },
+  },
+];
+
+/** The layer a key names, where one does. */
+export function calendarLayer(key: string): CalendarLayer | undefined {
+  return CALENDAR_LAYERS.find((layer) => layer.key === key);
+}
+
+/** The source keys a firm read is narrowed to: the base kinds plus every layer turned on. */
+export function firmCalendarKinds(layerKeys: ReadonlySet<string>): readonly string[] {
+  const kinds = [...FIRM_CALENDAR_KINDS];
+  for (const layer of CALENDAR_LAYERS) {
+    if (layerKeys.has(layer.key)) kinds.push(...layer.sources);
+  }
+  return kinds;
+}
+
+/** The word a layered kind paints as; a kind no layer names falls back to its humanized key. */
+export function layeredKindLabel(kind: string): string {
+  for (const layer of CALENDAR_LAYERS) {
+    const label = layer.kindLabels[kind];
+    if (label !== undefined) return label;
+  }
+  return humanizeKind(kind);
+}
+
+/**
  * The platform type codes whose events are court settings a person has to be at. They take the
  * info register so a hearing is told from a filing at a glance; everything else stays neutral.
  */

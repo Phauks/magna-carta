@@ -55,6 +55,14 @@ describe("calendarWindow", () => {
     expect(window.from).toBe("2026-09-02");
     expect(window.to).toBe("2026-09-15");
   });
+
+  it("reads an agenda over the span a host asks for, never less than one day", () => {
+    expect(calendarWindow("agenda", "2026-09-02", 0, 2).to).toBe("2026-09-03");
+    expect(calendarWindow("agenda", "2026-09-02", 0, 30).to).toBe("2026-10-01");
+    expect(calendarWindow("agenda", "2026-09-02", 0, 0).to).toBe("2026-09-02");
+    expect(shiftAnchor("agenda", "2026-09-02", 1, 30)).toBe("2026-10-02");
+    expect(shiftAnchor("agenda", "2026-09-02", -1, 2)).toBe("2026-08-31");
+  });
 });
 
 describe("shiftAnchor", () => {

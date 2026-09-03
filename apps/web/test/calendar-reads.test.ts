@@ -153,6 +153,43 @@ describe("readCalendarWindow, firm scope", () => {
     expect(deadlines?.searchParams.get("through")).toBe(window.to);
   });
 
+  it("widens the federated read to a layer's sources, and paints the layer's rows", async () => {
+    const dueBack: TimelineEntry = {
+      ...timelineRow,
+      sourceKey: "custodyDueBack",
+      kind: "dueBack",
+      sortKey: "2026-09-20",
+      rowId: "custodyMovement_1",
+      label: "C-0001",
+      link: "/matters/matter_1/custodian",
+    };
+    const { fetch, requests } = fakeFetch([
+      {
+        match: (url) => url.pathname === "/api/v1/calendar/events",
+        answer: () => page([timelineRow, dueBack]),
+      },
+      { match: () => true, answer: () => page([]) },
+    ]);
+    const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
+      layers: new Set(["custody"]),
+    });
+    const federated = requests.find((url) => url.pathname === "/api/v1/calendar/events");
+    expect(federated?.searchParams.getAll("kind")).toEqual([
+      "matterEvent",
+      "custodyDueBack",
+      "custodyReviewDue",
+    ]);
+    expect(result.entries.map((entry) => entry.id)).toEqual([
+      "event:matterEvent_in",
+      "other:custodyDueBack:custodyMovement_1",
+    ]);
+    expect(result.entries[1]).toMatchObject({
+      label: "Due back",
+      detail: "2026-0042 · C-0001",
+      link: "/matters/matter_1/custodian",
+    });
+  });
+
   it("passes the member on the mine scope", async () => {
     const { fetch, requests } = fakeFetch([{ match: () => true, answer: () => page([]) }]);
     await readCalendarWindow(fetch, { kind: "mine", memberId: "user_me" }, window, context);

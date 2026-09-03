@@ -40,7 +40,7 @@ import {
 } from "./calendar-entries.ts";
 import type { CalendarScope } from "./calendar-scope.ts";
 import { windowOverlaps, type CalendarWindow } from "./calendar-window.ts";
-import { FIRM_CALENDAR_KINDS } from "./calendar-vocabulary.ts";
+import { firmCalendarKinds } from "./calendar-vocabulary.ts";
 
 /** Which of the plan's reads a failure belongs to, in the words a notice uses. */
 export type CalendarReadName = "events" | "deadlines" | "firmEvents";
@@ -86,16 +86,28 @@ async function walk<T>(read: PageReader<T>, stopAfter?: (page: T[]) => boolean):
   return { rows, failure: null, truncated: true };
 }
 
+export interface CalendarReadOptions {
+  /**
+   * The layers turned on over the firm calendar (calendar-vocabulary.ts, `CALENDAR_LAYERS`): the
+   * timeline's other date-bearing sources the federated read is widened to. None by default, so
+   * the firm grid opens on what the firm recorded as a calendar entry.
+   */
+  readonly layers?: ReadonlySet<string>;
+}
+
+const NO_LAYERS: ReadonlySet<string> = new Set();
+
 /** Everything the window holds for the scope, projected and ordered. */
 export async function readCalendarWindow(
   fetchImpl: typeof fetch,
   scope: CalendarScope,
   window: CalendarWindow,
   context: EntryContext,
+  options: CalendarReadOptions = {},
 ): Promise<CalendarWindowResult> {
   return scope.kind === "matter"
     ? readMatterWindow(fetchImpl, scope.matterId, window, context, scope)
-    : readFirmWindow(fetchImpl, scope, window, context);
+    : readFirmWindow(fetchImpl, scope, window, context, options.layers ?? NO_LAYERS);
 }
 
 async function readFirmWindow(
@@ -103,6 +115,7 @@ async function readFirmWindow(
   scope: CalendarScope,
   window: CalendarWindow,
   context: EntryContext,
+  layers: ReadonlySet<string>,
 ): Promise<CalendarWindowResult> {
   const memberId = scope.kind === "mine" ? scope.memberId : undefined;
   const [events, deadlines, firmEvents] = await Promise.all([
@@ -111,7 +124,7 @@ async function readFirmWindow(
         from: window.from,
         to: window.to,
         side: "matter",
-        kinds: FIRM_CALENDAR_KINDS,
+        kinds: firmCalendarKinds(layers),
         memberId,
         cursor,
       }),
