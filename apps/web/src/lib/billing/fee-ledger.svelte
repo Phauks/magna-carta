@@ -322,35 +322,36 @@
     <span class="text-text-subtle">billed</span>
     <span class="font-semibold tabular-nums">{money(position.billedMinor)}</span>
   </span>
+  <!-- The toggle ends the strip, after the figures: the last thing on the line, on every surface
+       in the product that has a panel. -->
+  <DetailsPanel.Toggle
+    open={panelOpen}
+    onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
+  />
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-12">
   <!--
-    ONE ROW of verbs, and no strip of facts above the ledger. The fee arrangement used to lead this
-    row; it now lives in the matter's status window, behind the seal in the masthead (owner ruling,
-    2026-09-03), because it is a fact of the engagement rather than of the ledger and is rarely read.
-    Recording a fee is the matter header's New Fee, not a button here (create-action.svelte.ts);
-    the pane toggle ends the row as it does on every ledger.
+    NO ROW ABOVE THE LEDGER unless something has to be in it, and no strip of facts either. The fee
+    arrangement used to lead a row here; it now lives in the matter's status window, behind the seal
+    in the masthead (owner ruling, 2026-09-03), because it is a fact of the engagement rather than of
+    the ledger and is rarely read. Recording a fee is the matter header's New Fee, not a button here
+    (create-action.svelte.ts). The pane toggle rides the counts strip beneath the table. What is
+    left is the way out of a filter, and only while a filter is on.
   -->
-  <div class="flex flex-wrap items-center justify-end gap-8 text-sm">
-    <span class="flex flex-1 flex-wrap items-center justify-end gap-8">
-      {#if grid.isFiltered}
-        <Button
-          variant="secondary"
-          size="sm"
-          title="Clear all filters and show all {grid.totalRowCount} fees"
-          onclick={() => grid.clearAllFilters()}
-        >
-          <FunnelX class="size-16" aria-hidden="true" />
-          Clear Filters
-        </Button>
-      {/if}
-      <DetailsPanel.Toggle
-        open={panelOpen}
-        onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
-      />
-    </span>
-  </div>
+  {#if grid.isFiltered}
+    <div class="flex flex-wrap items-center justify-end gap-8 text-sm">
+      <Button
+        variant="secondary"
+        size="sm"
+        title="Clear all filters and show all {grid.totalRowCount} fees"
+        onclick={() => grid.clearAllFilters()}
+      >
+        <FunnelX class="size-16" aria-hidden="true" />
+        Clear Filters
+      </Button>
+    </div>
+  {/if}
 
   <!-- The one honest line about why this ledger stands empty: the record it lists is not served. -->
   <p class="flex flex-wrap items-center gap-8 text-xs text-text-muted">

@@ -443,11 +443,20 @@
       <span class="text-text-subtle">{figure.label}</span>
     </span>
   {/each}
+  <!-- The toggle ends the strip, after the figures: the last thing on the line, on every surface
+       in the product that has a panel. -->
+  <DetailsPanel.Toggle
+    open={panelOpen}
+    onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
+  />
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-12">
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
+  <!-- The row above the table exists ONLY when something has to be in it. The pane toggle rides the
+       counts strip beneath the table, so what is left is the way out of a filter — which is there
+       only while a filter is on. Unfiltered, the register starts at the top of the screen. -->
+  {#if grid.isFiltered}
+    <div class="flex flex-wrap items-center justify-end gap-8">
       <Button
         variant="secondary"
         size="sm"
@@ -457,12 +466,8 @@
         <FunnelX class="size-16" aria-hidden="true" />
         Clear Filters
       </Button>
-    {/if}
-    <DetailsPanel.Toggle
-      open={panelOpen}
-      onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
-    />
-  </div>
+    </div>
+  {/if}
 
   {#if actionFailure !== null}
     <FailureNotice

@@ -453,11 +453,22 @@
       <span class="font-semibold tabular-nums">{money(figure.amountMinor / 100)}</span>
     </span>
   {/each}
+  <!-- The toggle ends the strip, after the figures: the last thing on the line, on every surface
+       in the product that has a panel. -->
+  <DetailsPanel.Toggle
+    open={panelOpen}
+    onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
+  />
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-12">
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
+  <!-- The row above the table exists ONLY when something has to be in it. Recording one entry on
+       this matter is the matter header's New Time; the Time Sheet is the top bar's, reachable from
+       every screen including this one; and the pane toggle rides the counts strip beneath the
+       table. What is left is the way out of a filter, which is there only while a filter is on —
+       so on an unfiltered ledger the table starts at the top of the screen. -->
+  {#if grid.isFiltered}
+    <div class="flex flex-wrap items-center justify-end gap-8">
       <Button
         variant="secondary"
         size="sm"
@@ -467,15 +478,8 @@
         <FunnelX class="size-16" aria-hidden="true" />
         Clear Filters
       </Button>
-    {/if}
-    <!-- Recording one entry on this matter is the matter header's New Time; the Time Sheet is the
-         top bar's, reachable from every screen including this one, and a second door to it here was
-         a control that took a reader somewhere they were already standing in front of. -->
-    <DetailsPanel.Toggle
-      open={panelOpen}
-      onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
-    />
-  </div>
+    </div>
+  {/if}
 
   {#if actionFailure !== null}
     <FailureNotice

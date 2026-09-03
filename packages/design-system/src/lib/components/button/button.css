@@ -141,4 +141,13 @@
     inline-size: var(--mc-density-control-md);
     padding-inline: var(--mc-space-0);
   }
+  /* The square at the SMALL height, for a glyph control that rides inside a band already sized to
+     the small control scale — a table's counts strip, a card's own header. It exists so such a
+     control can join a band without growing it: the icon size would add four points of height to a
+     strip whose whole argument is that it holds one line. */
+  .mc-button-icon-sm {
+    block-size: var(--mc-density-control-sm);
+    inline-size: var(--mc-density-control-sm);
+    padding-inline: var(--mc-space-0);
+  }
 }
