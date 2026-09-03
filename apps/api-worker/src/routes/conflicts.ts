@@ -22,7 +22,7 @@ import {
 } from "@magna-carta/conflicts/posture";
 import { describeCheck, type ReportedSource } from "@magna-carta/conflicts/report-text";
 import { ConflictsIdempotencyConflictError } from "@magna-carta/conflicts/run-conflicts-effect";
-import { MAX_CANDIDATE_CAP } from "@magna-carta/conflicts/settings";
+import { MAX_CANDIDATE_CAP, readConflictsPolicy } from "@magna-carta/conflicts/settings";
 import { CONFLICTS_CHECK_TABLE, CONFLICTS_HIT_TABLE } from "@magna-carta/conflicts/statements";
 import {
   CONFLICTS_TRIGGERS,
@@ -212,6 +212,37 @@ const CreateCheckRequest = z
   .openapi("CreateConflictsCheckRequest");
 
 const CreatedCheckResponse = z.object({ id: z.string() }).openapi("CreatedConflictsCheckResponse");
+
+/*
+ * The firm's own conflicts floor, as every check is judged against it. Read-only here: raising or
+ * lowering a floor is an administrative act on the same key family as the scan policy, and it is not
+ * built by this route.
+ *
+ * Every member who may read a check may read this, because every member is HELD to it — a reviewer
+ * looking at a check that fell short of the floor needs to be able to see what the floor is.
+ */
+const ConflictsPolicyResponse = z
+  .object({
+    // The classes a check must search whatever a caller asked for. `party` is always among them:
+    // conflicts impute across the whole firm, so the party corpus is not optional, and the read
+    // unions it back in even from a stored row that somehow lacks it.
+    floorSources: z.array(z.enum(SOURCE_CLASSES)),
+    floorStrictness: z.enum(STRICTNESS_LEVELS),
+    // A DEFAULT rather than a floor, unlike the two above: a caller may deliberately search
+    // shallower, and the check row records the depth that actually ran either way.
+    defaultDepth: z.number().int(),
+    edgeClassBudgets: z.record(z.string(), z.number().int()),
+    closureCap: z.number().int(),
+    candidateCap: z.number().int(),
+    // The name rows the BALANCED band compares. over_inclusive always searches every role, which is
+    // what keeps it a superset whatever this is set to.
+    balancedNameRoles: z.array(z.string()),
+  })
+  .openapi("ConflictsPolicyResponse");
+
+const CreatedRecheckResponse = z
+  .object({ checkId: z.string() })
+  .openapi("CreatedConflictsRecheckResponse");
 
 const GraphPathStep = z
   .object({
@@ -704,6 +735,60 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
   },
 });
 
+const firmPolicyRoute = defineOpenAPIRoute(readMeta("firmPolicy", "conflicts:read"), {
+  method: "get",
+  path: "/api/v1/firm/conflicts-policy",
+  description:
+    "The firm's conflicts floor: the source classes every check must search whatever a caller asks " +
+    "for, the strictness band it must reach, and the traversal and candidate bounds a run is held " +
+    "to. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a " +
+    "request would manufacture a check that searched less than the firm requires while the log " +
+    "faithfully recorded that a check happened. It reads on conflicts:read because every member who " +
+    "can read a check is held to this, and a reviewer looking at a check that fell short of the " +
+    "floor has to be able to see what the floor is.",
+  responses: {
+    200: {
+      description: "The firm's conflicts policy floor",
+      content: { "application/json": { schema: ConflictsPolicyResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    429: authErrors[429],
+  },
+});
+
+const matterRecheckRoute = defineOpenAPIRoute(mutationMeta("recheckMatter", "conflicts:run"), {
+  method: "post",
+  path: "/api/v1/matters/{matterId}/conflicts-rechecks",
+  description:
+    "Runs a fresh comprehensive check against this matter's own live parties, now, because a member " +
+    "asked for one. It takes NO scope, and that is the point of it existing beside the general " +
+    "check route: 're-check this matter' has no scope for a caller to state, and asking for one " +
+    "invites a screen to invent a narrower search than the firm requires. The firm's own policy " +
+    "floor is what runs. The check is recorded as a manual run naming the member who asked, and " +
+    "carries no cause — a cause is a corpus change the platform noticed, and a person asking now is " +
+    "not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays " +
+    "open, because the interval between a cause and the check that answered it is evidence about " +
+    "the firm's procedure and a manual run did not answer it.",
+  request: { headers: idempotencyKeyHeader, params: matterIdParam },
+  responses: {
+    201: {
+      description: "The check that ran",
+      content: { "application/json": { schema: CreatedRecheckResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    // The idempotency chokepoint's own refusal: one key, two different bodies. Declared because the
+    // shared conflicts error mapper can return it, and a response a route can produce but does not
+    // declare is a contract that lies about what a caller may receive.
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
 const dispositionTrailRoute = defineOpenAPIRoute(readMeta("hitDispositions", "conflicts:read"), {
   method: "get",
   path: "/api/v1/conflicts/hits/{hitId}/dispositions",
@@ -828,6 +913,60 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
           },
         );
         return c.json({ id } as z.infer<typeof CreatedCheckResponse>, 201);
+      } catch (caught) {
+        return conflictsErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // GET /api/v1/firm/conflicts-policy
+  app.openapi(
+    { ...firmPolicyRoute, middleware: chokepointMiddleware(chokepoint, firmPolicyRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      // readConflictsPolicy falls back to the shipped default for a firm that has set nothing, and
+      // unions `party` back into the floor on every read — so a stored row that is corrupt or was
+      // hand-edited can never report a floor this platform would not actually run.
+      const policy = await readConflictsPolicy(firm.firmDatabase);
+      return c.json(policy as unknown as z.infer<typeof ConflictsPolicyResponse>, 200);
+    },
+  );
+
+  // POST /api/v1/matters/{matterId}/conflicts-rechecks
+  app.openapi(
+    { ...matterRecheckRoute, middleware: chokepointMiddleware(chokepoint, matterRecheckRoute) },
+    async (c) => {
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { matterId } = c.req.valid("param");
+      const context = await conflictsContext(c);
+      try {
+        // The firm's floor, read here rather than taken from the caller. resolveScope would raise a
+        // narrower request to it anyway, so this is not the enforcement — it is the reason the route
+        // needs no scope field at all.
+        const policy = await readConflictsPolicy(context.database);
+        const checkId = await runConflictsCheck(
+          context,
+          {
+            // A person asking for a re-check is asking for the full one; `preliminary` is the intake
+            // band and is not something this affordance should be able to select by accident.
+            trigger: "comprehensive",
+            matterId,
+            // Empty on purpose: runConflictsCheck reads the matter's own live parties. Naming
+            // subjects here would freeze the search to whoever the screen had listed when the button
+            // was drawn, which is precisely the staleness a re-check exists to answer.
+            subjectEntityIds: [],
+            scope: { sources: policy.floorSources, strictness: policy.floorStrictness },
+            triggerSource: "manual",
+          },
+          {
+            clock: { now: () => new Date().toISOString() },
+            actorUserId: userId,
+            randomSource: cryptoRandomSource,
+            idempotency,
+          },
+        );
+        return c.json({ checkId } as z.infer<typeof CreatedRecheckResponse>, 201);
       } catch (caught) {
         return conflictsErrorResponse(c, caught);
       }

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02
 **Status:** Both questions answered by the owner on 2026-09-02 — Q1 `conflicts:read`, Q2 option (c).
-**Reads 1 and 2 of 6 are built** (the matched party's name; the adjudication trail); four remain, none blocked.
+**Reads 1-4 of 6 are built** (the matched party's name; the adjudication trail; re-check on demand; the firm policy). Two remain: the check history, and previously-concluded.
 **Scope:** The **reads** the conflicts screens are already built against and the contract does not
 serve. Six of them, each named today in
 [`apps/web/src/lib/conflicts/conflicts-gaps.ts`](../../apps/web/src/lib/conflicts/conflicts-gaps.ts)
@@ -181,7 +181,17 @@ a real ruling.
    name under two shapes, because the check response uses it as `.nullable()` and zod-to-openapi
    carries the name onto the nullable schema. A trail entry is now its own component, which is also
    the honest reading — there, null means unanswered; here every entry is an act that happened.
-3. **Re-check on demand**, then **firm policy**. Both small; both remove a disabled control.
+3. ~~**Re-check on demand**, then **firm policy**.~~ **BOTH BUILT.**
+   `POST /api/v1/matters/{matterId}/conflicts-rechecks` takes **no scope**, and that is why it exists
+   beside the general check route rather than being a call to it: "re-check this matter" has no scope
+   for a caller to state, and asking for one invites a screen to compose a narrower search than the
+   firm requires. It names no subjects either — `runConflictsCheck` reads the matter's live parties,
+   so a party added since the last check is searched without anybody listing them. It is recorded as
+   a manual run naming the member who asked, carries no cause, and neither reads nor satisfies the
+   automatic re-check ledger: an open cause stays open, because the interval between a cause and the
+   check that answered it is evidence about the firm's procedure and a manual run did not answer it.
+   `GET /api/v1/firm/conflicts-policy` is `readConflictsPolicy` behind a route, on `conflicts:read`
+   per Q1. The check runner now STATES the floor instead of marking it unreadable.
 4. **Check history**, behind its load-profile measurement.
 5. **Previously concluded**, once Q2 is answered.
 

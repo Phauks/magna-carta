@@ -172,6 +172,19 @@ export interface DispositionTrail {
   dispositions: DispositionTrailEntry[];
 }
 
+/** The firm's mandatory minimum for every check. A per-run scope may add to it, never subtract. */
+export interface FirmConflictsPolicy {
+  floorSources: SourceClass[];
+  floorStrictness: Strictness;
+  /** A default rather than a floor: a caller may search shallower, and the check records what ran. */
+  defaultDepth: number;
+  edgeClassBudgets: Record<string, number>;
+  closureCap: number;
+  candidateCap: number;
+  /** The name rows the balanced band compares. Never empty. */
+  balancedNameRoles: string[];
+}
+
 export interface HitParty {
   kind: "person" | "organization";
   /** Null when the record exists and carries no name — not the same as an unresolved entity. */
@@ -433,6 +446,36 @@ export function readConflictsDispositionTrail(
   hitId: string,
 ): Promise<ApiOutcome<DispositionTrail>> {
   return requestJson(fetchImpl, `/api/v1/conflicts/hits/${encodeURIComponent(hitId)}/dispositions`);
+}
+
+/**
+ * The firm's own conflicts floor — what every check is held to, whatever a caller asks for.
+ *
+ * On `conflicts:read` because every member who can read a check is held to it: a reviewer looking at
+ * a check that fell short of the floor has to be able to see what the floor is.
+ */
+export function readFirmConflictsPolicy(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<FirmConflictsPolicy>> {
+  return requestJson(fetchImpl, "/api/v1/firm/conflicts-policy");
+}
+
+/**
+ * Run a fresh check against one matter's live parties, now, because a member asked.
+ *
+ * It sends NO scope, and there is none to send: the firm's floor is what runs. A screen composing a
+ * scope here would be a screen deciding how thoroughly the firm searches.
+ */
+export function recheckMatterConflicts(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  writeKey: string,
+): Promise<ApiOutcome<{ checkId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/matters/${encodeURIComponent(matterId)}/conflicts-rechecks`,
+    { method: "POST", body: {}, idempotencyKey: writeKey },
+  );
 }
 
 /** Where one matter stands. Derived at read time, so a policy change shows up immediately. */

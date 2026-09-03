@@ -28,10 +28,6 @@ export const CONFLICTS_GAPS = {
     field: "Earlier Checks",
     waitsOn: "a read that lists the checks a firm has run",
   },
-  firmPolicy: {
-    field: "Firm Floor",
-    waitsOn: "a read that serves the firm's own conflicts policy",
-  },
   previouslyConcluded: {
     field: "Previously Concluded",
     waitsOn:
@@ -40,10 +36,6 @@ export const CONFLICTS_GAPS = {
   reportDocument: {
     field: "Assembled Report",
     waitsOn: "the conflicts report being assembled as a filed document rather than a printed sheet",
-  },
-  rescanNow: {
-    field: "Re-check This Matter",
-    waitsOn: "a route that asks for a re-check of one matter on demand",
   },
 } as const satisfies Readonly<Record<string, ConflictsGap>>;
 

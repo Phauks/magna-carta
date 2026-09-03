@@ -136,6 +136,61 @@ describe("conflicts check routes", () => {
     expect(id).toMatch(/^conflictsCheck_/);
   });
 
+  it("re-checks a matter on demand, against its live parties and the firm's own floor", async () => {
+    /*
+     * The affordance a reviewer presses. It takes no scope on purpose: "re-check this matter" has
+     * none for a caller to state, and asking would invite a screen to compose a narrower search than
+     * the firm requires. It also names no subjects — runConflictsCheck reads the matter's own live
+     * parties, so a party added since the last check is in the search without anybody listing them.
+     */
+    const clientId = await createPerson("Recheck", "Client");
+    const matter = await post("/api/v1/matters", {
+      title: "Re-check on demand",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "Recheck Client",
+    });
+    expect(matter.status, await matter.clone().text()).toBe(201);
+    const { matterId } = (await matter.json()) as { matterId: string };
+    const party = await post("/api/v1/directory/matter-parties", {
+      matterId,
+      entityId: clientId,
+      role: "client",
+    });
+    expect(party.status, await party.clone().text()).toBe(201);
+
+    const recheck = await post(`/api/v1/matters/${matterId}/conflicts-rechecks`, {});
+    expect(recheck.status, await recheck.clone().text()).toBe(201);
+    const { checkId } = (await recheck.json()) as { checkId: string };
+    expect(checkId).toMatch(/^conflictsCheck_/);
+
+    // It is somebody's act, and the log says whose — unlike an automated run, which is nobody's.
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    expect(read.status, await read.clone().text()).toBe(200);
+    const body = (await read.json()) as {
+      check: { matterId: string | null; actorUserId: string | null };
+    };
+    expect(body.check.matterId).toBe(matterId);
+    expect(body.check.actorUserId).toBe(ownerUserId);
+  });
+
+  it("serves the firm's conflicts floor, with the party class always in it", async () => {
+    const response = await get("/api/v1/firm/conflicts-policy");
+    expect(response.status, await response.clone().text()).toBe(200);
+    const policy = (await response.json()) as {
+      floorSources: string[];
+      floorStrictness: string;
+      balancedNameRoles: string[];
+    };
+    // Never optional: conflicts impute across the whole firm, so a floor that could drop the party
+    // corpus would be a floor that permits a check nobody should be able to ask for.
+    expect(policy.floorSources).toContain("party");
+    expect(policy.floorStrictness).toBeTruthy();
+    // Never empty: an emptied set would compare no name rows at all — a check that runs and finds
+    // nothing for a reason nothing on the row explains.
+    expect(policy.balancedNameRoles.length).toBeGreaterThan(0);
+  });
+
   it("serves every answer on a hit, oldest first, with the reversed one still standing", async () => {
     /*
      * The compliance artifact. The log is append-only so that a reviewer who cleared a hit and later
@@ -161,7 +216,8 @@ describe("conflicts check routes", () => {
     // Nobody has answered it yet: an empty trail, not a 404 and not an error.
     const empty = await get(`/api/v1/conflicts/hits/${hit?.id}/dispositions`);
     expect(empty.status, await empty.clone().text()).toBe(200);
-    expect((await empty.json()).dispositions).toEqual([]);
+    const emptyBody = (await empty.json()) as { dispositions: unknown[] };
+    expect(emptyBody.dispositions).toEqual([]);
 
     const cleared = await post(`/api/v1/conflicts/hits/${hit?.id}/dispositions`, {
       kind: "cleared",

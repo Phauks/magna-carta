@@ -23,6 +23,7 @@
   import Button from "@magna-carta/design-system/button";
   import Separator from "@magna-carta/design-system/separator";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -30,7 +31,9 @@
   import PosturePanel from "$lib/conflicts/posture-panel.svelte";
   import {
     readMatterConflictsPosture,
+    recheckMatterConflicts,
     READ_CONFLICTS_PERMISSION,
+    RUN_CHECK_PERMISSION,
     type MatterConflictsPosture,
   } from "$lib/conflicts/conflicts-api.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
@@ -44,6 +47,31 @@
   let failure = $state<StatedFailure | null>(null);
   let loading = $state(true);
   let session = $state<SessionBootstrap | null>(null);
+
+  const mayRun = $derived(
+    session === null || session.permissions.includes(RUN_CHECK_PERMISSION),
+  );
+  const RUN_REFUSAL = "Running a conflicts check needs the conflicts:run permission.";
+  let rechecking = $state(false);
+
+  /*
+   * A re-check is a WRITE against the append-only log, so it takes an idempotency key like every
+   * other one: a double-press must not leave the firm's record showing two searches where a member
+   * asked for one.
+   */
+  async function recheckNow(): Promise<void> {
+    if (rechecking) return;
+    rechecking = true;
+    const outcome = await recheckMatterConflicts(fetch, matterId, crypto.randomUUID());
+    rechecking = false;
+    if (outcome.kind !== "ok") {
+      failure = stated(outcome.failure, "The re-check could not be started.");
+      return;
+    }
+    // Straight to what it found, rather than back to a posture panel the reader would have to
+    // re-read to learn anything.
+    await goto(`/conflicts/checks/${outcome.value.checkId}`);
+  }
 
   async function read(): Promise<void> {
     loading = true;
@@ -140,6 +168,21 @@
         <Button variant="secondary" href="#conflicts-run">
           <ShieldAlert class="size-16" aria-hidden="true" />
           Run a check for this matter
+        </Button>
+      {/snippet}
+
+      {#snippet recheckAction()}
+        <!-- Asking for a re-check now. It takes no scope: the firm's own floor is what runs, which
+             is why this is one button rather than a form. -->
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!mayRun || rechecking}
+          title={mayRun ? undefined : RUN_REFUSAL}
+          onclick={() => void recheckNow()}
+        >
+          <RefreshCw class="size-16" aria-hidden="true" />
+          {rechecking ? "Re-checking" : "Re-check now"}
         </Button>
       {/snippet}
     </PosturePanel>
