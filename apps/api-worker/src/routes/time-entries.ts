@@ -11,6 +11,8 @@ import {
   submitTimeEntry,
   approveTimeEntry,
   kickBackTimeEntry,
+  refileTimeEntry,
+  unvoidTimeEntry,
   voidTimeEntry,
 } from "@magna-carta/timekeeping/time-entry-service";
 import type { DraftPatch } from "@magna-carta/timekeeping/time-entry-statements";
@@ -92,6 +94,15 @@ const CreateTimeEntryRequest = z
     utbmsActivityCodeId: identifierField("utbmsCode").nullable().optional(),
     rateCardId: identifierField("rateCard").nullable().optional(),
     overrideRateE4: z.number().int().positive().nullable().optional(),
+    taskId: identifierField("matterTask")
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The task this time was worked on. Must be a task on this same matter: a task on " +
+          "another matter, or on no matter at all, is refused. One task per entry — time that " +
+          "served two tasks is recorded as two entries.",
+      }),
     memo: z
       .string()
       .nullable()
@@ -115,9 +126,37 @@ const PatchTimeEntryRequest = z
       .optional(),
     utbmsTaskCodeId: identifierField("utbmsCode").nullable().optional(),
     utbmsActivityCodeId: identifierField("utbmsCode").nullable().optional(),
+    taskId: identifierField("matterTask")
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The task this time was worked on. Null unlinks it; absent leaves it unchanged. A task " +
+          "named here must be on the entry's own matter.",
+      }),
     memo: z.string().nullable().optional().openapi({
       description: "The firm-internal note. Null clears it; absent leaves it unchanged.",
     }),
+    overrideRateE4: z
+      .number()
+      .int()
+      .positive()
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "A rate for THIS entry, in ten-thousandths of a currency unit, sitting above every " +
+          "stored tier of the rate chain. Capture has always accepted one and the chain has " +
+          "always ranked it first; this is the same field on a draft the firm already holds, so " +
+          "an entry captured at the wrong rate is corrected rather than voided and typed again. " +
+          "A number sets it, null clears it and the entry falls back to the chain (matter, then " +
+          "client, then timekeeper, then role, then the card default) as of its work date, and " +
+          "absent leaves the rate exactly as it stands. Setting it re-computes the entry's amount. " +
+          "This does not weaken the rate snapshot: that rule says a rate card edited LATER never " +
+          "re-rates a standing entry, and it still holds — what changes here is somebody's " +
+          "deliberate answer for one entry, not a card's answer for all of them. An entry with no " +
+          "rate card resolves to no rate whatever is passed: an override is a rate ON a card.",
+      }),
   })
   .openapi("PatchTimeEntryRequest");
 
@@ -165,6 +204,8 @@ const TimeEntrySummary = z
     source: z.enum(["timer", "manual", "quick_add", "grid", "offline_sync", "calendar"]),
     // The invoice a billed entry rides; null until billing locks the row.
     invoiceId: z.string().nullable(),
+    // The task this time was worked on, when the timekeeper named one. Null on most entries.
+    taskId: z.string().nullable(),
     // Firm-internal note; never client-facing.
     memo: z.string().nullable(),
     // The matter-scoped reference ("2026-0147.0042"), immutable and never reused. Null on entries
@@ -218,6 +259,22 @@ const DetachTimeEntryFileRequest = z
 const TimeEntryAttachmentAck = z
   .object({ timeEntryId: z.string(), fileId: z.string() })
   .openapi("TimeEntryAttachmentAck");
+
+const RefileTimeEntryRequest = z
+  .object({ matterId: identifierField("matter") })
+  .openapi("RefileTimeEntryRequest");
+const RefileTimeEntryAck = z
+  .object({
+    timeEntryId: z.string(),
+    matterId: z.string(),
+    // The rate and the rounding are re-resolved against the destination, so the ack answers with
+    // what the entry now carries rather than leaving the caller to re-read for it.
+    durationMinutes: z.number().int(),
+    rateE4: z.number().int().nullable(),
+    amountMinor: z.number().int().nullable(),
+    currency: z.string(),
+  })
+  .openapi("RefileTimeEntryAck");
 
 const ConvertToCostRequest = z
   .object({
@@ -340,10 +397,21 @@ function writeMeta(operationId: string, permission: typeof TRACK | typeof APPROV
 const createMeta = writeMeta("timeEntries.create", TRACK);
 const updateMeta = writeMeta("timeEntries.update", TRACK);
 const voidMeta = writeMeta("timeEntries.void", TRACK);
+const unvoidMeta = writeMeta("timeEntries.unvoid", TRACK);
 const gridBatchMeta = writeMeta("timeEntries.gridBatch", TRACK);
 const submitMeta = writeMeta("timeEntries.submit", TRACK);
 const approveMeta = writeMeta("timeEntries.approve", APPROVE);
 const kickBackMeta = writeMeta("timeEntries.kickBack", APPROVE);
+const roundingPolicyMeta: RouteMeta = {
+  operationId: "timeEntries.roundingPolicy",
+  surface: "app",
+  authenticated: true,
+  permission: TRACK,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
 const listMeta: RouteMeta = {
   operationId: "timeEntries.list",
   surface: "app",
@@ -398,6 +466,7 @@ const listAttachmentsMeta: RouteMeta = {
 const attachFileMeta = writeMeta("timeEntries.attachFile", TRACK);
 const detachFileMeta = writeMeta("timeEntries.detachFile", TRACK);
 const convertToCostMeta = writeMeta("timeEntries.convertToCost", TRACK);
+const refileMeta = writeMeta("timeEntries.refile", TRACK);
 
 const createRoute = defineOpenAPIRoute(createMeta, {
   method: "post",
@@ -557,6 +626,19 @@ const voidRoute = transitionRoute(
   "Voids a time entry. The row freezes — it can no longer be edited or billed.",
 );
 
+const unvoidRoute = transitionRoute(
+  unvoidMeta,
+  "unvoid",
+  "Returns a voided time entry to draft, with its number, its narrative, its memo, its codes, its " +
+    "attachments and its history intact. Voiding is how a mistaken entry is retired and it is " +
+    "reversible for exactly one reason: people void the wrong row, and re-typing the entry loses " +
+    "everything the row carries. It restores the entry to DRAFT and never to submitted or approved " +
+    "— those were somebody's judgement about an entry that has since been withdrawn, and they have " +
+    "to be given again. Refused for an entry that is not void, and for the one void that must stay " +
+    "one: an entry voided by conversion into a cost, where the value already moved to the cost " +
+    "record and restoring the time would charge the same work twice.",
+);
+
 const eventsRoute = defineOpenAPIRoute(eventsMeta, {
   method: "get",
   path: "/api/v1/time-entries/{id}/events",
@@ -689,6 +771,58 @@ const convertToCostRoute = defineOpenAPIRoute(convertToCostMeta, {
   },
 });
 
+const RoundingPolicy = z
+  .object({
+    incrementMinutes: z
+      .number()
+      .int()
+      .positive()
+      .openapi({
+        description:
+          "The minimum billing increment a captured duration is rounded TO, in minutes. Six — a " +
+          "tenth of an hour — is the prevailing default. This is also what one BILLING UNIT is " +
+          "worth, which is why a screen that lets time be entered in units has to ask: a firm on " +
+          "quarter hours and a firm on tenths mean different amounts of work by 'two units'.",
+      }),
+    roundingDirection: z.enum(["up", "nearest", "down"]).openapi({
+      description: "How a duration that falls between increments is resolved.",
+    }),
+  })
+  .openapi("RoundingPolicy");
+
+const roundingPolicyRoute = defineOpenAPIRoute(roundingPolicyMeta, {
+  method: "get",
+  path: "/api/v1/time-entries/rounding-policy",
+  description:
+    "The rounding policy in force for a capture, resolved through the same scope chain the " +
+    "capture itself uses: the matter's setting, then the timekeeper's, then the firm's. It is " +
+    "served because a screen cannot otherwise state two things it must — what an entry will " +
+    "actually be billed at once rounded, and what one billing unit is worth — and a screen that " +
+    "guesses either is a screen that records the wrong amount of time. Reads nothing about any " +
+    "entry, so it is safe to ask before one exists.",
+  request: {
+    query: z.object({
+      matterId: identifierField("matter").optional().openapi({
+        description: "Resolve against this matter's setting first. Omitted, the firm's applies.",
+      }),
+      timekeeperUserId: identifierField("user").optional().openapi({
+        description: "Resolve against this member's setting. Omitted, the firm's applies.",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "The resolved policy",
+      content: { "application/json": { schema: RoundingPolicy } },
+    },
+    401: readErrorResponses[401],
+    403: readErrorResponses[403],
+    // A malformed matter or member handle in the query is refused before the handler runs.
+    422: writeErrorResponses[422],
+    429: readErrorResponses[429],
+  },
+});
+
 const previewRoute = defineOpenAPIRoute(previewMeta, {
   method: "post",
   path: "/api/v1/time-entries/quick-add-preview",
@@ -706,6 +840,39 @@ const previewRoute = defineOpenAPIRoute(previewMeta, {
     403: readErrorResponses[403],
     404: readErrorResponses[404],
     429: readErrorResponses[429],
+  },
+});
+
+const refileRoute = defineOpenAPIRoute(refileMeta, {
+  method: "post",
+  path: "/api/v1/time-entries/{id}/refile",
+  description:
+    "Moves a misfiled DRAFT entry onto another matter. Its own route rather than a PATCH of " +
+    "matterId, because it is a cross-matter write: two ledgers change, and the rate the entry " +
+    "froze was resolved against the matter it is leaving. The entry number, the description, the " +
+    "memo, the codes, the attachments and the whole history carry across untouched; the RATE and " +
+    "the ROUNDING INCREMENT are re-resolved against the destination as of the entry's own work " +
+    "date, because both are matter-scoped and carrying one client's answer to another is how a " +
+    "firm bills at the wrong rate. Refused for anything past draft, anything on a bill, and " +
+    "anything a draft invoice has claimed — past that the entry is evidence somebody is relying " +
+    "on, and the answer is a void and a fresh record.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: timeEntryParam,
+    body: { content: { "application/json": { schema: RefileTimeEntryRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The entry was refiled",
+      content: { "application/json": { schema: RefileTimeEntryAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
   },
 });
 
@@ -758,7 +925,12 @@ function timeEntryErrorResponse(
     error.code === "illegal-transition" ||
     error.code === "draft-only" ||
     error.code === "already-attached" ||
-    error.code === "claimed-by-draft"
+    error.code === "claimed-by-draft" ||
+    // Both unvoid refusals are conflicts rather than bad requests: the request is well formed and
+    // the entry's own state is what refuses it — it was never voided, or its value has already
+    // moved onto a cost record and must not be restored alongside it.
+    error.code === "not-void" ||
+    error.code === "converted-to-cost"
   ) {
     return problemJson(c, {
       type: "conflict",
@@ -876,6 +1048,7 @@ function recordToSummary(item: TimeEntryRecordItem): z.infer<typeof TimeEntrySum
     status: item.status,
     source: item.source as z.infer<typeof TimeEntrySummary>["source"],
     invoiceId: item.invoiceId,
+    taskId: item.taskId,
     memo: item.memo,
     entryNumber: item.entryNumber,
     createdAt: item.createdAt,
@@ -952,6 +1125,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
                     source: request.source,
                     utbmsTaskCodeId: request.utbmsTaskCodeId ?? undefined,
                     utbmsActivityCodeId: request.utbmsActivityCodeId ?? undefined,
+                    taskId: request.taskId ?? undefined,
                     memo: request.memo ?? undefined,
                     entryNumber,
                     rate,
@@ -1047,6 +1221,24 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
   );
 
   // GET /api/v1/time-entries/{id} — detail, through the same record read the listings use.
+  // GET .../rounding-policy — registered BEFORE the GET /{id} route below, and that ordering is
+  // the whole of why it works: Hono matches in registration order, so "rounding-policy" reaches
+  // the dynamic :id pattern first if this moves, and the request comes back 422 for a malformed
+  // entry handle. (The same rule the quick-add-preview registration further down calls out.)
+  app.openapi(
+    { ...roundingPolicyRoute, middleware: chokepointMiddleware(chokepoint, roundingPolicyRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId, timekeeperUserId } = c.req.valid("query");
+      const scope = { matterId, userId: timekeeperUserId };
+      const [incrementMinutes, roundingDirection] = await Promise.all([
+        resolveScopedSetting(firm.firmDatabase, incrementMinutesDefinition, scope),
+        resolveScopedSetting(firm.firmDatabase, roundingDirectionDefinition, scope),
+      ]);
+      return c.json({ incrementMinutes, roundingDirection } as z.infer<typeof RoundingPolicy>, 200);
+    },
+  );
+
   app.openapi(
     { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
     async (c) => {
@@ -1228,7 +1420,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       // to avoid leaking existence to a caller who does not own the entry.
       const ownerRow = await firm.firmDatabase
         .prepare(
-          "SELECT timekeeper_user_id, matter_id, billable, rate_card_id, duration_minutes FROM time_entry WHERE id = ?1",
+          "SELECT timekeeper_user_id, matter_id, billable, rate_card_id, rate_e4, rate_source, currency, work_date, duration_minutes FROM time_entry WHERE id = ?1",
         )
         .bind(entryId)
         .first<{
@@ -1236,6 +1428,10 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           matter_id: string;
           billable: number;
           rate_card_id: string | null;
+          rate_e4: number | null;
+          rate_source: string | null;
+          currency: string;
+          work_date: string;
           duration_minutes: number;
         }>();
       if (ownerRow === null) {
@@ -1255,46 +1451,120 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
         });
       }
 
-      // When the patch changes workDate, re-resolve the rate for the new date so the stored
-      // rate snapshot stays accurate. This requires the entry's matter, timekeeper, billable
-      // flag, and role (for the precedence chain) — all read from the pre-flight row above.
+      /*
+       * THE MONEY COLUMNS ARE DERIVED, SO THE ROUTE RE-DERIVES THEM WHENEVER THEIR INPUTS MOVE.
+       *
+       * An entry's amount is its billed duration times the rate in force on its work date, frozen
+       * at capture. Three things in a patch can move that product, and each used to be handled
+       * differently:
+       *
+       *   • the WORK DATE, which re-asks the rate chain on a different day. Already handled — with
+       *     one hole this closes: it re-resolved without the entry's own override, so correcting
+       *     the date of an entry somebody had deliberately priced silently threw that price away
+       *     and put the card's answer back.
+       *   • the RATE, now that a draft's rate can be set. New here.
+       *   • the WORKED DURATION, which was NOT handled at all: the patch wrote raw_duration_minutes
+       *     and left duration_minutes and amount_minor as they were, so changing an entry from one
+       *     hour to two left it billed at one hour and priced at one hour. That is the same class
+       *     of bug as the override being dropped, and it is fixed in the same place, because you
+       *     cannot make a rate settable and still compute its amount against a duration that may
+       *     have changed in the same request.
+       *
+       * So: round the worked duration when it moves, re-resolve the rate when the date or the
+       * override moves, and multiply whenever either side of the product has. A patch that touches
+       * none of the three leaves every money column exactly where it stood.
+       */
+      const durationChanged = patch.rawDurationMinutes !== undefined;
+      const rateInputsChanged = patch.workDate !== undefined || patch.overrideRateE4 !== undefined;
       let enrichedPatch: DraftPatch = patch;
-      if (patch.workDate !== undefined) {
-        const { results: memberRows } = await firm.firmDatabase
-          .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1")
-          .bind(ownerRow.timekeeper_user_id)
-          .all<{ role_id: string | null }>();
-
-        const resolved = await resolveRate(firm.firmDatabase, {
-          matterId: ownerRow.matter_id,
-          clientId: null,
-          timekeeperUserId: ownerRow.timekeeper_user_id,
-          roleId: memberRows[0]?.role_id ?? null,
-          workDate: patch.workDate,
-          rateCardId: ownerRow.rate_card_id ?? undefined,
-        });
-
+      if (durationChanged || rateInputsChanged) {
         const isBillable = ownerRow.billable === 1;
-        if (isBillable && !("noRate" in resolved)) {
-          const amountMinor = computeAmountMinor(
-            resolved.rateE4,
-            ownerRow.duration_minutes,
-            resolved.currency,
+        const workDate = patch.workDate ?? ownerRow.work_date;
+
+        // The billed duration: re-rounded to the increment in force for this matter and this
+        // person, exactly as capture rounds it, so an edited entry is billed on the same policy a
+        // captured one is.
+        let billedMinutes = ownerRow.duration_minutes;
+        if (durationChanged) {
+          const scope = { matterId: ownerRow.matter_id, userId: ownerRow.timekeeper_user_id };
+          const increment = await resolveScopedSetting(
+            firm.firmDatabase,
+            incrementMinutesDefinition,
+            scope,
           );
+          const direction = await resolveScopedSetting(
+            firm.firmDatabase,
+            roundingDirectionDefinition,
+            scope,
+          );
+          billedMinutes = roundDuration(
+            patch.rawDurationMinutes ?? ownerRow.duration_minutes,
+            increment,
+            direction,
+          );
+          if (billedMinutes === 0) {
+            return problemJson(c, {
+              type: "validation",
+              title: "The entry cannot be saved",
+              status: 422,
+              detail:
+                "The rounded duration is 0 minutes — the time worked is shorter than the firm's rounding increment, rounding down.",
+            });
+          }
+          enrichedPatch = { ...enrichedPatch, durationMinutes: billedMinutes };
+        }
+
+        if (isBillable) {
+          /*
+           * The override in force after this patch. Absent means "leave the rate alone", which for
+           * an entry already carrying an override means carrying that override forward — the entry
+           * itself is where it is recorded, as the rate whose source is `override`.
+           */
+          const standingOverride =
+            ownerRow.rate_source === "override" && ownerRow.rate_e4 !== null
+              ? ownerRow.rate_e4
+              : undefined;
+          const overrideE4 =
+            patch.overrideRateE4 === undefined
+              ? standingOverride
+              : (patch.overrideRateE4 ?? undefined);
+
+          let rateE4 = ownerRow.rate_e4;
+          let rateCardId = ownerRow.rate_card_id;
+          let rateSource = ownerRow.rate_source;
+          let currency = ownerRow.currency;
+          if (rateInputsChanged) {
+            const { results: memberRows } = await firm.firmDatabase
+              .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1")
+              .bind(ownerRow.timekeeper_user_id)
+              .all<{ role_id: string | null }>();
+            const resolved = await resolveRate(firm.firmDatabase, {
+              matterId: ownerRow.matter_id,
+              clientId: null,
+              timekeeperUserId: ownerRow.timekeeper_user_id,
+              roleId: memberRows[0]?.role_id ?? null,
+              workDate,
+              rateCardId: ownerRow.rate_card_id ?? undefined,
+              overrideE4,
+            });
+            if ("noRate" in resolved) {
+              rateE4 = null;
+              rateCardId = null;
+              rateSource = null;
+            } else {
+              rateE4 = resolved.rateE4;
+              rateCardId = resolved.rateCardId;
+              rateSource = resolved.rateSource;
+              currency = resolved.currency;
+            }
+            enrichedPatch = { ...enrichedPatch, rateE4, rateCardId, rateSource };
+          }
+
+          // The paired-null contract on the row: an amount exists exactly where a rate does.
           enrichedPatch = {
-            ...patch,
-            rateE4: resolved.rateE4,
-            rateCardId: resolved.rateCardId,
-            rateSource: resolved.rateSource,
-            amountMinor,
-          };
-        } else if (isBillable && "noRate" in resolved) {
-          enrichedPatch = {
-            ...patch,
-            rateE4: null,
-            rateCardId: null,
-            rateSource: null,
-            amountMinor: null,
+            ...enrichedPatch,
+            amountMinor:
+              rateE4 === null ? null : computeAmountMinor(rateE4, billedMinutes, currency),
           };
         }
       }
@@ -1439,6 +1709,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
                       source: "grid",
                       utbmsTaskCodeId: entry.utbmsTaskCodeId ?? undefined,
                       utbmsActivityCodeId: entry.utbmsActivityCodeId ?? undefined,
+                      taskId: entry.taskId ?? undefined,
                       memo: entry.memo ?? undefined,
                       entryNumber,
                       rate: res.rate,
@@ -1603,6 +1874,67 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
     },
   );
 
+  // POST /api/v1/time-entries/{id}/unvoid — the void, undone.
+  //
+  // Voiding is the product's answer to a mistaken entry, and mistaken voids are the same kind of
+  // accident one level up: the wrong row, a colleague's say-so that turns out to be wrong, an
+  // afternoon voided where one line was meant. Re-typing the entry loses its number, its memo, its
+  // codes, its attached documents and its history, which is why refiling exists for a misfiled
+  // entry and why this exists for a mistaken void.
+  app.openapi(
+    { ...unvoidRoute, middleware: chokepointMiddleware(chokepoint, unvoidRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const entryId = id as TimeEntryId;
+
+      // Ownership pre-check: treat a non-owned entry as not-found to avoid leaking existence.
+      if (!(await ownsEntry(firm.firmDatabase, entryId, userId))) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such time entry.",
+        });
+      }
+
+      /*
+       * WAS THIS ENTRY VOIDED BY BEING TURNED INTO A COST? That conversion moves the entry's value
+       * onto a cost record and voids the time in the same batch, precisely so the firm cannot
+       * count the work twice; restoring the time afterwards would undo the half of that act that
+       * was protecting the client.
+       *
+       * The link lives in the audit trail and nowhere else — no column on either row names the
+       * other — so the audit trail is what is asked. It is being read here as the firm's own record
+       * of what happened, which is what it is for; the service takes the answer rather than the
+       * database so the rule stays testable without one.
+       */
+      const conversion = await firm.firmDatabase
+        .prepare(
+          "SELECT id FROM audit_log WHERE subject_id = ?1 AND event = 'time_entry.converted_to_cost' LIMIT 1",
+        )
+        .bind(entryId)
+        .first<{ id: string }>();
+
+      const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
+        unvoidTimeEntry(
+          firm.firmDatabase,
+          entryId,
+          { convertedToCost: conversion !== null },
+          {
+            clock: { now: () => new Date().toISOString() },
+            actorUserId: userId,
+          },
+        ),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ timeEntryId: outcome.id } as z.infer<typeof TimeEntryAck>, 200);
+    },
+  );
+
   // POST /api/v1/time-entries/{id}/convert-to-cost — one act: create the cost, void the entry.
   // Time is WIP, not a ledger posting, and so is a cost — the conversion moves value between the
   // two work-in-progress stores and touches no ledger. The void in the same batch is what keeps
@@ -1755,6 +2087,149 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       return c.json(
         JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ConvertToCostAck>,
         201,
+      );
+    },
+  );
+
+  // POST /api/v1/time-entries/{id}/refile — move a misfiled draft onto another matter.
+  //
+  // The pre-reads produce the named refusals a person can act on; the WHERE-guard on the refile
+  // statement (draft AND unclaimed) is the concurrency backstop behind them, so an entry submitted
+  // or billed between the read and the write matches nothing rather than moving.
+  app.openapi(
+    { ...refileRoute, middleware: chokepointMiddleware(chokepoint, refileRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const { matterId } = c.req.valid("json");
+      const entryId = id as TimeEntryId;
+
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        const { results: entryRows } = await firm.firmDatabase
+          .prepare(
+            "SELECT matter_id, timekeeper_user_id, work_date, raw_duration_minutes, billable, status, invoice_id, rate_card_id FROM time_entry WHERE id = ?1",
+          )
+          .bind(entryId)
+          .all<{
+            matter_id: string;
+            timekeeper_user_id: string;
+            work_date: string;
+            raw_duration_minutes: number;
+            billable: number;
+            status: "draft" | "submitted" | "approved" | "billed" | "void";
+            invoice_id: string | null;
+            rate_card_id: string | null;
+          }>();
+        const entry = entryRows[0];
+        if (entry === undefined) {
+          throw new TimeEntryValidationError("not-found", `no such time entry: ${entryId}`);
+        }
+        if (entry.invoice_id !== null) {
+          throw new TimeEntryValidationError(
+            "frozen-entry",
+            "this entry is on a finalized bill — a billed entry is evidence, and the way to correct it is a credit note beside the bill, never a move nobody can see",
+          );
+        }
+        // An entry a draft invoice has claimed is spoken for: moving it out from under the draft
+        // would leave the bill charging a matter it is no longer billing.
+        const { results: claimRows } = await firm.firmDatabase
+          .prepare(
+            "SELECT 1 AS present FROM invoice_wip_claim WHERE source_kind = 'time_entry' AND source_id = ?1 AND released_at IS NULL",
+          )
+          .bind(entryId)
+          .all<{ present: number }>();
+        if (claimRows[0] !== undefined) {
+          throw new TimeEntryValidationError(
+            "claimed-by-draft",
+            "a draft invoice has claimed this entry — release the claim before moving it to another matter",
+          );
+        }
+        // The destination has to be a real matter of THIS firm. The read is scoped to the firm's
+        // own database, so a matter identifier from another firm simply is not there.
+        const { results: matterRows } = await firm.firmDatabase
+          .prepare("SELECT id FROM matter WHERE id = ?1")
+          .bind(matterId)
+          .all<{ id: string }>();
+        if (matterRows[0] === undefined) {
+          throw new TimeEntryValidationError("not-found", `no such matter: ${matterId}`);
+        }
+
+        // The rate and the rounding are re-asked against the DESTINATION, on the entry's own work
+        // date — both resolve through the matter, so the answers the old matter gave are answers
+        // about a different question. This is the capture route's own resolution, reused.
+        const resolved = await resolveCaptureValues(firm.firmDatabase, {
+          matterId,
+          // The row's own timekeeper, read back out of the record it is stored in — the branded
+          // shape the request schema mints is what the resolver's input is typed as.
+          timekeeperUserId: entry.timekeeper_user_id as z.infer<
+            typeof CreateTimeEntryRequest
+          >["timekeeperUserId"],
+          workDate: entry.work_date,
+          rawDurationMinutes: entry.raw_duration_minutes,
+          narrative: "-",
+          billable: entry.billable === 1,
+          source: "manual",
+          // The card the entry already resolved on, so a firm with several cards keeps the entry on
+          // the one it was captured under; the TIER within it is what the destination re-answers.
+          ...(entry.rate_card_id === null
+            ? {}
+            : {
+                rateCardId: entry.rate_card_id as NonNullable<
+                  z.infer<typeof CreateTimeEntryRequest>["rateCardId"]
+                >,
+              }),
+        });
+        const rate = resolved.rate;
+        const refiled = {
+          matterId,
+          durationMinutes: resolved.durationMinutes,
+          rateE4: "noRate" in rate ? null : rate.rateE4,
+          rateCardId: "noRate" in rate ? null : rate.rateCardId,
+          rateSource: "noRate" in rate ? null : rate.rateSource,
+          amountMinor: "noRate" in rate ? null : rate.amountMinor,
+          currency: resolved.currency,
+        };
+
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          now,
+          effect: async () => {
+            const moved = await refileTimeEntry(
+              firm.firmDatabase,
+              entryId,
+              { ...refiled, fromMatterId: entry.matter_id },
+              { clock: { now }, actorUserId: userId },
+            );
+            return {
+              write: moved.effect,
+              responseCode: 200,
+              responseBody: canonicalJsonStringify({
+                timeEntryId: entryId,
+                matterId,
+                durationMinutes: refiled.durationMinutes,
+                rateE4: refiled.rateE4,
+                amountMinor: refiled.amountMinor,
+                currency: refiled.currency,
+              }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(
+        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RefileTimeEntryAck>,
+        200,
       );
     },
   );

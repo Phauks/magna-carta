@@ -5,7 +5,8 @@ screen** asks the whole case a question instead of making you remember which scr
 filed under.
 
 Press the magnifying glass and type. It starts on the screen you are already looking at, and you can
-widen it to the whole matter in one click.
+widen it to the whole matter in one click. The **New** button sits beside it, saying what it will
+make on the screen you are on, and stays the same size whatever the search is doing.
 
 ## Choosing what to search
 

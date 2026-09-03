@@ -20,6 +20,8 @@
    * reader changed view.
    */
   import * as ContextMenu from "@magna-carta/design-system/context-menu";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -48,11 +50,9 @@
   import FileSearch from "@lucide/svelte/icons/file-search";
   import History from "@lucide/svelte/icons/history";
   import X from "@lucide/svelte/icons/x";
-  import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import Upload from "@lucide/svelte/icons/upload";
   import { problemGuidance } from "$lib/documents/document-presentation.ts";
   import {
     createFolder,
@@ -144,6 +144,33 @@
   let { matterId, matterTitle }: { matterId: string; matterTitle: string } = $props();
 
   const manager = new FileManagerState();
+
+  // --- the create actions, answered from the matter header ---------------------------------------
+  //
+  // The header's New File control (create-action.svelte.ts) is the one create button on this
+  // surface; the toolbar carries none. These are what its menu offers, exported so the Files page
+  // can put them behind it. Creating needs a current folder, and the views that show rows from
+  // many folders have none — the refusal is read by the page inside its claim, so the control
+  // follows the view.
+
+  /** Why nothing can be created into the view being shown, or undefined in a browse view. */
+  export function createRefusal(): string | undefined {
+    return manager.view === "browse"
+      ? undefined
+      : "This view has no current folder to create into. Open a folder first.";
+  }
+
+  export function newDocument(): void {
+    filePicker?.click();
+  }
+
+  export function newFolder(): void {
+    void makeFolder();
+  }
+
+  export function upload(): void {
+    filePicker?.click();
+  }
 
   // --- the matter's files and folders ------------------------------------------------------------
 
@@ -408,7 +435,9 @@
   let newFolderPending = $state(false);
 
   async function makeFolder(): Promise<void> {
-    if (manager.view !== "browse") return;
+    // One folder per press: the header's New File menu can be pressed again before the first
+    // create has answered, and that would be two "New Folder"s, not one.
+    if (manager.view !== "browse" || newFolderPending) return;
     newFolderPending = true;
     // A new name cannot collide: creation disambiguates in the copy convention rather than
     // refusing, because nobody typed this name and nobody should be asked to fix it.
@@ -598,7 +627,6 @@
 
   let folderToDelete = $state<FolderSummary | null>(null);
   let folderDeleteOpen = $state(false);
-  let folderDeleteRunning = $state(false);
   let folderDeleteFailure = $state<string | null>(null);
 
   async function deleteRows(targets: readonly FileManagerRow[]): Promise<void> {
@@ -640,10 +668,9 @@
   async function confirmFolderDelete(choice: {
     keepContents: boolean;
     destinationFolderId: string | null;
-  }): Promise<void> {
+  }): Promise<ActionOutcome> {
     const target = folderToDelete;
-    if (target === null) return;
-    folderDeleteRunning = true;
+    if (target === null) return "refused";
     folderDeleteFailure = null;
 
     const descendants = index.descendantFolderIds(target.id);
@@ -688,16 +715,16 @@
       if (outcome.kind !== "ok") trouble = true;
     }
 
-    folderDeleteRunning = false;
     if (trouble) {
       folderDeleteFailure =
         "Part of that did not go through, so the folder was left in place. Nothing was lost.";
       reload();
-      return;
+      return "refused";
     }
-    folderDeleteOpen = false;
-    folderToDelete = null;
+    // The panel closes itself on a committed act; the folder it named stays until the next open,
+    // so the heading does not blank while the panel is still leaving.
     reload();
+    return "committed";
   }
 
   // --- downloading ---------------------------------------------------------------------------------
@@ -725,7 +752,7 @@
     // call yet, so asking for several opens several rather than pretending to zip them here.
     for (const row of fileRows) {
       if (row.kind !== "file") continue;
-      globalThis.open(fileDownloadUrl(row.file.id), "_blank", "noopener");
+      openBeside(fileDownloadUrl(row.file.id), "file");
     }
   }
 
@@ -1357,7 +1384,6 @@
 
   let restoreTarget = $state<DeletedFileSummary | null>(null);
   let restoreOpen = $state(false);
-  let restoreRunning = $state(false);
   let restoreFailure = $state<string | null>(null);
 
   function beginRestore(row: DeletedFileSummary): void {
@@ -1366,24 +1392,23 @@
     restoreOpen = true;
   }
 
-  async function confirmRestore(destination: { folderId?: string | null }): Promise<void> {
+  async function confirmRestore(destination: {
+    folderId?: string | null;
+  }): Promise<ActionOutcome> {
     const target = restoreTarget;
-    if (target === null) return;
-    restoreRunning = true;
+    if (target === null) return "refused";
     restoreFailure = null;
     const outcome = await restoreFile(fetch, target.id, destination, crypto.randomUUID());
-    restoreRunning = false;
     if (outcome.kind !== "ok") {
       restoreFailure =
         outcome.kind === "problem"
           ? problemGuidance(outcome.problem).message
           : "Nothing answered. The file stays deleted, and nothing else changed.";
-      return;
+      return "refused";
     }
-    restoreOpen = false;
-    restoreTarget = null;
     deletedFiles = deletedFiles.filter((row) => row.id !== target.id);
     reload();
+    return "committed";
   }
 
   // --- browsing inside an archive -------------------------------------------------------------------
@@ -1636,9 +1661,6 @@
               viewTitle={VIEW_TITLES[manager.view]}
               onToggleRail={toggleRail}
               onTogglePanel={togglePanel}
-              onNewFolder={() => void makeFolder()}
-              onNewDocument={() => filePicker?.click()}
-              onUpload={() => filePicker?.click()}
               onSearch={runSearch}
             />
 
@@ -1918,7 +1940,7 @@
               onVerifyIntegrity={() => void runIntegrityCheck()}
               onOpenVersion={(version) => {
                 if (inspectedRow?.kind === "file") {
-                  globalThis.open(fileDownloadUrl(inspectedRow.file.id), "_blank", "noopener");
+                  openBeside(fileDownloadUrl(inspectedRow.file.id), "file");
                 }
                 void version;
               }}
@@ -1958,22 +1980,17 @@
   {matterTitle}
   items={uploadItems}
   confirmed={uploadConfirmed}
-  onConfirm={(destinationFolderId) => void confirmUploadDestination(destinationFolderId)}
-  onClose={() => {
-    uploadOpen = false;
-    reload();
-  }}
+  onConfirm={confirmUploadDestination}
+  onDismiss={reload}
 />
 
 <RestoreFileDialog
   bind:open={restoreOpen}
   {index}
   file={restoreTarget}
-  running={restoreRunning}
   failure={restoreFailure}
-  onConfirm={(destination) => void confirmRestore(destination)}
-  onCancel={() => {
-    restoreOpen = false;
+  onConfirm={confirmRestore}
+  onDismiss={() => {
     restoreTarget = null;
   }}
 />
@@ -1982,11 +1999,9 @@
   bind:open={folderDeleteOpen}
   {index}
   folder={folderToDelete}
-  running={folderDeleteRunning}
   failure={folderDeleteFailure}
-  onConfirm={(choice) => void confirmFolderDelete(choice)}
-  onCancel={() => {
-    folderDeleteOpen = false;
+  onConfirm={confirmFolderDelete}
+  onDismiss={() => {
     folderToDelete = null;
   }}
 />
@@ -2215,17 +2230,8 @@
 {#snippet emptyFolder()}
   <EmptyState title="Nothing in This Folder">
     Files put here appear in this list. Everything on the matter is still reachable from Home,
-    whichever folder it sits in.
-    {#snippet actions()}
-      <Button onclick={() => filePicker?.click()}>
-        <Upload class="size-16" aria-hidden="true" />
-        Upload a File
-      </Button>
-      <Button variant="secondary" disabled={newFolderPending} onclick={() => void makeFolder()}>
-        <Plus class="size-16" aria-hidden="true" />
-        New Folder
-      </Button>
-    {/snippet}
+    whichever folder it sits in. New File, at the top of the matter, adds the first; dropping files
+    here does too.
   </EmptyState>
 {/snippet}
 

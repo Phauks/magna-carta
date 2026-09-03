@@ -7,7 +7,28 @@ import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 export type TimeEntryStatus = "draft" | "submitted" | "approved" | "billed" | "void";
 
-/** One time entry as the per-matter listing answers it. */
+/** Where a resolved rate came from, in the chain's own order. */
+export type RateSource = "override" | "matter" | "client" | "timekeeper" | "role" | "card_default";
+
+/** How an entry reached the record. */
+export type TimeEntrySource =
+  | "timer"
+  | "manual"
+  | "quick_add"
+  | "grid"
+  | "offline_sync"
+  | "calendar";
+
+/**
+ * One time entry as the listing answers it.
+ *
+ * EVERY FIELD THE CONTRACT SERVES IS DECLARED HERE. A type that names a subset is not a smaller
+ * truth, it is a screen that cannot see what the server sent: the surfaces read this interface to
+ * decide what they can render, so a field missing here renders as a gap on a record that has one.
+ * That is how the entry number, both dates, both people, the resolved rate, the UTBMS codes, the
+ * memo and the attachment count spent a release marked "not recorded yet" while the listing was
+ * carrying all of them.
+ */
 export interface TimeEntrySummary {
   id: string;
   matterId: string;
@@ -24,6 +45,47 @@ export interface TimeEntrySummary {
   status: TimeEntryStatus;
   /** Resolved by the listing; null where the member row is gone. */
   timekeeperName?: string | null;
+  /**
+   * The rate frozen on the entry at capture, at scale 4, with where it came from and which card
+   * resolved it. All three are null on non-billable internal time, which is a statement that
+   * nothing is charged rather than a rate of zero.
+   */
+  rateE4?: number | null;
+  rateSource?: RateSource | null;
+  rateCardId?: string | null;
+  /** The UTBMS task code — the entry's category — as its identifier, its code and its label. */
+  utbmsTaskCodeId?: string | null;
+  utbmsTaskCode?: string | null;
+  utbmsTaskLabel?: string | null;
+  /** The UTBMS activity code, the same three ways. */
+  utbmsActivityCodeId?: string | null;
+  utbmsActivityCode?: string | null;
+  utbmsActivityLabel?: string | null;
+  /** How the entry was captured: a timer, a typed row, the weekly grid, a quick add. */
+  source?: TimeEntrySource;
+  /** The invoice a billed entry rides. Null until billing locks the row. */
+  invoiceId?: string | null;
+  /** The firm's own note. Internal by contract: no client-facing projection selects it. */
+  memo?: string | null;
+  /**
+   * The matter-scoped reference ("2026-0147.0042"), immutable and never reused.
+   *
+   * Null on an entry captured before the sequence existed — an honest gap the surfaces render as
+   * one, never a number invented to fill the column.
+   */
+  entryNumber?: string | null;
+  /** When the entry was written down, as distinct from the day the work was FOR. */
+  createdAt?: string;
+  /** Who wrote it down. The same person as the timekeeper unless somebody entered it for them. */
+  createdByUserId?: string | null;
+  createdByName?: string | null;
+  /** How many of the matter's documents this entry points at. */
+  attachmentCount?: number;
+  /**
+   * The task this time was worked on, where the timekeeper named one. Null on most entries, and
+   * always a task on this entry's own matter — the server refuses any other.
+   */
+  taskId?: string | null;
 }
 
 /**

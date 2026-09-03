@@ -192,10 +192,10 @@ describe("GET /api/v1/me", () => {
         // privilege: it is scoped to the session's own user id and every row is filtered by matter
         // visibility at read time, so the key grants sight of nothing the member could not already
         // reach, and a firm whose staff cannot see their own deadlines is a firm the feature failed.
-        // The three matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
-        // Attorney and Paralegal — and to neither Billing nor Read-only.
+        // The two matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
+        // Attorney and Paralegal — and to neither Billing nor Read-only. (The edit-and-delete model
+        // replaced the separate withdrawal key.)
         "notes:read",
-        "notes:retract",
         "notes:write",
         "notifications:read",
         // Every reports key is Owner/Admin alone — narrower than the trust and billing reads a firm
@@ -210,10 +210,23 @@ describe("GET /api/v1/me", () => {
         "reports:produce",
         "reports:productivity",
         "reports:trustCompliance",
+        // One search across a matter's sections; each source stays gated by its own read key.
+        "search:matter",
         "shipping:manage",
         "support:cosign",
         "support:manage",
         "support:request",
+        // The four task keys. tasks:read and tasks:write reach every seat that does firm work —
+        // Owner/Admin, Attorney, Paralegal and Billing, because chasing a retainer replenishment is
+        // a billing clerk's own work and a list that cannot hold it sends them to a spreadsheet.
+        // tasks:assign is separate because putting work in a colleague's NAME is a different act
+        // from fixing a due date, and a firm may reserve it without reserving the rest.
+        // tasks:managePlans is narrower again — Owner/Admin and Attorney — because a matter plan is
+        // a statement about how the firm practises rather than a piece of work.
+        "tasks:assign",
+        "tasks:managePlans",
+        "tasks:read",
+        "tasks:write",
         "templates:manage",
         "time:approve",
         "time:manageRates",

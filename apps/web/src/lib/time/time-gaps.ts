@@ -1,16 +1,22 @@
 /*
  * What the time ledger is designed to show and the server does not yet answer.
  *
- * The screen was designed whole, against a record that carries an entry number, both dates, a
- * category, an activity code, a resolved rate, an internal memo, attached files and the invoice it
- * was billed onto. The listing answers a smaller record than that. Two wrong ways to handle the
- * difference were available: invent the missing values, or quietly drop the columns and controls
- * that carry them. Both leave a reader unable to tell what the product does from what it does not.
+ * The screens were designed whole, against a record fuller than the one the contract served. Two
+ * wrong ways to handle the difference were available: invent the missing values, or quietly drop
+ * the columns and controls that carry them. Both leave a reader unable to tell what the product
+ * does from what it does not.
  *
  * So every gap is named here, once, as the noun phrase the Soon affordance completes into a
  * sentence and the cell hover states on its own. A column whose value cannot be read renders its
  * gap rather than a value; a control that cannot act renders disabled and says what it waits on.
  * When one of these starts being served, its entry comes out of this file and nothing else changes.
+ *
+ * THE COST OF NOT LOOKING. Eight entries were retired at once — the entry number, the entered date
+ * and its enterer, the resolved rate, the two UTBMS codes, the internal memo, the attachment
+ * relation and the event history — because the routes serving all of them had already shipped while
+ * these screens went on saying "not recorded yet" about them. A register of gaps is only honest
+ * while somebody re-asks it against the contract; unasked, it states the opposite of what it is for.
+ * Re-read the served summary in $lib/matters/time-api.ts before adding to this list.
  */
 
 /** A field the surface shows, and what has to arrive before it can carry a value. */
@@ -22,45 +28,13 @@ export interface TimeLedgerGap {
 }
 
 export const TIME_LEDGER_GAPS = {
-  entryNumber: {
-    field: "Entry Number",
-    waitsOn: "a matter-scoped entry number on the time record",
-  },
-  dateEntered: {
-    field: "Date Entered",
-    waitsOn: "the entered date being served on the listing",
-  },
-  category: {
-    field: "Category",
-    waitsOn: "a category served on the listing",
-  },
-  activity: {
-    field: "Activity",
-    waitsOn: "the activity code being served on the listing",
-  },
-  rate: {
-    field: "Rate",
-    waitsOn: "the resolved rate being served on the listing",
-  },
-  attachments: {
-    field: "Attachments",
-    waitsOn: "files being attachable to a time entry",
-  },
-  memo: {
-    field: "Internal Memo",
-    waitsOn: "a memo column on the time record",
-  },
-  history: {
-    field: "History",
-    waitsOn: "an endpoint that serves an entry's recorded events",
+  nonBillableCategory: {
+    field: "Non-billable Category",
+    waitsOn: "the non-billable category being served on the listing",
   },
   invoice: {
     field: "Invoice",
-    waitsOn: "the invoice a billed entry rides being served on the listing",
-  },
-  matter: {
-    field: "Matter",
-    waitsOn: "a route that refiles an entry onto another matter",
+    waitsOn: "the invoice's own number and dates being served beside its identifier",
   },
   billingDisposition: {
     field: "Billing",
@@ -80,7 +54,13 @@ export const TIME_LEDGER_GAPS = {
   },
   rounding: {
     field: "Hours",
-    waitsOn: "the firm's rounding increment being served",
+    // Narrowed, not retired. The increment itself IS served now — the record window reads it for
+    // the matter and the person it is writing for, states what the entry will be billed at, and
+    // counts units in it. What the SHEET still cannot do is say that for a row nobody has written
+    // yet: it is a day across every matter a person touched, the increment is a per-matter
+    // setting, and one read cannot answer for a mixed list. A written row needs none of this — the
+    // server sends its billed figure with it.
+    waitsOn: "the rounding increment being resolved per row on a sheet that spans matters",
   },
   timekeeperChange: {
     field: "Timekeeper",

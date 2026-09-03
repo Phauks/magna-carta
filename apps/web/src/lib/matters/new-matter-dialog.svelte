@@ -32,17 +32,18 @@
    * WHAT IS REAL AND WHAT IS NOT. The matter, its practice area, the client and the whole team are
    * real: the create operation stores the matter and its responsible attorney, the assignment
    * operation staffs everybody else, and a practice area the firm has not adopted yet becomes one
-   * of the firm's own matter types when it is chosen. What cannot be used yet says so: a matter
-   * cannot be CREATED closed (the create operation takes only Prospective or Active), the conflict
-   * check needs the client to be a directory record rather than a typed name, and money is recorded
-   * against a matter that does not exist yet. None of them is a field that quietly discards what
-   * somebody typed.
+   * of the firm's own matter types when it is chosen. The client is a directory record, chosen and
+   * never typed, and the conflict check runs against it before the matter exists. What cannot be
+   * used yet says so: a matter cannot be CREATED closed (the create operation takes only Prospective
+   * or Active), and money is recorded against a matter that does not exist yet. Neither is a field
+   * that quietly discards what somebody typed.
    *
    * The matter NUMBER is not here and never will be. It is drawn by the firm's own counter at the
    * moment the matter opens, atomically, so that two people opening a matter at once cannot be
    * handed the same one.
    */
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
@@ -58,10 +59,11 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import ScanSearch from "@lucide/svelte/icons/scan-search";
   import X from "@lucide/svelte/icons/x";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
-  import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
-  import ClientPicker from "./client-picker.svelte";
+  import { MaturityBadge, SoonAffordance, soonDependencySentence } from "@magna-carta/design-system/maturity";
+  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
+  import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
+  import { readConflictsCheck, runConflictsCheck } from "$lib/conflicts/conflicts-api.ts";
   import MemberPicker from "./member-picker.svelte";
   import PracticeAreaPicker from "./practice-area-picker.svelte";
   import VocabularyPicker from "./vocabulary-picker.svelte";
@@ -79,7 +81,6 @@
     intakeBlockedOn,
     intakeBlockedSection,
     intakeRequest,
-    knownClientNames,
     teamAfterAssign,
     teamAfterRelease,
     teamMemberIds,
@@ -129,7 +130,8 @@
 
   let title = $state("");
   let startingStatus = $state<StartingStatus>("open");
-  let clientName = $state("");
+  let client = $state<PickableEntity | null>(null);
+  const clientSearch = directoryPickerSearch(fetch);
   let matterTypeId = $state<string | null>(null);
   let locationId = $state<string | null>(null);
   let description = $state("");
@@ -153,7 +155,7 @@
   const draft = $derived<IntakeDraft>({
     title,
     startingStatus,
-    clientName,
+    client,
     matterTypeId,
     locationId,
     description,
@@ -185,7 +187,6 @@
   );
 
   const roster = $derived(firmRoster.members ?? []);
-  const clients = $derived(knownClientNames(matters));
   const blockedOn = $derived(intakeBlockedOn(draft));
   const blockedSection = $derived(intakeBlockedSection(draft));
   const subjects = $derived(conflictSubjects(draft));
@@ -193,11 +194,88 @@
   // The client's standing with the firm, from the docket already read. It is the fact a person
   // actually wants at this moment: whether this is a new relationship or another file for someone
   // the firm already acts for.
-  const clientMatters = $derived(
-    clientName.trim() === ""
-      ? []
-      : matters.filter((matter) => matter.clientDisplayName?.trim() === clientName.trim()),
+  // Matched on the entity where the docket carries it, and on the display name for a matter that
+  // predates the link: the second is a weaker match and is honest about the one thing it can say.
+  const clientMatters = $derived.by(() => {
+    const chosen = client;
+    if (chosen === null) return [];
+    return matters.filter(
+      (matter) =>
+        matter.clientEntityId === chosen.identifier ||
+        (matter.clientEntityId === null &&
+          matter.clientDisplayName?.trim() === chosen.name.trim()),
+    );
+  });
+
+  // ---- the conflict check ----------------------------------------------------------------------
+
+  /*
+   * The check runs against the client BEFORE the matter exists — a prospective matter's whole point
+   * is finding out whether the firm may act, and the engine takes a directory entity, which the
+   * client now is. Once the matter is created its own preliminary check runs on the server against
+   * every party; this one is the answer a person wants while the file is still a question.
+   */
+  let checkRunning = $state(false);
+  let checkOutcome = $state<{ id: string; hits: number; forEntityId: string } | null>(null);
+  let checkFailure = $state<StatedFailure | null>(null);
+
+  // A check answers for the client it searched. Choosing a different client puts the answer away.
+  const checkForClient = $derived(
+    checkOutcome !== null && client !== null && checkOutcome.forEntityId === client.identifier
+      ? checkOutcome
+      : null,
   );
+
+  /** Why the check is refused, or undefined when it may run. */
+  const checkRefusal = $derived.by((): string | undefined => {
+    if (client === null) return "Choose the client first.";
+    return undefined;
+  });
+
+  /*
+   * The one line under the control, always mounted so the column's height never depends on what
+   * it says: the refusal while there is one, the search while it is out, and then the answer — a
+   * count, or that the check wrote its report and the report could not be read, which is a failure
+   * of the read and not a shade of "no hits".
+   */
+  const checkLine = $derived.by((): string => {
+    if (checkRunning) return "Searching the firm's record.";
+    if (checkFailure !== null) return checkFailure.fallback;
+    if (checkForClient === null) return checkRefusal ?? "";
+    if (checkForClient.hits < 0) return "The check ran, but its report could not be read.";
+    if (checkForClient.hits === 0) return "No hits.";
+    if (checkForClient.hits === 1) return "One hit.";
+    return `${String(checkForClient.hits)} hits.`;
+  });
+
+  async function runCheck(): Promise<void> {
+    const subject = client;
+    if (subject === null || checkRunning) return;
+    checkRunning = true;
+    checkFailure = null;
+    const ran = await runConflictsCheck(
+      fetch,
+      {
+        trigger: "preliminary",
+        subjectEntityIds: [subject.identifier],
+        scope: { sources: ["party", "graph"], strictness: "balanced" },
+      },
+      // A retried press must not write a second check into the firm's append-only log.
+      crypto.randomUUID(),
+    );
+    if (ran.kind !== "ok") {
+      checkRunning = false;
+      checkFailure = stated(ran.failure, "The conflict check could not run.");
+      return;
+    }
+    const read = await readConflictsCheck(fetch, ran.value.id);
+    checkRunning = false;
+    checkOutcome = {
+      id: ran.value.id,
+      hits: read.kind === "ok" ? read.value.hits.length : -1,
+      forEntityId: subject.identifier,
+    };
+  }
 
   /** The commit says what it will do, because the two outcomes are genuinely different files. */
   const commitLabel = $derived(
@@ -219,7 +297,7 @@
   /** Whether anything has been entered past what opening the window seeded. */
   const started = $derived(
     title.trim() !== "" ||
-      clientName.trim() !== "" ||
+      client !== null ||
       description.trim() !== "" ||
       matterTypeId !== null ||
       locationId !== null ||
@@ -234,7 +312,9 @@
   function reset(): void {
     title = "";
     startingStatus = "open";
-    clientName = "";
+    client = null;
+    checkOutcome = null;
+    checkFailure = null;
     matterTypeId = null;
     locationId = null;
     description = "";
@@ -503,28 +583,32 @@
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
         <Label for="new-matter-client">Client</Label>
-        <ClientPicker
-          knownClients={clients}
-          bind:value={clientName}
+        <!-- From the directory, never typed: a name typed here is how one client ends up in the
+             book twice. Someone the directory does not hold yet is added there first. -->
+        <EntityPicker
+          search={clientSearch}
+          bind:value={client}
+          label="Client"
           inputId="new-matter-client"
           disabled={busy}
+          disabledReason={busy ? "The matter is being opened." : undefined}
         />
       </div>
 
       <div class="flex flex-col gap-8">
         <Label id="new-matter-client-record-label">Client Record</Label>
-        <SoonAffordance reason="the client directory">
-          {#snippet control(soon)}
-            <Button
-              variant="secondary"
-              aria-labelledby="new-matter-client-record-label"
-              {...soon}
-            >
-              <ExternalLink class="size-16" aria-hidden="true" />
-              Open Client Record
-            </Button>
-          {/snippet}
-        </SoonAffordance>
+        <!-- One control that becomes a link the moment there is a record to open: the draft in
+             this window is why it opens beside it rather than in its place. -->
+        <Button
+          variant="secondary"
+          href={client === null ? undefined : entityRecordHref(client.identifier)}
+          {...opensBeside("unsaved-work")}
+          disabled={client === null}
+          aria-labelledby="new-matter-client-record-label"
+        >
+          <ExternalLink class="size-16" aria-hidden="true" />
+          Open Client Record
+        </Button>
       </div>
 
       <!-- Drawn only when there is something to draw: an empty block that announces its own
@@ -559,17 +643,38 @@
             {/each}
           </ul>
         {/if}
-        <!-- The check itself is servable. What it takes is directory entities, and a client
-             typed as a name here is not one, so the step waits on the client being a record
-             rather than on the engine that would search for it. -->
-        <SoonAffordance reason="the client's directory record" reasonPlacement="line">
-          {#snippet control(soon)}
-            <Button variant="secondary" {...soon}>
-              <ScanSearch class="size-16" aria-hidden="true" />
-              Run Conflict Check
-            </Button>
-          {/snippet}
-        </SoonAffordance>
+        {#if checkFailure !== null}
+          <FailureNotice
+            failure={checkFailure.failure}
+            title="The Conflict Check Did Not Run"
+            fallback={checkFailure.fallback}
+            whenSilent={checkFailure.whenSilent}
+          />
+        {/if}
+        <!-- The label holds still while the check runs: a control that changes width reads as the
+             value itself changing. The refusal rides the accessible name as the shell's does. -->
+        <Button
+          variant="secondary"
+          disabled={busy || checkRefusal !== undefined || checkRunning}
+          aria-label={checkRefusal === undefined ? undefined : `Run Conflict Check: ${checkRefusal}`}
+          onclick={() => void runCheck()}
+        >
+          <ScanSearch class="size-16" aria-hidden="true" />
+          Run Conflict Check
+        </Button>
+        <!-- Always mounted: the number is the answer, and the report is where it is weighed. -->
+        <p class="text-sm" aria-live="polite">
+          {checkLine}
+          {#if checkForClient !== null}
+            <a
+              class="underline underline-offset-2"
+              href={`/conflicts/checks/${encodeURIComponent(checkForClient.id)}`}
+              {...opensBeside("unsaved-work")}
+            >
+              Open the report
+            </a>
+          {/if}
+        </p>
       </div>
 
       <Separator />

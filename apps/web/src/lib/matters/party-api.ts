@@ -30,6 +30,43 @@ export function listMatterParties(
   return requestJson(fetchImpl, `/api/v1/directory/matter-parties?${query.toString()}`);
 }
 
+/** What a link asks for: who, on which matter, in what role, and in what capacity if any. */
+export interface LinkMatterPartyRequest {
+  matterId: string;
+  entityId: string;
+  /** The role as stored — a catalog value from `PARTY_ROLE_OPTIONS`, or a role the firm typed. */
+  role: string;
+  /** Free text the firm recorded, or null for none. Never inferred from the role. */
+  capacity: string | null;
+}
+
+/**
+ * Links a directory entity to a matter in a role.
+ *
+ * One entity may wear several roles on the same matter, so nothing here refuses a second link to the
+ * same person; only the same person in the same role is a repeat, and the tab refuses that before it
+ * asks. The idempotency key is the caller's, so a retried press links once.
+ */
+export function linkMatterParty(
+  fetchImpl: typeof fetch,
+  request: LinkMatterPartyRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  const body: Record<string, string> = {
+    matterId: request.matterId,
+    entityId: request.entityId,
+    role: request.role,
+  };
+  if (request.capacity !== null && request.capacity.trim() !== "") {
+    body["capacity"] = request.capacity.trim();
+  }
+  return requestJson(fetchImpl, "/api/v1/directory/matter-parties", {
+    method: "POST",
+    body,
+    idempotencyKey,
+  });
+}
+
 export function unlinkMatterParty(
   fetchImpl: typeof fetch,
   matterPartyId: string,
@@ -64,4 +101,22 @@ const KNOWN_ROLE_LABELS: ReadonlyMap<string, string> = new Map([
 
 export function roleLabel(role: string): string {
   return KNOWN_ROLE_LABELS.get(role.toLowerCase()) ?? role;
+}
+
+/**
+ * The roles offered when a party is added, in the order a firm reaches for them. The stored value is
+ * the catalog key, which is the form every reader of `matter_party.role` already normalizes to; a role
+ * the firm names itself is stored as typed, and reads back as typed.
+ */
+export const PARTY_ROLE_OPTIONS: readonly { value: string; label: string }[] = [
+  ...KNOWN_ROLE_LABELS,
+].map(([value, label]) => ({ value, label }));
+
+/** What the storage form of a typed role is: the same key the catalog uses, so "Opposing party" and
+ * "opposing_party" are one role rather than two. */
+export function storedRoleFor(typed: string): string {
+  return typed
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]/g, "");
 }

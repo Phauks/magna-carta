@@ -42,6 +42,8 @@ export interface MatterRecord {
   responsibleAttorneyName: string | null;
   clientDisplayName: string | null;
   clientCode: string | null;
+  /** The directory entity linked as the client; null where the matter carries only a display name. */
+  clientEntityId: string | null;
   /** Null on a live matter until the billing surface supplies it. */
   eBilling: boolean | null;
   openedAt: string | null;
@@ -67,6 +69,7 @@ interface MatterReadPayload {
   consultationNumber?: string | null;
   clientDisplayName: string | null;
   clientCode: string | null;
+  clientEntityId?: string | null;
   // Optional on the wire, not in the contract. The contract requires all seven; a Worker deployed
   // before they landed answers without them, and this app is served from the same origin as one
   // specific Worker but is cached independently of it. Reading them as optional and defaulting to
@@ -97,6 +100,7 @@ export function matterRecordFromRead(payload: MatterReadPayload): MatterRecord {
     responsibleAttorneyName: payload.responsibleMemberName ?? null,
     clientDisplayName: payload.clientDisplayName,
     clientCode: payload.clientCode,
+    clientEntityId: payload.clientEntityId ?? null,
     eBilling: payload.eBilling ?? null,
     openedAt: payload.openedAt ?? null,
     closedAt: payload.closedAt ?? null,

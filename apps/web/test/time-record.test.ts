@@ -84,8 +84,14 @@ describe("the printed sheet", () => {
     expect(sheet.subtitle).toBe("Pemberton v. Hale Construction Co. · Matter 2026-0147");
   });
 
-  it("states that the entry number is not recorded rather than printing an invented one", () => {
-    expect(sheet.reference).toBe("Entry Number not yet recorded");
+  it("prints the entry's own reference", () => {
+    expect(timeEntrySheet(entry({ entryNumber: "2026-0147.0042" }), context).reference).toBe(
+      "2026-0147.0042",
+    );
+  });
+
+  it("says so rather than inventing one, for an entry captured before the sequence existed", () => {
+    expect(sheet.reference).toBe("Entry number not recorded");
   });
 
   it("prints a duration in both literacies, the decimal leading", () => {
@@ -121,6 +127,50 @@ describe("the printed sheet", () => {
     expect(printed).not.toContain("internal");
   });
 
+  /*
+   * PROVED, NOT PROMISED. The memo is the firm's own note and the sheet is what a client can be
+   * handed. This asserts against a real rendered sheet holding a real memo, because "the print
+   * sheet does not carry it" is a sentence anybody can write and only a test can keep true.
+   */
+  it("never carries the internal memo, whatever the memo says", () => {
+    const withMemo = timeEntrySheet(
+      entry({ memo: "Client disputes this; do not raise it on the call." }),
+      context,
+    );
+    const printed = JSON.stringify(withMemo).toLowerCase();
+    expect(printed).not.toContain("do not raise it");
+    expect(printed).not.toContain("disputes");
+    expect(printed).not.toContain("memo");
+  });
+
+  it("carries both dates and both people once the record holds them", () => {
+    const facts = timeEntrySheet(
+      entry({
+        createdAt: "2026-08-13T09:15:00.000Z",
+        createdByName: "M. Reyes",
+        utbmsActivityCode: "A103",
+        utbmsActivityLabel: "Draft/revise",
+      }),
+      context,
+    ).sections.find((section) => section.id === "facts");
+    if (facts?.kind !== "fields") throw new Error("facts section missing");
+    const labelled = Object.fromEntries(facts.fields.map((field) => [field.label, field.value]));
+    expect(labelled["Work Date"]).toBe("2026-08-12");
+    expect(labelled["Date Entered"]).toBe("2026-08-13");
+    expect(labelled["Timekeeper"]).toBe("R. Osei");
+    expect(labelled["Entered By"]).toBe("M. Reyes");
+    expect(labelled["Activity"]).toBe("A103 · Draft/revise");
+  });
+
+  it("leaves out a fact the record does not hold rather than printing an empty row", () => {
+    const facts = sheet.sections.find((section) => section.id === "facts");
+    if (facts?.kind !== "fields") throw new Error("facts section missing");
+    const labels = facts.fields.map((field) => field.label);
+    expect(labels).not.toContain("Date Entered");
+    expect(labels).not.toContain("Category");
+    expect(labels).not.toContain("Activity");
+  });
+
   it("states who the sheet came from and when it was taken", () => {
     expect(sheet.footer).toBe("Magna Carta · printed Aug 30, 2026, 9:00 AM");
   });
@@ -138,8 +188,29 @@ describe("the gaps the surface is honest about", () => {
   });
 
   it("says the same two things on a cell that the Soon affordance says on a control", () => {
-    expect(gapCellTitle("category")).toBe(
-      "Category is not recorded yet. Waiting on a category served on the listing.",
+    expect(gapCellTitle("nonBillableCategory")).toBe(
+      "Non-billable Category is not recorded yet. Waiting on the non-billable category being " +
+        "served on the listing.",
     );
+  });
+
+  /*
+   * The register's whole job is to name what the CONTRACT cannot answer. Eight entries outlived
+   * the routes that closed them, so every surface went on refusing fields the server was already
+   * serving. This holds the retired ones out.
+   */
+  it("names nothing the listing already serves", () => {
+    const served = [
+      "entryNumber",
+      "dateEntered",
+      "rate",
+      "activity",
+      "attachments",
+      "memo",
+      "history",
+    ];
+    for (const name of served) {
+      expect(Object.keys(TIME_LEDGER_GAPS)).not.toContain(name);
+    }
   });
 });

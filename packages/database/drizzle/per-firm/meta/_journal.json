@@ -607,8 +607,43 @@
     {
       "idx": 86,
       "version": "6",
-      "when": 1788350520000,
-      "tag": "20260902T120000_conflicts-check-history-index",
+      "when": 1788318000000,
+      "tag": "20260901T150000_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "6",
+      "when": 1788393600000,
+      "tag": "20260902T120000_matter-plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "6",
+      "when": 1788411600000,
+      "tag": "20260902T190000_time-entry-task-link",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "6",
+      "when": 1788425200000,
+      "tag": "20260902T230000_task-sync-seams",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "6",
+      "when": 1788428800000,
+      "tag": "20260903T000000_arrangement-agreement-file",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "6",
+      "when": 1788432400000,
+      "tag": "20260903T010000_conflicts-check-history-index",
       "breakpoints": true
     }
   ]

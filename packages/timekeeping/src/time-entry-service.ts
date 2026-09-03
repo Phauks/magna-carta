@@ -9,12 +9,16 @@ import { assertTransition, isFrozen, type TimeEntryStatus } from "./lifecycle.ts
 import type { RateSource } from "./rate-resolution.ts";
 import {
   insertTimeEntryStatement,
+  refileStatement,
   selectMatterEBillingStatement,
+  selectTaskMatterStatement,
+  selectTimeEntryMatterStatement,
   selectTimeEntryStatusStatement,
   setKickBackReasonStatement,
   transitionStatusStatement,
   updateDraftStatement,
   type DraftPatch,
+  type RefilePatch,
   type TimeEntrySource,
 } from "./time-entry-statements.ts";
 import { TimeEntryValidationError } from "./time-entry-validation.ts";
@@ -80,6 +84,9 @@ export interface CaptureTimeEntryInput {
   readonly utbmsTaskCodeId?: string;
   readonly utbmsActivityCodeId?: string;
   readonly liveRunId?: string;
+  // The task this time was worked on, when the timekeeper named one. Must be a task on this same
+  // matter; assertTaskOnMatter refuses anything else.
+  readonly taskId?: string;
   // The firm-internal memo. Optional at capture; the text never rides an audit row.
   readonly memo?: string;
   // The matter-scoped entry number the route drew for this capture (see entry-numbering.ts).
@@ -102,6 +109,43 @@ function audit(
     clock: options.clock,
     randomSource: options.randomSource,
   });
+}
+
+// THE ONE RULE THE SCHEMA CANNOT HOLD. A time entry names at most one task, and that task must be on
+// the entry's own matter.
+//
+// Two ways to get it wrong, and they fail for different reasons. A task on ANOTHER matter would let
+// one matter's time point at work another matter is paying for — the kind of link that survives into
+// a bill and is discovered by a client. A task on NO matter is the firm's own work (renewing the
+// policy, interviewing a candidate), and no client matter can be the thing that pays for it; a null
+// matter here is a refusal, never a wildcard that matches everything.
+//
+// SQLite cannot express either check without a trigger, so this is the enforcement and its tests are
+// what keep it honest.
+async function assertTaskOnMatter(
+  database: SqlDatabase,
+  taskId: string,
+  matterId: string,
+): Promise<void> {
+  const { results } = await selectTaskMatterStatement(database, taskId).all<{
+    matter_id: string | null;
+  }>();
+  if (results.length === 0) {
+    throw new TimeEntryValidationError("task-not-on-matter", `no such task: ${taskId}`);
+  }
+  const taskMatterId = results[0]?.matter_id ?? null;
+  if (taskMatterId === null) {
+    throw new TimeEntryValidationError(
+      "task-not-on-matter",
+      `task ${taskId} is on no matter, so no matter's time can be worked on it`,
+    );
+  }
+  if (taskMatterId !== matterId) {
+    throw new TimeEntryValidationError(
+      "task-not-on-matter",
+      `task ${taskId} is on matter ${taskMatterId}, not ${matterId}`,
+    );
+  }
 }
 
 async function isEBillingMatter(database: SqlDatabase, matterId: string): Promise<boolean> {
@@ -175,6 +219,19 @@ export async function updateDraftTimeEntry(
       `time entry ${timeEntryId} is ${status}, not draft`,
     );
   }
+  // Only when the patch NAMES a task: null unlinks and needs no matter, and an absent key is not an
+  // edit at all. The entry's matter is read here rather than carried on the status pre-read, so an
+  // ordinary narrative edit still costs one read.
+  if (typeof patch.taskId === "string") {
+    const { results } = await selectTimeEntryMatterStatement(database, timeEntryId).all<{
+      matter_id: string;
+    }>();
+    const matterId = results[0]?.matter_id;
+    if (matterId === undefined) {
+      throw new TimeEntryValidationError("not-found", `no such time entry: ${timeEntryId}`);
+    }
+    await assertTaskOnMatter(database, patch.taskId, matterId);
+  }
   const updatedAt = options.clock.now();
   return {
     timeEntryId,
@@ -195,6 +252,90 @@ export async function updateDraftTimeEntry(
               .filter(([, value]) => value !== undefined)
               .map(([field]) => field),
           },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+/*
+ * MOVING A MISFILED ENTRY ONTO THE MATTER IT BELONGS TO.
+ *
+ * Time gets recorded against the wrong matter — a person is on two of them in one afternoon, the
+ * picker was left where it was, the timer was bound before anybody decided. Without this the only
+ * remedy is to strike the entry and type it again, which loses its number, its history and its
+ * attachments, and leaves a struck row on a matter it was never really on.
+ *
+ * WHAT MAY MOVE. A draft this account may work, on no bill and held by no claim. Past that the entry
+ * is evidence somebody is relying on: an approved entry is a reviewer's decision about a matter, a
+ * billed one is a line on a finalized invoice, and the answer to both is a void and a fresh record
+ * rather than a move nobody can see. The refusal always says which of those it is, because "you
+ * cannot" and "you cannot, because it is on invoice 2026-0031" are different sentences to be told.
+ *
+ * WHAT CARRIES, AND WHAT IS RE-ASKED. The entry number carries: a reference that changes is a
+ * reference that lies, and anything that cited it must keep resolving. The consequence is stated
+ * rather than hidden — the number's own shape names the matter it was FIRST written on, so after a
+ * move that prefix is provenance and not an assertion about where the entry lives now. The
+ * description, the memo, the codes, the attachments and the whole history carry untouched.
+ *
+ * The RATE and the ROUNDING are re-asked, because both are resolved against the matter. The rate
+ * chain reads matter, then client, then timekeeper; the rounding increment resolves matter, then
+ * client, then user. Carrying the old matter's answers to a new client is how a firm bills one
+ * client at another's rate. This is not the snapshot invariant bending: that rule says a rate card
+ * edited later never re-rates a standing entry, and it still holds — what changed here is the
+ * question, not somebody's later edit to the answer. The caller resolves against the destination and
+ * hands the result in, exactly as capture does.
+ *
+ * THE MOVE IS ON THE RECORD. One audit row naming both matters, so a reader of the entry's history
+ * can see where it came from and when it moved. A move nobody can see is indistinguishable from a
+ * misfiling nobody noticed.
+ */
+export interface RefileTimeEntryInput extends RefilePatch {
+  /** The matter it is leaving, read by the caller, so the audit row can name both ends. */
+  readonly fromMatterId: string;
+}
+
+export async function refileTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  input: RefileTimeEntryInput,
+  options: TimekeepingServiceOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  if (input.matterId === input.fromMatterId) {
+    throw new TimeEntryValidationError(
+      "same-matter",
+      `time entry ${timeEntryId} is already on matter ${input.matterId}`,
+    );
+  }
+  const status = await loadStatus(database, timeEntryId);
+  if (isFrozen(status)) {
+    throw new TimeEntryValidationError(
+      "frozen-entry",
+      `time entry ${timeEntryId} is ${status} and frozen`,
+    );
+  }
+  if (status !== "draft") {
+    throw new TimeEntryValidationError(
+      "draft-only",
+      `time entry ${timeEntryId} is ${status}, not draft`,
+    );
+  }
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        refileStatement(database, timeEntryId, input, updatedAt),
+        // Both matters by name, because the question a reader asks of this event is "where did it
+        // come from". No business text rides here: the audit records the move, never the entry.
+        domainAuditStatement(database, {
+          event: "time_entry.refiled",
+          subjectId: timeEntryId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { fromMatterId: input.fromMatterId, toMatterId: input.matterId },
         }),
       ],
       outboxMessages: [],
@@ -303,6 +444,68 @@ export async function voidTimeEntry(
   };
 }
 
+/*
+ * RETURNING A VOIDED ENTRY TO DRAFT.
+ *
+ * Voiding is how a mistaken entry is retired, and it has always been one-way: the row stays for
+ * audit, carrying no value. That is right for the act and wrong for the accident. People void the
+ * wrong row, void on a colleague's say-so that turns out to be mistaken, and void an afternoon's
+ * work when they meant to void one line of it — and until now the only repair was to type the whole
+ * entry again, which loses its number, its memo, its codes, its attached documents and its history,
+ * exactly as re-typing a misfiled entry did before it could be moved.
+ *
+ * IT IS NOT A LIFECYCLE TRANSITION, DELIBERATELY. `canTransition` says nothing leaves a terminal
+ * state, and that stays true: the forward chain must not learn a backward move, because every other
+ * record kind in the product reads the same table and none of them has been designed for one. This
+ * is its own guarded act with its own refusals, the way refiling is its own statement rather than a
+ * field on the patch. What it restores is the state the entry was in before somebody voided it,
+ * which is a draft — never submitted, never approved: those were somebody's judgement about an
+ * entry that has since been withdrawn, and they have to be given again.
+ *
+ * THE ONE VOID THAT MUST STAY A VOID is the entry converted into a cost. That conversion moves the
+ * entry's value onto a cost record and voids the time so the firm cannot count it twice; restoring
+ * the time without touching the cost would do precisely what the conversion existed to prevent. The
+ * conversion is recorded as an audit event on the entry and nowhere else, so that is what is asked,
+ * and the caller reads it — this service takes the answer rather than the database, because the
+ * question is the route's to ask alongside the reads it already makes.
+ */
+export async function unvoidTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  facts: {
+    /** Whether this entry was voided by being converted into a cost entry. */
+    readonly convertedToCost: boolean;
+  },
+  options: TimekeepingServiceOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  const from = await loadStatus(database, timeEntryId);
+  if (from !== "void") {
+    throw new TimeEntryValidationError(
+      "not-void",
+      `time entry ${timeEntryId} is ${from}, not void — there is nothing to restore`,
+    );
+  }
+  if (facts.convertedToCost) {
+    throw new TimeEntryValidationError(
+      "converted-to-cost",
+      `time entry ${timeEntryId} was voided by conversion to a cost entry; restoring it would charge the same work twice`,
+    );
+  }
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        // Guarded on the void status, so two callers racing produce one restore: the second one
+        // matches no row and the service's own read has already refused it anyway.
+        transitionStatusStatement(database, timeEntryId, "void", "draft", updatedAt),
+        audit(database, options, "time_entry.unvoided", timeEntryId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
 // The single WIP-store writer. The route has already resolved the rate (precedence + effective date)
 // and rounded the duration, then folded both into `input.rate` — this composes the insert + audit into
 // one EffectWrite. A null rate ("non-billable internal time") stores null rate columns; the table's
@@ -323,6 +526,10 @@ export async function captureTimeEntry(
       "utbms-required",
       "an electronic-billing matter requires a UTBMS task code on a billable entry",
     );
+  }
+
+  if (input.taskId !== undefined) {
+    await assertTaskOnMatter(database, input.taskId, input.matterId);
   }
 
   const timeEntryId = input.id ?? newIdentifier("timeEntry", options.randomSource);
@@ -352,6 +559,7 @@ export async function captureTimeEntry(
           utbmsActivityCodeId: input.utbmsActivityCodeId ?? null,
           source: input.source,
           liveRunId: input.liveRunId ?? null,
+          taskId: input.taskId ?? null,
           memo: input.memo ?? null,
           entryNumber: input.entryNumber ?? null,
           createdAt,

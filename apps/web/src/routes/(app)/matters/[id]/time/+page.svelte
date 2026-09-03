@@ -15,8 +15,10 @@
   import Button from "@magna-carta/design-system/button";
   import { listMatterTimeEntries, type TimeEntrySummary } from "$lib/matters/time-api.ts";
   import { readSession } from "$lib/matters/matters-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
+  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import TimeLedger from "$lib/time/time-ledger.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
@@ -33,6 +35,23 @@
   let sessionUserId = $state<string | null>(null);
   // Bumped after a write, so the ledger re-reads what the server now holds rather than guessing.
   let reloadToken = $state(0);
+
+  /*
+   * The matter header's create control is this section's only create button: it answers the
+   * press by opening the ledger's own record window (create-action.svelte.ts). The ledger is off
+   * screen while a read has failed or on a sample matter, and the control says so instead of
+   * pressing into nothing.
+   */
+  let ledger = $state<ReturnType<typeof TimeLedger> | null>(null);
+  claimMatterCreate("time", () => ({
+    title: "Record one entry on this matter. It saves as a draft.",
+    refusal: isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : ledger === null
+        ? "The ledger is not on screen, so nothing can be recorded from it."
+        : undefined,
+    run: () => ledger?.openNew(),
+  }));
 
   $effect(() => {
     void roster.load(fetch);
@@ -85,24 +104,29 @@
     </Alert.Root>
   </section>
 {:else}
-  <TimeLedger
-    entries={entries ?? []}
-    loading={entries === null}
-    matterId={matter.id}
-    matterTitle={matter.title}
-    members={roster.members ?? []}
-    {sessionUserId}
-    onChanged={() => (reloadToken += 1)}
-  />
-  {#if list.nextCursor !== null}
-    <div class="mt-12 flex flex-col items-start gap-8">
-      <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
-        {list.loadingMore ? "Loading" : "Load more time"}
-      </Button>
-      <p class="text-xs text-text-muted">
-        Showing the {(entries ?? []).length} most recent. The figures below cover only what is loaded,
-        so they are not the matter's whole time record until every page is read.
-      </p>
-    </div>
-  {/if}
+  <!-- The ledger takes the rest of the screen and keeps it: the table scrolls inside itself and
+       the counts footer stays on the bottom, so the page does not grow taller as entries arrive. -->
+  <FullHeightSection>
+    <TimeLedger
+      bind:this={ledger}
+      entries={entries ?? []}
+      loading={entries === null}
+      matterId={matter.id}
+      matterTitle={matter.title}
+      members={roster.members ?? []}
+      {sessionUserId}
+      onChanged={() => (reloadToken += 1)}
+    />
+    {#if list.nextCursor !== null}
+      <div class="flex flex-none flex-col items-start gap-8 pt-12 pb-24">
+        <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
+          {list.loadingMore ? "Loading" : "Load more time"}
+        </Button>
+        <p class="text-xs text-text-muted">
+          Showing the {(entries ?? []).length} most recent. The figures above cover only what is loaded,
+          so they are not the matter's whole time record until every page is read.
+        </p>
+      </div>
+    {/if}
+  </FullHeightSection>
 {/if}

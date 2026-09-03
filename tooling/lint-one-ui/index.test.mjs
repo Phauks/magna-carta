@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { readsAsFieldName } from "../../packages/design-system/src/lib/formatters/placeholder.ts";
 import { STATUS_REGISTER } from "../../packages/design-system/src/lib/status-register/status-register.ts";
 import {
+  DATA_TABLE_HOME,
   applyAllowances,
   effectRegions,
   exportsName,
@@ -24,7 +25,9 @@ import {
   findImperativeDomUse,
   findInventedStatusTones,
   findPlaceholderProblems,
+  findRawTables,
   findRegistryProblems,
+  findTableMachinery,
   identifierParts,
   kebabCase,
   stripComments,
@@ -303,6 +306,111 @@ describe("no hand-rolled select", () => {
   it("does NOT read a comment that names the element it is warning about", () => {
     const source = "<!-- Never a bare <select> here; use Combobox. -->\n<Combobox.Root />";
     expect(findHandRolledSelects("screen.svelte", source)).toEqual([]);
+  });
+});
+
+describe("no raw table outside the one table's home", () => {
+  it("bites on a raw table in an app screen, once, at its first element", () => {
+    const source = `<details>
+  <table class="w-full">
+    <thead><tr><th scope="col">Sample</th></tr></thead>
+    <tbody><tr><td>1</td></tr></tbody>
+  </table>
+</details>`;
+    const problems = findRawTables("apps/web/src/lib/tools/speed-test/sparkline.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toBe("raw-table");
+    expect(problems[0].line).toBe(2);
+    expect(problems[0].detail).toContain("`<table`");
+    expect(problems[0].detail).toContain("6 more below");
+    expect(problems[0].detail).toContain("DataTable.Grid");
+  });
+
+  it("bites on a div wearing a table's role", () => {
+    const source = `<div role="grid">
+  <div role="row"><div role="columnheader">Name</div></div>
+</div>`;
+    const problems = findRawTables("screen.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].line).toBe(1);
+    expect(problems[0].detail).toContain('role="grid"');
+  });
+
+  it("does NOT cry wolf on the design system's primitives, which are the answer", () => {
+    const source = `<DataTable.Root>
+  <DataTable.Header><DataTable.Row><DataTable.Head>Name</DataTable.Head></DataTable.Row></DataTable.Header>
+  <DataTable.Body><DataTable.Row><DataTable.Cell>One</DataTable.Cell></DataTable.Row></DataTable.Body>
+</DataTable.Root>
+<Table><TableRow><TableCell>Two</TableCell></TableRow></Table>
+<DataTable.Grid {grid} caption="Matters" />`;
+    expect(findRawTables("screen.svelte", source)).toEqual([]);
+  });
+
+  it("does NOT cry wolf on elements that merely start the same way, or on a comment", () => {
+    const source = `<!-- a raw <table> used to live here -->
+<textarea></textarea>
+<track kind="captions" />
+<time datetime="2026-09-03">today</time>
+<p>The table view is below.</p>`;
+    expect(findRawTables("screen.svelte", source)).toEqual([]);
+  });
+
+  it("leaves the one table's own home alone, where the element has to be written", () => {
+    const home = `${DATA_TABLE_HOME}/table.svelte`;
+    expect(findRawTables(home, "<table><tbody><tr><td></td></tr></tbody></table>")).toEqual([]);
+  });
+});
+
+describe("no table machinery beside the one table", () => {
+  it("bites on a sortable header rolled by hand, naming every signal it found", () => {
+    const source = `<DataTable.Head aria-sort={sortKey === "name" ? direction : "none"}>
+  <button type="button" class="mc-table-sort" onclick={() => sortBy("name")}>Name</button>
+</DataTable.Head>`;
+    const problems = findTableMachinery("screen.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toBe("table-machinery");
+    expect(problems[0].line).toBe(1);
+    expect(problems[0].detail).toContain("`aria-sort`, line 1");
+    expect(problems[0].detail).toContain("`mc-table-sort`, line 2");
+    expect(problems[0].detail).toContain("createDataTableGrid");
+  });
+
+  it("bites on the headless engine composed in a screen or a module, and on its parts", () => {
+    expect(
+      findTableMachinery("state.svelte.ts", "export const table = createSvelteTable(options);"),
+    ).toHaveLength(1);
+    expect(
+      findTableMachinery(
+        "screen.svelte",
+        'import { getCoreRowModel } from "@tanstack/table-core";',
+      ),
+    ).toHaveLength(1);
+    expect(findTableMachinery("screen.svelte", "<DataTable.Search {table} />")).toHaveLength(1);
+    expect(findTableMachinery("screen.svelte", "<TableViewMenu {table} />")).toHaveLength(1);
+    expect(findTableMachinery("screen.svelte", "<FlexRender content={cell} />")).toHaveLength(1);
+  });
+
+  it("does NOT cry wolf on the Grid, on a Lucide Search icon, or on a sort that is the Grid's", () => {
+    const source = `<script lang="ts">
+  import Search from "@lucide/svelte/icons/search";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  const grid = DataTable.createDataTableGrid({ columns, rowKey: (row) => row.id });
+  const sorted = rows.toSorted((first, second) => first.name.localeCompare(second.name));
+</script>
+<Search />
+<DataTable.Grid {grid} caption="Matters" />`;
+    expect(findTableMachinery("screen.svelte", source)).toEqual([]);
+  });
+
+  it("does NOT read a comment that names the signal it is warning about", () => {
+    const source =
+      "<!-- never a hand-rolled aria-sort here -->\n// createSvelteTable( is the Grid's\n<DataTable.Grid />";
+    expect(findTableMachinery("screen.svelte", source)).toEqual([]);
+  });
+
+  it("leaves the one table's own home alone, where the machinery has to be written", () => {
+    const home = `${DATA_TABLE_HOME}/data-table-grid.svelte`;
+    expect(findTableMachinery(home, '<th aria-sort="none" class="mc-table-sort">')).toEqual([]);
   });
 });
 
@@ -779,6 +887,8 @@ describe("the registry's own allowances", () => {
       "status-tone",
       "placeholder",
       "imperative-dom",
+      "raw-table",
+      "table-machinery",
       "sweep",
     ]);
     for (const allowance of registry.allowances ?? []) {

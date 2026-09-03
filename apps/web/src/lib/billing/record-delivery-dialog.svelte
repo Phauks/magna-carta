@@ -108,6 +108,7 @@
 <ActionDialog
   bind:open
   heading="Record a Delivery"
+  subtitle={`${row?.summary.invoiceNumber ?? "This bill"} · records a delivery the firm made; nothing is sent`}
   commitLabel="Record Delivery"
   commitBusyLabel="Recording"
   commitRefusal={refusal}
@@ -115,9 +116,6 @@
   onOpen={reset}
   onCommit={record}
 >
-  {#snippet subtitle()}
-    {row?.summary.invoiceNumber ?? "This bill"} · records a delivery the firm made; nothing is sent
-  {/snippet}
 
   {#snippet notice()}
     {#if failure !== null}

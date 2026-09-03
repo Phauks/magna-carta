@@ -80,6 +80,7 @@
 <ActionDialog
   bind:open
   heading="Edit Line"
+  subtitle="Bill review edits what the client is told: the underlying entry stays the timekeeper’s own record."
   commitLabel="Save Line"
   commitBusyLabel="Saving"
   commitRefusal={refusal}
@@ -90,10 +91,6 @@
   onOpen={reset}
   onCommit={save}
 >
-  {#snippet subtitle()}
-    Bill review edits what the client is told: the underlying entry stays the timekeeper&rsquo;s own
-    record.
-  {/snippet}
 
   {#snippet notice()}
     {#if failure !== null}

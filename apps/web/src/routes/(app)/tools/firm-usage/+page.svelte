@@ -20,7 +20,7 @@
   import * as Masthead from "@magna-carta/design-system/masthead";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import ExportMenu from "$lib/export/export-menu.svelte";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import ByLocationTable from "$lib/tools/firm-usage/by-location-table.svelte";
   import { readFirmUsage, type FirmUsageResponse } from "$lib/tools/firm-usage/firm-usage-api.ts";
   import { firmUsageExportDocument } from "$lib/tools/firm-usage/firm-usage-report.ts";

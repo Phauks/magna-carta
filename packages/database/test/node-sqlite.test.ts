@@ -230,6 +230,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // statement is built, so a seat without notes:read gets no note back from it.
         "search:matter",
         "support:request",
+        // All three task keys reach the practitioner set. tasks:assign is separate from tasks:write
+        // so a firm CAN reserve who puts work in other people's names, but it is seeded here because
+        // paralegals and attorneys delegate to each other constantly and a default that made them
+        // ask an administrator would be routed around on the first day. Billing carries read and
+        // write but not assign; Read-only carries none.
+        "tasks:assign",
+        "tasks:read",
+        "tasks:write",
         "tools:aiTextDetection",
         "tools:decryption",
         "tools:emailInspector",
@@ -284,6 +292,11 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "notifications:read",
         "search:matter",
         "support:request",
+        // Billing carries read and write but NOT assign. "Chase the Henderson retainer
+        // replenishment" is a billing clerk's own work and a task list that cannot hold it sends
+        // them to a spreadsheet; putting work in a lawyer's name is the act the third key reserves.
+        "tasks:read",
+        "tasks:write",
         "trust:manage",
         "trust:read",
         "tools:aiTextDetection",

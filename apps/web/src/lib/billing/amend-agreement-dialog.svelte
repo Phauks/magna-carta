@@ -13,6 +13,11 @@
    * THE ADVANCE-DEPOSIT DESTINATION IS RECORDED, NEVER DEFAULTED. Jurisdictions genuinely differ on
    * where an advance fee must sit, and a wrong silence states a wrong fact about client money — so
    * the control opens unanswered and the act is refused until somebody answers it.
+   *
+   * THE SIGNED AGREEMENT IS A FILE, NOT A SENTENCE. A version may name the paper it rests on — the
+   * intake agreement the client signed at opening, the amendment signed later — picked from the
+   * matter's own files, so it is something the firm can produce. Optional, because the paper may
+   * follow the deal by a day and a version recorded before it is filed is still a true record.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -22,6 +27,8 @@
   import * as Select from "@magna-carta/design-system/select";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
+  import MatterDocumentPicker from "$lib/documents/matter-document-picker.svelte";
   import {
     billingFailure,
     setArrangement,
@@ -82,6 +89,7 @@
   let shareText = $state("");
   let retainerTargetText = $state("");
   let retainerFloorText = $state("");
+  let agreementFileId = $state<string | null>(null);
   let failure = $state<StatedFailure | null>(null);
 
   const inForce = $derived(arrangement?.inForce ?? null);
@@ -96,6 +104,7 @@
     shareText = "";
     retainerTargetText = "";
     retainerFloorText = "";
+    agreementFileId = null;
     failure = null;
   }
 
@@ -134,7 +143,7 @@
   });
 
   function composeRequest(): ArrangementRequest {
-    const request: ArrangementRequest = { kind, currency: "USD", validFrom };
+    const request: ArrangementRequest = { kind, currency: "USD", validFrom, agreementFileId };
     if (takesAdvanceDeposit(kind)) {
       request.advanceDepositDestination = depositValue === "operating" ? "operating" : "trust";
     }
@@ -178,7 +187,8 @@
     retainerTargetText !== "" ||
     retainerFloorText !== "" ||
     depositValue !== UNANSWERED ||
-    basisValue !== UNANSWERED
+    basisValue !== UNANSWERED ||
+    agreementFileId !== null
   }
   onOpen={reset}
   onCommit={record}
@@ -301,6 +311,24 @@
         {/if}
 
         <p class="text-xs text-text-muted">{amendmentNote(kind)}</p>
+
+        <LabelledField
+          label="Signed Agreement"
+          hint="The intake agreement or amendment the client signed, from this matter's files. A version can be recorded before the paper is filed."
+        >
+          {#snippet children({ props })}
+            <MatterDocumentPicker
+              bind:value={agreementFileId}
+              {matterId}
+              inputId={props.id}
+              fieldName="Signed Agreement"
+              noMatterNote="No matter is named, so there is nowhere to file the agreement."
+              noFilesNote="This matter holds no files yet. File the signed agreement and it can be named on the next version."
+              chosenNoun="the signed agreement"
+              disabled={busy}
+            />
+          {/snippet}
+        </LabelledField>
 
         <!-- What recording actually does. It sat in the action bar before the shell owned that bar;
              it is content rather than a control, so it reads here with the rest. -->

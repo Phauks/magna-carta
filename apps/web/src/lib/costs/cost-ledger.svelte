@@ -26,7 +26,6 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Resizable from "@magna-carta/design-system/resizable";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -37,8 +36,12 @@
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
-  import { RecordMenu, type RecordMenuAction, type RecordMenuModel } from "$lib/records/index.ts";
+  import {
+    LedgerPanes,
+    RecordMenu,
+    type RecordMenuAction,
+    type RecordMenuModel,
+  } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
@@ -168,7 +171,12 @@
     windowOpen = true;
   }
 
-  function openRecordACost(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowEntry = null;
     windowEditing = true;
     windowOpen = true;
@@ -285,7 +293,7 @@
         // Duplicating starts a new draft from this cost's fields. Until a duplicate route exists,
         // the window opens on a blank draft rather than one silently pre-filled from a record the
         // server was never asked to copy.
-        openRecordACost();
+        openNew();
         return;
       case "submit":
         submitCosts(targets.filter((cost) => cost.status === "draft"));
@@ -396,13 +404,7 @@
 {#snippet emptyLedger()}
   <EmptyState title="No Costs Recorded Yet">
     Filing fees, service, transcripts, experts: every cost paid or consumed for this matter lands
-    here.
-    {#snippet actions()}
-      <Button onclick={openRecordACost}>
-        <Plus class="size-16" aria-hidden="true" />
-        Record a Cost
-      </Button>
-    {/snippet}
+    here. New Cost, at the top of the matter, records the first.
   </EmptyState>
 {/snippet}
 
@@ -421,7 +423,7 @@
 
 <!-- The list region takes the remaining height and keeps it, so the screen does not reflow as
      rows arrive, as a filter narrows them, or as an empty state replaces them. -->
-<section class="flex h-full min-h-0 flex-col gap-12">
+<section class="flex min-h-0 flex-1 flex-col gap-12">
   <div class="flex flex-wrap items-center justify-end gap-8">
     {#if grid.isFiltered}
       <Button
@@ -446,8 +448,10 @@
         {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
       </Button>
     {/if}
+    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
+         border of its own, and last in the row on every ledger. -->
     <Button
-      variant="secondary"
+      variant="ghost"
       size="icon"
       aria-pressed={panelOpen}
       title="Show or hide the details panel"
@@ -455,14 +459,6 @@
       onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
     >
       <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
-    <Button
-      size="sm"
-      title="Record a cost paid or consumed on this matter. It saves as a draft."
-      onclick={openRecordACost}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Record a Cost
     </Button>
   </div>
 
@@ -489,50 +485,46 @@
     </p>
   {/if}
 
-  <div class="min-h-0 flex-1">
-    <Resizable.PaneGroup direction="horizontal" autoSaveId="matter-costs-panes">
-      <Resizable.Pane defaultSize={panelOpen ? 72 : 100} minSize={40}>
-        <RecordMenu
-          {menu}
-          onAction={runMenuAction}
-          onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-        >
-          <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-               product uses everywhere is still the thing that opens. The role is presentational:
-               this element adds no semantics of its own, it only notices where the pointer was. -->
-          <div role="presentation" oncontextmenu={retargetSelection}>
-            <!-- The list scrolls inside itself once it is taller than the screen, so a long ledger
-                 never pushes its own counts strip out of reach. -->
-            <DataTable.Grid
-              {grid}
-              {cell}
-              class="max-h-svh"
-              caption="Costs recorded on this matter"
-              empty={emptyLedger}
-              {loading}
-            />
-          </div>
-        </RecordMenu>
-      </Resizable.Pane>
-      {#if panelOpen}
-        <Resizable.Handle withHandle />
-        <Resizable.Pane defaultSize={28} minSize={18} maxSize={44}>
-          <CostDetailsPanel
-            {costs}
-            selected={selectedCosts}
-            {currency}
-            expenseCodeLabels={expenseCodes.labelFor}
-            {canApprove}
-            onOpen={(cost) => openRecord(cost, canWorkDraft(cost).allowed)}
-            onPrint={print}
-            onSubmit={submitCosts}
-            onApprove={approveCosts}
-            onLetGo={() => grid.clearSelection()}
+  <LedgerPanes autoSaveId="matter-costs-panes" {panelOpen}>
+    {#snippet list()}
+      <RecordMenu
+        class="flex min-h-0 flex-1 flex-col"
+        {menu}
+        onAction={runMenuAction}
+        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+      >
+        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+             product uses everywhere is still the thing that opens. The role is presentational:
+             this element adds no semantics of its own, it only notices where the pointer was. -->
+        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+          <!-- The list takes the height it is given and scrolls inside itself, so a long ledger
+               never grows the page and never pushes its own counts strip out of reach. -->
+          <DataTable.Grid
+            {grid}
+            {cell}
+            class="min-h-0 flex-1"
+            caption="Costs recorded on this matter"
+            empty={emptyLedger}
+            {loading}
           />
-        </Resizable.Pane>
-      {/if}
-    </Resizable.PaneGroup>
-  </div>
+        </div>
+      </RecordMenu>
+    {/snippet}
+    {#snippet panel()}
+      <CostDetailsPanel
+        {costs}
+        selected={selectedCosts}
+        {currency}
+        expenseCodeLabels={expenseCodes.labelFor}
+        {canApprove}
+        onOpen={(cost) => openRecord(cost, canWorkDraft(cost).allowed)}
+        onPrint={print}
+        onSubmit={submitCosts}
+        onApprove={approveCosts}
+        onLetGo={() => grid.clearSelection()}
+      />
+    {/snippet}
+  </LedgerPanes>
 
   <DataTable.GridFooter {grid} end={footerEnd} />
 </section>

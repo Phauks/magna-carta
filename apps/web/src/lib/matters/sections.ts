@@ -24,8 +24,17 @@
  * neither. That is what makes the search's growth impossible to forget rather than merely unlikely:
  * adding a fifteenth section forces somebody to answer the question, and the scope dropdown renders
  * the unanswerable ones disabled with their reason instead of quietly omitting them.
+ *
+ * EVERY SECTION ALSO ANSWERS FOR CREATE, the same way. The matter header carries ONE create control
+ * beside the search, and its label is this registry's answer for the section the reader is on —
+ * "New Fee" on Fees, "New File" on Files — so the label is settled by the address before the
+ * section has even mounted, and the control never changes width or flickers between sections. A
+ * section declares the noun it creates, or `null` with the line saying why nothing is created
+ * there; the behaviour behind the label is claimed by the section's own page through
+ * create-action.svelte.ts, and only the page standing on that section may claim it.
  */
-import type { MaturityStage } from "$lib/maturity/maturity.ts";
+import { assertCreateNoun } from "@magna-carta/design-system/create-label";
+import type { MaturityStage } from "@magna-carta/design-system/maturity";
 
 export interface MatterSection {
   /** Route segment under matters/[id]/. */
@@ -45,6 +54,20 @@ export interface MatterSection {
    * Names what a source here waits on, in the reader's words.
    */
   searchWaitingOn?: string;
+  /**
+   * The noun the header's one create control offers on this section — "Fee" renders as New Fee —
+   * or null when nothing is created from it. One capitalised word within the design system's
+   * noun budget (create-label.ts in the CreateControl home), so every label fits the control's
+   * fixed width; the module refuses anything else at load, and
+   * `pnpm run lint:matter-create-control` refuses a section that declares neither a noun nor a
+   * reason before anything is built.
+   */
+  createNoun: string | null;
+  /**
+   * Required when `createNoun` is null: the one honest line the disabled control carries, naming
+   * why nothing is created from this section, in the reader's words.
+   */
+  createWaitingOn?: string;
 }
 
 /** Every section a matter has, in the order the strip reads them. */
@@ -59,6 +82,9 @@ export const matterSections: readonly MatterSection[] = [
     // the same query twice and put a reader on a summary when they asked for the thing itself.
     searchSource: null,
     searchWaitingOn: "Overview summarises the other sections; searching it would answer twice",
+    createNoun: null,
+    createWaitingOn:
+      "The overview summarises the other sections; each record is created from its own",
   },
   {
     slug: "files",
@@ -68,6 +94,7 @@ export const matterSections: readonly MatterSection[] = [
       "The matter's versioned file record — every document the firm holds for this matter, " +
       "organized in folders, each version kept and each byte's integrity hash recorded.",
     searchSource: "files",
+    createNoun: "File",
   },
   {
     slug: "time",
@@ -77,6 +104,7 @@ export const matterSections: readonly MatterSection[] = [
       "Time captured on this matter — timers, manual entries, and the weekly grid all land " +
       "here, billable or not.",
     searchSource: "time",
+    createNoun: "Time",
   },
   {
     slug: "fees",
@@ -93,6 +121,7 @@ export const matterSections: readonly MatterSection[] = [
     // with a description — has no table and no route; the screen's own gap register says so.
     searchWaitingOn:
       "Fees you have billed are under Billing; an unbilled fee record does not exist yet",
+    createNoun: "Fee",
   },
   {
     slug: "costs",
@@ -102,6 +131,7 @@ export const matterSections: readonly MatterSection[] = [
       "Costs advanced and expenses incurred for this matter — filing fees, service, experts — " +
       "with their recoverable and billable treatment.",
     searchSource: "costs",
+    createNoun: "Cost",
   },
   {
     slug: "billing",
@@ -111,6 +141,7 @@ export const matterSections: readonly MatterSection[] = [
       "Invoices, payments, and the matter's billing arrangement — hourly, flat fee, or " +
       "contingency — with the full accounting of what has been billed and collected.",
     searchSource: "billing",
+    createNoun: "Bill",
   },
   {
     slug: "trust",
@@ -121,6 +152,8 @@ export const matterSections: readonly MatterSection[] = [
       "governing jurisdiction's rules. Fees never touch trust until earned.",
     searchSource: null,
     searchWaitingOn: "The Trust section itself is not built yet",
+    createNoun: null,
+    createWaitingOn: "The Trust section itself is not built yet",
   },
   {
     slug: "notes",
@@ -128,6 +161,25 @@ export const matterSections: readonly MatterSection[] = [
     stage: "alpha",
     description: "Matter notes and memoranda — dated, attributed, and searchable.",
     searchSource: "notes",
+    createNoun: "Note",
+  },
+  {
+    slug: "tasks",
+    label: "Tasks",
+    stage: "alpha",
+    description:
+      "What the firm still owes on this matter — each piece of work with somebody's name on it, " +
+      "when it is due, and whether it is done.",
+    createNoun: "Task",
+    searchSource: null,
+    // A task has searchable text — the title and the body — and the section's own list already
+    // narrows on it. What is missing is a source in packages/matter-search/src/sources/all.ts, and
+    // wiring one is a real piece of work rather than a line here: the task read composes the
+    // visibility fragment that decides whether a matterless task is reachable, and a source that
+    // reproduced that condition instead of composing it would be a second answer to who may see
+    // what. The section's own search box finds them in the meantime.
+    searchWaitingOn:
+      "Search within the Tasks section itself; a matter-wide task source is not wired yet",
   },
   {
     slug: "emails",
@@ -136,6 +188,8 @@ export const matterSections: readonly MatterSection[] = [
     description: "Email correspondence filed to this matter, threaded and searchable.",
     searchSource: null,
     searchWaitingOn: "The Emails section itself is not built yet",
+    createNoun: null,
+    createWaitingOn: "The Emails section itself is not built yet",
   },
   {
     slug: "messaging",
@@ -145,6 +199,8 @@ export const matterSections: readonly MatterSection[] = [
       "Secure messages exchanged with the client through the portal, kept on the matter record.",
     searchSource: null,
     searchWaitingOn: "The Messaging section itself is not built yet",
+    createNoun: null,
+    createWaitingOn: "The Messaging section itself is not built yet",
   },
   {
     slug: "custodian",
@@ -154,6 +210,7 @@ export const matterSections: readonly MatterSection[] = [
       "Physical items in the firm's custody for this matter — original wills, deeds, media — " +
       "tracked to a location, safe, and box.",
     searchSource: "custody",
+    createNoun: "Packet",
   },
   {
     slug: "parties",
@@ -163,6 +220,7 @@ export const matterSections: readonly MatterSection[] = [
       "Every person and organization connected to this matter — clients, opposing parties, " +
       "counsel, courts — linked from the firm Directory with conflict-aware roles.",
     searchSource: "parties",
+    createNoun: "Party",
   },
   {
     slug: "calendar",
@@ -172,6 +230,7 @@ export const matterSections: readonly MatterSection[] = [
       "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
       "person, read in its own time zone, and reports when it has passed.",
     searchSource: "calendar",
+    createNoun: "Event",
   },
   {
     slug: "magnus",
@@ -186,6 +245,8 @@ export const matterSections: readonly MatterSection[] = [
     // a transcript search is its own feature with its own retention question, not a scope option
     // that quietly makes past conversations findable alongside the firm's records.
     searchWaitingOn: "The Magnus section itself is not built yet",
+    createNoun: null,
+    createWaitingOn: "Magnus is a way to ask about the matter, not a record it keeps",
   },
 ];
 
@@ -203,12 +264,14 @@ export type MatterStripEntry =
  * is the section members are in most — putting the busiest destination behind a menu would spend a
  * click on nearly every visit. Parties and Calendar stand alone on the owner's ruling: a matter's
  * dates are checked too often to sit behind a menu, and with Calendar on the row the group they
- * shared would have held Parties by itself, which the rule below forbids. Magnus stands alone
- * because it is not one of the matter's records; it is the way to ask about them.
+ * shared would have held Parties by itself, which the rule below forbids. Tasks sits beside
+ * Calendar for the same reason and emphatically not in Record: Record is what the matter has
+ * accumulated, and what the firm still owes is not one of those. Magnus stands alone because it is
+ * not one of the matter's records; it is the way to ask about them.
  *
  * The order is also the fold order — the backstop folds from the tail — so what folds first is what
  * a member can most afford to reach through a menu: Magnus (a stub), then the Record group (three
- * of its four are stubs), then the dates and the people. Money stays on the row longest of the
+ * of its four are stubs), then the work owed, the dates and the people. Money stays on the row longest of the
  * folding candidates, because all five of its sections are live working surfaces.
  */
 const ARRANGEMENT: readonly (
@@ -220,6 +283,7 @@ const ARRANGEMENT: readonly (
   { label: "Money", slugs: ["time", "fees", "costs", "billing", "trust"] },
   "parties",
   "calendar",
+  "tasks",
   { label: "Record", slugs: ["notes", "emails", "messaging", "custodian"] },
   "magnus",
 ];
@@ -264,6 +328,25 @@ function buildStrip(): readonly MatterStripEntry[] {
 
 /** The strip's top level, in order. Validated at module load against the section registry. */
 export const matterStrip: readonly MatterStripEntry[] = buildStrip();
+
+/*
+ * Every create answer is checked the moment the registry loads: a noun the design system's label
+ * grammar refuses, or a declined section with no line to show, is a module-load failure rather
+ * than a control that clips or a disabled button that says nothing. The lint gate runs the same
+ * rules over the source before anything is built.
+ */
+for (const section of matterSections) {
+  if (section.createNoun === null) {
+    if (section.createWaitingOn === undefined || section.createWaitingOn.trim() === "") {
+      throw new Error(
+        `The "${section.slug}" section creates nothing and says nothing about why. Declare ` +
+          "`createWaitingOn`: the disabled control carries that line.",
+      );
+    }
+    continue;
+  }
+  assertCreateNoun(section.createNoun);
+}
 
 /** The section a matter route is on, resolved from the address. Undefined off a section path. */
 export function sectionForPathname(matterId: string, pathname: string): MatterSection | undefined {

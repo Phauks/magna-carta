@@ -36,14 +36,18 @@
    * because capture takes a matter; so its mark says it is not written and names the matter as one
    * of the things it still needs. Nothing is invented server-side to paper over that.
    *
-   * WHAT IS DESIGNED AND NOT YET SERVED STAYS ON SCREEN. The time code, the entered date and who
-   * entered it, the rate, the attachments and the internal memo are all part of a row; the listing
-   * and the write routes carry none of them. Each is rendered where it belongs, refused, saying
-   * what it waits on, so a reader can see the row's real shape and can never mistake an unserved
-   * field for an empty one.
+   * WHAT IS DESIGNED AND NOT YET SERVED STAYS ON SCREEN, refused, saying what it waits on — so a
+   * reader can see the row's real shape and can never mistake an unserved field for an empty one.
+   * What is left in that state is small and specific: moving a written entry to another matter,
+   * recording one member's work under another's hand, and the firm's rounding increment.
+   *
+   * THE LIST USED TO BE MUCH LONGER, AND WAS WRONG. The entry number, the entered date and its
+   * enterer, the resolved rate, the attachments and the internal memo were all rendered as gaps
+   * against routes that were already serving them. A field is refused here only against the served
+   * contract in $lib/matters/time-api.ts, re-read — never against what this file last believed.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -68,8 +72,6 @@
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
-  import Maximize2 from "@lucide/svelte/icons/maximize-2";
-  import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import NotebookPen from "@lucide/svelte/icons/notebook-pen";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
@@ -81,8 +83,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Undo2 from "@lucide/svelte/icons/undo-2";
-  import X from "@lucide/svelte/icons/x";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { autoSizeTextarea } from "./auto-size-textarea.ts";
   import { FirmMatters } from "./firm-matters.svelte.ts";
   import MatterPicker from "./matter-picker.svelte";
@@ -220,7 +221,7 @@
   let scope = $state<SheetScope>(scopePreset("today", today, FIRST_WEEKDAY_OF_THE_FIRMS_WEEK));
   let searchOpen = $state(false);
   let searchText = $state("");
-  let expanded = $state(false);
+  let expanded = $state(true);
   /** Rows whose empty memo line has been opened but not written in, by row key. */
   let memoOpened = $state<ReadonlySet<string>>(new Set());
   let recordWindowOpen = $state(false);
@@ -523,63 +524,82 @@
         <NotebookPen class="size-16" aria-hidden="true" />
       </Button>
     </div>
-    {#if memoOpened.has(row.key)}
-      <!-- Internal by construction: it is never reachable from a bill, an export or a print sheet. -->
-      <div class="flex w-full items-center gap-8" data-internal-only="true">
+    {#if memoOpened.has(row.key) || row.memo !== ""}
+      <!-- Internal by construction: no client-facing projection selects the column, and the print
+           sheet names every field it prints rather than spreading the entry. -->
+      <div class="flex w-full items-start gap-8" data-internal-only="true">
         <Badge variant="neutral">Internal</Badge>
-        <SoonAffordance class="min-w-0 flex-1" reason={gapReason("memo")}>
-          {#snippet control(soon)}
-            <Textarea class="w-full" rows={1} placeholder="Internal Memo" {...soon} />
-          {/snippet}
-        </SoonAffordance>
+        <Textarea
+          class="min-w-0 flex-1"
+          rows={1}
+          value={row.memo}
+          placeholder="Internal Memo"
+          title={refusal ?? "The firm's own note on this entry. It never reaches a bill or a client."}
+          disabled={refusal !== undefined}
+          spellcheck={true}
+          onchange={(event) => store.setMemo(row.key, event.currentTarget.value)}
+          {@attach autoSizeTextarea(row.memo)}
+        />
       </div>
     {/if}
   </div>
 {/snippet}
 
+<!--
+  THE MATTER IS SETTABLE ON EVERY DRAFT, written or not. On a row that has not reached the record it
+  is the choice that lets the row be written at all; on one that has, picking another matter MOVES
+  the entry — number, memo, codes, files and history intact — and re-reads its rate and rounding on
+  the matter it moved to. Past draft the cell states where the entry is and why it stays: an
+  approved or billed entry is evidence somebody is relying on, and the answer there is a void and
+  a fresh record rather than a move nobody can see.
+-->
 {#snippet matterCell(row: SheetRow)}
   {@const refusal = editRefusal(row)}
-  {#if row.entryIdentifier === null}
-    <!-- A row that is not on the record yet: the matter is still the reader's to choose, and
-         choosing it is what lets the row be written at all. -->
+  {#if refusal === undefined}
     <MatterPicker
       matters={matters}
       value={row.matterId}
       capped={firmMatters.capped}
-      disabled={refusal !== undefined}
-      title={refusal ??
-        "Where this time belongs. Type the number or the name; either finds it. A row with no matter stays on the sheet until one is set."}
+      title={row.entryIdentifier === null
+        ? "Where this time belongs. Type the number or the name; either finds it. A row with no matter stays on the sheet until one is set."
+        : "Where this time belongs. Picking another matter moves the entry there, with its number, its note and its files; its rate is re-read on the matter it moves to."}
       onpick={(matterId) => store.setMatter(row.key, matterId)}
     />
   {:else}
-    <!-- An entry the firm holds. Nothing in the contract moves one between matters, so the cell
-         names the matter it is on and says what moving it waits on rather than offering a control
-         that would change the screen and not the record. -->
-    <span
-      class="block truncate"
-      title="{matterText(row)}. Moving an entry to another matter waits on {gapReason('matter')}."
-    >
+    <span class="block truncate" title="{matterText(row)}. {refusal}">
       {matterText(row)}
     </span>
   {/if}
 {/snippet}
 
+<!--
+  THE CODE A ROW IS KNOWN BY, AND THERE ARE TWO OF THEM. Until the row reaches the firm's record it
+  is held under a provisional code minted here, so a row somebody is typing into has a name to be
+  referred to by; the moment it lands, the firm's own entry number replaces it, and the provisional
+  one is kept on the hover because that is what the row was called meanwhile.
+-->
 {#snippet timeCodeCell(row: SheetRow)}
-  {#if row.entryIdentifier === null && row.provisionalCode !== null}
+  {#if row.entryNumber !== null}
+    <span
+      class="whitespace-nowrap tabular-nums"
+      title="The firm's own entry number. It is drawn once, never reused, and a voided entry keeps it.{row.provisionalCode ===
+      null
+        ? ''
+        : ` It was held on this sheet as ${row.provisionalCode}.`}"
+    >
+      {row.entryNumber}
+    </span>
+  {:else if row.provisionalCode !== null}
     <span
       class="whitespace-nowrap tabular-nums text-text-muted"
-      title="A provisional code, minted on this sheet when the row was created. The firm's own entry number is drawn when the row reaches the record, and {gapReason(
-        'entryNumber',
-      )} is what that waits on."
+      title="A provisional code, minted on this sheet when the row was created. The firm's own entry number is drawn when the row reaches the record."
     >
       {row.provisionalCode}
     </span>
   {:else}
-    <span
-      class="text-text-subtle"
-      title="{gapCellTitle('entryNumber')}{row.provisionalCode === null
-        ? ''
-        : ` It was held on this sheet as ${row.provisionalCode}.`}">&mdash;</span
+    <!-- An entry captured before the sequence existed. Nothing backfills a guess. -->
+    <span class="text-text-subtle" title="This entry was captured before entry numbers existed."
+      >&mdash;</span
     >
   {/if}
 {/snippet}
@@ -666,11 +686,11 @@
       size="icon"
       disabled={row.status === "void"}
       title={row.status === "void"
-        ? "Already struck. It stays on the record."
+        ? "Already voided. It stays on the record."
         : row.entryIdentifier === null
           ? "Remove this row. It has not been written to the record."
-          : "Strike this entry. It stays on the record, numbered, and counts toward nothing."}
-      aria-label="Strike this entry"
+          : "Void this entry. It stays on the record, numbered, and counts toward nothing."}
+      aria-label="Void this entry"
       onclick={() => void store.voidRow(row.key)}
     >
       <Trash2 class="size-16" aria-hidden="true" />
@@ -701,18 +721,25 @@
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.worked}
     {@render durationCell(row)}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.hours}
-    <!-- Billed hours are the worked time under the firm's rounding increment, which is a firm
-         setting nothing serves yet. The field is real and refused rather than quietly absent. -->
-    <SoonAffordance reason={gapReason("rounding")}>
-      {#snippet control(soon)}
-        <Input
-          class="text-end"
-          value={row.billedMinutes === null ? "" : formatDuration(row.billedMinutes).decimal}
-          placeholder="Hours"
-          {...soon}
-        />
-      {/snippet}
-    </SoonAffordance>
+    <!--
+      Billed hours are the worked time under the firm's rounding increment — DERIVED, never typed,
+      which is why this states a figure rather than offering a field.
+      A row the firm holds carries its own billed figure, sent with the entry, so it simply reads.
+      A row nobody has written yet cannot know: the increment is a per-matter setting and this
+      sheet is one person's day across every matter they touched, so one answer would be wrong for
+      some of the rows on it. That row says what it waits on instead of showing a number it guessed.
+    -->
+    {#if row.billedMinutes === null}
+      <SoonAffordance reason={gapReason("rounding")}>
+        {#snippet control(soon)}
+          <Input class="text-end" placeholder="Hours" {...soon} />
+        {/snippet}
+      </SoonAffordance>
+    {:else}
+      <span class="block text-end tabular-nums" title="The time worked, rounded as the firm bills.">
+        {formatDuration(row.billedMinutes).decimal}
+      </span>
+    {/if}
   {:else if column.id === TIME_SHEET_COLUMN_IDENTIFIERS.total}
     <span class="whitespace-nowrap tabular-nums">
       {row.amountMinor === null ? "—" : money(row.amountMinor)}
@@ -786,25 +813,18 @@
   {/if}
 {/snippet}
 
-<Dialog.Root bind:open>
-  <!-- The sheet is a WORKING surface, so windowed it still takes nearly the whole screen; filling
-       it entirely drops the rounded corners — a panel with no edge on screen has no corners to
-       round. -->
-  <Dialog.Content
-    showClose={false}
-    class={expanded
-      ? "flex h-screen w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0"
-      : "flex max-h-screen w-full max-w-none flex-col gap-0 p-0"}
-    style={expanded ? undefined : "inline-size: 97vw; block-size: 94vh"}
-  >
-    <div class="flex flex-wrap items-center gap-8 border-b border-border-default px-24 py-16">
-      <div class="flex min-w-0 flex-col gap-4">
-        <Dialog.Title>Time Sheet</Dialog.Title>
-        <!-- What the sheet is showing, which is the firm's time unless a matter narrowed it. -->
-        <Dialog.Description>
-          {matterTitle ?? "Every matter"}
-        </Dialog.Description>
-      </div>
+<!-- The sheet is a WORKING surface, so it opens filling the screen; the frame's own control shrinks
+     it back to a window. Its toolbar is the first row of the pane, its identity the frame's header. -->
+<ActionDialog
+  bind:open
+  bind:expanded
+  kind="reading"
+  width="record"
+  heading="Time Sheet"
+  subtitle={matterTitle ?? "Every matter"}
+>
+  {#snippet fields()}
+    <div class="flex flex-wrap items-center gap-8">
 
       <Popover.Root>
         <Popover.Trigger
@@ -985,33 +1005,9 @@
           </Button>
         {/if}
 
-        <Button
-          variant="secondary"
-          size="icon"
-          aria-pressed={expanded}
-          title={expanded ? "Shrink back to a window" : "Fill the screen"}
-          aria-label={expanded ? "Shrink back to a window" : "Fill the screen"}
-          onclick={() => (expanded = !expanded)}
-        >
-          {#if expanded}
-            <Minimize2 class="size-16" aria-hidden="true" />
-          {:else}
-            <Maximize2 class="size-16" aria-hidden="true" />
-          {/if}
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          title="Close the Time Sheet"
-          aria-label="Close the Time Sheet"
-          onclick={() => (open = false)}
-        >
-          <X class="size-16" aria-hidden="true" />
-        </Button>
       </div>
     </div>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-12 px-24 py-16">
       {#if store.timerFailure !== null}
         <Alert.Root variant="danger">
           <Alert.Title>The Timer</Alert.Title>
@@ -1067,11 +1063,10 @@
         <Plus class="size-16" aria-hidden="true" />
         Add a Row
       </Button>
-    </div>
 
     <DataTable.GridFooter {grid} end={honestyStrip} />
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>
 
 <TimeRecordWindow
   bind:open={recordWindowOpen}

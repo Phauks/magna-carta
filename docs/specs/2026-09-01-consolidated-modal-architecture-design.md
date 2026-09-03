@@ -518,12 +518,153 @@ after it, at 1440×900. **All four are byte-identical.** The record window's six
 the two that assert its sizing as rendered geometry, pass unchanged. That is the standard a shared
 chassis has to meet: the shell it was taken from cannot tell.
 
-### 11.4 Why not a read-only variant instead
+### 11.4 The reading kind — a position reversed on evidence
 
-The owner also asked whether read-only panels should be a variant of the modal. Working through the
-two that looked read-only settled it: `arrangement-dialog` is a record with history and an action —
-`RecordWindow`'s shape — and `apply-trust-funds` is an act whose commit is not served yet. A
-read-only `kind` would have been a second answer to "read a thing" and would have made
-`commitLabel` and `onCommit` optional, weakening the type for every panel that commits. The gap the
-question pointed at was real; the pane system is what fills it, because it is what those panels
-were rebuilding.
+The owner asked whether read-only panels should be a variant of the modal. The first answer was
+no. Working through the two panels that looked read-only, `arrangement-dialog` was a record with
+history and an action — `RecordWindow`'s shape — and `apply-trust-funds` was an act whose commit
+is not served yet; a read-only `kind` looked like a second answer to "read a thing", and making
+`commitLabel` and `onCommit` optional would have weakened the type for every panel that commits.
+The pane system was what those two were rebuilding, so the pane system was what filled the gap.
+
+Then a third panel arrived that neither argument covered. The matter-status window (#473, merged
+the same day) opens from the seal in the matter's header to say what the matter's status is and,
+when the reader has the right to change it, offers the step — Close Matter, Reopen — **seated in
+the body beside the fact it changes**, deliberately not in the action bar: somebody may have opened
+the window to read the physical-file pane beside it, and the corner is where a hand goes by habit.
+It is not a record (it has no tabs, no history, no editing mode — `RecordWindow` would be the wrong
+shape). It is not an act asked of a reader either: its bar has nothing to commit, and a `form` kind
+would have forced a commit button into it that its design had rejected. It composed `Dialog.Content`
+by hand, the rule refused it, and nothing before merge had run the rule.
+
+So the shell now has a fourth kind, and the type is not weakened to admit it — the props are a
+**discriminated union on `kind`**, and each arm stays as strict as it was:
+
+```ts
+type Acting = { kind?: "form" | "confirm" | "destructive"; commitLabel: string; onCommit: () => Promise<ActionOutcome>; … };
+type Reading = { kind: "reading"; commitLabel?: never; onCommit?: never; … };
+```
+
+A form still cannot omit its commit; a reading panel cannot be given one. `kind="reading"` renders
+on `Dialog` with the corner dismiss, is dismissed by a press outside, runs no guard (there is
+nothing to lose unless the caller says `unsavedChanges`), and its bar holds one control that says
+**Close** rather than Cancel — nothing was begun, so nothing is cancelled. The kind table gained a
+row with `commitVariant: null`, and the action bar renders the commit only when the variant is not
+null; `footer-set` still asserts both markers in the shell's source, because the source still
+carries both.
+
+What this is not: a read-only `RecordWindow`. A record is read in the record window, and the
+reading kind is not a way around that — it is the panel for a fact with a step beside it, whose
+context pane earns the record width without the record's tabs. The distinction the shells draw
+(read a record; be asked for an act) gains a third clause: read a fact and take a step from where
+it sits. Three panels are known to have this shape; the status window is the first to land.
+
+### 11.5 What the first fifteen callers asked for
+
+With fifteen panels on the shell, what they still repeated was measured rather than guessed at, and
+four of the findings became shell or design-system changes on 2026-09-02, owner-approved:
+
+- **Enter commits, from the shell.** None of the fifteen had wired Enter, because each would have had
+  to. The primary pane is now a real `<form>` and the commit is its submit button, associated by id
+  since the bar sits outside the pane; the platform's implicit submission does the rest, and a
+  disabled commit (a refusal, or an act not served yet) stops Enter for free. Ctrl+Enter or
+  Cmd+Enter commits from a textarea, where Enter must go on meaning a new line. `novalidate`,
+  because a refusal is the shell's and is stated beside the commit, never as a browser bubble.
+- **`subtitle` takes a string.** Twelve of fourteen subtitle snippets were plain text. The prop is
+  `string | Snippet`; the snippet arm stays for a subtitle that carries markup.
+- **`commitSoon`, and the maturity family moves into the design system.** Two panels composed
+  `SoonAffordance` around a commit of their own, and carried allowances for it because the affordance
+  lived in the app and the shell cannot import the app. The whole maturity vocabulary — the model,
+  the badge, the dot, the affordance — is now `@magna-carta/design-system/maturity`, with one home
+  and its tests moved with it; the acting arm gains `commitSoon: { reason }`, and the shell wraps its
+  own commit in the affordance. The bar still holds exactly one commit in the shell's source: the
+  control is one snippet rendered one of two ways, which is what keeps the `footer-set` rule true.
+- **`LabelledField` and `FieldRow`.** The label-over-control column was written by hand fifty-six
+  times across the fifteen, and the two-or-three-across row sixteen times; about a third of the
+  hints had no `aria-describedby`. `LabelledField` mints the id, joins the hint and the error into
+  the control's description, marks an error invalid, and hands the control its attributes as `props`
+  to spread — formsnap's own idiom. It is deliberately not the form family's `Field`, which is bound
+  to superforms; the two stack the same parts at different gaps (space-8 here, as every panel had
+  it; space-4 there), and that difference is stated on the recipe for the owner to settle rather
+  than smoothed over. `FieldRow` is utilities only, because a breakpoint is the one thing a recipe
+  cannot express.
+
+Two findings were deliberately not built. A third bar control (bug-report and request-change carry
+Close, Copy and Send) is refused on the same ground as before: the copy belongs in the body beside
+the text it copies, as the reading kind seats its step. And an app-side failure helper — the twelve
+lines every caller writes around `FailureNotice` — is the app's side of the notice seam and stays
+out of the design system; it is queued for the migration pass that touches every caller anyway.
+
+### 11.6 A commit that stays: the `done` outcome
+
+The confirmation family — the file manager's three panels, the note and party removals, the
+settings recap, the attachment detach — was the first to need something the seams above did not
+give: the upload panel saves its destination and then **stays open while the batch lands**, its
+report column ticking, until the host closes it. Two of the panels still to migrate have the same
+shape (bug-report shows its filed reference; new-document shows what it made). So `ActionOutcome`
+gains a third value. `"done"` leaves the panel standing as a panel with nothing left to ask: the
+commit leaves the bar, the dismissal reads Close, the guard stands down, and `fields` and `context`
+are handed `done` beside `busy` so one snippet renders the panel before and after. It is the reading
+kind's bar arrived at by acting, which is why it costs the shell one flag and no new branch.
+
+The same family put the upload panel's report in the **context pane**, where it had been a second
+grid column inside a `max-w-record-pane` dialog: the decision on the left is the fields, the report
+on the right is the context, and the frame's rule — the primary pane stops, the context takes the
+room — is exactly what a live list beside a still choice wants. The bar's hint ("closing keeps what
+has landed") moved into the body, because the bar is the shell's.
+
+### 11.7 Where the migration ended
+
+Twenty-seven panels moved onto the shells across six pull requests on 2026-09-02, in families:
+custodian (3), billing and costs (10), the new-matter window, the status window (the reading kind),
+the confirmations (7, with the `done` outcome), the forms (4, the first callers of `commitSoon` and
+`LabelledField`), the send panels (3, with `restoreFocus`), and the last two — the new-document flow
+and Apply Trust Funds, which the Soon affordance's move into the design system admitted.
+
+Six `hand-composed-modal` allowances remain, and every one is a named exclusion rather than debt:
+the command palette (a launcher, the documented Command-in-a-Dialog pattern), the settings ledger
+(a Sheet holding context), the three full-screen surfaces (a separate design, deliberately not
+folded into this one), and the fee-arrangement window (`RecordWindow`'s shape, migrated when that
+stream is open). The register prints them on every run with the reason each stands on, so the list
+stays read.
+
+A correction, recorded because it is the kind of mistake the register exists to catch: the four
+directory panes were excluded as "panes inside a surface, not modals," which described the files
+and not the hits. Each pane composed a real form dialog — Assign A Category, Record A Way To Reach
+Them, Record An Identifier, and the names pane's Change and Record — and those five migrated on
+2026-09-03 once the reason was re-read against the line it excused. An allowance's reason should
+name the panel it excuses, not the file that holds it.
+
+What the migration left for the next pass: the fifteen panels that landed before `LabelledField`
+existed still write the label-over-control column by hand, and every caller still writes the same
+twelve lines around `FailureNotice`. Both are mechanical, both are the app's side of a seam the
+shell already has, and neither should be done panel by panel.
+
+### 11.8 Filling the screen is the frame's
+
+The owner asked whether full-screen should be an expansion available to every modal, and whether
+the full-screen parts should be combined. Both, and the tree said why. The record window had a
+corner control that fills the viewport, remembered for the session; the action dialog had none;
+and the three surfaces excluded as "full-screen" were three different things — the time sheet had
+rebuilt the record window's expand by hand inside a raw dialog, the screenshot viewer was a reading
+panel that opens filling the screen, and the cost review was a queue walked one cost at a time, not
+full-screen at all. The ruling that full-screen is a design choice each time had been read as "each
+surface builds its own"; it reads just as well as "each surface decides whether to open that way".
+
+So the frame owns expand (`internal/frame-expansion.svelte.ts`): the state, the control's two
+names, the expanded geometry, and one session memory per shell — records at full viewport is a
+posture for a sitting, a form filled to the screen is a choice about that form, and the two are
+kept apart. Each shell keeps its own control in its own header set, because the record window's
+set is asserted at the source. `ActionDialog` offers it on the Dialog kinds, `form` and `reading`,
+and never on a question. Both shells take a bindable `expanded`, which is how a panel opens
+expanded by design. The record window's frame-bearing stories are byte-identical before and after,
+per the standard for touching the frame; the three surfaces migrate in the pass that follows.
+
+The pass that followed brought the three onto the shells the same day. The time sheet is a reading
+panel opened expanded, its toolbar the first row of its pane and its identity the frame's header;
+its hand-built expand is deleted, and the windowed state it shrinks back to is the record width
+rather than its old 97vw. The screenshot viewer is a reading panel opened expanded. The cost review
+is a reading panel whose three answers sit under the facts they decide — Skip, Kick Back, Approve —
+and walks on to the next cost rather than closing, which is what the reading kind's "take a step
+from where it sits" was for. Three allowances remain: the command palette, the settings ledger's
+Sheet, and the fee-arrangement window.

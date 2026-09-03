@@ -543,6 +543,19 @@ The owner's words this round: "the file manager area is really good."
 - N29's persistence uses browser storage with a guarded read, so a context without
   storage still gets the in-session behaviour; the app build persists it as a real
   preference.
+
+## R17 — round fourteen: the New control moves up to the matter header
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| N30 | **The New control is the matter header's, not the toolbar's.** The owner's 2026-09-03 ruling puts one create control beside the matter's search, at one width on every section, reading "New File" here and opening the same three-item menu the toolbar's New carried (New Document, New Folder, Upload Files). The toolbar carries no create control; its pane toggles end the row. **Supersedes N7's and A7's placement and N15's swap** — the property N15 protected (New keeps its place when the search expands) is now the header's, where the control sits after the search. A28's disabled-with-reason stands, stated on the header control. T1's rail New Folder and L41's empty-space menu stay: gestures on a place, not a second button. The empty-folder state's two buttons are gone; its copy names the control at the top. | settled |
+
+**Notes recorded this round:**
+
+- The browser harness in `tooling/file-manager-rulings/` still exercises the self-contained
+  mockup, where the masthead's `#newBtn` is the mockup's own; the real surface is asserted by
+  `pnpm run lint:matter-create-control`, which refuses a plus-glyph button anywhere the file
+  manager renders.
 - **Defect found by the A9 check under N29's persistence, fixed in passing:** Escape
   could not close an open menu while focus sat in a field INSIDE the menu — the columns
   menu's own checkbox swallowed the key (the keyboard handler returns early for fields),

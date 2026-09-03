@@ -24,6 +24,55 @@ const arrangementInput = (
 });
 
 describe("the fee agreement", () => {
+  it("records the signed agreement behind a version, and reads its name back beside its id", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedMatter(fixture, "entity_client", "Signed");
+    const fileId = "file_intake0000000000000000000";
+    await fixture.database
+      .prepare(
+        `INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)`,
+      )
+      .bind(fileId, matterId, "Intake agreement.pdf", "2026-08-01T00:00:00.000Z")
+      .run();
+    const set = await setBillingArrangement(
+      fixture.database,
+      arrangementInput(matterId, {
+        kind: "flat_fee",
+        flatFeeAmountMinor: 500_000,
+        agreementFileId: fileId as never,
+      }),
+      options,
+    );
+    await commit(fixture.database, set.effect);
+
+    const inForce = await readBillingArrangementInForce(fixture.database, matterId);
+    expect(inForce?.agreementFileId).toBe(fileId);
+    expect(inForce?.agreementFileName).toBe("Intake agreement.pdf");
+  });
+
+  it("holds no agreement by default, and says so with two nulls rather than an empty name", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedMatter(fixture, "entity_client", "Unsigned");
+    const set = await setBillingArrangement(fixture.database, arrangementInput(matterId), options);
+    await commit(fixture.database, set.effect);
+    const inForce = await readBillingArrangementInForce(fixture.database, matterId);
+    expect(inForce?.agreementFileId).toBeNull();
+    expect(inForce?.agreementFileName).toBeNull();
+  });
+
+  it("refuses a signed agreement that is not a live file, by name, before anything is written", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedMatter(fixture, "entity_client", "Ghost");
+    await expect(
+      setBillingArrangement(
+        fixture.database,
+        arrangementInput(matterId, { agreementFileId: "file_nothere00000000000000000" as never }),
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "billing-arrangement-invalid" });
+    expect(await readBillingArrangementInForce(fixture.database, matterId)).toBeUndefined();
+  });
+
   it("records an arrangement and reads it back in force", async () => {
     const fixture = await billingFixture();
     const matterId = await seedMatter(fixture, "entity_client", "Flat");

@@ -82,6 +82,47 @@
   let scrollElement = $state<HTMLDivElement | null>(null);
   let headerCells = $state<Record<string, HTMLTableCellElement | null>>({});
 
+  /*
+   * THE FRAME'S OWN WIDTH, PUBLISHED TO CSS.
+   *
+   * A placeholder row spans every column, so its cell is as wide as the TABLE — which is wider than
+   * the frame the moment the columns are. Content centred in that cell centres in a box the reader
+   * cannot see the far side of, so the empty state's watermark and heading sit off to the inline
+   * end with the sentence trailing past them. Centring has to happen in the VISIBLE width, and the
+   * only thing that knows the visible width is the scroll element.
+   *
+   * `clientWidth` rather than a container query: it excludes the scrollbar, and a container query's
+   * `cqi` does not, which would put the empty state a scrollbar's width out and hand a table with
+   * no rows a horizontal scrollbar of its own.
+   */
+  $effect(() => {
+    const frame = scrollElement;
+    if (frame === null) return;
+    // Written on the NEXT frame, and only when the width actually changed. A style write inside the
+    // observer's own callback is a layout change the observer then reports again, and under load
+    // (the story suite, a filter field being typed into while rows come and go) that churn made the
+    // focused filter field lose focus to its menu mid-word. Deferring the write breaks the loop, and
+    // skipping an unchanged width means a resize that only moved rows writes nothing at all.
+    let published = "";
+    let scheduled = 0;
+    const publish = (): void => {
+      scheduled = 0;
+      const next = `${String(frame.clientWidth)}px`;
+      if (next === published) return;
+      published = next;
+      frame.style.setProperty("--mc-table-frame-inline-size", next);
+    };
+    publish();
+    const observer = new ResizeObserver(() => {
+      if (scheduled === 0) scheduled = requestAnimationFrame(publish);
+    });
+    observer.observe(frame);
+    return () => {
+      observer.disconnect();
+      if (scheduled !== 0) cancelAnimationFrame(scheduled);
+    };
+  });
+
   const rowKeyOf = (row: TRow): string => grid.options.rowKey(row);
   /** The filter mark's tooltip, or undefined when no filter is in play and no mark is drawn. */
   const filterMarkTitle = (column: GridColumn<TRow>): string | undefined => {
@@ -112,6 +153,12 @@
     grid.visibleColumns.filter((column) => column.pinnedEnd === true),
   );
   const pinnedEndEdgeColumnId = $derived(pinnedEndColumns[0]?.id);
+  /*
+   * Whether the totals strip is on screen. Asked once, because two things depend on the same
+   * answer: the strip itself, and the filler row that holds it down at the bottom of the frame.
+   * Two copies of this condition is how the filler starts appearing under a table with no totals.
+   */
+  const showTotals = $derived(grid.hasTotals && grid.rowsInView.length > 0 && !loading);
   let pinnedOffsets = $state<Readonly<Record<string, number>>>({});
   let pinnedEndOffsets = $state<Readonly<Record<string, number>>>({});
   $effect(() => {
@@ -340,12 +387,23 @@
   onkeydown={surfaceKeydown}
   onclick={surfaceClick}
 >
+  <!--
+    `h-full` only while the totals strip is there: it is what gives the strip room to be held down
+    at the frame's bottom instead of coming to rest under the last row. A table with no totals has
+    nothing to hold down and keeps ending where its rows end.
+    A HEIGHT and not a min-height, and the difference is not stylistic: on `display: table` a
+    height is a MINIMUM the browser will exceed for content that needs more, so a long table still
+    grows and scrolls — while a percentage `min-height` gives the row layout nothing definite to
+    resolve the filler row's own percentage against, and the slack is never handed out at all.
+    Measured both ways; only this one moves the strip.
+  -->
   <table
-    class="mc-table mc-table-grid w-full"
+    class={mergeClasses("mc-table mc-table-grid w-full", showTotals ? "h-full" : undefined)}
     data-zebra={grid.zebra ? "on" : undefined}
     data-fixed-columns={grid.columnWidthsFixed ? "on" : undefined}
     data-row-density={density}
     data-row-detail={rowDetail ? "on" : undefined}
+    data-totals={showTotals ? "on" : undefined}
   >
     <caption class="sr-only">{caption}</caption>
     <thead class="mc-table-header">
@@ -477,17 +535,19 @@
             class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
             colspan={grid.visibleColumns.length}
           >
-            <div class="mc-table-grid-empty">
-              <p>
-                No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
-                the {grid.activeFilterCount === 1 ? "filter" : "filters"} on
-                {grid.activeFilterLabels.join(", ")}. All {grid.totalRowCount}
-                {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} are hidden.
-              </p>
-              <Button variant="secondary" size="sm" onclick={() => grid.clearAllFilters()}>
-                <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
-                Clear All Filters
-              </Button>
+            <div class="mc-table-grid-placeholder-frame">
+              <div class="mc-table-grid-empty">
+                <p>
+                  No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
+                  the {grid.activeFilterCount === 1 ? "filter" : "filters"} on
+                  {grid.activeFilterLabels.join(", ")}. All {grid.totalRowCount}
+                  {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} are hidden.
+                </p>
+                <Button variant="secondary" size="sm" onclick={() => grid.clearAllFilters()}>
+                  <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
+                  Clear All Filters
+                </Button>
+              </div>
             </div>
           </td>
         </tr>
@@ -497,13 +557,18 @@
             class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
             colspan={grid.visibleColumns.length}
           >
-            {#if empty}
-              {@render empty()}
-            {:else}
-              <div class="mc-table-grid-empty">
-                <p>No {grid.itemNoun.plural} yet.</p>
-              </div>
-            {/if}
+            <!-- The surface's own empty state renders inside the SAME frame as the built-in one,
+                 so a composed empty state centres in the visible width exactly as the default
+                 does. A surface cannot get this wrong, because it does not supply it. -->
+            <div class="mc-table-grid-placeholder-frame">
+              {#if empty}
+                {@render empty()}
+              {:else}
+                <div class="mc-table-grid-empty">
+                  <p>No {grid.itemNoun.plural} yet.</p>
+                </div>
+              {/if}
+            </div>
           </td>
         </tr>
       {:else}
@@ -593,8 +658,36 @@
           {/if}
         {/each}
       {/if}
+      <!--
+        THE SLACK, GIVEN A HOME. The totals strip is sticky to the bottom of the scroll frame,
+        which holds it down only while there is something below it to scroll past. A table shorter
+        than its frame has nothing below it, so the strip used to come to rest wherever the last row
+        happened to end, leaving a band of empty surface beneath it — the totals of a four-row
+        ledger sitting halfway up the screen.
+        The table now asks for the frame's full height, and this row is where the difference goes.
+        It has to be the LAST ROW OF THE BODY and it has to ask in `h-full`; both were established
+        by measurement in a real browser rather than reasoned about, because table layout does not
+        behave the way it reads:
+          • in the FOOT, or as a percentage on the cell rather than the row, it is given nothing at
+            all and the surplus is handed to the last record instead, which stretches to 210px;
+          • with `tbody { height: 0 }` the records keep their height but are pushed to the BOTTOM
+            of the body, leaving the gap above them instead of below;
+          • here, as the last body row, it takes the whole surplus and the records keep the one
+            line each the density gives them.
+        It renders only alongside the strip: with no totals there is nothing to hold down, and a
+        table that ends where its rows end is right.
+        It is scenery, so it is hidden from assistive technology, and it carries no `data-grid-row`
+        — the attribute that says "this row is a record", which every count of real rows filters
+        on. The body already holds other structural rows for the same reason: the pin rule and the
+        row-detail second lines.
+      -->
+      {#if showTotals}
+        <tr class="mc-table-grid-filler-row h-full" aria-hidden="true">
+          <td class="mc-table-grid-filler-cell" colspan={grid.visibleColumns.length}></td>
+        </tr>
+      {/if}
     </tbody>
-    {#if grid.hasTotals && grid.rowsInView.length > 0 && !loading}
+    {#if showTotals}
       <tfoot>
         <tr class="mc-table-row">
           {#each grid.visibleColumns as column, columnIndex (column.id)}

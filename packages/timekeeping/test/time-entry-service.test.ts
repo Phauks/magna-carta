@@ -1,15 +1,17 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { MatterId, UserId } from "@magna-carta/identifiers/types";
+import type { MatterId, TimeEntryId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
   approveTimeEntry,
   captureTimeEntry,
   type CaptureTimeEntryInput,
   kickBackTimeEntry,
+  refileTimeEntry,
   submitTimeEntry,
   updateDraftTimeEntry,
+  unvoidTimeEntry,
   voidTimeEntry,
 } from "../src/time-entry-service.ts";
 import { TimeEntryValidationError } from "../src/time-entry-validation.ts";
@@ -279,6 +281,183 @@ async function billEntry(database: BatchDatabase, id: string): Promise<void> {
     .run();
 }
 
+describe("refileTimeEntry", () => {
+  /*
+   * Moving a misfiled entry keeps the record and re-asks what the matter answers. The entry number
+   * is the load-bearing half: a reference that changes is a reference that lies, so anything that
+   * cited it has to keep resolving — which is why the move carries it rather than re-minting.
+   */
+  async function seedTwoMatters(database: BatchDatabase): Promise<void> {
+    await seedMatter(database, "matter_1");
+    await database
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES (?1, 'Pemberton v. Hale', 'open', ?2, 0, ?3, ?3)",
+      )
+      .bind("matter_2", TIMEKEEPER, clock.now())
+      .run();
+  }
+
+  async function capturedDraft(database: BatchDatabase): Promise<TimeEntryId> {
+    const captured = await captureTimeEntry(
+      database,
+      { ...billableBase, rate: { noRate: true } },
+      options,
+    );
+    await commitEffectBatch(database, captured.effect, { now: clock.now });
+    return captured.timeEntryId;
+  }
+
+  it("moves the entry, keeping its number and taking the new matter's figures", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    const before = await readEntry(database, id);
+
+    const moved = await refileTimeEntry(
+      database,
+      id,
+      {
+        fromMatterId: "matter_1",
+        matterId: "matter_2",
+        durationMinutes: 45,
+        rateE4: 3_400_000,
+        rateCardId: null,
+        rateSource: "matter",
+        amountMinor: 25_500,
+        currency: "USD",
+      },
+      options,
+    );
+    await commitEffectBatch(database, moved.effect, { now: clock.now });
+
+    const after = await readEntry(database, id);
+    expect(after?.matter_id).toBe("matter_2");
+    expect(after?.duration_minutes).toBe(45);
+    expect(after?.rate_e4).toBe(3_400_000);
+    expect(after?.amount_minor).toBe(25_500);
+    // Everything that identifies the entry survives the move.
+    expect(after?.narrative).toBe(before?.narrative);
+    expect(after?.work_date).toBe(before?.work_date);
+    expect(after?.timekeeper_user_id).toBe(before?.timekeeper_user_id);
+    expect(await countAudits(database, "time_entry.refiled")).toBe(1);
+  });
+
+  it("keeps the entry number, because a reference that changes is a reference that lies", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    await database
+      .prepare("UPDATE time_entry SET entry_number = ?2 WHERE id = ?1")
+      .bind(id, "2026-0147.0042")
+      .run();
+
+    const moved = await refileTimeEntry(
+      database,
+      id,
+      {
+        fromMatterId: "matter_1",
+        matterId: "matter_2",
+        durationMinutes: 30,
+        rateE4: null,
+        rateCardId: null,
+        rateSource: null,
+        amountMinor: null,
+        currency: "USD",
+      },
+      options,
+    );
+    await commitEffectBatch(database, moved.effect, { now: clock.now });
+
+    const { results } = await database
+      .prepare("SELECT entry_number FROM time_entry WHERE id = ?1")
+      .bind(id)
+      .all<{ entry_number: string | null }>();
+    expect(results[0]?.entry_number).toBe("2026-0147.0042");
+  });
+
+  it("names both matters on the audit row, so the move is legible afterwards", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    const moved = await refileTimeEntry(
+      database,
+      id,
+      {
+        fromMatterId: "matter_1",
+        matterId: "matter_2",
+        durationMinutes: 30,
+        rateE4: null,
+        rateCardId: null,
+        rateSource: null,
+        amountMinor: null,
+        currency: "USD",
+      },
+      options,
+    );
+    await commitEffectBatch(database, moved.effect, { now: clock.now });
+
+    const { results } = await database
+      .prepare("SELECT metadata FROM audit_log WHERE event = 'time_entry.refiled'")
+      .all<{ metadata: string }>();
+    const metadata = JSON.parse(results[0]?.metadata ?? "{}") as Record<string, unknown>;
+    expect(metadata["fromMatterId"]).toBe("matter_1");
+    expect(metadata["toMatterId"]).toBe("matter_2");
+  });
+
+  it("refuses a move to the matter it is already on, rather than reporting a move that moved nothing", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    await expect(
+      refileTimeEntry(
+        database,
+        id,
+        {
+          fromMatterId: "matter_1",
+          matterId: "matter_1",
+          durationMinutes: 30,
+          rateE4: null,
+          rateCardId: null,
+          rateSource: null,
+          amountMinor: null,
+          currency: "USD",
+        },
+        options,
+      ),
+    ).rejects.toThrow(TimeEntryValidationError);
+  });
+
+  /*
+   * Past draft the entry is evidence somebody is relying on — an approved entry is a reviewer's
+   * decision about a matter, a billed one a line on a finalized bill — and the answer to both is a
+   * void and a fresh record, never a move nobody can see.
+   */
+  it("refuses anything past draft", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    await database.prepare("UPDATE time_entry SET status = 'billed' WHERE id = ?1").bind(id).run();
+
+    await expect(
+      refileTimeEntry(
+        database,
+        id,
+        {
+          fromMatterId: "matter_1",
+          matterId: "matter_2",
+          durationMinutes: 30,
+          rateE4: null,
+          rateCardId: null,
+          rateSource: null,
+          amountMinor: null,
+          currency: "USD",
+        },
+        options,
+      ),
+    ).rejects.toThrow(TimeEntryValidationError);
+  });
+});
+
 describe("time-entry lifecycle (review gate on)", () => {
   const gateOn = { ...options, approvalRequired: true } as const;
 
@@ -409,5 +588,135 @@ describe("time-entry lifecycle (review gate on)", () => {
     await expect(
       updateDraftTimeEntry(database, id as never, { narrative: "no" }, options),
     ).rejects.toMatchObject({ code: "frozen-entry" });
+  });
+});
+
+/*
+ * UNVOIDING. The point of these is the pair of refusals as much as the restore: a void that cannot
+ * be undone is a repair somebody has to do by re-typing, and a void that CAN always be undone is a
+ * way to charge converted work twice.
+ */
+describe("unvoidTimeEntry", () => {
+  async function voidedEntry(database: BatchDatabase): Promise<string> {
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    const voided = await voidTimeEntry(database, id as never, options);
+    await commitEffectBatch(database, voided.effect, { now: clock.now });
+    return id;
+  }
+
+  it("puts a voided entry back to draft, so the row can be worked again", async () => {
+    const database = freshDatabase();
+    const id = await voidedEntry(database);
+
+    const restored = await unvoidTimeEntry(
+      database,
+      id as never,
+      { convertedToCost: false },
+      options,
+    );
+    await commitEffectBatch(database, restored.effect, { now: clock.now });
+
+    expect(await statusOf(database, id)).toBe("draft");
+    // A draft again in the full sense: the edit path that refuses a frozen row now accepts it.
+    const edited = await updateDraftTimeEntry(
+      database,
+      id as never,
+      { narrative: "reworked" },
+      options,
+    );
+    await commitEffectBatch(database, edited.effect, { now: clock.now });
+    expect((await readEntry(database, id))?.narrative).toBe("reworked");
+  });
+
+  it("keeps everything the row carries, which is the whole reason not to re-type it", async () => {
+    const database = freshDatabase();
+    const id = await voidedEntry(database);
+    const before = await readEntry(database, id);
+
+    const restored = await unvoidTimeEntry(
+      database,
+      id as never,
+      { convertedToCost: false },
+      options,
+    );
+    await commitEffectBatch(database, restored.effect, { now: clock.now });
+
+    const after = await readEntry(database, id);
+    expect(after?.narrative).toBe(before?.narrative);
+    expect(after?.entry_number).toBe(before?.entry_number);
+    expect(after?.rate_e4).toBe(before?.rate_e4);
+    expect(after?.amount_minor).toBe(before?.amount_minor);
+    expect(after?.duration_minutes).toBe(before?.duration_minutes);
+  });
+
+  it("records the restore, so a reader of the history sees both acts", async () => {
+    const database = freshDatabase();
+    const id = await voidedEntry(database);
+    const restored = await unvoidTimeEntry(
+      database,
+      id as never,
+      { convertedToCost: false },
+      options,
+    );
+    await commitEffectBatch(database, restored.effect, { now: clock.now });
+
+    expect(await countAudits(database, "time_entry.voided")).toBe(1);
+    expect(await countAudits(database, "time_entry.unvoided")).toBe(1);
+  });
+
+  it("refuses an entry that was never voided — there is nothing to restore", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+
+    await expect(
+      unvoidTimeEntry(database, id as never, { convertedToCost: false }, options),
+    ).rejects.toMatchObject({ code: "not-void" });
+  });
+
+  it("refuses the one void that must stay one: an entry whose value became a cost", async () => {
+    const database = freshDatabase();
+    const id = await voidedEntry(database);
+
+    await expect(
+      unvoidTimeEntry(database, id as never, { convertedToCost: true }, options),
+    ).rejects.toMatchObject({ code: "converted-to-cost" });
+    // And it really is still void: a refusal that left the row half-restored would be worse than
+    // no restore at all.
+    expect(await statusOf(database, id)).toBe("void");
+  });
+
+  it("restores to draft and never to the review states it was withdrawn from", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    const submitted = await submitTimeEntry(database, id as never, {
+      ...options,
+      approvalRequired: true,
+    });
+    await commitEffectBatch(database, submitted.effect, { now: clock.now });
+    const approved = await approveTimeEntry(database, id as never, {
+      ...options,
+      approvalRequired: true,
+    });
+    await commitEffectBatch(database, approved.effect, { now: clock.now });
+    const voided = await voidTimeEntry(database, id as never, options);
+    await commitEffectBatch(database, voided.effect, { now: clock.now });
+
+    const restored = await unvoidTimeEntry(
+      database,
+      id as never,
+      { convertedToCost: false },
+      options,
+    );
+    await commitEffectBatch(database, restored.effect, { now: clock.now });
+
+    // An approval is a reviewer's judgement about an entry that was then withdrawn. Restoring the
+    // entry does not restore the judgement: it has to be given again.
+    expect(await statusOf(database, id)).toBe("draft");
   });
 });

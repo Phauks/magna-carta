@@ -419,6 +419,13 @@ export default defineConfig({
     // to the test host rejects its in-flight calls into nothing. The setup file's afterEach waits for
     // the worker to go quiet — see test/support/settle-background-work.ts for the full mechanism.
     setupFiles: ["./test/support/settle-background-work.ts"],
+    // Every file's beforeAll applies the control-plane migrations before its first test, and the
+    // heavier suites then seed several firms through the real registration flow (document-automation
+    // seeds six). On a 2-core CI runner with four workerd VMs sharing the box that is well past the
+    // 10-second default: the hook timed out twice on the gate on 2026-09-02 while every test in the
+    // file would have passed. Sized to the work rather than the default, and to the hook only — the
+    // per-test timeout stays where it is, so a test that hangs still fails fast.
+    hookTimeout: 60_000,
     // 16 CPUs but a RAM-constrained dev box (~3 GB free under normal load): each test file boots a
     // Miniflare/workerd VM holding the full app + bindings + the three stub service workers, so the
     // default CPU-wide file parallelism OOMs the box (exit 137). Cap the concurrent VMs to fit

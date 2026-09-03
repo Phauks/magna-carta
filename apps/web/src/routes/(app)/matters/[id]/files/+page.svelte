@@ -10,12 +10,43 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import FileManager from "$lib/file-manager/file-manager.svelte";
+  import FullHeightSection from "$lib/components/full-height-section.svelte";
+  import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
+  import FolderPlus from "@lucide/svelte/icons/folder-plus";
+  import Upload from "@lucide/svelte/icons/upload";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
   const matter = $derived(data.matter);
   const isSample = $derived(matter.source === "sample");
+
+  /*
+   * The matter header's New File is the surface's one create control, and it is a MENU here: three
+   * ways something new lands in the folder the reader is standing in. Views with no current folder
+   * (search results, deleted files, history, inside an archive) keep the control present and
+   * disabled with the reason, so the header never changes shape under the pointer — the file
+   * manager's own ruling, carried up to the band. The manager exports the three actions and the
+   * refusal rather than growing a button of its own (create-action.svelte.ts).
+   */
+  let fileManager = $state<ReturnType<typeof FileManager> | null>(null);
+  claimMatterCreate("files", () => {
+    const refusal = isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : fileManager === null
+        ? "The files are not on screen, so nothing can be added to them."
+        : fileManager.createRefusal();
+    return {
+      title: "Add a document, a folder or an upload to the folder you are in.",
+      refusal,
+      choices: [
+        { label: "New Document", icon: FilePlus2, run: () => fileManager?.newDocument() },
+        { label: "New Folder", icon: FolderPlus, run: () => fileManager?.newFolder() },
+        { label: "Upload Files", icon: Upload, run: () => fileManager?.upload() },
+      ],
+    };
+  });
 </script>
 
 {#if isSample}
@@ -30,12 +61,11 @@
     </Alert.Root>
   </section>
 {:else}
-  <!-- The file area takes the remaining viewport height and keeps it, so the screen does not
-       reflow as rows arrive, as a filter narrows them, or as an empty state replaces them. The
-       negative margins cancel the work canvas's padding and the layout's gap below the section
-       strip: the surface runs edge to edge, the toolbar sits directly under the tabs, and the
-       counts footer lands on the bottom of the screen. -->
-  <div class="-mx-24 -mt-24 -mb-24 flex min-h-0 flex-1 flex-col">
-    <FileManager matterId={matter.id} matterTitle={matter.title} />
-  </div>
+  <!-- The remaining-height frame every working surface uses, plus this one's own edge-to-edge
+       treatment: the horizontal margins cancel the work canvas's padding and the top one cancels
+       the layout's gap below the section strip, so the surface runs to the edges and the toolbar
+       sits directly under the tabs. -->
+  <FullHeightSection class="-mx-24 -mt-24">
+    <FileManager bind:this={fileManager} matterId={matter.id} matterTitle={matter.title} />
+  </FullHeightSection>
 {/if}

@@ -21,7 +21,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -32,9 +31,8 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
-  import Timer from "@lucide/svelte/icons/timer";
   import {
+    LedgerPanes,
     RecordMenu,
     ledgerRecordMenu,
     type RecordMenuAction,
@@ -57,12 +55,12 @@
   import { footerFigures, ledgerCurrency } from "./time-figures.ts";
   import TimeDetailsPanel from "./time-details-panel.svelte";
   import TimeRecordWindow from "./time-record-window.svelte";
-  import TimeSheet from "./time-sheet.svelte";
   import { timeEntrySheet } from "./time-print-sheet.ts";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
   import {
     approveTimeEntry,
     submitTimeEntry,
+    unvoidTimeEntry,
     voidTimeEntry,
     writeKey,
     type TimeEntryDraftFields,
@@ -119,12 +117,6 @@
    * over a capability nobody has built.
    */
   let actionRefusal = $state<string | null>(null);
-  /*
-   * The Time Sheet is the capture surface and it opens OVER this one: a person recording the day's
-   * work must not lose the list they were reading to do it, and coming back must not cost a
-   * navigation. It is the same surface wherever it is opened from.
-   */
-  let sheetOpen = $state(false);
 
   const grid = DataTable.createDataTableGrid<TimeEntrySummary>({
     columns: () => timeLedgerColumns(currency),
@@ -163,7 +155,12 @@
     windowOpen = true;
   }
 
-  function openLogTime(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowEntry = null;
     windowPrefill = null;
     windowEditing = true;
@@ -218,6 +215,10 @@
       recordNoun: { singular: "Time Entry", plural: "Time Entries" },
       // Not served: with the firm's review setting unknown, the review vocabulary stays absent.
       reviewGateEnabled: false,
+      // A voided time entry can be put back. The time ledger is the only one that can say this
+      // today, which is exactly why the menu takes it as a fact about the surface rather than
+      // assuming every ledger has the route.
+      canRestoreVoid: true,
     });
   });
 
@@ -322,8 +323,21 @@
           actionFailure = refusalSentence(outcome, "The entry");
           return;
         }
-        actionNotice = "The entry was struck. It stays on the ledger and counts toward nothing.";
+        actionNotice = "The entry was voided. It stays on the ledger and counts toward nothing.";
         onChanged();
+        return;
+      }
+      case "unvoid": {
+        const outcome = await unvoidTimeEntry(fetch, first.id, writeKey());
+        if (outcome.kind !== "ok") {
+          actionNotice =
+            outcome.kind === "problem" && outcome.problem.status === 409
+              ? "The entry was not restored. Either it is not voided any more, or its value was moved onto a cost — restoring it would charge the same work twice."
+              : "The entry was not restored. It is still voided on the ledger.";
+          return;
+        }
+        onChanged();
+        actionNotice = "The entry is a draft again, with its number, its note and its files.";
         return;
       }
       default:
@@ -400,13 +414,8 @@
 
 {#snippet emptyLedger()}
   <EmptyState title="No Time Recorded Yet">
-    Timers, manual entries and the weekly grid all land here, billable or not.
-    {#snippet actions()}
-      <Button onclick={openLogTime}>
-        <Plus class="size-16" aria-hidden="true" />
-        Log Time
-      </Button>
-    {/snippet}
+    Timers, manual entries and the weekly grid all land here, billable or not. New Time, at the top
+    of the matter, records the first entry.
   </EmptyState>
 {/snippet}
 
@@ -423,7 +432,7 @@
   {/each}
 {/snippet}
 
-<section class="flex min-h-0 flex-col gap-12">
+<section class="flex min-h-0 flex-1 flex-col gap-12">
   <div class="flex flex-wrap items-center justify-end gap-8">
     {#if grid.isFiltered}
       <Button
@@ -436,27 +445,13 @@
         Clear Filters
       </Button>
     {/if}
-    <!-- The Time Sheet is the top right's PRIMARY act — the capture surface the owner built is
-         what recording time means here; a lone one-off entry is the secondary path beside it. -->
+    <!-- Recording one entry on this matter is the matter header's New Time; the Time Sheet is the
+         top bar's, reachable from every screen including this one, and a second door to it here was
+         a control that took a reader somewhere they were already standing in front of. -->
+    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
+         border of its own, reading its state through the glyph and never a filled box. -->
     <Button
-      variant="secondary"
-      size="sm"
-      title="Record one entry on this matter. It saves as a draft."
-      onclick={openLogTime}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Log Time
-    </Button>
-    <Button
-      size="sm"
-      title="Open the Time Sheet: the day's rows in a grid, typed straight into, with the timer"
-      onclick={() => (sheetOpen = true)}
-    >
-      <Timer class="size-16" aria-hidden="true" />
-      Time Sheet
-    </Button>
-    <Button
-      variant="secondary"
+      variant="ghost"
       size="icon"
       aria-pressed={panelOpen}
       title="Show or hide the details panel"
@@ -485,65 +480,45 @@
     </Alert.Root>
   {/if}
 
-  <div class="min-h-0 flex-1">
-    <Resizable.PaneGroup direction="horizontal" autoSaveId="matter-time-panes">
-      <Resizable.Pane defaultSize={panelOpen ? 72 : 100} minSize={40}>
-        <RecordMenu
-          {menu}
-          onAction={(action) => void runMenuAction(action)}
-          onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-        >
-          <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-               product uses everywhere is still the thing that opens. The role is presentational:
-               this element adds no semantics of its own, it only notices where the pointer was. -->
-          <div role="presentation" oncontextmenu={retargetSelection}>
-            <!-- The list scrolls inside itself once it is taller than the screen, so a long ledger
-                 never pushes its own counts strip out of reach. -->
-            <DataTable.Grid
-              {grid}
-              {cell}
-              class="max-h-svh"
-              caption="Time recorded on this matter"
-              empty={emptyLedger}
-              {loading}
-            />
-          </div>
-        </RecordMenu>
-      </Resizable.Pane>
-      {#if panelOpen}
-        <Resizable.Handle withHandle />
-        <Resizable.Pane defaultSize={28} minSize={18} maxSize={44}>
-          <TimeDetailsPanel
-            {entries}
-            selected={selectedEntries}
-            {currency}
-            onOpen={(entry) => openRecord(entry, canWorkDraft(entry).allowed)}
-            onPrint={print}
-            onLetGo={() => grid.clearSelection()}
+  <LedgerPanes autoSaveId="matter-time-panes" {panelOpen}>
+    {#snippet list()}
+      <RecordMenu
+        class="flex min-h-0 flex-1 flex-col"
+        {menu}
+        onAction={(action) => void runMenuAction(action)}
+        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+      >
+        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+             product uses everywhere is still the thing that opens. The role is presentational:
+             this element adds no semantics of its own, it only notices where the pointer was. -->
+        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+          <!-- The list takes the height it is given and scrolls inside itself, so a long ledger
+               never grows the page and never pushes its own counts strip out of reach. -->
+          <DataTable.Grid
+            {grid}
+            {cell}
+            class="min-h-0 flex-1"
+            caption="Time recorded on this matter"
+            empty={emptyLedger}
+            {loading}
           />
-        </Resizable.Pane>
-      {/if}
-    </Resizable.PaneGroup>
-  </div>
+        </div>
+      </RecordMenu>
+    {/snippet}
+    {#snippet panel()}
+      <TimeDetailsPanel
+        {entries}
+        selected={selectedEntries}
+        {currency}
+        onOpen={(entry) => openRecord(entry, canWorkDraft(entry).allowed)}
+        onPrint={print}
+        onLetGo={() => grid.clearSelection()}
+      />
+    {/snippet}
+  </LedgerPanes>
 
   <DataTable.GridFooter {grid} end={footerEnd} />
 </section>
-
-<!--
-  The same Time Sheet the top bar opens, pre-filtered to this matter. It is one component with two
-  doors: opened here it shows this matter's rows and starts a new row on it, and it still carries
-  the Matter column, because a row on the sheet can be filed anywhere until it is written.
--->
-<TimeSheet
-  bind:open={sheetOpen}
-  {entries}
-  matterFilter={matterId}
-  {matterTitle}
-  {members}
-  {sessionUserId}
-  {loading}
-  {onChanged}
-/>
 
 <TimeRecordWindow
   bind:open={windowOpen}

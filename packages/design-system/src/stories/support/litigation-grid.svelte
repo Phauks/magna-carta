@@ -133,6 +133,30 @@
     rowMark?: (row: TimeEntry) => GridRowMark | undefined;
     /** The record's second line, passed through to the grid. */
     rowDetail?: Snippet<[TimeEntry]>;
+    /**
+     * Column widths to snapshot on mount, which also puts the table into its fixed layout.
+     *
+     * It is how a story reaches the state a member reaches by dragging a grip: columns that sum to
+     * more than the frame, so the table scrolls sideways and the placeholder row's cell is wider
+     * than anything the reader can see.
+     */
+    columnWidths?: Record<string, number>;
+    /** The surface's own empty state, where a story is exercising one. */
+    empty?: Snippet;
+    /**
+     * The scroll frame's own sizing classes. Capped by default, which is how most stories want it.
+     */
+    frameClass?: string;
+    /**
+     * A definite height for the frame, as an inline length on the box around it.
+     *
+     * It is a raw length and not a utility on purpose: the spacing scale stops at 96px, which is
+     * about what this table's header, one row and its totals already measure — so no utility in
+     * the theme can make a frame TALLER than its own content, and a story about the space below a
+     * short table needs exactly that. Scaffolding for a measurement, in a fixture that is not part
+     * of the design-system API; nothing shipped sizes a table this way.
+     */
+    frameHeight?: string;
     onActivate?: (row: TimeEntry) => void;
     onSelectionChange?: (keys: readonly string[], rows: readonly TimeEntry[]) => void;
   };
@@ -145,6 +169,10 @@
     pinnedRowKeys = [],
     rowMark,
     rowDetail,
+    columnWidths,
+    empty,
+    frameClass = "max-h-96",
+    frameHeight,
     onActivate,
     onSelectionChange,
   }: Props = $props();
@@ -165,10 +193,25 @@
     onActivate: (row) => onActivate?.(row),
     onSelectionChange: (keys, selectedRows) => onSelectionChange?.(keys, selectedRows),
   });
+
+  let widthsTaken = false;
+  $effect(() => {
+    if (columnWidths === undefined || widthsTaken) return;
+    widthsTaken = true;
+    grid.snapshotColumnWidths(columnWidths);
+  });
 </script>
 
-<div class="flex flex-col gap-8">
-  <DataTable.Grid {grid} caption="Time entries" {loading} {density} {rowDetail} class="max-h-96">
+<div class="flex flex-col gap-8" style={frameHeight === undefined ? undefined : `block-size: ${frameHeight}`}>
+  <DataTable.Grid
+    {grid}
+    caption="Time entries"
+    {loading}
+    {density}
+    {rowDetail}
+    {empty}
+    class={frameClass}
+  >
     {#snippet cell({ row, column, text })}
       {#if column.id === "status"}
         <Badge variant={STATUS_BADGE[row.status]}>{row.status}</Badge>

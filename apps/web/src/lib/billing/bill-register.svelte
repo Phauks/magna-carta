@@ -22,7 +22,6 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Resizable from "@magna-carta/design-system/resizable";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -31,8 +30,7 @@
   import FileMinus from "@lucide/svelte/icons/file-minus";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
-  import { RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
+  import { LedgerPanes, RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import type { CostSummary } from "$lib/matters/cost-api.ts";
@@ -130,6 +128,15 @@
   let claiming = $state<string | null>(null);
 
   let draftOpen = $state(false);
+
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
+    draftOpen = true;
+  }
   let finalizeOpen = $state(false);
   let voidOpen = $state(false);
   let deliveryOpen = $state(false);
@@ -421,13 +428,7 @@
 {#snippet emptyRegister()}
   <EmptyState title="No Bills Yet">
     Every bill this client has been given appears here, with this matter&rsquo;s own share of each.
-    Draft one when there is work to bill.
-    {#snippet actions()}
-      <Button disabled={clientEntityId === null} onclick={() => (draftOpen = true)}>
-        <Plus class="size-16" aria-hidden="true" />
-        Draft Bill
-      </Button>
-    {/snippet}
+    Draft one when there is work to bill: New Bill, at the top of the matter, opens the draft.
   </EmptyState>
 {/snippet}
 
@@ -457,19 +458,10 @@
         Clear Filters
       </Button>
     {/if}
+    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
+         border of its own, and last in the row on every ledger. -->
     <Button
-      size="sm"
-      disabled={clientEntityId === null}
-      title={clientEntityId === null
-        ? "This matter's party record names no client, so there is nobody to bill."
-        : "Open a draft bill for this matter's client. Nothing is asserted to anybody until it is finalized."}
-      onclick={() => (draftOpen = true)}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Draft Bill
-    </Button>
-    <Button
-      variant="secondary"
+      variant="ghost"
       size="icon"
       aria-pressed={panelOpen}
       title="Show or hide the details panel"
@@ -493,42 +485,50 @@
     </Alert.Root>
   {/if}
 
-  <div class="min-h-0 flex-1">
-    <Resizable.PaneGroup direction="horizontal" autoSaveId="matter-billing-panes">
-      <Resizable.Pane defaultSize={panelOpen ? 66 : 100} minSize={40}>
-        <RecordMenu {menu} onAction={runAction} onChoice={() => undefined}>
-          <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-               product uses everywhere is still the thing that opens. -->
-          <div role="presentation" oncontextmenu={retargetSelection}>
-            <DataTable.Grid
-              {grid}
-              {cell}
-              class="max-h-svh"
-              caption="Bills this matter's client has been given"
-              empty={emptyRegister}
-              {loading}
-            />
-          </div>
-        </RecordMenu>
-      </Resizable.Pane>
-      {#if panelOpen}
-        <Resizable.Handle withHandle />
-        <Resizable.Pane defaultSize={34} minSize={22} maxSize={50}>
-          <BillDetailsPanel
-            row={openRow ?? soleRow}
-            selectedCount={selectedRows.length}
-            {matterId}
-            {clientName}
-            {today}
-            {figures}
-            {money}
-            onOpenInvoice={openInvoice}
-            onLetGo={() => grid.clearSelection()}
+  <!-- An invoice's details are a bigger read than a time entry's, so this one pane opens wider —
+       a number handed to the shared frame, never a frame of its own. -->
+  <LedgerPanes
+    autoSaveId="matter-billing-panes"
+    {panelOpen}
+    panelSize={34}
+    panelMinSize={22}
+    panelMaxSize={50}
+  >
+    {#snippet list()}
+      <RecordMenu
+        class="flex min-h-0 flex-1 flex-col"
+        {menu}
+        onAction={runAction}
+        onChoice={() => undefined}
+      >
+        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+             product uses everywhere is still the thing that opens. -->
+        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+          <DataTable.Grid
+            {grid}
+            {cell}
+            class="min-h-0 flex-1"
+            caption="Bills this matter's client has been given"
+            empty={emptyRegister}
+            {loading}
           />
-        </Resizable.Pane>
-      {/if}
-    </Resizable.PaneGroup>
-  </div>
+        </div>
+      </RecordMenu>
+    {/snippet}
+    {#snippet panel()}
+      <BillDetailsPanel
+        row={openRow ?? soleRow}
+        selectedCount={selectedRows.length}
+        {matterId}
+        {clientName}
+        {today}
+        {figures}
+        {money}
+        onOpenInvoice={openInvoice}
+        onLetGo={() => grid.clearSelection()}
+      />
+    {/snippet}
+  </LedgerPanes>
 
   <DataTable.GridFooter {grid} end={footerEnd} />
 </section>

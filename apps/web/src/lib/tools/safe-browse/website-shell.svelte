@@ -62,11 +62,11 @@
    */
   import type { Snippet } from "svelte";
   import Button from "@magna-carta/design-system/button";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
+  import { soonControlProperties } from "@magna-carta/design-system/maturity";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Check from "@lucide/svelte/icons/check";
@@ -365,17 +365,16 @@
   {/if}
 </div>
 
-<Dialog.Root bind:open={expanded}>
-  <Dialog.Content class="h-full w-full max-w-full">
-    <Dialog.Title>Full Screenshot</Dialog.Title>
-    <div class="mc-scrollbar min-h-0 flex-1 overflow-auto">
-      {#if screenshot !== null}
-        <img
-          src={screenshot}
-          alt="Static screenshot of the captured page, at full size"
-          class="block w-full max-w-full"
-        />
-      {/if}
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+<!-- The screenshot at full size: a reading panel that opens filling the screen by design, since a
+     page image has nothing to gain from a window. -->
+<ActionDialog bind:open={expanded} kind="reading" heading="Full Screenshot" expanded={true}>
+  {#snippet fields()}
+    {#if screenshot !== null}
+      <img
+        src={screenshot}
+        alt="Static screenshot of the captured page, at full size"
+        class="block w-full max-w-full"
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>

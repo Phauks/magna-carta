@@ -20,10 +20,12 @@
  * Opening the sheet from a matter changes only two things: the rows it shows, and what a new row's
  * matter starts as. It is one surface with two doors, never two surfaces.
  *
- * THE MATTER OF AN ENTRY THAT ALREADY EXISTS IS NOT SETTABLE HERE. Nothing in the contract moves an
- * entry from one matter to another, so the picker is offered on a row that has not been written and
- * the cell states the dependency on one that has. Offering the change and dropping it would be the
- * worse failure: the reader would believe the entry had moved.
+ * A MISFILED ENTRY MOVES; IT IS NOT RE-TYPED. Time gets recorded against the wrong matter, and the
+ * remedy is a refile that keeps the entry's number, its memo, its codes, its files and its history
+ * — not a void and a fresh row, which loses all five and leaves a voided entry on a matter it was
+ * never really on. Moving it re-reads the rate and the rounding against the destination, because
+ * both resolve through the matter, so the row's money follows the row. What a move cannot do is
+ * take a written entry OFF a matter: the record has to be somewhere.
  *
  * THE TIMER IS THE FIRM'S, NOT THE PAGE'S. One timer per timekeeper, held on the server, so
  * starting one on a second row stops the first and a reload does not lose it. Where it lands
@@ -35,10 +37,16 @@
  * the firm made, and it reaches the record as one.
  *
  * SO ONLY WHAT CAN ACTUALLY BE PUT BACK IS OFFERED AS A STEP. The stack writes changed FIELDS back
- * through the update route, which is the only reversal this surface has. Striking an entry is not
- * one of them: nothing un-strikes an entry, so a strike pushes no step and says at the moment it
- * happens that undo does not reach it. Offering the step and then announcing a reversal that never
- * ran is the worse failure, because the reader believes the record went back.
+ * through the update route, which is the only reversal this surface has. Voiding an entry is not
+ * one of them — it is a status change on its own route, not a field the stack can rewrite — so a
+ * void pushes no step and says at the moment it happens that undo does not reach it. Offering the
+ * step and then announcing a reversal that never ran is the worse failure, because the reader
+ * believes the record went back.
+ *
+ * WHAT IT SAYS INSTEAD IS WHERE THE REPAIR IS. A void is no longer permanent: the entry can be put
+ * back to draft with everything it carries, from the ledger's own menu or from the record window.
+ * That is a different gesture from undo, in a different place, and the announcement names it —
+ * "undo does not reach this" is only half an answer if the other half exists.
  */
 import { untrack } from "svelte";
 import type { FirmMemberSummary } from "$lib/members/members-api.ts";
@@ -58,6 +66,7 @@ import {
   pauseTimer,
   patchTimeEntry,
   readTimer,
+  refileTimeEntry,
   resumeTimer,
   startTimer,
   stopTimerAndCommit,
@@ -122,13 +131,13 @@ export class TimeSheetStore {
   #timerMatterId: string | null = null;
   readonly #saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /**
-   * Entries struck since this sheet opened.
+   * Entries voided since this sheet opened.
    *
-   * A snapshot taken before a strike still holds that row as a draft, so restoring it would put a
-   * struck entry back on the sheet as workable and then try to write to it. The strike is the newer
+   * A snapshot taken before a void still holds that row as a draft, so restoring it would put a
+   * voided entry back on the sheet as workable and then try to write to it. The void is the newer
    * fact and it survives the restore.
    */
-  readonly #struckIdentifiers = new Set<string>();
+  readonly #voidedIdentifiers = new Set<string>();
 
   constructor(context: SheetContext) {
     this.#context = context;
@@ -136,7 +145,7 @@ export class TimeSheetStore {
       () => this.rows.map((row) => ({ ...row })),
       (snapshot) => {
         this.rows = snapshot.map((row) =>
-          row.entryIdentifier !== null && this.#struckIdentifiers.has(row.entryIdentifier)
+          row.entryIdentifier !== null && this.#voidedIdentifiers.has(row.entryIdentifier)
             ? { ...row, status: "void" as const }
             : { ...row },
         );
@@ -199,6 +208,7 @@ export class TimeSheetStore {
       provisionalCode: provisionalTimeCode(this.#provisionalCount),
       timekeeperUserId: sessionUserId ?? "",
       timekeeperName: me?.displayName ?? "",
+      enteredAt: this.#context.today(),
       currency: this.rows[0]?.currency ?? "USD",
     });
     this.rows = [...this.rows, row];
@@ -219,14 +229,63 @@ export class TimeSheetStore {
     const row = this.rowByKey(key);
     if (row === undefined || row.matterId === matterId) return;
     if (row.entryIdentifier !== null) {
-      this.#context.announce(
-        "This entry is on the firm's record, and nothing moves an entry from one matter to another yet. It stays where it is.",
-      );
+      // An entry the firm holds MOVES rather than being re-typed: it keeps its number, its memo,
+      // its codes, its attachments and its whole history. Taking it OFF a matter is the one thing
+      // a move cannot do — the record has to be somewhere — so that is refused rather than sent.
+      if (matterId === null) {
+        this.#context.announce(
+          "An entry on the firm's record has to be on a matter. Move it to another one rather than taking it off this one.",
+        );
+        return;
+      }
+      void this.#refile(key, row.entryIdentifier, matterId);
       return;
     }
     this.history.push("the matter on this entry");
     this.#patchRow(key, { matterId });
     this.#save(key);
+  }
+
+  /**
+   * Move a written entry onto another matter.
+   *
+   * It is NOT the debounced cell save. A refile re-resolves the rate and the rounding against the
+   * destination, so the row's money changes with its matter — the answer comes back from the write
+   * and is adopted, rather than the row keeping figures that belonged to the matter it just left.
+   *
+   * No undo step is pushed. Moving it back is another refile, which the reader can simply do; a
+   * stack entry that silently re-ran a cross-matter write on a record two people may be looking at
+   * is a different act from putting a typed cell back.
+   */
+  async #refile(key: string, entryIdentifier: string, matterId: string): Promise<void> {
+    const before = this.rowByKey(key)?.matterId ?? null;
+    this.#patchRow(key, { matterId, saveState: "saving", saveFailure: null });
+    const outcome = await refileTimeEntry(fetch, entryIdentifier, matterId, writeKey());
+    if (outcome.kind !== "ok") {
+      // The row goes back where it was: the record did not move, and a screen showing it on the
+      // new matter would be the one thing worse than refusing.
+      this.#patchRow(key, {
+        matterId: before,
+        saveState: "failed",
+        saveFailure:
+          outcome.kind === "problem" && outcome.problem.status === 409
+            ? "This entry cannot be moved: it is past draft, on a bill, or claimed by one. It is unchanged."
+            : "The entry was not moved. It is still on the matter it was on.",
+      });
+      return;
+    }
+    this.#patchRow(key, {
+      saveState: "saved",
+      saveFailure: null,
+      billedMinutes: outcome.value.durationMinutes,
+      rateE4: outcome.value.rateE4,
+      amountMinor: outcome.value.amountMinor,
+      currency: outcome.value.currency,
+    });
+    this.#context.announce(
+      "The entry moved. Its number, its note and its files came with it; the rate and the rounding were re-read on the matter it moved to.",
+    );
+    this.#context.onChanged();
   }
 
   /** Set the work date, and answer whether the scope has to widen to keep the row in view. */
@@ -243,6 +302,20 @@ export class TimeSheetStore {
     if (row === undefined || row.description === description) return;
     this.history.push("the description on this entry");
     this.#patchRow(key, { description });
+    this.#save(key);
+  }
+
+  /**
+   * Write the firm's own note on the entry.
+   *
+   * It rides the same debounced save as every other cell, and it is the one field on this row that
+   * no client-facing projection selects — not the bill, not the export, not the printed sheet.
+   */
+  setMemo(key: string, memo: string): void {
+    const row = this.rowByKey(key);
+    if (row === undefined || row.memo === memo) return;
+    this.history.push("the internal memo on this entry");
+    this.#patchRow(key, { memo });
     this.#save(key);
   }
 
@@ -314,6 +387,9 @@ export class TimeSheetStore {
               rawDurationMinutes: minutesFromSeconds(row.workedSeconds),
               narrative: row.description.trim(),
               billable: row.billable,
+              // Null clears rather than omits, so a memo emptied on the row is emptied on the
+              // record — an internal note somebody deleted must not survive the save.
+              memo: row.memo.trim() === "" ? null : row.memo,
             },
             writeKey(),
           )
@@ -324,6 +400,7 @@ export class TimeSheetStore {
               narrative: row.description.trim(),
               rawDurationMinutes: minutesFromSeconds(row.workedSeconds),
               workDate: row.workDate,
+              memo: row.memo.trim() === "" ? null : row.memo,
             },
             writeKey(),
           );
@@ -337,11 +414,15 @@ export class TimeSheetStore {
       });
       return;
     }
-    const written = outcome.value as { timeEntryId?: string };
+    // A capture answers with the identity it minted AND the number it drew; an update answers with
+    // the whole entry. Both are read for the number, because the Time Code cell should stop saying
+    // TMP- the moment the firm's own reference exists rather than at the next listing.
+    const written = outcome.value as { timeEntryId?: string; entryNumber?: string | null };
     this.#patchRow(key, {
       saveState: "saved",
       saveFailure: null,
       entryIdentifier: row.entryIdentifier ?? written.timeEntryId ?? null,
+      entryNumber: written.entryNumber ?? row.entryNumber,
     });
     this.#context.onChanged();
   }
@@ -356,13 +437,14 @@ export class TimeSheetStore {
   }
 
   /**
-   * Strike a row. It stays on the record, numbered, and counts toward nothing.
+   * Void a row. It stays on the record, numbered, and counts toward nothing.
    *
    * The two halves are different acts and they are offered on different terms. A row the server has
    * never seen is simply taken off the sheet, and putting it back is a step the stack can genuinely
-   * perform, so it gets one. A row that IS an entry is struck on the firm's record, and there is no
-   * route that un-strikes one — so no step is pushed and the announcement says as much, at the
-   * moment it is true, rather than leaving the reader to press undo and be told it worked.
+   * perform, so it gets one. A row that IS an entry is voided on the firm's record, which this
+   * stack cannot rewrite — so no step is pushed, and the announcement says both halves of the
+   * truth: undo will not reach it, and the entry can still be restored from the ledger or the
+   * record window, where the act that does reach it lives.
    */
   async voidRow(key: string): Promise<void> {
     const row = this.rowByKey(key);
@@ -377,14 +459,14 @@ export class TimeSheetStore {
     if (outcome.kind !== "ok") {
       this.#patchRow(key, {
         saveState: "failed",
-        saveFailure: "The entry was not struck. It is unchanged on the record.",
+        saveFailure: "The entry was not voided. It is unchanged on the record.",
       });
       return;
     }
-    this.#struckIdentifiers.add(row.entryIdentifier);
+    this.#voidedIdentifiers.add(row.entryIdentifier);
     this.#patchRow(key, { status: "void" });
     this.#context.announce(
-      "The entry was struck. It stays on the record and counts toward nothing. Undo does not reach it: nothing un-strikes an entry.",
+      "The entry was voided. It stays on the record and counts toward nothing. Undo does not reach it: restore it from the ledger or the record window.",
     );
     this.#context.onChanged();
   }

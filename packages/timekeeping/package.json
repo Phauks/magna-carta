@@ -25,6 +25,7 @@
     "./narrative-template-service": "./src/narrative-template-service.ts",
     "./quick-add-parser": "./src/quick-add-parser.ts",
     "./my-day": "./src/my-day.ts",
+    "./task-time": "./src/task-time.ts",
     "./queries": "./src/queries.ts",
     "./entry-numbering": "./src/entry-numbering.ts",
     "./time-entry-attachments": "./src/time-entry-attachments.ts"

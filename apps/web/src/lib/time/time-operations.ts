@@ -1,11 +1,16 @@
 /*
  * What a person can actually do to a time entry, and what the server will actually accept.
  *
- * The design gives the ledger a fuller verb set than this: unsubmit, delete-draft, move to another
- * ledger, refile onto another matter, attach a file, write a memo. None of those has a route, so
- * none of them is called from here — the surfaces render what they can and say what the rest waits
- * on. What IS here is exactly the set the contract serves, so the difference between "designed" and
- * "working" is a difference a reader of this file can see.
+ * The design gives the ledger a fuller verb set than the contract serves: unsubmit, delete-draft,
+ * record one member's work under another's. None of those has a route, so none of them is called
+ * from here — the surfaces render them where they belong, refused, and
+ * say what each waits on. What IS here is exactly the set the contract serves, so the difference
+ * between "designed" and "working" is a difference a reader of this file can see.
+ *
+ * KEEPING THAT LIST HONEST IS THE WHOLE POINT OF IT. Attaching a file, writing the internal memo
+ * and reading an entry's history were all on it while the routes for all three were already
+ * shipping, so three surfaces went on saying "not built yet" about work that was done. A verb
+ * leaves this list when its route lands, not when somebody notices.
  *
  * EVERY WRITE TAKES AN IDEMPOTENCY KEY, BECAUSE THE CONTRACT REQUIRES ONE ON EVERY WRITE. Not just
  * on capture: update, submit, approve, kick-back and void all declare it required, and the header
@@ -57,6 +62,17 @@ export interface DraftTimeEntry {
   readonly rawDurationMinutes: number;
   readonly narrative: string;
   readonly billable: boolean;
+  readonly utbmsTaskCodeId?: string | null;
+  readonly utbmsActivityCodeId?: string | null;
+  readonly memo?: string | null;
+  /** A rate for this entry alone, in ten-thousandths of a currency unit. */
+  readonly overrideRateE4?: number | null;
+  /**
+   * The task this time was worked on, where the timekeeper named one. Omitted on nearly every
+   * entry: time is captured against a MATTER, and naming a task is an extra. The server refuses a
+   * task on another matter, so the picker only ever offers this matter's own.
+   */
+  readonly taskId?: string | null;
 }
 
 /**
@@ -90,11 +106,23 @@ export interface TimeEntryDraftFields {
   readonly timekeeperUserId: string;
 }
 
-/** The parts of an entry the update route accepts. Nothing else on the record is settable yet. */
+/** The parts of an entry the update route accepts. */
 export interface TimeEntryChanges {
   readonly narrative?: string;
   readonly rawDurationMinutes?: number;
   readonly workDate?: string;
+  /** The UTBMS task code — the entry's category. Null clears it; absent leaves it alone. */
+  readonly utbmsTaskCodeId?: string | null;
+  readonly utbmsActivityCodeId?: string | null;
+  /** The firm's internal note. Null clears it; absent leaves it alone. */
+  readonly memo?: string | null;
+  /**
+   * A rate for THIS entry, in ten-thousandths of a currency unit, above every tier of the chain.
+   * Null clears it and the chain answers again; absent leaves the entry's rate exactly as it is.
+   */
+  readonly overrideRateE4?: number | null;
+  /** Null unlinks the task; absent leaves it alone. Refused on a billed or void entry. */
+  readonly taskId?: string | null;
 }
 
 export function patchTimeEntry(
@@ -167,7 +195,42 @@ export function kickBackTimeEntry(
   return transition(fetchImpl, timeEntryId, "kick-back", idempotencyKey, { reason });
 }
 
-/** Strike an entry. It stays on the ledger, carries no value, and is not removed. */
+/**
+ * Move a misfiled draft onto the matter it belongs to.
+ *
+ * Its own route rather than a field on the update, because it is a cross-matter write: two ledgers
+ * change, and the rate the entry froze was resolved against the matter it is leaving. What the
+ * caller gets back is what the entry now carries — the rate and the rounding are re-asked against
+ * the destination on the entry's own work date, so a screen that assumed nothing moved but the
+ * matter would be showing the wrong money until its next read.
+ *
+ * The entry number does NOT change. A reference that changes is a reference that lies, so anything
+ * that cited it keeps resolving; the consequence is that a moved entry's number names the matter it
+ * was FIRST written on, which is provenance rather than an assertion about where it lives now.
+ */
+export interface RefiledTimeEntry {
+  timeEntryId: string;
+  matterId: string;
+  durationMinutes: number;
+  rateE4: number | null;
+  amountMinor: number | null;
+  currency: string;
+}
+
+export function refileTimeEntry(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<RefiledTimeEntry>> {
+  return requestJson(fetchImpl, `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/refile`, {
+    method: "POST",
+    body: { matterId },
+    idempotencyKey,
+  });
+}
+
+/** Void an entry. It stays on the ledger, carries no value, and is not removed. */
 export function voidTimeEntry(
   fetchImpl: typeof fetch,
   timeEntryId: string,
@@ -176,9 +239,229 @@ export function voidTimeEntry(
   return transition(fetchImpl, timeEntryId, "void", idempotencyKey);
 }
 
+/**
+ * Undo a void, putting the entry back to draft with everything it carries.
+ *
+ * The repair for a void nobody meant, and the reason it is worth a route: re-typing the entry loses
+ * its number, its memo, its codes, its attached documents and its history. Refused (409) for an
+ * entry that was never voided, and for one whose value became a cost entry — restoring that one
+ * would charge the same work twice.
+ */
+export function unvoidTimeEntry(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<unknown>> {
+  return transition(fetchImpl, timeEntryId, "unvoid", idempotencyKey);
+}
+
+/*
+ * ---------------------------------------------------------------------------------------------
+ * What an entry carries BESIDE its own row: its history, its attached files, and the catalogues a
+ * reader picks its codes from. Each is its own read, made by the surface that shows it and not
+ * before — an entry's history is a page nobody looks at until they open the record.
+ */
+
+/** One recorded event on an entry, as the history rail reads it. */
+export interface TimeEntryEvent {
+  at: string;
+  /** The audit event's own name, e.g. "time_entry.captured". */
+  event: string;
+  actorUserId: string | null;
+  /** Resolved through the member mirror; null for system events and departed members. */
+  actorName: string | null;
+  /** Whatever redacted detail the write recorded. Null where it recorded none. */
+  detail: unknown;
+}
+
+/**
+ * The entry's recorded events, oldest first — the order a history rail reads in.
+ *
+ * Cursor-paged, because an entry worked over a week records an event per edit: the history grows
+ * with the work rather than with the lifecycle.
+ */
+export function listTimeEntryEvents(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  cursor?: string,
+): Promise<ApiOutcome<Page<TimeEntryEvent>>> {
+  const query = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/events${query}`,
+  );
+}
+
+/** One document an entry points at. */
+export interface TimeEntryAttachment {
+  fileId: string;
+  /** The file's CURRENT name, resolved at read time; null where the file row is gone. */
+  fileName: string | null;
+  createdAt: string;
+  createdByUserId: string | null;
+  createdByName: string | null;
+}
+
+export function listTimeEntryAttachments(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+): Promise<ApiOutcome<{ data: TimeEntryAttachment[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/attachments`,
+  );
+}
+
+/**
+ * Point the entry at one of its matter's documents.
+ *
+ * It REFERENCES the file rather than copying it: the document stays where it is in the matter, and
+ * detaching later removes the link and never the file. A file on another matter is refused, which
+ * is the rule that keeps an entry's evidence inside the matter it was recorded against.
+ */
+export function attachTimeEntryFile(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  fileId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ timeEntryId: string; fileId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/attachments`,
+    { method: "POST", body: { fileId }, idempotencyKey },
+  );
+}
+
+/** Remove the link. The matter keeps the document. */
+export function detachTimeEntryFile(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  fileId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ timeEntryId: string; fileId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}/attachments/detach`,
+    { method: "POST", body: { fileId }, idempotencyKey },
+  );
+}
+
+/** One ABA code the firm's catalogue holds. */
+export interface UtbmsCode {
+  id: string;
+  codeSet: string;
+  code: string;
+  label: string;
+  practiceArea: string | null;
+  /** Non-zero where the firm has this code turned on for entry and billing exports. */
+  active: number;
+}
+
+/**
+ * The firm's UTBMS codes for one ABA set.
+ *
+ * The listing is gated on the UTBMS management permission rather than a read permission, so an
+ * account that may record time may still be refused this. The refusal is an outcome the caller
+ * renders, never an empty catalogue: "the firm has no codes" and "you may not read them" are
+ * different facts and they must not look alike.
+ */
+export function listUtbmsCodes(
+  fetchImpl: typeof fetch,
+  codeSet: "task" | "activity",
+): Promise<ApiOutcome<{ data: UtbmsCode[] }>> {
+  return requestJson(fetchImpl, `/api/v1/utbms-codes?codeSet=${codeSet}`);
+}
+
 /** A fresh idempotency key for one write attempt and its retries. */
 export function writeKey(): string {
   return crypto.randomUUID();
+}
+
+/*
+ * ---------------------------------------------------------------------------------------------
+ * THE FIRM'S ROUNDING POLICY, and the three ways a duration can be typed.
+ *
+ * These belong together because two of the three depend on the policy. A billing UNIT is not a
+ * universal quantity — it is whatever increment the firm bills at, a tenth of an hour in most
+ * places and a quarter in some — so a screen that offers "units" and assumes six minutes records
+ * the wrong amount of work for half its customers. And the BILLED figure is the worked one rounded
+ * to that same increment, which is the other thing a capture screen has to be able to say.
+ * ---------------------------------------------------------------------------------------------
+ */
+
+/** How this firm turns worked minutes into billed ones, for this matter and this person. */
+export interface RoundingPolicy {
+  /** The increment billed time is rounded to, in minutes. Also what one unit is worth. */
+  readonly incrementMinutes: number;
+  readonly roundingDirection: "up" | "nearest" | "down";
+}
+
+/**
+ * Read the policy in force for a capture. Both scopes are optional: without them the answer is the
+ * firm's own, which is the right answer for a screen that has not been pointed at a matter yet.
+ */
+export function readRoundingPolicy(
+  fetchImpl: typeof fetch,
+  scope: { matterId?: string | null; timekeeperUserId?: string | null } = {},
+): Promise<ApiOutcome<RoundingPolicy>> {
+  const query = new URLSearchParams();
+  if (scope.matterId != null && scope.matterId !== "") query.set("matterId", scope.matterId);
+  if (scope.timekeeperUserId != null && scope.timekeeperUserId !== "") {
+    query.set("timekeeperUserId", scope.timekeeperUserId);
+  }
+  const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+  return requestJson(fetchImpl, `/api/v1/time-entries/rounding-policy${suffix}`);
+}
+
+/** Worked minutes as the firm will bill them. Mirrors the server's own rounding, for display. */
+export function roundToIncrement(minutes: number, policy: RoundingPolicy): number {
+  const increment = policy.incrementMinutes;
+  if (increment <= 0) return minutes;
+  const quotient = minutes / increment;
+  const units =
+    policy.roundingDirection === "up"
+      ? Math.ceil(quotient)
+      : policy.roundingDirection === "down"
+        ? Math.floor(quotient)
+        : Math.round(quotient);
+  return units * increment;
+}
+
+/**
+ * A clock time somebody typed, as minutes past midnight. Accepts "9", "9:30", "0930", "9:30 pm",
+ * "9pm" — the shapes people actually type into a start-and-end pair — and null for anything else.
+ */
+export function parseClockTime(text: string): number | null {
+  const trimmed = text.trim().toLowerCase();
+  if (trimmed === "") return null;
+  const match = /^(\d{1,2})(?::?([0-5]\d))?\s*(am|pm)?$/.exec(trimmed);
+  if (match === null) return null;
+  const meridiem = match[3];
+  let hours = Number(match[1]);
+  const minutes = match[2] === undefined ? 0 : Number(match[2]);
+  if (meridiem === undefined) {
+    if (hours > 23) return null;
+  } else {
+    if (hours < 1 || hours > 12) return null;
+    if (meridiem === "am") hours = hours === 12 ? 0 : hours;
+    else hours = hours === 12 ? 12 : hours + 12;
+  }
+  return hours * 60 + minutes;
+}
+
+/**
+ * How long somebody was at it, from the two clock times they were at it between.
+ *
+ * A span that ENDS EARLIER THAN IT STARTS is read as crossing midnight rather than refused: work
+ * that begins at 23:00 and ends at 01:00 is two hours of it, and that is a night most people in
+ * this product have had. A span of exactly zero is not a duration and answers null.
+ */
+export function parseTimeSpan(from: string, to: string): number | null {
+  const start = parseClockTime(from);
+  const end = parseClockTime(to);
+  if (start === null || end === null) return null;
+  const elapsed = end > start ? end - start : end === start ? 0 : end + 24 * 60 - start;
+  return elapsed === 0 ? null : elapsed;
 }
 
 /**

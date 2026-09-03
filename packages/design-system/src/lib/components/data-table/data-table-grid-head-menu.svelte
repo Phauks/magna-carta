@@ -38,7 +38,11 @@
   };
   let { grid, column, settings }: Props = $props();
 
-  const pinned = $derived(grid.isPinned(column.id));
+  // A trailing-pinned column is pinned by declaration, not by the reader: it holds its place at the end
+  // edge and the grid refuses to toggle it (togglePinned returns early), so the menu shows the pin as
+  // held rather than offering a control that would do nothing.
+  const pinnedEnd = $derived(column.pinnedEnd === true);
+  const pinned = $derived(pinnedEnd || grid.isPinned(column.id));
   const anchored = $derived(column.anchored === true);
   // A column with nothing to filter on contributes no group, and so no rule above the next one.
   const filterable = $derived(gridColumnFilterKind(column) !== "none");
@@ -60,9 +64,12 @@
     Hide {column.label}
   </ContextMenu.Item>
   <ContextMenu.Item
-    title={pinned
-      ? `Unpin: ${column.label} scrolls with the rest again`
-      : `Pin ${column.label} so it keeps its place when the list scrolls sideways`}
+    disabled={pinnedEnd}
+    title={pinnedEnd
+      ? `${column.label} always keeps its place at the trailing edge`
+      : pinned
+        ? `Unpin: ${column.label} scrolls with the rest again`
+        : `Pin ${column.label} so it keeps its place when the list scrolls sideways`}
     onSelect={() => grid.togglePinned(column.id)}
   >
     <Pin

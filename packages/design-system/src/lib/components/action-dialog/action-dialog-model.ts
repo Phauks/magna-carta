@@ -25,6 +25,13 @@ import type { ActionDialogKind, ActionDialogWidth } from "./types.ts";
  */
 export const DISMISS_LABEL = "Cancel";
 
+/**
+ * The word on the way out of a panel that asked for nothing. "Cancel" is the ruling for an act —
+ * something was begun — and nothing was begun here; the record window's own reading mode leaves
+ * through "Close", so a reading panel does too.
+ */
+export const LEAVE_LABEL = "Close";
+
 /** Everything a kind decides, resolved in one place. */
 export interface KindTraits {
   /** Which primitive renders it. An alert dialog takes the `alertdialog` role and traps a decision. */
@@ -33,8 +40,14 @@ export interface KindTraits {
   readonly showsCornerDismiss: boolean;
   /** Whether a press outside the panel dismisses it. */
   readonly dismissOnPressOutside: boolean;
-  /** The commit control's variant. */
-  readonly commitVariant: "primary" | "destructive";
+  /** The commit control's variant. A reading panel has no commit, and says so. */
+  readonly commitVariant: "primary" | "destructive" | null;
+  /**
+   * Whether the panel offers to fill the screen. A form and a reading panel can have something to
+   * gain from the room; a question never does, and a question that could be expanded would be a
+   * question with a control it does not need in the one place a reader looks for the answer.
+   */
+  readonly expandable: boolean;
 }
 
 const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
@@ -43,18 +56,28 @@ const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
     showsCornerDismiss: true,
     dismissOnPressOutside: true,
     commitVariant: "primary",
+    expandable: true,
   },
   confirm: {
     primitive: "alert-dialog",
     showsCornerDismiss: false,
     dismissOnPressOutside: false,
     commitVariant: "primary",
+    expandable: false,
   },
   destructive: {
     primitive: "alert-dialog",
     showsCornerDismiss: false,
     dismissOnPressOutside: false,
     commitVariant: "destructive",
+    expandable: false,
+  },
+  reading: {
+    primitive: "dialog",
+    showsCornerDismiss: true,
+    dismissOnPressOutside: true,
+    commitVariant: null,
+    expandable: true,
   },
 };
 

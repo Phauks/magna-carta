@@ -27,7 +27,6 @@
    * refused, naming what it waits on.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Resizable from "@magna-carta/design-system/resizable";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -35,24 +34,17 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import Eye from "@lucide/svelte/icons/eye";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
-  import SquarePen from "@lucide/svelte/icons/square-pen";
-  import { RecordMenu } from "$lib/records/index.ts";
+  import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
   import type { LedgerRecord } from "$lib/records/ledger-record-menu.ts";
   import type { RecordMenuAction, RecordMenuModel } from "$lib/records/record-menu-model.ts";
   import ReclassifyDialog from "$lib/records/reclassify-dialog.svelte";
   import { mayReclassify } from "$lib/records/reclassification.ts";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { soonDependencySentence } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
-  import { BILLING_PERMISSIONS, type ArrangementRecord } from "./billing-api.ts";
-  import AmendAgreementDialog from "./amend-agreement-dialog.svelte";
-  import ArrangementDialog from "./arrangement-dialog.svelte";
   import FeeDetailsPanel from "./fee-details-panel.svelte";
   import FeeRecordWindow from "./fee-record-window.svelte";
   import {
@@ -78,25 +70,21 @@
 
   let {
     fees,
-    arrangement,
     loading = false,
     matterId,
     matterTitle,
     matterNumber,
     currency,
     permissions,
-    onAmended,
   }: {
     /** Every fee on the matter, in every status: that is what a matter's fee record is. */
     fees: readonly FeeRecord[];
-    arrangement: ArrangementRecord | null;
     loading?: boolean;
     matterId: string;
     matterTitle: string;
     matterNumber: string | null;
     currency: string;
     permissions: readonly string[] | null;
-    onAmended: (record: ArrangementRecord) => void;
   } = $props();
 
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
@@ -113,8 +101,6 @@
   let windowFee = $state<FeeRecord | null>(null);
   let printFee = $state<FeeRecord | null>(null);
   let printOpen = $state(false);
-  let amendOpen = $state(false);
-  let arrangementOpen = $state(false);
   let reclassifyFee = $state<FeeRecord | null>(null);
   let reclassifyOpen = $state(false);
 
@@ -135,13 +121,7 @@
     },
   });
 
-  const inForce = $derived(arrangement?.inForce ?? null);
   const position = $derived(feePosition(grid.isFiltered ? grid.rowsInView : fees));
-
-  const mayConfigure = $derived(
-    permissions === null || permissions.includes(BILLING_PERMISSIONS.configure),
-  );
-  const amendRefusal = `Amending the fee arrangement needs the ${BILLING_PERMISSIONS.configure} capability, which this account does not hold.`;
 
   /**
    * Whose draft this is to work.
@@ -162,7 +142,12 @@
     windowOpen = true;
   }
 
-  function openNewFee(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowFee = null;
     windowEditing = true;
     windowOpen = true;
@@ -231,7 +216,7 @@
       case "duplicate":
         // Duplicating starts a new draft from this fee's fields. Until a fee store exists, the
         // window opens on a blank draft rather than one pre-filled from a record nothing can copy.
-        openNewFee();
+        openNew();
         return;
       case "reclassify":
         reclassifyFee = first;
@@ -313,13 +298,8 @@
 {#snippet emptyLedger()}
   <EmptyState title="No Fees Recorded Yet">
     Flat charges for professional services land here &mdash; recorded by hand, and billed like any
-    other work in progress. A fee is never computed from time entries.
-    {#snippet actions()}
-      <Button onclick={openNewFee}>
-        <Plus class="size-16" aria-hidden="true" />
-        New Fee
-      </Button>
-    {/snippet}
+    other work in progress. A fee is never computed from time entries. New Fee, at the top of the
+    matter, records the first.
   </EmptyState>
 {/snippet}
 
@@ -344,75 +324,40 @@
   </span>
 {/snippet}
 
-<section class="flex h-full min-h-0 flex-col gap-12">
-  <!-- The arrangement: which version is in force, since when, and the two verbs. -->
-  <div class="flex flex-wrap items-baseline gap-8 text-sm">
-    {#if inForce === null}
-      <span class="text-text-muted">
-        No arrangement recorded &mdash; this matter is billed hourly.
-      </span>
-    {:else}
-      <span>Arrangement <span class="font-semibold tabular-nums">v{inForce.version}</span></span>
-      <span aria-hidden="true" class="text-text-subtle">·</span>
-      <span class="text-text-muted">
-        in force since <span class="tabular-nums">{formatDate(inForce.validFrom)}</span>
-      </span>
-    {/if}
-    <span class="flex flex-1 flex-wrap justify-end gap-8">
+<section class="flex min-h-0 flex-1 flex-col gap-12">
+  <!--
+    ONE ROW of verbs, and no strip of facts above the ledger. The fee arrangement used to lead this
+    row; it now lives in the matter's status window, behind the seal in the masthead (owner ruling,
+    2026-09-03), because it is a fact of the engagement rather than of the ledger and is rarely read.
+    Recording a fee is the matter header's New Fee, not a button here (create-action.svelte.ts);
+    the pane toggle ends the row as it does on every ledger.
+  -->
+  <div class="flex flex-wrap items-center justify-end gap-8 text-sm">
+    <span class="flex flex-1 flex-wrap items-center justify-end gap-8">
+      {#if grid.isFiltered}
+        <Button
+          variant="secondary"
+          size="sm"
+          title="Clear all filters and show all {grid.totalRowCount} fees"
+          onclick={() => grid.clearAllFilters()}
+        >
+          <FunnelX class="size-16" aria-hidden="true" />
+          Clear Filters
+        </Button>
+      {/if}
+      <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
+           border of its own, and last in the row on every ledger. -->
       <Button
-        variant="secondary"
-        size="sm"
-        title="The arrangement in force: what it is billed as, its terms, and every prior version"
-        onclick={() => (arrangementOpen = true)}
+        variant="ghost"
+        size="icon"
+        aria-pressed={panelOpen}
+        title="Show or hide the details panel"
+        aria-label="Show or hide the details panel"
+        onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
       >
-        <Eye class="size-16" aria-hidden="true" />
-        View
-      </Button>
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={!mayConfigure}
-        title={mayConfigure
-          ? "Record an amendment as a new version. The version in force stays on the record with the dates it governed."
-          : amendRefusal}
-        onclick={() => (amendOpen = true)}
-      >
-        <SquarePen class="size-16" aria-hidden="true" />
-        Amend
+        <PanelRight class="size-16" aria-hidden="true" />
       </Button>
     </span>
-  </div>
-
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
-      <Button
-        variant="secondary"
-        size="sm"
-        title="Clear all filters and show all {grid.totalRowCount} fees"
-        onclick={() => grid.clearAllFilters()}
-      >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
-      </Button>
-    {/if}
-    <Button
-      size="sm"
-      title="Record a flat charge for professional services on this matter. It saves as a draft."
-      onclick={openNewFee}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      New Fee
-    </Button>
-    <Button
-      variant="secondary"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
   </div>
 
   <!-- The one honest line about why this ledger stands empty: the record it lists is not served. -->
@@ -421,45 +366,39 @@
     {soonDependencySentence(gapReason("store"))}
   </p>
 
-  <div class="min-h-0 flex-1">
-    <Resizable.PaneGroup direction="horizontal" autoSaveId="matter-fees-panes">
-      <Resizable.Pane defaultSize={panelOpen ? 70 : 100} minSize={40}>
-        <RecordMenu
-          {menu}
-          onAction={runMenuAction}
-          onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-        >
-          <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-               product uses everywhere is still the thing that opens. -->
-          <div role="presentation" oncontextmenu={retargetSelection}>
-            <DataTable.Grid
-              {grid}
-              {cell}
-              class="max-h-svh"
-              caption="Fees recorded on this matter"
-              empty={emptyLedger}
-              {loading}
-            />
-          </div>
-        </RecordMenu>
-      </Resizable.Pane>
-      {#if panelOpen}
-        <Resizable.Handle withHandle />
-        <Resizable.Pane defaultSize={30} minSize={20} maxSize={46}>
-          <FeeDetailsPanel
-            {fees}
-            selected={selectedFees}
-            {arrangement}
-            {money}
-            onOpen={(fee) => openRecord(fee, canWorkDraft(fee).allowed)}
-            onPrint={print}
-            onViewArrangement={() => (arrangementOpen = true)}
-            onLetGo={() => grid.clearSelection()}
+  <LedgerPanes autoSaveId="matter-fees-panes" {panelOpen}>
+    {#snippet list()}
+      <RecordMenu
+        class="flex min-h-0 flex-1 flex-col"
+        {menu}
+        onAction={runMenuAction}
+        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+      >
+        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+             product uses everywhere is still the thing that opens. -->
+        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+          <DataTable.Grid
+            {grid}
+            {cell}
+            class="min-h-0 flex-1"
+            caption="Fees recorded on this matter"
+            empty={emptyLedger}
+            {loading}
           />
-        </Resizable.Pane>
-      {/if}
-    </Resizable.PaneGroup>
-  </div>
+        </div>
+      </RecordMenu>
+    {/snippet}
+    {#snippet panel()}
+      <FeeDetailsPanel
+        {fees}
+        selected={selectedFees}
+        {money}
+        onOpen={(fee) => openRecord(fee, canWorkDraft(fee).allowed)}
+        onPrint={print}
+        onLetGo={() => grid.clearSelection()}
+      />
+    {/snippet}
+  </LedgerPanes>
 
   <DataTable.GridFooter {grid} end={footerEnd} />
 </section>
@@ -485,22 +424,6 @@
     moveDependency={gapReason("reclassify")}
   />
 {/if}
-
-<ArrangementDialog
-  bind:open={arrangementOpen}
-  {arrangement}
-  {matterTitle}
-  {matterNumber}
-  {money}
-  canAmend={mayConfigure}
-  {amendRefusal}
-  onAmend={() => {
-    arrangementOpen = false;
-    amendOpen = true;
-  }}
-/>
-
-<AmendAgreementDialog bind:open={amendOpen} {arrangement} {matterId} onRecorded={onAmended} />
 
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />

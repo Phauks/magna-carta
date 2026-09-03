@@ -165,8 +165,10 @@ built in the background instead of streamed inline:
    can only ever read its own job — never another firm's by guessing a hash.
 
 **Per-firm isolation, artifact lifecycle, cost:** the manifest hash and the DO name are firm-scoped; the
-artifact lives in the firm's own bucket and is expired by a `bundles/` R2 lifecycle rule (the deploy
-runbook, section 8) — a regenerable cache, so expiry only forces a later rebuild. A Container
+artifact lives in the firm's own bucket and is expired by a `bundles/` R2 lifecycle rule, applied to
+that bucket at provisioning by `firm-resource-provider.ts` (the shared platform bucket's copy of the
+same rule is the deploy runbook's, section 8) — a regenerable cache, so expiry only forces a later
+rebuild. A Container
 escalation for outlier-large bundles is a named seam.
 
 ## Push progress — the hibernation WebSocket surface
@@ -226,9 +228,12 @@ and deploy, then add its id to `CONVERT_WORKER_ENGINE_IDS` — the id is what ac
 engine on, so it goes last (the worker answers 501 for an id it does not recognise, which fails the
 job as adapter-error).
 
-Still an operator step: **add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h) —
-conversion results are transient presigned-GET artifacts, and until the rule exists they accumulate
-([`docs/deploy-queue.md`](../../docs/deploy-queue.md)).
+Still an operator step **for the shared platform bucket**: add the R2 lifecycle rule expiring its
+`conversions/` prefix (~24 h) — conversion results are transient presigned-GET artifacts, and until
+the rule exists they accumulate ([`docs/deploy-queue.md`](../../docs/deploy-queue.md)). A firm's OWN
+bucket no longer needs the step: `firm-resource-provider.ts` applies the `bundles/` and
+`conversions/` expiries (and the abandoned-multipart abort) at provisioning, unconditionally on every
+run that reaches the bucket step.
 
 The dedicated-worker split is a cross-cutting decision shared with the scan, editing, and PDF-engine
 subsystems (search is the exception — its index is durable per-firm data), with `apps/scan-worker`
@@ -417,6 +422,32 @@ Local rules for this surface:
   credential; the telemetry catalogs give it no field, and nothing should add one.
 - **Better Auth's `/api/auth/*` endpoints are deliberately not gated** — the shipped sign-in screen
   mints no token, so gating them would break a working surface.
+
+## Time entries — the two guards that read something other than the row
+
+Two acts on `src/routes/time-entries.ts` decide on a fact the `time_entry` row does not carry, and
+both would be silently wrong if a future change looked only at the row:
+
+- **`POST .../{id}/unvoid` asks the AUDIT TRAIL whether the entry was converted into a cost.** That
+  conversion moves the entry's value onto a cost record and voids the time in the same batch, so the
+  firm cannot count the work twice; restoring the time afterwards would undo the protective half of
+  the act. The link between the two records exists **only** as the `time_entry.converted_to_cost`
+  audit event — no column on either row names the other — so that is what the handler reads, and the
+  service takes the ANSWER (`{ convertedToCost }`) rather than the database, which is what keeps the
+  rule testable without one. If a `source_time_entry_id` column ever lands on `cost_entry`, move the
+  guard onto it.
+- **`PATCH .../{id}` re-derives the money columns, and the inputs are three, not one.** An entry's
+  amount is its billed duration times its rate. The work date re-asks the rate chain; a new
+  `overrideRateE4` sets it directly; and a new `rawDurationMinutes` changes the other side of the
+  product — that third one used to be missed entirely, so an entry corrected from one hour to two
+  stayed billed at one. A patch touching any of the three re-rounds, re-resolves and re-multiplies;
+  one touching none of them leaves every money column exactly where it stood. The re-resolution also
+  carries a STANDING override forward (an entry whose `rate_source` is `override` already holds it
+  in `rate_e4`), so an unrelated edit cannot quietly hand the entry back to the card's rate.
+
+`GET .../rounding-policy` is registered **before** the `GET .../{id}` route on purpose: Hono matches
+in registration order, so moving it lets the dynamic `:id` pattern claim "rounding-policy" and the
+request comes back 422 for a malformed entry handle. Same rule as `quick-add-preview`.
 
 ## Release channels — the two doors and the flag catalog
 

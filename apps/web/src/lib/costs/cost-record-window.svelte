@@ -37,10 +37,11 @@
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
   import SquarePen from "@lucide/svelte/icons/square-pen";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
-  import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
-  import CostPayeePicker from "./cost-payee-picker.svelte";
+  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
+  import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
   import type { ExpenseCodeCatalogue } from "./cost-expense-codes.svelte.ts";
   import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
@@ -231,9 +232,19 @@
         }),
   );
 
-  function pickPayee(hit: DirectorySearchHit | null): void {
-    vendorId = hit === null ? null : hit.entityId;
-    vendorName = hit === null ? null : hit.displayName;
+  const payeeSearch = directoryPickerSearch(fetch);
+
+  // The payee as the picker holds it: the record's own two fields, read back as one entity. A cost
+  // that names a payee the directory cannot classify shows the name and offers a fresh pick.
+  const payee = $derived.by((): PickableEntity | null => {
+    if (vendorId === null || vendorName === null) return null;
+    const kind = entityKindFromIdentifier(vendorId);
+    return kind === null ? null : { identifier: vendorId, name: vendorName, kind };
+  });
+
+  function pickPayee(entity: PickableEntity | null): void {
+    vendorId = entity === null ? null : entity.identifier;
+    vendorName = entity === null ? null : entity.name;
   }
 
   async function save(andKeepGoing: boolean): Promise<void> {
@@ -376,10 +387,13 @@
             disabled
           />
         {:else}
-          <CostPayeePicker
+          <EntityPicker
+            search={payeeSearch}
+            value={payee}
+            onSelect={pickPayee}
+            onClear={() => pickPayee(null)}
+            label="Payee"
             inputId="{fieldPrefix}-payee"
-            selectedName={vendorName}
-            onPick={pickPayee}
           />
         {/if}
       </div>
@@ -438,28 +452,38 @@
       </div>
     </div>
 
-    <div class="grid gap-12 sm:grid-cols-2">
-      <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-description">Description</Label>
-        <Textarea
-          id="{fieldPrefix}-description"
-          rows={3}
-          placeholder={placeholderOf("Description")}
-          title="Description"
-          disabled={readOnly}
-          bind:value={descriptionText}
-        />
-        <p class="text-xs text-text-muted">What the cost was, as the client will read it.</p>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label>Internal Memo</Label>
-        <SoonAffordance reason={gapReason("memo")} reasonPlacement="line">
-          {#snippet control(soon)}
-            <Textarea rows={3} placeholder={placeholderOf("Internal Memo")} {...soon} />
-          {/snippet}
-        </SoonAffordance>
-        <p class="text-xs text-text-muted">An internal note. It never appears on a bill.</p>
-      </div>
+    <!--
+      THE SAME PAIR THE TIME ENTRY WRITES, IN THE SAME SHAPE. Description then Internal Memo,
+      stacked and full width, each a label over its field with the help on the hover rather than a
+      caption under it. They were side by side in a two-column grid, which made the private note
+      look like a second, equal fact about the cost instead of the quieter half of one act of
+      writing — and made a member who had learned the time window learn this one again.
+
+      A cost and a time entry are the two things a matter accrues, they are recorded minutes apart
+      by the same person, and the fields they share should not move between them.
+    -->
+    <div class="flex flex-col gap-4">
+      <Label for="{fieldPrefix}-description">Description</Label>
+      <Textarea
+        id="{fieldPrefix}-description"
+        class="resize-none"
+        rows={3}
+        placeholder={placeholderOf("Description")}
+        title="What the cost was, as the client will read it on the bill."
+        disabled={readOnly}
+        bind:value={descriptionText}
+      />
+    </div>
+
+    <div class="flex flex-col gap-4" data-internal-only="true">
+      <Label>Internal Memo</Label>
+      <SoonAffordance reason={gapReason("memo")} reasonPlacement="line">
+        {#snippet control(soon)}
+          <!-- No title of its own: the Soon composition supplies the hover, which says what the
+               field is waiting on — the more useful sentence while it cannot be typed in. -->
+          <Textarea class="resize-none" rows={2} placeholder={placeholderOf("Internal Memo")} {...soon} />
+        {/snippet}
+      </SoonAffordance>
     </div>
   </div>
 {/snippet}
@@ -587,6 +611,7 @@
   defaultTab="billing"
   editDisabledReason={editRefusal}
   saveDisabledReason={saveRefusal}
+  saveLabel={"Save & Close"}
   {unsavedChanges}
   onSave={() => void save(false)}
   onCancel={forgetChanges}

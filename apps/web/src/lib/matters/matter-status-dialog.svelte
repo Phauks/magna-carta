@@ -8,11 +8,18 @@
    * change behind an overflow menu made the two strangers: you read the status in one place and
    * changed it in another, three gestures away.
    *
-   * WHAT THE WINDOW IS AND IS NOT. It is a short answer to three questions and nothing else: what
-   * the status is, what closing requires and whether each requirement is met, and where the firm's
-   * paper file is kept. It is NOT a description of what closing does, NOT a checklist for a person
-   * to work through, and NOT a summary of the matter — everything else about the matter is on the
-   * sections that own it.
+   * WHAT THE WINDOW IS AND IS NOT. It is a short answer to four questions and nothing else: what
+   * the status is, how the matter is engaged — the agreement the client signed and the fee
+   * arrangement it rests on — what closing requires and whether each requirement is met, and where
+   * the firm's paper file is kept. It is NOT a description of what closing does, NOT a checklist
+   * for a person to work through, and NOT a summary of the matter — everything else about the
+   * matter is on the sections that own it.
+   *
+   * THE ENGAGEMENT LIVES HERE AND NOT ON THE FEES SCREEN (owner ruling, 2026-09-03). The fee
+   * arrangement is a fact of the engagement, set when the matter opens and rarely read again, and
+   * the intake agreement it rests on is the same kind of fact as the paper file's whereabouts. So
+   * it sits with the status, its version history folded away, and Amend seated beside it the way
+   * the lifecycle step is seated beside the status. The Fees screen states nothing about it.
    *
    * THE STEP IS SEATED ON THE STATUS, NOT AT THE FOOT OF THE WINDOW. Somebody may open this to read
    * where the file is kept, and a window whose bottom-right corner offers Close Matter puts the act
@@ -20,12 +27,19 @@
    * and the step is a quiet control beside the fact it changes, with the requirements that gate it
    * directly beneath as the reason it is disabled.
    *
+   * IT IS A READING PANEL, AND THE SHELL SAYS SO. It opens in ActionDialog with `kind="reading"`,
+   * which is the kind that asks for nothing: its action bar ends at the way out, and any step it
+   * offers is seated in its body beside the fact the step changes. That kind exists because THIS
+   * window refused a footer commit for the reason above before the shell had a word for it.
+   *
    * TWO SIDES, AND THE DIVISION IS THE POINT. The left is the matter's status and the step it
    * offers; the right is the paper file. They are apart because the paper file is a STANDING fact
    * and not a consequence of the step: a firm keeps a matter's folder in a box, commonly with other
    * matters' folders and commonly at a remote store, and closing the matter moves none of that. Laid
    * out under the requirements it would read as what closing does to the file, which is the one
-   * thing it must not say.
+   * thing it must not say. The right side is the shell's context pane — the record window's own
+   * right pane, lent — so it sits on the quieter surface behind a hairline, as context does
+   * everywhere in the product.
    *
    * THE PROGRAM ANSWERS THE REQUIREMENTS. The close-readiness route runs the firm's own registered
    * rules read-only, so each requirement arrives already answered rather than being discovered by
@@ -37,20 +51,36 @@
    */
   import { invalidateAll } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Archive from "@lucide/svelte/icons/archive";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import CircleDot from "@lucide/svelte/icons/circle-dot";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
-  import Separator from "@magna-carta/design-system/separator";
+  import SquarePen from "@lucide/svelte/icons/square-pen";
   import StatusMark from "@magna-carta/design-system/status-mark";
+  import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
+  import AmendAgreementDialog from "$lib/billing/amend-agreement-dialog.svelte";
+  import {
+    BILLING_PERMISSIONS,
+    readArrangement,
+    type ArrangementRecord,
+  } from "$lib/billing/billing-api.ts";
+  import {
+    ARRANGEMENT_KIND_LABELS,
+    arrangementTerms,
+    versionPeriod,
+    versionTitle,
+  } from "$lib/billing/fee-agreement.ts";
+  import { fileDownloadUrl } from "$lib/file-manager/matter-file-api.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
@@ -117,6 +147,22 @@
   let permissions = $state<readonly string[] | null>(null);
   let sessionSettled = $state(false);
 
+  /** The engagement: the fee arrangement in force and its history. Null until the read comes back. */
+  let arrangement = $state<ArrangementRecord | null>(null);
+  let arrangementFailed = $state(false);
+  let arrangementAsked = false;
+  let historyShown = $state(false);
+  let amendOpen = $state(false);
+
+  const inForce = $derived(arrangement?.inForce ?? null);
+  const history = $derived(arrangement?.history ?? []);
+  const currency = $derived(inForce?.currency ?? "USD");
+  const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
+  const mayAmend = $derived(
+    permissions === null || permissions.includes(BILLING_PERMISSIONS.configure),
+  );
+  const AMEND_REFUSAL = `Amending the fee arrangement needs the ${BILLING_PERMISSIONS.configure} capability, which this account does not hold.`;
+
   const identifier = $props.id();
   const blockedDescriptionIdentifier = `${identifier}-blocked`;
 
@@ -156,13 +202,31 @@
     })();
   });
 
-  // A window opened again starts on the step, not on the last answer it gave.
+  // The engagement is read when the window opens, every time: an amendment recorded elsewhere
+  // between two openings must not leave this window stating the old deal.
   $effect(() => {
-    if (!open) return;
+    if (!open || arrangementAsked || isSample) return;
+    arrangementAsked = true;
+    const matterId = matter.id;
+    void (async () => {
+      const outcome = await readArrangement(fetch, matterId);
+      if (outcome.kind === "ok") {
+        arrangement = outcome.value;
+        arrangementFailed = false;
+      } else {
+        arrangementFailed = true;
+      }
+    })();
+  });
+
+  // A window opened again starts on the step, not on the last answer it gave.
+  function reset(): void {
     taken = null;
     notices = [];
     failure = null;
-  });
+    arrangementAsked = false;
+    historyShown = false;
+  }
 
   function report(outcome: Exclude<ApiOutcome<unknown>, { kind: "ok" }>): void {
     // A close refused at the last moment is the same answer the requirements already hold, arriving
@@ -228,160 +292,242 @@
   }
 </script>
 
-<Dialog.Root bind:open>
-  <!-- The seal is a real button around the chip, never a chip pretending to be one: a Badge labels
-       and does not act. The affordance rides the hairline the badge recipe already reserves and
-       leaves transparent, so it costs no layout: the pill is outlined at rest (a control has to
-       read as one before it is hovered, which is what the overflow button beside it had to learn)
-       and the edge strengthens under the pointer. It matters most in dark mode, where the neutral
-       Closed chip's tint is all but the page's own ground and the word alone would read as text. -->
-  <Dialog.Trigger
-    class="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-    aria-label="Matter status: {seal.label}"
-    title={seal.meaning}
+<!-- The seal is a real button around the chip, never a chip pretending to be one: a Badge labels
+     and does not act. The affordance rides the hairline the badge recipe already reserves and
+     leaves transparent, so it costs no layout: the pill is outlined at rest (a control has to
+     read as one before it is hovered, which is what the overflow button beside it had to learn)
+     and the edge strengthens under the pointer. It matters most in dark mode, where the neutral
+     Closed chip's tint is all but the page's own ground and the word alone would read as text. -->
+<button
+  type="button"
+  class="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+  aria-label="Matter status: {seal.label}"
+  aria-haspopup="dialog"
+  aria-expanded={open}
+  title={seal.meaning}
+  onclick={() => (open = true)}
+>
+  <Badge
+    variant={seal.variant}
+    class="border-border-default uppercase hover:border-border-strong"
+    style="letter-spacing: var(--mc-tracking-caps)"
   >
-    <Badge
-      variant={seal.variant}
-      class="border-border-default uppercase hover:border-border-strong"
-      style="letter-spacing: var(--mc-tracking-caps)"
-    >
-      {seal.label}
-    </Badge>
-  </Dialog.Trigger>
+    {seal.label}
+  </Badge>
+</button>
 
-  <!-- The firm's wide working window, not a confirmation's width. The left side is bounded and
-       always will be; the right side is a panel that grows into a real physical-file register, and
-       a surface sized to today's sparse version would have to be resized the day it arrives. The
-       structure that will hold the work renders at rest. -->
-  <Dialog.Content showClose={false} class="max-w-record-window">
-    <Dialog.Title>Matter Status</Dialog.Title>
-    <Dialog.Description>
-      {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`} ·
-      {matter.title}
-    </Dialog.Description>
+<!-- The firm's wide working window, not a confirmation's width. The left side is bounded and
+     always will be; the right side is a panel that grows into a real physical-file register, and
+     a surface sized to today's sparse version would have to be resized the day it arrives. The
+     structure that will hold the work renders at rest. While a step's result is on screen the
+     window narrows to it: the file is not what that answer is about. -->
+<ActionDialog
+  kind="reading"
+  bind:open
+  heading="Matter Status"
+  width="record"
+  context={taken === null ? physicalFile : undefined}
+  onOpen={reset}
+>
+  {#snippet subtitle()}
+    {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`} ·
+    {matter.title}
+  {/snippet}
 
+  {#snippet fields()}
     {#if taken === null}
-      <!-- Left: the matter's status and the step it offers. Right: the paper file, which the step
-           does not touch. The two sides stack on a narrow viewport, status first, because the file
-           is a reference fact and the status is what somebody came here to change. -->
-      <div class="flex flex-col gap-24 sm:flex-row">
-        <div class="flex flex-1 flex-col gap-16">
-          <dl class="flex flex-col gap-8 text-sm">
-            <div class="grid grid-cols-2 items-center gap-16">
-              <dt class="text-text-muted">Status</dt>
-              <!-- The step sits on the status, not at the foot of the window. A window somebody
-                   opened to read the file's whereabouts should not carry the close as the thing its
-                   bottom-right corner offers: that is where a screen puts the act it was opened for,
-                   and this one was not necessarily opened for that. Seated here it is quiet, it is
-                   beside the fact it changes, and the requirements that gate it read as the reason
-                   it is disabled rather than as a paragraph somewhere above a button. -->
-              <dd class="flex flex-wrap items-center gap-8">
-                <Badge
-                  variant={seal.variant}
-                  class="uppercase"
-                  style="letter-spacing: var(--mc-tracking-caps)"
-                >
-                  {seal.label}
-                </Badge>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={block !== null || refused || working}
-                  title={block ?? undefined}
-                  aria-describedby={block === null ? undefined : blockedDescriptionIdentifier}
-                  onclick={take}
-                >
-                  <StepIcon class="size-16" aria-hidden="true" />
-                  {working ? step.busyLabel : step.label}
-                </Button>
-              </dd>
-            </div>
-          </dl>
-
-          <!-- What is in the way gets its own line: a disabled control can be neither hovered nor
-               focused, so the sentence has to be readable on the screen. -->
-          {#if block !== null}
-            <p id={blockedDescriptionIdentifier} class="text-xs text-text-subtle">{block}</p>
-          {/if}
-
-          {#if step.action === "close" && !isSample}
-            <!-- What closing requires, each one already answered by the rules themselves. Not a
-                 checklist: nothing here is a person's to tick, and the mark states what the program
-                 found rather than what anybody is being asked to confirm. -->
-            <div class="flex flex-col gap-8">
-              <h3 class="text-xs text-text-subtle uppercase">Requirements To Close</h3>
-              <ul class="flex flex-col gap-8 text-sm">
-                {#each requirements as requirement (requirement.key)}
-                  <li class="flex items-start gap-8">
-                    {#if requirement.state === "met"}
-                      <!-- The word beside it says the same thing, so the mark is decoration here. -->
-                      <StatusMark decorative class="mt-2 size-16" />
-                    {:else}
-                      {@const RequirementIcon = UNMET_ICON[requirement.state]}
-                      <RequirementIcon
-                        class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE[requirement.state]}"
-                        aria-hidden="true"
-                      />
-                    {/if}
-                    <span class="flex flex-col gap-4">
-                      <span
-                        class={requirement.state === "met" ? "text-text-muted" : "text-text-default"}
-                        >{requirement.label}</span
-                      >
-                      {#if requirement.detail !== null}
-                        <span class="text-status-danger-subtle-foreground"
-                          >{requirement.detail}</span
-                        >
-                      {/if}
-                    </span>
-                  </li>
-                {/each}
-              </ul>
-              {#if readinessFailed}
-                <!-- Unanswered is not unmet, and the difference is the whole reason for this line. -->
-                <p class="text-xs text-text-subtle">
-                  These could not be checked, so the close will check them.
-                </p>
-              {/if}
-            </div>
-          {/if}
+      <!-- The matter's status and the step it offers. -->
+      <div class="flex flex-col gap-16">
+      <dl class="flex flex-col gap-8 text-sm">
+        <div class="grid grid-cols-2 items-center gap-16">
+          <dt class="text-text-muted">Status</dt>
+          <!-- The step sits on the status, not at the foot of the window. A window somebody
+               opened to read the file's whereabouts should not carry the close as the thing its
+               bottom-right corner offers: that is where a screen puts the act it was opened for,
+               and this one was not necessarily opened for that. Seated here it is quiet, it is
+               beside the fact it changes, and the requirements that gate it read as the reason
+               it is disabled rather than as a paragraph somewhere above a button. -->
+          <dd class="flex flex-wrap items-center gap-8">
+            <Badge
+              variant={seal.variant}
+              class="uppercase"
+              style="letter-spacing: var(--mc-tracking-caps)"
+            >
+              {seal.label}
+            </Badge>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={block !== null || refused || working}
+              title={block ?? undefined}
+              aria-describedby={block === null ? undefined : blockedDescriptionIdentifier}
+              onclick={take}
+            >
+              <StepIcon class="size-16" aria-hidden="true" />
+              {working ? step.busyLabel : step.label}
+            </Button>
+          </dd>
         </div>
+      </dl>
 
-        <!-- self-stretch, not the component's own h-full: this flex row has no height of its own,
-             so a percentage height resolves against auto and the rule renders one pixel wide and
-             zero tall. Stretching is what makes it take the taller column's height. -->
-        <Separator orientation="vertical" class="hidden h-auto self-stretch sm:block" />
+      <!-- What is in the way gets its own line: a disabled control can be neither hovered nor
+           focused, so the sentence has to be readable on the screen. -->
+      {#if block !== null}
+        <p id={blockedDescriptionIdentifier} class="text-xs text-text-subtle">{block}</p>
+      {/if}
 
-        <div class="flex flex-1 flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">Physical File</h3>
-          <!-- The firm's own paper file, which is not the custody register: that one holds client
-               property left with the firm to guard. Nothing here is served yet, and the rows say so
-               the way a row says it — "Not recorded" beside the Soon mark. There is deliberately no
-               sentence under them naming the dependency: a row that already states it holds nothing
-               and wears the Soon mark has said it, and a paragraph repeating it was the loudest copy
-               on the window (owner ruling). The reasoning lives in matter-lifecycle.ts. -->
-          <dl class="flex flex-col gap-8 text-sm">
-            {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
-              <div class="grid grid-cols-2 items-baseline gap-16">
-                <dt class="text-text-muted">{fact.label}</dt>
-                <dd class="flex items-center gap-8 text-text-subtle">
-                  Not recorded
-                  <MaturityBadge stage="soon" />
+      {#if !isSample}
+        <!-- How the matter is engaged: the agreement the client signed, and the fee arrangement it
+             rests on. Amend is seated beside the arrangement as the step is seated beside the
+             status; the history is folded away because it is rarely read and never short. -->
+        <div class="flex flex-col gap-8">
+          <h3 class="text-xs text-text-subtle uppercase">Engagement</h3>
+          {#if arrangement === null && !arrangementFailed}
+            <p class="text-xs text-text-subtle">Reading the agreement.</p>
+          {:else if arrangementFailed}
+            <p class="text-xs text-text-subtle">The agreement could not be read.</p>
+          {:else}
+            <dl class="flex flex-col gap-8 text-sm">
+              <div class="grid grid-cols-2 items-center gap-16">
+                <dt class="text-text-muted">Agreement</dt>
+                <dd>
+                  {#if inForce?.agreementFileId != null && inForce.agreementFileName !== null}
+                    <a
+                      href={fileDownloadUrl(inForce.agreementFileId)}
+                      class="underline underline-offset-2 hover:text-text-default"
+                      title="The signed agreement, from the matter's files"
+                    >
+                      {inForce.agreementFileName}
+                    </a>
+                  {:else if inForce?.agreementFileId != null}
+                    <span class="text-text-subtle">The file named on this version has been deleted.</span>
+                  {:else}
+                    <span class="text-text-subtle">Not on file</span>
+                  {/if}
                 </dd>
               </div>
-            {/each}
-          </dl>
+              <div class="grid grid-cols-2 items-center gap-16">
+                <dt class="text-text-muted">Billed As</dt>
+                <dd class="flex flex-wrap items-center gap-8">
+                  <span>
+                    {inForce === null ? ARRANGEMENT_KIND_LABELS.hourly : ARRANGEMENT_KIND_LABELS[inForce.kind]}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!mayAmend}
+                    title={mayAmend
+                      ? "Record an amendment as a new version. The version in force stays on the record with the dates it governed."
+                      : AMEND_REFUSAL}
+                    onclick={() => (amendOpen = true)}
+                  >
+                    <SquarePen class="size-16" aria-hidden="true" />
+                    Amend
+                  </Button>
+                </dd>
+              </div>
+              {#if inForce === null}
+                <p class="text-xs text-text-subtle">
+                  Nothing was recorded, and a matter with no arrangement is billed hourly.
+                </p>
+              {:else}
+                <div class="grid grid-cols-2 items-baseline gap-16">
+                  <dt class="text-text-muted">Terms</dt>
+                  <dd>{arrangementTerms(inForce, money)}</dd>
+                </div>
+                <div class="grid grid-cols-2 items-baseline gap-16">
+                  <dt class="text-text-muted">In Force Since</dt>
+                  <dd class="tabular-nums">
+                    {formatDate(inForce.validFrom)} · version {inForce.version} of {history.length}
+                  </dd>
+                </div>
+              {/if}
+            </dl>
+            {#if history.length > 1}
+              <Button
+                variant="ghost"
+                size="sm"
+                class="self-start"
+                aria-expanded={historyShown}
+                onclick={() => (historyShown = !historyShown)}
+              >
+                {#if historyShown}
+                  <ChevronDown class="size-16" aria-hidden="true" />
+                {:else}
+                  <ChevronRight class="size-16" aria-hidden="true" />
+                {/if}
+                {historyShown ? "Hide the earlier versions" : `Show the ${history.length - 1} earlier ${history.length === 2 ? "version" : "versions"}`}
+              </Button>
+              {#if historyShown}
+                <ul class="flex flex-col gap-8 text-sm">
+                  {#each history as version (version.id)}
+                    <li class="flex flex-col gap-4">
+                      <span class="flex items-baseline justify-between gap-16">
+                        <span>{versionTitle(version)}</span>
+                        <span class="text-xs text-text-muted tabular-nums">
+                          {versionPeriod(version, formatDate)}
+                        </span>
+                      </span>
+                      <span class="text-xs text-text-subtle">{arrangementTerms(version, money)}</span>
+                      {#if version.agreementFileName !== null && version.agreementFileId !== null}
+                        <a
+                          href={fileDownloadUrl(version.agreementFileId)}
+                          class="self-start text-xs underline underline-offset-2"
+                        >
+                          {version.agreementFileName}
+                        </a>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+            {/if}
+          {/if}
         </div>
-      </div>
-
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Matter Is Unchanged"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
       {/if}
+
+      {#if step.action === "close" && !isSample}
+        <!-- What closing requires, each one already answered by the rules themselves. Not a
+             checklist: nothing here is a person's to tick, and the mark states what the program
+             found rather than what anybody is being asked to confirm. -->
+        <div class="flex flex-col gap-8">
+          <h3 class="text-xs text-text-subtle uppercase">Requirements To Close</h3>
+          <ul class="flex flex-col gap-8 text-sm">
+            {#each requirements as requirement (requirement.key)}
+              <li class="flex items-start gap-8">
+                {#if requirement.state === "met"}
+                  <!-- The word beside it says the same thing, so the mark is decoration here. -->
+                  <StatusMark decorative class="mt-2 size-16" />
+                {:else}
+                  {@const RequirementIcon = UNMET_ICON[requirement.state]}
+                  <RequirementIcon
+                    class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE[requirement.state]}"
+                    aria-hidden="true"
+                  />
+                {/if}
+                <span class="flex flex-col gap-4">
+                  <span
+                    class={requirement.state === "met" ? "text-text-muted" : "text-text-default"}
+                    >{requirement.label}</span
+                  >
+                  {#if requirement.detail !== null}
+                    <span class="text-status-danger-subtle-foreground"
+                      >{requirement.detail}</span
+                    >
+                  {/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+          {#if readinessFailed}
+            <!-- Unanswered is not unmet, and the difference is the whole reason for this line. -->
+            <p class="text-xs text-text-subtle">
+              These could not be checked, so the close will check them.
+            </p>
+          {/if}
+        </div>
+      {/if}
+      </div>
     {:else}
       <Alert.Root variant="success">
         <Alert.Title>{taken.doneSentence}</Alert.Title>
@@ -396,11 +542,48 @@
         {/if}
       </Alert.Root>
     {/if}
+  {/snippet}
 
-    <!-- The window's own corner offers only the way out of it. Nothing here acts on the matter, so
-         there is no press in the place a reader's hand goes by habit that they did not come for. -->
-    <div class="flex items-center justify-end gap-8">
-      <Button variant="secondary" disabled={working} onclick={() => (open = false)}>Done</Button>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="The Matter Is Unchanged"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>
+
+<!-- Amending is its own act, asked in its own panel over this one; the answer comes back here. -->
+<AmendAgreementDialog
+  bind:open={amendOpen}
+  {arrangement}
+  matterId={matter.id}
+  onRecorded={(record) => (arrangement = record)}
+/>
+
+<!-- The paper file, which the step does not touch. -->
+{#snippet physicalFile()}
+  <div class="flex flex-col gap-8">
+    <h3 class="text-xs text-text-subtle uppercase">Physical File</h3>
+    <!-- The firm's own paper file, which is not the custody register: that one holds client
+         property left with the firm to guard. Nothing here is served yet, and the rows say so
+         the way a row says it — "Not recorded" beside the Soon mark. There is deliberately no
+         sentence under them naming the dependency: a row that already states it holds nothing
+         and wears the Soon mark has said it, and a paragraph repeating it was the loudest copy
+         on the window (owner ruling). The reasoning lives in matter-lifecycle.ts. -->
+    <dl class="flex flex-col gap-8 text-sm">
+      {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
+        <div class="grid grid-cols-2 items-baseline gap-16">
+          <dt class="text-text-muted">{fact.label}</dt>
+          <dd class="flex items-center gap-8 text-text-subtle">
+            Not recorded
+            <MaturityBadge stage="soon" />
+          </dd>
+        </div>
+      {/each}
+    </dl>
+  </div>
+{/snippet}

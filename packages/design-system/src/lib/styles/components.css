@@ -17,6 +17,8 @@
 @import "../components/verification-code-input/verification-code-input.css";
 /* ScreenSearch carries the field treatment on its own wrapper, so it follows the field recipe. */
 @import "../components/screen-search/screen-search.css";
+/* CreateControl dresses a Button, so its recipe follows the button and the search it sits beside. */
+@import "../components/create-control/create-control.css";
 @import "../components/textarea/textarea.css";
 @import "../components/file-input/file-input.css";
 @import "../components/dropzone/dropzone.css";
@@ -68,6 +70,7 @@
 @import "../components/date-range-picker/date-range-picker.css";
 @import "./recipes/scrollbar.css";
 @import "../components/form/form.css";
+@import "../components/labelled-field/labelled-field.css";
 @import "../components/data-table/data-table.css";
 @import "../components/sidebar/sidebar.css";
 @import "../components/resizable/resizable.css";
@@ -89,6 +92,13 @@
 /* The attachments tab dresses rows inside a record window's context pane and hosts a Popover with a
    Command listbox in it, so it follows all three: at equal specificity the later rule wins. */
 @import "../components/record-attachments/record-attachments.css";
+/* The directory-linking family. The identity mark is imported before the picker and the parties tab
+   because both of those render the mark, so its base recipe must already be in the cascade; the
+   picker dresses a Combobox and the parties tab hosts the picker and dresses rows inside a record
+   window's pane, so each follows what it dresses. */
+@import "../components/entity-identity/entity-identity.css";
+@import "../components/entity-picker/entity-picker.css";
+@import "../components/record-parties/record-parties.css";
 /* The file manager left rail, dressed over the tree recipe it extends, so its rules win where
    the two meet. */
 @import "../components/folder-tree/folder-tree.css";
