@@ -130,6 +130,12 @@ is usually the fastest way to understand the rule.
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
   screen and nothing scrolls. A gate behind a tab is a gate somebody has to remember to go and look
   at. _(new matter, 2026-08-30)_
+- **A creation screen's sections may stand as a rail inside its own dialog.** The one-rail ruling
+  under Controls is about the app shell: a second vertical navigation beside the shell's own makes
+  the member ask which one they are in. A dialog is not the canvas, and the sections of a record
+  being created are not module navigation; the owner chose the side rail for New Person from a
+  canvas of four directions on 2026-09-03, with a count on each section and the gate beside it.
+  _(new person, 2026-09-03)_
 - **A data-entry surface carries no helper prose.** Every visible line is a label, a value, or the
   one honest sentence a Soon capability owes about what it waits on. A block with nothing in it is
   not drawn at all rather than announcing its own emptiness. _(new matter, 2026-08-30)_

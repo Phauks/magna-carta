@@ -69,6 +69,8 @@
 
   const verbItems = PRONOUN_VERB_NUMBERS.map((entry) => ({ value: entry.value, label: entry.label }));
   const missing = $derived(choice === PRONOUNS_ANOTHER_SET ? missingPronounForms(custom) : []);
+  // A set is whole or not at all: once one form is written, each empty one says so on itself.
+  const partial = $derived(missing.length > 0 && missing.length < PRONOUN_FORMS.length);
 </script>
 
 <section class="flex flex-col gap-16">
@@ -95,7 +97,10 @@
   {#if choice === PRONOUNS_ANOTHER_SET}
     <div class="grid gap-12 sm:grid-cols-2">
       {#each PRONOUN_FORMS as entry (entry.form)}
-        <LabelledField label="{entry.label} ({entry.reading})">
+        <LabelledField
+          label="{entry.label} ({entry.reading})"
+          error={partial && missing.includes(entry.label) ? "Needed for a whole set." : undefined}
+        >
           {#snippet children({ props })}
             <Input
               {...props}
@@ -127,8 +132,5 @@
         </Select.Root>
       </div>
     </div>
-    {#if missing.length > 0 && missing.length < PRONOUN_FORMS.length}
-      <p class="text-xs text-text-muted">Still needed: {missing.join(", ")}.</p>
-    {/if}
   {/if}
 </section>

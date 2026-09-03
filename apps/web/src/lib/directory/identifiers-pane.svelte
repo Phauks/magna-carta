@@ -173,7 +173,7 @@
        it BEFORE they press: reading a sealed value is recorded against their name. -->
   <p class="flex items-center gap-8 text-xs text-text-muted">
     <ShieldCheck class="size-16" aria-hidden="true" />
-    Values are sealed under the firm's key. Revealing one is recorded in the firm's audit log.
+    Revealing a value is recorded in the firm's audit log.
   </p>
 
   {#if writeFailure !== null}

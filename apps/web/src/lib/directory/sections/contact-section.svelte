@@ -91,12 +91,19 @@
 
   const refusal = $derived(contactDraftRefusal(draft));
   const started = $derived(contactDraftStarted(draft));
+  /** The refusal, on the field it is about, once something has been typed. */
+  const fieldError = $derived(started && refusal !== null ? refusal : undefined);
   const kindItems = CONTACT_KINDS.map((entry) => ({ value: entry.value, label: entry.label }));
   const countryItems = phoneCountries().map((country) => ({
     value: country.region,
     label: phoneCountryShortLabel(country),
     name: country.name,
   }));
+  const addressCountryItems = phoneCountries().map((country) => ({
+    value: country.region,
+    label: country.name,
+  }));
+  const addressCountryLabelId = `${identity}-address-country`;
   const useItems = $derived([
     ...(draft.kind === "email"
       ? EMAIL_USES
@@ -219,7 +226,7 @@
   <!-- The kind first; the fields it decides; the plus live once the value fits. -->
   <div class="flex flex-col gap-12 rounded-md border border-border-default bg-surface-raised p-12">
     <div class="flex flex-wrap items-end gap-8">
-      <div class="flex w-32 flex-col gap-8" style="width: 8rem">
+      <div class="flex flex-col gap-8" style="width: 8rem">
         <Label id={kindLabelId}>Kind</Label>
         <Select.Root
           type="single"
@@ -241,7 +248,7 @@
 
       {#if draft.kind === "email"}
         {@const email = draft}
-        <LabelledField label="Address" class="min-w-0 flex-auto">
+        <LabelledField label="Address" class="min-w-0 flex-auto" error={fieldError}>
           {#snippet children({ props })}
             <Input
               {...props}
@@ -280,7 +287,7 @@
             </Select.Content>
           </Select.Root>
         </div>
-        <LabelledField label="Number" class="min-w-0 flex-auto">
+        <LabelledField label="Number" class="min-w-0 flex-auto" error={fieldError}>
           {#snippet children({ props })}
             <Input
               {...props}
@@ -301,8 +308,8 @@
             />
           {/snippet}
         </LabelledField>
-        <div style="width: 4.5rem">
-          <LabelledField label="Ext.">
+        <div style="width: 6rem">
+          <LabelledField label="Extension">
             {#snippet children({ props })}
               <Input
                 {...props}
@@ -311,7 +318,7 @@
                 class="tabular-nums"
                 value={number.extension}
                 disabled={!canEdit}
-                placeholder={placeholderOf("Ext.")}
+                placeholder={placeholderOf("Extension")}
                 oninput={(event) => patch({ extension: event.currentTarget.value })}
               />
             {/snippet}
@@ -356,26 +363,26 @@
     {#if draft.kind === "address"}
       {@const address = draft}
       <div class="grid gap-8 sm:grid-cols-2">
-        <LabelledField label="Street">
+        <LabelledField label="Street" error={fieldError}>
           {#snippet children({ props })}
             <Input {...props} value={address.street} disabled={!canEdit} placeholder={placeholderOf("Street")} oninput={(event) => patch({ street: event.currentTarget.value })} />
           {/snippet}
         </LabelledField>
-        <LabelledField label="Street 2">
+        <LabelledField label="Suite or unit">
           {#snippet children({ props })}
-            <Input {...props} value={address.streetTwo} disabled={!canEdit} placeholder="Suite, floor, unit" oninput={(event) => patch({ streetTwo: event.currentTarget.value })} />
+            <Input {...props} value={address.streetTwo} disabled={!canEdit} placeholder={placeholderOf("Suite or unit")} oninput={(event) => patch({ streetTwo: event.currentTarget.value })} />
           {/snippet}
         </LabelledField>
       </div>
-      <div class="grid gap-8" style="grid-template-columns: minmax(0, 1fr) 6rem 6rem 5rem">
+      <div class="grid gap-8" style="grid-template-columns: minmax(0, 1fr) 6rem 6rem 10rem">
         <LabelledField label="City">
           {#snippet children({ props })}
             <Input {...props} value={address.city} disabled={!canEdit} placeholder={placeholderOf("City")} oninput={(event) => patch({ city: event.currentTarget.value })} />
           {/snippet}
         </LabelledField>
-        <LabelledField label="State">
+        <LabelledField label="Region">
           {#snippet children({ props })}
-            <Input {...props} value={address.region} disabled={!canEdit} placeholder={placeholderOf("State")} oninput={(event) => patch({ region: event.currentTarget.value })} />
+            <Input {...props} value={address.region} disabled={!canEdit} placeholder={placeholderOf("Region")} oninput={(event) => patch({ region: event.currentTarget.value })} />
           {/snippet}
         </LabelledField>
         <LabelledField label="Postal">
@@ -383,11 +390,17 @@
             <Input {...props} class="tabular-nums" value={address.postal} disabled={!canEdit} placeholder={placeholderOf("Postal")} oninput={(event) => patch({ postal: event.currentTarget.value })} />
           {/snippet}
         </LabelledField>
-        <LabelledField label="Country">
-          {#snippet children({ props })}
-            <Input {...props} maxlength={2} value={address.country} disabled={!canEdit} placeholder="US" oninput={(event) => patch({ country: event.currentTarget.value.toUpperCase() })} />
-          {/snippet}
-        </LabelledField>
+        <div class="flex flex-col gap-8">
+          <Label id={addressCountryLabelId}>Country</Label>
+          <Select.Root type="single" items={addressCountryItems} bind:value={() => address.country, (chosen) => patch({ country: chosen })} allowDeselect={false} disabled={!canEdit}>
+            <Select.Trigger aria-labelledby={addressCountryLabelId}><Select.Value /></Select.Trigger>
+            <Select.Content>
+              {#each addressCountryItems as item (item.value)}
+                <Select.Item value={item.value} label={item.label} />
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
       </div>
       <div class="flex flex-wrap items-end gap-8">
         <div class="flex flex-col gap-8" style="width: 10rem">
@@ -412,10 +425,10 @@
             </Select.Content>
           </Select.Root>
         </div>
-        <span class="me-auto"></span>
         <Button
           variant="secondary"
           size="icon"
+          class="ms-auto"
           disabled={!canEdit || refusal !== null}
           title={editDisabledReason ?? refusal ?? "Add"}
           aria-label="Add this address"
@@ -426,9 +439,5 @@
       </div>
     {/if}
 
-    <!-- The one visible line for why the plus is not live, once something has been typed. -->
-    {#if started && refusal !== null}
-      <p class="text-xs text-text-muted">{refusal}</p>
-    {/if}
   </div>
 </section>

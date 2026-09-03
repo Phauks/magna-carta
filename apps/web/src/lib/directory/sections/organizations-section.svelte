@@ -15,7 +15,7 @@
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import Plus from "@lucide/svelte/icons/plus";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Unlink from "@lucide/svelte/icons/unlink";
   import type { DirectoryEdgeType } from "../directory-api.ts";
   import { edgeTypeLabel } from "../directory-vocabulary.ts";
   import { farKindsFor, offeredEdgeTypesForRecord } from "../edge-draft.ts";
@@ -85,11 +85,11 @@
             variant="ghost"
             size="icon"
             {disabled}
-            title="Remove"
-            aria-label="Remove {row.organizationName}"
+            title="Unlink"
+            aria-label="Unlink {row.organizationName}"
             onclick={() => onRemove(row)}
           >
-            <Trash2 class="size-16" aria-hidden="true" />
+            <Unlink class="size-16" aria-hidden="true" />
           </Button>
         </li>
       {/each}
@@ -137,7 +137,7 @@
       variant="secondary"
       size="icon"
       disabled={disabled || picked === null}
-      title={picked === null ? "Choose an organization." : "Add"}
+      title={picked === null ? "Choose an organization" : "Add"}
       aria-label="Add this organization"
       onclick={add}
     >

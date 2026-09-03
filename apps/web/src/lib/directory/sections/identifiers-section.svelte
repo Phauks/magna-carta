@@ -17,6 +17,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
+  import PasswordInput from "@magna-carta/design-system/password-input";
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import Lock from "@lucide/svelte/icons/lock";
@@ -158,26 +159,42 @@
         </Select.Root>
       </div>
       {#each fields as field (field.key)}
-        <LabelledField label={field.label}>
+        <!-- The refusal sits on the number, the field every type has and the one it is usually
+             about; it appears once something has been typed, so a blank row is not nagged. -->
+        <LabelledField
+          label={field.label}
+          error={field.key === "number" && started && refusal !== null ? refusal : undefined}
+        >
           {#snippet children({ props })}
-            <Input
-              {...props}
-              type={field.entry === "secret" ? "password" : "text"}
-              inputmode={field.entry === "digits" ? "numeric" : undefined}
-              autocomplete="off"
-              class={field.entry === "digits" ? "tabular-nums" : undefined}
-              value={draft[field.key]}
-              disabled={!canEdit}
-              placeholder={placeholderOf(field.label)}
-              oninput={(event) => {
-                const typed =
-                  field.key === "number"
-                    ? identifierNumberAsTyped(draft.type, event.currentTarget.value)
-                    : event.currentTarget.value;
-                if (field.key === "number") event.currentTarget.value = typed;
-                patch({ [field.key]: typed });
-              }}
-            />
+            {#if field.entry === "secret"}
+              <PasswordInput
+                {...props}
+                autocomplete="new-password"
+                value={draft.secret}
+                disabled={!canEdit}
+                showLabel="Show the secret"
+                hideLabel="Hide the secret"
+                oninput={(event) => patch({ secret: event.currentTarget.value })}
+              />
+            {:else}
+              <Input
+                {...props}
+                inputmode={field.entry === "digits" ? "numeric" : undefined}
+                autocomplete="off"
+                class={field.entry === "digits" ? "tabular-nums" : undefined}
+                value={draft[field.key]}
+                disabled={!canEdit}
+                placeholder={placeholderOf(field.label)}
+                oninput={(event) => {
+                  const typed =
+                    field.key === "number"
+                      ? identifierNumberAsTyped(draft.type, event.currentTarget.value)
+                      : event.currentTarget.value;
+                  if (field.key === "number") event.currentTarget.value = typed;
+                  patch({ [field.key]: typed });
+                }}
+              />
+            {/if}
           {/snippet}
         </LabelledField>
       {/each}
@@ -192,8 +209,5 @@
         <Plus class="size-16" aria-hidden="true" />
       </Button>
     </div>
-    {#if started && refusal !== null}
-      <p class="text-xs text-text-muted">{refusal}</p>
-    {/if}
   </div>
 </section>

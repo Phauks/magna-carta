@@ -44,3 +44,20 @@ Environment notes from the first stream still hold (`node tooling/bootstrap/inde
   grows the person's sections.
 - The phone country control is a Select over every region; a Combobox that filters by typing is
   the next refinement if the list proves slow to reach.
+
+## The design review of 2026-09-03 (source-only; nothing rendered)
+
+Eight must-fix items, all fixed in the follow-up commit: the empty block above the contact section;
+a failed duplicate check now stated (warning) rather than drawn as "nobody similar", and a check in
+flight named on a mounted line; an organization link is unlinked, never binned; the account secret
+goes through `PasswordInput`; every refusal rides its field's `error` through `LabelledField`
+rather than a bare muted line; the identifiers pane keeps only the consequence sentence; literal
+placeholders replaced (the address country is a Select over the same country list the number row
+uses); the dates are `DatePicker`. The rail-inside-a-dialog exception is recorded in
+`design-corrections.md` under Data entry.
+
+Open for the owner from the review: whether New Organization should grow the rail now (its record
+already has the Contact and Identifiers panes on the same sections); whether the dense contact row
+and the section heading become design-system primitives before a sixth copy (the reviewer counted
+five rows and thirteen hand-drawn caps headings); whether the gate's Open control, a Button that
+navigates beside the draft, should wear the link register instead.

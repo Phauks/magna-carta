@@ -15,7 +15,6 @@
    * permission is recorded, never deleted: a number that came back "do not call" is a fact about
    * the record, and the next person must not ring it again.
    */
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -172,11 +171,6 @@
       <Skeleton class="h-32 w-full" />
     </div>
   {:else}
-    {#if rows.length === 0}
-      <EmptyState title="No Way To Reach Them Yet">
-        The firm holds no email address, telephone number or postal address for this record.
-      </EmptyState>
-    {/if}
     <ContactSection
       {rows}
       canEdit={mayEdit}
