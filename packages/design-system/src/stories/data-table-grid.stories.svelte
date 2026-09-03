@@ -214,7 +214,14 @@
     // Right-click the heading, then step into the column's Filter submenu — the one way in.
     const openFilter = async (label: string): Promise<void> => {
       await fireEvent.contextMenu(headOf(label));
-      await body.findByRole("menu");
+      const menu = await body.findByRole("menu");
+      // Wait for focus to be INSIDE the menu, not merely for the menu to exist. The menu takes
+      // focus on open (the panel, then its first item), but on the next animation frame rather
+      // than synchronously with its mount. A step that opens the submenu and focuses its field
+      // before that frame fires has the frame land afterwards and move focus back to the menu
+      // panel, mid-word (seen 2026-09-03, under the story suite's load, in one run of six). Once
+      // focus is inside the menu, its open-time work is spent.
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
       await userEvent.click(body.getByRole("menuitem", { name: `Filter ${label}` }));
       await waitFor(() => expect(body.getAllByRole("menu").length).toBeGreaterThan(1));
     };
@@ -302,7 +309,10 @@
       const from = await body.findByRole("spinbutton", { name: "From" });
       // "From" and "To" ARE the fields' names, so they stand as ghost text.
       await expect(from).toHaveAttribute("placeholder", "From");
-      await userEvent.type(from, "2");
+      // The field is focused and the keys sent to it: what this step asserts is the keyboard
+      // rule, so only the keyboard is in play.
+      from.focus();
+      await userEvent.keyboard("2");
       // A field inside a menu keeps its own keys: typing did not hand focus to a menu item.
       await expect(from).toHaveFocus();
       await waitFor(() => expect(bodyRows(table)).toHaveLength(6));
@@ -327,7 +337,9 @@
       const contains = await body.findByRole("searchbox", { name: "Filter Title" });
       // The ghost text is the field's name, not a description of the matching rule.
       await expect(contains).toHaveAttribute("placeholder", "Title");
-      await userEvent.type(contains, "motion");
+      // Keyboard only, for the reason given at the numeric range step above.
+      contains.focus();
+      await userEvent.keyboard("motion");
       await expect(contains).toHaveFocus();
       await waitFor(() => expect(bodyRows(table)).toHaveLength(3));
       // Clear All Filters from the footer clears every filter at once.
