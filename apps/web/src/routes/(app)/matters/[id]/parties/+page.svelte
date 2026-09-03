@@ -16,6 +16,7 @@
    */
   import RecordParties, { type PartyLink, type RecordParty } from "@magna-carta/design-system/record-parties";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { matterSections } from "$lib/matters/sections.ts";
@@ -34,6 +35,7 @@
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { entityRecordHref, UNNAMED_ENTITY } from "$lib/directory/entity-presentation.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
@@ -83,7 +85,7 @@
   const linkDisabledReason = $derived(
     mayEdit
       ? undefined
-      : "Changing who is on a matter needs the directory:edit permission, which this account does not hold.",
+      : permissionRefusal("Changing who is on a matter", "directory:edit"),
   );
 
   // ---- the parties -----------------------------------------------------------------------------
@@ -194,12 +196,10 @@
 </svelte:head>
 
 <section class="flex flex-col gap-16">
-  <h2
-    class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="border-b border-border-strong pb-8"
   >
     Parties
-  </h2>
+  </FieldLabel>
 
   {#if writeFailure !== null}
     <FailureNotice

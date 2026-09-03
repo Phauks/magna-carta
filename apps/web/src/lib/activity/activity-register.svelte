@@ -30,6 +30,7 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ArrowUpRight from "@lucide/svelte/icons/arrow-up-right";
   import { goto } from "$app/navigation";
   import {
@@ -271,9 +272,9 @@
     <div
       class="flex flex-wrap items-center justify-between gap-8 border-b border-border-strong pb-8"
     >
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         Activity
-      </h2>
+      </FieldLabel>
       <!-- The create control is the matter header's; this register claims it above. -->
     </div>
   {/if}

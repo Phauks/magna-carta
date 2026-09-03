@@ -55,6 +55,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import {
     cancelFirmEvent,
     cancelMatterEvent,
@@ -138,6 +139,7 @@
   } from "./firm-event-draft.ts";
   import RecordDeadlineDialog from "./record-deadline-dialog.svelte";
   import { timeZoneOptions } from "./time-zone-options.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let {
     open = $bindable(false),
@@ -614,7 +616,7 @@
   // ---- what this account may do ---------------------------------------------------------------
 
   const MANAGE_SENTENCE =
-    "Changing a calendar record needs the calendar:manage permission, which this account does not hold.";
+    permissionRefusal("Changing a calendar record", "calendar:manage");
 
   /** Why nothing here may be written, or undefined when it may. */
   const manageRefusal = $derived.by((): string | undefined => {
@@ -1665,9 +1667,9 @@
 
 {#snippet relatedLinksList()}
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Related
-    </p>
+    </FieldLabel>
     {#if linksFailure !== null}
       <FailureNotice
         failure={linksFailure.failure}

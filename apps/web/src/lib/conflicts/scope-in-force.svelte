@@ -18,6 +18,7 @@
    *     comparison that ran, and it is never flattened into either.
    */
   import Badge from "@magna-carta/design-system/badge";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import type { ScopeInForceRecord } from "./conflicts-api.ts";
   import { sourceVocabulary, strictnessVocabulary } from "./conflicts-vocabulary.ts";
 
@@ -42,7 +43,7 @@
 
 <div class="flex flex-col gap-16">
   <section class="flex flex-col gap-8">
-    <h3 class="text-xs text-text-subtle uppercase">Sources</h3>
+    <FieldLabel as="h3">Sources</FieldLabel>
     <dl class="flex flex-col gap-4 text-sm">
       {#each sources as [source, availability] (source)}
         {@const word = sourceVocabulary(source)}
@@ -66,7 +67,7 @@
   </section>
 
   <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-    <h3 class="text-xs text-text-subtle uppercase">How It Compared</h3>
+    <FieldLabel as="h3">How It Compared</FieldLabel>
     <dl class="flex flex-col gap-4 text-sm">
       {@render fact(
         "Strictness",
@@ -109,7 +110,7 @@
   </section>
 
   <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-    <h3 class="text-xs text-text-subtle uppercase">How Far It Walked</h3>
+    <FieldLabel as="h3">How Far It Walked</FieldLabel>
     <dl class="flex flex-col gap-4 text-sm">
       {@render fact("Traversal Budget", `${String(scope.depth)} hops (widest class)`)}
       {#each budgets as [edgeClass, budget] (edgeClass)}
@@ -161,7 +162,7 @@
   </section>
 
   <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-    <h3 class="text-xs text-text-subtle uppercase">How Much It Recorded</h3>
+    <FieldLabel as="h3">How Much It Recorded</FieldLabel>
     <dl class="flex flex-col gap-4 text-sm">
       {#if scope.candidates === null}
         {@render fact(

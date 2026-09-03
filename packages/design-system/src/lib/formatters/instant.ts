@@ -16,7 +16,7 @@
  *
  * This is the display of a moment in time. A DATE-ONLY value — a work date, a due date — is a
  * different question with a different answer (it is pinned to UTC so a calendar day never shifts
- * under the viewer's zone); that one lives with the table's typed columns.
+ * under the viewer's zone), and it lives beside this one in civil-date.ts.
  */
 
 /**

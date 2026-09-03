@@ -1,6 +1,7 @@
 /*
  * The shared display vocabulary: the platform's one answer for each of the small questions every
- * surface asks — how long, when, which version, who, and what a field's ghost text says.
+ * surface asks — how long, when, which day, how much, who, which version, and what a field's
+ * ghost text says.
  *
  * Each of these encodes a ruling that has already been issued, and every one of them was worth
  * landing before the surfaces that need it: a second answer to any of these questions is a
@@ -9,7 +10,15 @@
  * This is the package's curated boundary for the group. Inside the package, import the specific
  * module instead, so nothing pulls the whole set for one function.
  */
-export { formatDuration, type DurationOptions, type FormattedDuration } from "./duration.ts";
+export { formatDate, type CivilDateInput, type CivilDateOptions } from "./civil-date.ts";
+export {
+  formatClock,
+  formatDuration,
+  type ClockOptions,
+  type DurationOptions,
+  type FormattedDuration,
+} from "./duration.ts";
+export { formatMoney, formatNumber, type MoneyOptions, type NumberOptions } from "./money.ts";
 export {
   formatInstant,
   instantAttribute,

@@ -34,6 +34,7 @@
   import Checkbox from "@magna-carta/design-system/checkbox";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import Label from "@magna-carta/design-system/label";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ArrowLeftRight from "@lucide/svelte/icons/arrow-left-right";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -168,7 +169,7 @@
     <div class="flex flex-col gap-16">
       <div class="flex flex-wrap items-start gap-16">
         <div class="flex flex-col gap-8">
-          <span class="text-xs text-text-muted uppercase">Survives</span>
+          <FieldLabel as="span">Survives</FieldLabel>
           <EntityIdentity kind={plan.kind} name={plan.masterName} />
         </div>
         <Button
@@ -181,7 +182,7 @@
           Swap
         </Button>
         <div class="flex flex-col gap-8">
-          <span class="text-xs text-text-muted uppercase">Folded in</span>
+          <FieldLabel as="span">Folded in</FieldLabel>
           <EntityIdentity kind={plan.kind} name={plan.subordinateName} />
         </div>
       </div>

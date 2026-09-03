@@ -43,6 +43,7 @@
   import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import MatterDocumentPicker from "$lib/documents/matter-document-picker.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
   import {
     recordConflictsDisposition,
     DISPOSE_CONFLICTS_PERMISSION,
@@ -136,7 +137,7 @@
   const refusal = $derived.by((): string | undefined => {
     if (hit === null) return "No hit is open.";
     if (permissions !== null && !mayDispose) {
-      return "Answering a hit needs the conflicts:dispose permission, which this account does not hold.";
+      return permissionRefusal("Answering a hit", "conflicts:dispose");
     }
     if (rationale.trim() === "") return "A reason is required. It is what an auditor reads.";
     if (kind === "waiver_obtained") {

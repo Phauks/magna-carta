@@ -22,6 +22,17 @@
     line-height: var(--mc-leading-tight);
     white-space: nowrap;
   }
+  /*
+   * The caps register, for a badge that is a LABEL of a standing rather than a count — a matter's
+   * Open/Closed seal, a "View" marker on a settings section. It is the same letterspaced small-caps
+   * voice the masthead eyebrow and the field label wear, and it is here because six call sites were
+   * spelling it out with `class="uppercase"` and an inline letter-spacing style: uppercase without
+   * the tracking is wrong, and the tracking is not expressible as a utility.
+   */
+  .mc-badge-caps {
+    letter-spacing: var(--mc-tracking-caps);
+    text-transform: uppercase;
+  }
   .mc-badge-primary {
     background-color: var(--mc-action-primary);
     color: var(--mc-action-primary-foreground);
