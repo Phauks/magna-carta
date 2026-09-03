@@ -44,6 +44,7 @@
     "./file-icon": "./src/lib/components/file-icon/index.ts",
     "./field-row": "./src/lib/components/field-row/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
+    "./history": "./src/lib/components/history/index.ts",
     "./input": "./src/lib/components/input/index.ts",
     "./keyboard": "./src/lib/components/keyboard/index.ts",
     "./labelled-field": "./src/lib/components/labelled-field/index.ts",
