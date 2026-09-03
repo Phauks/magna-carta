@@ -49,11 +49,11 @@
    * BackLink's whole reason, but here a matter came from the docket, the docket is the only place up
    * from it, and the line the arrow sits on names the matter it is leaving. A second caps label
    * competed with the number for the same register and read as a breadcrumb trail with one crumb.
-   * The accessible name is on the anchor, so the destination is still spoken.
+   * The accessible name is on the anchor, so the destination is still spoken — which is BackLink's
+   * `arrow-only` form, shared with every other header whose top line already reads in that register.
    */
-  import EyebrowLink from "@magna-carta/design-system/eyebrow-link";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import BackLink from "$lib/navigation/back-link.svelte";
   import MatterSearchControl from "$lib/matters/matter-search-control.svelte";
   import MatterSectionNav from "$lib/matters/matter-section-nav.svelte";
   import MatterStatusDialog from "$lib/matters/matter-status-dialog.svelte";
@@ -114,9 +114,7 @@
            it is; announcing it as a breadcrumb would send a reader looking for a path that is not
            there. -->
       <nav aria-label="Back to Matters" class="flex flex-none">
-        <EyebrowLink href={MATTERS_HREF} aria-label="Back to Matters">
-          <ArrowLeft class="size-12" aria-hidden="true" />
-        </EyebrowLink>
+        <BackLink href={MATTERS_HREF} label="Matters" display="arrow-only" />
       </nav>
       <span
         class="flex-none text-xs font-semibold text-text-subtle uppercase"

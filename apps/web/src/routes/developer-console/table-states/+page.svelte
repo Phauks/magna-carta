@@ -15,11 +15,15 @@
   import Badge from "@magna-carta/design-system/badge";
   import type { BadgeVariant } from "@magna-carta/design-system/badge";
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import BackLink from "$lib/navigation/back-link.svelte";
   import {
     createDataTableGrid,
     type DataTableGridOptions,
     type GridColumn,
   } from "@magna-carta/design-system/data-table";
+
+  /** The console every gallery here was opened from, and where the way out leads. */
+  const DEVELOPER_CONSOLE_HREF = "/developer-console";
 
   type TimeEntry = {
     id: string;
@@ -194,12 +198,11 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <p
-        class="text-xs font-semibold text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
-      >
-        Developer console
-      </p>
+      <!-- The caps line that named the console this gallery was opened from now RETURNS to it,
+           in the same register it already read in. -->
+      <nav aria-label="Back to Developer console" class="flex">
+        <BackLink href={DEVELOPER_CONSOLE_HREF} label="Developer console" />
+      </nav>
       <h1 class="text-2xl font-semibold">Table states</h1>
       <p class="text-sm text-text-muted">
         The platform's one table (DataTable.Grid) in every state, rendered from the real design

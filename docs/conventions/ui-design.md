@@ -63,6 +63,19 @@ The exemplars are normative — Button (Tier 1, native), Tabs (Tier 2, single Bi
 
 Lucide only, **deep imports** (`@lucide/svelte/icons/<name>` — the bare-barrel import is gated), sized by a recipe class (`inline-size`/`block-size` from a token), not a `size` prop. **No emojis anywhere** (gated). Icons are decorative — `aria-hidden="true"` — unless they are the only label, in which case the control needs an accessible name another way.
 
+## The way back — a screen entered from another screen returns to it
+
+A screen the reader reached **from** another screen carries a return affordance at the top of its own header: a matter opened from the docket, a person opened from the Directory, a check opened from the conflicts register. The browser's own back button is not that affordance — a screen arrives by link, by search result and in a fresh tab as often as by a click from the screen above it, and none of those has a history to step back through.
+
+One component renders it — [`apps/web/src/lib/navigation/back-link.svelte`](../../apps/web/src/lib/navigation/back-link.svelte), over the design system's `EyebrowLink` — in two forms, and the header picks between them:
+
+- **Labelled** (the default): a `nav` row immediately above the masthead, tight to it, carrying the arrow and then the destination's **name** rather than the word "Back", so a reader learns _where_ it goes. The tools layout and both conflicts detail screens.
+- **Arrow-only**: where the header's top line **already** reads in the eyebrow register — a matter's ledger line, a directory record's kind — the arrow leads that line instead. A second caps label stacked above it competes with that line for the same register and reads as a breadcrumb trail with one crumb (owner ruling on the matter header, 2026-09-01). The label is still required, because it is still spoken: the anchor's accessible name is "Back to \<destination\>" either way, and the visible text stays a substring of it.
+
+A subtree whose screens share one header shape pays for the link **once, in the layout** (`(app)/tools/+layout.svelte` does this for every tool page), never per page.
+
+**Gated** — `pnpm run lint:back-navigation`. The rule is derived from the route tree rather than a list: a route whose nearest ancestor route renders a page of its own must offer a way back, in the page or in a layout between them, through however many components its header is built from — and that way back must lead **there**, not merely somewhere. A route whose ancestors only redirect or only draw a shell is asked for nothing (`/settings/theme` is that case; its finding aid is the settings nav beside it), and a route that must decline says so in the gate's own exemption register rather than silently. The gate also refuses a header that hand-rolls the affordance out of `EyebrowLink` and an arrow icon instead of composing `BackLink` — which is how the two forms, and the accessible name they share, would drift apart.
+
 ## The review rules a machine can't check
 
 These are owner/reviewer discipline, not lint:

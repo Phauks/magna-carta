@@ -21,6 +21,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import BackLink from "$lib/navigation/back-link.svelte";
   import Button from "@magna-carta/design-system/button";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import Separator from "@magna-carta/design-system/separator";
@@ -46,6 +47,9 @@
   import { triggerVocabulary } from "$lib/conflicts/conflicts-vocabulary.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+
+  /** The register this check was opened from, and where the way out leads. */
+  const CONFLICTS_HREF = "/conflicts";
 
   const checkId = $derived(page.params.checkId ?? "");
 
@@ -148,7 +152,12 @@
 
 <Masthead.Root class="mb-24">
   <Masthead.Heading>
-    <Masthead.Eyebrow>Conflicts</Masthead.Eyebrow>
+    <!-- The eyebrow that named the screen this check was opened from now RETURNS to it: one line
+         in the eyebrow register, doing the work of two. One link back to the register is not a
+         breadcrumb trail, so the landmark is named for what it is. -->
+    <nav aria-label="Back to Conflicts Check" class="flex">
+      <BackLink href={CONFLICTS_HREF} label="Conflicts Check" />
+    </nav>
     <Masthead.Title>The Check</Masthead.Title>
     <Masthead.Meta>
       {#if check !== null}
