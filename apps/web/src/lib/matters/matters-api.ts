@@ -387,6 +387,26 @@ export interface MatterCloseReadiness {
  * never a promise — a balance can move a second later, which is why the close re-asserts every rule
  * inside its own batch — so a screen states what it says and still lets the close have the last word.
  */
+/** Whether a consultation would open right now, and what stands in the way if it would not. */
+export interface MatterOpenReadiness {
+  matterId: string;
+  status: MatterStatus;
+  openable: boolean;
+  blockers: MatterCloseBlocker[];
+}
+
+/**
+ * Ask whether the consultation would open, without opening it. The open rules are reads, so the
+ * server runs them read-only; today they are the required steps of the firm's intake procedure that
+ * have no satisfying answer, each in the words of whoever should answer it.
+ */
+export function readMatterOpenReadiness(
+  fetchImpl: typeof fetch,
+  matterId: string,
+): Promise<ApiOutcome<MatterOpenReadiness>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/open-readiness`);
+}
+
 export function readMatterCloseReadiness(
   fetchImpl: typeof fetch,
   matterId: string,

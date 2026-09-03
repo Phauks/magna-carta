@@ -25,6 +25,7 @@ import {
   REOPEN_MATTER_PERMISSION,
   type MatterCloseBlocker,
   type MatterCloseReadiness,
+  type MatterOpenReadiness,
 } from "./matters-api.ts";
 
 /** The lifecycle operations, which are also the three endpoints that serve them. */
@@ -216,6 +217,54 @@ export function matterCloseRefusals(problem: Problem): readonly MatterCloseBlock
   if (problem.type !== CLOSE_REFUSED_PROBLEM_TYPE) return [];
   // The transport already drops an entry missing any of path, code or detail, so what arrives here
   // is whole. A refusal names all three: the rules write to "$", the request as a whole.
+  return (problem.errors ?? []).map((reason) => ({ code: reason.code, message: reason.detail }));
+}
+
+// ---- what opening requires -----------------------------------------------------------------------
+
+/**
+ * What stands between a consultation and opening, one row per rule that refused.
+ *
+ * Unlike the close, the open has no fixed roster of rules to state as met: what a consultation must
+ * clear is the firm's own intake procedure, which differs by kind of matter and may be empty. So
+ * the rows are exactly the refusals the readiness read returned — each one an intake step, in the
+ * words of whoever should answer it — and an empty list with an answer means nothing stands in the
+ * way. `checking` and `unknown` keep the same meaning they have for the close: not asked yet, and
+ * could not be asked, neither of which is a refusal.
+ */
+export interface MatterOpenRequirementStatus {
+  readonly key: string;
+  readonly label: string;
+  readonly state: MatterCloseRequirementState;
+}
+
+export const INTAKE_STEP_OUTSTANDING_CODE = "intake-step-outstanding";
+
+export function matterOpenRequirements(
+  readiness: MatterOpenReadiness | null,
+  failed = false,
+): readonly MatterOpenRequirementStatus[] {
+  if (failed || readiness === null) return [];
+  return readiness.blockers.map((blocker, index) => ({
+    key: `${blocker.code}-${String(index)}`,
+    label: leadingCapital(blocker.message),
+    state: "unmet" as const,
+  }));
+}
+
+/** Whether the program says this consultation would open right now. Unknown until it has answered. */
+export function matterCanOpen(readiness: MatterOpenReadiness | null): boolean | null {
+  return readiness === null ? null : readiness.openable;
+}
+
+/**
+ * The problem type the open endpoint answers with when its rules refuse a consultation. The same
+ * shape as the close refusal, for the same reason: it re-answers the requirements already on screen.
+ */
+export const OPEN_REFUSED_PROBLEM_TYPE = "matter-open-refused";
+
+export function matterOpenRefusals(problem: Problem): readonly MatterCloseBlocker[] {
+  if (problem.type !== OPEN_REFUSED_PROBLEM_TYPE) return [];
   return (problem.errors ?? []).map((reason) => ({ code: reason.code, message: reason.detail }));
 }
 

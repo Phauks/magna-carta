@@ -94,6 +94,7 @@ import arrangementAgreementFileSql from "@magna-carta/database/drizzle/per-firm/
 import conflictsCheckHistoryIndexSql from "@magna-carta/database/drizzle/per-firm/20260903T010000_conflicts-check-history-index.sql";
 import conflictsHitEntityIndexSql from "@magna-carta/database/drizzle/per-firm/20260903T020000_conflicts-hit-entity-index.sql";
 import directoryIdentifierLabelSql from "@magna-carta/database/drizzle/per-firm/20260903T090000_directory-identifier-label.sql";
+import intakeProcedureSql from "@magna-carta/database/drizzle/per-firm/20260903T150000_intake-procedure.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -201,6 +202,7 @@ export function perFirmMigrations(): Migration[] {
     "20260903T010000_conflicts-check-history-index": conflictsCheckHistoryIndexSql,
     "20260903T020000_conflicts-hit-entity-index": conflictsHitEntityIndexSql,
     "20260903T090000_directory-identifier-label": directoryIdentifierLabelSql,
+    "20260903T150000_intake-procedure": intakeProcedureSql,
   });
 }
 

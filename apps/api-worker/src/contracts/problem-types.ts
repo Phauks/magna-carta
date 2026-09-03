@@ -415,6 +415,10 @@ export const PROBLEM_TYPES = {
   // which nothing but time fixes): here the matter is closable and something specific stands in the
   // way, so `errors[]` names each rule that refused and what clears it.
   "matter-close-refused": "matter-close-refused",
+  // The open side's mirror (HTTP 409): a consultation whose opening rules refused it — today, a
+  // required step of the firm's intake procedure with no satisfying answer. `errors[]` names each
+  // step that stands in the way and what answers it.
+  "matter-open-refused": "matter-open-refused",
   // A billing change aimed at an invoice that is no longer a working document (HTTP 409): the
   // invoice has been finalized or voided, and its header, lines, and work-in-progress claims are
   // frozen at the database. DISTINCT from `conflict` because nothing about waiting or retrying

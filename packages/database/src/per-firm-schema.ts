@@ -109,6 +109,9 @@ import type {
   MatterPartyId,
   MatterPlanTaskTemplateId,
   MatterPlanTemplateId,
+  IntakeProcedureId,
+  IntakeProcedureStepId,
+  MatterIntakeStepRecordId,
   MatterRecoveryId,
   MatterTaskDocumentId,
   MatterTaskDeletionId,
@@ -9457,6 +9460,157 @@ export const downloadItem = sqliteTable(
     check(
       "download_item_byte_size_check",
       sql`${table.byteSize} IS NULL OR ${table.byteSize} >= 0`,
+    ),
+  ],
+);
+
+// THE INTAKE PROCEDURE: what a kind of matter must clear before it opens, as a firm-authored list of
+// steps whose answers come from the subsystems that own the facts.
+//
+// A firm does not take a matter on the strength of a form. Depending on the kind of matter, it runs
+// a conflicts check, agrees a fee, sends an engagement letter, takes a retainer, has the client
+// answer a questionnaire, verifies who it is dealing with, and records that it did each of those. The
+// list differs by practice area and by firm, so the platform ships the SHAPE and the firm writes the
+// list: a procedure names a matter type (or none, for every kind), and holds ordered steps. That is
+// the matter plan's model, and the two are deliberately different things: a plan proposes the work
+// that follows an opening, an intake procedure gates the opening itself.
+//
+// A STEP HAS A KIND, AND THE KIND DECIDES WHO ANSWERS. A conflicts-check step is answered by the
+// conflicts posture; a fee-agreement step by the billing arrangement in force; a document step by an
+// assembly of the referenced template landing on the matter; a retainer step by the matter's trust
+// position. Those are READS at the moment somebody asks — nothing here caches a subsystem's answer,
+// so a step cannot say "done" after the fact it stood on has changed. A kind with no subsystem behind
+// it yet (identity verification, a plain acknowledgement) is answered by a member recording that they
+// did it, and every kind ALSO accepts a member's record, because a signed letter that came back on
+// paper is a fact the platform did not see. The kind vocabulary is a CHECK so a new kind is a reviewed
+// migration, and the reader behind each kind is registered by the composition root rather than by
+// this table, which is what lets a kind exist ahead of the subsystem that will one day answer it.
+//
+// THE PLATFORM SEEDS NO PROCEDURE, on the matter plan's argument: a procedure is a statement about
+// how THIS firm practises, and one that shipped with a missing step would be trusted precisely
+// because it shipped.
+//
+// A procedure and its steps soft-deactivate and are never deleted: a record on a matter names the
+// step it answered, and a firm asking what its old procedure required needs the row to answer.
+export const intakeProcedure = sqliteTable(
+  "intake_procedure",
+  {
+    id: text("id").primaryKey().$type<IntakeProcedureId>(), // intakeProcedure_ handle
+    name: text("name").notNull(),
+    description: text("description"),
+    // Which kind of matter this procedure gates. NULL means every kind — a firm whose intake steps
+    // are the same whatever the matter is should not have to author the procedure once per type.
+    matterTypeId: text("matter_type_id")
+      .$type<MatterTypeId>()
+      .references(() => matterType.id),
+    active: integer("active").notNull().default(1),
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The read that matters: which procedures bind a consultation of this type.
+    index("intake_procedure_matter_type_active_index").on(table.matterTypeId, table.active),
+    uniqueIndex("intake_procedure_name_unique_index").on(table.name),
+    check("intake_procedure_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("intake_procedure_active_check", sql`${table.active} IN (0, 1)`),
+  ],
+);
+
+// One step of a procedure. `kind` decides which subsystem answers it (the comment above); `required`
+// decides whether an unanswered step refuses the opening or merely shows as outstanding; and
+// `reference_id` names the thing a kind is about where it is about one — the document template a
+// document or engagement-letter step expects assembled, the custom field a questionnaire step
+// expects answered. It is an unvalidated handle on purpose: this table does not know what the axis
+// on the other side holds, and the reader for the kind resolves it at the moment of reading.
+export const intakeProcedureStep = sqliteTable(
+  "intake_procedure_step",
+  {
+    id: text("id").primaryKey().$type<IntakeProcedureStepId>(), // intakeProcedureStep_ handle
+    procedureId: text("procedure_id")
+      .notNull()
+      .$type<IntakeProcedureId>()
+      .references(() => intakeProcedure.id),
+    kind: text("kind", {
+      enum: [
+        "conflicts-check",
+        "fee-agreement",
+        "engagement-letter",
+        "document",
+        "questionnaire",
+        "retainer",
+        "identity-verification",
+        "acknowledgement",
+      ],
+    }).notNull(),
+    title: text("title").notNull(),
+    instructions: text("instructions"),
+    required: integer("required").notNull().default(1),
+    referenceId: text("reference_id"),
+    // The order the authoring surface lists them in and the checklist presents them in. Not unique,
+    // on the matter plan's reasoning: the handle is the tiebreak that makes ties harmless.
+    position: integer("position").notNull().default(0),
+    active: integer("active").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("intake_procedure_step_procedure_position_index").on(table.procedureId, table.position),
+    check("intake_procedure_step_title_nonempty_check", sql`length(${table.title}) > 0`),
+    // The kind vocabulary, as a CHECK so a ninth kind is a reviewed migration rather than a commit.
+    check(
+      "intake_procedure_step_kind_check",
+      sql`${table.kind} IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement')`,
+    ),
+    check("intake_procedure_step_required_check", sql`${table.required} IN (0, 1)`),
+    check("intake_procedure_step_active_check", sql`${table.active} IN (0, 1)`),
+  ],
+);
+
+// A member's answer to one step on one matter: that they completed it, or that they waived it. The
+// record is APPEND-AND-FLIP, never edited in place — reopening a step stamps `superseded_at` on the
+// live record and the next answer is a new row — so a step that was recorded done, reopened and
+// recorded again keeps all three facts, which is the shape an ethics gate's history has to have. The
+// partial unique index holds one LIVE record per step per matter; superseded rows are unconstrained.
+//
+// A waiver carries a rationale and a completion carries an optional note, held by a CHECK: an
+// override of a required step that leaves no reason produces a record that looks like compliance,
+// which is worse than no record.
+//
+// The row names the procedure step, never a copy of it: the step is soft-deactivated rather than
+// deleted precisely so this reference keeps resolving.
+export const matterIntakeStepRecord = sqliteTable(
+  "matter_intake_step_record",
+  {
+    id: text("id").primaryKey().$type<MatterIntakeStepRecordId>(), // matterIntakeStepRecord_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    procedureStepId: text("procedure_step_id")
+      .notNull()
+      .$type<IntakeProcedureStepId>()
+      .references(() => intakeProcedureStep.id),
+    outcome: text("outcome", { enum: ["completed", "waived"] }).notNull(),
+    rationale: text("rationale"),
+    note: text("note"),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+    supersededAt: text("superseded_at"),
+    supersededBy: text("superseded_by").$type<UserId>(),
+  },
+  (table) => [
+    uniqueIndex("matter_intake_step_record_live_unique_index")
+      .on(table.matterId, table.procedureStepId)
+      .where(sql`${table.supersededAt} IS NULL`),
+    index("matter_intake_step_record_matter_index").on(table.matterId, table.recordedAt),
+    check(
+      "matter_intake_step_record_outcome_check",
+      sql`${table.outcome} IN ('completed', 'waived')`,
+    ),
+    check(
+      "matter_intake_step_record_waiver_rationale_check",
+      sql`${table.outcome} != 'waived' OR (${table.rationale} IS NOT NULL AND length(${table.rationale}) > 0)`,
     ),
   ],
 );

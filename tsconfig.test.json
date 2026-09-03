@@ -140,6 +140,9 @@
       "path": "packages/inference/tsconfig.test.json"
     },
     {
+      "path": "packages/intake/tsconfig.test.json"
+    },
+    {
       "path": "packages/integrations/tsconfig.test.json"
     },
     {

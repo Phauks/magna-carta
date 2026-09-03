@@ -273,6 +273,19 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     editPermissionArea: "firm",
     shipped: true,
   },
+  {
+    // The firm's intake procedures: what a kind of matter must clear before it opens. Firm scope,
+    // beside Matter Plans, because the two are the before and after of an opening; the controls
+    // inside are gated on intake:manageProcedures from the session.
+    id: "intake-procedures",
+    label: "Intake Procedures",
+    href: "/settings/intake-procedures",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
   // Billing
   {
     id: "billing",
