@@ -684,15 +684,77 @@ export function changeDirectoryName(
   });
 }
 
+/** One further name a person has held, recorded with the person. */
+export interface DirectoryOtherNameRequest {
+  given: string;
+  family: string;
+  nameRole: DirectoryNameRole;
+  prefix?: string | null;
+  middle?: string | null;
+  suffix?: string | null;
+}
+
+/** One organization the person belongs to, and which end of the edge the person is. */
+export interface DirectoryPersonOrganizationRequest {
+  organizationId: string;
+  edgeType: DirectoryEdgeType;
+  personIs: "from" | "to";
+  role?: string | null;
+  note?: string | null;
+}
+
+/**
+ * The whole person, recorded in one request and one batch: nothing lands unless all of it does.
+ * Every nested shape is the one its own route takes, so the panes and the create agree.
+ */
+export interface CreateDirectoryPersonRequest {
+  given: string;
+  family: string;
+  prefix?: string | null;
+  middle?: string | null;
+  suffix?: string | null;
+  otherNames?: DirectoryOtherNameRequest[];
+  pronouns?: PronounSet | null;
+  dateOfBirth?: string | null;
+  dateOfDeath?: string | null;
+  emails?: {
+    address: string;
+    contactUse?: DirectoryContactUse | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+  }[];
+  phones?: {
+    number: string;
+    contactSystem?: DirectoryContactSystem;
+    contactUse?: DirectoryContactUse | null;
+    extension?: string | null;
+    countryRegionCode?: string | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+  }[];
+  addresses?: {
+    recipient?: string | null;
+    organizationName?: string | null;
+    street?: string | null;
+    streetTwo?: string | null;
+    dependentLocality?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    sortingCode?: string | null;
+    country?: string | null;
+    addressUse?: DirectoryAddressUse | null;
+    addressType?: DirectoryAddressType;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+  }[];
+  identifiers?: DirectoryIdentifierRequest[];
+  organizations?: DirectoryPersonOrganizationRequest[];
+}
+
 export function createDirectoryPerson(
   fetchImpl: typeof fetch,
-  request: {
-    given: string;
-    family: string;
-    prefix?: string | null;
-    middle?: string | null;
-    suffix?: string | null;
-  },
+  request: CreateDirectoryPersonRequest,
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ id: string }>> {
   return requestJson(fetchImpl, "/api/v1/directory/persons", {
