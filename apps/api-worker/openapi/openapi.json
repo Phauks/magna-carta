@@ -3904,6 +3904,14 @@
               "string",
               "null"
             ]
+          },
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$",
+            "description": "The directory entity the firm acts for. Given, the client's party link is written in the same batch as the matter, so billing, trust and the conflicts check find the client from the day the matter exists. The display name still travels beside it as the denormalized caption."
           }
         },
         "required": [
@@ -3941,6 +3949,12 @@
           },
           "title": {
             "type": "string"
+          },
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "type": "string",
@@ -3990,6 +4004,7 @@
         "required": [
           "id",
           "title",
+          "clientEntityId",
           "status",
           "matterTypeId",
           "locationId",
@@ -4108,6 +4123,12 @@
               "null"
             ]
           },
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "matterNumber": {
             "type": [
               "string",
@@ -4167,6 +4188,7 @@
           "responsibleMemberId",
           "clientDisplayName",
           "clientCode",
+          "clientEntityId",
           "matterNumber",
           "consultationNumber",
           "eBilling",
@@ -7965,7 +7987,19 @@
               "corporate_subsidiary",
               "corporate_successor",
               "representation",
-              "role_assignment"
+              "role_assignment",
+              "officer_of",
+              "director_of",
+              "partner_of",
+              "trustee_of",
+              "personal_representative_of",
+              "agent_of",
+              "employment",
+              "member_of",
+              "shareholder_of",
+              "beneficiary_of",
+              "guardian_of",
+              "point_of_contact_for"
             ]
           },
           "role": {

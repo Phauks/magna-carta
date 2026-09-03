@@ -35,8 +35,8 @@ import {
 // Fitness function (the ledger/data-access source-scan pattern): every SQL identifier the directory
 // package hand-writes must track @magna-carta/database's schema — the single source of truth. The
 // directory's SQL is spread across statement builders (statements.ts) AND inline queries inside the
-// service modules (merge.ts, search.ts, edges.ts, categories.ts, party.ts, client-migration.ts,
-// entity-kind.ts, identifiers.ts), so rather than enumerate every builder, this scan reads every
+// service modules (merge.ts, search.ts, edges.ts, categories.ts, party.ts, entity-kind.ts,
+// identifiers.ts), so rather than enumerate every builder, this scan reads every
 // .prepare(`…`) SQL string from the package source and asserts each bare identifier it names is either
 // a known table, a column of a directory table, or a sanctioned non-schema token (a SQL keyword/
 // function, a table alias, the FTS5 virtual table, or a pseudo-column). Renaming a table or column in
@@ -45,7 +45,7 @@ import {
 const DIRECTORY_SRC = join(import.meta.dirname, "..", "src");
 
 // The drizzle tables the directory SQL touches, by their canonical names. matter rides along
-// (client-migration backfills from matter.client_display_name); auditLog rides along (the audit
+// (the party reads join it); auditLog rides along (the audit
 // statement helpers are imported, but their column names appear in no directory-authored SQL string —
 // included defensively so a future inline audit query stays pinned).
 const TOUCHED_TABLES: readonly SQLiteTable[] = [

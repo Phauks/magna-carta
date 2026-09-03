@@ -937,6 +937,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "directory.getOrganization",
       "directory.getPerson",
       "directory.linkMatterParty",
+
       "directory.listAddresses",
       "directory.listCategories",
       "directory.listEdges",

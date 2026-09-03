@@ -54,6 +54,18 @@
     {
       "name": "ScreenSearch",
       "home": "packages/design-system/src/lib/components/screen-search"
+    },
+    {
+      "name": "EntityIdentity",
+      "home": "packages/design-system/src/lib/components/entity-identity"
+    },
+    {
+      "name": "EntityPicker",
+      "home": "packages/design-system/src/lib/components/entity-picker"
+    },
+    {
+      "name": "RecordParties",
+      "home": "packages/design-system/src/lib/components/record-parties"
     }
   ],
   "modalShellsComment": [

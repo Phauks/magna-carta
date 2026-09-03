@@ -932,6 +932,10 @@ export type CreateMatterRequest = {
     responsibleMemberId: string;
     clientDisplayName?: string | null;
     clientCode?: string | null;
+    /**
+     * The directory entity the firm acts for. Given, the client's party link is written in the same batch as the matter, so billing, trust and the conflicts check find the client from the day the matter exists. The display name still travels beside it as the denormalized caption.
+     */
+    clientEntityId?: string | null;
 };
 
 export type MatterListResponse = {
@@ -942,6 +946,7 @@ export type MatterListResponse = {
 export type MatterSummary = {
     id: string;
     title: string;
+    clientEntityId: string | null;
     status: 'prospective' | 'open' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
@@ -976,6 +981,7 @@ export type MatterDetail = {
     responsibleMemberId: string;
     clientDisplayName: string | null;
     clientCode: string | null;
+    clientEntityId: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
     eBilling: boolean;
@@ -1979,7 +1985,7 @@ export type DirectoryIdentifierValueResponse = {
 export type CreateDirectoryEdgeRequest = {
     from: string;
     to: string;
-    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment';
+    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment' | 'officer_of' | 'director_of' | 'partner_of' | 'trustee_of' | 'personal_representative_of' | 'agent_of' | 'employment' | 'member_of' | 'shareholder_of' | 'beneficiary_of' | 'guardian_of' | 'point_of_contact_for';
     role?: string | null;
     note?: string | null;
     validFrom?: string | null;

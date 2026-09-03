@@ -57,6 +57,12 @@ export type PhoneticScheme = (typeof PHONETIC_SCHEMES)[number];
 // The relationship type on a directory_edge row. The schema allows any non-empty string
 // (directory_edge.edge_type CHECK is length > 0 only); this union is the application-level
 // catalog of well-known values.
+//
+// The membership family below replaces the single `affiliation` for new writes. `affiliation` stays
+// in the catalog and keeps its meaning for the rows already recorded — it is the legacy, unclassified
+// membership — and the record screen stops offering it. Which of these can bind an organization is
+// the distinction Rule 4.2 draws, and it is why they are separate types rather than a role string
+// on one: the conflicts traversal classes an edge by its type, and prints it.
 export const EDGE_TYPES = [
   "affiliation",
   "relationship",
@@ -65,6 +71,22 @@ export const EDGE_TYPES = [
   "corporate_successor",
   "representation",
   "role_assignment",
+  // Constituents who can bind or direct the organization.
+  "officer_of",
+  "director_of",
+  "partner_of",
+  "trustee_of",
+  "personal_representative_of",
+  "agent_of",
+  // Constituents who cannot.
+  "employment",
+  "member_of",
+  "shareholder_of",
+  // A legal capacity or an interest over a person or an estate, not a control.
+  "beneficiary_of",
+  "guardian_of",
+  // Who the firm talks to at an organization — frequently not an employee at all.
+  "point_of_contact_for",
 ] as const;
 export type EdgeType = (typeof EDGE_TYPES)[number];
 

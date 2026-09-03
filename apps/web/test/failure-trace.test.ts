@@ -130,7 +130,7 @@ describe("breadcrumbs are shapes, never values", () => {
   beforeEach(() => clearBreadcrumbs());
 
   it("redacts an email address that found its way into a label", () => {
-    record("navigation", "opened joan@example.test's contact", "/contacts/ent_1");
+    record("navigation", "opened joan@example.test's contact", "/directory/ent_1");
     expect(breadcrumbs()[0]?.label).toContain("[redacted]");
     expect(breadcrumbs()[0]?.label).not.toContain("joan@example.test");
   });
