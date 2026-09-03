@@ -108,11 +108,26 @@ const notesSource: MatterSearchSource = {
 
 // ---- files -----------------------------------------------------------------------------------
 
-// The matter's files, matched on NAME. Contents are a second half this source does not have yet: the
-// keyword engine, its write pipeline and its compaction are built, but no engine is deployed, so the
-// port answers engine-not-implemented and the surface says "names only" rather than implying it
-// looked inside anything. Slice 3 adds the content half behind the same source key, and nothing
-// above this file changes when it does.
+// The matter's files AND ITS FOLDERS, matched on NAME. Contents are a second half this source does
+// not have yet: the keyword engine, its write pipeline and its compaction are built, but no engine
+// is deployed, so the port answers engine-not-implemented and the surface says "names only" rather
+// than implying it looked inside anything. Slice 3 adds the content half behind the same source key,
+// and nothing above this file changes when it does.
+//
+// FOLDERS ARE THE SECOND STATEMENT, not a source of their own. A person who names a folder and then
+// searches for it is searching the Files section — putting folders in a group of their own would
+// split one question across two headings and make the reader pick the right one before they had
+// found anything. It was reported as a plain defect: searching a matter for "New Folder" answered
+// nothing while the folder sat in the tree.
+//
+// Two statements per source is a shape the runner supports, and run.ts merges their rows by sort key
+// before applying the limit — without that, a matter with more matching files than the limit would
+// silently drop every folder.
+//
+// A folder has no deleted set: the folder tree is organizational only and folders are removed
+// outright rather than soft-deleted, so `includeDeleted` changes the file statement and leaves this
+// one alone. That is why the folder statement carries no deleted_at condition rather than having
+// forgotten one.
 //
 // The snippet is declared ABSENT, and that is not an oversight: a file name IS the title, so an
 // excerpt would be the same string twice. When contents join, the excerpt is the matching passage
@@ -124,7 +139,7 @@ const filesSource: MatterSearchSource = {
   // route itself is — files:* gate writing and organizing, never reading.
   permission: null,
   answerShape: "listing",
-  matchedFields: ["file names"],
+  matchedFields: ["file names", "folder names"],
   declaresSnippet: false,
   minimumQueryLength: 2,
   supportsDeleted: true,
@@ -154,6 +169,21 @@ const filesSource: MatterSearchSource = {
           `ELSE 'Deleted · ' || ${FOLDER_TABLE}.name END`,
         actorExpression: "NULL",
         conditions,
+        bindings: [likeContainsTerm(request.query.trim())],
+      }),
+      // The folders themselves. Named as folders in the second line, because a folder and a file
+      // can carry the same name and the reader has to be able to tell which one they are opening.
+      boundedSearchSelect(request.database, {
+        request,
+        from: FOLDER_TABLE,
+        idColumn: `${FOLDER_TABLE}.id`,
+        matterExpression: `${FOLDER_TABLE}.matter_id`,
+        sortExpression: `${FOLDER_TABLE}.created_at`,
+        titleExpression: `${FOLDER_TABLE}.name`,
+        snippetExpression: "NULL",
+        secondaryExpression: "'Folder'",
+        actorExpression: "NULL",
+        conditions: [`${FOLDER_TABLE}.name LIKE ? ESCAPE '\\'`],
         bindings: [likeContainsTerm(request.query.trim())],
       }),
     ];

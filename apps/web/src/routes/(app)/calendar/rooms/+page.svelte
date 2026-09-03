@@ -21,7 +21,7 @@
   import { page } from "$app/state";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Select from "@magna-carta/design-system/select";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -93,20 +93,20 @@
 <svelte:head><title>Rooms · Calendar · Magna Carta</title></svelte:head>
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>Rooms</Masthead.Title>
+  <ScreenHeader
+    title="Rooms"
+    back="calendar"
+  >
+    {#snippet meta()}
       {#if resource !== null}
-        <Masthead.Meta>
-          <span>{resource.name}</span>
-          <span>{resourceKindLabel(resource.kind)}</span>
-          {#if resource.capacity !== null}
-            <span>Seats {resource.capacity}</span>
-          {/if}
-        </Masthead.Meta>
+        <span>{resource.name}</span>
+        <span>{resourceKindLabel(resource.kind)}</span>
+        {#if resource.capacity !== null}
+          <span>Seats {resource.capacity}</span>
+        {/if}
       {/if}
-    </Masthead.Heading>
-    <Masthead.Actions>
+    {/snippet}
+    {#snippet actions()}
       {#if items.length > 0}
         <Select.Root
           type="single"
@@ -125,8 +125,8 @@
         </Select.Root>
       {/if}
       <Button variant="ghost" size="sm" href="/calendar">Calendar</Button>
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   {#if failure !== null}
     <FailureNotice

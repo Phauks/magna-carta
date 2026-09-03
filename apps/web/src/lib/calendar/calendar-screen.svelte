@@ -4,9 +4,13 @@
    *
    * `/calendar` opens on the month and `/calendar/firm-events` on the agenda; the latter is the
    * deep link the federated read emits for a firm event, and it is the same screen with the same
-   * scope rather than a second one. The masthead reads the screen's name and nothing under it; its
+   * scope rather than a second one. The header reads the screen's name and nothing under it; its
    * inline-end half carries ONE primary action, Record, as a menu over the three kinds of record —
    * one action with a menu rather than a button per kind (docs/conventions/design-corrections.md).
+   *
+   * `back` is the caller's, because only the route knows whether it is the calendar or a screen
+   * under it: /calendar is a main screen and names nothing, /calendar/firm-events names the
+   * calendar it was opened from.
    *
    * THE SCOPE COMES FROM THE ADDRESS. `scope=mine` opens the reader's own calendar once the session
    * says who they are; anything else opens on Everyone, because a calendar's first job is the
@@ -20,10 +24,11 @@
   import { page } from "$app/state";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Plus from "@lucide/svelte/icons/plus";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { BackTarget } from "$lib/screen/screen-header.ts";
   import { calendarContext } from "./calendar-context.svelte.ts";
   import type { CalendarScope } from "./calendar-scope.ts";
   import CalendarView from "./calendar-view.svelte";
@@ -35,11 +40,14 @@
 
   let {
     title,
+    back,
     openEntry,
     initialView,
   }: {
-    /** The masthead's word: "Calendar" or "Firm Events". */
+    /** The header's word: "Calendar" or "Firm Events". */
     title: string;
+    /** The screen this one was entered from, on the route that sits under another. */
+    back?: BackTarget;
     /** The entry the address asks to open on arrival, or null. */
     openEntry: string | null;
     /** The view the route opens on. */
@@ -87,11 +95,8 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>{title}</Masthead.Title>
-    </Masthead.Heading>
-    <Masthead.Actions>
+  <ScreenHeader {title} {back}>
+    {#snippet actions()}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
           class={buttonClasses({ variant: "primary", size: "default" })}
@@ -110,8 +115,8 @@
           <DropdownMenu.Item onSelect={() => (firmEventOpen = true)}>Firm Event</DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   {#if context.sessionFailure !== null}
     <FailureNotice

@@ -22,7 +22,7 @@
   import Label from "@magna-carta/design-system/label";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Card from "@magna-carta/design-system/card";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import {
@@ -87,14 +87,15 @@
 
 <svelte:head><title>WHOIS Lookup · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>WHOIS Lookup</Masthead.Title>
-    <Masthead.Meta>
-      <span>Registration records for a domain or IP address</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<ScreenHeader
+  title="WHOIS Lookup"
+  back="tools"
+  class="mb-24"
+>
+  {#snippet meta()}
+    <span>Registration records for a domain or IP address</span>
+  {/snippet}
+</ScreenHeader>
 
 <form onsubmit={runLookup} class="mb-16 flex items-center gap-8">
   <Label for="whois-query" class="sr-only">Domain or IP address</Label>

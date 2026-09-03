@@ -354,6 +354,131 @@ export async function readHitDispositionStates(
   }));
 }
 
+/*
+ * EVERY answer recorded against one hit, oldest first — the adjudication trail.
+ *
+ * This is the compliance artifact the append-only rule exists for. A reviewer who clears a hit and
+ * later reverses leaves both acts standing, because a reversal is a second row rather than an edit;
+ * a read that returned only the latest word would hide exactly the history the table refuses to
+ * destroy, and the firm would be unable to produce the sequence when somebody asks how a decision
+ * was reached.
+ *
+ * OLDEST FIRST, which is the opposite of readCurrentDisposition's ordering and deliberately so: this
+ * is read as a narrative from the first answer forward, where that one is picking a winner. The
+ * `rowid` tie-break is kept for the same reason it exists there — identifiers are random tokens with
+ * no time order, so two rows written inside the same millisecond would otherwise order at random,
+ * and the pair that most needs a stable order is an answer and its reversal.
+ *
+ * Read one hit at a time, when a reviewer opens it. The check response deliberately does not carry
+ * every disposition of every hit: that is the one thing only this view uses, and putting it on the
+ * list read would grow every page view by it.
+ */
+export async function readDispositionTrail(
+  database: SqlDatabase,
+  hitId: string,
+): Promise<DispositionRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, hit_id, kind, rationale, reviewer_user_id, waiver_given_by_entity_id, waiver_confirmed_in_writing, waiver_document_file_id, waiver_given_on, created_at FROM ${CONFLICTS_DISPOSITION_TABLE} WHERE hit_id = ?1 ORDER BY created_at ASC, rowid ASC`,
+    )
+    .bind(hitId)
+    .all<{
+      id: string;
+      hit_id: string;
+      kind: string;
+      rationale: string;
+      reviewer_user_id: string;
+      waiver_given_by_entity_id: string | null;
+      waiver_confirmed_in_writing: number | null;
+      waiver_document_file_id: string | null;
+      waiver_given_on: string | null;
+      created_at: string;
+    }>();
+  return results.map((row) => ({
+    id: row.id,
+    hitId: row.hit_id,
+    kind: row.kind as DispositionKind,
+    rationale: row.rationale,
+    reviewerUserId: row.reviewer_user_id,
+    waiver: waiverFromRow(row),
+    createdAt: row.created_at,
+  }));
+}
+
+// D1 caps bound parameters at 100 per query, as everywhere else in this package.
+const MAX_PRIOR_CONCLUSION_PARAMETERS = 100;
+
+/** An answer an EARLIER check already recorded about the same party. Context, never a conclusion. */
+export interface PriorConclusion {
+  readonly entityId: string;
+  /** The check that surfaced the earlier hit, so a reader can open it and judge for themselves. */
+  readonly checkId: string;
+  readonly kind: DispositionKind;
+  readonly reviewerUserId: string;
+  readonly createdAt: string;
+}
+
+/*
+ * What the firm has already said about these parties, on some EARLIER check.
+ *
+ * MATCHED ON THE ENTITY ALONE, AND SHOWN AS CONTEXT — the owner's ruling of 2026-09-02, and the
+ * whole design of this read follows from it. The tempting alternative is to decide that a re-surfaced
+ * hit IS the hit already answered and mark it concluded. The case that settles it: a company cleared
+ * in March under Rule 1.9 as a FORMER client re-surfaces in September through the graph, as the
+ * subsidiary of a CURRENT client — a Rule 1.7 question on a higher bar. Same entity, different
+ * question. Matching on the entity and presenting the March clearance as this hit's answer would
+ * carry a judgment across two conflicts that are not the same conflict.
+ *
+ * So this returns what was said and by whom and on which check, and nothing here or above may turn
+ * that into a disposition, a default, or a suppression. The reviewer still answers the hit.
+ *
+ * Narrower keys were considered and rejected for the same reason rather than a different one: adding
+ * the source class would have made the September hit invisible precisely because it arrived through
+ * the graph, and adding the evidence tier would make a firm turning on the over-inclusive band look
+ * like a new conflict. Neither narrowing makes the judgment safer; both just move where it is wrong.
+ */
+export async function readPriorConclusions(
+  database: SqlDatabase,
+  entityIds: readonly string[],
+  excludeCheckId: string,
+): Promise<Map<string, PriorConclusion>> {
+  const found = new Map<string, PriorConclusion>();
+  const unique = [...new Set(entityIds)];
+  for (let start = 0; start < unique.length; start += MAX_PRIOR_CONCLUSION_PARAMETERS) {
+    const chunk = unique.slice(start, start + MAX_PRIOR_CONCLUSION_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 2}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT hit.entity_id, hit.check_id, answer.kind, answer.reviewer_user_id, answer.created_at
+           FROM ${CONFLICTS_HIT_TABLE} AS hit
+           JOIN ${CONFLICTS_DISPOSITION_TABLE} AS answer ON answer.hit_id = hit.id
+          WHERE hit.check_id != ?1 AND hit.entity_id IN (${placeholders})
+          ORDER BY answer.created_at ASC, answer.rowid ASC`,
+      )
+      .bind(excludeCheckId, ...chunk)
+      .all<{
+        entity_id: string;
+        check_id: string;
+        kind: string;
+        reviewer_user_id: string;
+        created_at: string;
+      }>();
+    // Ascending, then last-write-wins per entity: the MOST RECENT earlier answer is the one a
+    // reviewer needs, and reading it this way keeps the rowid tie-break the rest of this module
+    // uses rather than inventing a second rule for the same question.
+    for (const row of results) {
+      found.set(row.entity_id, {
+        entityId: row.entity_id,
+        checkId: row.check_id,
+        kind: row.kind as DispositionKind,
+        reviewerUserId: row.reviewer_user_id,
+        createdAt: row.created_at,
+      });
+    }
+  }
+  return found;
+}
+
 export async function readCurrentDisposition(
   database: SqlDatabase,
   hitId: string,

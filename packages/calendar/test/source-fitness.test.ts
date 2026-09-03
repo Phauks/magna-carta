@@ -275,6 +275,43 @@ describe("every custody-derived source carries the predicates its register read 
   });
 });
 
+describe("a deep link opens what the section can resolve", () => {
+  it("every custody row links to its packet, which is what the Custodian section opens", () => {
+    for (const key of ["custodyMovement", "custodyDueBack"]) {
+      const source = TIMELINE_SOURCES.find((candidate) => candidate.key === key);
+      if (source === undefined) throw new Error(`${key} is not registered`);
+      for (const statement of statementsFor(source)) {
+        expect(statement.sql, key).toContain("custody_packet.id AS link_id");
+      }
+    }
+    const review = TIMELINE_SOURCES.find((candidate) => candidate.key === "custodyReviewDue");
+    if (review === undefined) throw new Error("custodyReviewDue is not registered");
+    const itemStatement = statementsFor(review).find((statement) =>
+      statement.sql.includes("custody_item.id AS row_id"),
+    );
+    expect(itemStatement?.sql).toContain("custody_packet.id AS link_id");
+  });
+
+  it("what happened to a document links to the document, which is what the Files section opens", () => {
+    const history = TIMELINE_SOURCES.find((candidate) => candidate.key === "fileHistory");
+    if (history === undefined) throw new Error("fileHistory is not registered");
+    for (const statement of statementsFor(history)) {
+      expect(statement.sql).toContain("file.id AS link_id");
+    }
+  });
+
+  it("every other row is its own destination", () => {
+    for (const source of TIMELINE_SOURCES) {
+      if (source.key.startsWith("custody") || source.key === "fileHistory") continue;
+      for (const statement of statementsFor(source)) {
+        const selectList = statement.sql.slice(0, statement.sql.indexOf(" FROM "));
+        const rowId = /(\S+) AS row_id/u.exec(selectList)?.[1];
+        expect(selectList, source.key).toContain(`${rowId ?? ""} AS link_id`);
+      }
+    }
+  });
+});
+
 describe("the registry is a reviewed list, not a discovery", () => {
   it("carries unique keys and a closed kind set per source", () => {
     const keys = TIMELINE_SOURCES.map((source) => source.key);

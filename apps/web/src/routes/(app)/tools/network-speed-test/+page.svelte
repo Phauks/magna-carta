@@ -13,8 +13,8 @@
   import { onDestroy, onMount } from "svelte";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import Button from "@magna-carta/design-system/button";
-  import * as Masthead from "@magna-carta/design-system/masthead";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
   import BandwidthSparkline from "$lib/tools/speed-test/bandwidth-sparkline.svelte";
   import InfoHint from "$lib/tools/speed-test/info-hint.svelte";
@@ -272,20 +272,21 @@
 
 <svelte:head><title>Network Speed Test · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Network Speed Test</Masthead.Title>
-    <Masthead.Meta>
-      {#if store.finishedAt}
-        <span>
-          Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
-        </span>
-      {:else}
-        <span>&nbsp;</span>
-      {/if}
-    </Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
+<ScreenHeader
+  title="Network Speed Test"
+  back="tools"
+  class="mb-24"
+>
+  {#snippet meta()}
+    {#if store.finishedAt}
+      <span>
+        Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
+      </span>
+    {:else}
+      <span>&nbsp;</span>
+    {/if}
+  {/snippet}
+  {#snippet actions()}
     <RunProgressPanel
       phaseText={phaseText}
       stepIndex={displayStepIndex}
@@ -318,8 +319,8 @@
       onAutoStartChange={setAutoStart}
       onDownloadReport={downloadReport}
     />
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if store.error}
   <section class="mb-24">
