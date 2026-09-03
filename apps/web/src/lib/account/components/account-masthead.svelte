@@ -11,16 +11,13 @@
    * top/inline padding, letting the scroll area beneath reach the true canvas edges.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
 
   let { title, meta }: { title: string; meta: string } = $props();
 </script>
 
 <div class="border-b border-border-strong px-24 pt-24 pb-12">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>{title}</Masthead.Title>
-    </Masthead.Heading>
-  </Masthead.Root>
+  <ScreenHeader {title} />
   <Masthead.Meta class="mt-4">
     <span>{meta}</span>
   </Masthead.Meta>

@@ -15,15 +15,13 @@
   import Badge from "@magna-carta/design-system/badge";
   import type { BadgeVariant } from "@magna-carta/design-system/badge";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import BackLink from "$lib/navigation/back-link.svelte";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import { DEVELOPER_CONSOLE_BACK } from "$lib/screen/screen-header.ts";
   import {
     createDataTableGrid,
     type DataTableGridOptions,
     type GridColumn,
   } from "@magna-carta/design-system/data-table";
-
-  /** The console every gallery here was opened from, and where the way out leads. */
-  const DEVELOPER_CONSOLE_HREF = "/developer-console";
 
   type TimeEntry = {
     id: string;
@@ -198,12 +196,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <!-- The caps line that named the console this gallery was opened from now RETURNS to it,
-           in the same register it already read in. -->
-      <nav aria-label="Back to Developer console" class="flex">
-        <BackLink href={DEVELOPER_CONSOLE_HREF} label="Developer console" />
-      </nav>
-      <h1 class="text-2xl font-semibold">Table states</h1>
+      <ScreenHeader title="Table states" back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
         The platform's one table (DataTable.Grid) in every state, rendered from the real design
         system over a litigation fixture. Use this instead of a standalone mockup: a mockup is

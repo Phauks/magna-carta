@@ -1,19 +1,24 @@
 ---
 worktree: /home/user/magna-carta (remote session)
-area: Return navigation — every sub-screen of a main screen carries a way back to it, and a gate that says so
+area: One screen header for the whole application — title, eyebrow, citation, actions and the way back, plus the gate that keeps it one
 status: review
-touches: apps/web/src/lib/navigation/back-link.svelte, apps/web/src/lib/matters/matter-header.svelte, apps/web/src/routes/(app)/directory/[id], apps/web/src/routes/(app)/conflicts, apps/web/src/routes/developer-console, tooling/lint-back-navigation/, package.json, vite.config.ts, docs/conventions/ui-design.md, changelog.d/
+touches: apps/web/src/lib/screen/, apps/web/src/lib/navigation/{back-link.svelte,destinations.ts}, apps/web/src/lib/matters/matter-header.svelte, apps/web/src/lib/{settings,account}/components, apps/web/src/routes (every screen with a title), tooling/lint-back-navigation/, package.json, vite.config.ts, docs/conventions/ui-design.md, docs/user/features/directory.md, changelog.d/
 ---
 
-The owner's direction: entering a sub-screen of a main screen — a matter from the docket, a person
-from the directory — must always put a way back to that main screen at the top of the screen's own
-header. Two forms already existed and neither was general: the tools layout's labelled `BackLink`
-above the masthead, and the matter header's arrow-only return leading its ledger line. This stream
-makes `BackLink` carry both forms, gives the screens that had no way back one (the directory record,
-both conflicts detail screens, the four developer-console galleries), and adds
-`pnpm run lint:back-navigation` so a sub-screen shipped without one fails the gate instead of being
-noticed in review.
+The owner's direction: entering a sub-screen of a main screen must put a way back at the top of its
+header — and, on 2026-09-03, that the header itself be ONE component, because the variety across
+twenty-four hand-assembled headers is what made the missing way back invisible in the first place.
+The way back shows its destination in miniature: the sidebar's own glyph beside the sidebar's own
+name, so a reader learns where the link lands.
 
-The lint is repo-wide by derivation (every `lint:*` script in the root manifest is), so it runs in
-the inner loop and in CI with no workflow edit. A concurrent stream adding a route under an existing
-screen will meet it.
+`apps/web/src/lib/screen/screen-header.svelte` is that component — the way back, the eyebrow, the
+title, the citation line, the actions, and a trailing column for the matter band. Every screen in
+the application composes it; `Masthead.Root` now appears exactly once outside the design system.
+A screen names its destination by registry id (`back="directory"`), so the href, the label and the
+glyph come from one place and a typo is a type error.
+
+`pnpm run lint:back-navigation` holds all of it: every route under another route's page names a
+`back`, the destination resolves to that page's own path, and nothing hand-assembles a header.
+
+A concurrent stream adding a screen will meet the gate. Anything touching a screen's masthead should
+expect it to have moved to the component.

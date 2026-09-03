@@ -37,7 +37,7 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -291,11 +291,10 @@
 {/snippet}
 
 <div class="flex h-full flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>Directory</Masthead.Title>
-    </Masthead.Heading>
-    <Masthead.Actions>
+  <ScreenHeader
+    title="Directory"
+  >
+    {#snippet actions()}
       <!-- One primary action rather than a button per kind: the two records are the same gesture on
            the same book, and spreading them across the top spends the row on a choice a menu makes
            in one press. -->
@@ -382,8 +381,8 @@
         </Popover.Root>
 
       {/if}
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   {#if createDisabledReason !== undefined && session !== null}
     <Alert.Root variant="info">

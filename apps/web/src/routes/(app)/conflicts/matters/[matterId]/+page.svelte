@@ -19,8 +19,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Masthead from "@magna-carta/design-system/masthead";
-  import BackLink from "$lib/navigation/back-link.svelte";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Button from "@magna-carta/design-system/button";
   import Separator from "@magna-carta/design-system/separator";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -37,9 +36,6 @@
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import { resolveMatterRecord, type MatterRecord } from "$lib/matters/matter-record.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
-
-  /** The register this standing was opened from, and where the way out leads. */
-  const CONFLICTS_HREF = "/conflicts";
 
   const matterId = $derived(page.params.matterId ?? "");
 
@@ -99,25 +95,16 @@
   <title>Conflicts Standing · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <!-- The eyebrow that named the screen this check was opened from now RETURNS to it: one line
-         in the eyebrow register, doing the work of two. One link back to the register is not a
-         breadcrumb trail, so the landmark is named for what it is. -->
-    <nav aria-label="Back to Conflicts Check" class="flex">
-      <BackLink href={CONFLICTS_HREF} label="Conflicts Check" />
-    </nav>
-    <Masthead.Title>Where This Matter Stands</Masthead.Title>
-    <Masthead.Meta>
-      <span>{matterLabel ?? "The matter is not named"}</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
+<ScreenHeader title="Where This Matter Stands" back="conflicts" class="mb-24">
+  {#snippet meta()}
+    <span>{matterLabel ?? "The matter is not named"}</span>
+  {/snippet}
+  {#snippet actions()}
     {#if matter !== null}
       <Button variant="secondary" href="/matters/{matterId}">Open the matter</Button>
     {/if}
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if session !== null && !mayRead}
   <Alert.Root variant="info" class="mb-16">

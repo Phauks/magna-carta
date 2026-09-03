@@ -117,7 +117,7 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
  * matters: it is every fresh sidebar, the order Customize mode reveals hidden destinations in,
  * and where reconciliation seats new arrivals.
  */
-export const DESTINATIONS: readonly Destination[] = [
+const DESTINATION_LIST = [
   // Workspace — the owner's draft order: daily drivers, then the matter-work cluster.
   {
     id: "home",
@@ -365,7 +365,30 @@ export const DESTINATIONS: readonly Destination[] = [
     defaultStarred: true,
     footerPinned: true,
   },
-];
+] as const satisfies readonly Destination[];
+
+/**
+ * Every destination's id as a literal union. A screen names where its way back leads by one of
+ * these, so a typo is a type error rather than a link that renders and goes nowhere.
+ *
+ * The union needs the list's LITERAL type, which is why the array above is `as const`. Every other
+ * consumer wants the declared `Destination`, because an `as const` member loses the optional fields
+ * it happens not to set — `pinned` stops existing on the rows that never had one, and every reader
+ * of the registry breaks. So the literal list stays private and `DESTINATIONS` re-exports it at the
+ * declared type: one array, two views of it.
+ */
+export type DestinationId = (typeof DESTINATION_LIST)[number]["id"];
+
+export const DESTINATIONS: readonly Destination[] = DESTINATION_LIST;
+
+/**
+ * One destination by its registry id, or null. This is how a screen names where its way back
+ * leads: the id resolves to the destination's real href, its user-facing label and its glyph, so a
+ * back link cannot name a screen that does not exist or drift from what the sidebar calls it.
+ */
+export function destinationById(id: DestinationId): Destination | null {
+  return DESTINATIONS.find((destination) => destination.id === id) ?? null;
+}
 
 /** Shipped plus announced-Soon destinations — what the palette presents (never star-filtered). */
 export function visibleDestinations(): readonly Destination[] {

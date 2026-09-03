@@ -25,7 +25,7 @@
    * also this screen's answer to "where are things kept", which is half of what a register is for.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
@@ -163,11 +163,10 @@
 {/snippet}
 
 <div class="flex h-full flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>Custodian</Masthead.Title>
-    </Masthead.Heading>
-    <Masthead.Actions>
+  <ScreenHeader
+    title="Custodian"
+  >
+    {#snippet actions()}
       {@render newPacketButton()}
 
       {#if narrowed}
@@ -184,8 +183,8 @@
           <FunnelX class="size-16" aria-hidden="true" />
         </Button>
       {/if}
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   {#if lastLogged !== null}
     <!-- The number the register drew, which is what somebody writes on the physical label. It

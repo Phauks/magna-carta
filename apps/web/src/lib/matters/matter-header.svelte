@@ -42,25 +42,20 @@
    * matter is opened, closed or reopened (matter-status-dialog.svelte). An action that belongs to a
    * fact belongs on it.
    *
-   * THE WAY BACK LEADS THE CITATION, AS AN ARROW ALONE. The return to the docket is the first thing
-   * on the line, ahead of the ledger line, wearing the same eyebrow register the ledger line wears.
-   * It holds its width with them, so the citation is still what gives when the band narrows. It
-   * carries no visible label: above a masthead a bare arrow is ambiguous, which is the labelled
-   * BackLink's whole reason, but here a matter came from the docket, the docket is the only place up
-   * from it, and the line the arrow sits on names the matter it is leaving. A second caps label
-   * competed with the number for the same register and read as a breadcrumb trail with one crumb.
-   * The accessible name is on the anchor, so the destination is still spoken — which is BackLink's
-   * `arrow-only` form, shared with every other header whose top line already reads in that register.
+   * THE WAY BACK LEADS THE BAND, SHOWING THE DOCKET IN MINIATURE. It was an unlabelled arrow inside
+   * the citation line until 2026-09-03, which cost no height but said only "back": a reader had to
+   * already know where it went. The owner's direction is that the way back names its destination and
+   * carries its glyph, so it now leads the band as its own line — the docket's mark and the word
+   * Matters, above the title. That costs the band a row, deliberately, and it is the same line in
+   * the same place on every screen in the application rather than an arrangement this band invented.
+   * screen-header.svelte owns it; this file no longer decides anything about it.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import BackLink from "$lib/navigation/back-link.svelte";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import MatterSearchControl from "$lib/matters/matter-search-control.svelte";
   import MatterSectionNav from "$lib/matters/matter-section-nav.svelte";
   import MatterStatusDialog from "$lib/matters/matter-status-dialog.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
-
-  /** The docket. Every matter came from it, and it is where the way out leads. */
-  const MATTERS_HREF = "/matters";
 
   let { matter }: { matter: MatterRecord } = $props();
 
@@ -103,31 +98,27 @@
   });
 </script>
 
-<Masthead.Root density="compact" class="items-stretch border-b border-border-default">
-  <Masthead.Heading class="min-w-0 max-w-2xl flex-1 pb-16">
-    <Masthead.Title class="truncate" title={matter.title}>{matter.title}</Masthead.Title>
-    <Masthead.Meta class="flex-nowrap">
-      <!-- The way back, the ledger line and the status seal lead the citation: still the first
-           things read on the line, without costing a line of their own. All three hold their width
-           so the citation is what gives when the band narrows.
-           One link back to the docket is not a breadcrumb trail, so the landmark is named for what
-           it is; announcing it as a breadcrumb would send a reader looking for a path that is not
-           there. -->
-      <nav aria-label="Back to Matters" class="flex flex-none">
-        <BackLink href={MATTERS_HREF} label="Matters" display="arrow-only" />
-      </nav>
-      <span
-        class="flex-none text-xs font-semibold text-text-subtle uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
-      >
-        {ledgerLine}
-      </span>
-      <!-- The seal is where the matter's status is read, and now also where it is changed. -->
-      <span class="flex-none"><MatterStatusDialog {matter} /></span>
-      <Masthead.MetaSeparator />
-      <span class="truncate" title={citation}>{citation}</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
+<ScreenHeader
+  title={matter.title}
+  back="matters"
+  density="compact"
+  class="border-b border-border-default"
+>
+  {#snippet meta()}
+    <!-- The ledger line and the status seal lead the citation: the first things read on the line,
+         without costing a line of their own. Both hold their width so the citation is what gives
+         when the band narrows. -->
+    <span
+      class="flex-none text-xs font-semibold text-text-subtle uppercase"
+      style="letter-spacing: var(--mc-tracking-caps)"
+    >
+      {ledgerLine}
+    </span>
+    <!-- The seal is where the matter's status is read, and also where it is changed. -->
+    <span class="flex-none"><MatterStatusDialog {matter} /></span>
+    <Masthead.MetaSeparator />
+    <span class="truncate" title={citation}>{citation}</span>
+  {/snippet}
 
   <!-- The inline-end column holds the search over the strip. It stays a flex column with items-end
        so the strip sits on the band's bottom rule (the Masthead's own items-stretch would
@@ -140,10 +131,12 @@
        sideways on the first keystroke — and the strip's own fold would then re-measure mid-typing.
        Rendering it in the HEADER, which the matter layout draws over every section, is what puts
        one search on every screen and stops a section growing its own. -->
-  <div class="flex min-w-0 flex-1 flex-col items-end justify-between gap-8">
-    <div class="flex flex-none items-center pt-4">
-      <MatterSearchControl matterId={matter.id} />
+  {#snippet trailing()}
+    <div class="flex min-w-0 flex-1 flex-col items-end justify-between gap-8">
+      <div class="flex flex-none items-center pt-4">
+        <MatterSearchControl matterId={matter.id} />
+      </div>
+      <MatterSectionNav matterId={matter.id} />
     </div>
-    <MatterSectionNav matterId={matter.id} />
-  </div>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>

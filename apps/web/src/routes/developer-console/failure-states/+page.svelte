@@ -15,10 +15,8 @@
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import type { Failure, Problem } from "$lib/api/problem.ts";
-  import BackLink from "$lib/navigation/back-link.svelte";
-
-  /** The console every gallery here was opened from, and where the way out leads. */
-  const DEVELOPER_CONSOLE_HREF = "/developer-console";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import { DEVELOPER_CONSOLE_BACK } from "$lib/screen/screen-header.ts";
 
   // A fixed moment, so the surface reads the same on every visit and a screenshot of it is stable.
   const FAILED_AT = new Date("2026-08-31T21:07:44.318Z");
@@ -135,12 +133,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex flex-col gap-4">
-      <!-- The caps line that named the console this gallery was opened from now RETURNS to it,
-           in the same register it already read in. -->
-      <nav aria-label="Back to Developer console" class="flex">
-        <BackLink href={DEVELOPER_CONSOLE_HREF} label="Developer console" />
-      </nav>
-      <h1 class="text-2xl font-semibold">Failure states</h1>
+      <ScreenHeader title="Failure states" back={DEVELOPER_CONSOLE_BACK} />
       <p class="max-w-prose text-sm text-text-muted">
         Every shape a failure takes, rendered by the real components over real problem documents.
         Copy works on every one of them; the trace it puts on the clipboard is the whole report.

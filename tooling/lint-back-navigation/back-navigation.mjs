@@ -2,11 +2,19 @@
  * The scan behind `pnpm run lint:back-navigation` — pure functions over a route tree, so the gate's
  * own tests can feed it a tree that is deliberately wrong and prove the assertions bite.
  *
- * THE RULE. A screen the reader entered FROM another screen carries a way back to it, at the top of
- * its own header. A matter opened from the docket, a person opened from the directory, a check
- * opened from the conflicts register: each is a screen ABOVE which exactly one other screen sits,
- * and each must say so. The rule and its two visual forms are in docs/conventions/ui-design.md; the
- * one component that renders them is apps/web/src/lib/navigation/back-link.svelte.
+ * TWO RULES, AND THE SECOND IS WHAT KEEPS THE FIRST TRUE.
+ *
+ * 1. A screen the reader entered FROM another screen names where it came from. A matter opened from
+ *    the docket, a person opened from the directory, a check opened from the conflicts register:
+ *    each is a screen with exactly one screen above it, and each says so by passing `back` to its
+ *    header.
+ *
+ * 2. Every screen's header IS that one component. Twenty screens assembled the design-system
+ *    Masthead by hand in eight different combinations, and four more hand-rolled an `h1` outside the
+ *    design system entirely; that variety is what made the first rule impossible to see and easy to
+ *    forget. So `Masthead.Root` is spoken for: screen-header.svelte composes it, and nothing else in
+ *    the application may. A screen that assembles its own header is a screen that can quietly grow
+ *    its own idea of where the way back goes, or grow none at all.
  *
  * WHAT "ABOVE" MEANS, DERIVED RATHER THAN LISTED. A route's parent screen is the nearest ancestor
  * route that renders a page of its own. Nothing is hand-registered: adding `+page.svelte` under an
@@ -15,17 +23,15 @@
  * nowhere to go back TO, so nothing is demanded of it — /settings/theme is that case, and its way
  * around is the settings nav the shell draws beside it.
  *
- * WHERE THE AFFORDANCE MAY LIVE. In the page, or in any layout between it and the parent screen —
- * a subtree with one shape pays for the link once (the tools layout does this for every tool page)
- * — and, either way, through however many components that file composes to build its header (the
- * matter's way back lives in matter-header.svelte, three files from the route). So the search
- * follows imports rather than reading one file, which is what lets a header stay a component.
+ * WHERE THE ANSWER MAY LIVE. In the page, in any layout between it and the parent screen, or in
+ * however many components that file composes to build its header (the matter's header is three
+ * files from its route). So the search follows imports rather than reading one file.
  *
- * WHAT IS CHECKED, BEYOND PRESENCE. The destination: a back link whose href is not the parent
- * screen's own path sends the reader somewhere they did not come from, which is worse than no link
- * at all. Static hrefs are compared literally (a `const SOMETHING_HREF = "/matters"` beside the
- * markup resolves); a parent route carrying a parameter cannot be compared statically, so an
- * expression is accepted there and refused everywhere else.
+ * WHAT IS CHECKED, BEYOND PRESENCE. The destination. A screen passes a DESTINATION ID, which this
+ * scan resolves through the sidebar registry exactly as the application does, and the resulting path
+ * must be the parent screen's own. A back link that leads somewhere the reader did not come from is
+ * worse than none at all. An id the registry does not hold is refused here as well as by the type
+ * checker.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -36,8 +42,12 @@ const GROUP_SEGMENT = /^\(.+\)$/u;
 /** A route segment that is a parameter, so any path built from it is dynamic. */
 const PARAMETER_SEGMENT = /\[.+\]/u;
 
-/** The one component that renders the affordance, as its import specifier. */
-export const BACK_LINK_MODULE = "$lib/navigation/back-link.svelte";
+/** The one component every screen's header comes from, as its import specifier. */
+export const SCREEN_HEADER_MODULE = "$lib/screen/screen-header.svelte";
+
+/** Where the sidebar destinations and the spelled-out back targets are declared. */
+export const DESTINATIONS_SOURCE = "apps/web/src/lib/navigation/destinations.ts";
+export const BACK_TARGETS_SOURCE = "apps/web/src/lib/screen/screen-header.ts";
 
 /**
  * Route subtrees the rule does not reach, each naming what carries the return instead. These are not
@@ -117,7 +127,7 @@ export function screensUnderAScreen(routes) {
   return pairs;
 }
 
-/** The route files that may carry the affordance: the page, then every layout up to the parent. */
+/** The route files that may carry the answer: the page, then every layout up to the parent. */
 export function candidateFiles({ route, parent }) {
   const files = [path.join(route.directory, "+page.svelte")];
   let directory = route.directory;
@@ -131,13 +141,27 @@ export function candidateFiles({ route, parent }) {
   return files;
 }
 
-/** `const NAME = "literal";` bindings, which is how a route file names its destination. */
-export function stringConstants(source) {
-  const constants = new Map();
-  for (const match of source.matchAll(/\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*"([^"]*)"\s*;/gu)) {
-    constants.set(match[1], match[2]);
+/**
+ * The path each destination id leads to, read from the registry's own source. Reading the source
+ * rather than importing it keeps this gate dependency-free and runnable before a build.
+ */
+export function destinationPaths(source) {
+  const paths = new Map();
+  for (const match of source.matchAll(/\bid:\s*"([^"]+)",[\s\S]{0,400}?\bhref:\s*"([^"]+)",/gu)) {
+    if (!paths.has(match[1])) paths.set(match[1], match[2]);
   }
-  return constants;
+  return paths;
+}
+
+/** The path each spelled-out back target leads to (`DEVELOPER_CONSOLE_BACK` and any successor). */
+export function spelledOutBackTargets(source) {
+  const targets = new Map();
+  for (const match of source.matchAll(
+    /export const ([A-Z][A-Z0-9_]*)\s*:\s*BackDestination\s*=\s*\{[\s\S]*?href:\s*"([^"]+)"/gu,
+  )) {
+    targets.set(match[1], match[2]);
+  }
+  return targets;
 }
 
 /** The default-imported `.svelte` components a file composes, as { localName, specifier }. */
@@ -151,36 +175,36 @@ export function componentImports(source) {
   return imports;
 }
 
-/** True when a file imports the one back-link component; its local name when it does. */
-export function backLinkLocalName(source) {
+/** The local name a file imports the screen header under, or null. */
+export function screenHeaderLocalName(source) {
   const match = new RegExp(
-    `^\\s*import\\s+([A-Za-z_$][\\w$]*)\\s+from\\s+"${BACK_LINK_MODULE.replace("$", "\\$")}"`,
+    `^\\s*import\\s+([A-Za-z_$][\\w$]*)\\s+from\\s+"${SCREEN_HEADER_MODULE.replace("$", "\\$")}"`,
     "mu",
   ).exec(source);
   return match === null ? null : match[1];
 }
 
 /**
- * The destinations a file's own back links name: a resolved path, or null where the href is an
- * expression this scan cannot read.
+ * Where a file's screen headers say they were entered from: a resolved path per `back`, or null for
+ * a `back` this scan cannot read. A header with no `back` contributes nothing — it is a main screen.
  */
-export function backLinkDestinations(source) {
-  const localName = backLinkLocalName(source);
+export function backDestinations(source, { destinations, spelledOut }) {
+  const localName = screenHeaderLocalName(source);
   if (localName === null) return [];
-  const constants = stringConstants(source);
-  const destinations = [];
+  const found = [];
   for (const element of source.matchAll(new RegExp(`<${localName}\\b([^>]*)>`, "gu"))) {
     const attributes = element[1];
-    const literal = /\bhref\s*=\s*"([^"]*)"/u.exec(attributes);
+    const literal = /\bback\s*=\s*"([^"]*)"/u.exec(attributes);
     if (literal !== null) {
-      destinations.push(literal[1]);
+      found.push({ named: literal[1], to: destinations.get(literal[1]) ?? null });
       continue;
     }
-    const expression = /\bhref\s*=\s*\{([^}]*)\}/u.exec(attributes);
-    const named = expression === null ? null : constants.get(expression[1].trim());
-    destinations.push(named ?? null);
+    const expression = /\bback\s*=\s*\{([^}]*)\}/u.exec(attributes);
+    if (expression === null) continue;
+    const name = expression[1].trim();
+    found.push({ named: name, to: spelledOut.get(name) ?? null });
   }
-  return destinations;
+  return found;
 }
 
 /** Resolve an import specifier written in a Svelte file to a path on disk. */
@@ -194,11 +218,13 @@ export function resolveComponent(specifier, fromFile, { webSource }) {
 
 /**
  * Every destination reachable from `file`, following the components it composes. A header that lives
- * three components away from its route still answers for the route.
+ * three components away from its route still answers for the route. The screen header itself is
+ * never followed: it holds the back link every screen's answer flows through, so walking into it
+ * would report a way back for every screen that has a title.
  */
 export function destinationsReachableFrom(
   file,
-  { webSource, readFile = readFileSync, depth = MAX_COMPONENT_DEPTH, seen = new Set() },
+  { webSource, tables, readFile = readFileSync, depth = MAX_COMPONENT_DEPTH, seen = new Set() },
 ) {
   if (depth < 0 || seen.has(file)) return [];
   seen.add(file);
@@ -208,15 +234,22 @@ export function destinationsReachableFrom(
   } catch {
     return [];
   }
-  const destinations = [...backLinkDestinations(source)];
+  const found = [...backDestinations(source, tables)];
   for (const composed of componentImports(source)) {
+    if (composed.specifier === SCREEN_HEADER_MODULE) continue;
     const resolved = resolveComponent(composed.specifier, file, { webSource });
     if (resolved === null) continue;
-    destinations.push(
-      ...destinationsReachableFrom(resolved, { webSource, readFile, depth: depth - 1, seen }),
+    found.push(
+      ...destinationsReachableFrom(resolved, {
+        webSource,
+        tables,
+        readFile,
+        depth: depth - 1,
+        seen,
+      }),
     );
   }
-  return destinations;
+  return found;
 }
 
 /** True when the route lies inside a subtree the rule does not reach. */
@@ -225,12 +258,14 @@ export function excludedSubtree(route) {
 }
 
 /**
- * The whole verdict: one failure line per screen that owes a way back and does not have one, or
- * names the wrong destination.
+ * The whole verdict: one failure line per screen that owes a way back and does not name one, or
+ * names the wrong screen.
  */
 export function auditBackNavigation({
   routesRoot,
   webSource,
+  destinations = new Map(),
+  spelledOut = new Map(),
   readDirectory = readdirSync,
   readFile = readFileSync,
   exists = (file) => {
@@ -241,6 +276,7 @@ export function auditBackNavigation({
     }
   },
 }) {
+  const tables = { destinations, spelledOut };
   const routes = discoverRoutes(routesRoot, { readDirectory });
   const failures = [];
   const covered = [];
@@ -260,38 +296,41 @@ export function auditBackNavigation({
       continue;
     }
 
-    const destinations = [];
+    const found = [];
     for (const file of candidateFiles(pair)) {
       if (!exists(file)) continue;
-      destinations.push(
-        ...destinationsReachableFrom(file, { webSource, readFile, seen: new Set() }),
+      found.push(
+        ...destinationsReachableFrom(file, { webSource, tables, readFile, seen: new Set() }),
       );
     }
 
-    if (destinations.length === 0) {
+    if (found.length === 0) {
       failures.push(
-        `${here} is entered from ${parentPath} and offers no way back to it.\n` +
-          `    Put a BackLink at the top of its header — import it from ${BACK_LINK_MODULE} and ` +
-          `give it href="${parentPath}" — in ${path.relative(routesRoot, pair.route.directory)}/+page.svelte ` +
-          `or in a layout between it and ${parentPath}. The two forms are in docs/conventions/ui-design.md.`,
+        `${here} is entered from ${parentPath} and its header does not say so.\n` +
+          `    Pass \`back\` to its ScreenHeader — the destination whose path is ${parentPath} — in ` +
+          `${path.relative(routesRoot, pair.route.directory)}/+page.svelte or in a layout between it ` +
+          `and ${parentPath}. The rule and the two forms are in docs/conventions/ui-design.md.`,
+      );
+      continue;
+    }
+
+    const unresolved = found.filter((entry) => entry.to === null);
+    if (unresolved.length > 0 && !found.some((entry) => entry.to === parentPath)) {
+      failures.push(
+        `${here} names \`back={${unresolved[0].named}}\`, which resolves to no destination.\n` +
+          `    Name a destination from ${DESTINATIONS_SOURCE} by its id, or a back target declared ` +
+          `in ${BACK_TARGETS_SOURCE}.`,
       );
       continue;
     }
 
     const parentIsDynamic = PARAMETER_SEGMENT.test(parentPath);
-    const matches = destinations.some(
-      (destination) => destination === parentPath || (destination === null && parentIsDynamic),
-    );
+    const matches = found.some((entry) => entry.to === parentPath || parentIsDynamic);
     if (!matches) {
-      const named = destinations
-        .map((destination) =>
-          destination === null ? "an expression this scan cannot read" : destination,
-        )
-        .join(", ");
       failures.push(
-        `${here} has a way back, but it does not lead to ${parentPath} — it names ${named}.\n` +
-          `    A link back to a screen the reader did not come from is worse than none. Point it at ` +
-          `${parentPath}${parentIsDynamic ? "" : ', as a string literal or a `const NAME = "…"` beside the markup'}.`,
+        `${here} has a way back, but it does not lead to ${parentPath} — it names ` +
+          `${found.map((entry) => `${entry.named} (${entry.to})`).join(", ")}.\n` +
+          `    A link back to a screen the reader did not come from is worse than none.`,
       );
       continue;
     }
@@ -302,24 +341,33 @@ export function auditBackNavigation({
 }
 
 /**
- * The second drift this gate refuses: a header building its own back arrow out of EyebrowLink and an
- * arrow icon instead of composing BackLink. That is how the two forms diverge — the matter header was
- * exactly this, and its accessible name, its icon size and its register were then its own to keep
- * right. The scan is textual and deliberately narrow: a file that renders EyebrowLink with an
- * ArrowLeft inside it is rendering a back link.
+ * The second rule: every screen's header is the one component. `Masthead.Root` is the design
+ * system's page-header primitive, and screen-header.svelte is the only thing in the application
+ * allowed to compose it — otherwise the variety this gate exists to end simply grows back, one
+ * screen at a time, and each new arrangement is free to forget the way back.
  */
-export function handRolledBackLinks(files, { readFile = readFileSync } = {}) {
+export function handRolledHeaders(files, { readFile = readFileSync, allow = new Set() } = {}) {
   const offenders = [];
   for (const file of files) {
+    if (allow.has(file)) continue;
     let source;
     try {
       source = readFile(file, "utf8");
     } catch {
       continue;
     }
-    if (!/\bEyebrowLink\b/u.test(source)) continue;
-    if (!/icons\/arrow-left"/u.test(source)) continue;
-    offenders.push(file);
+    if (/<Masthead\.Root\b/u.test(source)) {
+      offenders.push({ file, reason: "assembles Masthead.Root itself" });
+      continue;
+    }
+    // A header hand-rolled out of the eyebrow link and an arrow icon is the same drift wearing
+    // different parts: it is how the back affordance's accessible name and register diverged before.
+    if (/\bEyebrowLink\b/u.test(source) && /icons\/arrow-left"/u.test(source)) {
+      offenders.push({
+        file,
+        reason: "builds its own back link from EyebrowLink and an arrow icon",
+      });
+    }
   }
   return offenders;
 }

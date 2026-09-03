@@ -21,7 +21,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import BackLink from "$lib/navigation/back-link.svelte";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -53,9 +53,6 @@
   import NamesPane from "$lib/directory/names-pane.svelte";
   import PronounsPane from "$lib/directory/pronouns-pane.svelte";
   import EdgesPane from "$lib/directory/edges-pane.svelte";
-
-  /** The book this record was opened from, and where the way out leads. */
-  const DIRECTORY_HREF = "/directory";
 
   let { data }: { data: { entityId: string; kind: "person" | "organization" } } = $props();
 
@@ -161,37 +158,26 @@
   </div>
 {:else}
   <div class="mb-24 flex flex-col gap-16">
-    <Masthead.Root>
-      <Masthead.Heading>
-        <!-- The way back leads the kind, as an arrow alone: this line already reads in the eyebrow
-             register, and a second caps label above it would compete with the kind for that
-             register and read as a breadcrumb trail with one crumb (the matter header's ruling).
-             The destination is spoken from the anchor's own accessible name. -->
-        <Masthead.Eyebrow class="flex items-start gap-8">
-          <BackLink href={DIRECTORY_HREF} label="Directory" display="arrow-only" />
-          {entityKindLabel(entity.kind)}
-        </Masthead.Eyebrow>
-        <Masthead.Title>{name}</Masthead.Title>
-        <Masthead.Meta>
+    <ScreenHeader title={name} back="directory" eyebrow={entityKindLabel(entity.kind)}>
+      {#snippet meta()}
+        {#if pronouns !== null}
+          <span>{pronounShortForm(pronouns)}</span>
+        {/if}
+        {#if legalNameAside !== null}
           {#if pronouns !== null}
-            <span>{pronounShortForm(pronouns)}</span>
+            <Masthead.MetaSeparator />
           {/if}
-          {#if legalNameAside !== null}
-            {#if pronouns !== null}
-              <Masthead.MetaSeparator />
-            {/if}
-            <span>{legalNameAside}</span>
-          {/if}
-        </Masthead.Meta>
-      </Masthead.Heading>
-      <Masthead.Actions>
+          <span>{legalNameAside}</span>
+        {/if}
+      {/snippet}
+      {#snippet actions()}
         {#if mergedInto !== null}
           <Badge variant="neutral" class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
             Folded in
           </Badge>
         {/if}
-      </Masthead.Actions>
-    </Masthead.Root>
+      {/snippet}
+    </ScreenHeader>
 
     {#if mergedInto !== null}
       <Alert.Root variant="info">

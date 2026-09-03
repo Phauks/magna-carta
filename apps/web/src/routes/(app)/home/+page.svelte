@@ -7,7 +7,7 @@
    */
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
 
   const now = new Date();
   const hour = now.getHours();
@@ -24,14 +24,14 @@
   <title>Home · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Good {daypart}</Masthead.Title>
-    <Masthead.Meta>
-      <span>{today}</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<ScreenHeader
+  title="Good {daypart}"
+  class="mb-24"
+>
+  {#snippet meta()}
+    <span>{today}</span>
+  {/snippet}
+</ScreenHeader>
 
 <EmptyState title="Your day assembles here">
   Tasks, deadlines, and the matters you touch will gather on this page as the firm's work begins —

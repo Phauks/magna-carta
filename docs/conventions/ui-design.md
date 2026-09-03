@@ -63,18 +63,32 @@ The exemplars are normative — Button (Tier 1, native), Tabs (Tier 2, single Bi
 
 Lucide only, **deep imports** (`@lucide/svelte/icons/<name>` — the bare-barrel import is gated), sized by a recipe class (`inline-size`/`block-size` from a token), not a `size` prop. **No emojis anywhere** (gated). Icons are decorative — `aria-hidden="true"` — unless they are the only label, in which case the control needs an accessible name another way.
 
-## The way back — a screen entered from another screen returns to it
+## Every screen's title, and the way back — one component
 
-A screen the reader reached **from** another screen carries a return affordance at the top of its own header: a matter opened from the docket, a person opened from the Directory, a check opened from the conflicts register. The browser's own back button is not that affordance — a screen arrives by link, by search result and in a fresh tab as often as by a click from the screen above it, and none of those has a history to step back through.
+**Every screen states what it is through [`apps/web/src/lib/screen/screen-header.svelte`](../../apps/web/src/lib/screen/screen-header.svelte).** Not the Masthead recipe directly — that stays the design-system primitive this composes (the register, the display serif, the density step). Twenty screens assembled Masthead by hand in eight different combinations of its parts, and four more hand-rolled an `h1` over a letterspaced `p` outside the design system entirely; nothing was wrong with any one of them, but "what does a screen header look like here" had twenty-four answers and a correction had to be made twenty-four times.
 
-One component renders it — [`apps/web/src/lib/navigation/back-link.svelte`](../../apps/web/src/lib/navigation/back-link.svelte), over the design system's `EyebrowLink` — in two forms, and the header picks between them:
+The anatomy, in the order a reader meets it:
 
-- **Labelled** (the default): a `nav` row immediately above the masthead, tight to it, carrying the arrow and then the destination's **name** rather than the word "Back", so a reader learns _where_ it goes. The tools layout and both conflicts detail screens.
-- **Arrow-only**: where the header's top line **already** reads in the eyebrow register — a matter's ledger line, a directory record's kind — the arrow leads that line instead. A second caps label stacked above it competes with that line for the same register and reads as a breadcrumb trail with one crumb (owner ruling on the matter header, 2026-09-01). The label is still required, because it is still spoken: the anchor's accessible name is "Back to \<destination\>" either way, and the visible text stays a substring of it.
+```
+← ⌂ MATTERS        the way back, showing the destination in miniature — its glyph, its name
+PERSON             the eyebrow: what this screen's subject IS, when that needs saying
+Rosalind Chase     the title, in the display serif
+she/her · …        the meta line, the citation beneath the title
+```
 
-A subtree whose screens share one header shape pays for the link **once, in the layout** (`(app)/tools/+layout.svelte` does this for every tool page), never per page.
+with `actions` at the inline end of the title row, and `trailing` for a band that shares its height with something else (the matter's search over its section strip — passing it is what makes the title truncate and the band stretch, because both follow from the two-column arrangement rather than being separate decisions a caller could get inconsistently right).
 
-**Gated** — `pnpm run lint:back-navigation`. The rule is derived from the route tree rather than a list: a route whose nearest ancestor route renders a page of its own must offer a way back, in the page or in a layout between them, through however many components its header is built from — and that way back must lead **there**, not merely somewhere. A route whose ancestors only redirect or only draw a shell is asked for nothing (`/settings/theme` is that case; its finding aid is the settings nav beside it), and a route that must decline says so in the gate's own exemption register rather than silently. The gate also refuses a header that hand-rolls the affordance out of `EyebrowLink` and an arrow icon instead of composing `BackLink` — which is how the two forms, and the accessible name they share, would drift apart.
+**The way back is named, not drawn** (owner's direction, 2026-09-03). A screen passes a **destination id** — `back="directory"` — and the href, the user-facing label and the glyph all come from the sidebar's own registry. So a screen cannot invent a destination, cannot call it something the sidebar calls something else, and cannot go stale when a path moves; the id is a literal union, so a typo is a type error. The arrow shows the destination **in miniature**, its own sidebar mark beside its own name, because a reader should learn where the link lands rather than only that there is a way out. A screen outside the sidebar (the developer console) passes a spelled-out target from [`screen-header.ts`](../../apps/web/src/lib/screen/screen-header.ts) instead — deliberately more work to write than an id.
+
+The way back **leads the stack** rather than sharing the eyebrow's line, so the two never compete for the same register: one names where you would go, the other names what you are looking at.
+
+**Gated** — `pnpm run lint:back-navigation`, which answers three questions from the route tree and the registry rather than from a list:
+
+1. every route whose nearest ancestor route renders a page of its own passes a `back` — in the page, in a layout between them, or through however many components its header is built from;
+2. the destination it names resolves to that ancestor's own path (a link back to a screen the reader did not come from is worse than none);
+3. nothing in the application assembles `Masthead.Root` itself, or builds its own back link out of `EyebrowLink` and an arrow icon — the second rule is what keeps the first true, because a screen with a hand-made header is free to grow its own idea of the way back, or none.
+
+A route whose ancestors only redirect or only draw a shell is asked for nothing (`/settings/theme` is that case; its finding aid is the settings nav beside it), and a route that must decline says so in the gate's own exemption register rather than silently.
 
 ## The review rules a machine can't check
 

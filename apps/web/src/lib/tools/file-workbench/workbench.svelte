@@ -26,6 +26,7 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Button from "@magna-carta/design-system/button";
@@ -200,21 +201,18 @@
 {/snippet}
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>File Workbench</Masthead.Title>
-      <!-- The file count is not here. It belongs to the list, in the list's own footer beside the
-           selection, which is where a reader looks for both. What IS here is the lifetime, because
-           nothing else on the screen says it. -->
-      <Masthead.Meta>
-        <span>Runs outside any matter</span>
-        <Masthead.MetaSeparator />
-        <span>Nothing is filed</span>
-        <Masthead.MetaSeparator />
-        <span>Nothing leaves this browser, and closing this page clears it</span>
-      </Masthead.Meta>
-    </Masthead.Heading>
-    <Masthead.Actions>
+  <ScreenHeader
+    title="File Workbench"
+    back="tools"
+  >
+    {#snippet meta()}
+      <span>Runs outside any matter</span>
+      <Masthead.MetaSeparator />
+      <span>Nothing is filed</span>
+      <Masthead.MetaSeparator />
+      <span>Nothing leaves this browser, and closing this page clears it</span>
+    {/snippet}
+    {#snippet actions()}
       <Button variant="secondary" size="sm" onclick={() => picker?.click()}>
         <Upload class="size-16" aria-hidden="true" />
         Add Files
@@ -263,8 +261,8 @@
         aria-label="Add files to the workbench"
         onchange={pick}
       />
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   <!-- The handles carry no grip. The edge between two panes is already the affordance, and a grip
        drawn on it is furniture on a work surface. -->
