@@ -13,6 +13,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import { listMatterTimeEntries, type TimeEntrySummary } from "$lib/matters/time-api.ts";
   import { readSession } from "$lib/matters/matters-api.ts";
   import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
@@ -115,6 +116,7 @@
       matterTitle={matter.title}
       members={roster.members ?? []}
       {sessionUserId}
+      openEntryId={entryFromUrl()}
       onChanged={() => (reloadToken += 1)}
     />
     {#if list.nextCursor !== null}

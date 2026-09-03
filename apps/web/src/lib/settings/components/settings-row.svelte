@@ -35,6 +35,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Switch from "@magna-carta/design-system/switch";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import MessageSquarePlus from "@lucide/svelte/icons/message-square-plus";
   import {
     settingValueLabel,
@@ -138,12 +139,10 @@
   <!-- The fixed tag slot — geometry never changes, only whether the tag is inked. -->
   <div class="shrink-0 pt-4 text-end" style="inline-size: var(--mc-space-64)">
     {#if staged}
-      <span
-        class="text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="span"
       >
         Staged
-      </span>
+      </FieldLabel>
     {/if}
   </div>
 

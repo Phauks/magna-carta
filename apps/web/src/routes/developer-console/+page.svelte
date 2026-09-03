@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldLabel from "@magna-carta/design-system/field-label";
   /*
    * The popped-out developer console — the same module rail as the top-bar popover, rendered as
    * its own window so the main window stays clear. Deliberately OUTSIDE the (app) route group, so
@@ -16,12 +17,10 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-12 bg-surface-default p-16 text-text-default">
     <div class="flex items-baseline justify-between gap-8">
-      <p
-        class="text-xs font-semibold text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="p"
       >
         Developer console
-      </p>
+      </FieldLabel>
       <p class="text-xs text-text-muted">Dev builds only · saved in this browser</p>
     </div>
     <DeveloperConsolePanel />

@@ -36,7 +36,8 @@
   import ZoomIn from "@lucide/svelte/icons/zoom-in";
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
   import type { DataTableGridState } from "@magna-carta/design-system/data-table";
-  import { PaneToggle } from "$lib/records/index.ts";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
+  import PanelLeft from "@lucide/svelte/icons/panel-left";
   import { SCALE_STEPS, type FileManagerState } from "./file-manager-state.svelte.ts";
   import { redoTitle, undoTitle } from "./move-history.ts";
 
@@ -93,6 +94,10 @@
   const scaleIndex = $derived(
     Math.max(0, SCALE_STEPS.indexOf(manager.scalePercent as (typeof SCALE_STEPS)[number])),
   );
+
+  // Says which way pressing goes, rather than naming both directions at once: the glyph already
+  // shows the state, so the label can state the next step.
+  const railLabel = $derived(manager.railOpen ? "Hide the folder tree" : "Show the folder tree");
 
   function step(by: -1 | 1): void {
     const next = SCALE_STEPS[Math.min(SCALE_STEPS.length - 1, Math.max(0, scaleIndex + by))];
@@ -201,9 +206,25 @@
         <ZoomIn class="size-16" aria-hidden="true" />
       </Button>
     </span>
-    <!-- The two pane toggles end the strip, in the order the panes they open sit on the screen. -->
-    <PaneToggle open={manager.railOpen} side="start" pane="the folder tree" onToggle={onToggleRail} />
-    <PaneToggle open={manager.panelOpen} pane="the details panel" onToggle={onTogglePanel} />
+    <!-- The two pane toggles end the strip, in the order the panes they open sit on the screen.
+
+         The DETAILS PANEL's is the shared control, because five surfaces show that panel and four
+         of them once drew their own button for it. The FOLDER TREE's is written out here, because
+         this is the only screen in the product that has a folder tree to hide — a component shared
+         by one caller is indirection, not reuse, and calling it a DetailsPanel toggle would be a
+         plain misnomer. If the tree's toggle survives its next review and a second surface ever
+         grows one, that is when it earns a component. -->
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-pressed={manager.railOpen}
+      title={railLabel}
+      aria-label={railLabel}
+      onclick={onToggleRail}
+    >
+      <PanelLeft class="size-16" aria-hidden="true" />
+    </Button>
+    <DetailsPanel.Toggle open={manager.panelOpen} onToggle={() => onTogglePanel()} />
   </span>
 {/snippet}
 

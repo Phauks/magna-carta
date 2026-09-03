@@ -33,11 +33,11 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import {
     LedgerPanes,
-    PaneToggle,
     RecordMenu,
     type RecordMenuAction,
     type RecordMenuModel,
@@ -66,6 +66,7 @@
   import { costRecordMenu, type CostMenuRecord } from "./cost-record-menu.ts";
   import {
     approveCost,
+    readCostLedgerEntry,
     submitCost,
     writeKey,
     type CostAcknowledgement,
@@ -86,6 +87,7 @@
     matterNumber = null,
     permissions = null,
     loading = false,
+    openCostId = null,
     onChanged,
   }: {
     /** Every cost on the matter, in every status: that is what a matter's cost record is. */
@@ -96,6 +98,8 @@
     /** What this account may do, from the session bootstrap. Null while it has not been read. */
     permissions?: readonly string[] | null;
     loading?: boolean;
+    /** A cost to open on arrival — what a deep link into this section names. */
+    openCostId?: string | null;
     /** Something was written; the matter's costs want re-reading. */
     onChanged: () => void;
   } = $props();
@@ -170,6 +174,26 @@
     windowEditing = editing;
     windowOpen = true;
   }
+
+  /*
+   * The cost this ledger was asked to open, opened the way any cost opens: from the loaded page
+   * where it is on it, else read by its id — a cost older than the first page opens all the same.
+   * Once per id.
+   */
+  let honouredCostId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = openCostId;
+    if (wanted === null || loading || honouredCostId === wanted) return;
+    honouredCostId = wanted;
+    const loaded = costs.find((cost) => cost.id === wanted);
+    if (loaded !== undefined) {
+      openRecord(loaded, false);
+      return;
+    }
+    void readCostLedgerEntry(fetch, wanted).then((outcome) => {
+      if (outcome.kind === "ok") openRecord(outcome.value, false);
+    });
+  });
 
   /*
    * The one create action this surface has, exported for the section page: the matter header's
@@ -419,12 +443,11 @@
       <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
     </span>
   {/each}
-  <!-- The pane toggle ends the strip, after the figures: the last thing on the line, on every
-       surface in the product that has a pane. -->
-  <PaneToggle
+  <!-- The toggle ends the strip, after the figures: the last thing on the line, on every surface
+       in the product that has a panel. -->
+  <DetailsPanel.Toggle
     open={panelOpen}
-    pane="the details panel"
-    onToggle={() => panelPreference.set(panelOpen ? "closed" : "open")}
+    onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
   />
 {/snippet}
 

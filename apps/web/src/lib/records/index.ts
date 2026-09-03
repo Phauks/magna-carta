@@ -11,7 +11,6 @@
  */
 export { default as RecordMenu } from "./record-menu.svelte";
 export { default as LedgerPanes } from "./ledger-panes.svelte";
-export { default as PaneToggle } from "./pane-toggle.svelte";
 
 export {
   countedLabel,

@@ -27,14 +27,10 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import FileMinus from "@lucide/svelte/icons/file-minus";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import {
-    LedgerPanes,
-    PaneToggle,
-    RecordMenu,
-    type RecordMenuAction,
-  } from "$lib/records/index.ts";
+  import { LedgerPanes, RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import type { CostSummary } from "$lib/matters/cost-api.ts";
@@ -447,12 +443,11 @@
       <span class="text-text-subtle">{figure.label}</span>
     </span>
   {/each}
-  <!-- The pane toggle ends the strip, after the figures: the last thing on the line, on every
-       surface in the product that has a pane. -->
-  <PaneToggle
+  <!-- The toggle ends the strip, after the figures: the last thing on the line, on every surface
+       in the product that has a panel. -->
+  <DetailsPanel.Toggle
     open={panelOpen}
-    pane="the details panel"
-    onToggle={() => panelPreference.set(panelOpen ? "closed" : "open")}
+    onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
   />
 {/snippet}
 

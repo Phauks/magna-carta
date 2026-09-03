@@ -312,7 +312,7 @@ describe("a resolved protected value stays in memory", () => {
   it("appears in the resolved values and in nothing else the context carries", async () => {
     const { context } = await resolveWith(
       async () => SEALED_VALUE,
-      [SOCIAL_SECURITY_NUMBER_KEY, "client.dateOfBirth", "matter.number"],
+      [SOCIAL_SECURITY_NUMBER_KEY, "client.employerIdentificationNumber", "matter.number"],
     );
 
     // Everything the context hands a caller BESIDES the values map — the absent keys and the reasons —

@@ -770,7 +770,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
   // Guards the suite against vacuity: if operations() yielded nothing, every `toEqual([])` below would
   // pass trivially. Assert the document exposes exactly the operations we expect to enforce over.
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
-    const ids = [...operations(document)].map((entry) => entry.operationId).sort();
+    const ids = [...operations(document)].map((entry) => entry.operationId).toSorted();
     expect(ids).toEqual([
       "aiDetection.detect",
       "assemblies.status",
@@ -832,9 +832,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.getSettings",
       "calendar.listDeadlines",
       "calendar.listEventBookings",
+      "calendar.listEventLinks",
       "calendar.listEventTypes",
       "calendar.listEvents",
       "calendar.listFirmEventBookings",
+      "calendar.listFirmEventLinks",
       "calendar.listFirmEvents",
       "calendar.listResources",
       "calendar.matterTimeline",
@@ -849,8 +851,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.updateResource",
       "calendar.updateSettings",
       "calendar.vacateDeadline",
+      "conflicts.firmPolicy",
       "conflicts.getCheck",
+      "conflicts.hitDispositions",
+      "conflicts.listChecks",
       "conflicts.matterPosture",
+      "conflicts.recheckMatter",
       "conflicts.recordDisposition",
       "conflicts.runCheck",
       "conversions.events",
@@ -1173,6 +1179,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "notes.deleteNote",
       "notes.detachNoteDocument",
       "notes.editNote",
+      "notes.getNote",
       "notes.listNotes",
       "notificationPreferences.get",
       "notificationPreferences.getTrustComplianceRecipients",

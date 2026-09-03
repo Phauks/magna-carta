@@ -15,13 +15,15 @@
    * under review is where a reader reaches to open a pane and what that reach costs the screen;
    * the real panels would drag four ledgers' worth of record types into a gallery about a button.
    *
-   * The TOGGLE, though, is the shipping one — `PaneToggle`, the same component the ledgers and the
-   * file manager render. A gallery that drew its own copy of the control would be comparing
+   * The DETAILS PANEL'S TOGGLE is the shipping one — `DetailsPanel.Toggle`, the same component the
+   * four ledgers and the file manager render. A gallery that drew its own copy would be comparing
    * placements for a button that does not exist, and would go stale the first time the real one
-   * changed.
+   * changed. The folder tree's glyph is written out here, as it is in the file manager's footer,
+   * because one surface having one of them is not yet a component.
    */
   import { untrack } from "svelte";
   import Button from "@magna-carta/design-system/button";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Badge from "@magna-carta/design-system/badge";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -32,7 +34,8 @@
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import Search from "@lucide/svelte/icons/search";
-  import { PaneToggle } from "$lib/records/index.ts";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
+  import PanelLeft from "@lucide/svelte/icons/panel-left";
   import { SPECIMEN_ENTRIES, type SpecimenEntry } from "./specimen-entries.ts";
 
   /**
@@ -136,20 +139,20 @@
 {/snippet}
 
 {#snippet railGlyph()}
-  <PaneToggle
-    open={railOpen}
-    side="start"
-    pane="the folder tree"
-    onToggle={() => (railOpenState = !railOpenState)}
-  />
+  <Button
+    variant="ghost"
+    size="icon-sm"
+    aria-pressed={railOpen}
+    title={railOpen ? "Hide the folder tree" : "Show the folder tree"}
+    aria-label={railOpen ? "Hide the folder tree" : "Show the folder tree"}
+    onclick={() => (railOpenState = !railOpenState)}
+  >
+    <PanelLeft class="size-16" aria-hidden="true" />
+  </Button>
 {/snippet}
 
 {#snippet panelGlyph()}
-  <PaneToggle
-    open={panelOpen}
-    pane="the details panel"
-    onToggle={() => (openedByHand = !openedByHand)}
-  />
+  <DetailsPanel.Toggle open={panelOpen} onToggle={() => (openedByHand = !openedByHand)} />
 {/snippet}
 
 <!-- Both glyphs, in the order the panes they open sit on the screen. -->
@@ -162,12 +165,7 @@
 
 {#snippet paneBody()}
   <div class="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-12">
-    <p
-      class="text-xs font-semibold text-text-subtle uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
-    >
-      Details
-    </p>
+    <FieldLabel as="p">Details</FieldLabel>
     {#if grid.selectedKeys.length === 0}
       <p class="text-sm text-text-muted">
         Nothing selected. The panel speaks for the matter until a row is chosen.
@@ -195,12 +193,7 @@
          inline end on every section, and the toggles join them there instead of each section
          growing chrome of its own. -->
     <div class="flex items-center justify-between gap-8 border-b border-border-default px-12 py-8">
-      <span
-        class="text-xs font-semibold text-text-subtle uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
-      >
-        Matter 2026-0147 · {isFiles ? "Files" : "Time"}
-      </span>
+      <FieldLabel>Matter 2026-0147 · {isFiles ? "Files" : "Time"}</FieldLabel>
       <span class="flex items-center gap-8">
         <span
           class="flex h-32 items-center gap-4 rounded-md border border-border-default px-12 text-xs text-text-muted"

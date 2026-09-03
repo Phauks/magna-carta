@@ -177,14 +177,27 @@ One entry in `TIMELINE_SOURCES`, and nothing else anywhere:
 3. **A projection** — through `projectRow`, with the deep link into the owning subsystem's own read.
 4. **A label decision** — a genuinely non-privileged summary, or `declaresLabel: false` and `NULL AS
 label` in the SQL. There is no third option.
+5. **A permission** — the read capability a DESCRIPTION of these rows sits behind (`notes:read`,
+   `custody:read`), or `null` where every member may read the record. It gates `describe` only: the
+   entry itself carries no content and is never withheld.
+6. **A `describe`, where the rows have names** — one statement through `describeSelect`, which binds
+   the matter, the page's row ids, the predicate and the LIMIT for you, projecting the fixed
+   `row_id / title / type_text / facts_json` columns. Called only by a matter-scoped read that asked
+   to describe (the matter's Activity section); the firm-wide read never calls it, so nothing a
+   describe projects reaches a cross-matter answer. The `facts_json` object is the subsystem's own
+   fields, read only by that subsystem's own presentation in `apps/web/src/lib/activity/`.
 
-It is **never** a change to the owning subsystem's write path, and never a new table.
+It is **never** a change to the owning subsystem's write path, and never a new table. The web app
+pairs every key here with an `ActivityContribution` beside the owning subsystem's own code, and
+`apps/web/test/activity-contributions.test.ts` fails until it exists.
 
 ## Dependencies & contracts
 
-- Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`, and
-  `@magna-carta/money`. It depends on no other domain package: every source reads its rows by table
-  name, which the schema-name-sync fitness test pins to `@magna-carta/database`.
+- Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`,
+  `@magna-carta/money`, and `@magna-carta/access-control` (for the `Permission` a source declares —
+  the same registry matter-search names its capabilities from). It depends on no other domain
+  package: every source reads its rows by table name, which the schema-name-sync fitness test pins
+  to `@magna-carta/database`.
 - The route layer (`apps/api-worker/src/routes/calendar.ts`) hands every service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 

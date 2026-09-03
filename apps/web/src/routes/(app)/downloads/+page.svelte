@@ -50,6 +50,18 @@
   // selection too, rather than leaving a phantom selected item nothing can act on.
   let selectedIds = $state<string[]>([]);
   let gathering = $state(false);
+  // A download that failed, by shelf item: stated on its own row with the way to try again beside
+  // it, rather than in a toast — a toast vanishes, and the reader who watched it go has nothing
+  // left to press.
+  let failedTakes = $state<Record<string, { format: string; message: string }>>({});
+
+  function recordFailedTake(id: string, format: string, message: string): void {
+    failedTakes = { ...failedTakes, [id]: { format, message } };
+  }
+
+  function clearFailedTake(id: string): void {
+    failedTakes = Object.fromEntries(Object.entries(failedTakes).filter(([key]) => key !== id));
+  }
 
   const selectedItems = $derived((items ?? []).filter((item) => selectedIds.includes(item.id)));
 
@@ -100,8 +112,7 @@
   async function take(item: ShelfItem, format: string): Promise<void> {
     const outcome = await fetchShelfItem(fetch, item.id, format);
     if (outcome.kind !== "ok") {
-      // A toast has nowhere to put a handle or a remedy, so it takes the presenter's sentence.
-      toast.error(guidanceFor(outcome.failure, "That download").message);
+      recordFailedTake(item.id, format, guidanceFor(outcome.failure, "That download").message);
       // A gone item is gone for good, so the shelf is re-read rather than left showing it.
       if (outcome.kind === "problem" && outcome.problem.status === 410) void load();
       return;
@@ -115,9 +126,10 @@
       } else {
         await renderStored(outcome.value.document as StoredExportDocument, format);
       }
+      clearFailedTake(item.id);
       void load();
     } catch {
-      toast.error("That download could not be produced. Try again shortly.");
+      recordFailedTake(item.id, format, "That download could not be produced. Try again shortly.");
     }
   }
 
@@ -269,6 +281,24 @@
           <DataTable.Cell>{formatStamp(item.expiresAt)}</DataTable.Cell>
           <DataTable.Cell data-align="end">
             <div class="flex items-center justify-end gap-8">
+              {#if failedTakes[item.id] !== undefined}
+                <span
+                  class="text-xs text-status-danger-subtle-foreground"
+                  role="status"
+                  title={failedTakes[item.id]?.message}
+                >
+                  Download failed
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onclick={() => void take(item, failedTakes[item.id]?.format ?? "file")}
+                  aria-label={`Retry downloading ${item.title}`}
+                >
+                  <RotateCcw class="size-16" aria-hidden="true" />
+                  Retry
+                </Button>
+              {/if}
               {#if item.kind === "snapshot"}
                 <DropdownMenu.Root>
                   <DropdownMenu.Trigger

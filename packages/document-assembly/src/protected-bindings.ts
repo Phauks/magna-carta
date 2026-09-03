@@ -84,12 +84,6 @@ const IDENTIFIER_SOURCES: Readonly<
     synonyms: ["EIN", "federal tax identifier", "tax identifier"],
     exampleRendering: "00-0000000",
   },
-  dob: {
-    segment: "dateOfBirth",
-    label: "date of birth",
-    synonyms: ["DOB", "birthday", "born"],
-    exampleRendering: "January 1, 1970",
-  },
   account: {
     segment: "accountNumber",
     label: "account number",

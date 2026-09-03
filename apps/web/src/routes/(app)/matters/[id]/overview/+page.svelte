@@ -13,6 +13,8 @@
   import { formatDate } from "@magna-carta/design-system/data-table";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import EntityIdentity, { type EntityKind } from "@magna-carta/design-system/entity-identity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import ActivityRegister from "$lib/activity/activity-register.svelte";
   import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
   import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
   import { CalendarView } from "$lib/calendar/index.ts";
@@ -95,6 +97,7 @@
   /* The figures that accrue against a matter once their surfaces ship — placeholders only. */
   const ACCRUAL_TILES = [{ label: "Unbilled time" }, { label: "Trust balance" }];
 
+  const isSample = $derived(matter.source === "sample");
   /** The next thirty days on this matter, six rows deep; the Calendar section has the rest. */
   const COMING_UP_DAYS = 30;
   const COMING_UP_ROWS = 6;
@@ -106,21 +109,17 @@
 
 <div class="flex flex-col gap-32">
   <section class="flex flex-col gap-16">
-    <h2
-      class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="h2" class="border-b border-border-strong pb-8"
     >
       Key facts
-    </h2>
+    </FieldLabel>
     <dl class="grid grid-cols-1 gap-x-32 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
       {#each keyFacts as fact (fact.label)}
         <div class="flex flex-col gap-4">
-          <dt
-            class="text-xs text-text-muted uppercase"
-            style="letter-spacing: var(--mc-tracking-caps)"
+          <FieldLabel as="dt"
           >
             {fact.label}
-          </dt>
+          </FieldLabel>
           <dd class="text-sm">
             {#if fact.entity !== undefined}
               <EntityIdentity
@@ -139,12 +138,10 @@
 
   {#if matter.description}
     <section class="flex flex-col gap-16">
-      <h2
-        class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="h2" class="border-b border-border-strong pb-8"
       >
         Description
-      </h2>
+      </FieldLabel>
       <p class="max-w-xl text-sm">{matter.description}</p>
     </section>
   {/if}
@@ -172,12 +169,10 @@
       <Card.Root>
         <Card.Content class="flex flex-col gap-12">
           <div class="flex items-baseline justify-between gap-8">
-            <span
-              class="text-xs text-text-muted uppercase"
-              style="letter-spacing: var(--mc-tracking-caps)"
+            <FieldLabel as="span"
             >
               {tile.label}
-            </span>
+            </FieldLabel>
             <Badge variant="neutral">Soon</Badge>
           </div>
           <Skeleton class="h-20 w-96" />
@@ -186,4 +181,23 @@
       </Card.Root>
     {/each}
   </div>
+
+  <!-- The newest of everything recorded on the matter: the one activity register with a row budget,
+       so what the Overview shows is what the Activity section shows, and nothing is summarised
+       twice. The whole chronology is one step away. -->
+  <section class="flex flex-col gap-16">
+    <div class="flex items-baseline justify-between gap-8 border-b border-border-strong pb-8">
+      <FieldLabel as="h2">
+        Recent activity
+      </FieldLabel>
+      <a href={`/matters/${matter.id}/activity`} class="text-sm underline">See all activity</a>
+    </div>
+    <ActivityRegister
+      matterId={matter.id}
+      matterTitle={matter.title}
+      {isSample}
+      variant="recent"
+      limit={8}
+    />
+  </section>
 </div>

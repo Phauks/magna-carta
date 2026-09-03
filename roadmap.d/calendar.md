@@ -27,10 +27,20 @@
   name: Matter timeline (federated)
   scope: One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract.
   status: shipped
-  surface: awaiting-screen
   adrs: ADR-0051, ADR-0068
-  notes: Backend only — the calendar screens are their own slice.
-  evidence: Fourteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; every source declares its visibility anchor — matter anchors compose the required predicate, firm anchors sit on a reviewed allowlist — proven by a table-driven fitness test.
+  evidence: Fourteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; every source declares its visibility anchor — matter anchors compose the required predicate, firm anchors sit on a reviewed allowlist — proven by a table-driven fitness test. Read by the matter's Activity section since 2026-09-02.
+
+- id: calendar.timeline.activity-section
+  name: The matter's Activity section
+  scope: The federated timeline as a screen — one chronology per matter on the product's shared table, sorted and filtered by its own columns, each row named by the subsystem that owns it through that subsystem's own describe statement and contribution, opening into its section, and the first record (a note) written from it.
+  status: shipped
+  slices: 4-4-matter-notes
+  surface: screen
+  audience: public
+  public-name: Matter activity
+  public-summary: See everything that has happened on a case, in order, in one place — and write a note from there.
+  evidence: apps/web/src/lib/activity/activity-register.svelte over GET /api/v1/matters/{matterId}/timeline, mounted in full by apps/web/src/routes/(app)/matters/[id]/activity/+page.svelte and with a row budget as the Overview's Recent activity, rendered as a DataTable.Grid (apps/web/src/lib/activity/activity-columns.ts); the contract in apps/web/src/lib/activity/contribution.ts and the registry in apps/web/src/lib/activity/contributions.ts, one contribution per source beside its subsystem's code; the server's describe on seven sources (the file manager's history events among them, as the fileHistory source) in packages/calendar/src/sources/all.ts, run after the merge by packages/calendar/src/timeline.ts and pinned by packages/calendar/test/describe.test.ts; the registry pairing asserted by apps/web/test/activity-contributions.test.ts and section ownership by tooling/lint-matter-timeline-coverage/index.mjs; the two-subsystem walk, the head-menu walk, the file-identity walk and the write-a-note walk in apps/web/e2e/matter-activity.spec.ts.
+  notes: The screen names no source and switches on none. A subsystem joins the chronology with a `permission` and a `describe` on its timeline source and an ActivityContribution beside its own web code; the test fails until both exist, and the coverage lint fails until a section owns the source or declares it ownerless. The description is server-side, one statement per source present on the page, gated per source by the member's capabilities: a member without notes:read sees that a note was written and not what it said. The firm-wide read is never described. A file's Type is what the file manager identifies it as (its document type, else the identification's own label), never a name suffix; Section and Type are two columns with two filters. Opening a row follows the timeline's deep link into the owning section; sections honouring `?entry=` is the next step.
 
 - id: calendar.firm-events
   name: Firm events
@@ -54,8 +64,8 @@
   scope: Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved.
   status: shipped
   surface: screen
-  notes: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to. Related links are recorded through the API only until the links surface lands.
-  evidence: calendar_event_link with two hand-written partial uniques; packages/calendar/src/continuance-service.ts (one-batch operation, depth-capped chain read, trigger-linked deadline lookup as pure SELECT); continue and continuance-chain routes.
+  notes: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to, and the settings related by hand with their titles, Relate (a setting on the same matter, or a firm event within six months) and Remove.
+  evidence: calendar_event_link with two hand-written partial uniques; packages/calendar/src/continuance-service.ts (one-batch operation, depth-capped chain read, trigger-linked deadline lookup as pure SELECT); continue, continuance-chain and the two per-event links routes (GET /api/v1/events/{eventId}/links, /firm-events/{firmEventId}/links, asserted in apps/api-worker/test/calendar-routes.test.ts); the Links tab in apps/web/src/lib/calendar/entry-window.svelte.
 
 - id: calendar.surface
   name: Calendar surface
@@ -112,6 +122,16 @@
   spec: docs/specs/2026-09-02-calendar-interface-design.md
   notes: A firm setting, never a personal preference (owner ruling 2026-09-02); Sunday by default. Read by every member who can read the calendar, moved only under calendar:manage, audited, idempotent. The page is the first settings page with a server behind it and shows no per-browser history.
   evidence: packages/calendar/src/settings.ts over the setting table; GET/PATCH /api/v1/calendar/settings in apps/api-worker/src/routes/calendar.ts, asserted over Miniflare in apps/api-worker/test/calendar-settings-routes.test.ts; apps/web/src/routes/(app)/settings/calendar/+page.svelte over apps/web/src/lib/calendar/calendar-settings-draft.svelte.ts (apps/web/test/calendar-settings-draft.test.ts); CalendarView reads it once in apps/web/src/lib/calendar/calendar-context.svelte.ts and hands it to every grid.
+
+- id: calendar.surface.event-types
+  name: Event-type catalog
+  scope: The vocabulary a setting is classified under, kept under Settings › Practice › Event Types: the platform's shipped types (recategorized or retired, never renamed) and the firm's own (added, renamed, retired).
+  status: shipped
+  surface: screen
+  slices: 6-1-case-calendar
+  spec: docs/specs/2026-09-02-calendar-interface-design.md
+  notes: Retiring is one way, as the contract is; a word wanted back is added again as the firm's own. Gated on the session's calendar:manage.
+  evidence: apps/web/src/routes/(app)/settings/event-types/+page.svelte over the event-type routes in apps/api-worker/src/routes/calendar.ts.
 
 - id: calendar.surface.kind-narrowing
   name: Layers, the colleague picker and the settled filter

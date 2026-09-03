@@ -35,13 +35,14 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import { LedgerPanes, PaneToggle, RecordMenu } from "$lib/records/index.ts";
+  import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
   import type { LedgerRecord } from "$lib/records/ledger-record-menu.ts";
   import type { RecordMenuAction, RecordMenuModel } from "$lib/records/record-menu-model.ts";
   import ReclassifyDialog from "$lib/records/reclassify-dialog.svelte";
   import { mayReclassify } from "$lib/records/reclassification.ts";
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import FeeDetailsPanel from "./fee-details-panel.svelte";
@@ -321,12 +322,11 @@
     <span class="text-text-subtle">billed</span>
     <span class="font-semibold tabular-nums">{money(position.billedMinor)}</span>
   </span>
-  <!-- The pane toggle ends the strip, after the figures: the last thing on the line, on every
-       surface in the product that has a pane. -->
-  <PaneToggle
+  <!-- The toggle ends the strip, after the figures: the last thing on the line, on every surface
+       in the product that has a panel. -->
+  <DetailsPanel.Toggle
     open={panelOpen}
-    pane="the details panel"
-    onToggle={() => panelPreference.set(panelOpen ? "closed" : "open")}
+    onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
   />
 {/snippet}
 

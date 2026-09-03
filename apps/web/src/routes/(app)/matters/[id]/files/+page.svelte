@@ -10,6 +10,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import FileManager from "$lib/file-manager/file-manager.svelte";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import FullHeightSection from "$lib/components/full-height-section.svelte";
   import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
   import FolderPlus from "@lucide/svelte/icons/folder-plus";
@@ -66,6 +67,11 @@
        the layout's gap below the section strip, so the surface runs to the edges and the toolbar
        sits directly under the tabs. -->
   <FullHeightSection class="-mx-24 -mt-24">
-    <FileManager bind:this={fileManager} matterId={matter.id} matterTitle={matter.title} />
+    <FileManager
+      bind:this={fileManager}
+      matterId={matter.id}
+      matterTitle={matter.title}
+      revealFileId={entryFromUrl()}
+    />
   </FullHeightSection>
 {/if}

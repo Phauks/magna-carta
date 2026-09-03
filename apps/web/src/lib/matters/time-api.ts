@@ -113,6 +113,14 @@ export function listMatterTimeEntries(
  * The wire enum and the register's workflow-chain keys are the same five words, so a status crosses
  * from one to the other unchanged; this function is the seam that says so in the type system.
  */
+/** One time entry by its id — what a deep link hands the ledger when the row is not on the loaded page. */
+export function readTimeEntry(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+): Promise<ApiOutcome<TimeEntrySummary>> {
+  return requestJson(fetchImpl, `/api/v1/time-entries/${encodeURIComponent(timeEntryId)}`);
+}
+
 export function timeEntryStatusKey(status: TimeEntryStatus): StatusKey {
   return status;
 }
@@ -120,11 +128,6 @@ export function timeEntryStatusKey(status: TimeEntryStatus): StatusKey {
 /** The word a status wears, taken from the register rather than spelled a second time here. */
 export function statusLabel(status: TimeEntryStatus): string {
   return statusEntry(timeEntryStatusKey(status)).label;
-}
-
-/** Minutes as hours, to one decimal, the way a timesheet reads. */
-export function hoursFromMinutes(minutes: number): string {
-  return (minutes / 60).toFixed(1);
 }
 
 /**

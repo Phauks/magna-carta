@@ -71,6 +71,7 @@
   import AddItemDialog from "./add-item-dialog.svelte";
   import ItemHistory from "./item-history.svelte";
   import LinkScanDialog from "./link-scan-dialog.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let {
     open = $bindable(false),
@@ -206,7 +207,7 @@
   const writeRefusal = $derived(
     mayManage
       ? undefined
-      : "Writing to the register needs the custody:manage permission, which this account does not hold.",
+      : permissionRefusal("Writing to the register", "custody:manage"),
   );
 
   const heading = $derived(packet?.name ?? "Custody Packet");

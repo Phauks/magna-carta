@@ -5,6 +5,7 @@ import {
   DIRECTORY_ORGANIZATION_TABLE,
   DIRECTORY_PERSON_TABLE,
 } from "@magna-carta/directory/statements";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { MatchPartyInput } from "./matching.ts";
 
 // The entity's current name parts and kind, shaped for the matcher. One home for the "which node
@@ -134,4 +135,96 @@ export async function readSubjectFactsBatch(
   }
 
   return facts;
+}
+
+// ---- reading a hit's party back, for a reader rather than for the matcher --------------------
+
+/**
+ * What a surfaced entity is CALLED, which is a different question from what the matcher needs to
+ * compare. The matcher wants name parts; a reviewer wants the one name the Directory shows.
+ */
+export interface EntityDisplayName {
+  readonly kind: "person" | "organization";
+  /**
+   * Null when the row exists and carries no name at all. That is not the same fact as an entity
+   * missing from the map — the first says the Directory holds an unnamed record, the second says it
+   * holds no record under that id — and a reader is told which.
+   */
+  readonly displayName: string | null;
+}
+
+/*
+ * The display name for a set of entity ids, in one query per node table per hundred ids.
+ *
+ * SEPARATE FROM readSubjectFactsBatch ABOVE, DELIBERATELY. That one shapes rows for the matcher and
+ * is on the write path of a check; this one shapes them for a person reading the answer. They select
+ * different columns and compose them differently — a person's display name falls back to the name
+ * parts joined, an organization's to its legal name — so sharing a projection would mean one caller
+ * always discarding half of it. What they do share is the part that must not drift: the id-prefix
+ * rule, the table constants, and the bound-parameter chunk size.
+ *
+ * An id that resolves to no live row is simply absent from the map, exactly as it is above. The
+ * caller reports that as an unresolved entity and never as an absent party, because a conflicts hit
+ * whose party read as absent would inverse its meaning.
+ */
+export async function readEntityDisplayNames(
+  database: SqlDatabase,
+  entityIds: readonly string[],
+): Promise<Map<string, EntityDisplayName>> {
+  const names = new Map<string, EntityDisplayName>();
+  const personIds: string[] = [];
+  const organizationIds: string[] = [];
+  for (const entityId of new Set(entityIds)) {
+    const kind = subjectKindOf(entityId);
+    if (kind === "person") personIds.push(entityId);
+    else if (kind === "organization") organizationIds.push(entityId);
+  }
+
+  for (let start = 0; start < personIds.length; start += MAX_SUBJECT_BOUND_PARAMETERS) {
+    const chunk = personIds.slice(start, start + MAX_SUBJECT_BOUND_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT id, name_given, name_family, display_name
+           FROM ${DIRECTORY_PERSON_TABLE} WHERE id IN (${placeholders})`,
+      )
+      .bind(...chunk)
+      .all<{
+        id: string;
+        name_given: string | null;
+        name_family: string | null;
+        display_name: string | null;
+      }>();
+    for (const row of results) {
+      // The stored display name first, because it is what the Directory itself shows and a firm may
+      // have set it deliberately. The parts are the fallback, joined in reading order.
+      const parts = [row.name_given, row.name_family].filter(
+        (part) => part !== null && part !== "",
+      );
+      names.set(row.id, {
+        kind: "person",
+        displayName: row.display_name ?? (parts.length > 0 ? parts.join(" ") : null),
+      });
+    }
+  }
+
+  for (let start = 0; start < organizationIds.length; start += MAX_SUBJECT_BOUND_PARAMETERS) {
+    const chunk = organizationIds.slice(start, start + MAX_SUBJECT_BOUND_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT id, legal_name, display_name
+           FROM ${DIRECTORY_ORGANIZATION_TABLE} WHERE id IN (${placeholders})`,
+      )
+      .bind(...chunk)
+      .all<{ id: string; legal_name: string | null; display_name: string | null }>();
+    for (const row of results) {
+      names.set(row.id, {
+        kind: "organization",
+        displayName: row.display_name ?? row.legal_name,
+      });
+    }
+  }
+
+  return names;
 }

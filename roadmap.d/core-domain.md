@@ -22,7 +22,7 @@
   scope: Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role.
   status: partial
   slices: 1-3-directory
-  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts; apps/web/src/routes/(app)/directory/[id]/+page.svelte with the Names, Contact, Pronouns, Dates, Identifiers, Duplicates, Relationships, Matters and Categories panes
+  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts, person-record.ts (a whole person in one batch); apps/web/src/lib/directory/new-person-dialog.svelte (every section reachable at creation, on the side rail) and apps/web/src/routes/(app)/directory/[id]/+page.svelte with the Names, Contact, Pronouns, Dates, Identifiers, Duplicates, Relationships, Matters and (organizations only) Categories panes
   notes: Backend shipped; the record screen is built. The organization stays thin by the owner's ruling.
 
 - id: directory.entities.categories
@@ -31,7 +31,7 @@
   status: partial
   surface: screen
   slices: 1-3-directory
-  evidence: packages/directory/src/categories.ts; apps/web/src/lib/directory/categories-pane.svelte assigns, and creates a category the firm has not named yet through the add row; category repointing handled in merge.ts
+  evidence: packages/directory/src/categories.ts; apps/web/src/lib/directory/categories-pane.svelte, on organizations only, assigns and creates a category the firm has not named yet through the add row; category repointing handled in merge.ts
   notes: Backend shipped; assignment and creation are on the record screen. Archiving a category has no route yet.
 
 - id: directory.entities.category-fields
@@ -110,10 +110,10 @@
 - id: directory.identifiers
   name: Typed identifiers
   scope: Typed identifier list (bar number, EIN/Tax ID, SSN, DOB, driver's license) used for conflicts, billing, and document generation.
-  status: partial
+  status: shipped
   slices: 1-3-directory
-  evidence: packages/directory/src/identifiers.ts; IDENTIFIER_TYPES catalog in types.ts
-  notes: Backend shipped; UI not built.
+  evidence: packages/directory/src/identifiers.ts and identifier-shape.ts (the type decides the fields and checks the shape; the label column names what a sealed value is of); apps/web/src/lib/directory/sections/identifiers-section.svelte on the record's Identifiers pane and the New Person screen
+  notes: Typed shapes with format checks on both sides; accounts sealed with their username and secret; the dob kind removed (dates live on the person).
 
 - id: directory.identifiers.protected-fields
   name: Field-level encryption and access control
@@ -128,12 +128,12 @@
 - id: directory.duplicates
   name: Duplicate detection
   scope: Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates.
-  status: partial
+  status: shipped
   surface: awaiting-screen
   slices: 1-3-directory
   adrs: ADR-0086
   evidence: findDuplicateCandidates export (phonetic-block, trigram, blind-index equality) in packages/directory/src/search.ts, phonetics.ts
-  notes: Candidate engine shipped; entry-time "possible duplicate?" prompt is UI, not built.
+  notes: Candidate engine shipped; the entry-time gate runs beside the New Person and New Organization entry (apps/web/src/lib/directory/duplicate-gate.svelte), permanently in view as the name is typed.
 
 - id: directory.merge
   name: Non-destructive merge

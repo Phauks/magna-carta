@@ -8,17 +8,17 @@
    * The trade taken with it, stated rather than glossed: a fragment of a matter's text lands in
    * browser history, on a URL that already names the matter.
    *
-   * The field sits in the view's own header, where the ruling puts it, on one row with the scope
-   * and the match count — never in the middle of the page above however many rows came back.
+   * The field sits in the view's own header, where the ruling puts it, with the scope and the match
+   * count on the row BENEATH it — never in the middle of the page above however many rows came
+   * back. That stacking is the header control's arrangement applied to a page: writing the query
+   * above, aiming it below, through the one MatterSearchSettings both surfaces render.
    */
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import * as Select from "@magna-carta/design-system/select";
-  import Badge from "@magna-carta/design-system/badge";
-  import Checkbox from "@magna-carta/design-system/checkbox";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import MatterSearchResults from "$lib/matters/matter-search-results.svelte";
+  import MatterSearchSettings from "$lib/matters/matter-search-settings.svelte";
   import {
     EVERYTHING_SCOPE,
     MatterSearch,
@@ -91,8 +91,14 @@
 </svelte:head>
 
 <div class="flex min-h-0 flex-1 flex-col">
-  <!-- The view's header: one row, the field where the view is named, the count beside it. -->
-  <div class="flex flex-wrap items-center gap-12 border-b border-border-default pb-12">
+  <!--
+    THE VIEW'S HEADER, in the SAME arrangement as the header control: the field on top, and
+    everything that decides what it reaches on the row beneath. The control expresses "beneath" as
+    its downward panel and this page as a row, because a page has no popover to open — but the order
+    and the component are one, so a person who learns where the scope lives in the header finds it
+    in the same place here.
+  -->
+  <div class="flex flex-col gap-12 border-b border-border-default pb-12">
     <ScreenSearch
       bind:value={field}
       expanded
@@ -102,64 +108,32 @@
       searchOn="pause"
       fieldClass="w-xs sm:w-sm"
       onsearch={submit}
+    />
+
+    <MatterSearchSettings
+      scope={addressScope}
+      {options}
+      onScope={(next) => void goto(addressFor(field, next), { replaceState: true })}
+      includeDeleted={search.includeDeleted}
+      deletedApplies={search.deletedOptionApplies}
+      onIncludeDeleted={(next) => {
+        search.includeDeleted = next;
+        // Re-running rather than filtering what is on screen: the deleted rows were never
+        // fetched, so there is nothing here to filter.
+        if (addressQuery.trim() !== "") {
+          const sources = options.find((option) => option.value === addressScope)?.sources ?? [];
+          void search.run(fetch, addressQuery, sources, PAGE_LIMIT);
+        }
+      }}
     >
-      {#snippet scope()}
-        <Select.Root
-          type="single"
-          items={options.map((option) => ({ value: option.value, label: option.label }))}
-          allowDeselect={false}
-          bind:value={
-            () => addressScope,
-            (next) => void goto(addressFor(field, next as string), { replaceState: true })
-          }
-        >
-          <Select.Trigger aria-label="Search in">
-            <Select.Value placeholder={placeholderOf("Scope")} />
-          </Select.Trigger>
-          <Select.Content>
-            {#each options as option (option.value)}
-              <Select.Item
-                value={option.value}
-                label={option.label}
-                disabled={option.waitingOn !== undefined}
-              >
-                {option.label}
-                {#if option.waitingOn !== undefined}
-                  <Badge variant="neutral" class="ms-auto">Soon</Badge>
-                {/if}
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
+      {#snippet trailing()}
+        {#if search.answer !== null}
+          <span class="text-sm text-text-muted">
+            {totalHits(search.answer)} on this page, in {scopeLabel.toLowerCase()}
+          </span>
+        {/if}
       {/snippet}
-    </ScreenSearch>
-
-    {#if search.deletedOptionApplies}
-      <!-- The scope area, where the ruling puts it: off by default, and only where a selected
-           source has a deleted set. Re-running on change rather than filtering what is on screen —
-           the deleted rows were never fetched, so there is nothing here to filter. -->
-      <label class="flex items-center gap-4 text-sm text-text-muted">
-        <Checkbox
-          bind:checked={
-            () => search.includeDeleted,
-            (next) => {
-              search.includeDeleted = next === true;
-              if (addressQuery.trim() !== "") {
-                const sources = options.find((option) => option.value === addressScope)?.sources ?? [];
-                void search.run(fetch, addressQuery, sources, PAGE_LIMIT);
-              }
-            }
-          }
-        />
-        Include deleted files
-      </label>
-    {/if}
-
-    {#if search.answer !== null}
-      <span class="text-sm text-text-muted">
-        {totalHits(search.answer)} on this page, in {scopeLabel.toLowerCase()}
-      </span>
-    {/if}
+    </MatterSearchSettings>
   </div>
 
   <!-- The result region is furniture: it holds its shape at rest, so arriving results fill a frame

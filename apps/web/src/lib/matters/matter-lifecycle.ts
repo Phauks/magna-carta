@@ -19,6 +19,7 @@
  */
 import type { Problem } from "$lib/api/request.ts";
 import type { MatterStatus } from "./matter-status.ts";
+import { permissionRefusal } from "$lib/access/refusal.ts";
 import {
   CLOSE_MATTER_PERMISSION,
   OPEN_MATTER_PERMISSION,
@@ -295,7 +296,7 @@ export function matterLifecycleBlock(options: {
   // stays offered and the refusal, if there is one, comes from the authority on it.
   if (options.permissions === null) return null;
   if (!options.permissions.includes(options.step.permission)) {
-    return `This step needs the ${options.step.permission} permission, which this account does not hold.`;
+    return permissionRefusal("This step", options.step.permission);
   }
   return null;
 }

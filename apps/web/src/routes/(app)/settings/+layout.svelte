@@ -27,6 +27,7 @@
    */
   import { page } from "$app/state";
   import Badge from "@magna-carta/design-system/badge";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Building2 from "@lucide/svelte/icons/building-2";
   import Server from "@lucide/svelte/icons/server";
   import UserRound from "@lucide/svelte/icons/user-round";
@@ -93,24 +94,19 @@
           {:else}
             <Server class="size-16 text-text-muted" aria-hidden="true" />
           {/if}
-          <p
-            class="text-xs font-semibold text-text-default uppercase"
-            style="letter-spacing: var(--mc-tracking-caps)"
+          <FieldLabel as="p" class="text-text-default"
           >
             {band.label}
-          </p>
+          </FieldLabel>
         </div>
 
         <div class="flex flex-col gap-24">
           {#each band.groups as group (group.id)}
             <div class="flex flex-col gap-8">
               <!-- Group header: one indent step (12) past the band's cap-line at 12. -->
-              <p
-                class="text-xs text-text-muted uppercase"
-                style="letter-spacing: var(--mc-tracking-caps); padding-inline-start: var(--mc-space-24)"
-              >
+              <FieldLabel as="p" class="ps-24">
                 {group.label}
-              </p>
+              </FieldLabel>
               <!-- Page rows: one further step — the pills start at 24 and their own px-12 puts
                    the row text at 36, completing the three-level stagger. -->
               <ul class="flex flex-col gap-4" style="padding-inline-start: var(--mc-space-24)">
@@ -135,11 +131,7 @@
                     >
                       {section.label}
                       {#if viewOnly(section)}
-                        <Badge
-                          variant="outline"
-                          class="text-xs uppercase"
-                          style="letter-spacing: var(--mc-tracking-caps)"
-                        >
+                        <Badge variant="outline" caps>
                           View
                         </Badge>
                       {/if}
