@@ -621,12 +621,19 @@ the confirmations (7, with the `done` outcome), the forms (4, the first callers 
 `LabelledField`), the send panels (3, with `restoreFocus`), and the last two — the new-document flow
 and Apply Trust Funds, which the Soon affordance's move into the design system admitted.
 
-Ten `hand-composed-modal` allowances remain, and every one is a named exclusion rather than debt:
-the command palette (a launcher, the documented Command-in-a-Dialog pattern), the four directory
-panes (panes inside a surface, not modals), the settings ledger (a Sheet holding context), the three
-full-screen surfaces (a separate design, deliberately not folded into this one), and the
-fee-arrangement window (`RecordWindow`'s shape, migrated when that stream is open). The register
-prints them on every run with the reason each stands on, so the list stays read.
+Six `hand-composed-modal` allowances remain, and every one is a named exclusion rather than debt:
+the command palette (a launcher, the documented Command-in-a-Dialog pattern), the settings ledger
+(a Sheet holding context), the three full-screen surfaces (a separate design, deliberately not
+folded into this one), and the fee-arrangement window (`RecordWindow`'s shape, migrated when that
+stream is open). The register prints them on every run with the reason each stands on, so the list
+stays read.
+
+A correction, recorded because it is the kind of mistake the register exists to catch: the four
+directory panes were excluded as "panes inside a surface, not modals," which described the files
+and not the hits. Each pane composed a real form dialog — Assign A Category, Record A Way To Reach
+Them, Record An Identifier, and the names pane's Change and Record — and those five migrated on
+2026-09-03 once the reason was re-read against the line it excused. An allowance's reason should
+name the panel it excuses, not the file that holds it.
 
 What the migration left for the next pass: the fifteen panels that landed before `LabelledField`
 existed still write the label-over-control column by hand, and every caller still writes the same
