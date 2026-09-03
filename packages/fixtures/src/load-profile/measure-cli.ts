@@ -84,6 +84,13 @@ import {
   timelinePageBounds,
   CALENDAR_PLAN_SCAN_ALLOWLIST,
 } from "./calendar-measurements.ts";
+import {
+  TASK_PLAN_SCAN_ALLOWLIST,
+  taskHotPathPlans,
+  taskMeasurementHandle,
+  taskMeasurements,
+  taskPageBounds,
+} from "./tasks-measurements.ts";
 import { ledgerVolume } from "./profile.ts";
 import {
   baselineEnvironment,
@@ -111,7 +118,7 @@ console.log(
 );
 
 console.log(
-  `custody: ${snapshot.manifest.custodyLocationCount} container nodes, ${snapshot.manifest.custodyPacketCount} packets (${snapshot.manifest.custodyItemCount} items), ${snapshot.manifest.custodyMovementCount} ledger movements, ${snapshot.manifest.custodyHoldCount} holds · calendar: ${snapshot.manifest.matterEventCount} matter events (${snapshot.manifest.matterEventParticipantCount} participants), ${snapshot.manifest.matterDeadlineCount} deadlines, ${snapshot.manifest.firmEventCount} firm events, ${snapshot.manifest.firmResourceCount} resources (${snapshot.manifest.firmResourceBookingCount} bookings)`,
+  `custody: ${snapshot.manifest.custodyLocationCount} container nodes, ${snapshot.manifest.custodyPacketCount} packets (${snapshot.manifest.custodyItemCount} items), ${snapshot.manifest.custodyMovementCount} ledger movements, ${snapshot.manifest.custodyHoldCount} holds · calendar: ${snapshot.manifest.matterEventCount} matter events (${snapshot.manifest.matterEventParticipantCount} participants), ${snapshot.manifest.matterDeadlineCount} deadlines, ${snapshot.manifest.firmEventCount} firm events, ${snapshot.manifest.firmResourceCount} resources (${snapshot.manifest.firmResourceBookingCount} bookings) · tasks: ${snapshot.manifest.taskCount} tasks (${snapshot.manifest.matterlessTaskCount} on no matter, ${snapshot.manifest.taskTimeEntryCount} time entries linked)`,
 );
 
 // The automation handle is built before the scan gate: its plan probes bind to the probe manifest's
@@ -124,6 +131,9 @@ const calendarHandle = calendarMeasurementHandle(snapshot);
 // to it, and it is the number that catches an N+1 a plan cannot see and a timing would only show
 // once the corpus outgrew the noise.
 const conflictsHandle = await conflictsMeasurementHandle(snapshot, BASELINE_SEED);
+// The task handle is built before the gate for the same reason the calendar's is: its plans and
+// its statement-count bound both bind to it, and the bound is what catches the N+1 a plan cannot.
+const taskHandle = taskMeasurementHandle(snapshot);
 
 const scans = [
   ...findFullScans(hotPathPlans(snapshot), PLAN_SCAN_ALLOWLIST),
@@ -142,6 +152,7 @@ const scans = [
   ...findFullScans(trustHotPathPlans(snapshot), TRUST_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(custodianHotPathPlans(snapshot), CUSTODIAN_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(await calendarHotPathPlans(calendarHandle), CALENDAR_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(taskHotPathPlans(taskHandle), TASK_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(
     reportsHotPathPlans(reportsMeasurementHandle(snapshot)),
     REPORTS_PLAN_SCAN_ALLOWLIST,
@@ -206,6 +217,10 @@ const results = [
     warmupIterations: 3,
     iterations: 30,
   })),
+  ...(await runMeasurements(taskHandle, taskMeasurements, {
+    warmupIterations: 3,
+    iterations: 30,
+  })),
   // Reporting last, because it reads over everything the stages above laid down.
   ...(await runMeasurements(reportsMeasurementHandle(snapshot), reportsMeasurements, {
     warmupIterations: 3,
@@ -225,6 +240,16 @@ const timelineBounds = await timelinePageBounds(calendarHandle);
 for (const bound of timelineBounds) {
   console.log(
     `${bound.label}: ${bound.statementCount} statements over ${bound.sourcesRead} sources · ${bound.rowsRead} rows read · ${bound.entriesReturned} entries returned`,
+  );
+}
+
+// The task page's own counts, and the one that matters is the grouped time read's statement count:
+// its whole claim is ONE statement for a page of tasks, which no plan can state and no timing on a
+// corpus this size would reliably show.
+const taskBounds = await taskPageBounds(taskHandle);
+for (const bound of taskBounds) {
+  console.log(
+    `${bound.label}: ${bound.statementCount} statements · ${bound.rowsRead} rows read · ${bound.sourcesRead} asked · ${bound.entriesReturned} returned`,
   );
 }
 
@@ -262,6 +287,13 @@ writeBaselineFile(baselinePath, {
   results,
   bounds: [
     ...timelineBounds.map((bound) => ({
+      name: bound.label,
+      statementCount: bound.statementCount,
+      rowsRead: bound.rowsRead,
+      sourcesRead: bound.sourcesRead,
+      entriesReturned: bound.entriesReturned,
+    })),
+    ...taskBounds.map((bound) => ({
       name: bound.label,
       statementCount: bound.statementCount,
       rowsRead: bound.rowsRead,

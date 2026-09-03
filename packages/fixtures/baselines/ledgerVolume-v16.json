@@ -1,589 +1,659 @@
 {
   "profileName": "ledgerVolume",
-  "profileVersion": 14,
-  "cacheKey": "5f1db03734919bba",
+  "profileVersion": 16,
+  "cacheKey": "f6412bfb0352ffe9",
   "environment": {
     "nodeVersion": "v22.22.2",
     "platform": "linux",
     "architecture": "x64",
     "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
     "cpuCount": 4,
-    "totalMemoryBytes": 16856068096
+    "totalMemoryBytes": 16856092672
   },
   "results": [
     {
       "name": "assembly.merge-context",
       "iterations": 30,
-      "minMs": 1.727,
-      "medianMs": 1.938,
-      "p95Ms": 3.05
+      "minMs": 1.5,
+      "medianMs": 1.673,
+      "p95Ms": 2.688
     },
     {
       "name": "assembly.merge-context-expressions",
       "iterations": 30,
-      "minMs": 0.354,
-      "medianMs": 0.427,
-      "p95Ms": 0.586
+      "minMs": 0.333,
+      "medianMs": 0.379,
+      "p95Ms": 0.48
+    },
+    {
+      "name": "assembly.merge-context-form",
+      "iterations": 30,
+      "minMs": 0.169,
+      "medianMs": 0.219,
+      "p95Ms": 0.311
     },
     {
       "name": "balance-read.busy-subledger",
       "iterations": 30,
-      "minMs": 0.009,
-      "medianMs": 0.01,
-      "p95Ms": 0.029
+      "minMs": 0.008,
+      "medianMs": 0.009,
+      "p95Ms": 0.03
     },
     {
       "name": "booking.availability-read",
       "iterations": 30,
-      "minMs": 0.413,
-      "medianMs": 0.459,
-      "p95Ms": 1.881
+      "minMs": 0.942,
+      "medianMs": 1.059,
+      "p95Ms": 2.177
     },
     {
       "name": "booking.overlap-check",
       "iterations": 30,
-      "minMs": 0.191,
-      "medianMs": 0.226,
-      "p95Ms": 0.287
+      "minMs": 0.133,
+      "medianMs": 0.15,
+      "p95Ms": 0.233
     },
     {
       "name": "capture.commit",
       "iterations": 30,
-      "minMs": 1.41,
-      "medianMs": 1.628,
-      "p95Ms": 2.147
+      "minMs": 1.424,
+      "medianMs": 2.026,
+      "p95Ms": 3.348
     },
     {
       "name": "checkout.active-exclusive-lock",
       "iterations": 30,
       "minMs": 0.016,
-      "medianMs": 0.017,
-      "p95Ms": 0.047
+      "medianMs": 0.018,
+      "p95Ms": 0.052
     },
     {
       "name": "conflicts.co-party-check",
       "iterations": 30,
-      "minMs": 13.841,
-      "medianMs": 15.552,
-      "p95Ms": 40.875
+      "minMs": 14.041,
+      "medianMs": 16.339,
+      "p95Ms": 35.2
     },
     {
       "name": "conflicts.imputation",
       "iterations": 30,
-      "minMs": 0.11,
-      "medianMs": 0.127,
-      "p95Ms": 0.179
+      "minMs": 0.101,
+      "medianMs": 0.113,
+      "p95Ms": 0.157
     },
     {
       "name": "conflicts.run-check",
       "iterations": 30,
-      "minMs": 241.351,
-      "medianMs": 308.075,
-      "p95Ms": 330.709
+      "minMs": 227.296,
+      "medianMs": 274.338,
+      "p95Ms": 317.615
     },
     {
       "name": "conflicts.run-check-deep-graph",
       "iterations": 30,
-      "minMs": 293.426,
-      "medianMs": 349.584,
-      "p95Ms": 377.216
+      "minMs": 291.657,
+      "medianMs": 318.804,
+      "p95Ms": 364.392
     },
     {
       "name": "conflicts.run-check-matching-depth",
       "iterations": 30,
-      "minMs": 319.741,
-      "medianMs": 365.659,
-      "p95Ms": 408.659
+      "minMs": 312.01,
+      "medianMs": 355.555,
+      "p95Ms": 400.385
     },
     {
       "name": "conflicts.run-check-truncating",
       "iterations": 30,
-      "minMs": 330.892,
-      "medianMs": 359.221,
-      "p95Ms": 409.548
+      "minMs": 306.775,
+      "medianMs": 336.693,
+      "p95Ms": 372.168
     },
     {
       "name": "continuance.chain-read",
       "iterations": 30,
-      "minMs": 0.163,
-      "medianMs": 0.197,
-      "p95Ms": 0.26
+      "minMs": 0.16,
+      "medianMs": 0.193,
+      "p95Ms": 0.359
     },
     {
       "name": "create-account.trust-subledger",
       "iterations": 30,
-      "minMs": 1.287,
-      "medianMs": 1.378,
-      "p95Ms": 1.751
+      "minMs": 1.304,
+      "medianMs": 1.617,
+      "p95Ms": 2.185
     },
     {
       "name": "custody-history.deep-packet-page",
       "iterations": 30,
-      "minMs": 0.147,
-      "medianMs": 0.169,
-      "p95Ms": 0.249
+      "minMs": 0.135,
+      "medianMs": 0.154,
+      "p95Ms": 0.195
     },
     {
       "name": "custody-location.occupancy",
       "iterations": 30,
-      "minMs": 0.14,
-      "medianMs": 0.177,
-      "p95Ms": 0.24
+      "minMs": 0.131,
+      "medianMs": 0.149,
+      "p95Ms": 0.213
     },
     {
       "name": "custody-location.subtree-walk",
       "iterations": 30,
-      "minMs": 0.216,
-      "medianMs": 0.253,
-      "p95Ms": 0.28
+      "minMs": 0.193,
+      "medianMs": 0.207,
+      "p95Ms": 0.252
     },
     {
       "name": "custody-number.counter-draw",
       "iterations": 30,
-      "minMs": 2.198,
-      "medianMs": 2.707,
-      "p95Ms": 3.234
+      "minMs": 2.393,
+      "medianMs": 3.008,
+      "p95Ms": 3.781
     },
     {
       "name": "custody-overdue.sweep",
       "iterations": 30,
-      "minMs": 0.225,
-      "medianMs": 0.354,
-      "p95Ms": 0.581
+      "minMs": 0.21,
+      "medianMs": 0.237,
+      "p95Ms": 0.344
     },
     {
       "name": "custody-packet.detail",
       "iterations": 30,
-      "minMs": 0.095,
-      "medianMs": 0.123,
-      "p95Ms": 0.249
+      "minMs": 0.085,
+      "medianMs": 0.099,
+      "p95Ms": 0.17
     },
     {
       "name": "custody-register.by-location-subtree",
       "iterations": 30,
-      "minMs": 0.899,
-      "medianMs": 1.083,
-      "p95Ms": 1.609
+      "minMs": 0.762,
+      "medianMs": 0.81,
+      "p95Ms": 1.008
     },
     {
       "name": "custody-register.by-owner",
       "iterations": 30,
-      "minMs": 0.062,
-      "medianMs": 0.069,
-      "p95Ms": 0.18
+      "minMs": 0.047,
+      "medianMs": 0.052,
+      "p95Ms": 0.106
     },
     {
       "name": "custody-reviews.due-sweep",
       "iterations": 30,
-      "minMs": 2.28,
-      "medianMs": 2.492,
-      "p95Ms": 2.647
+      "minMs": 2.057,
+      "medianMs": 2.129,
+      "p95Ms": 2.213
     },
     {
       "name": "custom-field.merge-repoint",
       "iterations": 30,
-      "minMs": 1.511,
-      "medianMs": 1.801,
-      "p95Ms": 2.327
+      "minMs": 1.673,
+      "medianMs": 2.102,
+      "p95Ms": 2.899
     },
     {
       "name": "custom-field.preview-convert-scan",
       "iterations": 30,
-      "minMs": 0.088,
-      "medianMs": 0.098,
-      "p95Ms": 0.164
+      "minMs": 0.085,
+      "medianMs": 0.095,
+      "p95Ms": 0.135
     },
     {
       "name": "custom-field.read-current-values",
       "iterations": 30,
-      "minMs": 0.026,
-      "medianMs": 0.028,
-      "p95Ms": 0.04
+      "minMs": 0.022,
+      "medianMs": 0.024,
+      "p95Ms": 0.071
     },
     {
       "name": "custom-field.reference-lookup",
       "iterations": 30,
-      "minMs": 0.013,
-      "medianMs": 0.015,
-      "p95Ms": 0.048
+      "minMs": 0.012,
+      "medianMs": 0.014,
+      "p95Ms": 0.056
     },
     {
       "name": "directory.candidate-generation",
       "iterations": 30,
-      "minMs": 1.372,
-      "medianMs": 1.482,
-      "p95Ms": 1.696
+      "minMs": 1.208,
+      "medianMs": 1.394,
+      "p95Ms": 1.676
     },
     {
       "name": "directory.find-by-identifier",
       "iterations": 30,
-      "minMs": 0.181,
-      "medianMs": 0.219,
-      "p95Ms": 0.325
+      "minMs": 0.17,
+      "medianMs": 0.193,
+      "p95Ms": 0.25
     },
     {
       "name": "directory.graph-expansion",
       "iterations": 30,
-      "minMs": 0.027,
-      "medianMs": 0.03,
-      "p95Ms": 0.067
+      "minMs": 0.024,
+      "medianMs": 0.029,
+      "p95Ms": 0.039
     },
     {
       "name": "directory.read-protected-list",
       "iterations": 30,
-      "minMs": 60.644,
-      "medianMs": 68.684,
-      "p95Ms": 82.644
+      "minMs": 72.648,
+      "medianMs": 86.606,
+      "p95Ms": 97.562
     },
     {
       "name": "get-current-clean-version",
       "iterations": 30,
-      "minMs": 0.018,
-      "medianMs": 0.021,
-      "p95Ms": 0.041
+      "minMs": 0.017,
+      "medianMs": 0.019,
+      "p95Ms": 0.064
     },
     {
       "name": "idle-checkout-sweep.find-idle",
       "iterations": 30,
       "minMs": 0.044,
-      "medianMs": 0.05,
-      "p95Ms": 0.095
+      "medianMs": 0.048,
+      "p95Ms": 0.077
     },
     {
       "name": "ledger-fitness.table-wide",
       "iterations": 30,
-      "minMs": 80.332,
-      "medianMs": 87.486,
-      "p95Ms": 94.98
+      "minMs": 77.875,
+      "medianMs": 78.899,
+      "p95Ms": 85.439
     },
     {
       "name": "list-clean-versions.by-file",
       "iterations": 30,
-      "minMs": 0.021,
-      "medianMs": 0.024,
-      "p95Ms": 0.062
+      "minMs": 0.03,
+      "medianMs": 0.033,
+      "p95Ms": 0.07
     },
     {
       "name": "list-consultations.by-member",
       "iterations": 30,
-      "minMs": 0.078,
-      "medianMs": 0.094,
-      "p95Ms": 0.156
+      "minMs": 0.084,
+      "medianMs": 0.091,
+      "p95Ms": 0.141
     },
     {
       "name": "list-files.by-folder",
       "iterations": 30,
-      "minMs": 0.046,
-      "medianMs": 0.05,
-      "p95Ms": 0.097
+      "minMs": 0.044,
+      "medianMs": 0.046,
+      "p95Ms": 0.055
     },
     {
       "name": "list-files.by-matter",
       "iterations": 30,
-      "minMs": 0.083,
-      "medianMs": 0.101,
-      "p95Ms": 0.205
+      "minMs": 0.08,
+      "medianMs": 0.089,
+      "p95Ms": 0.148
     },
     {
       "name": "list-matters.filtered",
       "iterations": 30,
       "minMs": 0.071,
       "medianMs": 0.078,
-      "p95Ms": 0.145
+      "p95Ms": 0.134
     },
     {
       "name": "list-matters.first-page",
       "iterations": 30,
-      "minMs": 0.117,
-      "medianMs": 0.14,
-      "p95Ms": 0.257
+      "minMs": 0.118,
+      "medianMs": 0.132,
+      "p95Ms": 0.185
     },
     {
       "name": "list-shipments.by-matter",
       "iterations": 30,
-      "minMs": 0.019,
-      "medianMs": 0.022,
-      "p95Ms": 0.066
+      "minMs": 0.018,
+      "medianMs": 0.021,
+      "p95Ms": 0.057
     },
     {
       "name": "list-tracking-events.by-shipment",
       "iterations": 30,
-      "minMs": 0.016,
-      "medianMs": 0.019,
-      "p95Ms": 0.079
+      "minMs": 0.017,
+      "medianMs": 0.024,
+      "p95Ms": 0.038
     },
     {
       "name": "matter-number.counter-draw",
       "iterations": 30,
-      "minMs": 1.686,
-      "medianMs": 1.959,
-      "p95Ms": 2.223
+      "minMs": 1.977,
+      "medianMs": 2.325,
+      "p95Ms": 3.43
     },
     {
       "name": "my-day.daily-totals",
       "iterations": 30,
-      "minMs": 0.018,
-      "medianMs": 0.02,
-      "p95Ms": 0.043
+      "minMs": 0.02,
+      "medianMs": 0.023,
+      "p95Ms": 0.068
     },
     {
       "name": "post-entry.two-line",
       "iterations": 30,
-      "minMs": 4.911,
-      "medianMs": 5.658,
-      "p95Ms": 6.858
+      "minMs": 5.478,
+      "medianMs": 6.342,
+      "p95Ms": 9.375
     },
     {
       "name": "protected.blind-index-compute",
       "iterations": 30,
-      "minMs": 0.125,
-      "medianMs": 0.15,
-      "p95Ms": 0.202
+      "minMs": 0.146,
+      "medianMs": 0.244,
+      "p95Ms": 1.483
     },
     {
       "name": "protected.firm-secret-read",
       "iterations": 30,
-      "minMs": 1.151,
-      "medianMs": 1.404,
-      "p95Ms": 2.312
+      "minMs": 1.175,
+      "medianMs": 1.583,
+      "p95Ms": 2.104
     },
     {
       "name": "protected.incident-decrypt-page",
       "iterations": 30,
-      "minMs": 64.848,
-      "medianMs": 70.892,
-      "p95Ms": 80.673
+      "minMs": 74.246,
+      "medianMs": 86.729,
+      "p95Ms": 96.321
     },
     {
       "name": "rate-resolution.timekeeper-tier",
       "iterations": 30,
-      "minMs": 0.028,
-      "medianMs": 0.031,
-      "p95Ms": 0.074
+      "minMs": 0.029,
+      "medianMs": 0.034,
+      "p95Ms": 0.089
     },
     {
       "name": "reconcile.find-conflict",
       "iterations": 30,
-      "minMs": 0.014,
+      "minMs": 0.015,
       "medianMs": 0.017,
-      "p95Ms": 0.055
+      "p95Ms": 0.06
     },
     {
       "name": "reports-client-ledgers.one-month",
       "iterations": 30,
-      "minMs": 0.5,
-      "medianMs": 0.6,
-      "p95Ms": 0.699
+      "minMs": 0.457,
+      "medianMs": 0.516,
+      "p95Ms": 0.614
     },
     {
       "name": "reports-client-ledgers.twelve-months",
       "iterations": 30,
-      "minMs": 1.253,
-      "medianMs": 1.337,
-      "p95Ms": 1.804
+      "minMs": 1.157,
+      "medianMs": 1.214,
+      "p95Ms": 1.399
     },
     {
       "name": "reports-journal.one-month",
       "iterations": 30,
-      "minMs": 0.471,
-      "medianMs": 0.551,
-      "p95Ms": 0.673
+      "minMs": 0.438,
+      "medianMs": 0.491,
+      "p95Ms": 0.559
     },
     {
       "name": "reports-journal.twelve-months",
       "iterations": 30,
-      "minMs": 1.521,
-      "medianMs": 1.58,
-      "p95Ms": 1.677
+      "minMs": 1.316,
+      "medianMs": 1.478,
+      "p95Ms": 1.597
     },
     {
       "name": "reports-leaf-balances.as-of",
       "iterations": 30,
-      "minMs": 0.524,
-      "medianMs": 0.596,
-      "p95Ms": 0.653
+      "minMs": 0.504,
+      "medianMs": 0.55,
+      "p95Ms": 0.63
     },
     {
       "name": "reports-pack.one-month",
       "iterations": 30,
-      "minMs": 58.868,
-      "medianMs": 60.188,
-      "p95Ms": 63.777
+      "minMs": 59.675,
+      "medianMs": 61.273,
+      "p95Ms": 62.698
     },
     {
       "name": "reports-pack.twelve-months",
       "iterations": 30,
-      "minMs": 101.527,
-      "medianMs": 107.823,
-      "p95Ms": 116.529
+      "minMs": 96.306,
+      "medianMs": 102.519,
+      "p95Ms": 110.799
     },
     {
       "name": "rescan-sweep.find-unscanned",
       "iterations": 30,
-      "minMs": 0.091,
-      "medianMs": 0.11,
-      "p95Ms": 0.191
+      "minMs": 0.09,
+      "medianMs": 0.102,
+      "p95Ms": 0.156
     },
     {
       "name": "reverse-entry.two-line",
       "iterations": 30,
-      "minMs": 5.038,
-      "medianMs": 5.395,
-      "p95Ms": 6.046
+      "minMs": 5.341,
+      "medianMs": 6.158,
+      "p95Ms": 6.947
     },
     {
       "name": "storage-meter.summary",
       "iterations": 30,
-      "minMs": 0.009,
+      "minMs": 0.008,
       "medianMs": 0.01,
-      "p95Ms": 0.016
+      "p95Ms": 0.021
+    },
+    {
+      "name": "tasks.matter-page-1",
+      "iterations": 30,
+      "minMs": 0.624,
+      "medianMs": 0.706,
+      "p95Ms": 0.882
+    },
+    {
+      "name": "tasks.matter-page-20",
+      "iterations": 30,
+      "minMs": 0.395,
+      "medianMs": 0.483,
+      "p95Ms": 0.789
+    },
+    {
+      "name": "tasks.my-work-open-and-mine",
+      "iterations": 30,
+      "minMs": 1.075,
+      "medianMs": 1.123,
+      "p95Ms": 1.207
+    },
+    {
+      "name": "tasks.my-work-page-1",
+      "iterations": 30,
+      "minMs": 2.021,
+      "medianMs": 2.085,
+      "p95Ms": 2.196
+    },
+    {
+      "name": "tasks.page-documents",
+      "iterations": 30,
+      "minMs": 0.1,
+      "medianMs": 0.128,
+      "p95Ms": 0.261
+    },
+    {
+      "name": "tasks.page-time-summaries",
+      "iterations": 30,
+      "minMs": 0.082,
+      "medianMs": 0.09,
+      "p95Ms": 0.142
+    },
+    {
+      "name": "tasks.page-time-summaries-own",
+      "iterations": 30,
+      "minMs": 0.386,
+      "medianMs": 0.43,
+      "p95Ms": 0.58
+    },
+    {
+      "name": "tasks.search-within-matter",
+      "iterations": 30,
+      "minMs": 0.343,
+      "medianMs": 0.387,
+      "p95Ms": 0.62
     },
     {
       "name": "templates.custom-field-catalog",
       "iterations": 30,
-      "minMs": 0.137,
-      "medianMs": 0.153,
-      "p95Ms": 2.422
+      "minMs": 0.131,
+      "medianMs": 0.143,
+      "p95Ms": 0.206
     },
     {
       "name": "templates.field-binding-lookup",
       "iterations": 30,
-      "minMs": 0.011,
-      "medianMs": 0.013,
-      "p95Ms": 0.025
+      "minMs": 0.01,
+      "medianMs": 0.012,
+      "p95Ms": 0.021
+    },
+    {
+      "name": "templates.form-version-for-assembly",
+      "iterations": 30,
+      "minMs": 0.027,
+      "medianMs": 0.034,
+      "p95Ms": 0.412
     },
     {
       "name": "templates.list-catalogue",
       "iterations": 30,
-      "minMs": 0.144,
-      "medianMs": 0.166,
-      "p95Ms": 1.346
+      "minMs": 0.127,
+      "medianMs": 0.149,
+      "p95Ms": 0.635
     },
     {
       "name": "templates.merge-field-catalog",
       "iterations": 30,
-      "minMs": 0.472,
-      "medianMs": 0.726,
-      "p95Ms": 1.247
+      "minMs": 0.437,
+      "medianMs": 0.748,
+      "p95Ms": 1.131
     },
     {
       "name": "templates.version-for-assembly",
       "iterations": 30,
-      "minMs": 0.03,
-      "medianMs": 0.035,
-      "p95Ms": 0.116
+      "minMs": 0.028,
+      "medianMs": 0.033,
+      "p95Ms": 0.084
     },
     {
       "name": "tiering-sweep.find-candidates",
       "iterations": 30,
-      "minMs": 0.949,
-      "medianMs": 1.046,
-      "p95Ms": 1.249
+      "minMs": 0.943,
+      "medianMs": 1.017,
+      "p95Ms": 1.212
     },
     {
       "name": "timeline.firm-window-31-day",
       "iterations": 30,
-      "minMs": 9.801,
-      "medianMs": 9.983,
-      "p95Ms": 10.59
+      "minMs": 10.672,
+      "medianMs": 11.329,
+      "p95Ms": 15.316
     },
     {
       "name": "timeline.firm-window-member-filtered",
       "iterations": 30,
-      "minMs": 0.566,
-      "medianMs": 0.675,
-      "p95Ms": 0.869
+      "minMs": 0.674,
+      "medianMs": 0.877,
+      "p95Ms": 0.968
     },
     {
       "name": "timeline.matter-page-1",
       "iterations": 30,
-      "minMs": 1.526,
-      "medianMs": 1.719,
-      "p95Ms": 2.501
+      "minMs": 1.717,
+      "medianMs": 1.983,
+      "p95Ms": 2.331
     },
     {
       "name": "timeline.matter-page-20",
       "iterations": 30,
-      "minMs": 1.41,
-      "medianMs": 1.562,
-      "p95Ms": 1.866
+      "minMs": 1.737,
+      "medianMs": 1.888,
+      "p95Ms": 2.433
     },
     {
       "name": "timeline.matter-shallow-page-1",
       "iterations": 30,
-      "minMs": 1.232,
-      "medianMs": 1.38,
-      "p95Ms": 1.781
+      "minMs": 1.4,
+      "medianMs": 1.521,
+      "p95Ms": 1.745
     },
     {
       "name": "trust-available-balance.by-node",
       "iterations": 30,
-      "minMs": 0.025,
-      "medianMs": 0.027,
-      "p95Ms": 0.057
+      "minMs": 0.023,
+      "medianMs": 0.026,
+      "p95Ms": 0.063
     },
     {
       "name": "trust-client-ledger.movements-by-node",
       "iterations": 30,
-      "minMs": 0.051,
-      "medianMs": 0.059,
-      "p95Ms": 0.097
+      "minMs": 0.045,
+      "medianMs": 0.05,
+      "p95Ms": 0.078
     },
     {
       "name": "trust-fitness.table-wide",
       "iterations": 30,
-      "minMs": 118.448,
-      "medianMs": 130.864,
-      "p95Ms": 138.39
+      "minMs": 110.197,
+      "medianMs": 115.53,
+      "p95Ms": 122.528
     },
     {
       "name": "trust-match.suggestions",
       "iterations": 30,
-      "minMs": 4.7,
-      "medianMs": 4.995,
-      "p95Ms": 6.725
+      "minMs": 4.376,
+      "medianMs": 4.47,
+      "p95Ms": 4.669
     },
     {
       "name": "trust-proof.three-way",
       "iterations": 30,
-      "minMs": 5.392,
-      "medianMs": 5.753,
-      "p95Ms": 8.504
+      "minMs": 5.094,
+      "medianMs": 5.254,
+      "p95Ms": 5.959
     },
     {
       "name": "unbilled-wip.by-matter",
       "iterations": 30,
-      "minMs": 0.107,
-      "medianMs": 0.184,
-      "p95Ms": 0.284
+      "minMs": 0.151,
+      "medianMs": 0.159,
+      "p95Ms": 0.197
     },
     {
       "name": "version-cut.commit",
       "iterations": 30,
-      "minMs": 1.675,
-      "medianMs": 2.016,
-      "p95Ms": 2.661
+      "minMs": 1.997,
+      "medianMs": 2.628,
+      "p95Ms": 3.16
     },
     {
       "name": "weekly-grid.by-timekeeper",
       "iterations": 30,
-      "minMs": 0.043,
-      "medianMs": 0.047,
-      "p95Ms": 0.095
+      "minMs": 0.057,
+      "medianMs": 0.064,
+      "p95Ms": 0.117
     },
     {
       "name": "zip-resolution.clean-current-versions",
       "iterations": 30,
-      "minMs": 0.04,
-      "medianMs": 0.045,
-      "p95Ms": 0.081
+      "minMs": 0.038,
+      "medianMs": 0.04,
+      "p95Ms": 0.079
     },
     {
       "name": "zip-resolution.folders-by-matter",
       "iterations": 30,
       "minMs": 0.015,
       "medianMs": 0.017,
-      "p95Ms": 0.026
+      "p95Ms": 0.072
     }
   ],
   "bounds": [
@@ -682,24 +752,38 @@
       "entriesReturned": 0
     },
     {
+      "name": "tasks.matter-page-1",
+      "statementCount": 1,
+      "rowsRead": 51,
+      "sourcesRead": 1,
+      "entriesReturned": 50
+    },
+    {
+      "name": "tasks.page-time-summaries",
+      "statementCount": 1,
+      "rowsRead": 53,
+      "sourcesRead": 50,
+      "entriesReturned": 50
+    },
+    {
       "name": "timeline.firm-window-31-day",
-      "statementCount": 15,
-      "rowsRead": 373,
-      "sourcesRead": 14,
+      "statementCount": 17,
+      "rowsRead": 386,
+      "sourcesRead": 16,
       "entriesReturned": 50
     },
     {
       "name": "timeline.firm-window-member-filtered",
-      "statementCount": 3,
-      "rowsRead": 107,
-      "sourcesRead": 3,
+      "statementCount": 4,
+      "rowsRead": 111,
+      "sourcesRead": 4,
       "entriesReturned": 50
     },
     {
       "name": "timeline.matter-page-1",
-      "statementCount": 13,
-      "rowsRead": 151,
-      "sourcesRead": 12,
+      "statementCount": 15,
+      "rowsRead": 199,
+      "sourcesRead": 14,
       "entriesReturned": 50
     }
   ]
