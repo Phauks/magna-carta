@@ -1,8 +1,8 @@
 # Conflicts read surface — design
 
 **Date:** 2026-09-02
-**Status:** Design. Nothing built. Q1 is answered (owner, 2026-09-02: `conflicts:read`). Q2 is open
-and blocks one read of the six; the other five do not wait on it.
+**Status:** Both questions answered by the owner on 2026-09-02 — Q1 `conflicts:read`, Q2 option (c).
+Nothing is blocked. Building in the section 5 order.
 **Scope:** The **reads** the conflicts screens are already built against and the contract does not
 serve. Six of them, each named today in
 [`apps/web/src/lib/conflicts/conflicts-gaps.ts`](../../apps/web/src/lib/conflicts/conflicts-gaps.ts)
@@ -199,9 +199,10 @@ permission key. The read says what the firm's floor is — which source classes 
 balanced band's name roles, the edge-class budgets — which is not client data, and every member is
 held to it.
 
-**Q2 — when is a re-surfaced hit "the same hit" as one already answered?** This one is not
-reversible in the same way: it decides what a reviewer is shown about a decision the firm has already
-made.
+**Q2 — when is a re-surfaced hit "the same hit" as one already answered? ANSWERED (owner,
+2026-09-02): option (c).** An earlier answer about the same entity is shown as CONTEXT and linked; a
+hit is never marked pre-concluded, nothing is pre-filled and nothing is suppressed. The reasoning the
+ruling was made on is kept below, because the case is what makes the rule readable.
 
 ### The case that decides it
 
@@ -259,7 +260,7 @@ Narrowest first:
   never marked pre-concluded; the panel says "this party was answered before" and links the earlier
   check, leaving the reviewer to decide whether it is the same question.
 
-**Recommendation: (c).** The Coastal Holdings case is not exotic — a corporate group where the firm
+**Why (c), on the case above.** The Coastal Holdings case is not exotic — a corporate group where the firm
 has acted for one member and is now adverse to another is among the commonest ways a conflict
 re-surfaces wearing a different face. (b) gets that case wrong in the dangerous direction. (a) gets
 it right, but only by accident of the source class differing; change the facts so the second hit also
