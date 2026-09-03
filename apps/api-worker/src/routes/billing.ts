@@ -73,7 +73,7 @@ import { approvalRequiredDefinition } from "@magna-carta/billing-core/review-gat
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import type { UserId } from "@magna-carta/identifiers/types";
+import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import { isValidCalendarDate, LedgerValidationError } from "@magna-carta/ledger/validate";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
@@ -441,6 +441,9 @@ const ArrangementRequest = z
     advanceDepositDestination: z.enum(["trust", "operating"]).nullable().optional(),
     currency: z.literal("USD"),
     validFrom: civilDate,
+    // The signed agreement this version rests on — the intake agreement signed at opening, or the
+    // amendment signed later — as one of the matter's own files. Optional: the paper may follow.
+    agreementFileId: z.string().nullable().optional(),
   })
   .openapi("BillingArrangementRequest");
 
@@ -459,6 +462,10 @@ const ArrangementVersion = z
     currency: z.string(),
     validFrom: z.string(),
     validTo: z.string().nullable(),
+    // The signed agreement behind this version, and what it is called; both null where none was
+    // recorded, the name alone null where the file has since been deleted.
+    agreementFileId: z.string().nullable(),
+    agreementFileName: z.string().nullable(),
   })
   .openapi("BillingArrangementVersion");
 
@@ -2305,6 +2312,8 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
     currency: arrangement.currency,
     validFrom: arrangement.validFrom,
     validTo: arrangement.validTo,
+    agreementFileId: arrangement.agreementFileId,
+    agreementFileName: arrangement.agreementFileName,
   });
 
   // PUT /api/v1/billing/matters/{matterId}/arrangement — the fee agreement, versioned append-only
@@ -2328,6 +2337,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
             advanceDepositDestination: request.advanceDepositDestination ?? null,
             currency: request.currency,
             validFrom: request.validFrom,
+            agreementFileId: (request.agreementFileId ?? null) as FileId | null,
             createdBy,
           },
           clockOptions(),

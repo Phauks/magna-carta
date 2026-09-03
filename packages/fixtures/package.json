@@ -63,6 +63,7 @@
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/reporting": "workspace:*",
+    "@magna-carta/tasks": "workspace:*",
     "@magna-carta/timekeeping": "workspace:*",
     "@magna-carta/trust": "workspace:*"
   },

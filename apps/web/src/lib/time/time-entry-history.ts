@@ -29,7 +29,7 @@ const EVENT_WORDS: Readonly<Record<string, string>> = {
   "time_entry.submitted": "Submitted for review",
   "time_entry.approved": "Approved",
   "time_entry.kicked_back": "Kicked back to draft",
-  "time_entry.voided": "Struck",
+  "time_entry.voided": "Voided",
   "time_entry.billed": "Billed",
   "time_entry.file_attached": "A file was attached",
   "time_entry.file_detached": "A file was detached",

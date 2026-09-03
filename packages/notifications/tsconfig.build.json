@@ -52,6 +52,9 @@
     },
     {
       "path": "../matters/tsconfig.build.json"
+    },
+    {
+      "path": "../tasks/tsconfig.build.json"
     }
   ],
   "include": [

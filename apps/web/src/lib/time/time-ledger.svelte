@@ -60,6 +60,7 @@
   import {
     approveTimeEntry,
     submitTimeEntry,
+    unvoidTimeEntry,
     voidTimeEntry,
     writeKey,
     type TimeEntryDraftFields,
@@ -214,6 +215,10 @@
       recordNoun: { singular: "Time Entry", plural: "Time Entries" },
       // Not served: with the firm's review setting unknown, the review vocabulary stays absent.
       reviewGateEnabled: false,
+      // A voided time entry can be put back. The time ledger is the only one that can say this
+      // today, which is exactly why the menu takes it as a fact about the surface rather than
+      // assuming every ledger has the route.
+      canRestoreVoid: true,
     });
   });
 
@@ -318,8 +323,21 @@
           actionFailure = refusalSentence(outcome, "The entry");
           return;
         }
-        actionNotice = "The entry was struck. It stays on the ledger and counts toward nothing.";
+        actionNotice = "The entry was voided. It stays on the ledger and counts toward nothing.";
         onChanged();
+        return;
+      }
+      case "unvoid": {
+        const outcome = await unvoidTimeEntry(fetch, first.id, writeKey());
+        if (outcome.kind !== "ok") {
+          actionNotice =
+            outcome.kind === "problem" && outcome.problem.status === 409
+              ? "The entry was not restored. Either it is not voided any more, or its value was moved onto a cost — restoring it would charge the same work twice."
+              : "The entry was not restored. It is still voided on the ledger.";
+          return;
+        }
+        onChanged();
+        actionNotice = "The entry is a draft again, with its number, its note and its files.";
         return;
       }
       default:

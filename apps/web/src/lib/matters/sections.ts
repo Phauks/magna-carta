@@ -164,6 +164,24 @@ export const matterSections: readonly MatterSection[] = [
     createNoun: "Note",
   },
   {
+    slug: "tasks",
+    label: "Tasks",
+    stage: "alpha",
+    description:
+      "What the firm still owes on this matter — each piece of work with somebody's name on it, " +
+      "when it is due, and whether it is done.",
+    createNoun: "Task",
+    searchSource: null,
+    // A task has searchable text — the title and the body — and the section's own list already
+    // narrows on it. What is missing is a source in packages/matter-search/src/sources/all.ts, and
+    // wiring one is a real piece of work rather than a line here: the task read composes the
+    // visibility fragment that decides whether a matterless task is reachable, and a source that
+    // reproduced that condition instead of composing it would be a second answer to who may see
+    // what. The section's own search box finds them in the meantime.
+    searchWaitingOn:
+      "Search within the Tasks section itself; a matter-wide task source is not wired yet",
+  },
+  {
     slug: "emails",
     label: "Emails",
     stage: "soon",
@@ -246,12 +264,14 @@ export type MatterStripEntry =
  * is the section members are in most — putting the busiest destination behind a menu would spend a
  * click on nearly every visit. Parties and Calendar stand alone on the owner's ruling: a matter's
  * dates are checked too often to sit behind a menu, and with Calendar on the row the group they
- * shared would have held Parties by itself, which the rule below forbids. Magnus stands alone
- * because it is not one of the matter's records; it is the way to ask about them.
+ * shared would have held Parties by itself, which the rule below forbids. Tasks sits beside
+ * Calendar for the same reason and emphatically not in Record: Record is what the matter has
+ * accumulated, and what the firm still owes is not one of those. Magnus stands alone because it is
+ * not one of the matter's records; it is the way to ask about them.
  *
  * The order is also the fold order — the backstop folds from the tail — so what folds first is what
  * a member can most afford to reach through a menu: Magnus (a stub), then the Record group (three
- * of its four are stubs), then the dates and the people. Money stays on the row longest of the
+ * of its four are stubs), then the work owed, the dates and the people. Money stays on the row longest of the
  * folding candidates, because all five of its sections are live working surfaces.
  */
 const ARRANGEMENT: readonly (
@@ -263,6 +283,7 @@ const ARRANGEMENT: readonly (
   { label: "Money", slugs: ["time", "fees", "costs", "billing", "trust"] },
   "parties",
   "calendar",
+  "tasks",
   { label: "Record", slugs: ["notes", "emails", "messaging", "custodian"] },
   "magnus",
 ];

@@ -137,6 +137,21 @@ is usually the fastest way to understand the rule.
   field is what starts a fresh search; leaving it returns the field to naming the selection. A
   filled seat that renders its ghost text reads as an empty field with nobody in it. _(new matter,
   2026-08-30)_
+- **A field whose empty state is a real value offers that value, rather than a sentence explaining
+  its absence.** Two paragraphs saying the firm has no codes turned on is the product apologising
+  for a configuration that is both common and correct; a `(None)` row makes the field work, states
+  the same fact, and lets the entry be filed. Reserve the explanatory line for a genuine inability —
+  this account may not read the catalogue, or the read failed. _(Time record window, 2026-09-03)_
+- **Two options that mean the same thing are one option.** Offering both makes a reader choose
+  between them, and there is no right answer to that choice. _(Time record window, 2026-09-03)_
+- **A public note and its private twin sit together, stacked, in that order.** They are one act of
+  writing that differs only in who reads it; separating them turns the private half into a second,
+  equal fact about the record and strands it wherever it landed. _(Time and Cost record windows,
+  2026-09-03)_
+- **A record's attachments can be gathered before the record exists.** "Save it first" is a true
+  statement about a route and a wrong one about the work: the person has the document open in front
+  of them. Hold the picks and apply them when the record is written. _(Time record window,
+  2026-09-03)_
 
 ### Controls and patterns
 
@@ -352,6 +367,13 @@ is usually the fastest way to understand the rule.
   surface around it every time the condition flips; mount it unconditionally and give it inert
   filler when it has nothing to report, so height never depends on wording. _(Build Versions panel,
   second round, 2026-08-31)_
+- **A field's label does not get a badge repeating it.** "Internal Memo" wearing an "Internal" chip
+  says the same word twice in two voices. _(Time record window, 2026-09-03)_
+- **Every labelled control in a row starts at the same baseline, which means every label carries the
+  same type metrics.** A label that omits the line-height the others set sits its control a few
+  pixels low, and a row of three fields reads as two fields and a mistake. Where a primitive renders
+  its own label it restates those metrics, and the two blocks change together. _(Time record window,
+  2026-09-03)_
 
 ### List screens
 
@@ -454,6 +476,14 @@ surface, which is most of the product.
   chain of flex-grow over min-height-0 — never a percentage, which resolves against an indefinite
   height and quietly does nothing — and the chain is one shared component, not a class list each
   page repeats. _(the file manager and the financial ledgers, 2026-09-02)_
+- **A modal filling the screen has square corners.** A radius says the panel is a sheet lying on top
+  of something; at full size there is nothing underneath, and the curve reads as four notches of
+  desktop showing through the corners of the application. Fixed on the shared modal frame, so any
+  shell that grows an expand gesture inherits it. _(Time record window, 2026-09-03)_
+- **A totals strip sits on the bottom edge of its frame, not under the last row.** A ledger fills
+  the height it is given, so the ordinary case is a table with room beneath it; totals that come to
+  rest halfway up the screen with a band of empty surface below them read as a table that failed to
+  load the rest. _(the four financial ledgers, 2026-09-03)_
 
 ### Spacing and rhythm
 
@@ -502,6 +532,36 @@ above. What is local:
   button's padding; the noun budget is seven characters.
 - **The registry's declared slug is checked against the address**: a page claiming the control for
   a section it is not on is refused loudly, as is a second claimant on one screen.
+
+### 2026-09-03 — the Time tab, second round
+
+The owner walked the time record window, the sheet and the cost window together. Most of what came
+back was about fields explaining themselves instead of working: two paragraphs apologising that a
+firm has no codes turned on, a badge repeating the word already in a label, a rate that could be
+read and not set, and one duration field where a firm thinks in three.
+
+What is local to these surfaces:
+
+- **A time entry's rate is a field.** The rate chain has always ranked a per-entry override first
+  and capture has always accepted one; the record window now offers it, and the update route carries
+  it, so an entry captured at the wrong rate is corrected rather than voided and typed again.
+- **A duration can be stated three ways** — in hours, in the firm's own billing units, or as the two
+  clock times the work happened between. All three are live at once and each is a view of the same
+  minutes; which of them are ON SCREEN is the reader's own setting, in the window's menu, and the
+  last one standing cannot be turned off.
+- **A void can be undone.** `POST /time-entries/{id}/unvoid` returns the entry to draft with its
+  number, its memo, its codes, its documents and its history. It refuses the one void that must
+  stay one: an entry whose value was moved onto a cost record, where restoring the time would charge
+  the same work twice. It restores to DRAFT and never to submitted or approved — those were
+  somebody's judgement about an entry that has since been withdrawn.
+- **The vocabulary is void, never strike.** One word for the act, across the history rail, the
+  sheet, the ledger and the record window.
+- **The Billing dropdown lost "No charge, on the bill at nothing"** — it is non-billable under a
+  longer name, and two rows for one disposition make a reader choose between them with no right
+  answer.
+- **The cost window commits with "Save & Close"**, as the time window does.
+
+What generalizes, and is promoted above.
 
 ### 2026-09-02 — the four financial ledgers, chrome round
 
@@ -845,3 +905,20 @@ decided was general, and is promoted above. The remainder that is specific to th
 
 The mockup's `data-mc` annotations name their targets; when a mockup and this file disagree about a
 detail on that surface, the mockup wins and this file gets the correction.
+
+### 2026-09-03 — the fee arrangement lives behind the status seal
+
+The owner, on the fee-arrangement window: "truthfully I don't like the fee arrangement window", then
+"move this into the matter status, which can be reached from the matter status badge", and "remove
+from fee screen".
+
+- **The fee arrangement is a fact of the engagement, not of the ledger.** It is set when the matter
+  opens, rarely read again, and rests on the intake agreement the client signed. It lives in the
+  matter status window behind the seal, in an Engagement section beside the status, with its
+  history folded away and Amend seated beside it the way the lifecycle step is seated beside the
+  status.
+- **The Fees screen states nothing about the arrangement.** No strip, no View, no Amend, no
+  summary in the details panel. Fees are recorded against whatever the status window says.
+- **An arrangement version names the signed agreement as a file**, picked from the matter's own
+  files — the conflicts waiver's precedent — never as a sentence. Optional, because the paper may
+  follow the deal.

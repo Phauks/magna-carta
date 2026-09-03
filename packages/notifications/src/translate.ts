@@ -125,6 +125,9 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
       database: options.database,
       matterId,
       actorUserId: readActor(payload),
+      // The member a `named-recipient` type names. Read from the payload rather than from the
+      // subject's row, so the person told is whoever was named at the write.
+      namedRecipientUserId: readNamedRecipient(type, payload),
       now: options.now,
       policy,
     });
@@ -229,6 +232,20 @@ function parsePayload(raw: string): Readonly<Record<string, unknown>> | null {
 function readActor(payload: Readonly<Record<string, unknown>>): UserId | null {
   const actor = payload["actorUserId"];
   return typeof actor === "string" ? (actor as UserId) : null;
+}
+
+// The one member a `named-recipient` type is for, from the payload field the TYPE declares. Every
+// other audience declares no key and gets null, which is why an unreadable value is null rather than
+// a throw: the audience that wants it is the only one that will miss it, and it then reaches nobody
+// rather than guessing at somebody.
+function readNamedRecipient(
+  type: NotificationType,
+  payload: Readonly<Record<string, unknown>>,
+): UserId | null {
+  const key = type.audiencePayloadKey;
+  if (key === undefined) return null;
+  const named = payload[key];
+  return typeof named === "string" && named.length > 0 ? (named as UserId) : null;
 }
 
 async function resolveMatterId(
