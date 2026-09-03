@@ -290,7 +290,7 @@ describe("striking an entry", () => {
     await store.voidRow(row.key);
     expect(store.rows.some((other) => other.key === row.key)).toBe(false);
 
-    store.history.undo();
+    await store.history.undo();
     expect(store.rowByKey(row.key)?.description).toBe("Drafted the motion");
   });
 });
@@ -312,10 +312,13 @@ describe("an undo reaching back past a void", () => {
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
     await store.voidRow("entry-1");
-    store.history.undo();
+    const outcome = await store.history.undo();
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
     expect(store.rowByKey("entry-1")?.status).toBe("void");
+    // And it says so rather than reporting a step it did not take.
+    expect(outcome.moved).toBe(0);
+    expect(outcome.failure?.label).toBe("the description on this entry");
   });
 
   it("writes nothing to an entry that has since been voided", async () => {
@@ -325,7 +328,7 @@ describe("an undo reaching back past a void", () => {
     await store.voidRow("entry-1");
 
     const before = recorder.writes.length;
-    store.history.undo();
+    await store.history.undo();
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
     expect(recorder.writes.slice(before)).toEqual([]);
@@ -339,8 +342,7 @@ describe("an undo of a field change", () => {
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
     const before = recorder.writes.length;
-    store.history.undo();
-    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+    await store.history.undo();
 
     expect(store.rowByKey("entry-1")?.description).toBe("Reviewed the discovery responses");
     const written = recorder.writes.slice(before);
@@ -349,5 +351,44 @@ describe("an undo of a field change", () => {
       expect(call.headers[IDEMPOTENCY_HEADER]).toBeDefined();
       expect(call.body).toMatchObject({ narrative: "Reviewed the discovery responses" });
     }
+  });
+
+  /*
+   * The reason a step is a pair of writes rather than a picture of the sheet. A snapshot cannot say
+   * which field moved, so putting one back meant writing EVERY row — over rows the step never
+   * touched, and over whatever somebody had changed in another window meanwhile.
+   */
+  it("writes the row the step changed, and no other row on the sheet", async () => {
+    const { store, recorder } = sheetOver([
+      entry({ id: "entry-1", narrative: "Reviewed the discovery responses" }),
+      entry({ id: "entry-2", narrative: "Called the client" }),
+    ]);
+    store.setDescription("entry-1", "Reviewed the responses and the exhibits");
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    const before = recorder.writes.length;
+    await store.history.undo();
+
+    const written = recorder.writes.slice(before);
+    expect(written).not.toEqual([]);
+    for (const call of written) expect(call.path).toContain("entry-1");
+  });
+
+  /*
+   * The announcement follows the write. A stack that answered on the pop told the reader the entry
+   * went back while the write was still in the air — and said nothing when it then refused.
+   */
+  it("answers only once the write has answered", async () => {
+    const { store, recorder } = sheetOver([entry()]);
+    store.setDescription("entry-1", "Reviewed the responses and the exhibits");
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    const before = recorder.writes.length;
+    const outcome = await store.history.undo();
+
+    expect(recorder.writes.length).toBeGreaterThan(before);
+    expect(outcome.moved).toBe(1);
+    expect(outcome.label).toBe("the description on this entry");
+    expect(outcome.failure).toBeNull();
   });
 });

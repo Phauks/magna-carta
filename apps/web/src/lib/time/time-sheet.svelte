@@ -48,7 +48,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
-  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -62,7 +61,6 @@
   import { formatMoney } from "@magna-carta/design-system/data-table";
   import { formatDuration } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import { mergeClasses } from "@magna-carta/design-system/internal/merge-classes";
   import { parseDate } from "@internationalized/date";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
@@ -76,13 +74,11 @@
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
   import Plus from "@lucide/svelte/icons/plus";
-  import Redo2 from "@lucide/svelte/icons/redo-2";
   import Search from "@lucide/svelte/icons/search";
   import Square from "@lucide/svelte/icons/square";
   import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import Undo2 from "@lucide/svelte/icons/undo-2";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { autoSizeTextarea } from "./auto-size-textarea.ts";
   import { FirmMatters } from "./firm-matters.svelte.ts";
@@ -98,7 +94,11 @@
     sheetColumnGap,
     timeSheetColumns,
   } from "./time-sheet-columns.ts";
-  import { historyAnnouncement } from "./time-sheet-history.svelte.ts";
+  import UndoRedoControls, {
+    historyAnnouncement,
+    historyShortcuts,
+    type HistoryOutcome,
+  } from "@magna-carta/design-system/history";
   import {
     NO_MATTER_TEXT,
     clockText,
@@ -427,14 +427,12 @@
     memoOpened = next;
   }
 
-  function runUndo(steps: number): void {
-    const outcome = store.history.undo(steps);
-    announcement = outcome === null ? null : historyAnnouncement("Undid", outcome);
-  }
-
-  function runRedo(steps: number): void {
-    const outcome = store.history.redo(steps);
-    announcement = outcome === null ? null : historyAnnouncement("Redid", outcome);
+  /*
+   * What a walk came to, said once the writes have answered — never when the stack popped. A step
+   * that announced on the pop told the reader the entry went back before the record agreed.
+   */
+  function said(outcome: HistoryOutcome): void {
+    announcement = historyAnnouncement(outcome);
   }
 
   function applyCustomRange(): void {
@@ -447,19 +445,12 @@
     scope = outcome.scope;
   }
 
-  function keyPressed(event: KeyboardEvent): void {
-    if (!(event.ctrlKey || event.metaKey)) return;
-    const pressed = event.key.toLowerCase();
-    if (pressed === "z" && !event.shiftKey) {
-      event.preventDefault();
-      runUndo(1);
-      return;
-    }
-    if (pressed === "y" || (pressed === "z" && event.shiftKey)) {
-      event.preventDefault();
-      runRedo(1);
-    }
-  }
+  /*
+   * Ctrl+Z, Ctrl+Y and Shift+Ctrl+Z, from the design system. It reaches INSIDE the cells on purpose:
+   * on a rapid-entry grid the cell is not the surface, and a reader who has typed into six of them
+   * and presses Ctrl+Z means the sheet.
+   */
+  const keyPressed = historyShortcuts(store.history, { onOutcome: said });
 
   /** Whether this row may be typed into at all, and why not when it may not. */
   function editRefusal(row: SheetRow): string | undefined {
@@ -919,78 +910,10 @@
           {/if}
         </span>
 
-        <!-- Undo and redo are SPLIT CONTROLS: the button does the step, the caret fused to its
-             side opens the stack, where each entry says what that step WAS and choosing the Nth
-             walks all N at once. What a step was is never printed on the toolbar itself. -->
-        <span class="inline-flex">
-          <Button
-            variant="secondary"
-            size="icon"
-            class="rounded-e-none"
-            disabled={!store.history.canUndo}
-            title={store.history.undoTitle}
-            aria-label="Undo"
-            onclick={() => runUndo(1)}
-          >
-            <Undo2 class="size-16" aria-hidden="true" />
-          </Button>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger
-              class={mergeClasses(
-                buttonClasses({ variant: "secondary", size: "icon" }),
-                "rounded-s-none border-s-0",
-              )}
-              disabled={!store.history.canUndo}
-              title={store.history.undoStackTitle}
-              aria-label="Undo history"
-            >
-              <ChevronDown class="size-16" aria-hidden="true" />
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              <DropdownMenu.GroupHeading>Undo, newest change first</DropdownMenu.GroupHeading>
-              {#each store.history.undoLabels as label, index (index)}
-                <DropdownMenu.Item onSelect={() => runUndo(index + 1)}>
-                  {index + 1}. {label}
-                </DropdownMenu.Item>
-              {/each}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </span>
-
-        <span class="inline-flex">
-          <Button
-            variant="secondary"
-            size="icon"
-            class="rounded-e-none"
-            disabled={!store.history.canRedo}
-            title={store.history.redoTitle}
-            aria-label="Redo"
-            onclick={() => runRedo(1)}
-          >
-            <Redo2 class="size-16" aria-hidden="true" />
-          </Button>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger
-              class={mergeClasses(
-                buttonClasses({ variant: "secondary", size: "icon" }),
-                "rounded-s-none border-s-0",
-              )}
-              disabled={!store.history.canRedo}
-              title={store.history.redoStackTitle}
-              aria-label="Redo history"
-            >
-              <ChevronDown class="size-16" aria-hidden="true" />
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              <DropdownMenu.GroupHeading>Redo, next change first</DropdownMenu.GroupHeading>
-              {#each store.history.redoLabels as label, index (index)}
-                <DropdownMenu.Item onSelect={() => runRedo(index + 1)}>
-                  {index + 1}. {label}
-                </DropdownMenu.Item>
-              {/each}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </span>
+        <!-- Undo and redo are the design system's pair over this sheet's own stack: the button
+             does the step, the caret fused to its side opens the stack, and choosing the Nth walks
+             all N at once. The secondary register is this toolbar's, not undo's. -->
+        <UndoRedoControls history={store.history} variant="secondary" onOutcome={said} />
 
         <!-- Absence is the signal: the control exists only while a filter is in play. -->
         {#if grid.isFiltered}

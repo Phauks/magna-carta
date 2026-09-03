@@ -159,8 +159,8 @@ directory search before these existed; the one-implementation registry now refus
 three are in `lint:one-ui`'s one-implementation registry: a second undo stack anywhere is the defect
 the entry exists to prevent, and there were two before this landed
 (`apps/web/src/lib/time/time-sheet-history.svelte.ts` and
-`apps/web/src/lib/file-manager/move-history.ts`, both still to be ported by the streams that own
-them). Design: [`docs/specs/2026-09-03-undo-redo-and-reversal-design.md`](../../docs/specs/2026-09-03-undo-redo-and-reversal-design.md).
+`apps/web/src/lib/file-manager/move-history.ts`); both are gone, and both surfaces now render this
+control over this stack. Design: [`docs/specs/2026-09-03-undo-redo-and-reversal-design.md`](../../docs/specs/2026-09-03-undo-redo-and-reversal-design.md).
 
 - **A step is a command with an inverse, never a snapshot.** A snapshot restores a screen; an
   inverse restores the record. The snapshot model is why the Time Sheet writes back every row on
@@ -182,6 +182,15 @@ them). Design: [`docs/specs/2026-09-03-undo-redo-and-reversal-design.md`](../../
   FIELDS by default, which is what both existing surfaces do and is right on a rapid-entry grid: a
   reader who has typed into six cells and presses Ctrl+Z means the sheet, not the caret.
   `insideTextFields: "yield"` is the seam for a surface that is one long text field.
+- **The one thing a surface varies is the register** — `variant: "ghost" | "secondary"` — because
+  that is a fact about the chrome the pair sits in (a quiet counts footer, a toolbar of secondary
+  buttons), not about undo. Closed set, no `class` prop to reach past it, and the bordered register
+  also drops the caret's leading edge so the seam is not a double rule.
+- **A module with no Svelte in it imports from the leaf paths**, `@magna-carta/design-system/history-stack`
+  and `/history-shortcuts`, never the `./history` barrel: the barrel carries the CONTROL, and a
+  plain module that pulls its component tree in stops loading anywhere a Svelte transform is not in
+  play (it fails as `Unknown file extension ".svelte"` deep inside bits-ui, which reads like
+  anything but the import that caused it). `.svelte` consumers take the barrel.
 - **`DropdownMenu.GroupHeading` must sit inside a `DropdownMenu.Group`.** Without it bits throws
   `Context "Menu.Group | Menu.RadioGroup" not found` when the menu OPENS — not on render — so it is
   invisible until somebody presses the caret. Both hand-built copies of this control shipped without
