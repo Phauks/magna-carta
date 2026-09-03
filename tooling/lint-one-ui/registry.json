@@ -129,23 +129,8 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/costs/cost-review-window.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader. It belongs to the full-screen presentation question, which is a separate design and deliberately not folded into this one."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/settings/components/settings-ledger.svelte",
       "reason": "a Sheet, and an edge panel holding a change history is context rather than an act. It stays; the allowance records that a Sheet was considered and left alone."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/time/time-sheet.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family as cost-review-window, same separate design."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/tools/safe-browse/website-shell.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family, same separate design."
     },
     {
       "rule": "status-tone",
