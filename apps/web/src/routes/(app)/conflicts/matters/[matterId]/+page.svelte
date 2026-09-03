@@ -19,7 +19,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Button from "@magna-carta/design-system/button";
   import Separator from "@magna-carta/design-system/separator";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -123,20 +123,16 @@
   <title>Conflicts Standing · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Eyebrow>Conflicts</Masthead.Eyebrow>
-    <Masthead.Title>Where This Matter Stands</Masthead.Title>
-    <Masthead.Meta>
-      <span>{matterLabel ?? "The matter is not named"}</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
+<ScreenHeader title="Where This Matter Stands" back="conflicts" class="mb-24">
+  {#snippet meta()}
+    <span>{matterLabel ?? "The matter is not named"}</span>
+  {/snippet}
+  {#snippet actions()}
     {#if matter !== null}
       <Button variant="secondary" href="/matters/{matterId}">Open the matter</Button>
     {/if}
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if session !== null && !mayRead}
   <Alert.Root variant="info" class="mb-16">

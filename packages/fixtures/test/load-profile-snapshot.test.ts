@@ -7,6 +7,15 @@ import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/sn
 
 const TINY = scaleProfile(ledgerVolume, 0.002);
 
+/*
+ * EVERY SEEDING TEST HERE CARRIES AN EXPLICIT TIMEOUT, matching load-profile-smoke.test.ts beside
+ * it. These are not unit tests: each one seeds a real SQLite snapshot (the version-bump case seeds
+ * two), which is a second or more of genuine work on an idle machine and several times that on a
+ * loaded CI runner. Vitest's 5-second default is sized for tests that compute, and under it the
+ * version-bump case failed twice on one pull request — a real measurement mistaken for a defect.
+ * Sixty seconds is deliberately generous: nothing here is testing how FAST the seeding is, so a
+ * timeout that trips on a slow machine only ever reports the machine.
+ */
 describe("load-profile snapshots", () => {
   const temporaryDirectories: string[] = [];
   const openSnapshots: LoadedSnapshot[] = [];
@@ -64,7 +73,7 @@ describe("load-profile snapshots", () => {
       first.manifest.probes.busySubledgerAccountId,
     );
     second.close();
-  });
+  }, 60_000);
 
   it("regenerates when snapshot identity changes (profile version bump)", async () => {
     const cacheDirectory = newCacheDirectory();
@@ -83,7 +92,7 @@ describe("load-profile snapshots", () => {
     second.close();
     expect(generations).toBe(2);
     expect(second.cacheKey).not.toBe(first.cacheKey);
-  });
+  }, 60_000);
 
   it("hands out an isolated working copy — writes never touch the cached artifact", async () => {
     const cacheDirectory = newCacheDirectory();
@@ -104,7 +113,7 @@ describe("load-profile snapshots", () => {
       .all<{ n: number }>();
     expect(results[0]!.n).toBeGreaterThan(0); // the cached artifact was untouched
     second.close();
-  });
+  }, 60_000);
 
   it("reaps its own working copy on close", async () => {
     // The working copy is a full copy of the snapshot database. Nothing but the snapshotter knows its
@@ -124,7 +133,7 @@ describe("load-profile snapshots", () => {
     expect(() => {
       snapshot.close();
     }).not.toThrow();
-  });
+  }, 60_000);
 
   it("reaps the working copy even when closing the database handle throws", async () => {
     const snapshot = track(
@@ -146,7 +155,7 @@ describe("load-profile snapshots", () => {
       snapshot.close();
     }).toThrow(/handle close failed/);
     expect(existsSync(workingDirectory)).toBe(false);
-  });
+  }, 60_000);
 
   it("refuses without the seeding opt-in", async () => {
     await expect(

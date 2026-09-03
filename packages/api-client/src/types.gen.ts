@@ -2580,6 +2580,11 @@ export type TimelineEntry = {
     actorUserId: string | null;
     label: string | null;
     link: string;
+    title: string | null;
+    typeText: string | null;
+    facts: {
+        [key: string]: unknown;
+    } | null;
 };
 
 export type MatterEventPage = {
@@ -18009,6 +18014,45 @@ export type NotesDeleteNoteResponses = {
 };
 
 export type NotesDeleteNoteResponse = NotesDeleteNoteResponses[keyof NotesDeleteNoteResponses];
+
+export type NotesGetNoteData = {
+    body?: never;
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}';
+};
+
+export type NotesGetNoteErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesGetNoteError = NotesGetNoteErrors[keyof NotesGetNoteErrors];
+
+export type NotesGetNoteResponses = {
+    /**
+     * The note
+     */
+    200: MatterNoteDetail;
+};
+
+export type NotesGetNoteResponse = NotesGetNoteResponses[keyof NotesGetNoteResponses];
 
 export type NotesEditNoteData = {
     body: EditMatterNoteRequest;

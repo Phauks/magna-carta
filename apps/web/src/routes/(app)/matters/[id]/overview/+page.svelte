@@ -13,6 +13,7 @@
   import { formatDate } from "@magna-carta/design-system/data-table";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import EntityIdentity, { type EntityKind } from "@magna-carta/design-system/entity-identity";
+  import ActivityRegister from "$lib/activity/activity-register.svelte";
   import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
   import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
   import { CalendarView } from "$lib/calendar/index.ts";
@@ -95,6 +96,7 @@
   /* The figures that accrue against a matter once their surfaces ship — placeholders only. */
   const ACCRUAL_TILES = [{ label: "Unbilled time" }, { label: "Trust balance" }];
 
+  const isSample = $derived(matter.source === "sample");
   /** The next thirty days on this matter, six rows deep; the Calendar section has the rest. */
   const COMING_UP_DAYS = 30;
   const COMING_UP_ROWS = 6;
@@ -186,4 +188,23 @@
       </Card.Root>
     {/each}
   </div>
+
+  <!-- The newest of everything recorded on the matter: the one activity register with a row budget,
+       so what the Overview shows is what the Activity section shows, and nothing is summarised
+       twice. The whole chronology is one step away. -->
+  <section class="flex flex-col gap-16">
+    <div class="flex items-baseline justify-between gap-8 border-b border-border-strong pb-8">
+      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        Recent activity
+      </h2>
+      <a href={`/matters/${matter.id}/activity`} class="text-sm underline">See all activity</a>
+    </div>
+    <ActivityRegister
+      matterId={matter.id}
+      matterTitle={matter.title}
+      {isSample}
+      variant="recent"
+      limit={8}
+    />
+  </section>
 </div>

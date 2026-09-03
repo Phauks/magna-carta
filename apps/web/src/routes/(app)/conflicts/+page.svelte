@@ -18,7 +18,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Combobox from "@magna-carta/design-system/combobox";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
   import Separator from "@magna-carta/design-system/separator";
@@ -133,14 +133,14 @@
   <title>Conflicts Check · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Conflicts Check</Masthead.Title>
-    <Masthead.Meta>
-      <span>Search the firm's record, and keep what the search did</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<ScreenHeader
+  title="Conflicts Check"
+  class="mb-24"
+>
+  {#snippet meta()}
+    <span>Search the firm's record, and keep what the search did</span>
+  {/snippet}
+</ScreenHeader>
 
 {#if session !== null && !mayRun}
   <Alert.Root variant="info" class="mb-16">

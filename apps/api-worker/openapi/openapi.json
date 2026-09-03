@@ -10450,6 +10450,25 @@
           },
           "link": {
             "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "typeText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "facts": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -10460,7 +10479,10 @@
           "matterId",
           "actorUserId",
           "label",
-          "link"
+          "link",
+          "title",
+          "typeText",
+          "facts"
         ]
       },
       "MatterEventPage": {
@@ -52012,7 +52034,7 @@
     },
     "/api/v1/matters/{matterId}/timeline": {
       "get": {
-        "description": "The matter's timeline, newest first: the events and deadlines recorded here merged with what every other part of the platform already recorded about this case — documents filed, mail captured, documents assembled, originals moved, client money moved, time and costs booked, conflicts checks run, and the matter's own opening and closing. Nothing is copied into a timeline table: each entry is read in place from the record its own subsystem keeps, so the timeline cannot disagree with the register behind it. An entry carries identifiers, a kind, and a non-privileged summary where its source has one — follow the link for the detail. `kind` is repeatable and narrows which sources are read at all.",
+        "description": "The matter's timeline, newest first: the events and deadlines recorded here merged with what every other part of the platform already recorded about this case — documents filed, mail captured, documents assembled, originals moved, client money moved, time and costs booked, conflicts checks run, and the matter's own opening and closing. Nothing is copied into a timeline table: each entry is read in place from the record its own subsystem keeps, so the timeline cannot disagree with the register behind it. An entry carries identifiers, a kind, and a non-privileged summary where its source has one. On this matter-scoped read each source also NAMES its rows — a title, its own word for what the row is, and its own facts — for the sources whose read capability the member holds; the words are absent, never invented, where a source has none to give or the member may not read them. `kind` is repeatable and narrows which sources are read at all.",
         "operationId": "calendar.matterTimeline",
         "tags": [
           "calendar"
@@ -56736,6 +56758,89 @@
       }
     },
     "/api/v1/notes/{noteId}": {
+      "get": {
+        "description": "One note by its id, with the documents it points at — what a deep link into the matter's notes opens, through the same matter visibility the list reads under. A note on a matter the member may not see is not found, never partially shown.",
+        "operationId": "notes.getNote",
+        "tags": [
+          "notes"
+        ],
+        "x-mc-operationId": "notes.getNote",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "notes:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "notes"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterNote_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "noteId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The note",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterNoteDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the note is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "description": "Changes a note's text, and when it says the thing happened. The previous text is replaced and is not kept: what the note said before is gone. Who made the change is recorded.",
         "operationId": "notes.editNote",

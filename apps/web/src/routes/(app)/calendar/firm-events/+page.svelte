@@ -6,4 +6,4 @@
 
 <svelte:head><title>Firm Events · Magna Carta</title></svelte:head>
 
-<CalendarScreen title="Firm Events" openEntry={data.openEntry} initialView="agenda" />
+<CalendarScreen title="Firm Events" back="calendar" openEntry={data.openEntry} initialView="agenda" />

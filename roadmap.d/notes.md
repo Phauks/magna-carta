@@ -6,20 +6,20 @@
 
 - id: notes
   name: Matter notes and activity
-  scope: The note primitive — a dated, attributed record on a matter, corrected by appended revision and withdrawn rather than deleted — and its entry on the federated activity read.
+  scope: The note primitive — a dated, attributed record on a matter, edited in place and deleted outright, opened in the shared record window — and its entry on the federated activity read.
   status: partial
   slices: 4-4-matter-notes
   spec: docs/specs/2026-08-15-notes-and-activity-design.md
   audience: public
   public-name: Matter notes
-  public-summary: Write down what happened on a case, correct it without losing what it said before, and withdraw anything that should never have been written.
+  public-summary: Write down what happened on a case, when it happened, and which of the matter's documents it concerns.
 
 - id: notes.matter-note
   name: The matter note
-  scope: An identity row carrying the matter, the original author, the created instant and the state, with the body held as revisions beside it.
+  scope: One row carrying the matter, the author, the words, the instant it was written, and optionally when the thing it describes happened.
   status: shipped
   slices: 4-4-matter-notes
-  evidence: packages/notes (note-service.ts, note-statements.ts), matter_note + matter_note_revision in packages/database/src/per-firm-schema.ts, apps/api-worker/src/routes/notes.ts, the matter's Notes section in apps/web
+  evidence: packages/notes (note-service.ts, note-statements.ts), matter_note in packages/database/src/per-firm-schema.ts, apps/api-worker/src/routes/notes.ts, the matter's Notes section and note-record-window.svelte in apps/web
   audience: public
   public-summary: A note on a matter, dated and attributed the moment it is written.
 
@@ -42,6 +42,17 @@
   evidence: dropped by packages/database/drizzle/per-firm/20260901T120000_matter-notes-edit-and-delete.sql
   notes: CUT on the owner's direction, 2026-09-01, hours after it shipped. A note is edited in place and deleted outright, so there is no append-only body left to guard.
 
+- id: notes.matter-note.record-window
+  name: The note's record window
+  scope: A note is written, read, changed and deleted in the shared two-pane record window, with its attachments as the right-hand tab and a printable sheet.
+  status: shipped
+  slices: 4-4-matter-notes
+  surface: screen
+  evidence: apps/web/src/lib/matters/note-record-window.svelte over @magna-carta/design-system/record-window; apps/web/src/lib/matters/note-print-sheet.ts; the end-to-end walk in apps/web/e2e/matter-notes.spec.ts
+  audience: public
+  public-summary: Open a note in the same window every other record opens in.
+  notes: Replaced the inline composer on the owner's direction, 2026-09-01. The window states every generated field before anything is typed, and the Date and its Time sit on one line.
+
 - id: notes.matter-note.occurrence
   name: When the thing happened
   scope: A civil date, an optional wall-clock time and its zone, recording when what the note describes took place, separately from when the note was typed.
@@ -62,7 +73,8 @@
   evidence: matter_note_document in packages/database/src/per-firm-schema.ts on the matter_asset_document model; attachFileToMatterNote and detachFileFromMatterNote in packages/notes/src/note-service.ts
   audience: public
   public-summary: Attach the letter a note discusses, without moving it out of the matter's files.
-  notes: Upload stays the File Manager's chokepoint, so an attached document keeps its versions, holds and discovery reachability. Deleting a note detaches its documents and deletes none of them.
+  notes: Upload stays the File Manager's chokepoint, so an attached document keeps its versions, holds and discovery reachability. Deleting a note detaches its documents and deletes none of them. The window takes the choices while the note is still a draft and writes them after the note itself, so attaching never means saving and reopening; where one of them does not land, the list names which rather than reporting a failure to save.
+  awaiting-owner: A note cannot upload a NEW document, only point at one the matter already holds. Whether the note window should also file a document into the matter — which means the presigned upload, the quarantine chokepoint and a scan wait inside a note — is an owner call, not a gap to close quietly.
 
 - id: notes.activity
   name: The note on the matter's activity history

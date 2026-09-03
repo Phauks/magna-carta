@@ -28,6 +28,8 @@
   } from "@magna-carta/design-system/record-attachments";
   import RecordChain from "@magna-carta/design-system/record-chain";
   import RecordWindow from "@magna-carta/design-system/record-window";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import { DEVELOPER_CONSOLE_BACK } from "$lib/screen/screen-header.ts";
   import {
     STATUS_VOCABULARIES,
     statusVocabulary,
@@ -277,13 +279,7 @@
   ]}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <p
-        class="text-xs font-semibold text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
-      >
-        Developer console
-      </p>
-      <h1 class="text-2xl font-semibold">Record Window States</h1>
+      <ScreenHeader title="Record Window States" back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
         The record family in every state it has to survive, rendered from the real design system
         over an invented litigation file. Use this instead of a standalone mockup: a mockup is
