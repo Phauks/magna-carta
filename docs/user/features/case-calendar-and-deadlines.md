@@ -54,6 +54,12 @@ setting and deadline on every matter you can see, and the firm's own events besi
 adds **Month** and **Agenda** beside them, which are the firm calendar narrowed to this one matter
 and showing titles. **Record a deadline** and **Record an event** are on the section's own row.
 
+**Timeline** is the section's fourth view: everything the firm has recorded about the case, newest
+first, read from wherever it was recorded: documents filed, mail captured, documents assembled,
+originals moved, money through trust, time and costs, conflicts checks, and the dates on this
+calendar. Each row says what kind of thing it is and links to the record it came from; press
+**Earlier** for the next page back.
+
 **Two cards read the same calendar.** **Today** on Home is what is on your own calendar today and
 tomorrow, six entries deep, with a line to the rest. **Coming up** on a matter's Overview is that
 matter's next thirty days, six entries deep, with a line to its Calendar section. Neither is a
@@ -64,6 +70,11 @@ links and its history on the right, and the verbs it allows along the bottom. Ed
 record in place. A scheduled setting can be **cancelled** with a reason or **continued**; an open
 deadline can be **satisfied**, **vacated** with a reason, or **superseded** by a new one. A verb the
 record's state or your permissions refuse stays visible and says why.
+
+**Related settings.** Open an event and press **Relate** to link it to another setting on the same
+matter (or, for a firm event, to another firm event within six months), with a note on why they
+belong together. The Links tab lists them by title and opens either; **Remove** takes a relation off
+without touching either setting. A continuance is never related by hand: the record makes that link.
 
 **Who is at an event.** When recording, pick a person from the firm, from the directory, or type a
 name once for somebody who is neither, such as a judge or a court reporter; each can carry a role.

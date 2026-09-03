@@ -2914,6 +2914,24 @@ export type ContinueMatterEventRequest = {
     statusReason?: string | null;
 };
 
+export type CalendarEventLinks = {
+    data: Array<CalendarEventLinkDetail>;
+};
+
+export type CalendarEventLinkDetail = {
+    id: string;
+    kind: 'continuance_of' | 'related';
+    from: CalendarEventLinkEnd;
+    to: CalendarEventLinkEnd;
+    note: string | null;
+    createdAt: string;
+};
+
+export type CalendarEventLinkEnd = {
+    matterEventId: string | null;
+    firmEventId: string | null;
+};
+
 export type ContinuanceChain = {
     data: Array<ContinuanceChainNode>;
 };
@@ -17595,6 +17613,84 @@ export type CalendarContinueEventResponses = {
 };
 
 export type CalendarContinueEventResponse = CalendarContinueEventResponses[keyof CalendarContinueEventResponses];
+
+export type CalendarListEventLinksData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/links';
+};
+
+export type CalendarListEventLinksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListEventLinksError = CalendarListEventLinksErrors[keyof CalendarListEventLinksErrors];
+
+export type CalendarListEventLinksResponses = {
+    /**
+     * The event's links
+     */
+    200: CalendarEventLinks;
+};
+
+export type CalendarListEventLinksResponse = CalendarListEventLinksResponses[keyof CalendarListEventLinksResponses];
+
+export type CalendarListFirmEventLinksData = {
+    body?: never;
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/links';
+};
+
+export type CalendarListFirmEventLinksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListFirmEventLinksError = CalendarListFirmEventLinksErrors[keyof CalendarListFirmEventLinksErrors];
+
+export type CalendarListFirmEventLinksResponses = {
+    /**
+     * The firm event's links
+     */
+    200: CalendarEventLinks;
+};
+
+export type CalendarListFirmEventLinksResponse = CalendarListFirmEventLinksResponses[keyof CalendarListFirmEventLinksResponses];
 
 export type CalendarContinuanceChainData = {
     body?: never;
