@@ -7,14 +7,19 @@
    *
    * Centering vs. presence — the one subtlety. Bits' Dialog.Content is fixed/centered, NOT
    * Floating-UI-anchored, so the two-level wrapper rule does NOT apply: classes go straight on the
-   * Content element. The centering itself is done in the CSS recipe with `position: fixed;
-   * inset: 0; margin: auto; <fit-content size>` — i.e. NO centering transform. That matters because
-   * the presence here is PRESENCE_SCALE_FADE, whose animation is opacity + Tailwind `scale-*` only
-   * (no translate). A transform-based centre (`translate(-50%, -50%)`) would be overwritten by that
-   * `scale-*` transform and the panel would jump to a corner mid-animation; with inset/margin
-   * centering there is no transform to fight, so the scale-fade composes cleanly and the panel
-   * stays centered throughout. The panel's width/max-height are layout, so they ride utilities on
-   * the wrapper (like Tabs' `max-w-md`), not the token-only recipe.
+   * Content element. The centering is done by the STAGE the panel renders inside — a fixed box
+   * pulled in from the screen's edges by size.modal-gutter that centres its one flex item
+   * (styles/recipes/modal-stage.css) — i.e. NO centering transform. That matters because the
+   * presence here is PRESENCE_SCALE_FADE, whose animation is opacity + Tailwind `scale-*` only (no
+   * translate). A transform-based centre (`translate(-50%, -50%)`) would be overwritten by that
+   * `scale-*` transform and the panel would jump to a corner mid-animation; with flex centering
+   * there is no transform to fight, so the scale-fade composes cleanly and the panel stays
+   * centered throughout. The stage is also the panel's cap: a column flex item shrinks to its
+   * container, so a panel taller than the screen less its gutter scrolls inside that box rather
+   * than running edge to edge, and no height utility is needed. The panel's width is layout, so it
+   * rides utilities on the wrapper (like Tabs' `max-w-md`), not the token-only recipe. A caller
+   * that must sit somewhere other than the stage's centre (the command palette, anchored on its
+   * trigger) leaves the stage's layout with the `fixed` utility and its own insets.
    */
   import { Dialog as DialogPrimitive } from "bits-ui";
   import X from "@lucide/svelte/icons/x";
@@ -57,21 +62,20 @@
 
 <DialogPrimitive.Portal>
   <DialogOverlay presence={overlayPresence} />
-  <DialogPrimitive.Content
-    bind:ref
-    class={mergeClasses(
-      Z_LAYER_CLASSES.modal,
-      presence,
-      "mc-dialog-content max-h-screen w-full max-w-lg",
-      className,
-    )}
-    {...restProps}
-  >
-    {@render children?.()}
-    {#if showClose}
-      <DialogPrimitive.Close class="mc-dialog-close" aria-label="Close">
-        <X class="mc-dialog-close-icon" aria-hidden="true" />
-      </DialogPrimitive.Close>
-    {/if}
-  </DialogPrimitive.Content>
+  <!-- The stage carries the modal z-layer, not only the panel: a fixed box is a stacking context
+       of its own, so a z-index on the panel alone would leave it beneath the scrim. -->
+  <div class={mergeClasses(Z_LAYER_CLASSES.modal, "mc-modal-stage")}>
+    <DialogPrimitive.Content
+      bind:ref
+      class={mergeClasses(presence, "mc-dialog-content w-full max-w-lg", className)}
+      {...restProps}
+    >
+      {@render children?.()}
+      {#if showClose}
+        <DialogPrimitive.Close class="mc-dialog-close" aria-label="Close">
+          <X class="mc-dialog-close-icon" aria-hidden="true" />
+        </DialogPrimitive.Close>
+      {/if}
+    </DialogPrimitive.Content>
+  </div>
 </DialogPrimitive.Portal>

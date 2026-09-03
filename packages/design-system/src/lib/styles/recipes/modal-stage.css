@@ -1,0 +1,41 @@
+@layer components {
+  /*
+   * The modal stage — the box a windowed modal panel is centred in, and the reason no panel ever
+   * touches the edge of the screen.
+   *
+   * WHY THERE IS A STAGE AT ALL. A panel that sat directly on the viewport (`position: fixed;
+   * inset: 0; margin: auto`) had exactly two sizes available to it on a short screen: its own
+   * content height, or the whole viewport. On a laptop a record window ran from the top edge of the
+   * screen to the bottom edge with its rounded corners cut off against them, and at a laptop's
+   * width the record-width panels touched both sides too. A panel is a thing lying over the
+   * application; one that fills the screen reads as the application replaced.
+   *
+   * The stage is the viewport pulled in by size.modal-gutter on every side, and the panel is laid
+   * out INSIDE it rather than on the viewport, so the gutter is not a margin the panel remembers to
+   * keep but the edge of the only space it has. It centres the panel with flex rather than with
+   * auto margins because flex is also what caps the panel: a column flex item shrinks to its
+   * container when its content is taller, provided it may (`min-block-size: 0` on the panel), and
+   * keeps its content height when it is not. That is the frame's own rule — fit first, then cap —
+   * expressed in structural keywords alone, where a viewport-relative length (`calc(100dvh - ...)`,
+   * `stretch`) would either fail this package's token-purity gate or reach only one engine.
+   *
+   * The stage takes no pointer events itself: a press in the gutter lands on the scrim beneath and
+   * is the outside press the dialog dismisses on. The panel turns them back on for its own box.
+   *
+   * EXPANDED, THE STAGE IS THE SCREEN. Filling the screen is the whole gesture, so a stage whose
+   * panel says it is expanded drops the gutter entirely; the panel then wears the screen's size as
+   * utilities (internal/frame-expansion.svelte.ts), which the stage no longer trims.
+   */
+  .mc-modal-stage {
+    position: fixed;
+    inset: var(--mc-size-modal-gutter);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .mc-modal-stage:has(> [data-expanded="true"]) {
+    inset: var(--mc-space-0);
+  }
+}

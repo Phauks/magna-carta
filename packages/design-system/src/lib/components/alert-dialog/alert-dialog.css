@@ -3,11 +3,12 @@
    * AlertDialog (Tier 3, Bits UI). A centered modal decision panel over a scrim — the Dialog
    * structure, but a deliberate confirm/cancel surface with NO incidental dismiss: no corner ✕ and,
    * by Bits' defaults, no outside-click close, so the user must choose Cancel or Action. The look is
-   * byte-identical to Dialog (centered without a centering transform so the scale-fade presence has
-   * nothing to fight; flex column; the floating elevation), but kept under its own recipe names —
+   * byte-identical to Dialog (centred by the modal stage it is a flex item of, never by a
+   * transform, so the scale-fade presence has nothing to fight; capped by that stage at the screen
+   * less its gutter; flex column; the floating elevation), but kept under its own recipe names —
    * one recipe per component, clarity over DRY — so the two can drift independently later. The
-   * z-layers and presence come from the floating module; width/max-height are layout utilities on
-   * the wrapper. The Trigger, Cancel, and Action carry NO recipe — they are caller-styled buttons
+   * z-layers and presence come from the floating module; the width is a layout utility on the
+   * wrapper. The Trigger, Cancel, and Action carry NO recipe — they are caller-styled buttons
    * (typically the mc-button recipes), so nothing here fights the caller's chosen variant.
    */
   .mc-alert-dialog-overlay {
@@ -16,10 +17,10 @@
     background-color: var(--mc-surface-scrim);
   }
   .mc-alert-dialog-content {
-    position: fixed;
-    inset: var(--mc-space-0);
-    margin: auto;
+    position: relative;
+    pointer-events: auto;
     block-size: fit-content;
+    min-block-size: var(--mc-space-0);
     overflow-y: auto;
     display: flex;
     flex-direction: column;

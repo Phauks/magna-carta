@@ -54,9 +54,10 @@
   // surfaces as a disabled "— soon" row, exactly as an announced destination does.
   const tools = toolDestinations();
 
-  // The dialog recipe centers via `inset: 0; margin: auto`; starting the inset past the rail
-  // centers the palette over the WORK CANVAS, not the screen (owner review 2026-07-02). This is
-  // the FALLBACK position, used only when the top-bar trigger cannot be measured.
+  // The panel leaves the dialog's stage with the `fixed` utility (below) and centres itself the
+  // way the recipe once did, `inset: 0; margin: auto`; starting the inset past the rail centers
+  // the palette over the WORK CANVAS, not the screen (owner review 2026-07-02). This is the
+  // FALLBACK position, used only when the top-bar trigger cannot be measured.
   const insetStart = $derived(
     sidebarCollapsed ? "var(--mc-size-sidebar-rail)" : "var(--mc-size-sidebar)",
   );
@@ -78,10 +79,10 @@
         .querySelector(".mc-top-bar-search")
         ?.getBoundingClientRect();
       if (triggerRect) {
-        // Explicit start insets + auto end insets defeat the recipe's `inset: 0; margin: auto`
-        // centering: the panel pins to the trigger's own box and grows DOWNWARD (fit-content
-        // block size). max-inline-size: none releases the wrapper's max-w clamp so the measured
-        // width always wins; the prose token caps the list so it never runs off the viewport.
+        // Explicit start insets + auto end insets pin the (fixed) panel to the trigger's own box,
+        // and it grows DOWNWARD (fit-content block size). max-inline-size: none releases the
+        // wrapper's max-w clamp so the measured width always wins; the prose token caps the list
+        // so it never runs off the viewport.
         lastAnchoredStyle =
           `inset-block-start: ${triggerRect.top}px; ` +
           `inset-inline-start: ${triggerRect.left}px; ` +
@@ -91,7 +92,10 @@
         return lastAnchoredStyle;
       }
     }
-    return lastAnchoredStyle ?? `inset-inline-start: ${insetStart}`;
+    return (
+      lastAnchoredStyle ??
+      `inset: var(--mc-space-0); margin: auto; inset-inline-start: ${insetStart};`
+    );
   });
 
   // Entrance-animation TRIAL HARNESS: in development builds a developer-console preference
@@ -140,7 +144,9 @@
   }
 </script>
 
-<!-- rounded-md: the container's radius must match the trigger's (.mc-top-bar-search,
+<!-- fixed: the palette opens ON its trigger, not in the centre of the dialog's stage, so it steps
+     out of the stage's flex layout and positions itself against the viewport with the insets in
+     contentStyle. rounded-md: the container's radius must match the trigger's (.mc-top-bar-search,
      radius-md) so the anchored open reads as the same shape awake — geometry only; the panel
      keeps its own light overlay surface. The pairing is documented in the two recipes
      (design-system: top-bar/top-bar.css and command/command.css). -->
@@ -148,7 +154,7 @@
   <Dialog.Content
     showClose={false}
     {presence}
-    class="overflow-hidden rounded-md p-0"
+    class="fixed overflow-hidden rounded-md p-0"
     style={contentStyle}
   >
     <Dialog.Title class="sr-only">Command menu</Dialog.Title>

@@ -119,6 +119,20 @@ is still an `ActionDialog` inside it, not a panel of its own.
   gain — `form` and `reading`, the Dialog kinds; `expandable` in the trait table — and never on a
   question. Both shells take a bindable `expanded`, which is also how a panel OPENS expanded by
   design; the caller's binding wins over the memory.
+- **Every windowed modal panel is centred in the modal stage, and the stage is why no panel touches
+  the screen.** `styles/recipes/modal-stage.css`: a fixed box pulled in from every screen edge by
+  `size.modal-gutter` (32px), rendered by `Dialog.Content` and `AlertDialog.Content` around Bits'
+  Content, carrying the modal z-layer (a fixed box is a stacking context, so a z-index on the panel
+  alone leaves it beneath the scrim). It centres the panel with flex, and flex is also the height
+  cap: the panel is `block-size: fit-content` with `min-block-size: 0`, so a short panel opens
+  short and a tall one shrinks to the stage and scrolls inside — fit first, then cap, in keywords
+  alone, where `calc(100dvh - …)` fails the purity gate and `stretch` reaches only Chromium. So the
+  panels carry NO `max-h-*` utility any more (the stage caps them; a `max-h-screen` would reach past
+  it), only their `max-w-*`. A panel that must sit somewhere other than the stage's centre (the
+  command palette, anchored on its trigger) adds the `fixed` utility and its own insets, which
+  takes it out of the stage's layout and back against the viewport. The stage reads the panel's
+  `data-expanded` and drops its inset to zero, which is how the expanded utilities fill the screen.
+  Pinned in `test/modal-stage.test.ts`. _(owner ruling 2026-09-03)_
 - **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
   in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
   specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the

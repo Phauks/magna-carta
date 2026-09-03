@@ -254,6 +254,15 @@
       display: none;
     }
     /*
+     * The stage the panel is centred in on screen is a fixed box the size of one screen less its
+     * gutter; on paper it would hold the whole sheet to one page's box. It stops being a box at
+     * all: the sheet flows down the pages from the panel's own static position.
+     */
+    .mc-modal-stage:has(> .mc-print-sheet-page) {
+      position: static;
+      display: block;
+    }
+    /*
      * The panel stops being a panel. The compound selector is deliberate: it must outrank the
      * dialog recipe's own centring, which is written for a floating surface and is exactly wrong
      * for a page. Height and width caps are lifted by utilities on the element, which sit in a
