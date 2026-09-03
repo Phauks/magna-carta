@@ -1,7 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { loadEffectivePermissions } from "../session-context.ts";
 import {
-  createPerson,
   readPerson,
   setPersonLifeDates,
   setPersonPronouns,
@@ -42,7 +41,10 @@ import {
   readIdentifier,
   IdentifierNotIndexableError,
   type DirectoryIdentifierContext,
+  type AddIdentifierInput,
 } from "@magna-carta/directory/identifiers";
+import { checkIdentifier, parseAccountValue } from "@magna-carta/directory/identifier-shape";
+import { createPersonRecord } from "@magna-carta/directory/person-record";
 import {
   createEdge,
   readEdgesPage,
@@ -221,16 +223,6 @@ const personParam = z.object({
 
 // ---- request/response contracts ----
 
-const CreatePersonRequest = z
-  .object({
-    given: z.string().min(1),
-    family: z.string().min(1),
-    prefix: z.string().nullable().optional(),
-    middle: z.string().nullable().optional(),
-    suffix: z.string().nullable().optional(),
-  })
-  .openapi("CreateDirectoryPersonRequest");
-
 const CreatedEntityResponse = z
   .object({ id: z.string() })
   .openapi("CreatedDirectoryEntityResponse");
@@ -381,10 +373,31 @@ const DirectoryNameEntry = z
 
 const DirectoryNamePage = paginated(DirectoryNameEntry).openapi("DirectoryNamePage");
 
+// The type decides the fields, and the shape is checked before anything is sealed
+// (packages/directory/src/identifier-shape.ts): a social security number is nine digits, a licence
+// needs the region that issued it, a bar number its jurisdiction, and an account is who it is held
+// with plus the number, with the username and secret that belong to it. A value that does not fit
+// is refused with the sentence the screen shows beside the field.
 const AddIdentifierRequest = z
   .object({
     type: z.enum(IDENTIFIER_TYPES),
-    value: z.string().min(1),
+    label: z
+      .string()
+      .max(120)
+      .nullish()
+      .openapi({
+        description:
+          "The plaintext part a list shows without a reveal: the state or country that issued a " +
+          "licence, the jurisdiction behind a bar number, who an account is held with. Required " +
+          "where the type has one; never any part of the value.",
+      }),
+    number: z.string().min(1).max(128),
+    username: z.string().max(128).nullish().openapi({ description: "An account's username." }),
+    secret: z
+      .string()
+      .max(256)
+      .nullish()
+      .openapi({ description: "An account's secret, sealed beside its number and never indexed." }),
     validFrom: z.string().nullable().optional(),
     validTo: z.string().nullable().optional(),
   })
@@ -399,7 +412,14 @@ const identifierTypeParam = z.object({
 });
 
 const IdentifierValueResponse = z
-  .object({ value: z.string().nullable() })
+  .object({
+    value: z.string().nullable().openapi({
+      description:
+        "The decrypted value — for an account, its number; the username and secret ride beside it.",
+    }),
+    username: z.string().nullable().optional(),
+    secret: z.string().nullable().optional(),
+  })
   .openapi("DirectoryIdentifierValueResponse");
 
 const CreateEdgeRequest = z
@@ -735,6 +755,10 @@ const DirectoryIdentifierRecord = z
   .object({
     id: z.string(),
     type: z.enum(IDENTIFIER_TYPES),
+    label: z.string().nullable().openapi({
+      description:
+        "The plaintext part: the issuing region, the jurisdiction, who an account is held with.",
+    }),
     validFrom: z.string().nullable(),
     validTo: z.string().nullable(),
     recordedAt: z.string(),
@@ -888,31 +912,6 @@ function readMeta(action: string, permission: RouteMeta["permission"]): RouteMet
 // link) requires directory:edit. The sensitive-identifier READ is the one route that instead names
 // directory:viewSensitiveIdentifiers — its decrypt is the privileged, audited action.
 const WRITE_PERMISSION = "directory:edit" as const;
-
-const createPersonRoute = defineOpenAPIRoute(mutationMeta("createPerson", WRITE_PERMISSION), {
-  method: "post",
-  path: "/api/v1/directory/persons",
-  description:
-    "Creates a directory person from its structured name parts, seeding the current-name history row " +
-    "and its phonetic blocking codes.",
-  request: {
-    headers: idempotencyKeyHeader,
-    body: { content: { "application/json": { schema: CreatePersonRequest } }, required: true },
-  },
-  responses: {
-    201: {
-      description: "The created person",
-      content: { "application/json": { schema: CreatedEntityResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
-  },
-});
 
 const getPersonRoute = defineOpenAPIRoute(readMeta("getPerson", null), {
   method: "get",
@@ -1789,6 +1788,82 @@ const SetPersonLifeDatesRequest = z
   })
   .openapi("SetDirectoryPersonLifeDatesRequest");
 
+// ---- creating a whole person in one request --------------------------------------------------
+//
+// The New Person screen reaches every section of the record at creation, and the record is written
+// in ONE batch: either all of it lands or none of it does, so a person is never half-recorded and a
+// retry never makes a second one. Every nested shape is the same shape its own route takes, so what
+// the create accepts is exactly what the record's panes accept one at a time afterwards.
+
+const PersonOtherNameRequest = z
+  .object({
+    given: z.string().min(1),
+    family: z.string().min(1),
+    nameRole: z.enum(NAME_ROLES),
+    prefix: z.string().nullable().optional(),
+    middle: z.string().nullable().optional(),
+    suffix: z.string().nullable().optional(),
+  })
+  .openapi("CreateDirectoryPersonOtherName");
+
+const PersonOrganizationRequest = z
+  .object({
+    organizationId: z.string().regex(directoryEntityIdPattern),
+    edgeType: z.enum(EDGE_TYPES),
+    personIs: z.enum(["from", "to"]).openapi({
+      description:
+        "Which end of the edge the person is. The type says which way a membership reads " +
+        "(employment runs person to organization); the screen decides and the record keeps it.",
+    }),
+    role: z.string().max(120).nullable().optional(),
+    note: z.string().max(1000).nullable().optional(),
+  })
+  .openapi("CreateDirectoryPersonOrganization");
+
+const CreatePersonRequest = z
+  .object({
+    given: z.string().min(1),
+    family: z.string().min(1),
+    prefix: z.string().nullable().optional(),
+    middle: z.string().nullable().optional(),
+    suffix: z.string().nullable().optional(),
+    otherNames: z.array(PersonOtherNameRequest).max(20).optional(),
+    pronouns: PronounSetSchema.nullable().optional(),
+    dateOfBirth: z.string().nullable().optional(),
+    dateOfDeath: z.string().nullable().optional(),
+    emails: z.array(AddEmailRequest).max(20).optional(),
+    phones: z.array(AddPhoneRequest).max(20).optional(),
+    addresses: z.array(AddAddressRequest).max(20).optional(),
+    identifiers: z.array(AddIdentifierRequest).max(20).optional(),
+    organizations: z.array(PersonOrganizationRequest).max(50).optional(),
+  })
+  .openapi("CreateDirectoryPersonRequest");
+
+const createPersonRoute = defineOpenAPIRoute(mutationMeta("createPerson", WRITE_PERMISSION), {
+  method: "post",
+  path: "/api/v1/directory/persons",
+  description:
+    "Creates a directory person from its structured name parts, seeding the current-name history row " +
+    "and its phonetic blocking codes.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CreatePersonRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The created person",
+      content: { "application/json": { schema: CreatedEntityResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
 const contactPointIdParam = (prefix: string) =>
   z.object({
     id: z
@@ -2165,22 +2240,98 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
   app.openapi(
     { ...createPersonRoute, middleware: chokepointMiddleware(chokepoint, createPersonRoute) },
     async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
+      // Every identifier is checked for its shape before anything is composed, so a draft with a
+      // short social security number is refused with the sentence the screen shows, not sealed.
+      const identifiers: AddIdentifierInput[] = [];
+      for (const identifier of request.identifiers ?? []) {
+        const checked = checkIdentifier(identifier.type, {
+          label: identifier.label ?? null,
+          number: identifier.number,
+          username: identifier.username ?? null,
+          secret: identifier.secret ?? null,
+        });
+        if (!checked.ok) {
+          return problemJson(c, {
+            type: "validation",
+            title: "Directory request invalid",
+            status: 422,
+            detail: checked.reason,
+          });
+        }
+        identifiers.push({
+          type: identifier.type,
+          value: checked.value,
+          label: checked.label,
+          validFrom: identifier.validFrom ?? null,
+          validTo: identifier.validTo ?? null,
+        });
+      }
+      const context = await identifierContext(c, idempotency);
       try {
-        const id = await createPerson(
-          firm.firmDatabase,
-          {
+        const id = await createPersonRecord(context, {
+          name: {
             given: request.given,
             family: request.family,
             prefix: request.prefix ?? null,
             middle: request.middle ?? null,
             suffix: request.suffix ?? null,
           },
-          writeOptions(userId, idempotency),
-        );
+          otherNames: (request.otherNames ?? []).map((name) => ({
+            given: name.given,
+            family: name.family,
+            nameRole: name.nameRole,
+            prefix: name.prefix ?? null,
+            middle: name.middle ?? null,
+            suffix: name.suffix ?? null,
+          })),
+          pronouns: request.pronouns ?? null,
+          dateOfBirth: request.dateOfBirth ?? null,
+          dateOfDeath: request.dateOfDeath ?? null,
+          emails: (request.emails ?? []).map((email) => ({
+            address: email.address,
+            contactUse: email.contactUse ?? null,
+            isPrimary: email.isPrimary,
+            preference: email.preference,
+            verification: email.verification,
+          })),
+          phones: (request.phones ?? []).map((phone) => ({
+            number: phone.number,
+            contactSystem: phone.contactSystem,
+            contactUse: phone.contactUse ?? null,
+            extension: phone.extension ?? null,
+            countryRegionCode: phone.countryRegionCode ?? null,
+            isPrimary: phone.isPrimary,
+            preference: phone.preference,
+            verification: phone.verification,
+          })),
+          addresses: (request.addresses ?? []).map((address) => ({
+            recipient: address.recipient ?? null,
+            organizationName: address.organizationName ?? null,
+            street: address.street ?? null,
+            streetTwo: address.streetTwo ?? null,
+            dependentLocality: address.dependentLocality ?? null,
+            city: address.city ?? null,
+            region: address.region ?? null,
+            postal: address.postal ?? null,
+            sortingCode: address.sortingCode ?? null,
+            country: address.country ?? null,
+            addressUse: address.addressUse ?? null,
+            addressType: address.addressType,
+            isPrimary: address.isPrimary,
+            preference: address.preference,
+            verification: address.verification,
+          })),
+          identifiers,
+          organizations: (request.organizations ?? []).map((organization) => ({
+            organizationId: organization.organizationId,
+            edgeType: organization.edgeType,
+            personIs: organization.personIs,
+            role: organization.role ?? null,
+            note: organization.note ?? null,
+          })),
+        });
         return c.json({ id } as z.infer<typeof CreatedEntityResponse>, 201);
       } catch (caught) {
         return directoryErrorResponse(c, caught);
@@ -2535,11 +2686,26 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const request = c.req.valid("json");
+      const checked = checkIdentifier(request.type, {
+        label: request.label ?? null,
+        number: request.number,
+        username: request.username ?? null,
+        secret: request.secret ?? null,
+      });
+      if (!checked.ok) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Directory request invalid",
+          status: 422,
+          detail: checked.reason,
+        });
+      }
       const context = await identifierContext(c, idempotency);
       try {
         await addIdentifier(context, id, {
           type: request.type,
-          value: request.value,
+          value: checked.value,
+          label: checked.label,
           validFrom: request.validFrom ?? null,
           validTo: request.validTo ?? null,
         });
@@ -2557,8 +2723,20 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       const { id, type } = c.req.valid("param");
       const context = await identifierContext(c);
       try {
-        const value = await readIdentifier(context, id, type);
-        return c.json({ value } as z.infer<typeof IdentifierValueResponse>, 200);
+        const sealed = await readIdentifier(context, id, type);
+        // An account was sealed as its three parts together; the reveal hands them back apart.
+        const body: z.infer<typeof IdentifierValueResponse> =
+          sealed !== null && type === "account"
+            ? (() => {
+                const account = parseAccountValue(sealed);
+                return {
+                  value: account.number,
+                  username: account.username,
+                  secret: account.secret,
+                };
+              })()
+            : { value: sealed };
+        return c.json(body, 200);
       } catch (caught) {
         // The chokepoint already gates directory:viewSensitiveIdentifiers before this handler, so a
         // forbidden read is normally unreachable — but if the protected-field gate ever refuses, surface

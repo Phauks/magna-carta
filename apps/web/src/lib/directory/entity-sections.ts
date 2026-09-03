@@ -39,7 +39,9 @@ export const ENTITY_SECTIONS: readonly EntitySection[] = [
   { id: "people", label: "People", stage: "alpha", appliesTo: "organization" },
   { id: "organizations", label: "Organizations", stage: "alpha", appliesTo: "person" },
   { id: "matters", label: "Matters", stage: "alpha", appliesTo: "both" },
-  { id: "categories", label: "Categories", stage: "alpha", appliesTo: "both" },
+  // The firm's own labels — court, vendor, expert firm — are words for organizations. A person
+  // is what the firm knows about them, not a label (owner's ruling, 2026-09-03).
+  { id: "categories", label: "Categories", stage: "alpha", appliesTo: "organization" },
 ];
 
 /** The panes an entity of this kind has, in reading order. */

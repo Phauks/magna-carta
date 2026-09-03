@@ -15,6 +15,7 @@
  * the input could not be split. A firm's file is full of numbers written in ways no parser expects,
  * and refusing them would push the number into a free-text note where nothing can reach it.
  */
+import type { ComposedContactWrite } from "./contact-email.ts";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -116,13 +117,13 @@ export interface AddPhoneInput {
  * `preferred` demotes the entity's preferred contact point across email, phone and address alike,
  * because that preference is one answer about every channel.
  */
-export async function addPhone(
+// Composes the rows one number writes without committing and without checking the entity: the
+// caller either checked it or is creating it in the same batch (person-record.ts).
+export function composeAddPhone(
   database: BatchDatabase,
   input: AddPhoneInput,
   options: DirectoryWriteOptions,
-): Promise<DirectoryPhoneId> {
-  await assertEntityExists(database, input.entityId);
-
+): ComposedContactWrite<DirectoryPhoneId> {
   const numberAsEntered = input.number.trim();
   if (numberAsEntered === "" || !/[0-9]/.test(numberAsEntered)) {
     throw new InvalidPhoneNumberError(input.number);
@@ -164,6 +165,16 @@ export async function addPhone(
     }),
     directoryAuditStatement(database, options, "directory.phone.added", phoneId),
   );
+  return { id: phoneId, statements };
+}
+
+export async function addPhone(
+  database: BatchDatabase,
+  input: AddPhoneInput,
+  options: DirectoryWriteOptions,
+): Promise<DirectoryPhoneId> {
+  await assertEntityExists(database, input.entityId);
+  const { id: phoneId, statements } = composeAddPhone(database, input, options);
 
   return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
     statements,

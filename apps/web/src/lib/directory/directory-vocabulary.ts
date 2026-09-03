@@ -59,47 +59,19 @@ export function appendableNameRoles(kind: DirectoryEntityKind): readonly NameRol
 }
 
 // ---- identifier types ------------------------------------------------------------------------
+//
+// The catalog lives with the shape checks in the directory package, so the screen and the API
+// refuse the same values for the same reasons. Re-exported here so every directory screen keeps one
+// import for its vocabulary.
 
-export interface IdentifierTypeEntry {
-  type: DirectoryIdentifierType;
-  label: string;
-  appliesTo: DirectoryEntityKind | "both";
-  /**
-   * Whether the firm can match this identifier without decrypting it. An indexed type is what makes
-   * a conflicts hit near-certain; an unindexed one is held for the record and compared only against
-   * a candidate set a name already narrowed.
-   */
-  indexed: boolean;
-}
-
-export const IDENTIFIER_TYPES: readonly IdentifierTypeEntry[] = [
-  { type: "ssn", label: "Social security number", appliesTo: "person", indexed: true },
-  {
-    type: "ssn_last_four",
-    label: "Social security last four",
-    appliesTo: "person",
-    indexed: false,
-  },
-  {
-    type: "ein",
-    label: "Employer identification number",
-    appliesTo: "organization",
-    indexed: true,
-  },
-  { type: "drivers_license", label: "Driver's license", appliesTo: "person", indexed: true },
-  { type: "dob", label: "Date of birth", appliesTo: "person", indexed: false },
-  { type: "bar_number", label: "Bar number", appliesTo: "person", indexed: false },
-  { type: "account", label: "Account number", appliesTo: "both", indexed: true },
-];
-
-export function identifierTypeLabel(type: string): string {
-  return IDENTIFIER_TYPES.find((entry) => entry.type === type)?.label ?? type;
-}
-
-/** The identifier types this side of the directory can hold. Nothing else is ever offered. */
-export function identifierTypesFor(kind: DirectoryEntityKind): readonly IdentifierTypeEntry[] {
-  return IDENTIFIER_TYPES.filter((entry) => entry.appliesTo === "both" || entry.appliesTo === kind);
-}
+export {
+  IDENTIFIER_SHAPES,
+  identifierShape,
+  identifierShapesFor,
+  identifierTypeLabel,
+  type IdentifierField,
+  type IdentifierShape,
+} from "@magna-carta/directory/identifier-shape";
 
 // ---- edge types ------------------------------------------------------------------------------
 
