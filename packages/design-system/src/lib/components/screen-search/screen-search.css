@@ -19,6 +19,38 @@
     flex: none;
     align-items: center;
     gap: var(--mc-space-4);
+    /* The seat for the downward panel, which is anchored to this root rather than to the page. */
+    position: relative;
+  }
+
+  /*
+   * The downward panel. It hangs from the control's trailing edge so it grows the same way the
+   * field does — toward the inline start — and it is INSIDE the control's root, which is what keeps
+   * reaching into it from collapsing the field.
+   *
+   * The surface treatment lives here rather than in each consumer: a panel under a search field is
+   * the same object on every screen, and letting each one dress its own is how four of them ended
+   * up with four shadows.
+   */
+  .mc-screen-search-panel {
+    position: absolute;
+    inset-inline-end: var(--mc-space-0);
+    /*
+     * The control's own extent, which is not a design value and cannot be a token — the same
+     * argument styles/animations.css makes for a slide keyframe's offset. The root is a centred
+     * inline-flex row, so an absolutely positioned child with no block inset would sit CENTRED on
+     * the field rather than under it. Width is deliberately absent: the panel shrink-wraps whatever
+     * the surface puts in it, so the surface decides how wide its own panel is.
+     */
+    inset-block-start: 100%;
+    margin-block-start: var(--mc-space-4);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-raised);
+    box-shadow: var(--mc-elevation-2);
+    z-index: var(--mc-z-dropdown);
   }
 
   /* The field surface — the Input recipe's treatment, applied to the wrapper. */
@@ -98,8 +130,9 @@
     color: var(--mc-text-muted);
   }
   /*
-   * The native clear affordance is off by ruling: a search that clears with Escape does not also
-   * carry a glyph that clears it, and the browser's own control is neither tokenized nor themed.
+   * The native clear affordance stays off. The field DOES carry a clear glyph now (see below), but
+   * it is ours: the browser's own is neither tokenized nor themed, sits at a size and inset we do
+   * not control, and would sit beside ours as a second X saying the same thing.
    */
   .mc-screen-search-input::-webkit-search-cancel-button {
     display: none;
@@ -124,6 +157,42 @@
     font-size: var(--mc-font-size-xs);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  /*
+   * The clear glyph, at the field's inline end and inside its edge — the field is one object, so
+   * the control that empties it belongs within the same hairline rather than beside it.
+   *
+   * It is quiet at rest (subtle ink, no ground) and only takes a ground on hover: it sits next to
+   * the text a person is reading, and a button that competes with the query for attention would
+   * make the field harder to read for a control most searches never use.
+   */
+  .mc-screen-search-clear {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-0);
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: var(--mc-text-subtle);
+    cursor: pointer;
+    transition-property: background-color, color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-screen-search-clear:hover {
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-text-default);
+  }
+  .mc-screen-search-clear:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
   }
 
   /*
@@ -182,5 +251,16 @@
   }
   .mc-screen-search[data-searching="true"] .mc-screen-search-field .mc-screen-search-icon {
     color: var(--mc-accent-default);
+  }
+
+  /* The clear glyph takes the leading icon's size, and the button squares off around it. */
+  .mc-screen-search-clear-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    flex: none;
+  }
+  .mc-screen-search-clear {
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
   }
 }

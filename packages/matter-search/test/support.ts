@@ -82,6 +82,17 @@ export function seedFile(
   );
 }
 
+export function seedFolder(
+  raw: Raw,
+  options: { id: string; matterId: string; name: string; createdAt?: string },
+): void {
+  raw.exec(
+    `INSERT INTO folder (id, matter_id, parent_folder_id, name, created_at, updated_at) ` +
+      `VALUES ('${options.id}', '${options.matterId}', NULL, ${quote(options.name)}, ` +
+      `'${options.createdAt ?? INSTANT}', '${INSTANT}')`,
+  );
+}
+
 export function seedPacket(
   raw: Raw,
   options: { id: string; matterId: string; name: string; custodyNumber: string },
@@ -141,6 +152,11 @@ export function seededDatabase() {
   });
   seedFile(raw, { id: "file_decoy", matterId: OTHER_MATTER, name: "Easement notes.pdf" });
   seedFile(raw, { id: "file_holding", matterId: HOLDING_MATTER, name: "Easement original.pdf" });
+
+  // Folders are the files source's SECOND statement. The reported defect was that a folder somebody
+  // had named could not be found by its name at all, so one of these carries a name no file carries.
+  seedFolder(raw, { id: "folder_exhibits", matterId: MATTER, name: "Easement exhibits" });
+  seedFolder(raw, { id: "folder_decoy", matterId: OTHER_MATTER, name: "Easement bundle" });
 
   seedPacket(raw, {
     id: "custodyPacket_deed",
