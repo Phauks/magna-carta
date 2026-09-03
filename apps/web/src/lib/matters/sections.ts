@@ -101,7 +101,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "files",
-    timelineSources: ["documentFiled", "documentAssembly"],
+    timelineSources: ["documentFiled", "documentAssembly", "fileHistory"],
     label: "Files",
     stage: "alpha",
     description:

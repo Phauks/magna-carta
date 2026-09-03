@@ -38,6 +38,7 @@
     type CalendarDeadline,
     type CalendarEvent,
   } from "$lib/matters/calendar-api.ts";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
@@ -57,6 +58,23 @@
   const deadlineFailure = $derived(deadlineList.failure);
   const events = $derived(eventList.items);
   const eventFailure = $derived(eventList.failure);
+
+  /*
+   * The row this address names — what an Activity row hands this section. There is no event or
+   * deadline window yet, so the row is marked as selected and scrolled into view once its list is
+   * in: the reader lands on the thing, not on the list.
+   */
+  const entryId = $derived(entryFromUrl());
+  let scrolledTo = $state<string | null>(null);
+  $effect(() => {
+    const wanted = entryId;
+    if (wanted === null || scrolledTo === wanted) return;
+    if (deadlines === null || events === null) return;
+    const row = document.getElementById(`entry-${wanted}`);
+    if (row === null) return;
+    scrolledTo = wanted;
+    row.scrollIntoView({ block: "center" });
+  });
 
   $effect(() => {
     const matterId = matter.id;
@@ -167,7 +185,10 @@
         </DataTable.Header>
         <DataTable.Body>
           {#each deadlines as deadline (deadline.id)}
-            <DataTable.Row>
+            <DataTable.Row
+              id={`entry-${deadline.id}`}
+              data-state={entryId === deadline.id ? "selected" : undefined}
+            >
               <DataTable.Cell>
                 {whenOf(deadline.dueOn, deadline.dueAtTime, deadline.timeZone)}
               </DataTable.Cell>
@@ -244,7 +265,10 @@
         </DataTable.Header>
         <DataTable.Body>
           {#each events as event (event.id)}
-            <DataTable.Row>
+            <DataTable.Row
+              id={`entry-${event.id}`}
+              data-state={entryId === event.id ? "selected" : undefined}
+            >
               <DataTable.Cell>
                 {whenOf(event.startsOn, event.startsAtTime, event.timeZone)}
               </DataTable.Cell>

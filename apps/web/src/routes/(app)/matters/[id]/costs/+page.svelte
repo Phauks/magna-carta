@@ -17,6 +17,7 @@
    * support needs to find it.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import CostLedger from "$lib/costs/cost-ledger.svelte";
   import FullHeightSection from "$lib/components/full-height-section.svelte";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
@@ -104,6 +105,7 @@
   <FullHeightSection>
     <CostLedger
       costs={costs ?? []}
+      openCostId={entryFromUrl()}
       loading={costs === null}
       matterId={matter.id}
       matterTitle={matter.title}

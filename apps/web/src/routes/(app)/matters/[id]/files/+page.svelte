@@ -10,6 +10,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import FileManager from "$lib/file-manager/file-manager.svelte";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import FullHeightSection from "$lib/components/full-height-section.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
@@ -36,6 +37,6 @@
        the layout's gap below the section strip, so the surface runs to the edges and the toolbar
        sits directly under the tabs. -->
   <FullHeightSection class="-mx-24 -mt-24">
-    <FileManager matterId={matter.id} matterTitle={matter.title} />
+    <FileManager matterId={matter.id} matterTitle={matter.title} revealFileId={entryFromUrl()} />
   </FullHeightSection>
 {/if}

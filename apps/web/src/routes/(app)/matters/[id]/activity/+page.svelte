@@ -114,17 +114,22 @@
   // --- opening and making records, through the contributions' own answers ---
 
   let noteWindowOpen = $state(false);
+  let noteWindowNoteId = $state<string | null>(null);
   let unattachedNames = $state<readonly string[]>([]);
 
-  function openWindow(window: ActivityWindow): void {
+  /** Open a subsystem's window on one of its records, or on nothing to make a new one. */
+  function openWindow(window: ActivityWindow, recordId: string | null): void {
     // One case today; a subsystem that adds a window adds its case here and nowhere else.
-    if (window === "note") noteWindowOpen = true;
+    if (window === "note") {
+      noteWindowNoteId = recordId;
+      noteWindowOpen = true;
+    }
   }
 
   function openRow(row: ActivityRow): void {
     const target = row.target;
     if (target.kind === "navigate") void goto(target.href);
-    else if (target.kind === "window") openWindow(target.window);
+    else if (target.kind === "window") openWindow(target.window, target.recordId);
     // "none": the row's own title says why there is nowhere to go.
   }
 
@@ -232,7 +237,11 @@
     {#if ACTIVITY_CREATE_VERBS.length === 1}
       {@const verb = ACTIVITY_CREATE_VERBS[0]}
       {#if verb !== undefined}
-        <Button variant="secondary" disabled={isSample} onclick={() => openWindow(verb.window)}>
+        <Button
+          variant="secondary"
+          disabled={isSample}
+          onclick={() => openWindow(verb.window, null)}
+        >
           <Plus aria-hidden="true" />
           {verb.label}
         </Button>
@@ -249,7 +258,9 @@
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
           {#each ACTIVITY_CREATE_VERBS as verb (verb.sourceKey)}
-            <DropdownMenu.Item onSelect={() => openWindow(verb.window)}>{verb.label}</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => openWindow(verb.window, null)}>
+              {verb.label}
+            </DropdownMenu.Item>
           {/each}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
@@ -292,12 +303,14 @@
 
     <NoteWindowHost
       bind:open={noteWindowOpen}
+      noteId={noteWindowNoteId}
       matterId={matter.id}
       matterTitle={matter.title}
       onSaved={() => {
         unattachedNames = [];
         reloadToken += 1;
       }}
+      onDeleted={() => (reloadToken += 1)}
       onAttachmentsUnwritten={(names) => (unattachedNames = names)}
     />
   {/if}

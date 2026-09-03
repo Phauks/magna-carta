@@ -26,6 +26,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import Plus from "@lucide/svelte/icons/plus";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import { matterSections } from "$lib/matters/sections.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -86,6 +87,16 @@
     openPacketId = packetId;
     windowOpen = true;
   }
+
+  // The packet this address names — what an Activity row hands this section — opened once per
+  // address, the way any packet opens.
+  let honouredEntry = $state<string | null>(null);
+  $effect(() => {
+    const entry = entryFromUrl();
+    if (entry === null || isSample || honouredEntry === entry) return;
+    honouredEntry = entry;
+    openPacket(entry);
+  });
 </script>
 
 <svelte:head>

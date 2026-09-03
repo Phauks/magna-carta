@@ -1,8 +1,8 @@
 # Matter Activity
 
-The Activity section is a matter's whole story in date order: every document added, every note
-written, every hearing and deadline, time and costs booked, client money moved, items in the firm's
-custody, conflicts checks, and the day the matter opened. It is the screen to open when you pick up
+The Activity section is a matter's whole story in date order: every document added and what was
+done to it afterwards, every note written, every hearing and deadline, time and costs booked,
+client money moved, items in the firm's custody, conflicts checks, and the day the matter opened. It is the screen to open when you pick up
 a file you have not touched in months, and the one to read from when you need to account for what
 was done and when.
 
@@ -18,7 +18,9 @@ is at the top. Each row shows:
   Custodian, and so on.
 - **Type** — what the thing is, in the words of the part of the matter that holds it. A document
   shows its document type where your firm has set one, otherwise what kind of file it is (a PDF
-  document, a Word document, an archive). A hearing shows its event type. A note is a note.
+  document, a Word document, an archive). Something done to a document afterwards shows the same
+  action word the Files section's History view uses: Renamed, Moved, Deleted, Restored, New
+  Version, Document Type Set. A hearing shows its event type. A note is a note.
 - **Name** — what the thing is called: a file's name, a note's opening line, a time entry's
   narrative, a cost's description, an event's title.
 - **Details** — the facts worth seeing beside it: a file's size, version and whether the scanner has
@@ -44,9 +46,13 @@ you are looking for is far back.
 
 ## Opening a Row
 
-Press a row, or select it and press Enter, to open the thing it describes in the section that holds
-it. A row that cannot be opened yet says why when you hover over its name — the section that would
-hold it is not built, or nothing on the matter holds that kind of record.
+Press a row's name, or select the row and press Enter, to open the thing it describes. A note opens
+in its window right here on the Activity section. Everything else opens in the section that holds
+it, on the record itself: a document is selected in its folder with its details showing, a time
+entry or a cost opens in its window, a hearing or a deadline is marked and scrolled to on the
+Calendar, and an item in custody opens its packet. A row that cannot be opened yet says why when you
+hover over its name — the section that would hold it is not built, or nothing on the matter holds
+that kind of record.
 
 ## Writing a Note From Here
 

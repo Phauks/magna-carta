@@ -315,6 +315,43 @@ describe("the row model", () => {
     expect(rows[3]?.facts[0]?.tone).toBe("danger");
   });
 
+  it("reads what happened to a document in the File History view's own words", () => {
+    const rows = activityRows(
+      [
+        entry({
+          sourceKey: "fileHistory",
+          kind: "file.renamed",
+          rowId: "audit_1",
+          title: "Indemnity Clause Draft.docx",
+          facts: { event: "file.renamed", fileId: "file_1", versionNumber: null, metadata: null },
+        }),
+        entry({
+          sourceKey: "fileHistory",
+          kind: "file.version_committed",
+          rowId: "audit_2",
+          title: "Indemnity Clause Draft.docx",
+          facts: { event: "file.version_committed", fileId: "file_1", versionNumber: 3 },
+        }),
+        entry({
+          sourceKey: "fileHistory",
+          kind: "file.quarantined",
+          rowId: "audit_3",
+          title: null,
+        }),
+      ],
+      { nameOf, facts: FACTS },
+    );
+    expect(rows.map((row) => row.type)).toEqual(["Renamed", "New Version", "File change"]);
+    expect(rows[0]?.section).toBe("Files");
+    expect(rows[0]?.glyph).toEqual({
+      kind: "file",
+      fileName: "Indemnity Clause Draft.docx",
+      contentType: null,
+    });
+    expect(rows[1]?.details).toBe("Version 3");
+    expect(rows[2]?.name).toBe("A document was held by the safety check");
+  });
+
   it("caps a long name's claim on the column without losing the record", () => {
     const long = "A".repeat(100);
     const [row] = activityRows([entry({ sourceKey: "matterNote", title: long })], {

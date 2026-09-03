@@ -1,16 +1,15 @@
 /*
  * How a note reads on the matter's Activity section, and how one is written from it.
  *
- * The note is the first record the Activity section can MAKE: "+ New Note" opens the same window
- * the Notes section opens, on this screen, and the row appears when it saves. Opening an existing
- * note follows the deep link into the Notes section until the notes API can read one note by its
- * id — the window must not be handed a note found by scanning a first page.
+ * The note is the first record the Activity section can MAKE and OPEN in place: "+ New Note" opens
+ * the same window the Notes section opens, on this screen, and a note row opens that window on the
+ * note itself, read by its id through the note's own route. The row appears, or changes, when the
+ * window saves.
  */
 import NotebookPen from "@lucide/svelte/icons/notebook-pen";
 import {
   factNumber,
   factText,
-  navigateInto,
   type ActivityContribution,
   type Fact,
 } from "$lib/activity/contribution.ts";
@@ -40,6 +39,6 @@ export const noteActivityContribution: ActivityContribution = {
     }
     return result;
   },
-  open: navigateInto,
+  open: (entry) => ({ kind: "window", window: "note", recordId: entry.rowId }),
   create: { label: "New Note", window: "note" },
 };

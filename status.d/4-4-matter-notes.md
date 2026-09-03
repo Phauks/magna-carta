@@ -11,7 +11,7 @@ load-profile: n/a
 tested: done
 branch: claude/matters-notes-section-m9na1w
 active-work: docs/active-work/claude/matters-notes-section-m9na1w.md
-next: every section honours the `?entry=` an Activity row hands it; the file manager's history events join the timeline; the Overview tile and Home mount the Activity component; Billing and Parties gain sources; then Notes is rebuilt on the Activity component with a subject, a kind, parties and a standing flag
+next: the file manager's history events join the timeline and its identification is stored at scan; the Overview tile and Home mount the Activity component; Billing and Parties gain sources; an event and a deadline get a record window; then Notes is rebuilt on the Activity component with a subject, a kind, parties and a standing flag
 link-spec: docs/specs/2026-08-15-notes-and-activity-design.md
 link-plan: docs/specs/2026-08-15-notes-and-tasks-implementation-plan.md
 adrs:

@@ -245,3 +245,38 @@ describe("the documents a note points at", () => {
     expect(results).toHaveLength(1);
   });
 });
+
+describe("one note by its id", () => {
+  it("reads the note a deep link names, with its documents, and refuses an id nothing holds", async () => {
+    const created = await post(`/api/v1/matters/${matterId}/notes`, {
+      body: "Opened from the chronology.",
+    });
+    expect(created.status).toBe(201);
+    const { id } = (await created.json()) as { id: string };
+
+    const read = await get(`/api/v1/notes/${id}`);
+    expect(read.status).toBe(200);
+    const note = (await read.json()) as {
+      id: string;
+      matterId: string;
+      body: string;
+      authorUserId: string;
+      documents: unknown[];
+    };
+    expect(note.id).toBe(id);
+    expect(note.matterId).toBe(matterId);
+    expect(note.body).toBe("Opened from the chronology.");
+    expect(note.authorUserId).toBe(ownerUserId);
+    expect(note.documents).toEqual([]);
+
+    // Not found, never partially shown: the same answer for a note that does not exist and for one
+    // on a matter the member may not see. A well-formed id nothing holds, so the refusal is the
+    // read's and not the validator's.
+    const unknown = `${id.slice(0, -1)}${id.endsWith("a") ? "b" : "a"}`;
+    const missing = await get(`/api/v1/notes/${unknown}`);
+    expect(missing.status).toBe(404);
+
+    const removed = await remove(`/api/v1/notes/${id}`);
+    expect(removed.status).toBe(200);
+  });
+});

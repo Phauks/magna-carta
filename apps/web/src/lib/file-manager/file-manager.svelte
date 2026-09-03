@@ -142,7 +142,19 @@
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
 
-  let { matterId, matterTitle }: { matterId: string; matterTitle: string } = $props();
+  let {
+    matterId,
+    matterTitle,
+    revealFileId = null,
+  }: {
+    matterId: string;
+    matterTitle: string;
+    /**
+     * A file to reveal on arrival — what a deep link into this section names. The manager opens its
+     * folder, selects it and shows it in the inspector, exactly as a click on the row would.
+     */
+    revealFileId?: string | null;
+  } = $props();
 
   const manager = new FileManagerState();
 
@@ -296,6 +308,24 @@
       manager.inspectorKey = keys.at(-1) ?? null;
     },
     onActivate: (row) => activate(row),
+  });
+
+  /*
+   * The file this surface was asked to reveal, once the record is in and once per id: its folder
+   * opens, the row is selected through the grid's own click path so the inspector follows, and the
+   * panel shows. A file the record does not hold reveals nothing — the address named something the
+   * member cannot see, and the list is the honest answer.
+   */
+  let revealedFileId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = revealFileId;
+    if (wanted === null || files === null || revealedFileId === wanted) return;
+    revealedFileId = wanted;
+    const file = files.find((candidate) => candidate.id === wanted);
+    if (file === undefined) return;
+    manager.openFolder(file.folderId);
+    grid.rowClick(fileKey(file.id));
+    manager.setPanelOpen(true);
   });
 
   const selectedRows = $derived(rows.filter((row) => manager.selectedKeys.includes(row.key)));

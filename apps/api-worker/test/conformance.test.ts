@@ -1150,6 +1150,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "notes.deleteNote",
       "notes.detachNoteDocument",
       "notes.editNote",
+      "notes.getNote",
       "notes.listNotes",
       "notificationPreferences.get",
       "notificationPreferences.getTrustComplianceRecipients",

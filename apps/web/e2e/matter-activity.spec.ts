@@ -61,7 +61,8 @@ test("the matter's activity reads every subsystem in one request", async ({ page
   await expect(page.getByRole("cell", { name: "Client Letter.txt" })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByRole("link", { name: line })).toBeVisible();
+  // A note opens in its window on this screen, so its name is a button rather than a link out.
+  await expect(page.getByRole("button", { name: line })).toBeVisible();
 
   expect(
     timelineReads,
@@ -83,7 +84,8 @@ test("the register is the product's table: it sorts, and a column's controls are
   // round — the shared grid's sorting, not a control this screen wrote for itself.
   const firstDate = () => page.getByRole("row").nth(1).getByRole("cell").first();
   const newestFirst = ((await firstDate().textContent()) ?? "").trim();
-  await page.getByRole("button", { name: "Date" }).click();
+  // Exact: a note whose opening line mentions a date is a button too, now that notes open here.
+  await page.getByRole("button", { name: "Date", exact: true }).click();
   await expect
     .poll(async () => ((await firstDate().textContent()) ?? "").trim())
     .not.toBe(newestFirst);
@@ -130,5 +132,36 @@ test("a note is written from the Activity section and appears on it", async ({ p
   await expect(window).toBeVisible();
   await window.getByRole("textbox", { name: /note/i }).first().fill(line);
   await window.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("link", { name: line })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: line })).toBeVisible({ timeout: 15_000 });
+});
+
+test("a row opens onto the record: a file in its inspector, a note in its window", async ({
+  page,
+}) => {
+  const line = `Opened from the chronology. ${crypto.randomUUID().slice(0, 8)}`;
+  await signIn(page);
+  await writeNote(page, line);
+  await page.goto(`/matters/${seededMatterId}/activity`);
+  await expect(page.getByRole("cell", { name: "Client Letter.txt" })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // A note opens in the note window, right here, read by its id: the window's Note field holds
+  // the words the row was named by.
+  await page.getByRole("button", { name: line }).click();
+  const window = page.getByRole("dialog");
+  await expect(window).toBeVisible();
+  await expect(window.getByRole("textbox", { name: /note/i }).first()).toHaveValue(line, {
+    timeout: 10_000,
+  });
+  await page.keyboard.press("Escape");
+
+  // A file follows its deep link into the Files section, which honours the entry it was handed:
+  // the file's row is selected and the inspector shows it, rather than the reader landing on a
+  // list and finding the file again.
+  await page.getByRole("link", { name: "Case Documents.zip" }).click();
+  await expect(page).toHaveURL(/\/files\?entry=/);
+  await expect(
+    page.locator('[data-state="selected"]', { hasText: "Case Documents.zip" }).first(),
+  ).toBeVisible({ timeout: 15_000 });
 });

@@ -52,6 +52,12 @@ export interface SourceReadRequest {
 export interface TimelineRawRow {
   readonly sort_key: string;
   readonly row_id: string;
+  // What a reader OPENS, where that is not the row itself. A custody movement is the row the
+  // timeline walks and the identity a keyset compares, but the screen it opens into is organised
+  // by packet — so the deep link carries the packet, and collapsing the two would either break the
+  // ordering or land the reader on a page that cannot resolve the id. Matter-search draws the same
+  // line for the same reason. Equal to row_id wherever the row is its own destination.
+  readonly link_id?: string | null;
   readonly matter_id: string | null;
   readonly kind: string;
   readonly actor_user_id?: string | null;

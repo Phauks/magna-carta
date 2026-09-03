@@ -605,6 +605,7 @@ window, attaching a document — and the list settled every time
 permanent skeleton possible at all: the notes read is now an effect of its own, so nothing else the
 screen wants can abort it before the read is asked for, and a failed read settles the list and
 offers Retry instead of leaving the skeleton standing.
+
 ### 2026-09-01 — the matter status window
 
 Six corrections against the window behind the matter's status seal, all from the owner. What is

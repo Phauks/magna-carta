@@ -30,8 +30,8 @@ import {
 // every page.
 function matterSectionLink(
   section: string,
-): (row: { matter_id: string | null; row_id: string }) => string {
-  return (row) => `/matters/${row.matter_id ?? ""}/${section}?entry=${row.row_id}`;
+): (row: { matter_id: string | null; row_id: string; link_id?: string | null }) => string {
+  return (row) => `/matters/${row.matter_id ?? ""}/${section}?entry=${row.link_id ?? row.row_id}`;
 }
 
 // ---- the two recorded sources ----
@@ -161,6 +161,93 @@ const matterDeadlineSource: TimelineSource = {
         "'dueAtTime', matter_deadline.due_at_time, 'timeZone', matter_deadline.time_zone, " +
         "'authorityText', matter_deadline.authority_text, 'source', matter_deadline.source, " +
         "'priority', matter_deadline.priority)",
+    }),
+  ],
+};
+
+// ---- what happened to a document after it arrived ----
+
+// The file manager's own history — what the File History view already reads out of the audit log,
+// one event per act — admitted to the chronology through the one join that confines the audit log's
+// polymorphic subject to a matter: a file-subject or version-subject row resolved to its file, and
+// the file to its matter. A closed allowlist of events, reviewed here; the upload events stay out
+// because a document's arrival is the documentFiled row, and a first version's commit is the same
+// arrival told twice.
+export const FILE_HISTORY_EVENT_KEYS = Object.freeze([
+  "file.renamed",
+  "file.moved",
+  "file.deleted",
+  "file.restored",
+  "file.version_committed",
+  "file.version_restored",
+  "file.document_type_assigned",
+  "file.quarantined",
+] as const);
+
+const FILE_HISTORY_FROM =
+  "audit_log LEFT JOIN file_version ON file_version.id = audit_log.subject_id " +
+  "JOIN file ON file.id = COALESCE(file_version.file_id, audit_log.subject_id)";
+
+const fileHistorySource: TimelineSource = {
+  key: "fileHistory",
+  kinds: FILE_HISTORY_EVENT_KEYS,
+  visibilityAnchor: "matter",
+  timeColumnShape: "instant",
+  // The label is the event itself — a closed vocabulary that says what was done and nothing about
+  // the document. The Files section's own action words are the reading of it.
+  declaresLabel: true,
+  supportsMemberFilter: false,
+  // The file list is a firm-open read, and so is what happened to it.
+  permission: null,
+  buildStatements: (request) => {
+    const window = instantWindowConditions(
+      "audit_log.created_at",
+      request.scope.fromDate,
+      request.scope.toDate,
+    );
+    const allowlistPlaceholders = FILE_HISTORY_EVENT_KEYS.map(() => "?").join(", ");
+    const conditions = [
+      ...window.conditions,
+      `audit_log.event IN (${allowlistPlaceholders})`,
+      // A first version's commit is the document's arrival, which documentFiled already tells.
+      "NOT (audit_log.event = 'file.version_committed' AND file_version.version_number = 1)",
+    ];
+    const bindings: unknown[] = [...window.bindings, ...FILE_HISTORY_EVENT_KEYS];
+    if (request.scope.matterId !== undefined) {
+      conditions.push("file.matter_id = ?");
+      bindings.push(request.scope.matterId);
+    }
+    return [
+      boundedSelect(request.database, {
+        request,
+        from: FILE_HISTORY_FROM,
+        sortColumn: "audit_log.created_at",
+        idColumn: "audit_log.id",
+        // The Files section opens a FILE; the audit row is the row, the file is the door.
+        linkIdExpression: "file.id",
+        matterExpression: "file.matter_id",
+        kindExpression: "audit_log.event",
+        actorExpression: "audit_log.actor_user_id",
+        labelExpression: "audit_log.event",
+        conditions,
+        bindings,
+      }),
+    ];
+  },
+  project: projectRow("fileHistory", matterSectionLink("files")),
+  // Named by the file it happened to, as the file is called NOW, with the version the act concerned
+  // and the redacted metadata the writer recorded — the file manager's own contribution reads it.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: FILE_HISTORY_FROM,
+      idColumn: "audit_log.id",
+      matterExpression: "file.matter_id",
+      titleExpression: "file.name",
+      typeExpression: "NULL",
+      factsExpression:
+        "json_object('event', audit_log.event, 'fileId', file.id, " +
+        "'versionNumber', file_version.version_number, 'metadata', json(audit_log.metadata))",
     }),
   ],
 };
@@ -672,6 +759,8 @@ const custodyMovementSource: TimelineSource = {
         from: "custody_movement JOIN custody_packet ON custody_packet.id = custody_movement.packet_id",
         sortColumn: "custody_movement.occurred_at",
         idColumn: "custody_movement.id",
+        // The Custodian section opens a PACKET; the movement is the row, the packet is the door.
+        linkIdExpression: "custody_packet.id",
         matterExpression: "custody_packet.matter_id",
         kindExpression: "custody_movement.kind",
         actorExpression: "custody_movement.recorded_by_user_id",
@@ -761,6 +850,7 @@ const custodyReviewDueSource: TimelineSource = {
         from: "custody_item JOIN custody_packet ON custody_packet.id = custody_item.packet_id",
         sortColumn: "custody_item.review_on",
         idColumn: "custody_item.id",
+        linkIdExpression: "custody_packet.id",
         matterExpression: "custody_packet.matter_id",
         kindExpression: "'itemReviewDue'",
         actorExpression: "NULL",
@@ -829,6 +919,8 @@ const custodyDueBackSource: TimelineSource = {
                   ORDER BY latest.occurred_at DESC, latest.id DESC LIMIT 1)`,
         sortColumn: "custody_movement.due_back_on",
         idColumn: "custody_movement.id",
+        // The Custodian section opens a PACKET; the movement is the row, the packet is the door.
+        linkIdExpression: "custody_packet.id",
         matterExpression: "custody_packet.matter_id",
         kindExpression: "'dueBack'",
         actorExpression: "custody_movement.recorded_by_user_id",
@@ -959,6 +1051,7 @@ export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   emailFiledSource,
   documentAssemblySource,
   documentFiledSource,
+  fileHistorySource,
   matterNoteSource,
   timeEntrySource,
   costEntrySource,

@@ -19,7 +19,10 @@ import {
   custodyReviewDueActivityContribution,
 } from "$lib/custodian/activity-contribution.ts";
 import { documentAssemblyActivityContribution } from "$lib/document-assembly/activity-contribution.ts";
-import { documentActivityContribution } from "$lib/file-manager/activity-contribution.ts";
+import {
+  documentActivityContribution,
+  fileHistoryActivityContribution,
+} from "$lib/file-manager/activity-contribution.ts";
 import type { ActivityEntry } from "$lib/matters/activity-api.ts";
 import {
   firmEventActivityContribution,
@@ -36,6 +39,7 @@ export const ACTIVITY_CONTRIBUTIONS: readonly ActivityContribution[] = Object.fr
   emailActivityContribution,
   documentAssemblyActivityContribution,
   documentActivityContribution,
+  fileHistoryActivityContribution,
   noteActivityContribution,
   timeEntryActivityContribution,
   costEntryActivityContribution,

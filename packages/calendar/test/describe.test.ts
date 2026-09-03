@@ -25,6 +25,10 @@ function seedCorpus(raw: Raw): void {
     UPDATE file SET current_version_id = 'fileVersion_retainer2000000000' WHERE id = 'file_retainer000000000000000000';
     INSERT INTO file (id, matter_id, name, edit_state, created_at, updated_at)
       VALUES ('file_walled00000000000000000000', '${WALLED_MATTER}', 'Estate inventory.xlsx', 'idle', '${at("3-03")}', '${at("3-03")}');
+    INSERT INTO audit_log (id, event, actor_user_id, subject_id, metadata, created_at)
+      VALUES ('auditLog_rename0000000000000000', 'file.renamed', '${ACTOR}', 'file_retainer000000000000000000', '{"redacted":true}', '${at("3-04")}'),
+             ('auditLog_firstcommit00000000000', 'file.version_committed', '${ACTOR}', 'fileVersion_retainer2000000000', NULL, '${at("3-02")}'),
+             ('auditLog_walledrename0000000000', 'file.renamed', '${ACTOR}', 'file_walled00000000000000000000', NULL, '${at("3-05")}');
     INSERT INTO matter_note (id, matter_id, author_user_id, body, occurred_on, created_at, updated_at)
       VALUES ('matterNote_call000000000000000', '${MATTER}', '${ACTOR}', 'Call with the client about the offer.\nShe is thinking about it.', '2026-04-11', '${at("4-12")}', '${at("4-12")}');
     INSERT INTO time_entry (id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, currency, status, source, entry_number, created_at, updated_at)
@@ -93,8 +97,22 @@ describe("a matter-scoped read names its rows through each owning source", () =>
       authorityText: "Local Rule 7-3",
     });
 
+    // What happened to the document, named by the file it happened to and opening onto that file.
+    const renamed = page.entries.find((entry) => entry.sourceKey === "fileHistory");
+    expect(renamed?.kind).toBe("file.renamed");
+    expect(renamed?.title).toBe("Retainer Agreement.pdf");
+    expect(renamed?.link).toBe(`/matters/${MATTER}/files?entry=file_retainer000000000000000000`);
+    expect(renamed?.facts).toMatchObject({
+      event: "file.renamed",
+      fileId: "file_retainer000000000000000000",
+      metadata: { redacted: true },
+    });
+    // A version-2 commit would appear; the seeded commit is on version 2 of the retainer, so it does.
+    // The walled matter's rename does not: the audit log's subject is confined through the file.
+    expect(page.entries.filter((entry) => entry.sourceKey === "fileHistory")).toHaveLength(2);
+
     // One describe statement per source PRESENT on the page — bounded by the registry, never the rows.
-    expect(page.describeStatementCount).toBe(6);
+    expect(page.describeStatementCount).toBe(7);
   });
 
   it("withholds the words, and only the words, from a member who lacks the source's permission", async () => {
@@ -119,7 +137,7 @@ describe("a matter-scoped read names its rows through each owning source", () =>
     expect(page.entries.find((entry) => entry.sourceKey === "documentFiled")?.title).toBe(
       "Retainer Agreement.pdf",
     );
-    expect(page.describeStatementCount).toBe(5);
+    expect(page.describeStatementCount).toBe(6);
   });
 
   it("describes nothing on a read that did not ask, and nothing on a firm-wide read however it asks", async () => {
@@ -207,6 +225,7 @@ describe("a matter-scoped read names its rows through each owning source", () =>
       [
         "costEntry",
         "documentFiled",
+        "fileHistory",
         "matterDeadline",
         "matterEvent",
         "matterNote",

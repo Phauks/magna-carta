@@ -22,6 +22,9 @@ export interface BoundedSelectSpec {
   readonly sortColumn: string;
   // The row's own identifier column, the tiebreak that makes the order total.
   readonly idColumn: string;
+  // What a reader opens, where that differs from the row itself (see TimelineRawRow.link_id).
+  // Defaults to the row.
+  readonly linkIdExpression?: string;
   // The expression naming this row's matter — handed to the visibility predicate, and projected so
   // a merged page can say which case an entry belongs to.
   readonly matterExpression: string;
@@ -62,6 +65,7 @@ export function boundedSelect(database: SqlDatabase, spec: BoundedSelectSpec): S
   const order = request.ascending ? "ASC" : "DESC";
   const sql =
     `SELECT ${spec.sortColumn} AS sort_key, ${spec.idColumn} AS row_id, ` +
+    `${spec.linkIdExpression ?? spec.idColumn} AS link_id, ` +
     `${spec.matterExpression} AS matter_id, ${spec.kindExpression} AS kind, ` +
     `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label ` +
     `FROM ${spec.from} ` +
@@ -112,7 +116,7 @@ export function boundedFirmScopedSelect(
   const order = request.ascending ? "ASC" : "DESC";
   const sql =
     `SELECT ${spec.sortColumn} AS sort_key, ${spec.idColumn} AS row_id, ` +
-    `NULL AS matter_id, ${spec.kindExpression} AS kind, ` +
+    `${spec.idColumn} AS link_id, NULL AS matter_id, ${spec.kindExpression} AS kind, ` +
     `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label ` +
     `FROM ${spec.from} ` +
     `WHERE ${conditions.join(" AND ")} ` +

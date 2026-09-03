@@ -38,7 +38,8 @@
   import NoteRecordWindow from "$lib/matters/note-record-window.svelte";
   import { attachableFoldersFor } from "$lib/matters/note-attachable-documents.ts";
   import { occurrenceLine } from "$lib/matters/note-print-sheet.ts";
-  import { listMatterNotes, type MatterNote } from "$lib/matters/notes-api.ts";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
+  import { listMatterNotes, readMatterNote, type MatterNote } from "$lib/matters/notes-api.ts";
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { listMatterFolders, type FolderSummary } from "$lib/file-manager/folder-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -157,6 +158,20 @@
     windowEditing = true;
     windowOpen = true;
   }
+
+  /*
+   * The note this address names, opened the way any note opens — read by its id rather than found
+   * on the page, so a note older than the first page opens all the same. Once per address.
+   */
+  let honouredEntry = $state<string | null>(null);
+  $effect(() => {
+    const entry = entryFromUrl();
+    if (entry === null || isSample || honouredEntry === entry) return;
+    honouredEntry = entry;
+    void readMatterNote(fetch, entry).then((outcome) => {
+      if (outcome.kind === "ok") openNote(outcome.value);
+    });
+  });
 
   function openNote(note: MatterNote): void {
     opened = note;
