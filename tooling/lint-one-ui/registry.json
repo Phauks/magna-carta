@@ -60,6 +60,14 @@
       "home": "packages/design-system/src/lib/components/screen-search"
     },
     {
+      "name": "CalendarGrid",
+      "home": "packages/design-system/src/lib/components/calendar-grid"
+    },
+    {
+      "name": "CalendarView",
+      "home": "apps/web/src/lib/calendar"
+    },
+    {
       "name": "EntityIdentity",
       "home": "packages/design-system/src/lib/components/entity-identity"
     },
@@ -121,6 +129,16 @@
     "file itself, which is where an argument about one field's wording belongs."
   ],
   "allowances": [
+    {
+      "rule": "raw-table",
+      "file": "packages/design-system/src/lib/components/calendar-grid/calendar-grid-month.svelte",
+      "reason": "A calendar grid is a table of DAYS, not of records: its columns are weekdays, its cells are days holding entries, and its recipe (calendar-grid.css) sizes rows by the week rather than by a row of facts. The <table> is there for its semantics, a screen reader announcing the weekday column over each day, and none of DataTable's machinery (sorting, filters, selection, totals) applies; the mc-table recipe's cell padding, hover tint and row rule would fight the day cell. It is the design system's own presentation, registered above as CalendarGrid, and the one place a raw table stands."
+    },
+    {
+      "rule": "raw-table",
+      "file": "packages/design-system/src/lib/components/calendar-grid/calendar-grid-week.svelte",
+      "reason": "A calendar grid is a table of DAYS, not of records: its columns are weekdays, its cells are days holding entries, and its recipe (calendar-grid.css) sizes rows by the week rather than by a row of facts. The <table> is there for its semantics, a screen reader announcing the weekday column over each day, and none of DataTable's machinery (sorting, filters, selection, totals) applies; the mc-table recipe's cell padding, hover tint and row rule would fight the day cell. It is the design system's own presentation, registered above as CalendarGrid, and the one place a raw table stands."
+    },
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/components/command-palette.svelte",

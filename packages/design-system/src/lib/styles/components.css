@@ -66,6 +66,7 @@
 @import "../components/command/command.css";
 @import "../components/combobox/combobox.css";
 @import "../components/calendar/calendar.css";
+@import "../components/calendar-grid/calendar-grid.css";
 @import "../components/date-picker/date-picker.css";
 @import "../components/date-range-picker/date-range-picker.css";
 @import "./recipes/scrollbar.css";

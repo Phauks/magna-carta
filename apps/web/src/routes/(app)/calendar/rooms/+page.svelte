@@ -1,0 +1,165 @@
+<script lang="ts">
+  /*
+   * The room grid: one bookable resource's schedule, a week at a time, over the availability read
+   * with conflicts already paired. It is the one calendar component with the RESOURCE scope, and
+   * nothing more: a room is busy only on account of a booking, a booking belongs to an event, and
+   * activating a booking opens that event's window like everywhere else.
+   *
+   * WHICH RESOURCE IS ADDRESSABLE STATE, AND A DESTINATION. Another room is another schedule, so
+   * choosing one NAVIGATES (a `goto` that replaces the entry, keeping focus and scroll), unlike
+   * the view and the date, which the component mirrors as refinements with `replaceState`. The
+   * two do not fight: a navigation lands `resource=` in the address before the component's own
+   * mirror reads it, and the mirror leaves keys it does not own alone. Nothing here reads a
+   * booking directly: the catalog is the only read this screen makes of its own, and it is what
+   * names the room in the masthead.
+   *
+   * A firm with no resources yet is told where they are made (Settings › Practice › Rooms and
+   * Resources) rather than shown an empty picker over an empty grid.
+   */
+  import { onMount, untrack } from "svelte";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
+  import Button from "@magna-carta/design-system/button";
+  import EmptyState from "@magna-carta/design-system/empty-state";
+  import * as Masthead from "@magna-carta/design-system/masthead";
+  import * as Select from "@magna-carta/design-system/select";
+  import Skeleton from "@magna-carta/design-system/skeleton";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { Failure } from "$lib/api/request.ts";
+  import { listResources, resourceKindLabel, type FirmResource } from "$lib/calendar/calendar-api.ts";
+  import { CalendarView } from "$lib/calendar/index.ts";
+  import type { CalendarViewKind } from "$lib/calendar/index.ts";
+  import { todayCivil } from "$lib/calendar/calendar-window.ts";
+
+  const RESOURCE_KEY = "resource";
+
+  let resources = $state<readonly FirmResource[] | null>(null);
+  let capped = $state(false);
+  let failure = $state<Failure | null>(null);
+
+  // Read once, on arrival: the address names the room; from there the picker owns the choice.
+  let resourceId = $state<string | null>(untrack(() => page.url.searchParams.get(RESOURCE_KEY)));
+  let view = $state<CalendarViewKind>("week");
+  let anchor = $state(todayCivil());
+
+  async function load(): Promise<void> {
+    failure = null;
+    const outcome = await listResources(fetch);
+    if (outcome.kind !== "ok") {
+      failure = outcome.failure;
+      return;
+    }
+    resources = outcome.value.data.filter((resource) => resource.active);
+    capped = outcome.value.capped;
+    // An address naming no room, or a room the catalog does not carry, opens on the first one.
+    if (resourceId === null || !resources.some((resource) => resource.id === resourceId)) {
+      resourceId = resources[0]?.id ?? null;
+    }
+  }
+
+  onMount(() => {
+    void load();
+  });
+
+  const resource = $derived(resources?.find((candidate) => candidate.id === resourceId) ?? null);
+  const items = $derived(
+    (resources ?? []).map((candidate) => ({
+      value: candidate.id,
+      label: `${candidate.name} · ${resourceKindLabel(candidate.kind)}`,
+    })),
+  );
+
+  /*
+   * The room goes into the address as a navigation. Deferred past the first navigation so a
+   * page arriving with no room named settles on the first one without racing hydration.
+   */
+  let navigated = $state(false);
+  onMount(() => {
+    const timer = setTimeout(() => {
+      navigated = true;
+    }, 0);
+    return () => clearTimeout(timer);
+  });
+  $effect(() => {
+    if (!navigated || resourceId === null) return;
+    const url = new URL(page.url);
+    if (url.searchParams.get(RESOURCE_KEY) === resourceId) return;
+    url.searchParams.set(RESOURCE_KEY, resourceId);
+    void goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+  });
+</script>
+
+<svelte:head><title>Rooms · Calendar · Magna Carta</title></svelte:head>
+
+<div class="flex h-full min-h-0 flex-col gap-16">
+  <Masthead.Root>
+    <Masthead.Heading>
+      <Masthead.Title>Rooms</Masthead.Title>
+      {#if resource !== null}
+        <Masthead.Meta>
+          <span>{resource.name}</span>
+          <span>{resourceKindLabel(resource.kind)}</span>
+          {#if resource.capacity !== null}
+            <span>Seats {resource.capacity}</span>
+          {/if}
+        </Masthead.Meta>
+      {/if}
+    </Masthead.Heading>
+    <Masthead.Actions>
+      {#if items.length > 0}
+        <Select.Root
+          type="single"
+          items={items}
+          bind:value={() => resourceId ?? "", (next) => (resourceId = next === "" ? null : next)}
+          allowDeselect={false}
+        >
+          <Select.Trigger aria-label="Which resource" style="inline-size: var(--mc-size-popover)">
+            <Select.Value placeholder={placeholderOf("Resource")} />
+          </Select.Trigger>
+          <Select.Content>
+            {#each items as item (item.value)}
+              <Select.Item value={item.value} label={item.label} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      {/if}
+      <Button variant="ghost" size="sm" href="/calendar">Calendar</Button>
+    </Masthead.Actions>
+  </Masthead.Root>
+
+  {#if failure !== null}
+    <FailureNotice
+      {failure}
+      title="The Resources Could Not Be Read"
+      fallback="The firm's rooms and resources were not read, so no schedule can be shown."
+      onRetry={() => void load()}
+    />
+  {:else if resources === null}
+    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the firm's resources">
+      <Skeleton class="h-16 w-160" />
+      <Skeleton class="h-12 w-full" />
+    </div>
+  {:else if resource === null}
+    <EmptyState title="No rooms or resources yet">
+      A resource is something bookable the firm owns: a conference room, a pool car, the video rig.
+      Add the first one under Settings and its schedule appears here.
+      {#snippet actions()}
+        <Button variant="primary" href="/settings/resources">Rooms and Resources</Button>
+      {/snippet}
+    </EmptyState>
+  {:else}
+    {#if capped}
+      <p class="text-xs text-text-muted">The picker lists the first page of the firm's resources.</p>
+    {/if}
+    {#key resource.id}
+      <CalendarView
+        scope={{ kind: "resource", resourceId: resource.id }}
+        bind:view
+        bind:anchor
+        address
+        class="min-h-0 flex-1"
+      />
+    {/key}
+  {/if}
+</div>

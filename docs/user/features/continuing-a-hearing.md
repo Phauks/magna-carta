@@ -1,7 +1,7 @@
 # Continuing a hearing
 
-_The backend is built. The calendar screens are authored when those surfaces ship; today the
-continue operation runs through the API._
+_Continuing is a verb in the window a setting opens in, on the firm calendar and on the matter's
+Calendar section._
 
 ## What it does
 

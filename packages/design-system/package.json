@@ -15,6 +15,7 @@
     "./breadcrumb": "./src/lib/components/breadcrumb/index.ts",
     "./button": "./src/lib/components/button/index.ts",
     "./calendar": "./src/lib/components/calendar/index.ts",
+    "./calendar-grid": "./src/lib/components/calendar-grid/index.ts",
     "./card": "./src/lib/components/card/index.ts",
     "./checkbox": "./src/lib/components/checkbox/index.ts",
     "./choice-row": "./src/lib/components/choice-row/index.ts",

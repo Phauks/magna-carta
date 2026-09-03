@@ -1,13 +1,24 @@
 <script lang="ts">
   /*
    * Home — the Dashboard archetype's stage-1 form: the greeting masthead (the page's one
-   * ceremonial edge, with the quote-of-the-day riding the baseline) over an honest empty state.
-   * The widget grid (my tasks / today / needs attention) assembles here as its slices ship;
-   * nothing is faked meanwhile.
+   * ceremonial edge, with the quote-of-the-day riding the baseline) over the first widget and an
+   * honest empty state for the rest. The widget grid (my tasks / today / needs attention)
+   * assembles here as its slices ship; nothing is faked meanwhile.
+   *
+   * THE TODAY CARD IS THE CALENDAR, NARROWED. It is the one calendar component with the reader's
+   * own scope, the agenda over today and tomorrow, headless, capped at six rows with a line to the
+   * rest. Home writes no calendar read of its own: the card cannot disagree with the screen it
+   * points at, because it is the same component over the same reads.
    */
   import Button from "@magna-carta/design-system/button";
+  import * as Card from "@magna-carta/design-system/card";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import Skeleton from "@magna-carta/design-system/skeleton";
+  import { calendarContext } from "$lib/calendar/calendar-context.svelte.ts";
+  import { CalendarView } from "$lib/calendar/index.ts";
+  import { todayCivil } from "$lib/calendar/calendar-window.ts";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
 
   const now = new Date();
   const hour = now.getHours();
@@ -17,6 +28,16 @@
     year: "numeric",
     month: "long",
     day: "numeric",
+  });
+
+  /** Today and tomorrow: the span a person checks before the day starts. */
+  const TODAY_CARD_DAYS = 2;
+  /** Six rows: a card, not a screen. The rest is one press away. */
+  const TODAY_CARD_ROWS = 6;
+
+  const context = calendarContext;
+  $effect(() => {
+    void context.load(fetch);
   });
 </script>
 
@@ -33,9 +54,44 @@
   </Masthead.Heading>
 </Masthead.Root>
 
-<EmptyState title="Your day assembles here">
-  Tasks, deadlines, and the matters you touch will gather on this page as the firm's work begins —
-  open the first matter to start.
+<div class="mb-24 grid grid-cols-1 gap-16 lg:grid-cols-3">
+  <Card.Root>
+    <Card.Header class="flex flex-row items-baseline justify-between gap-8">
+      <Card.Title>Today</Card.Title>
+      <Button variant="ghost" size="sm" href="/calendar?scope=mine&view=agenda">Open calendar</Button>
+    </Card.Header>
+    <Card.Content class="flex flex-col gap-12">
+      {#if context.memberId !== null}
+        <CalendarView
+          scope={{ kind: "mine", memberId: context.memberId }}
+          view="agenda"
+          anchor={todayCivil()}
+          toolbar={false}
+          agendaDays={TODAY_CARD_DAYS}
+          limit={TODAY_CARD_ROWS}
+        />
+      {:else if context.sessionFailure !== null}
+        <FailureNotice
+          failure={context.sessionFailure}
+          title="Your Day Could Not Be Read"
+          fallback="Who is asking could not be read, so what is on your calendar today cannot be shown."
+          onRetry={() => void context.load(fetch)}
+        />
+      {:else}
+        <!-- The session is still being read: the card holds its shape rather than flashing empty. -->
+        <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading your calendar">
+          <Skeleton class="h-16 w-128" />
+          <Skeleton class="h-12 w-full" />
+          <Skeleton class="h-12 w-3/4" />
+        </div>
+      {/if}
+    </Card.Content>
+  </Card.Root>
+</div>
+
+<EmptyState title="The rest of your day assembles here">
+  Tasks and the matters you touch will gather on this page as the firm's work begins — open the
+  first matter to start.
   {#snippet actions()}
     <Button variant="primary" href="/matters">Go to matters</Button>
   {/snippet}

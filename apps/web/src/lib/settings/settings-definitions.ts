@@ -71,6 +71,13 @@ export interface SettingDefinition {
  * consequence NO current row exercises `confirm: true` or `sensitivity: "restricted"`; both
  * mechanisms stay built and covered (types, draft store, confirm dialog, visibility filtering)
  * and light up with the first real consequential or restricted setting.
+ *
+ * The week-start select came back as a REAL firm setting (GET/PATCH /api/v1/calendar/settings),
+ * and it is deliberately not a row here: this registry's committed values live in local storage,
+ * and a firm setting with a server behind it must not keep a per-browser copy that can disagree
+ * with it. Its definition sits beside its server-backed draft in
+ * src/lib/calendar/calendar-settings-draft.svelte.ts, which the Calendar settings page renders
+ * through the same row and footer as every other draft page.
  */
 export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   // Section "billing" — mirrors the backend's scoped time-capture settings.
