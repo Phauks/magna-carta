@@ -1,8 +1,8 @@
 # Conflicts read surface — design
 
 **Date:** 2026-09-02
-**Status:** Design. Nothing built. Section 8 carries the questions the owner has to answer before
-the two reads that depend on them can be built; the other four do not wait on anything.
+**Status:** Design. Nothing built. Q1 is answered (owner, 2026-09-02: `conflicts:read`). Q2 is open
+and blocks one read of the six; the other five do not wait on it.
 **Scope:** The **reads** the conflicts screens are already built against and the contract does not
 serve. Six of them, each named today in
 [`apps/web/src/lib/conflicts/conflicts-gaps.ts`](../../apps/web/src/lib/conflicts/conflicts-gaps.ts)
@@ -193,15 +193,61 @@ tables and their triggers. This design adds no column, no table and no trigger. 
 
 ## 8. Questions for the owner
 
-**Q1 — who may read the firm's conflicts policy?** The read says what the firm's floor is: which
-source classes are mandatory, the balanced band's name roles, the edge-class budgets. It is not
-client data and every member is judged against it. **Recommendation:** `conflicts:read`, which every
-member who can read a check already holds. The alternative is a new `firm:readConflictsPolicy`, which
-buys separation nobody has asked for. Reversible either way — it is one line of `RouteMeta`.
+**Q1 — who may read the firm's conflicts policy? ANSWERED (owner, 2026-09-02): `conflicts:read`.**
+Everyone who can read a conflicts check can read the policy that check was judged against. No new
+permission key. The read says what the firm's floor is — which source classes are mandatory, the
+balanced band's name roles, the edge-class budgets — which is not client data, and every member is
+held to it.
 
 **Q2 — when is a re-surfaced hit "the same hit" as one already answered?** This one is not
 reversible in the same way: it decides what a reviewer is shown about a decision the firm has already
-made. Three candidates, narrowest first:
+made.
+
+### The case that decides it
+
+**Check 1 — 14 March 2026.** The firm opens _Herrera v. Coastal Holdings, LLC_ and acts for Herrera.
+A hit surfaces **Coastal Holdings, LLC**: `source_class: party`, `evidence_tier: 1` (exact
+identifier), `graph_path: []` — the opposing party is in the Directory because the firm acted FOR
+Coastal once, on a commercial lease that closed in 2019. A. Whitfield answers it `cleared`:
+_"Former client. Representation concluded 2019 on an unrelated commercial lease; no confidential
+information material to this dispute."_ That is a Rule 1.9 judgment about a **former** client.
+
+**Check 2 — 2 September 2026.** The same matter re-checks because a party was added: **Marchetti
+Capital Partners** joins as a co-defendant. The firm has a live retainer with Marchetti on another
+matter. `expandGraph` walks Marchetti Capital → subsidiary → **Coastal Holdings, LLC**, which
+Marchetti owns.
+
+Coastal Holdings surfaces again — the same `entity_id`, and nothing else the same:
+`source_class: graph`, `evidence_tier: 3`, `graph_path: [Marchetti Capital -subsidiary-> Coastal
+Holdings]`.
+
+**The two hits ask different questions about the same company.** March asked whether the firm may act
+adverse to a former client. September asks whether the firm may act adverse to the subsidiary of a
+**current** client — a Rule 1.7 question, on a materially higher bar and far less freely waived.
+
+Now what each option does with it:
+
+- **(a) same entity + same source class** — no match (`party` then `graph`). The reviewer is shown
+  nothing and answers from scratch. Correct outcome here; the cost is that the firm ends with two
+  unlinked answers about Coastal Holdings and nothing on the record connecting them.
+- **(b) same entity only** — match. The September hit is marked previously concluded and shows
+  _"Cleared, A. Whitfield, 14 March 2026 — former client, unrelated matter."_ **This is the failure.**
+  A Rule 1.9 clearance is carried onto a Rule 1.7 question, and the screen presents it as the firm's
+  own prior answer to the hit in front of the reviewer.
+- **(c) same entity, shown as context** — the panel says _"Coastal Holdings, LLC was answered before:
+  cleared by A. Whitfield on 14 March 2026"_ and links that check. The hit is NOT marked concluded,
+  nothing is pre-filled, nothing is suppressed. The reviewer still has to answer it, and now answers
+  it knowing the history.
+
+The mirror case matters too, and it is why (a) is keyed on the source class rather than on the whole
+hit. In the same re-check, **Dana Reyes** surfaces at `evidence_tier: 2` in March and
+`evidence_tier: 3` in September, because the firm turned the over-inclusive band on in between — same
+party, same channel, different evidence. Keying on the tier as well would call that a different hit
+and make a settings change look like a new conflict.
+
+### The three candidates
+
+Narrowest first:
 
 - **(a) Same entity, same source class.** The conflict came from the same place about the same party.
   Misses a party that was reached directly last time and through the graph this time — arguably the
@@ -213,10 +259,16 @@ made. Three candidates, narrowest first:
   never marked pre-concluded; the panel says "this party was answered before" and links the earlier
   check, leaving the reviewer to decide whether it is the same question.
 
-**Recommendation: (c).** It is the only one that cannot silently carry a clearance across two
-different conflicts, and on this surface the cost of being wrong is a professional-conduct problem
-rather than a presentation one. (a) and (b) both make the machine's judgment about sameness look like
-the firm's.
+**Recommendation: (c).** The Coastal Holdings case is not exotic — a corporate group where the firm
+has acted for one member and is now adverse to another is among the commonest ways a conflict
+re-surfaces wearing a different face. (b) gets that case wrong in the dangerous direction. (a) gets
+it right, but only by accident of the source class differing; change the facts so the second hit also
+arrives through `party` and (a) presents the same stale clearance (b) does.
+
+(c) is the only one whose behaviour does not depend on the machine having correctly judged that two
+conflicts are the same question — it never claims they are. It shows the reviewer what the firm said
+before and leaves the judgment where the log already puts it: with a named person, in a disposition
+row.
 
 ## 9. What this design deliberately does not do
 
