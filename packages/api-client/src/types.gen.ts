@@ -1965,21 +1965,42 @@ export type DirectoryIdentifierRecordsResponse = {
 
 export type DirectoryIdentifierRecord = {
     id: string;
-    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    /**
+     * The plaintext part: the issuing region, the jurisdiction, who an account is held with.
+     */
+    label: string | null;
     validFrom: string | null;
     validTo: string | null;
     recordedAt: string;
 };
 
 export type AddDirectoryIdentifierRequest = {
-    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
-    value: string;
+    type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    /**
+     * The plaintext part a list shows without a reveal: the state or country that issued a licence, the jurisdiction behind a bar number, who an account is held with. Required where the type has one; never any part of the value.
+     */
+    label?: string | null;
+    number: string;
+    /**
+     * An account's username.
+     */
+    username?: string | null;
+    /**
+     * An account's secret, sealed beside its number and never indexed.
+     */
+    secret?: string | null;
     validFrom?: string | null;
     validTo?: string | null;
 };
 
 export type DirectoryIdentifierValueResponse = {
+    /**
+     * The decrypted value — for an account, its number; the username and secret ride beside it.
+     */
     value: string | null;
+    username?: string | null;
+    secret?: string | null;
 };
 
 export type CreateDirectoryEdgeRequest = {
@@ -2047,7 +2068,7 @@ export type DirectoryDuplicateCandidatesRequest = {
     family?: string;
     legalName?: string;
     identifiers?: Array<{
-        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+        type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
         value: string;
     }>;
     excludeEntityId?: string;
@@ -14512,7 +14533,7 @@ export type DirectoryReadIdentifierData = {
     body?: never;
     path: {
         id: string;
-        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+        type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
     };
     query?: never;
     url: '/api/v1/directory/entities/{id}/identifiers/{type}';

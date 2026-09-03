@@ -1,3 +1,4 @@
+import { isEmailAddress } from "./email-address.ts";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -71,19 +72,11 @@ export function normalizeEmailAddress(address: string): string {
 }
 
 // Validate and split an address into its stored form (trimmed, as entered) and its normalized key.
+// The check is the one the screen runs beside the field (email-address.ts), so what the API refuses
+// is exactly what the screen already refused.
 function prepareAddress(address: string): { stored: string; normalized: string } {
   const stored = address.trim();
-  const atIndex = stored.indexOf("@");
-  const lastAtIndex = stored.lastIndexOf("@");
-  // Exactly one '@', with a non-empty local part and domain. length>0 also satisfies the table CHECK.
-  if (
-    stored.length === 0 ||
-    atIndex <= 0 ||
-    atIndex !== lastAtIndex ||
-    atIndex === stored.length - 1
-  ) {
-    throw new InvalidEmailAddressError(address);
-  }
+  if (!isEmailAddress(stored)) throw new InvalidEmailAddressError(address);
   return { stored, normalized: normalizeEmailAddress(stored) };
 }
 

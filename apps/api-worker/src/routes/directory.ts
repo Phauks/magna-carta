@@ -43,6 +43,7 @@ import {
   IdentifierNotIndexableError,
   type DirectoryIdentifierContext,
 } from "@magna-carta/directory/identifiers";
+import { checkIdentifier, parseAccountValue } from "@magna-carta/directory/identifier-shape";
 import {
   createEdge,
   readEdgesPage,
@@ -381,10 +382,31 @@ const DirectoryNameEntry = z
 
 const DirectoryNamePage = paginated(DirectoryNameEntry).openapi("DirectoryNamePage");
 
+// The type decides the fields, and the shape is checked before anything is sealed
+// (packages/directory/src/identifier-shape.ts): a social security number is nine digits, a licence
+// needs the region that issued it, a bar number its jurisdiction, and an account is who it is held
+// with plus the number, with the username and secret that belong to it. A value that does not fit
+// is refused with the sentence the screen shows beside the field.
 const AddIdentifierRequest = z
   .object({
     type: z.enum(IDENTIFIER_TYPES),
-    value: z.string().min(1),
+    label: z
+      .string()
+      .max(120)
+      .nullish()
+      .openapi({
+        description:
+          "The plaintext part a list shows without a reveal: the state or country that issued a " +
+          "licence, the jurisdiction behind a bar number, who an account is held with. Required " +
+          "where the type has one; never any part of the value.",
+      }),
+    number: z.string().min(1).max(128),
+    username: z.string().max(128).nullish().openapi({ description: "An account's username." }),
+    secret: z
+      .string()
+      .max(256)
+      .nullish()
+      .openapi({ description: "An account's secret, sealed beside its number and never indexed." }),
     validFrom: z.string().nullable().optional(),
     validTo: z.string().nullable().optional(),
   })
@@ -399,7 +421,14 @@ const identifierTypeParam = z.object({
 });
 
 const IdentifierValueResponse = z
-  .object({ value: z.string().nullable() })
+  .object({
+    value: z.string().nullable().openapi({
+      description:
+        "The decrypted value — for an account, its number; the username and secret ride beside it.",
+    }),
+    username: z.string().nullable().optional(),
+    secret: z.string().nullable().optional(),
+  })
   .openapi("DirectoryIdentifierValueResponse");
 
 const CreateEdgeRequest = z
@@ -735,6 +764,10 @@ const DirectoryIdentifierRecord = z
   .object({
     id: z.string(),
     type: z.enum(IDENTIFIER_TYPES),
+    label: z.string().nullable().openapi({
+      description:
+        "The plaintext part: the issuing region, the jurisdiction, who an account is held with.",
+    }),
     validFrom: z.string().nullable(),
     validTo: z.string().nullable(),
     recordedAt: z.string(),
@@ -2535,11 +2568,26 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const request = c.req.valid("json");
+      const checked = checkIdentifier(request.type, {
+        label: request.label ?? null,
+        number: request.number,
+        username: request.username ?? null,
+        secret: request.secret ?? null,
+      });
+      if (!checked.ok) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Directory request invalid",
+          status: 422,
+          detail: checked.reason,
+        });
+      }
       const context = await identifierContext(c, idempotency);
       try {
         await addIdentifier(context, id, {
           type: request.type,
-          value: request.value,
+          value: checked.value,
+          label: checked.label,
           validFrom: request.validFrom ?? null,
           validTo: request.validTo ?? null,
         });
@@ -2557,8 +2605,20 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       const { id, type } = c.req.valid("param");
       const context = await identifierContext(c);
       try {
-        const value = await readIdentifier(context, id, type);
-        return c.json({ value } as z.infer<typeof IdentifierValueResponse>, 200);
+        const sealed = await readIdentifier(context, id, type);
+        // An account was sealed as its three parts together; the reveal hands them back apart.
+        const body: z.infer<typeof IdentifierValueResponse> =
+          sealed !== null && type === "account"
+            ? (() => {
+                const account = parseAccountValue(sealed);
+                return {
+                  value: account.number,
+                  username: account.username,
+                  secret: account.secret,
+                };
+              })()
+            : { value: sealed };
+        return c.json(body, 200);
       } catch (caught) {
         // The chokepoint already gates directory:viewSensitiveIdentifiers before this handler, so a
         // forbidden read is normally unreachable — but if the protected-field gate ever refuses, surface

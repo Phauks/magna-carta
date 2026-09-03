@@ -50,7 +50,7 @@
     type DirectoryIdentifierRecord,
     type DirectoryIdentifierType,
   } from "./directory-api.ts";
-  import { identifierTypeLabel, identifierTypesFor } from "./directory-vocabulary.ts";
+  import { identifierShapesFor, identifierTypeLabel } from "./directory-vocabulary.ts";
 
   let {
     entityId,
@@ -68,7 +68,7 @@
     revealDisabledReason?: string;
   } = $props();
 
-  const types = $derived(identifierTypesFor(kind));
+  const types = $derived(identifierShapesFor(kind));
 
   // ---- what is held ---------------------------------------------------------------------------
 
@@ -191,14 +191,21 @@
   let open = $state(false);
   // Defaulted to a type BOTH kinds can hold, so the initial value never references the
   // kind-filtered list and never has to be corrected after the fact.
-  let newType = $state<DirectoryIdentifierType>("account");
+  let newType = $state<DirectoryIdentifierType>("ssn");
   let newValue = $state("");
+  let newLabel = $state("");
   let failure = $state<StatedFailure | null>(null);
 
   function resetDraft(): void {
     newValue = "";
+    newLabel = "";
     failure = null;
   }
+
+  /** Whether the chosen type carries a plaintext part beside the sealed value. */
+  const labelField = $derived(
+    types.find((shape) => shape.type === newType)?.fields.find((field) => field.key === "label"),
+  );
 
   const typeItems = $derived(
     types.map((entry) => ({ value: entry.type, label: entry.label })),
@@ -210,7 +217,7 @@
     const outcome = await addDirectoryIdentifier(
       fetch,
       entityId,
-      { type: newType, value: newValue.trim() },
+      { type: newType, number: newValue.trim(), label: newLabel.trim() === "" ? null : newLabel },
       crypto.randomUUID(),
     );
     if (outcome.kind === "ok") {
@@ -370,14 +377,26 @@
       </Select.Root>
     </div>
 
-    <LabelledField label="Value">
+    {#if labelField !== undefined}
+      <LabelledField label={labelField.label}>
+        {#snippet children({ props })}
+          <Input
+            {...props}
+            disabled={busy}
+            bind:value={newLabel}
+            placeholder={placeholderOf(labelField.label)}
+          />
+        {/snippet}
+      </LabelledField>
+    {/if}
+    <LabelledField label="Number">
       {#snippet children({ props })}
         <Input
           {...props}
           disabled={busy}
           bind:value={newValue}
           autocomplete="off"
-          placeholder={placeholderOf("Value")}
+          placeholder={placeholderOf("Number")}
         />
       {/snippet}
     </LabelledField>

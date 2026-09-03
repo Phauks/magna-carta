@@ -837,6 +837,9 @@ importers:
       '@magna-carta/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@magna-carta/directory':
+        specifier: workspace:*
+        version: link:../../packages/directory
       '@magna-carta/file-type':
         specifier: workspace:*
         version: link:../../packages/file-type
@@ -852,6 +855,9 @@ importers:
       client-zip:
         specifier: 'catalog:'
         version: 2.5.0
+      libphonenumber-js:
+        specifier: ^1.13.7
+        version: 1.13.7
       write-excel-file:
         specifier: 4.1.1
         version: 4.1.1
@@ -10280,8 +10286,7 @@ snapshots:
 
   leven@3.1.0: {}
 
-  libphonenumber-js@1.13.7:
-    optional: true
+  libphonenumber-js@1.13.7: {}
 
   lightningcss-android-arm64@1.32.0:
     optional: true

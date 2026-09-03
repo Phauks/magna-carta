@@ -375,7 +375,7 @@ describe("directory sensitive-identifier read gate", () => {
 
     const added = await post(`/api/v1/directory/entities/${id}/identifiers`, {
       type: "ssn",
-      value: "123-45-6789",
+      number: "123-45-6789",
     });
     expect(added.status).toBe(201);
 
@@ -585,7 +585,7 @@ describe("directory identifier enumeration", () => {
       (
         await post(`/api/v1/directory/entities/${person.id}/identifiers`, {
           type: "ssn",
-          value: "123-45-6789",
+          number: "123-45-6789",
         })
       ).status,
     ).toBe(201);

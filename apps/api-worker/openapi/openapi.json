@@ -7885,12 +7885,18 @@
             "enum": [
               "ssn",
               "ein",
-              "dob",
               "account",
               "drivers_license",
               "ssn_last_four",
               "bar_number"
             ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The plaintext part: the issuing region, the jurisdiction, who an account is held with."
           },
           "validFrom": {
             "type": [
@@ -7911,6 +7917,7 @@
         "required": [
           "id",
           "type",
+          "label",
           "validFrom",
           "validTo",
           "recordedAt"
@@ -7924,16 +7931,40 @@
             "enum": [
               "ssn",
               "ein",
-              "dob",
               "account",
               "drivers_license",
               "ssn_last_four",
               "bar_number"
             ]
           },
-          "value": {
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120,
+            "description": "The plaintext part a list shows without a reveal: the state or country that issued a licence, the jurisdiction behind a bar number, who an account is held with. Required where the type has one; never any part of the value."
+          },
+          "number": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "description": "An account's username."
+          },
+          "secret": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256,
+            "description": "An account's secret, sealed beside its number and never indexed."
           },
           "validFrom": {
             "type": [
@@ -7950,13 +7981,26 @@
         },
         "required": [
           "type",
-          "value"
+          "number"
         ]
       },
       "DirectoryIdentifierValueResponse": {
         "type": "object",
         "properties": {
           "value": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The decrypted value — for an account, its number; the username and secret ride beside it."
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secret": {
             "type": [
               "string",
               "null"
@@ -8205,7 +8249,6 @@
                   "enum": [
                     "ssn",
                     "ein",
-                    "dob",
                     "account",
                     "drivers_license",
                     "ssn_last_four",
@@ -48327,7 +48370,6 @@
               "enum": [
                 "ssn",
                 "ein",
-                "dob",
                 "account",
                 "drivers_license",
                 "ssn_last_four",

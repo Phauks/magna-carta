@@ -151,7 +151,6 @@ export type DirectoryNameRole = "current" | "former" | "alias" | "aka" | "maiden
 export type DirectoryIdentifierType =
   | "ssn"
   | "ein"
-  | "dob"
   | "account"
   | "drivers_license"
   | "ssn_last_four"
@@ -267,6 +266,8 @@ export interface DirectoryCategory {
 export interface DirectoryIdentifierRecord {
   id: string;
   type: DirectoryIdentifierType;
+  /** The plaintext part: the issuing region, the jurisdiction, who an account is held with. */
+  label: string | null;
   validFrom: string | null;
   validTo: string | null;
   recordedAt: string;
@@ -461,11 +462,18 @@ export async function readDirectoryEntity(
  * asked, for which entity, and when, before any plaintext exists. A null value means the entity
  * holds none of that type — asking for one it does not hold reveals nothing and records nothing.
  */
+export interface DirectoryIdentifierValue {
+  /** The decrypted value — for an account, its number. */
+  value: string | null;
+  username?: string | null;
+  secret?: string | null;
+}
+
 export function readDirectoryIdentifier(
   fetchImpl: typeof fetch,
   entityId: string,
   type: DirectoryIdentifierType,
-): Promise<ApiOutcome<{ value: string | null }>> {
+): Promise<ApiOutcome<DirectoryIdentifierValue>> {
   return requestJson(
     fetchImpl,
     `/api/v1/directory/entities/${encodeURIComponent(entityId)}/identifiers/${encodeURIComponent(type)}`,
@@ -777,10 +785,19 @@ export function assignDirectoryCategory(
 }
 
 /** Seals a typed identifier under the firm key. Only the ciphertext and its index are ever stored. */
+/** What a person typed for one identifier; the type decides which parts the API reads. */
+export interface DirectoryIdentifierRequest {
+  type: DirectoryIdentifierType;
+  label?: string | null;
+  number: string;
+  username?: string | null;
+  secret?: string | null;
+}
+
 export function addDirectoryIdentifier(
   fetchImpl: typeof fetch,
   entityId: string,
-  request: { type: DirectoryIdentifierType; value: string },
+  request: DirectoryIdentifierRequest,
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ ok: boolean }>> {
   return requestJson(

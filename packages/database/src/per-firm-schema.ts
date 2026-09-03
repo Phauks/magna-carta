@@ -1506,6 +1506,10 @@ export const directoryIdentifier = sqliteTable(
     id: text("id").primaryKey().$type<DirectoryIdentifierId>(), // directoryIdentifier_ handle
     entityId: text("entity_id").notNull(), // FK to directory_person.id or directory_organization.id
     identifierType: text("identifier_type").notNull(), // e.g. 'drivers_licence', 'acn', 'bar_number'
+    // The plaintext part of an identifier that a list may show without a reveal: the region that
+    // issued a licence, the jurisdiction that issued a bar number, who an account is held with.
+    // Never the value or any part of it. Null for a type with nothing to say beside the seal (SSN).
+    label: text("label"),
     valueCiphertext: text("value_ciphertext").notNull(), // encrypted; never logged
     valueBlindIndex: text("value_blind_index"), // nullable; set for searchable schemes
     validFrom: text("valid_from"),
