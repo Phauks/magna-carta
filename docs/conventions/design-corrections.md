@@ -78,6 +78,16 @@ is usually the fastest way to understand the rule.
   scanned before anything else touches it"). It is read once, skipped ever after, and it takes room
   from the answer the reader came for. A fact that a reader must have to read the result correctly
   is part of the result, in its own row. _(file workbench, 2026-08-31)_
+- **A failed act states itself where it happened, with the way to try again beside it.** A download
+  that fails gets "Download failed" and a **Retry** button on its own row, on the Downloads page and
+  in the top-bar tray alike, never only in a toast: a toast vanishes, and the reader who watched it
+  go has nothing left to press. _(downloads, 2026-09-03)_
+- **Nothing is saved until the commit is pressed, and a panel never says otherwise.** The Upload
+  dialog opens before any byte moves and sends only on **Upload**; "Closing keeps what has already
+  landed in EWAAAE" was the line that made the owner afraid something had been saved behind their
+  back, and it had. The commit carries the act's own verb ("Upload", not "Save"), a failure reads as
+  one ("Upload failed", not "did not land"), and a panel carries no running commentary about what
+  it is doing on the reader's behalf. _(file manager upload, 2026-09-03)_
 
 ### Lists and tables
 

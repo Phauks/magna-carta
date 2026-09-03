@@ -13,12 +13,24 @@
    * There is deliberately no upload progress, file queue, or network code here — those compose above.
    * A drop is also mirrored into the underlying input's `files` (via a DataTransfer) so the input's
    * own filename display and any consumer reading `input.files` stay consistent with a keyboard pick.
+   *
+   * A FOLDER IS WELCOME WHERE THE CONSUMER SAYS SO. A browser reports a dropped folder as one
+   * zero-byte file wearing the folder's name, so a surface that only reads `dataTransfer.files`
+   * silently uploads a stub and loses the contents. A consumer that passes `onEntries` gets the
+   * folder walked instead (./dropped-entries.ts): every file inside it, each with the path it sat
+   * under, so the folder can be recreated at the other end. Without `onEntries`, drops behave as
+   * they always did.
    */
   import type { HTMLAttributes } from "svelte/elements";
   import CloudUpload from "@lucide/svelte/icons/cloud-upload";
   import FileInput from "../file-input/file-input.svelte";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
+  import {
+    entriesFromDataTransfer,
+    entriesFromFileList,
+    type DroppedEntry,
+  } from "./dropped-entries.ts";
 
   let {
     label = "Upload files",
@@ -27,6 +39,7 @@
     multiple = false,
     disabled = false,
     onFiles,
+    onEntries,
     ref = $bindable(null),
     class: className,
     ...restProps
@@ -43,6 +56,12 @@
     disabled?: boolean;
     /** Called with every dropped or picked file. Validation and upload are the consumer's. */
     onFiles?: (files: File[]) => void;
+    /**
+     * Called with every dropped or picked file AND the path it arrived under, folders walked. Given,
+     * a dropped folder delivers its contents rather than a stub named after it; a folder picked
+     * through a `webkitdirectory` input arrives the same way. Fires alongside `onFiles`.
+     */
+    onEntries?: (entries: DroppedEntry[]) => void;
   } = $props();
 
   // A counter, not a boolean: dragenter/dragleave fire for every descendant the pointer crosses, so
@@ -52,6 +71,10 @@
 
   function emit(files: File[]) {
     if (files.length > 0) onFiles?.(files);
+  }
+
+  function emitEntries(entries: DroppedEntry[]) {
+    if (entries.length > 0) onEntries?.(entries);
   }
 
   function ondragenter(event: DragEvent) {
@@ -76,8 +99,16 @@
     if (disabled) return;
     event.preventDefault();
     dragDepth = 0;
-    const dropped = event.dataTransfer?.files;
-    if (!dropped || dropped.length === 0) return;
+    const transfer = event.dataTransfer;
+    const dropped = transfer?.files;
+    if (!transfer || !dropped || dropped.length === 0) return;
+    if (onEntries !== undefined) {
+      // The walk is asynchronous (each folder level is a callback read), and the transfer is only
+      // readable during the event, so its items are taken now and resolved after.
+      void entriesFromDataTransfer(transfer).then((entries) =>
+        emitEntries(multiple ? entries : entries.slice(0, 1)),
+      );
+    }
     const all = Array.from(dropped);
     const files = multiple ? all : all.slice(0, 1);
     // Mirror the drop into the underlying input so its filename display and any consumer reading
@@ -96,7 +127,9 @@
   }
 
   function onchange(event: Event & { currentTarget: HTMLInputElement }) {
-    if (event.currentTarget.files) emit(Array.from(event.currentTarget.files));
+    if (!event.currentTarget.files) return;
+    emit(Array.from(event.currentTarget.files));
+    emitEntries(entriesFromFileList(event.currentTarget.files));
   }
 </script>
 
