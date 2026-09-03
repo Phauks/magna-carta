@@ -536,27 +536,30 @@ const patchFileRoute = defineOpenAPIRoute(patchFileMeta, {
   },
 });
 
-const deleteFileRoute = defineOpenAPIRoute(deleteFileMeta, {
-  method: "delete",
-  path: "/api/v1/files/{id}",
-  description:
-    "Soft-deletes a file: it leaves the default listing and download but its rows and bytes are " +
-    "retained for the recovery window.",
-  request: { headers: idempotencyKeyHeader, params: fileParam },
-  responses: {
-    200: {
-      description: "The file was soft-deleted",
-      content: { "application/json": { schema: FileActionAck } },
+const deleteFileRoute = defineOpenAPIRoute(
+  { ...deleteFileMeta, reversal: { kind: "restoration", by: "files.restore" } },
+  {
+    method: "delete",
+    path: "/api/v1/files/{id}",
+    description:
+      "Soft-deletes a file: it leaves the default listing and download but its rows and bytes are " +
+      "retained for the recovery window.",
+    request: { headers: idempotencyKeyHeader, params: fileParam },
+    responses: {
+      200: {
+        description: "The file was soft-deleted",
+        content: { "application/json": { schema: FileActionAck } },
+      },
+      400: idempotencyErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: idempotencyErrors[409],
+      422: idempotencyErrors[422],
+      429: authErrors[429],
     },
-    400: idempotencyErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: idempotencyErrors[409],
-    422: idempotencyErrors[422],
-    429: authErrors[429],
   },
-});
+);
 
 const downloadFileRoute = defineOpenAPIRoute(downloadFileMeta, {
   method: "get",

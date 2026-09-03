@@ -389,7 +389,10 @@ const putAccessMemberRoute = defineOpenAPIRoute(meta("grantReviewSetAccess", PRO
 });
 
 const deleteAccessMemberRoute = defineOpenAPIRoute(
-  meta("revokeReviewSetAccess", PRODUCE, true, true),
+  {
+    ...meta("revokeReviewSetAccess", PRODUCE, true, true),
+    reversal: { kind: "inverse", by: "discovery.grantReviewSetAccess" },
+  },
   {
     method: "delete",
     path: "/api/v1/review-sets/{reviewSetId}/access/{memberUserId}",

@@ -1546,27 +1546,33 @@ const updateBookingRoute = defineOpenAPIRoute(mutationMeta("updateBooking", "fir
   },
 });
 
-const deleteBookingRoute = defineOpenAPIRoute(mutationMeta("deleteBooking", "firm"), {
-  method: "delete",
-  path: "/api/v1/resource-bookings/{firmResourceBookingId}",
-  description:
-    "Removes a booking outright. A booking is a claim on a room, not history — the event it served " +
-    "remains the record.",
-  request: { headers: idempotencyKeyHeader, params: firmResourceBookingIdParam },
-  responses: {
-    200: {
-      description: "The booking was removed",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const deleteBookingRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("deleteBooking", "firm"),
+    reversal: { kind: "inverse", by: "calendar.createBooking" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/resource-bookings/{firmResourceBookingId}",
+    description:
+      "Removes a booking outright. A booking is a claim on a room, not history — the event it served " +
+      "remains the record.",
+    request: { headers: idempotencyKeyHeader, params: firmResourceBookingIdParam },
+    responses: {
+      200: {
+        description: "The booking was removed",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 // ---- event-link and continuance routes ----
 
@@ -1596,27 +1602,33 @@ const createEventLinkRoute = defineOpenAPIRoute(mutationMeta("createEventLink", 
   },
 });
 
-const deleteEventLinkRoute = defineOpenAPIRoute(mutationMeta("deleteEventLink", "firm"), {
-  method: "delete",
-  path: "/api/v1/event-links/{calendarEventLinkId}",
-  description:
-    "Removes a related link — a true delete, because a link is an annotation, not history. A " +
-    "continuance link is history and is refused.",
-  request: { headers: idempotencyKeyHeader, params: calendarEventLinkIdParam },
-  responses: {
-    200: {
-      description: "The link was removed",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const deleteEventLinkRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("deleteEventLink", "firm"),
+    reversal: { kind: "inverse", by: "calendar.createEventLink" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/event-links/{calendarEventLinkId}",
+    description:
+      "Removes a related link — a true delete, because a link is an annotation, not history. A " +
+      "continuance link is history and is refused.",
+    request: { headers: idempotencyKeyHeader, params: calendarEventLinkIdParam },
+    responses: {
+      200: {
+        description: "The link was removed",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const continueEventRoute = defineOpenAPIRoute(mutationMeta("continueEvent", "matter"), {
   method: "post",

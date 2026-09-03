@@ -162,7 +162,7 @@ The `none` declarations, gathered so they can be counted and argued with in one 
 
 Five slices, each shippable, ordered so the cheap declarative work makes the expensive work verifiable. Sizes are relative, not estimates.
 
-**Slice 1 — the declaration, and the census it produces.** Add `reversal` to `RouteMeta`; declare it on all thirty-three DELETE operations and every other mutating route; emit `x-mc-reversal`; add the conformance fitness function. No behaviour changes and no user-visible change. What it produces is the number this design cannot state today: how many operations the platform performs that nothing puts back, each with the sentence that says so. That census is the input to every later decision, including several of the owner decisions below.
+**Slice 1 — the declaration, and the census it produces. Built (2026-09-03) for DELETE.** `RouteMeta` carries `reversal`, emitted as `x-mc-reversal` and carried into the generated client. `defineOpenAPIRoute` refuses a DELETE that declares nothing, and a conformance fitness function checks the cross-references over the emitted document — that a `restoration`, `inverse` or `compensating` names an operation that exists and mutates, and that a `none` carries a non-empty reason. **The gate starts at DELETE rather than at every mutating method**, because that is where the question is asked most and was answered least (33 against 5), and because 349 mutating operations declared in one pass would be 349 guesses. Widening it is its own slice. The census it produced is section 8a.
 
 **Slice 2 — the primitive, and both ports. Built (2026-09-03).** `HistoryStack`, `UndoRedoControls` and `historyShortcuts` are in the design system at `packages/design-system/src/lib/components/history/`, carrying the seven rules from section 4, and all three are in the one-implementation registry — a third stack is now a gate failure rather than a discovery. Both surfaces are ported and both old stacks are deleted. The file manager's recorded move became the first inverse command, one per key back to where that key came from. The Time Sheet's snapshot became a pair of field writes, which is where its two defects were fixed: an undo now writes **the row the step changed** rather than every row on the sheet, and the announcement waits for the write instead of firing on the pop. An inverse whose entry has left draft refuses rather than writing, and says so. The missing `DropdownMenu.Group` went with the hand-built markup that carried it.
 
@@ -173,6 +173,31 @@ Five slices, each shippable, ordered so the cheap declarative work makes the exp
 **Slice 5 — the undoable delete.** With slices 1 to 4 in place, a delete becomes a steppable act on the surfaces where the owner wants it, because the inverse is a real route and the declaration says so. It is deliberately last: the stack is worth having only over reversals that exist, and building it first is how a platform ends up with an undo that sometimes silently does nothing. Slice 2 landing early is not a reordering — the stack it built is over movement and field edits, both of which already had their inverses.
 
 An implementation plan is deliberately not written yet. Slice 1's census changes what slices 3 to 5 contain, and several owner decisions below are cheaper to answer with the census in hand.
+
+---
+
+## 8a. The census — what the platform deletes, and what puts it back
+
+Produced by slice 1, over the thirty-three DELETE operations in the emitted contract. It is a fact about the contract rather than a claim in this document: `x-mc-reversal` carries each row, and CI fails if any of them names an operation that does not exist.
+
+| Kind          | Count | What it means                                                                                                                       |
+| ------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `inverse`     | 18    | The counterpart of a two-sided pair. Nothing was destroyed, so the way back is the other half — an attach, a link, a grant, a mint. |
+| `none`        | 12    | Nothing in the product puts it back, and each carries the sentence that says why.                                                   |
+| `restoration` | 2     | A named operation returns the subject to what it was: `files.delete` → `files.restore`, `tasks.completeTask` → `tasks.reopenTask`.  |
+| `restatement` | 1     | The previous value goes back through the ordinary write route (`customFields.clearValue`).                                          |
+
+**The nineteen `inverse` rows are the finding nobody expected.** More than half of what the platform calls deletion is not deletion at all — it is detaching, unlinking, revoking, clearing: a statement about a relationship, fully reversible by the route that made it, and in several cases already worded that way in the route's own description (`tasks.unlinkExternalTask`: "unlinking is a statement about the correspondence and never about the work"). None of those needs a confirmation dialog, and several have one.
+
+**The twelve `none` rows are the real deletion surface, and they are not one thing.** Reading their reasons sorts them into three groups:
+
+- **Irreversible by design, correctly** — `magnus.deleteConversation` (the erasure instrument for everything typed into the assistant), `emails.revokeAutoFileRule` (kept so every message it placed can still name it, and deliberately not resumable), `decryption.recoverCancel` (a terminal job).
+- **Irreversible because there is nothing to restore** — `customFields.hardDeleteField` and `.hardDeleteOption`, which refuse to run at all unless the field holds no values.
+- **Irreversible by omission, and each one is a gap** — `notes.deleteNote` (whose own design rules that no hard delete should exist), `tasks.deleteTask`, `matterAssets.deleteAsset` (the row is kept and no route clears the flag), `custody.deactivateItemType` (no route makes a deactivated type offerable again), `emails.unlink`, `templates.deleteFieldMapping`, `downloads.remove`.
+
+That third group is what slice 4 works through, and it is now a list rather than a suspicion. `matterAssets.deleteAsset` is the sharpest: its own route description says "a firm that removed a house by mistake this morning wants it back this afternoon," and the schema keeps the row — but no route clears the flag, so the sentence is aspirational.
+
+**What the census cannot yet say** is what the other 316 mutating operations do, because the gate does not reach them. The two that most want declaring next are the void family (`timeEntries.void` → `timeEntries.unvoid` is a `restoration` the platform already has) and the compensating pairs in the ledger, which is where `compensating` earns its arm.
 
 ---
 

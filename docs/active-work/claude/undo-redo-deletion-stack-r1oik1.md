@@ -1,8 +1,8 @@
 ---
 worktree: /home/user/magna-carta
-area: Undo, redo and reversal — the design, the history stack, and the table's own controls consolidated
+area: Undo, redo and reversal — the design, the history stack, the table's controls, and reversibility as route metadata
 status: building
-touches: packages/design-system/src/lib/components/history, packages/design-system/package.json, packages/design-system/CLAUDE.md, packages/design-system/src/stories, packages/design-system/test, apps/web/src/lib/file-manager, apps/web/src/lib/time, apps/web/test, tooling/lint-one-ui/registry.json, docs/specs/, changelog.d/
+touches: apps/api-worker/src/contracts, apps/api-worker/src/routes, apps/api-worker/openapi/openapi.json, packages/api-client, docs/conventions/api.md, packages/design-system/src/lib/components/history, packages/design-system/package.json, packages/design-system/CLAUDE.md, packages/design-system/src/stories, packages/design-system/test, apps/web/src/lib/file-manager, apps/web/src/lib/time, apps/web/test, tooling/lint-one-ui/registry.json, docs/specs/, changelog.d/
 ---
 
 First the design, which touches no schema, no route and no migration. It inventories every reversal
@@ -33,3 +33,11 @@ says there is more (`DataTable.LoadMore`, three copies in two places), and the u
 footer on every surface. Ten screens across billing, costs, time, matters, directory and custodian
 change, so a concurrent stream on any of those should sync `main`. Rulings recorded as L42b/A15c,
 TB2c/TS9/TS10, and one line in `design-corrections.md`.
+
+**And reversibility becomes route metadata.** `RouteMeta` carries `reversal`, emitted as
+`x-mc-reversal`; `defineOpenAPIRoute` refuses a DELETE that declares nothing, and a conformance
+fitness function checks that a named reversing operation exists and mutates. All thirty-three DELETE
+operations are declared, which touches nineteen route modules with a one-line spread each and
+re-emits the OpenAPI snapshot — so a concurrent stream adding a DELETE route will need the field, and
+one editing `apps/api-worker/openapi/openapi.json` should re-emit rather than merge it. The census it
+produced is section 8a of the design.

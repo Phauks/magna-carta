@@ -31349,6 +31349,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "A shelf item points at an artifact somebody asked for. Asking again produces a new one with its own snapshot; nothing puts this row back."
+        },
         "x-mc-tags": [
           "downloads"
         ],
@@ -32417,6 +32421,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "A cancelled recovery job is terminal. Searching again is a new job with its own budget, never this one resumed."
+        },
         "x-mc-tags": [
           "decryption"
         ],
@@ -33872,6 +33880,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "A revoked rule is kept so every message it placed can still name it, and it cannot be resumed. The way back is a new rule."
+        },
         "x-mc-tags": [
           "emails"
         ],
@@ -34866,6 +34878,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "The link row is retained as unlinked, but nothing re-files an already-captured message onto a matter it was unlinked from. Filing it again means filing the bytes again."
+        },
         "x-mc-tags": [
           "emails"
         ],
@@ -35053,6 +35069,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "emails.mintFirmCaptureAddress"
+        },
         "x-mc-tags": [
           "emails"
         ],
@@ -35457,6 +35477,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "emails.mintCaptureAddress"
+        },
         "x-mc-tags": [
           "emails"
         ],
@@ -43061,6 +43085,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "locations.setLetterheadLogo"
+        },
         "x-mc-tags": [
           "locations"
         ],
@@ -44089,6 +44117,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "folders.create"
+        },
         "x-mc-tags": [
           "folders"
         ],
@@ -44531,6 +44563,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "restoration",
+          "by": "files.restore"
+        },
         "x-mc-tags": [
           "files"
         ],
@@ -49150,6 +49186,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "directory.linkMatterParty"
+        },
         "x-mc-tags": [
           "directory"
         ],
@@ -49689,6 +49729,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "directory.addEmail"
+        },
         "x-mc-tags": [
           "directory"
         ],
@@ -50154,6 +50198,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "directory.addPhone"
+        },
         "x-mc-tags": [
           "directory"
         ],
@@ -50619,6 +50667,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "directory.addAddress"
+        },
         "x-mc-tags": [
           "directory"
         ],
@@ -54838,6 +54890,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "calendar.createBooking"
+        },
         "x-mc-tags": [
           "calendar"
         ],
@@ -55087,6 +55143,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "calendar.createEventLink"
+        },
         "x-mc-tags": [
           "calendar"
         ],
@@ -55807,6 +55867,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "The note and its text are removed outright. Nothing puts a deleted note back — the revision chain and retraction that would replace this delete are designed and not built."
+        },
         "x-mc-tags": [
           "notes"
         ],
@@ -56065,6 +56129,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "notes.attachNoteDocument"
+        },
         "x-mc-tags": [
           "notes"
         ],
@@ -57206,6 +57274,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.linkExternalTask"
+        },
         "x-mc-tags": [
           "tasks"
         ],
@@ -57462,6 +57534,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "A deleted task leaves a tombstone carrying identifiers and nothing else, which is what a mirror learns the deletion from. The work itself is gone and nothing puts it back."
+        },
         "x-mc-tags": [
           "tasks"
         ],
@@ -57842,6 +57918,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.completeTask"
+        },
         "x-mc-tags": [
           "tasks"
         ],
@@ -58234,6 +58314,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.attachTaskDocument"
+        },
         "x-mc-tags": [
           "tasks"
         ],
@@ -59194,6 +59278,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "matterPlans.addPlanStep"
+        },
         "x-mc-tags": [
           "matterPlans"
         ],
@@ -61648,6 +61736,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "The type is kept so every item classified under it keeps its meaning, but no route makes a deactivated type offerable again."
+        },
         "x-mc-tags": [
           "custody"
         ],
@@ -64545,6 +64637,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "The row is kept, since its valuations and document links hang off it, but no route clears the flag: an asset taken off the register cannot be put back from the product."
+        },
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -66200,6 +66296,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "matterAssets.linkDocument"
+        },
         "x-mc-tags": [
           "matterAssets"
         ],
@@ -67144,6 +67244,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "This is the erasure instrument for everything typed into the assistant: the turns go wholesale, and the audited record is that a conversation existed and was deleted, never what was in it."
+        },
         "x-mc-tags": [
           "magnus"
         ],
@@ -67831,6 +67935,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "discovery.grantReviewSetAccess"
+        },
         "x-mc-tags": [
           "discovery"
         ],
@@ -71998,6 +72106,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "A field is hard-deleted only when it holds no values, so there is nothing to restore. Defining the field again mints a new one; a field with values is archived instead."
+        },
         "x-mc-tags": [
           "customFields"
         ],
@@ -73104,6 +73216,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "An option is hard-deleted only when nothing references it, so there is nothing to restore. Creating it again mints a new one; a referenced option is archived instead."
+        },
         "x-mc-tags": [
           "customFields"
         ],
@@ -73351,6 +73467,9 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "restatement"
+        },
         "x-mc-tags": [
           "customFields"
         ],
@@ -74856,6 +74975,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "costs.attachReceipt"
+        },
         "x-mc-tags": [
           "costs"
         ],
@@ -89729,6 +89852,10 @@
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "A mapping is a statement the firm made about its own documents, withdrawn outright rather than archived. It is made again the next time a template registration meets the field, which is a new statement rather than this one restored."
+        },
         "x-mc-tags": [
           "templates"
         ],
@@ -90792,6 +90919,10 @@
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "shipping.connect"
+        },
         "x-mc-tags": [
           "shipping"
         ],

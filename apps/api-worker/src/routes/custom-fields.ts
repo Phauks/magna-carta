@@ -504,21 +504,31 @@ const unarchiveFieldRoute = defineOpenAPIRoute(mutationMeta("unarchiveField"), {
   },
 });
 
-const hardDeleteFieldRoute = defineOpenAPIRoute(mutationMeta("hardDeleteField"), {
-  method: "delete",
-  path: "/api/v1/custom-fields/fields/{fieldId}",
-  description:
-    "Hard-deletes a custom field that holds no values (with its picklist options). Refuses a field " +
-    "that has stored values — archive it instead.",
-  request: { headers: idempotencyKeyHeader, params: fieldParam },
-  responses: {
-    200: {
-      description: "The field was deleted",
-      content: { "application/json": { schema: OkAck } },
+const hardDeleteFieldRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("hardDeleteField"),
+    reversal: {
+      kind: "none",
+      reason:
+        "A field is hard-deleted only when it holds no values, so there is nothing to restore. Defining the field again mints a new one; a field with values is archived instead.",
     },
-    ...writeErrorResponses,
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/custom-fields/fields/{fieldId}",
+    description:
+      "Hard-deletes a custom field that holds no values (with its picklist options). Refuses a field " +
+      "that has stored values — archive it instead.",
+    request: { headers: idempotencyKeyHeader, params: fieldParam },
+    responses: {
+      200: {
+        description: "The field was deleted",
+        content: { "application/json": { schema: OkAck } },
+      },
+      ...writeErrorResponses,
+    },
+  },
+);
 
 const purgeFieldRoute = defineOpenAPIRoute(
   { ...mutationMeta("purgeField"), permission: "customFields:purge" },
@@ -677,21 +687,31 @@ const archiveOptionRoute = defineOpenAPIRoute(mutationMeta("archiveOption"), {
   },
 });
 
-const hardDeleteOptionRoute = defineOpenAPIRoute(mutationMeta("hardDeleteOption"), {
-  method: "delete",
-  path: "/api/v1/custom-fields/options/{optionId}",
-  description:
-    "Hard-deletes a picklist option that holds no stored values. Refuses one still referenced — " +
-    "archive it instead.",
-  request: { headers: idempotencyKeyHeader, params: optionParam },
-  responses: {
-    200: {
-      description: "The option was deleted",
-      content: { "application/json": { schema: OkAck } },
+const hardDeleteOptionRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("hardDeleteOption"),
+    reversal: {
+      kind: "none",
+      reason:
+        "An option is hard-deleted only when nothing references it, so there is nothing to restore. Creating it again mints a new one; a referenced option is archived instead.",
     },
-    ...writeErrorResponses,
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/custom-fields/options/{optionId}",
+    description:
+      "Hard-deletes a picklist option that holds no stored values. Refuses one still referenced — " +
+      "archive it instead.",
+    request: { headers: idempotencyKeyHeader, params: optionParam },
+    responses: {
+      200: {
+        description: "The option was deleted",
+        content: { "application/json": { schema: OkAck } },
+      },
+      ...writeErrorResponses,
+    },
+  },
+);
 
 // ---- value routes ----
 
@@ -715,22 +735,25 @@ const setValueRoute = defineOpenAPIRoute(mutationMeta("setValue"), {
   },
 });
 
-const clearValueRoute = defineOpenAPIRoute(mutationMeta("clearValue"), {
-  method: "delete",
-  path: "/api/v1/custom-fields/values",
-  description: "Clears a custom field's current value on a record (its history endures).",
-  request: {
-    headers: idempotencyKeyHeader,
-    body: { content: { "application/json": { schema: ClearValueRequest } }, required: true },
-  },
-  responses: {
-    200: {
-      description: "The value was cleared",
-      content: { "application/json": { schema: OkAck } },
+const clearValueRoute = defineOpenAPIRoute(
+  { ...mutationMeta("clearValue"), reversal: { kind: "restatement" } },
+  {
+    method: "delete",
+    path: "/api/v1/custom-fields/values",
+    description: "Clears a custom field's current value on a record (its history endures).",
+    request: {
+      headers: idempotencyKeyHeader,
+      body: { content: { "application/json": { schema: ClearValueRequest } }, required: true },
     },
-    ...writeErrorResponses,
+    responses: {
+      200: {
+        description: "The value was cleared",
+        content: { "application/json": { schema: OkAck } },
+      },
+      ...writeErrorResponses,
+    },
   },
-});
+);
 
 const recordValuesRoute = defineOpenAPIRoute(readMeta("listRecordValues"), {
   method: "get",

@@ -202,6 +202,63 @@ describe("fail-closed access-control guard at definition time", () => {
     ).toThrowError(/permission/);
   });
 
+  it("throws when a DELETE declares no reversal — the question deletion is asked most and answered least", () => {
+    expect(() =>
+      defineOpenAPIRoute(sampleMeta({ operationId: "matters.remove" }), {
+        method: "delete",
+        path: "/api/v1/matters/{id}",
+        description: "Removes a matter.",
+        responses: okJsonResponse,
+      }),
+    ).toThrowError(/reversal/);
+  });
+
+  it("throws when a none carries no reason — the one arm that must say why", () => {
+    expect(() =>
+      defineOpenAPIRoute(
+        sampleMeta({
+          operationId: "matters.remove",
+          reversal: { kind: "none", reason: "  " },
+        }),
+        {
+          method: "delete",
+          path: "/api/v1/matters/{id}",
+          description: "Removes a matter.",
+          responses: okJsonResponse,
+        },
+      ),
+    ).toThrowError(/reason/);
+  });
+
+  it("emits the declaration, because the UI reads it rather than restating it", () => {
+    const route = defineOpenAPIRoute(
+      sampleMeta({
+        operationId: "matters.remove",
+        reversal: { kind: "restoration", by: "matters.restore" },
+      }),
+      {
+        method: "delete",
+        path: "/api/v1/matters/{id}",
+        description: "Removes a matter.",
+        responses: okJsonResponse,
+      },
+    );
+    expect(emitDocumentFor(route).paths["/api/v1/matters/{id}"].delete["x-mc-reversal"]).toEqual({
+      kind: "restoration",
+      by: "matters.restore",
+    });
+  });
+
+  it("leaves the extension off a route that declares nothing, so absence stays readable", () => {
+    const route = defineOpenAPIRoute(sampleMeta(), {
+      method: "get",
+      path: "/api/v1/matters",
+      description: "Lists matters.",
+      responses: okJsonResponse,
+    });
+    expect(emitDocumentFor(route).paths["/api/v1/matters"].get).not.toHaveProperty("x-mc-reversal");
+  });
+
   it("throws when an authenticated mutating route names a null permission — the chokepoint reads null as any-authenticated-user (privilege escalation by omission)", () => {
     for (const method of ["post", "put", "patch", "delete"] as const) {
       expect(() =>
