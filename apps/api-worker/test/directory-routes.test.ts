@@ -177,6 +177,124 @@ describe("directory person routes", () => {
 
 // Pronouns over HTTP. The route's job is to record a whole set or refuse, and to make the empty case
 // an ordinary answer rather than an error — a person who has stated nothing is the common case.
+describe("creating a whole person in one request", () => {
+  it("records every section the draft carried, in one batch, and reads each back", async () => {
+    const organization = await post("/api/v1/directory/organizations", {
+      legalName: "Okafor Actuarial LLC",
+    });
+    const { id: organizationId } = (await organization.json()) as { id: string };
+
+    const created = await post("/api/v1/directory/persons", {
+      prefix: "Dr.",
+      given: "Margaret",
+      family: "Okafor",
+      otherNames: [{ given: "Margaret", family: "Adeyemi", nameRole: "maiden" }],
+      pronouns: {
+        subject: "she",
+        object: "her",
+        possessiveDeterminer: "her",
+        possessivePronoun: "hers",
+        reflexive: "herself",
+        verbNumber: "singular",
+      },
+      dateOfBirth: "1978-03-14",
+      emails: [{ address: "m.okafor@example.com", contactUse: "work" }],
+      phones: [
+        { number: "+13125550148", contactUse: "mobile", countryRegionCode: "US" },
+        {
+          number: "+13125550190",
+          contactSystem: "fax",
+          contactUse: "work",
+          countryRegionCode: "US",
+        },
+      ],
+      identifiers: [
+        { type: "ssn", number: "123456789" },
+        {
+          type: "account",
+          label: "Cook County e-filing",
+          number: "CC-2291-0087",
+          username: "mokafor",
+          secret: "hunter2",
+        },
+      ],
+      organizations: [
+        { organizationId, edgeType: "employment", personIs: "from", role: "Principal" },
+      ],
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const { id } = (await created.json()) as { id: string };
+
+    const person = (await (await get(`/api/v1/directory/persons/${id}`)).json()) as {
+      displayName: string;
+      pronouns: { subject: string } | null;
+      dateOfBirth: string | null;
+    };
+    expect(person.displayName).toBe("Dr. Margaret Okafor");
+    expect(person.pronouns?.subject).toBe("she");
+    expect(person.dateOfBirth).toBe("1978-03-14");
+
+    const points = (await (
+      await get(`/api/v1/directory/entities/${id}/contact-points`)
+    ).json()) as {
+      emails: { address: string }[];
+      phones: { contactSystem: string; countryCallingCode: string | null }[];
+    };
+    expect(points.emails.map((email) => email.address)).toEqual(["m.okafor@example.com"]);
+    expect(points.phones.map((phone) => phone.contactSystem).toSorted()).toEqual(["fax", "voice"]);
+    expect(points.phones[0]?.countryCallingCode).toBe("1");
+
+    const identifiers = (await (
+      await get(`/api/v1/directory/entities/${id}/identifiers`)
+    ).json()) as {
+      data: { type: string; label: string | null }[];
+    };
+    expect(
+      identifiers.data.map((record) => `${record.type}:${record.label ?? ""}`).toSorted(),
+    ).toEqual(["account:Cook County e-filing", "ssn:"]);
+    const account = (await (
+      await get(`/api/v1/directory/entities/${id}/identifiers/account`)
+    ).json()) as {
+      value: string | null;
+      username?: string | null;
+      secret?: string | null;
+    };
+    expect(account).toEqual({ value: "CC-2291-0087", username: "mokafor", secret: "hunter2" });
+
+    const edges = (await (await get(`/api/v1/directory/entities/${id}/edges`)).json()) as {
+      data: { edgeType: string; role: string | null }[];
+    };
+    expect(edges.data.map((edge) => [edge.edgeType, edge.role])).toEqual([
+      ["employment", "Principal"],
+    ]);
+  });
+
+  it("refuses a draft with a short social security number by the sentence the screen shows, and records nothing", async () => {
+    const refused = await post("/api/v1/directory/persons", {
+      given: "Short",
+      family: "Number",
+      emails: [{ address: "short@example.com" }],
+      identifiers: [{ type: "ssn", number: "123-45-67" }],
+    });
+    expect(refused.status).toBe(422);
+    const problem = (await refused.json()) as { detail: string };
+    expect(problem.detail).toBe("Nine digits, as 123-45-6789.");
+    const search = (await (await get("/api/v1/directory/search?q=Short%20Number")).json()) as {
+      data: { displayName: string }[];
+    };
+    expect(search.data.some((hit) => hit.displayName === "Short Number")).toBe(false);
+  });
+
+  it("refuses an email address without a domain", async () => {
+    const refused = await post("/api/v1/directory/persons", {
+      given: "No",
+      family: "Domain",
+      emails: [{ address: "nodomain@example" }],
+    });
+    expect(refused.status).toBe(422);
+  });
+});
+
 describe("directory person pronoun routes", () => {
   const SHE = {
     subject: "she",
@@ -603,6 +721,7 @@ describe("directory identifier enumeration", () => {
     expect(JSON.stringify(held.data)).not.toContain("123-45-6789");
     expect(Object.keys(held.data[0] ?? {}).sort()).toEqual([
       "id",
+      "label",
       "recordedAt",
       "type",
       "validFrom",

@@ -7125,11 +7125,537 @@
               "string",
               "null"
             ]
+          },
+          "otherNames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateDirectoryPersonOtherName"
+            },
+            "maxItems": 20
+          },
+          "pronouns": {
+            "$ref": "#/components/schemas/DirectoryPronounSet"
+          },
+          "dateOfBirth": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dateOfDeath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddDirectoryEmailRequest"
+            },
+            "maxItems": 20
+          },
+          "phones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddDirectoryPhoneRequest"
+            },
+            "maxItems": 20
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddDirectoryAddressRequest"
+            },
+            "maxItems": 20
+          },
+          "identifiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddDirectoryIdentifierRequest"
+            },
+            "maxItems": 20
+          },
+          "organizations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateDirectoryPersonOrganization"
+            },
+            "maxItems": 50
           }
         },
         "required": [
           "given",
           "family"
+        ]
+      },
+      "CreateDirectoryPersonOtherName": {
+        "type": "object",
+        "properties": {
+          "given": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nameRole": {
+            "type": "string",
+            "enum": [
+              "current",
+              "former",
+              "alias",
+              "aka",
+              "maiden",
+              "dba"
+            ]
+          },
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "middle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "given",
+          "family",
+          "nameRole"
+        ]
+      },
+      "DirectoryPronounSet": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: she signed."
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: we served her."
+          },
+          "possessiveDeterminer": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: her signature."
+          },
+          "possessivePronoun": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: the signature is hers."
+          },
+          "reflexive": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: she represented herself."
+          },
+          "verbNumber": {
+            "type": "string",
+            "enum": [
+              "singular",
+              "plural"
+            ],
+            "description": "Which verb form the set takes: \"singular\" for she is / he is, \"plural\" for they are. Recorded rather than worked out — nothing about the forms themselves says which."
+          }
+        },
+        "required": [
+          "subject",
+          "object",
+          "possessiveDeterminer",
+          "possessivePronoun",
+          "reflexive",
+          "verbNumber"
+        ],
+        "description": "The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it."
+      },
+      "AddDirectoryEmailRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320
+          },
+          "contactUse": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "work",
+              "home",
+              "mobile",
+              "other",
+              "former",
+              "temporary",
+              null
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/DirectoryContactPreference"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/DirectoryContactVerification"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "DirectoryContactPreference": {
+        "type": "object",
+        "properties": {
+          "permitted": {
+            "type": "boolean",
+            "description": "May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value."
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000,
+            "description": "Why the contact point may not be used, or how it should be."
+          }
+        }
+      },
+      "DirectoryContactVerification": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unverified",
+              "verified",
+              "failed"
+            ],
+            "description": "What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds."
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000,
+            "description": "What the failure said, in the words it said it."
+          }
+        }
+      },
+      "AddDirectoryPhoneRequest": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded."
+          },
+          "contactSystem": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "fax",
+              "sms",
+              "pager"
+            ]
+          },
+          "contactUse": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "work",
+              "home",
+              "mobile",
+              "other",
+              "former",
+              "temporary",
+              null
+            ]
+          },
+          "extension": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 16
+          },
+          "countryRegionCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/DirectoryContactPreference"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/DirectoryContactVerification"
+          }
+        },
+        "required": [
+          "number"
+        ]
+      },
+      "AddDirectoryAddressRequest": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "organizationName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "street": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "streetTwo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "dependentLocality": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "postal": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          },
+          "sortingCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "addressUse": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "residential",
+              "business",
+              "postal",
+              "registered",
+              "service",
+              "former",
+              "temporary",
+              null
+            ]
+          },
+          "addressType": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "postal",
+              "both"
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/DirectoryContactPreference"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/DirectoryContactVerification"
+          }
+        }
+      },
+      "AddDirectoryIdentifierRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "ssn",
+              "ein",
+              "account",
+              "drivers_license",
+              "ssn_last_four",
+              "bar_number"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120,
+            "description": "The plaintext part a list shows without a reveal: the state or country that issued a licence, the jurisdiction behind a bar number, who an account is held with. Required where the type has one; never any part of the value."
+          },
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "description": "An account's username."
+          },
+          "secret": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256,
+            "description": "An account's secret, sealed beside its number and never indexed."
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "number"
+        ]
+      },
+      "CreateDirectoryPersonOrganization": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+          },
+          "edgeType": {
+            "type": "string",
+            "enum": [
+              "affiliation",
+              "relationship",
+              "corporate_parent",
+              "corporate_subsidiary",
+              "corporate_successor",
+              "representation",
+              "role_assignment",
+              "officer_of",
+              "director_of",
+              "partner_of",
+              "trustee_of",
+              "personal_representative_of",
+              "agent_of",
+              "employment",
+              "member_of",
+              "shareholder_of",
+              "beneficiary_of",
+              "guardian_of",
+              "point_of_contact_for"
+            ]
+          },
+          "personIs": {
+            "type": "string",
+            "enum": [
+              "from",
+              "to"
+            ],
+            "description": "Which end of the edge the person is. The type says which way a membership reads (employment runs person to organization); the screen decides and the record keeps it."
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "organizationId",
+          "edgeType",
+          "personIs"
         ]
       },
       "DirectoryPersonDetail": {
@@ -7199,56 +7725,6 @@
           "mergedIntoId",
           "pronouns"
         ]
-      },
-      "DirectoryPronounSet": {
-        "type": [
-          "object",
-          "null"
-        ],
-        "properties": {
-          "subject": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: she signed."
-          },
-          "object": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: we served her."
-          },
-          "possessiveDeterminer": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: her signature."
-          },
-          "possessivePronoun": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: the signature is hers."
-          },
-          "reflexive": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: she represented herself."
-          },
-          "verbNumber": {
-            "type": "string",
-            "enum": [
-              "singular",
-              "plural"
-            ],
-            "description": "Which verb form the set takes: \"singular\" for she is / he is, \"plural\" for they are. Recorded rather than worked out — nothing about the forms themselves says which."
-          }
-        },
-        "required": [
-          "subject",
-          "object",
-          "possessiveDeterminer",
-          "possessivePronoun",
-          "reflexive",
-          "verbNumber"
-        ],
-        "description": "The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it."
       },
       "DirectoryAckResponse": {
         "type": "object",
@@ -7921,67 +8397,6 @@
           "validFrom",
           "validTo",
           "recordedAt"
-        ]
-      },
-      "AddDirectoryIdentifierRequest": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": [
-              "ssn",
-              "ein",
-              "account",
-              "drivers_license",
-              "ssn_last_four",
-              "bar_number"
-            ]
-          },
-          "label": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 120,
-            "description": "The plaintext part a list shows without a reveal: the state or country that issued a licence, the jurisdiction behind a bar number, who an account is held with. Required where the type has one; never any part of the value."
-          },
-          "number": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "username": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 128,
-            "description": "An account's username."
-          },
-          "secret": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 256,
-            "description": "An account's secret, sealed beside its number and never indexed."
-          },
-          "validFrom": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "validTo": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "type",
-          "number"
         ]
       },
       "DirectoryIdentifierValueResponse": {
@@ -8746,86 +9161,6 @@
           "data"
         ]
       },
-      "AddDirectoryEmailRequest": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 320
-          },
-          "contactUse": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "work",
-              "home",
-              "mobile",
-              "other",
-              "former",
-              "temporary",
-              null
-            ]
-          },
-          "isPrimary": {
-            "type": "boolean"
-          },
-          "preference": {
-            "$ref": "#/components/schemas/DirectoryContactPreference"
-          },
-          "verification": {
-            "$ref": "#/components/schemas/DirectoryContactVerification"
-          }
-        },
-        "required": [
-          "address"
-        ]
-      },
-      "DirectoryContactPreference": {
-        "type": "object",
-        "properties": {
-          "permitted": {
-            "type": "boolean",
-            "description": "May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value."
-          },
-          "preferred": {
-            "type": "boolean",
-            "description": "Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three."
-          },
-          "note": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 1000,
-            "description": "Why the contact point may not be used, or how it should be."
-          }
-        }
-      },
-      "DirectoryContactVerification": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "unverified",
-              "verified",
-              "failed"
-            ],
-            "description": "What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds."
-          },
-          "detail": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 1000,
-            "description": "What the failure said, in the words it said it."
-          }
-        }
-      },
       "UpdateDirectoryEmailRequest": {
         "type": "object",
         "properties": {
@@ -8872,68 +9207,6 @@
         },
         "required": [
           "data"
-        ]
-      },
-      "AddDirectoryPhoneRequest": {
-        "type": "object",
-        "properties": {
-          "number": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "description": "The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded."
-          },
-          "contactSystem": {
-            "type": "string",
-            "enum": [
-              "voice",
-              "fax",
-              "sms",
-              "pager"
-            ]
-          },
-          "contactUse": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "work",
-              "home",
-              "mobile",
-              "other",
-              "former",
-              "temporary",
-              null
-            ]
-          },
-          "extension": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 16
-          },
-          "countryRegionCode": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 2,
-            "maxLength": 2
-          },
-          "isPrimary": {
-            "type": "boolean"
-          },
-          "preference": {
-            "$ref": "#/components/schemas/DirectoryContactPreference"
-          },
-          "verification": {
-            "$ref": "#/components/schemas/DirectoryContactVerification"
-          }
-        },
-        "required": [
-          "number"
         ]
       },
       "UpdateDirectoryPhoneRequest": {
@@ -9007,115 +9280,6 @@
         "required": [
           "data"
         ]
-      },
-      "AddDirectoryAddressRequest": {
-        "type": "object",
-        "properties": {
-          "recipient": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "organizationName": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "street": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "streetTwo": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "dependentLocality": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "city": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "region": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "postal": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 32
-          },
-          "sortingCode": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 32
-          },
-          "country": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 2,
-            "maxLength": 2
-          },
-          "addressUse": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "residential",
-              "business",
-              "postal",
-              "registered",
-              "service",
-              "former",
-              "temporary",
-              null
-            ]
-          },
-          "addressType": {
-            "type": "string",
-            "enum": [
-              "physical",
-              "postal",
-              "both"
-            ]
-          },
-          "isPrimary": {
-            "type": "boolean"
-          },
-          "preference": {
-            "$ref": "#/components/schemas/DirectoryContactPreference"
-          },
-          "verification": {
-            "$ref": "#/components/schemas/DirectoryContactVerification"
-          }
-        }
       },
       "UpdateDirectoryAddressRequest": {
         "type": "object",

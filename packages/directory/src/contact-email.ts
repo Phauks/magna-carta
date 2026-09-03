@@ -95,12 +95,19 @@ export interface AddEmailInput {
 // Attach an email address to a directory entity within an atomic batch that also writes the domain
 // audit row. Rejects a missing or soft-deleted entity, and a malformed address, before any write. When
 // isPrimary is set, the entity's other live primaries are demoted first so at most one primary survives.
-export async function addEmail(
+/** What recording one email contributes to a batch. */
+export interface ComposedContactWrite<Id extends string> {
+  readonly id: Id;
+  readonly statements: SqlStatement[];
+}
+
+// Composes the rows one email writes without committing and without checking the entity: the
+// caller either checked it or is creating it in the same batch (person-record.ts).
+export function composeAddEmail(
   database: BatchDatabase,
   input: AddEmailInput,
   options: DirectoryWriteOptions,
-): Promise<DirectoryEmailId> {
-  await assertEntityExists(database, input.entityId);
+): ComposedContactWrite<DirectoryEmailId> {
   const { stored, normalized } = prepareAddress(input.address);
   const contactUse = input.contactUse ?? null;
   assertContactUse(contactUse);
@@ -133,6 +140,16 @@ export async function addEmail(
     }),
     directoryAuditStatement(database, options, "directory.email.added", emailId),
   );
+  return { id: emailId, statements };
+}
+
+export async function addEmail(
+  database: BatchDatabase,
+  input: AddEmailInput,
+  options: DirectoryWriteOptions,
+): Promise<DirectoryEmailId> {
+  await assertEntityExists(database, input.entityId);
+  const { id: emailId, statements } = composeAddEmail(database, input, options);
 
   return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
     statements,
