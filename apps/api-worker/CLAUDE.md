@@ -165,8 +165,10 @@ built in the background instead of streamed inline:
    can only ever read its own job — never another firm's by guessing a hash.
 
 **Per-firm isolation, artifact lifecycle, cost:** the manifest hash and the DO name are firm-scoped; the
-artifact lives in the firm's own bucket and is expired by a `bundles/` R2 lifecycle rule (the deploy
-runbook, section 8) — a regenerable cache, so expiry only forces a later rebuild. A Container
+artifact lives in the firm's own bucket and is expired by a `bundles/` R2 lifecycle rule, applied to
+that bucket at provisioning by `firm-resource-provider.ts` (the shared platform bucket's copy of the
+same rule is the deploy runbook's, section 8) — a regenerable cache, so expiry only forces a later
+rebuild. A Container
 escalation for outlier-large bundles is a named seam.
 
 ## Push progress — the hibernation WebSocket surface
@@ -226,9 +228,12 @@ and deploy, then add its id to `CONVERT_WORKER_ENGINE_IDS` — the id is what ac
 engine on, so it goes last (the worker answers 501 for an id it does not recognise, which fails the
 job as adapter-error).
 
-Still an operator step: **add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h) —
-conversion results are transient presigned-GET artifacts, and until the rule exists they accumulate
-([`docs/deploy-queue.md`](../../docs/deploy-queue.md)).
+Still an operator step **for the shared platform bucket**: add the R2 lifecycle rule expiring its
+`conversions/` prefix (~24 h) — conversion results are transient presigned-GET artifacts, and until
+the rule exists they accumulate ([`docs/deploy-queue.md`](../../docs/deploy-queue.md)). A firm's OWN
+bucket no longer needs the step: `firm-resource-provider.ts` applies the `bundles/` and
+`conversions/` expiries (and the abandoned-multipart abort) at provisioning, unconditionally on every
+run that reaches the bucket step.
 
 The dedicated-worker split is a cross-cutting decision shared with the scan, editing, and PDF-engine
 subsystems (search is the exception — its index is durable per-firm data), with `apps/scan-worker`

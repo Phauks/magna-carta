@@ -31,6 +31,7 @@ import {
 import { provisionNaturalLanguageInstance } from "../src/search/natural-language-lifecycle.ts";
 import { runNaturalLanguageKeepAliveSweep } from "../src/search/natural-language-keep-alive.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { seedFirmRow } from "./support/test-auth.ts";
 
 // THE MERGE GATE FOR THIS FEATURE, stated as one test: a firm that has never opted in produces no
 // feed object, no instance, and an `instance-not-provisioned` outcome from the port.
@@ -50,6 +51,7 @@ let firmId: FirmId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   firmId = newIdentifier("firm");
+  await seedFirmRow(firmId, "Natural Language Gates Firm");
   await seedMatter();
 });
 
@@ -264,6 +266,7 @@ describe("a firm that HAS opted in — the feed writer as a second consumer of o
     // the same untrusted document for a derived copy, and would let the two copies disagree about
     // what the document says with nothing comparing them. The call count is the assertion.
     const optedInFirmId = newIdentifier("firm");
+    await seedFirmRow(optedInFirmId);
     const optedInMatter = "matter_test0000000000000000010" as MatterId;
     const database = firmDatabaseFor(env.FIRM_DATABASE, optedInFirmId);
     const at = "2026-01-01T00:00:00.000Z";
@@ -355,6 +358,7 @@ describe("a firm that HAS opted in — the feed writer as a second consumer of o
 
   it("writes nothing for a matter the firm has excluded, with the firm gate still open", async () => {
     const optedInFirmId = newIdentifier("firm");
+    await seedFirmRow(optedInFirmId);
     const excludedMatter = "matter_test0000000000000000011" as MatterId;
     const database = firmDatabaseFor(env.FIRM_DATABASE, optedInFirmId);
     const at = "2026-01-01T00:00:00.000Z";

@@ -31,6 +31,7 @@ import {
 } from "$lib/matters/calendar-activity-contribution.ts";
 import { matterLifecycleActivityContribution } from "$lib/matters/matter-lifecycle-activity-contribution.ts";
 import { noteActivityContribution } from "$lib/matters/note-activity-contribution.ts";
+import { taskActivityContribution } from "$lib/matters/task-activity-contribution.ts";
 import { timeEntryActivityContribution } from "$lib/time/activity-contribution.ts";
 
 export const ACTIVITY_CONTRIBUTIONS: readonly ActivityContribution[] = Object.freeze([
@@ -41,6 +42,7 @@ export const ACTIVITY_CONTRIBUTIONS: readonly ActivityContribution[] = Object.fr
   documentActivityContribution,
   fileHistoryActivityContribution,
   noteActivityContribution,
+  taskActivityContribution,
   timeEntryActivityContribution,
   costEntryActivityContribution,
   conflictsCheckActivityContribution,

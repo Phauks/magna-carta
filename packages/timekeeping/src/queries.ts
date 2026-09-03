@@ -101,6 +101,7 @@ const TIME_ENTRY_RECORD_COLUMNS = [
   "time_entry.status",
   "time_entry.source",
   "time_entry.invoice_id",
+  "time_entry.task_id",
   "time_entry.memo",
   "time_entry.entry_number",
   "time_entry.created_at",
@@ -125,6 +126,7 @@ interface TimeEntryRecordRowRaw extends TimeEntryRowRaw {
   utbms_task_code_id: string | null;
   utbms_activity_code_id: string | null;
   invoice_id: string | null;
+  task_id: string | null;
   memo: string | null;
   entry_number: string | null;
   created_by: UserId | null;
@@ -146,6 +148,8 @@ export interface TimeEntryRecordItem extends TimeEntryListItem {
   readonly utbmsActivityCode: string | null;
   readonly utbmsActivityLabel: string | null;
   readonly invoiceId: string | null;
+  // The task this time was worked on, when the timekeeper named one. Null on most entries.
+  readonly taskId: string | null;
   readonly memo: string | null;
   readonly entryNumber: string | null;
   readonly createdByUserId: UserId | null;
@@ -165,6 +169,7 @@ function toTimeEntryRecordItem(row: TimeEntryRecordRowRaw): TimeEntryRecordItem 
     utbmsActivityCode: row.utbms_activity_code,
     utbmsActivityLabel: row.utbms_activity_label,
     invoiceId: row.invoice_id,
+    taskId: row.task_id,
     memo: row.memo,
     entryNumber: row.entry_number,
     createdByUserId: row.created_by,

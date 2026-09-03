@@ -20,6 +20,7 @@ export interface MatterFixture {
   responsibleAttorneyName: string;
   clientDisplayName: string | null;
   clientCode: string | null;
+  clientEntityId: string | null;
   eBilling: boolean;
   openedAt: string | null;
   closedAt: string | null;
@@ -68,6 +69,7 @@ export const matterFixtures: readonly MatterFixture[] = [
     locationName: "Reno",
     responsibleAttorneyName: "Eleanor Vance",
     clientDisplayName: "Ashcombe Mercantile LLC",
+    clientEntityId: null,
     clientCode: "ASH-01",
     eBilling: true,
     openedAt: "2026-02-11",
@@ -166,6 +168,7 @@ export const matterFixtures: readonly MatterFixture[] = [
     locationName: null,
     responsibleAttorneyName: "Priya Raghunathan",
     clientDisplayName: "Dorothea Whitmore",
+    clientEntityId: null,
     clientCode: null,
     eBilling: false,
     openedAt: null,
@@ -188,6 +191,7 @@ export const matterFixtures: readonly MatterFixture[] = [
     locationName: "Reno",
     responsibleAttorneyName: "Marcus Okafor",
     clientDisplayName: "Barrow Ridge Ranch Trust",
+    clientEntityId: null,
     clientCode: "BRR-02",
     eBilling: false,
     openedAt: "2024-05-06",

@@ -195,6 +195,14 @@ is usually the fastest way to understand the rule.
 
 ### Controls and patterns
 
+- **A destination opens beside the reader's work only through one gate, for a named reason.** A
+  link navigates in place; a new tab is the exception, and an exception each screen decides for
+  itself is how a product ends up with fifteen `target="_blank"`s in three spellings and no rule
+  anybody can state. Every opening beside the reader goes through `$lib/navigation/open-beside`,
+  naming why the destination cannot open in place from a closed set — it leaves the product, it is
+  a file, it is a separate working session, or it is opened from a surface holding unsaved work —
+  and a source scan refuses any other `_blank`. Adding a reason is a reviewed change to that file.
+  _(new matter, 2026-09-02)_
 - **A pane toggle is a quiet chrome affordance, and it ends the row.** Showing or hiding a details
   panel is not an act on the record, so it never wears a button's border or fill: it is the ghost
   icon control the file manager uses, reading its state through its glyph, and it sits last among a

@@ -462,6 +462,93 @@ const matterNoteSource: TimelineSource = {
   ],
 };
 
+// A task on the matter's history, sorted by WHEN IT IS DUE.
+//
+// Three things this source deliberately does not do.
+//
+// It declares the STATE as its label and nothing else — the matterDeadline precedent exactly. A task
+// title is free text on a matter ("Call Mrs. Herrera re the settlement offer") and this read spans
+// every matter a member can see; `open` / `done` says whether the firm still owes this without
+// saying what it is.
+//
+// OVERDUE IS NOT A KIND AND NOT A LABEL. It is a comparison against now, made where the reader is,
+// exactly as the deadline source declines to project it. Nothing here computes it and no column
+// holds it.
+//
+// And it carries only tasks that are ON a matter. A task's matter is nullable — firm work belongs to
+// no client file — and a matterless task has no matter to anchor its visibility to, so it is absent
+// from every matter's history by construction rather than by a filter somebody could relax. It is
+// read on the member's own list instead. Undated tasks fall out of the window conditions for the
+// same structural reason: a timeline is a walk over dates, and a task nobody has scheduled has none.
+const matterTaskSource: TimelineSource = {
+  key: "matterTask",
+  kinds: ["matterTask"],
+  visibilityAnchor: "matter",
+  timeColumnShape: "civilDate",
+  declaresLabel: true,
+  // "What is on my calendar" includes the tasks assigned to me. Resolved in SQL on the assignee
+  // rather than after the rows come back, for the reason the registry insists on: a post-filter
+  // under-fills the page and turns the page size into an existence oracle for the rows it removed.
+  supportsMemberFilter: true,
+  // A task's title and body are the words a member writing the matter's work chooses; the
+  // description sits behind the tasks read like the section it opens into.
+  permission: assertPermission("tasks:read"),
+  buildStatements: (request) => {
+    const window = civilDateWindowConditions(
+      "matter_task.due_on",
+      request.scope.fromDate,
+      request.scope.toDate,
+    );
+    const conditions = [...window.conditions];
+    const bindings = [...window.bindings];
+    // Cancelled tasks are excluded, on the documentFiled soft-delete precedent: work the firm
+    // decided against is not part of what happened on the case.
+    conditions.push("matter_task.state != 'cancelled'");
+    conditions.push("matter_task.matter_id IS NOT NULL");
+    if (request.scope.matterId !== undefined) {
+      conditions.push("matter_task.matter_id = ?");
+      bindings.push(request.scope.matterId);
+    }
+    if (request.scope.memberUserId !== undefined) {
+      conditions.push("matter_task.assignee_user_id = ?");
+      bindings.push(request.scope.memberUserId);
+    }
+    return [
+      boundedSelect(request.database, {
+        request,
+        from: "matter_task",
+        sortColumn: "matter_task.due_on",
+        idColumn: "matter_task.id",
+        matterExpression: "matter_task.matter_id",
+        kindExpression: "'matterTask'",
+        // Whose work it is, which is what a member filter narrows on and what a reader wants to see
+        // beside the entry. Null on a task nobody has picked up.
+        actorExpression: "matter_task.assignee_user_id",
+        labelExpression: "matter_task.state",
+        conditions,
+        bindings,
+      }),
+    ];
+  },
+  project: projectRow("matterTask", matterSectionLink("tasks")),
+  // Named by its title, with the facts that say whether the firm still owes it: the state, when it
+  // is due, how urgent, and whose it is. Overdue is the reader's comparison, never a stored fact.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: "matter_task",
+      idColumn: "matter_task.id",
+      matterExpression: "matter_task.matter_id",
+      titleExpression: "matter_task.title",
+      typeExpression: "NULL",
+      factsExpression:
+        "json_object('state', matter_task.state, 'dueOn', matter_task.due_on, " +
+        "'dueAtTime', matter_task.due_at_time, 'priority', matter_task.priority, " +
+        "'assigneeUserId', matter_task.assignee_user_id)",
+    }),
+  ],
+};
+
 // Time and cost entries are the densest sources in the platform by row count and would dominate an
 // unfiltered timeline. They are REGISTERED rather than omitted, so a firm that wants them can have
 // them, and a calendar surface defaults them off through the ordinary kind filter — which is a user
@@ -1053,6 +1140,7 @@ export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   documentFiledSource,
   fileHistorySource,
   matterNoteSource,
+  matterTaskSource,
   timeEntrySource,
   costEntrySource,
   conflictsCheckSource,

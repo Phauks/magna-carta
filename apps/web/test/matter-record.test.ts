@@ -31,6 +31,7 @@ const liveBody = {
   locationId: null,
   responsibleMemberId: "user_01",
   clientDisplayName: "Marchetti Family Trust",
+  clientEntityId: null,
   clientCode: "MAR-01",
   matterNumber: "2026-0301",
 };

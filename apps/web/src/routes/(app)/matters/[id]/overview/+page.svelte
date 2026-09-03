@@ -10,7 +10,10 @@
   import * as Card from "@magna-carta/design-system/card";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import EntityIdentity, { type EntityKind } from "@magna-carta/design-system/entity-identity";
   import ActivityRegister from "$lib/activity/activity-register.svelte";
+  import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
+  import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
   import { matterStatusLabel } from "$lib/matters/matter-status.ts";
 
@@ -21,11 +24,25 @@
   interface KeyFact {
     label: string;
     value: string;
+    /**
+     * The directory record this fact names, where it names one; the value then opens it. Carried
+     * only when the handle's kind can be read: a handle nobody can classify is shown as the name
+     * alone, because the dashed mark would say something about the record that is only true of
+     * the identifier.
+     */
+    entity?: { id: string; kind: EntityKind };
   }
 
   /* Null facts are omitted rather than rendered as gaps; the matter number is the one null with a
    * meaning of its own. A consultation has a number — its own, tentative one — so the fact names
    * which sequence the number came from rather than presenting it as a matter number. */
+  const clientEntity = $derived.by((): { id: string; kind: EntityKind } | null => {
+    const id = matter.clientEntityId;
+    if (id === null) return null;
+    const kind = entityKindFromIdentifier(id);
+    return kind === null ? null : { id, kind };
+  });
+
   const keyFacts: KeyFact[] = $derived.by(() => {
     const facts: KeyFact[] = [
       matter.matterNumber !== null
@@ -53,6 +70,9 @@
         value: matter.clientCode
           ? `${matter.clientDisplayName} (${matter.clientCode})`
           : matter.clientDisplayName,
+        // The client is a directory record where the matter links one; the fact then opens it.
+        // A matter that carries only a display name shows the name and nothing to open.
+        ...(clientEntity === null ? {} : { entity: clientEntity }),
       });
     }
     if (matter.openedAt) {
@@ -96,7 +116,17 @@
           >
             {fact.label}
           </dt>
-          <dd class="text-sm">{fact.value}</dd>
+          <dd class="text-sm">
+            {#if fact.entity !== undefined}
+              <EntityIdentity
+                kind={fact.entity.kind}
+                name={fact.value}
+                href={entityRecordHref(fact.entity.id)}
+              />
+            {:else}
+              {fact.value}
+            {/if}
+          </dd>
         </div>
       {/each}
     </dl>

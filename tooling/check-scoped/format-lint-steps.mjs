@@ -16,10 +16,15 @@ export function formatAndLintSteps(files) {
   const { scripts, lintOnly } = partitionByTool(files);
   const steps = [];
   if (scripts.length > 0) {
+    // `--no-error-on-unmatched-pattern` here too: the formatter has its own ignore list (the generated
+    // OpenAPI client, the token output, the drizzle snapshots — vite.config.ts `ignorePatterns`), and
+    // a change whose script files are ALL on it — a `pnpm run generate-client` and nothing else —
+    // leaves the formatter with no target, which `vp check` reports as a failure before any analysis
+    // runs. Nothing to format is not a failure, exactly as nothing to lint is not one below.
     steps.push({
       name: `fmt + lint (${scripts.length} script file(s))`,
       cmd: "vp",
-      args: ["check", ...scripts],
+      args: ["check", "--no-error-on-unmatched-pattern", ...scripts],
     });
   }
   if (lintOnly.length > 0) {

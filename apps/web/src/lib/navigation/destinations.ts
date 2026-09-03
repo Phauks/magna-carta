@@ -47,6 +47,7 @@ import Wrench from "@lucide/svelte/icons/wrench";
 import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import Sparkles from "@lucide/svelte/icons/sparkles";
+import ListChecks from "@lucide/svelte/icons/list-checks";
 
 export type DestinationGroup = "top" | "money" | "firm";
 
@@ -159,6 +160,21 @@ export const DESTINATIONS: readonly Destination[] = [
     defaultStarred: true,
   },
   {
+    // The member's own work, across every matter they can see plus their own tasks on no matter.
+    // It sits in the workspace group beside Notifications rather than under a matter, because "what
+    // is on my plate" is a question about the person and not about any one case — and a task list
+    // somebody has to go looking for inside each matter is a task list nobody looks at.
+    id: "my-work",
+    label: "My Work",
+    href: "/tasks",
+    icon: ListChecks,
+    description: "Every task with your name on it, across your matters and the firm's own work.",
+    group: "top",
+    shipped: true,
+    stage: "alpha",
+    defaultStarred: true,
+  },
+  {
     // Magnus — the Magna Carta assistant. It will converse inside a matter and around the
     // app, but this is its always-reachable home: one sidebar entry, easy to find at all
     // times (owner-directed). A stub only until the assistant ships.
@@ -219,9 +235,9 @@ export const DESTINATIONS: readonly Destination[] = [
     defaultStarred: true,
   },
   {
-    id: "contacts",
+    id: "directory",
     label: "Directory",
-    href: "/contacts",
+    href: "/directory",
     icon: Users,
     description: "Clients, parties, counsel, and courts in one book.",
     group: "top",

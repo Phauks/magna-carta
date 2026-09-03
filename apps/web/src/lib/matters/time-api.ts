@@ -81,6 +81,11 @@ export interface TimeEntrySummary {
   createdByName?: string | null;
   /** How many of the matter's documents this entry points at. */
   attachmentCount?: number;
+  /**
+   * The task this time was worked on, where the timekeeper named one. Null on most entries, and
+   * always a task on this entry's own matter — the server refuses any other.
+   */
+  taskId?: string | null;
 }
 
 /**

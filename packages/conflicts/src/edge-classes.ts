@@ -26,10 +26,31 @@ export type EdgeClass = (typeof EDGE_CLASSES)[number];
 //                    hop and unbounded in practice, which is what the budget is for.
 //   family         — the opposing party's spouse the firm represented elsewhere.
 //   representation — a role-link recorded as an edge rather than as a matter_party row.
+//
+// The membership family is classed `control` whole for now — the officers who can bind the
+// organization AND the employees, members and shareholders who cannot — because the class a
+// constituent belongs in is a budget question for the conflicts pass that has not happened yet:
+// a fifth, tighter `constituent` class needs its own default in settings, its own row in the
+// recorded scope, and the check runner's budget field, and none of those exists. Until it does,
+// over-inclusion is the safe direction: every constituent is walked at the control budget, so no
+// conflict the engine looked for before goes unlooked for. A point of contact is a constituent
+// too, and lands in the same class for the same reason.
 export const EDGE_TYPES_BY_CLASS: Readonly<Record<EdgeClass, readonly string[]>> = Object.freeze({
   corporate: ["corporate_parent", "corporate_subsidiary", "corporate_successor"],
-  control: ["affiliation"],
-  family: ["relationship"],
+  control: [
+    "affiliation",
+    "officer_of",
+    "director_of",
+    "partner_of",
+    "trustee_of",
+    "personal_representative_of",
+    "agent_of",
+    "employment",
+    "member_of",
+    "shareholder_of",
+    "point_of_contact_for",
+  ],
+  family: ["relationship", "beneficiary_of", "guardian_of"],
   representation: ["representation", "role_assignment"],
 });
 

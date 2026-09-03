@@ -3904,6 +3904,14 @@
               "string",
               "null"
             ]
+          },
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$",
+            "description": "The directory entity the firm acts for. Given, the client's party link is written in the same batch as the matter, so billing, trust and the conflicts check find the client from the day the matter exists. The display name still travels beside it as the denormalized caption."
           }
         },
         "required": [
@@ -3941,6 +3949,12 @@
           },
           "title": {
             "type": "string"
+          },
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "type": "string",
@@ -3990,6 +4004,7 @@
         "required": [
           "id",
           "title",
+          "clientEntityId",
           "status",
           "matterTypeId",
           "locationId",
@@ -4108,6 +4123,12 @@
               "null"
             ]
           },
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "matterNumber": {
             "type": [
               "string",
@@ -4167,6 +4188,7 @@
           "responsibleMemberId",
           "clientDisplayName",
           "clientCode",
+          "clientEntityId",
           "matterNumber",
           "consultationNumber",
           "eBilling",
@@ -7965,7 +7987,19 @@
               "corporate_subsidiary",
               "corporate_successor",
               "representation",
-              "role_assignment"
+              "role_assignment",
+              "officer_of",
+              "director_of",
+              "partner_of",
+              "trustee_of",
+              "personal_representative_of",
+              "agent_of",
+              "employment",
+              "member_of",
+              "shareholder_of",
+              "beneficiary_of",
+              "guardian_of",
+              "point_of_contact_for"
             ]
           },
           "role": {
@@ -12397,6 +12431,1143 @@
           "actorUserId",
           "sortKey",
           "link"
+        ]
+      },
+      "MatterTaskPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskDetail"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "MatterTaskDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "assigneeUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent"
+            ]
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dueAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "done",
+              "cancelled"
+            ]
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelledAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelledBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancellationReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "blockedByTaskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triggerEventId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deadlineId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskDocument"
+            }
+          },
+          "updatedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "externalLinks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskExternalLink"
+            }
+          },
+          "timeLogged": {
+            "$ref": "#/components/schemas/MatterTaskTimeLogged"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "title",
+          "body",
+          "assigneeUserId",
+          "createdBy",
+          "priority",
+          "dueOn",
+          "dueAtTime",
+          "timeZone",
+          "state",
+          "completedAt",
+          "completedBy",
+          "cancelledAt",
+          "cancelledBy",
+          "cancellationReason",
+          "blockedByTaskId",
+          "triggerEventId",
+          "deadlineId",
+          "documents",
+          "updatedBy",
+          "externalLinks",
+          "timeLogged",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "MatterTaskDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkedAt": {
+            "type": "string"
+          },
+          "linkedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "fileId",
+          "fileName",
+          "contentType",
+          "linkedAt",
+          "linkedBy"
+        ]
+      },
+      "MatterTaskExternalLink": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "system": {
+            "type": "string"
+          },
+          "externalId": {
+            "type": "string"
+          },
+          "externalUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "remoteRevision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSyncedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "system",
+          "externalId",
+          "externalUrl",
+          "remoteRevision",
+          "lastSyncedAt"
+        ]
+      },
+      "MatterTaskTimeLogged": {
+        "type": "object",
+        "properties": {
+          "billableMinutes": {
+            "type": "integer"
+          },
+          "nonBillableMinutes": {
+            "type": "integer"
+          },
+          "entryCount": {
+            "type": "integer"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "firm",
+              "own"
+            ]
+          }
+        },
+        "required": [
+          "billableMinutes",
+          "nonBillableMinutes",
+          "entryCount",
+          "scope"
+        ]
+      },
+      "MatterTaskChangePage": {
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskDetail"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskDeletion"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "changed",
+          "deleted",
+          "nextCursor"
+        ]
+      },
+      "MatterTaskDeletion": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deletedAt": {
+            "type": "string"
+          },
+          "deletedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "taskId",
+          "matterId",
+          "deletedAt",
+          "deletedBy"
+        ]
+      },
+      "MatterTaskExternalLookup": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "taskId"
+        ]
+      },
+      "CreatedMatterTaskExternalLink": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "LinkMatterTaskRequest": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The outside system, in whatever the addon calls itself — never an enum here, because adding one is the point. Matched case-insensitively: 'ClickUp' and 'clickup' are one system."
+          },
+          "externalId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "The remote's own handle for the object. Opaque: this platform never parses it, never orders by it, and never assumes a shape."
+          },
+          "externalUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          },
+          "remoteRevision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512,
+            "description": "What the remote looked like when the two sides last agreed — a vendor revision token, an ETag, a timestamp they minted. Stored and handed back, never compared for order."
+          },
+          "lastSyncedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "system",
+          "externalId"
+        ]
+      },
+      "MatterTaskAcknowledged": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "RecordMatterTaskSyncRequest": {
+        "type": "object",
+        "properties": {
+          "externalUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          },
+          "remoteRevision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "syncedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CreatedMatterTask": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CreateMatterTaskRequest": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          },
+          "assigneeUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20000
+          },
+          "priority": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent",
+              null
+            ]
+          },
+          "blockedByTaskId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+          },
+          "triggerEventId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterEvent_[A-Za-z0-9_-]{21}$"
+          },
+          "deadlineId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterDeadline_[A-Za-z0-9_-]{21}$"
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "dueAtTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "matterId",
+          "title"
+        ]
+      },
+      "EditMatterTaskRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20000
+          },
+          "priority": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent",
+              null
+            ]
+          },
+          "blockedByTaskId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+          },
+          "triggerEventId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterEvent_[A-Za-z0-9_-]{21}$"
+          },
+          "deadlineId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterDeadline_[A-Za-z0-9_-]{21}$"
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "dueAtTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "ReassignMatterTaskRequest": {
+        "type": "object",
+        "properties": {
+          "assigneeUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "assigneeUserId"
+        ]
+      },
+      "CancelMatterTaskRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "AttachMatterTaskDocumentRequest": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "fileId"
+        ]
+      },
+      "MatterPlanTemplateList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterPlanTemplate"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MatterPlanTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterPlanTaskTemplate"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "matterTypeId",
+          "active",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "MatterPlanTaskTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent"
+            ]
+          },
+          "defaultAssigneeRole": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dueAnchor": {
+            "type": "string",
+            "enum": [
+              "matter_opened",
+              "none"
+            ]
+          },
+          "offsetDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "blockedByTemplateTaskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "body",
+          "priority",
+          "defaultAssigneeRole",
+          "dueAnchor",
+          "offsetDays",
+          "blockedByTemplateTaskId",
+          "position"
+        ]
+      },
+      "CreatedMatterPlan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "MatterPlanTemplateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterType_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "name",
+          "matterTypeId"
+        ]
+      },
+      "MatterPlanAcknowledged": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "MatterPlanTaskTemplateRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20000
+          },
+          "priority": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent",
+              null
+            ]
+          },
+          "defaultAssigneeRole": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "dueAnchor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "matter_opened",
+              "none",
+              null
+            ]
+          },
+          "offsetDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "blockedByTemplateTaskId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterPlanTaskTemplate_[A-Za-z0-9_-]{21}$"
+          },
+          "position": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "MatterPlanProposal": {
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProposedMatterPlanTask"
+            }
+          },
+          "anchorUnavailable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "templateId",
+          "templateName",
+          "matterId",
+          "tasks",
+          "anchorUnavailable"
+        ]
+      },
+      "ProposedMatterPlanTask": {
+        "type": "object",
+        "properties": {
+          "taskTemplateId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent"
+            ]
+          },
+          "dueAnchor": {
+            "type": "string",
+            "enum": [
+              "matter_opened",
+              "none"
+            ]
+          },
+          "offsetDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "defaultAssigneeRole": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "assigneeUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "blockedByTemplateTaskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "taskTemplateId",
+          "title",
+          "body",
+          "priority",
+          "dueAnchor",
+          "offsetDays",
+          "dueOn",
+          "timeZone",
+          "defaultAssigneeRole",
+          "assigneeUserId",
+          "blockedByTemplateTaskId",
+          "position"
+        ]
+      },
+      "AcceptedMatterPlanTasks": {
+        "type": "object",
+        "properties": {
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "taskIds"
+        ]
+      },
+      "AcceptMatterPlanRequest": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "taskTemplateId": {
+                  "type": "string",
+                  "pattern": "^matterPlanTaskTemplate_[A-Za-z0-9_-]{21}$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "body": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 20000
+                },
+                "priority": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "low",
+                    "normal",
+                    "high",
+                    "urgent",
+                    null
+                  ]
+                },
+                "dueOn": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "dueAtTime": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                "timeZone": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "assigneeUserId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^user_[A-Za-z0-9_-]{21}$"
+                }
+              },
+              "required": [
+                "taskTemplateId"
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "accepted"
         ]
       },
       "CustodyLocation": {
@@ -25439,6 +26610,14 @@
             ],
             "exclusiveMinimum": 0
           },
+          "taskId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterTask_[A-Za-z0-9_-]{21}$",
+            "description": "The task this time was worked on. Must be a task on this same matter: a task on another matter, or on no matter at all, is refused. One task per entry — time that served two tasks is recorded as two entries."
+          },
           "memo": {
             "type": [
               "string",
@@ -25610,6 +26789,12 @@
               "null"
             ]
           },
+          "taskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "memo": {
             "type": [
               "string",
@@ -25665,6 +26850,7 @@
           "status",
           "source",
           "invoiceId",
+          "taskId",
           "memo",
           "entryNumber",
           "createdAt",
@@ -25841,6 +27027,14 @@
               "null"
             ],
             "pattern": "^utbmsCode_[A-Za-z0-9_-]{21}$"
+          },
+          "taskId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterTask_[A-Za-z0-9_-]{21}$",
+            "description": "The task this time was worked on. Null unlinks it; absent leaves it unchanged. A task named here must be on the entry's own matter."
           },
           "memo": {
             "type": [
@@ -26601,6 +27795,7 @@
             "enum": [
               "deadlines",
               "calendar",
+              "tasks",
               "trust",
               "billing",
               "documents",
@@ -26802,6 +27997,7 @@
             "enum": [
               "deadlines",
               "calendar",
+              "tasks",
               "trust",
               "billing",
               "documents",
@@ -26886,6 +28082,7 @@
             "enum": [
               "deadlines",
               "calendar",
+              "tasks",
               "trust",
               "billing",
               "documents",
@@ -26953,6 +28150,34 @@
                 }
               },
               "calendar": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "tasks": {
                 "type": "object",
                 "properties": {
                   "inApp": {
@@ -27299,6 +28524,7 @@
             "enum": [
               "deadlines",
               "calendar",
+              "tasks",
               "trust",
               "billing",
               "documents",
@@ -27375,6 +28601,34 @@
                 }
               },
               "calendar": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "tasks": {
                 "type": "object",
                 "properties": {
                   "inApp": {
@@ -55087,6 +56341,3332 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/tasks": {
+      "get": {
+        "description": "The matter's tasks. Ordered by due date with the undated last, then by priority, so the list reads as what is due next. Each carries the documents it points at. Whether a task is overdue is a comparison against now, made where it is read; no field here states it.",
+        "operationId": "tasks.listMatterTasks",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.listMatterTasks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated states to include: open, done, cancelled."
+            },
+            "required": false,
+            "description": "Comma-separated states to include: open, done, cancelled.",
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated priorities to include: low, normal, high, urgent."
+            },
+            "required": false,
+            "description": "Comma-separated priorities to include: low, normal, high, urgent.",
+            "name": "priority",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "assigneeUserId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "dueFrom",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "dueTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of tasks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks": {
+      "get": {
+        "description": "Every task this member can reach, across the matters they can see and their own work on no matter. Filter by assignee to get one person's list. Tasks on closed matters are left out unless asked for: closing a matter changes no task, so this is a filter and reopening the matter brings them back.",
+        "operationId": "tasks.listMyTasks",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.listMyTasks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated states to include: open, done, cancelled."
+            },
+            "required": false,
+            "description": "Comma-separated states to include: open, done, cancelled.",
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated priorities to include: low, normal, high, urgent."
+            },
+            "required": false,
+            "description": "Comma-separated priorities to include: low, normal, high, urgent.",
+            "name": "priority",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "assigneeUserId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "dueFrom",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "dueTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "description": "Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than cancelled, and reopening the matter brings them back with no backfill."
+            },
+            "required": false,
+            "description": "Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than cancelled, and reopening the matter brings them back with no backfill.",
+            "name": "includeClosedMatters",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of tasks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a task. Give a matter to put it on a case, or null for the firm's own work — renewing a policy, interviewing a candidate — which is visible to you and whoever you assign it to. Assigning it to somebody else at creation requires the assign permission as well.",
+        "operationId": "tasks.createTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.createTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMatterTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMatterTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/changes": {
+      "get": {
+        "description": "What moved since the cursor: tasks that changed and tasks that were deleted, oldest first. The deletions come from a tombstone written in the same batch as the delete, because a row that is gone cannot be enumerated afterwards. Visibility applies to the changed tasks exactly as it does to any other task read, so this is not a back door. Each caller keeps its own cursor; the token is opaque and a malformed one replays from the beginning rather than failing.",
+        "operationId": "tasks.readTaskChanges",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.readTaskChanges",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskChangePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/external-lookup": {
+      "get": {
+        "description": "Which task, if any, corresponds to an object in an outside system. The lookup an addon makes before it creates anything, so a replayed sync does not produce a second task. A null taskId means either no correspondence exists or the caller cannot see the task it names — the two are deliberately indistinguishable.",
+        "operationId": "tasks.lookupExternalTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.lookupExternalTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "required": true,
+            "name": "system",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "required": true,
+            "name": "externalId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The corresponding task, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskExternalLookup"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/external-links": {
+      "post": {
+        "description": "Record that this task IS an object in an outside system. One remote object maps to at most one task, and one task holds at most one identity per system; both are unique indexes rather than service checks, because a race between two syncs is the case a check loses.",
+        "operationId": "tasks.linkExternalTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.linkExternalTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkMatterTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMatterTaskExternalLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/task-external-links/{linkId}": {
+      "patch": {
+        "description": "What an addon writes after a round trip: where it lives now, what the remote looked like when the two sides agreed, and when. The identity itself is immutable — changing what a task mirrors is unlink then link, so both acts land in the audit trail.",
+        "operationId": "tasks.recordExternalSync",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.recordExternalSync",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTaskExternalLink_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "linkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordMatterTaskSyncRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Stop mirroring. The task is untouched: unlinking is a statement about the correspondence and never about the work, so nothing here completes, cancels or deletes anything.",
+        "operationId": "tasks.unlinkExternalTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.unlinkExternalTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTaskExternalLink_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "linkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unlinked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}": {
+      "patch": {
+        "description": "Changes a task's title, body, priority, due date and links. The task is edited in place and the previous values are not kept — a task says what to do now. Who it is assigned to is not changed here; that is its own operation.",
+        "operationId": "tasks.editTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.editTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditMatterTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The task was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes a task outright, for one that should not exist: a typo, a duplicate, a line somebody abandoned. Anything waiting on it stops waiting. Documents it pointed at are untouched and stay in the matter's files. Where the firm decided not to do real work, cancel it instead.",
+        "operationId": "tasks.deleteTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.deleteTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task was deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/assignee": {
+      "put": {
+        "description": "Puts the task in a member's name, or takes it out of everybody's with null. The member must be able to see the task's matter: a task somebody cannot open is a hole in their list. Moving a task does not move its due date, even across offices in different time zones.",
+        "operationId": "tasks.reassignTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.reassignTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:assign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReassignMatterTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The task was reassigned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/completion": {
+      "post": {
+        "description": "Marks the task done, recording who did it and when. A task that waits on another may be completed out of order: the sequence is guidance, not a gate.",
+        "operationId": "tasks.completeTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.completeTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task was completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Puts a completed or cancelled task back on the list. The completion and cancellation details are cleared from the task, and that it was closed and reopened stays in the firm's audit log.",
+        "operationId": "tasks.reopenTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.reopenTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task was reopened",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/cancellation": {
+      "post": {
+        "description": "Records that the firm decided not to do the work, with the reason why. Different from deleting: a cancelled task stays on the matter as a decision that was taken. Delete the task instead where it should never have existed.",
+        "operationId": "tasks.cancelTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.cancelTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelMatterTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The task was cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/documents": {
+      "post": {
+        "description": "Points the task at one of its matter's documents. The document is not moved or copied — it stays in the matter's files with its versions and holds intact. A task on no matter cannot point at a document, because every document in the firm belongs to a matter.",
+        "operationId": "tasks.attachTaskDocument",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.attachTaskDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachMatterTaskDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMatterTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/task-documents/{attachmentId}": {
+      "delete": {
+        "description": "Ends the association between a task and a document. The document is untouched and stays in the matter's files.",
+        "operationId": "tasks.detachTaskDocument",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.detachTaskDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTaskDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "attachmentId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link was removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matter-plans": {
+      "get": {
+        "description": "The firm's matter plans. Deactivated plans are left out unless asked for; a plan is never deleted, because tasks accepted from it name it and a firm asking which matters came off the old intake plan needs it to still be there.",
+        "operationId": "matterPlans.listPlans",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.listPlans",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:managePlans",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "includeInactive",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm's plans",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPlanTemplateList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a plan. Bind it to a matter type to offer it when a matter of that kind opens, or leave the type null to offer it on every matter. A new plan proposes nothing until you add steps to it.",
+        "operationId": "matterPlans.createPlan",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.createPlan",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:managePlans",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterPlanTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMatterPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matter-plans/{planId}": {
+      "get": {
+        "description": "One plan and the tasks it proposes, in the order it proposes them.",
+        "operationId": "matterPlans.readPlan",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.readPlan",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:managePlans",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterPlanTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPlanTemplate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Changes a plan's name, description, or the matter type it is offered on. Tasks already accepted from this plan onto a matter are NOT touched and never will be: they were reviewed and accepted as they stood, and changing a plan does not reach into open matters.",
+        "operationId": "matterPlans.editPlan",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.editPlan",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:managePlans",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterPlanTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterPlanTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The plan was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPlanAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matter-plans/{planId}/active": {
+      "put": {
+        "description": "Stops a plan being offered, or offers it again. Deactivating changes no matter and no task; it only stops the plan appearing when a new matter of its type opens.",
+        "operationId": "matterPlans.setPlanActive",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.setPlanActive",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:managePlans",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterPlanTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "active"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The plan's availability was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPlanAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matter-plans/{planId}/steps": {
+      "post": {
+        "description": "Adds a step to a plan. A step carries a due-date ANCHOR and a number of days rather than a date, and a ROLE rather than a member, because both are resolved against the matter when the plan is proposed. The days are plain calendar days: no weekend skip and no holiday calendar, so a step can propose a date that falls on a Sunday and the person reviewing it moves it.",
+        "operationId": "matterPlans.addPlanStep",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.addPlanStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:managePlans",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterPlanTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterPlanTaskTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The step",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMatterPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matter-plan-steps/{stepId}": {
+      "patch": {
+        "description": "Changes a step. Every field is replaced, so send the ones to keep as well. Tasks already accepted from this step are not touched.",
+        "operationId": "matterPlans.editPlanStep",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.editPlanStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:managePlans",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterPlanTaskTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stepId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterPlanTaskTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The step was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPlanAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes a step from a plan. Any step that waited on it stops waiting. Tasks already accepted from it onto a matter are untouched.",
+        "operationId": "matterPlans.removePlanStep",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.removePlanStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:managePlans",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterPlanTaskTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stepId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The step was removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPlanAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/plans": {
+      "get": {
+        "description": "The plans offered on this matter: those bound to its type, plus those bound to no type at all. Reading this writes nothing.",
+        "operationId": "matterPlans.listOffered",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.listOffered",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The plans offered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPlanTemplateList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/plans/{planId}/proposal": {
+      "get": {
+        "description": "What this plan would put on this matter: each step with the date it computes from the matter's opened day and the member its role resolves to. NOTHING IS WRITTEN. A step whose role matches nobody on the matter comes back named but unassigned, and a step the matter cannot date comes back with no date rather than one computed from today.",
+        "operationId": "matterPlans.propose",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.propose",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterPlanTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the plan proposes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPlanProposal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/plans/{planId}/acceptance": {
+      "post": {
+        "description": "Puts the steps you kept onto the matter as tasks, in one go. Send only what you kept, each as you left it: a date you changed, a member you filled in. Anything you leave out takes what the proposal offered. Declining a plan needs no request at all — it is simply not sending this one.",
+        "operationId": "matterPlans.accept",
+        "tags": [
+          "matterPlans"
+        ],
+        "x-mc-operationId": "matterPlans.accept",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterPlans"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterPlanTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptMatterPlanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The tasks that were added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedMatterPlanTasks"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the plan is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -82857,6 +87437,7 @@
               "enum": [
                 "deadlines",
                 "calendar",
+                "tasks",
                 "trust",
                 "billing",
                 "documents",
@@ -87001,6 +91582,9 @@
       "name": "matterAssets"
     },
     {
+      "name": "matterPlans"
+    },
+    {
       "name": "matterSearch"
     },
     {
@@ -87086,6 +91670,9 @@
     },
     {
       "name": "supportSessions"
+    },
+    {
+      "name": "tasks"
     },
     {
       "name": "templates"

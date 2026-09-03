@@ -32,6 +32,7 @@ import { selectMatterStatement } from "@magna-carta/matters/matter-statements";
 import type { EmailMessageId, MatterId } from "@magna-carta/identifiers/types";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -602,7 +603,9 @@ export function registerEmailsRoutes(
       const stagedR2Key = `emails/staging/${jobId}`;
       // Staged mail carries no matter even when the caller named one: what is filed onto a matter is
       // the captured message record, and the staged bytes are consumed and dropped by the capture.
-      await c.env.R2.put(stagedR2Key, bytes, {
+      // Written through the same seam the capture consumer reads back through, on the bucket name the
+      // message below carries — the staging PUT and the consumer GET can never name two buckets.
+      await resolveFirmBucket(c.env, firm.bucketName).bucket.put(stagedR2Key, bytes, {
         customMetadata: firmScopedObjectDimensions("email-staging"),
       });
       const message: EmailsCaptureMessage = {
