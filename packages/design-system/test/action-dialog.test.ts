@@ -68,6 +68,13 @@ describe("what a kind of ask implies", () => {
     expect(traitsOf("reading").dismissOnPressOutside).toBe(true);
   });
 
+  it("offers to fill the screen only where there is something to gain from the room", () => {
+    expect(traitsOf("form").expandable).toBe(true);
+    expect(traitsOf("reading").expandable).toBe(true);
+    expect(traitsOf("confirm").expandable).toBe(false);
+    expect(traitsOf("destructive").expandable).toBe(false);
+  });
+
   it("answers every kind, so a new one cannot be added without deciding what it implies", () => {
     for (const kind of EVERY_KIND) expect(traitsOf(kind)).toBeDefined();
   });
