@@ -44,7 +44,10 @@ test("names a person and an organization from one call over both node tables", a
 });
 
 test("falls back to the name parts, and to the legal name, when no display name is stored", async () => {
-  const names = await readEntityDisplayNames(seeded(), [PERSON_PARTS_ONLY, ORGANIZATION_LEGAL_ONLY]);
+  const names = await readEntityDisplayNames(seeded(), [
+    PERSON_PARTS_ONLY,
+    ORGANIZATION_LEGAL_ONLY,
+  ]);
   expect(names.get(PERSON_PARTS_ONLY)?.displayName).toBe("Ines Herrera");
   expect(names.get(ORGANIZATION_LEGAL_ONLY)?.displayName).toBe("Marchetti Capital Partners");
 });

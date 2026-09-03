@@ -30,18 +30,18 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 278 | 43% |
-| Part-built | partial, in-build | 119 | 19% |
+| Done | shipped | 279 | 43% |
+| Part-built | partial, in-build | 118 | 18% |
 | Ahead | designed, planned, researching, not-started | 207 | 32% |
-| Parked | deferred, cut | 41 | 6% |
+| Parked | deferred, cut | 41 | 7% |
 | **All units of work** | | **645** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 278 | 43% |
-| `partial` | 118 | 18% |
+| `shipped` | 279 | 43% |
+| `partial` | 117 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 3% |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 278 of 645 (43%). Shipped plus partial is 396 (61%).**
+**Shipped alone is 279 of 645 (43%). Shipped plus partial is 396 (61%).**
 
-The 118 units between those two numbers are work that is engineered and paid for and is not
+The 117 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -100,7 +100,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 11 | 45% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
-| Conflicts Check | 4 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 50% |
+| Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
 | Core Domain — Directory, Matters & Locations | 32 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 52% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 17 | 65% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **278** | **118** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **645** | **43%** |
+| **All areas** | **279** | **117** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **645** | **43%** |
 
 ## Where we have been
 
@@ -583,7 +583,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 50% shipped. 4 done, 4 part-built, 0 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 63% shipped. 5 done, 3 part-built, 0 ahead, 0 parked.
 
 - `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
@@ -594,7 +594,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `conflicts.firm-wide-scope` · `shipped` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph. _Note: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph._
   - `conflicts.clearance` · `shipped` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected. _Note: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything._
   - `conflicts.log` · `shipped` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log. _Note: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it._
-  - `conflicts.read-surface` · `partial` · **Reading the log back** — The reads the conflicts screens are built against — naming the party a hit is about, the full adjudication trail, the firm's own policy floor, the checks a firm has run, an earlier answer about the same party, and asking for a re-check on demand. _Note: PARTIAL because one read remains — a re-surfaced hit's earlier conclusion._
+  - `conflicts.read-surface` · `shipped` · **Reading the log back** — The reads the conflicts screens are built against — naming the party a hit is about, the full adjudication trail, the firm's own policy floor, the checks a firm has run, an earlier answer about the same party, and asking for a re-check on demand. _Note: The sixth read closed the register: readPriorConclusions carries an earlier check's answer about the same party onto a hit as `previouslyAnswered`, a field deliberately separate from `disposition` so the hit stays UNANSWERED — the owner's ruling of 2026-09-02, decided on the case where a company cleared as a former client re-surfaces as a current client's subsidiary, which is a different question on a higher bar. It needed conflicts_hit_entity_created_index: conflicts_hit carried only (check_id), so matching a party across earlier checks scanned an append-only table. What remains on conflicts-gaps.ts is the assembled report document, which is its own work._
 
 ### Core Domain — Directory, Matters & Locations
 

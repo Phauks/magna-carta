@@ -645,6 +645,13 @@
       "when": 1788432400000,
       "tag": "20260903T010000_conflicts-check-history-index",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "6",
+      "when": 1788436000000,
+      "tag": "20260903T020000_conflicts-hit-entity-index",
+      "breakpoints": true
     }
   ]
 }

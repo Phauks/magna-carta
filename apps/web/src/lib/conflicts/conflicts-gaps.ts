@@ -24,11 +24,6 @@ export interface ConflictsGap {
 }
 
 export const CONFLICTS_GAPS = {
-  previouslyConcluded: {
-    field: "Previously Concluded",
-    waitsOn:
-      "a read that matches a re-surfaced hit against the conclusion an earlier check's identical hit already carries",
-  },
   reportDocument: {
     field: "Assembled Report",
     waitsOn: "the conflicts report being assembled as a filed document rather than a printed sheet",

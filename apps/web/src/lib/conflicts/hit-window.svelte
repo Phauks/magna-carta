@@ -43,6 +43,7 @@
   } from "./conflicts-api.ts";
   import {
     adjudicationSummary,
+    dispositionVocabulary,
     edgeTypeLabel,
     evidenceTier,
     pathSummary,
@@ -200,6 +201,35 @@
             {/if}
           </dd>
         </div>
+        {#if hit.previouslyAnswered !== null}
+          <!--
+            CONTEXT, and never this hit's answer. The firm has said something about this party
+            before; whether it answers THIS question is the reviewer's judgment, not the machine's.
+            The case that decides it: a company cleared as a FORMER client can re-surface as the
+            subsidiary of a CURRENT one — same party, a different question, on a higher bar. So the
+            hit stays unanswered, nothing is pre-filled, and the earlier check is linked so a
+            reviewer can read it rather than take this line's word for it.
+          -->
+          <div class="flex items-baseline justify-between gap-16">
+            <dt class="text-text-muted">Answered Before</dt>
+            <dd class="flex flex-wrap justify-end gap-x-8 text-right">
+              <span>
+                {dispositionVocabulary(hit.previouslyAnswered.kind).label} on
+                {formatInstant(hit.previouslyAnswered.createdAt)}
+              </span>
+              <a
+                class="underline underline-offset-2"
+                href="/conflicts/checks/{hit.previouslyAnswered.checkId}"
+              >
+                Open that check
+              </a>
+            </dd>
+          </div>
+          <p class="text-xs text-text-subtle">
+            About the same party, on an earlier check. Whether it answers this one is yours to
+            decide — this hit is unanswered until you answer it.
+          </p>
+        {/if}
         {@render fact("Kind", entityKindText(hit.entityId))}
         {@render fact("Tier", evidenceTier(hit.evidenceTier).label, evidenceTier(hit.evidenceTier).meaning)}
         {@render fact(

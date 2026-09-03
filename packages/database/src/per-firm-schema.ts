@@ -2460,6 +2460,11 @@ export const conflictsHit = sqliteTable(
   },
   (table) => [
     index("conflicts_hit_check_id_index").on(table.checkId),
+    // "What has this firm already said about this party?" — asked of every hit of a check at once,
+    // to show a reviewer an earlier answer as CONTEXT. Without an index leading with entity_id that
+    // read scans conflicts_hit, which is append-only and only grows, so the cost would rise every
+    // week the firm operates. created_at follows it so the walk per entity is already in time order.
+    index("conflicts_hit_entity_created_index").on(table.entityId, table.createdAt),
     check("conflicts_hit_tier_check", sql`${table.evidenceTier} BETWEEN 1 AND 4`),
     check(
       "conflicts_hit_source_class_check",

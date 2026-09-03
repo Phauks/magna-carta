@@ -447,7 +447,7 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(taskResults.map((result) => result.name).sort()).toEqual(
+    expect(taskResults.map((result) => result.name).toSorted()).toEqual(
       [
         "tasks.matter-page-1",
         "tasks.matter-page-20",
@@ -457,7 +457,7 @@ describe("load-profile smoke", () => {
         "tasks.page-documents",
         "tasks.page-time-summaries",
         "tasks.page-time-summaries-own",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of taskResults) {
       expect(result.iterations).toBe(2);
@@ -622,6 +622,9 @@ describe("load-profile smoke", () => {
         // only grows.
         "conflicts.check-history-for-matter",
         "conflicts.check-history-firm-wide",
+        // Matching a party across every earlier check. conflicts_hit is append-only, so a scan here
+        // gets slower every week — this is what holds its (entity_id, created_at) index in place.
+        "conflicts.prior-conclusions",
       ].toSorted(),
     );
     expect(findFullScans(conflictsPlans, CONFLICTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);

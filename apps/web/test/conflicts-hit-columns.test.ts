@@ -36,6 +36,7 @@ function hit(overrides: Partial<HitDetail> = {}): HitDetail {
     coParty: false,
     createdAt: "2026-08-30T12:00:00.000Z",
     disposition: null,
+    previouslyAnswered: null,
     ...overrides,
   };
 }

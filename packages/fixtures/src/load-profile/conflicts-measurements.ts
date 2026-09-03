@@ -668,6 +668,28 @@ function checkHistoryPlanStatement(
   );
 }
 
+/*
+ * "What has this firm already said about this party?" — asked of every hit of a check at once, to
+ * show a reviewer an earlier answer as context.
+ *
+ * It matches conflicts_hit on entity_id across every check but the one in hand, and conflicts_hit
+ * carried only (check_id) until 20260903T020000 — so this read scanned an append-only table that
+ * only grows. conflicts_hit_entity_created_index is what this probe holds in place.
+ */
+function priorConclusionsPlanStatement(snapshot: LoadedSnapshot): NodeSqlStatement {
+  return captured(
+    snapshot.database
+      .prepare(
+        `SELECT hit.entity_id, hit.check_id, answer.kind, answer.reviewer_user_id, answer.created_at
+           FROM conflicts_hit AS hit
+           JOIN conflicts_disposition AS answer ON answer.hit_id = hit.id
+          WHERE hit.check_id != ?1 AND hit.entity_id IN (?2, ?3)
+          ORDER BY answer.created_at ASC, answer.rowid ASC`,
+      )
+      .bind("conflictsCheck_probe", "directoryPerson_probe", "directoryOrganization_probe"),
+  );
+}
+
 export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
   const { directoryProbes } = snapshot.manifest;
   const statements: readonly { label: string; statement: NodeSqlStatement }[] = [
@@ -709,6 +731,7 @@ export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
       label: "conflicts.check-history-firm-wide",
       statement: checkHistoryPlanStatement(snapshot, {}),
     },
+    { label: "conflicts.prior-conclusions", statement: priorConclusionsPlanStatement(snapshot) },
   ];
   return statements.map(({ label, statement }) => ({
     label,

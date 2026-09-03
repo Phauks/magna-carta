@@ -136,6 +136,61 @@ describe("conflicts check routes", () => {
     expect(id).toMatch(/^conflictsCheck_/);
   });
 
+  it("carries an earlier answer about the same party as context, leaving the hit unanswered", async () => {
+    /*
+     * The owner's ruling of 2026-09-02, on the wire. The firm answers a hit about a party; a LATER
+     * check surfaces the same party, and that hit carries what was said before — and is still
+     * unanswered. A response that put the earlier answer in `disposition` would be the platform
+     * concluding on a reviewer's behalf about a question nobody has asked yet.
+     */
+    const subjectId = await createPerson("Twice", "Surfaced");
+    const matchId = await createPerson("Twice", "Surfaced");
+    const scope = { sources: ["party"], strictness: "balanced", depth: 1 };
+
+    const first = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope,
+    });
+    expect(first.status, await first.clone().text()).toBe(201);
+    const { id: firstCheckId } = (await first.json()) as { id: string };
+    const firstRead = await get(`/api/v1/conflicts/checks/${firstCheckId}`);
+    const firstBody = (await firstRead.json()) as {
+      hits: Array<{ id: string; entityId: string; previouslyAnswered: unknown }>;
+    };
+    const firstHit = firstBody.hits.find((hit) => hit.entityId === matchId);
+    expect(firstHit).toBeDefined();
+    // Nothing has been said about this party yet.
+    expect(firstHit?.previouslyAnswered).toBeNull();
+
+    const answered = await post(`/api/v1/conflicts/hits/${firstHit?.id}/dispositions`, {
+      kind: "cleared",
+      rationale: "former client, unrelated matter",
+    });
+    expect(answered.status, await answered.clone().text()).toBe(201);
+
+    const second = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope,
+    });
+    expect(second.status, await second.clone().text()).toBe(201);
+    const { id: secondCheckId } = (await second.json()) as { id: string };
+    const secondRead = await get(`/api/v1/conflicts/checks/${secondCheckId}`);
+    const secondBody = (await secondRead.json()) as {
+      hits: Array<{
+        entityId: string;
+        disposition: unknown;
+        previouslyAnswered: { checkId: string; kind: string } | null;
+      }>;
+    };
+    const secondHit = secondBody.hits.find((hit) => hit.entityId === matchId);
+    expect(secondHit?.previouslyAnswered?.kind).toBe("cleared");
+    expect(secondHit?.previouslyAnswered?.checkId).toBe(firstCheckId);
+    // The point of the ruling: context, not a conclusion. This hit is unanswered.
+    expect(secondHit?.disposition).toBeNull();
+  });
+
   it("lists the checks the firm has run, newest first, and narrows to one matter", async () => {
     const subjectId = await createPerson("History", "Subject");
     const matter = await post("/api/v1/matters", {

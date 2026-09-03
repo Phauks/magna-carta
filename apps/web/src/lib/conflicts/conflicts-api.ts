@@ -218,6 +218,21 @@ export interface HitParty {
   displayName: string | null;
 }
 
+/**
+ * What the firm already said about the same party, on an EARLIER check.
+ *
+ * CONTEXT, never this hit's answer. A company cleared as a former client can re-surface as the
+ * subsidiary of a current one — same party, a different question, on a higher bar. So a hit carrying
+ * this is still unanswered, and no surface may render it as answered, pre-fill from it, or hide the
+ * hit because of it.
+ */
+export interface PriorConclusion {
+  checkId: string;
+  kind: DispositionKind;
+  reviewerUserId: string;
+  createdAt: string;
+}
+
 export interface HitDetail {
   id: string;
   entityId: string;
@@ -233,6 +248,8 @@ export interface HitDetail {
   createdAt: string;
   /** The reviewer's latest word on this hit, or null when nobody has answered it. */
   disposition: DispositionDetail | null;
+  /** An earlier check's answer about the same party. Context only — never this hit's answer. */
+  previouslyAnswered: PriorConclusion | null;
 }
 
 /** What the name comparison compared. `strictness` is a preset name; this names the channels. */

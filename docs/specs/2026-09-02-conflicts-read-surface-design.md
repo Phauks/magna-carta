@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02
 **Status:** Both questions answered by the owner on 2026-09-02 — Q1 `conflicts:read`, Q2 option (c).
-**Reads 1-5 of 6 are built.** One remains: previously-concluded, under the owner's ruling (c).
+**All six reads are built.** `conflicts-gaps.ts` is down to the one entry this design excluded: the assembled report document (section 9).
 **Scope:** The **reads** the conflicts screens are already built against and the contract does not
 serve. Six of them, each named today in
 [`apps/web/src/lib/conflicts/conflicts-gaps.ts`](../../apps/web/src/lib/conflicts/conflicts-gaps.ts)
@@ -199,7 +199,15 @@ a real ruling.
    `conflicts_check_created_id_index` on `(created_at, id)`, added in the same change rather than
    noted for later. Both shapes of the read are now probed, because they plan differently and only
    the matter-filtered one was ever served.
-5. **Previously concluded**, once Q2 is answered.
+5. ~~**Previously concluded**, once Q2 is answered.~~ **BUILT, under ruling (c).** `readPriorConclusions`
+   matches on the entity alone across every check but the one in hand, and the check response carries
+   it as `previouslyAnswered` — a field deliberately separate from `disposition`, so a hit with an
+   earlier answer about the same party is still UNANSWERED. It needed a second index:
+   `conflicts_hit` carried only `(check_id)`, so matching a party across earlier checks scanned an
+   append-only table, and `conflicts_hit_entity_created_index` holds it. Both narrower keys were
+   rejected on the same case rather than a different one — source class would hide the September
+   hit precisely because it arrived through the graph, and evidence tier would make a firm turning
+   on the over-inclusive band look like a new conflict.
 
 Each step is a vertical slice — data access, route, contract, client, tests, docs — and each one
 deletes its entry from `conflicts-gaps.ts` and nothing else.

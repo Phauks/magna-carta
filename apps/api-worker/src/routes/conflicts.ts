@@ -5,6 +5,7 @@ import {
   recordDisposition,
   readDispositionTrail,
   readHitDispositionStates,
+  readPriorConclusions,
   EmptyRationaleError,
   InvalidWaiverDateError,
   UnknownConsentingPartyError,
@@ -1111,11 +1112,18 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
        * The entity set is bounded by the hits already read, and the reader chunks it at D1's
        * bound-parameter cap.
        */
-      const [dispositionStates, partyNames] = await Promise.all([
+      const [dispositionStates, partyNames, priorConclusions] = await Promise.all([
         readHitDispositionStates(firm.firmDatabase, checkId),
         readEntityDisplayNames(
           firm.firmDatabase,
           hitRows.map((hitRow) => hitRow.entity_id),
+        ),
+        // What the firm already said about these parties on any OTHER check. Set-valued for the
+        // same reason the other two are: a check against a wide corpus surfaces hundreds of hits.
+        readPriorConclusions(
+          firm.firmDatabase,
+          hitRows.map((hitRow) => hitRow.entity_id),
+          checkId,
         ),
       ]);
       const dispositionByHit = new Map(
@@ -1128,10 +1136,20 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         // the log is append-only, so an old hit can name an entity a later merge reshaped, and a
         // hit whose party read as absent would invert what a conflicts hit means.
         const party = partyNames.get(hitRow.entity_id) ?? null;
+        const earlier = priorConclusions.get(hitRow.entity_id) ?? null;
         return {
           id: hitRow.id,
           entityId: hitRow.entity_id,
           party,
+          previouslyAnswered:
+            earlier === null
+              ? null
+              : {
+                  checkId: earlier.checkId,
+                  kind: earlier.kind,
+                  reviewerUserId: earlier.reviewerUserId,
+                  createdAt: earlier.createdAt,
+                },
           sourceClass: hitRow.source_class,
           evidenceTier: hitRow.evidence_tier,
           matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],

@@ -109,7 +109,9 @@ export async function runMatterSearch(input: RunMatterSearchInput): Promise<Matt
        * this to know that, which no source does today.
        */
       if (results.length > 1) {
-        rows.sort((left, right) => (left.sort_key < right.sort_key ? 1 : left.sort_key > right.sort_key ? -1 : 0));
+        rows.sort((left, right) =>
+          left.sort_key < right.sort_key ? 1 : left.sort_key > right.sort_key ? -1 : 0,
+        );
       }
       // The builder read one row past the limit. That extra row is the has-more probe and is never
       // returned — which is how a group says "there is more" without claiming a total nobody counted.
