@@ -121,7 +121,7 @@ beforeAll(async () => {
 describe("GET /api/v1/firm/notifications/policy", () => {
   it("reports every category as unset, with the platform's retention window and digest hour", async () => {
     const body = await readPolicy(ownerCookie);
-    expect(body.categories).toHaveLength(11);
+    expect(body.categories).toHaveLength(12);
     // Null, not "off" — the firm having expressed nothing is a different fact from the firm having
     // chosen today's recommendation, and only null can say so.
     expect(policyFor(body, "billing")).toEqual({ category: "billing", inApp: null, email: null });

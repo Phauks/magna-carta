@@ -67,6 +67,12 @@ export interface DraftTimeEntry {
   readonly memo?: string | null;
   /** A rate for this entry alone, in ten-thousandths of a currency unit. */
   readonly overrideRateE4?: number | null;
+  /**
+   * The task this time was worked on, where the timekeeper named one. Omitted on nearly every
+   * entry: time is captured against a MATTER, and naming a task is an extra. The server refuses a
+   * task on another matter, so the picker only ever offers this matter's own.
+   */
+  readonly taskId?: string | null;
 }
 
 /**
@@ -115,6 +121,8 @@ export interface TimeEntryChanges {
    * Null clears it and the chain answers again; absent leaves the entry's rate exactly as it is.
    */
   readonly overrideRateE4?: number | null;
+  /** Null unlinks the task; absent leaves it alone. Refused on a billed or void entry. */
+  readonly taskId?: string | null;
 }
 
 export function patchTimeEntry(

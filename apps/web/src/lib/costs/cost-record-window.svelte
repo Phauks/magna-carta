@@ -38,9 +38,10 @@
   import Lock from "@lucide/svelte/icons/lock";
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
-  import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
-  import CostPayeePicker from "./cost-payee-picker.svelte";
+  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
+  import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
   import type { ExpenseCodeCatalogue } from "./cost-expense-codes.svelte.ts";
   import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
@@ -231,9 +232,19 @@
         }),
   );
 
-  function pickPayee(hit: DirectorySearchHit | null): void {
-    vendorId = hit === null ? null : hit.entityId;
-    vendorName = hit === null ? null : hit.displayName;
+  const payeeSearch = directoryPickerSearch(fetch);
+
+  // The payee as the picker holds it: the record's own two fields, read back as one entity. A cost
+  // that names a payee the directory cannot classify shows the name and offers a fresh pick.
+  const payee = $derived.by((): PickableEntity | null => {
+    if (vendorId === null || vendorName === null) return null;
+    const kind = entityKindFromIdentifier(vendorId);
+    return kind === null ? null : { identifier: vendorId, name: vendorName, kind };
+  });
+
+  function pickPayee(entity: PickableEntity | null): void {
+    vendorId = entity === null ? null : entity.identifier;
+    vendorName = entity === null ? null : entity.name;
   }
 
   async function save(andKeepGoing: boolean): Promise<void> {
@@ -376,10 +387,13 @@
             disabled
           />
         {:else}
-          <CostPayeePicker
+          <EntityPicker
+            search={payeeSearch}
+            value={payee}
+            onSelect={pickPayee}
+            onClear={() => pickPayee(null)}
+            label="Payee"
             inputId="{fieldPrefix}-payee"
-            selectedName={vendorName}
-            onPick={pickPayee}
           />
         {/if}
       </div>

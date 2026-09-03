@@ -192,4 +192,3 @@ export type {
   DirectoryEntityListingPage,
   DirectoryEntityListingRow,
 } from "./entity-listing.ts";
-export { migrateClientDisplayFields } from "./client-migration.ts";

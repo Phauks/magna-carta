@@ -38,6 +38,10 @@ export interface InsertTimeEntryRow {
   readonly utbmsActivityCodeId: string | null;
   readonly source: TimeEntrySource;
   readonly liveRunId: string | null;
+  // The task this time was worked on, when the timekeeper named one. Null on nearly every row. The
+  // service is what holds it to a task on this entry's OWN matter; SQLite cannot express that
+  // cross-table condition without a trigger.
+  readonly taskId: string | null;
   // The firm's own note — never client-facing, never copied into audit metadata.
   readonly memo: string | null;
   // The matter-scoped reference drawn at capture ("2026-0147.0042"); null where the caller draws
@@ -54,7 +58,7 @@ export function insertTimeEntryStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${TIME_ENTRY_TABLE} (id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, non_billable_category_id, currency, rate_e4, rate_card_id, rate_source, amount_minor, utbms_task_code_id, utbms_activity_code_id, status, source, live_run_id, invoice_id, memo, entry_number, created_at, updated_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 'draft', ?17, ?18, NULL, ?19, ?20, ?21, ?21, ?22)`,
+      `INSERT INTO ${TIME_ENTRY_TABLE} (id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, non_billable_category_id, currency, rate_e4, rate_card_id, rate_source, amount_minor, utbms_task_code_id, utbms_activity_code_id, status, source, live_run_id, task_id, invoice_id, memo, entry_number, created_at, updated_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 'draft', ?17, ?18, ?19, NULL, ?20, ?21, ?22, ?22, ?23)`,
     )
     .bind(
       row.id,
@@ -75,6 +79,7 @@ export function insertTimeEntryStatement(
       row.utbmsActivityCodeId,
       row.source,
       row.liveRunId,
+      row.taskId,
       row.memo,
       row.entryNumber,
       row.createdAt,
@@ -89,6 +94,26 @@ export function selectMatterEBillingStatement(
   matterId: string,
 ): SqlStatement {
   return database.prepare(`SELECT e_billing FROM matter WHERE id = ?1`).bind(matterId);
+}
+
+// Reads the matter a task belongs to, so the service can refuse a link that crosses matters. The
+// table name is spelled here rather than imported from @magna-carta/tasks: this module already reads
+// `matter` the same way, and taking a package dependency for one string would make the time store
+// depend on the task package to compose a SELECT.
+//
+// A task on NO matter comes back with a null matter_id, which is the firm's own work — nothing a
+// matter's time can point at. The service reads that null as a refusal, not as a wildcard.
+export function selectTaskMatterStatement(database: SqlDatabase, taskId: string): SqlStatement {
+  return database.prepare(`SELECT matter_id FROM matter_task WHERE id = ?1`).bind(taskId);
+}
+
+// The entry's own matter, read only when a draft patch names a task: the cross-matter check needs
+// both sides and the status pre-read deliberately carries only the status.
+export function selectTimeEntryMatterStatement(
+  database: SqlDatabase,
+  id: TimeEntryId,
+): SqlStatement {
+  return database.prepare(`SELECT matter_id FROM ${TIME_ENTRY_TABLE} WHERE id = ?1`).bind(id);
 }
 
 // A guarded status transition: the WHERE status = <from> clause is the freeze backstop — a billed/void
@@ -128,6 +153,10 @@ export interface DraftPatch {
   // The internal memo. Null clears it; the text never reaches audit metadata (the audit row
   // records only WHICH fields a patch touched).
   readonly memo?: string | null;
+  // The task this time was worked on. Null unlinks it. A patch naming a task is checked against the
+  // entry's own matter before this statement is composed, because a matter's time must not point at
+  // work on another matter and a task on NO matter is firm work with nothing to bill it to.
+  readonly taskId?: string | null;
 }
 
 export function updateDraftStatement(
@@ -152,6 +181,7 @@ export function updateDraftStatement(
     rate_source: patch.rateSource,
     amount_minor: patch.amountMinor,
     memo: patch.memo,
+    task_id: patch.taskId,
   })) {
     if (value === undefined) continue;
     sets.push(`${column} = ?${index}`);

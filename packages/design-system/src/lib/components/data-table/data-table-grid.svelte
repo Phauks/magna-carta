@@ -98,13 +98,29 @@
   $effect(() => {
     const frame = scrollElement;
     if (frame === null) return;
+    // Written on the NEXT frame, and only when the width actually changed. A style write inside the
+    // observer's own callback is a layout change the observer then reports again, and under load
+    // (the story suite, a filter field being typed into while rows come and go) that churn made the
+    // focused filter field lose focus to its menu mid-word. Deferring the write breaks the loop, and
+    // skipping an unchanged width means a resize that only moved rows writes nothing at all.
+    let published = "";
+    let scheduled = 0;
     const publish = (): void => {
-      frame.style.setProperty("--mc-table-frame-inline-size", `${String(frame.clientWidth)}px`);
+      scheduled = 0;
+      const next = `${String(frame.clientWidth)}px`;
+      if (next === published) return;
+      published = next;
+      frame.style.setProperty("--mc-table-frame-inline-size", next);
     };
     publish();
-    const observer = new ResizeObserver(publish);
+    const observer = new ResizeObserver(() => {
+      if (scheduled === 0) scheduled = requestAnimationFrame(publish);
+    });
     observer.observe(frame);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (scheduled !== 0) cancelAnimationFrame(scheduled);
+    };
   });
 
   const rowKeyOf = (row: TRow): string => grid.options.rowKey(row);

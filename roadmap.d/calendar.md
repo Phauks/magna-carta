@@ -20,7 +20,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0055
-  notes: The matter's Calendar section reads both records; recording from the screen still waits on the participant picker, so those actions render disabled. The firm-wide calendar screens remain their own slice.
+  notes: The matter's Calendar section reads both records; recording from the screen waits on the event and deadline forms, so those actions render disabled; the participant picker it once named exists (EntityPicker) and is consumed when the forms are built. The firm-wide calendar screens remain their own slice.
   evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar; read at apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte over the two listings.
 
 - id: calendar.timeline

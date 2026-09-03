@@ -11,6 +11,8 @@ import {
   insertTimeEntryStatement,
   refileStatement,
   selectMatterEBillingStatement,
+  selectTaskMatterStatement,
+  selectTimeEntryMatterStatement,
   selectTimeEntryStatusStatement,
   setKickBackReasonStatement,
   transitionStatusStatement,
@@ -82,6 +84,9 @@ export interface CaptureTimeEntryInput {
   readonly utbmsTaskCodeId?: string;
   readonly utbmsActivityCodeId?: string;
   readonly liveRunId?: string;
+  // The task this time was worked on, when the timekeeper named one. Must be a task on this same
+  // matter; assertTaskOnMatter refuses anything else.
+  readonly taskId?: string;
   // The firm-internal memo. Optional at capture; the text never rides an audit row.
   readonly memo?: string;
   // The matter-scoped entry number the route drew for this capture (see entry-numbering.ts).
@@ -104,6 +109,43 @@ function audit(
     clock: options.clock,
     randomSource: options.randomSource,
   });
+}
+
+// THE ONE RULE THE SCHEMA CANNOT HOLD. A time entry names at most one task, and that task must be on
+// the entry's own matter.
+//
+// Two ways to get it wrong, and they fail for different reasons. A task on ANOTHER matter would let
+// one matter's time point at work another matter is paying for — the kind of link that survives into
+// a bill and is discovered by a client. A task on NO matter is the firm's own work (renewing the
+// policy, interviewing a candidate), and no client matter can be the thing that pays for it; a null
+// matter here is a refusal, never a wildcard that matches everything.
+//
+// SQLite cannot express either check without a trigger, so this is the enforcement and its tests are
+// what keep it honest.
+async function assertTaskOnMatter(
+  database: SqlDatabase,
+  taskId: string,
+  matterId: string,
+): Promise<void> {
+  const { results } = await selectTaskMatterStatement(database, taskId).all<{
+    matter_id: string | null;
+  }>();
+  if (results.length === 0) {
+    throw new TimeEntryValidationError("task-not-on-matter", `no such task: ${taskId}`);
+  }
+  const taskMatterId = results[0]?.matter_id ?? null;
+  if (taskMatterId === null) {
+    throw new TimeEntryValidationError(
+      "task-not-on-matter",
+      `task ${taskId} is on no matter, so no matter's time can be worked on it`,
+    );
+  }
+  if (taskMatterId !== matterId) {
+    throw new TimeEntryValidationError(
+      "task-not-on-matter",
+      `task ${taskId} is on matter ${taskMatterId}, not ${matterId}`,
+    );
+  }
 }
 
 async function isEBillingMatter(database: SqlDatabase, matterId: string): Promise<boolean> {
@@ -176,6 +218,19 @@ export async function updateDraftTimeEntry(
       "draft-only",
       `time entry ${timeEntryId} is ${status}, not draft`,
     );
+  }
+  // Only when the patch NAMES a task: null unlinks and needs no matter, and an absent key is not an
+  // edit at all. The entry's matter is read here rather than carried on the status pre-read, so an
+  // ordinary narrative edit still costs one read.
+  if (typeof patch.taskId === "string") {
+    const { results } = await selectTimeEntryMatterStatement(database, timeEntryId).all<{
+      matter_id: string;
+    }>();
+    const matterId = results[0]?.matter_id;
+    if (matterId === undefined) {
+      throw new TimeEntryValidationError("not-found", `no such time entry: ${timeEntryId}`);
+    }
+    await assertTaskOnMatter(database, patch.taskId, matterId);
   }
   const updatedAt = options.clock.now();
   return {
@@ -473,6 +528,10 @@ export async function captureTimeEntry(
     );
   }
 
+  if (input.taskId !== undefined) {
+    await assertTaskOnMatter(database, input.taskId, input.matterId);
+  }
+
   const timeEntryId = input.id ?? newIdentifier("timeEntry", options.randomSource);
   const createdAt = options.clock.now();
   const billed = "noRate" in input.rate ? null : input.rate;
@@ -500,6 +559,7 @@ export async function captureTimeEntry(
           utbmsActivityCodeId: input.utbmsActivityCodeId ?? null,
           source: input.source,
           liveRunId: input.liveRunId ?? null,
+          taskId: input.taskId ?? null,
           memo: input.memo ?? null,
           entryNumber: input.entryNumber ?? null,
           createdAt,

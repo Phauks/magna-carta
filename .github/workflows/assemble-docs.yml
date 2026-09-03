@@ -132,5 +132,7 @@ jobs:
           # Enable auto-merge (needs Settings > General > "Allow auto-merge"), then dispatch the gate
           # onto the branch — a PR opened by the workflow's own token fires no pull_request events, so
           # the required `gate` status must be produced explicitly. Both fail hard so breakage is visible.
+          # With a merge queue on the repository this adds the entry to the queue and the queue's
+          # own merge method applies (docs/deploy-queue.md); the flag is for the no-queue case.
           gh pr merge docs-assembly --auto --rebase --delete-branch
           gh workflow run gate.yml --ref docs-assembly

@@ -47,7 +47,7 @@
    * contract in $lib/matters/time-api.ts, re-read — never against what this file last believed.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -72,8 +72,6 @@
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
-  import Maximize2 from "@lucide/svelte/icons/maximize-2";
-  import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import NotebookPen from "@lucide/svelte/icons/notebook-pen";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
@@ -85,7 +83,6 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Undo2 from "@lucide/svelte/icons/undo-2";
-  import X from "@lucide/svelte/icons/x";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { autoSizeTextarea } from "./auto-size-textarea.ts";
   import { FirmMatters } from "./firm-matters.svelte.ts";
@@ -224,7 +221,7 @@
   let scope = $state<SheetScope>(scopePreset("today", today, FIRST_WEEKDAY_OF_THE_FIRMS_WEEK));
   let searchOpen = $state(false);
   let searchText = $state("");
-  let expanded = $state(false);
+  let expanded = $state(true);
   /** Rows whose empty memo line has been opened but not written in, by row key. */
   let memoOpened = $state<ReadonlySet<string>>(new Set());
   let recordWindowOpen = $state(false);
@@ -816,25 +813,18 @@
   {/if}
 {/snippet}
 
-<Dialog.Root bind:open>
-  <!-- The sheet is a WORKING surface, so windowed it still takes nearly the whole screen; filling
-       it entirely drops the rounded corners — a panel with no edge on screen has no corners to
-       round. -->
-  <Dialog.Content
-    showClose={false}
-    class={expanded
-      ? "flex h-screen w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0"
-      : "flex max-h-screen w-full max-w-none flex-col gap-0 p-0"}
-    style={expanded ? undefined : "inline-size: 97vw; block-size: 94vh"}
-  >
-    <div class="flex flex-wrap items-center gap-8 border-b border-border-default px-24 py-16">
-      <div class="flex min-w-0 flex-col gap-4">
-        <Dialog.Title>Time Sheet</Dialog.Title>
-        <!-- What the sheet is showing, which is the firm's time unless a matter narrowed it. -->
-        <Dialog.Description>
-          {matterTitle ?? "Every matter"}
-        </Dialog.Description>
-      </div>
+<!-- The sheet is a WORKING surface, so it opens filling the screen; the frame's own control shrinks
+     it back to a window. Its toolbar is the first row of the pane, its identity the frame's header. -->
+<ActionDialog
+  bind:open
+  bind:expanded
+  kind="reading"
+  width="record"
+  heading="Time Sheet"
+  subtitle={matterTitle ?? "Every matter"}
+>
+  {#snippet fields()}
+    <div class="flex flex-wrap items-center gap-8">
 
       <Popover.Root>
         <Popover.Trigger
@@ -1015,33 +1005,9 @@
           </Button>
         {/if}
 
-        <Button
-          variant="secondary"
-          size="icon"
-          aria-pressed={expanded}
-          title={expanded ? "Shrink back to a window" : "Fill the screen"}
-          aria-label={expanded ? "Shrink back to a window" : "Fill the screen"}
-          onclick={() => (expanded = !expanded)}
-        >
-          {#if expanded}
-            <Minimize2 class="size-16" aria-hidden="true" />
-          {:else}
-            <Maximize2 class="size-16" aria-hidden="true" />
-          {/if}
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          title="Close the Time Sheet"
-          aria-label="Close the Time Sheet"
-          onclick={() => (open = false)}
-        >
-          <X class="size-16" aria-hidden="true" />
-        </Button>
       </div>
     </div>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-12 px-24 py-16">
       {#if store.timerFailure !== null}
         <Alert.Root variant="danger">
           <Alert.Title>The Timer</Alert.Title>
@@ -1097,11 +1063,10 @@
         <Plus class="size-16" aria-hidden="true" />
         Add a Row
       </Button>
-    </div>
 
     <DataTable.GridFooter {grid} end={honestyStrip} />
-  </Dialog.Content>
-</Dialog.Root>
+  {/snippet}
+</ActionDialog>
 
 <TimeRecordWindow
   bind:open={recordWindowOpen}

@@ -26,6 +26,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
   import { expect, userEvent, waitFor, within } from "storybook/test";
+  import { actionDialogExpansion } from "../lib/internal/frame-expansion.svelte.ts";
   import ActionDialog from "../lib/components/action-dialog/action-dialog.svelte";
   import type { ActionOutcome } from "../lib/components/action-dialog/types.ts";
   import Input from "../lib/components/input/index.ts";
@@ -545,7 +546,8 @@
       expect(inside.getByRole("button", { name: "Cancel" })).toBeVisible();
     });
 
-    await step("A question has no incidental dismiss — no corner control", () => {
+    await step("A question has no incidental dismiss — no corner control, and nothing to expand", () => {
+      expect(panel.querySelector('[data-action-dialog-action="expand"]')).toBeNull();
       expect(inside.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
     });
 
@@ -900,5 +902,56 @@
     });
 
     closeEveryPanel();
+  }}
+/>
+
+<Story
+  name="FillsTheScreen"
+  template={formTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Write off a balance" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = await body.findByRole("dialog");
+    await waitFor(() => expect(panel).toBeVisible());
+    const expand = within(panel).getByRole("button", { name: "Fill the screen" });
+
+    await step("A form offers to fill the screen, from the corner, before the way out", () => {
+      const controls = [...panel.querySelectorAll(".mc-modal-frame-header-action")].map(
+        (control) => control.getAttribute("data-action-dialog-action"),
+      );
+      expect(controls).toEqual(["expand", "close"]);
+      expect(expand).toHaveAttribute("aria-pressed", "false");
+    });
+
+    await step("Pressing it drops the width cap and the frame takes the viewport", async () => {
+      await userEvent.click(expand);
+      await waitFor(() => expect(panel).toHaveAttribute("data-expanded", "true"));
+      // The panel scale-fades in, so poll until the entrance settles rather than reading one frame.
+      await waitFor(() =>
+        expect(Math.round(panel.getBoundingClientRect().width)).toBe(window.innerWidth),
+      );
+      expect(within(panel).getByRole("button", { name: "Shrink back to a window" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+
+    await step("The choice is remembered for the session, so the next form opens the same way", async () => {
+      await userEvent.click(within(panel).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(body.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(actionDialogExpansion.expanded).toBe(true);
+      // The scrim's pointer lock lifts a beat after the panel has gone.
+      await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+      await userEvent.click(trigger);
+      const again = await body.findByRole("dialog");
+      await waitFor(() => expect(again).toHaveAttribute("data-expanded", "true"));
+      await userEvent.click(within(again).getByRole("button", { name: "Shrink back to a window" }));
+      await waitFor(() => expect(again).toHaveAttribute("data-expanded", "false"));
+    });
+
+    closeEveryPanel();
+    actionDialogExpansion.expanded = false;
   }}
 />

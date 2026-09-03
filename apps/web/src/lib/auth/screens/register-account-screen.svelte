@@ -34,6 +34,7 @@
    * round trip to say what it already knew.
    */
   import Button from "@magna-carta/design-system/button";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -165,7 +166,7 @@
           <Label for="register-terms">
             <span>
               I have read and agreed to the
-              <a class={QUIET_LINK} href="#terms" target="_blank" rel="noopener noreferrer">
+              <a class={QUIET_LINK} href="#terms" {...opensBeside("external")}>
                 Terms of Service</a
               >.
             </span>
@@ -177,7 +178,7 @@
           <Label for="register-privacy">
             <span>
               I have read and agreed to the
-              <a class={QUIET_LINK} href="#privacy" target="_blank" rel="noopener noreferrer">
+              <a class={QUIET_LINK} href="#privacy" {...opensBeside("external")}>
                 Privacy Policy</a
               >.
             </span>

@@ -73,6 +73,8 @@
    * their own, which is what an allowance was recording.
    */
   import type { Snippet } from "svelte";
+  import Maximize2 from "@lucide/svelte/icons/maximize-2";
+  import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import X from "@lucide/svelte/icons/x";
   import * as Dialog from "../dialog/index.ts";
   import * as AlertDialog from "../alert-dialog/index.ts";
@@ -81,6 +83,7 @@
   import type { SoonControlProperties } from "../maturity/soon-affordance.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { CloseGuard } from "../../internal/close-guard.svelte.ts";
+  import { FrameExpansion, actionDialogExpansion } from "../../internal/frame-expansion.svelte.ts";
   import DiscardQuestion from "../../internal/discard-question.svelte";
   import {
     DISCARD_SENTENCE,
@@ -146,6 +149,13 @@
      * implies the record width.
      */
     width?: ActionDialogWidth;
+    /**
+     * Whether the frame fills the screen. Bindable; a caller that hands it `true` opens the panel
+     * expanded by design. Left unbound, the session's own memory answers — a reader who filled the
+     * screen with one form gets the next form the same way. Only a form or a reading panel offers
+     * the control; a question ignores this entirely.
+     */
+    expanded?: boolean;
     /**
      * Whether focus returns to the trigger when the panel closes. True, and the right default: a
      * keyboard reader lands back where they were. False for the one shape that misbehaves — a
@@ -215,11 +225,21 @@
     onDismiss,
     unsavedChanges,
     width = "default",
+    expanded = $bindable(),
     restoreFocus = true,
   }: Acting | Reading = $props();
 
   const traits = $derived(traitsOf(kind));
   const reading = $derived(kind === "reading");
+
+  /* The frame's expansion, shared with the record window; this shell's memory is its own. */
+  const expansion = new FrameExpansion(actionDialogExpansion, {
+    read: () => expanded,
+    write: (next) => {
+      expanded = next;
+    },
+  });
+  const isExpanded = $derived(traits.expandable && expansion.expanded);
 
   /** Raised across the commit, and read by the panes as well as by both footer controls. */
   let busy = $state(false);
@@ -357,7 +377,12 @@
    * utility. Everything else about the panel's geometry is the frame recipe's.
    */
   const panelClasses = $derived(
-    mergeClasses("mc-modal-frame", widthClass(width, { withContext: context !== undefined })),
+    mergeClasses(
+      "mc-modal-frame",
+      isExpanded
+        ? expansion.panelClasses("")
+        : widthClass(width, { withContext: context !== undefined }),
+    ),
   );
 </script>
 
@@ -368,6 +393,23 @@
        run. -->
   {#if traits.showsCornerDismiss}
     <div class="mc-modal-frame-header-actions">
+      {#if traits.expandable}
+        <button
+          type="button"
+          data-action-dialog-action="expand"
+          class="mc-modal-frame-header-action"
+          aria-pressed={isExpanded}
+          title={expansion.label}
+          aria-label={expansion.label}
+          onclick={() => expansion.toggle()}
+        >
+          {#if isExpanded}
+            <Minimize2 class="mc-modal-frame-header-icon" aria-hidden="true" />
+          {:else}
+            <Maximize2 class="mc-modal-frame-header-icon" aria-hidden="true" />
+          {/if}
+        </button>
+      {/if}
       <button
         type="button"
         data-action-dialog-action="close"
@@ -509,6 +551,7 @@
       class={panelClasses}
       data-modal-shell="action-dialog"
       data-action-kind={kind}
+      data-expanded={isExpanded ? "true" : "false"}
       onOpenAutoFocus={focusFirstField}
       onCloseAutoFocus={keepFocusWhereItIs}
     >
@@ -546,6 +589,7 @@
       class={panelClasses}
       data-modal-shell="action-dialog"
       data-action-kind={kind}
+      data-expanded={isExpanded ? "true" : "false"}
       onOpenAutoFocus={focusFirstField}
       onCloseAutoFocus={keepFocusWhereItIs}
     >

@@ -18,8 +18,13 @@ import {
 } from "@magna-carta/matters/close-preconditions";
 import type { CloseAdvisory } from "@magna-carta/matters/close-advisories";
 import { matterCustodyCloseAdvisory } from "@magna-carta/custodian/close-advisory";
+import { matterTasksCloseAdvisory } from "@magna-carta/tasks/close-advisory";
 import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
 import { listConsultations, listMatters } from "@magna-carta/matters/queries";
+import {
+  readMatterClientEntityId,
+  readMatterClientEntityIds,
+} from "@magna-carta/matters/matter-party";
 import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
 import { MatterValidationError } from "@magna-carta/matters/validation";
 import {
@@ -56,6 +61,10 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 
 const matterStatus = z.enum(["prospective", "open", "closed"]);
 
+// The shape of a directory handle, as the directory's own routes state it (routes/directory.ts):
+// a person or an organization, and nothing else can be a client.
+const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$/;
+
 const CreateMatterRequest = z
   .object({
     title: z.string().min(1),
@@ -66,6 +75,18 @@ const CreateMatterRequest = z
     responsibleMemberId: identifierField("user"),
     clientDisplayName: z.string().nullable().optional(),
     clientCode: z.string().nullable().optional(),
+    clientEntityId: z
+      .string()
+      .regex(directoryEntityIdPattern)
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The directory entity the firm acts for. Given, the client's party link is written in " +
+          "the same batch as the matter, so billing, trust and the conflicts check find the client " +
+          "from the day the matter exists. The display name still travels beside it as the " +
+          "denormalized caption.",
+      }),
   })
   .openapi("CreateMatterRequest");
 
@@ -73,6 +94,9 @@ const MatterSummary = z
   .object({
     id: z.string(),
     title: z.string(),
+    // The directory entity linked as the matter's client, or null where the matter carries only a
+    // display name (a matter that predates the link and has not been backfilled).
+    clientEntityId: z.string().nullable(),
     status: matterStatus,
     matterTypeId: z.string().nullable(),
     locationId: z.string().nullable(),
@@ -117,6 +141,7 @@ const MatterDetail = z
     responsibleMemberId: z.string(),
     clientDisplayName: z.string().nullable(),
     clientCode: z.string().nullable(),
+    clientEntityId: z.string().nullable(),
     matterNumber: z.string().nullable(),
     consultationNumber: z.string().nullable(),
     eBilling: z.boolean(),
@@ -219,7 +244,10 @@ const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [
 // it and never blocks on them. A firm holds a client's will for decades after the last matter for
 // that client closed — that is the steady state of a safe-custody register, and a block here would
 // only teach people to unlink packets from matters before closing them.
-const CLOSE_ADVISORIES: readonly CloseAdvisory[] = [matterCustodyCloseAdvisory];
+const CLOSE_ADVISORIES: readonly CloseAdvisory[] = [
+  matterCustodyCloseAdvisory,
+  matterTasksCloseAdvisory,
+];
 
 // ---- shared helpers ----
 
@@ -746,6 +774,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
             responsibleMemberId: request.responsibleMemberId,
             clientDisplayName: request.clientDisplayName ?? null,
             clientCode: request.clientCode ?? null,
+            clientEntityId: request.clientEntityId ?? null,
             numberContext,
           },
           { clock: serviceClock(), actorUserId: userId, idempotency },
@@ -788,7 +817,16 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         cursor: query.cursor,
         pageSize: query.pageSize,
       });
-      return c.json(page as unknown as z.infer<typeof MatterListResponse>, 200);
+      // One batched read for the page's clients, never one per row.
+      const clientByMatter = await readMatterClientEntityIds(
+        firm.firmDatabase,
+        page.data.map((item) => item.id),
+      );
+      const data = page.data.map((item) => ({
+        ...item,
+        clientEntityId: clientByMatter.get(item.id) ?? null,
+      }));
+      return c.json({ ...page, data } as unknown as z.infer<typeof MatterListResponse>, 200);
     },
   );
 
@@ -866,6 +904,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           responsibleMemberId: row.responsible_member_id,
           clientDisplayName: row.client_display_name,
           clientCode: row.client_code,
+          clientEntityId: await readMatterClientEntityId(firm.firmDatabase, row.id as MatterId),
           matterNumber: row.matter_number,
           consultationNumber: row.consultation_number,
           eBilling: row.e_billing !== 0,

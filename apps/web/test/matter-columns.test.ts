@@ -35,6 +35,7 @@ function matter(overrides: Partial<MatterSummary> = {}): MatterSummary {
     locationId: "location_reno",
     responsibleMemberId: "user_chase",
     clientDisplayName: "Pemberton Holdings",
+    clientEntityId: null,
     matterNumber: "2026-0147",
     consultationNumber: null,
     createdAt: "2026-03-14T09:00:00.000Z",
