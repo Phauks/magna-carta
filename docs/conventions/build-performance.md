@@ -608,12 +608,36 @@ times: on its pull request, on the push that merges it, and again on the nightly
 identical full battery each time buys nothing — the second and third runs re-derive a result the first
 already produced. So each trigger runs the pass that **only it** can run:
 
-| Trigger        | Type-aware lint                          | Test battery | What it is for                                                                                                    |
-| -------------- | ---------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `pull_request` | full closure **minus the fan-out sinks** | full         | The tier a human waits on — optimized for latency.                                                                |
-| `push` to main | full closure **including the sinks**     | skipped      | The whole-repo type-check plus the sink lint: exactly what the pull request deliberately did not do.              |
-| `schedule`     | **whole repo**, unscoped, cold           | full         | Nightly backstop for anything the per-change tiers could miss. It now lands **after** the deploy, not before one. |
-| `merge_group`  | full closure including the sinks         | full         | Full proof of a queued merge's real post-merge tree. Sinks deferred while the austerity window holds.             |
+| Trigger        | Type-aware lint                          | Test battery                      | What it is for                                                                                                    |
+| -------------- | ---------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `pull_request` | full closure **minus the fan-out sinks** | **on the `run-tests` label only** | The tier a human waits on — optimized for latency. The battery is asked for, never assumed (below).               |
+| `push` to main | full closure **including the sinks**     | skipped                           | The whole-repo type-check plus the sink lint: exactly what the pull request deliberately did not do.              |
+| `schedule`     | **whole repo**, unscoped, cold           | full                              | Nightly backstop for anything the per-change tiers could miss. It now lands **after** the deploy, not before one. |
+| `merge_group`  | full closure including the sinks         | full                              | Full proof of a queued merge's real post-merge tree. Sinks deferred while the austerity window holds.             |
+
+### The test battery runs only when asked for (owner ruling, 2026-09-03)
+
+The three test jobs — the node shards, the Miniflare Workers shards and the Chromium story suite —
+are the bulk of the Actions bill and the whole of a pull request's wall-clock (the node shards alone
+outgrew the 1-vCPU runner's fifteen-minute cap twice on 2026-09-03), so a pull request no longer runs
+them by default. They run when the run **asks** for them, and nothing else changes:
+
+- a pull request asks with the **`run-tests` label** — attaching it re-runs the gate with the battery,
+  removing it re-runs without (`labeled` and `unlabeled` are on the trigger's type list for that);
+- a manual dispatch asks with its **`test_battery`** input;
+- a queued merge (`merge_group`) always asks, because the tree it builds is the tree that deploys.
+
+The checks that stay on every pull request are the ones that are cheap and structural: format, the
+scoped type-aware lint, the type-check, the contract-drift checks, governance, and the container and
+Rust gates where the diff reaches them. `test-collection` also stays, because it proves the shape of the
+partition rather than running it.
+
+**What this moves onto the branch.** The merge bar during the austerity window (below) already asked
+for a full local `pnpm test` before a merge; that is now the standing bar rather than a window's. A
+pull request states the result of its local `pnpm test` in its description, and reaches for the label
+when it wants the runner's word as well — a migration, a contract change, a shard split, anything
+where a local run on one machine is not the evidence the change deserves. Since a merge to `main` is
+a deploy, this is the trade the ruling makes: minutes for judgement, with the label one click away.
 
 ### TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset
 
@@ -648,10 +672,11 @@ finding all of them is one `grep -r "TEMPORARY CI AUSTERITY"`.
 - The **whole-repo lint tier** — the `ALL` branch of the `lint` job's scope switch, roughly 45 minutes
   of runner time on one job. Made a no-op.
 
-**Still running:** the `pull_request` tier — the whole battery (format, type-check, rust, the test
-suite, governance, contracts, containers) with the type-aware lint scoped to the changed packages and
-their full dependent closure minus the fan-out sinks, and the Workers and Chromium test substrates
-skipped when that closure proves the change cannot reach them (_Test substrates follow the dependent
+**Still running:** the `pull_request` tier — the checks (format, type-check, rust, governance,
+contracts, containers) with the type-aware lint scoped to the changed packages and their full
+dependent closure minus the fan-out sinks; the test battery on the `run-tests` label (_The test
+battery runs only when asked for_ above), with the Workers and Chromium test substrates skipped even
+then when that closure proves the change cannot reach them (_Test substrates follow the dependent
 closure_ above; added 2026-09-02, when the gate's first month of real runs showed those two jobs to be
 most of the bill); `merge_group`, once the merge queue is enabled (the full battery on the exact
 post-merge tree, with the sinks deferred exactly as on the pull request while the window holds);
@@ -665,9 +690,10 @@ and what keeps every branch's first run off the cold WASM build); and
 scope only as a dependent, the whole-repo lint that a global input (the lint ruleset, the lockfile, the
 shared compiler options) or a lintable file outside every package would otherwise force, and the
 nightly backstop for two branches that merge in quick succession and interact semantically without
-touching the same files. Type-checking, tests, and the contract checks are unaffected — they were never
-scoped, and they still run whole-repo on every pull request. The first of those is covered by the merge
-bar below: a full local `pnpm check` lints the whole repository, sinks included.
+touching the same files. Type-checking and the contract checks are unaffected — they were never scoped,
+and they still run whole-repo on every pull request; the tests run whole-repo on every labelled one.
+The first of those is covered by the merge bar below: a full local `pnpm check` lints the whole
+repository, sinks included.
 
 **The merge bar during the window.** Because the post-merge tiers no longer run, verification moves
 forward to the branch: an agent runs **full local verification** on its branch before the merge (the

@@ -17,10 +17,16 @@
 # TIERS. The same change is verified up to three times — on its pull request, on the push that merges it,
 # and again by the scheduled sweep — and running an identical full battery each time buys nothing. So
 # each trigger runs the pass that only IT can run:
-#   • pull_request — the full battery, with the type-aware lint scoped to the changed packages and
-#     their full transitive dependent closure MINUS the fan-out sinks (the packages whose type program
-#     is effectively the whole repo, and which any foundational change would otherwise drag in). This
-#     is the tier a human waits on, so it optimizes for latency.
+#   • pull_request — the checks (format, lint, type-check, contracts, governance, rust, containers),
+#     with the type-aware lint scoped to the changed packages and their full transitive dependent
+#     closure MINUS the fan-out sinks (the packages whose type program is effectively the whole repo,
+#     and which any foundational change would otherwise drag in). This is the tier a human waits on,
+#     so it optimizes for latency. THE TEST BATTERY RUNS ONLY WHEN ASKED FOR (owner ruling,
+#     2026-09-03): the node shards, the Miniflare shards and the story suite are the bulk of the
+#     bill and the whole of the wall-clock, and they run on a pull request only when it carries the
+#     `run-tests` label (adding the label re-runs the gate). The merge bar is the branch's own
+#     `pnpm test` in the worktree, which is what the battery would repeat; the label is for the
+#     change that wants the runner's word as well — a migration, a contract, a shard split.
 #   • push to main — the merged tree gets the whole-repo type-check and the lint closure INCLUDING the
 #     fan-out sinks (the two things the pull request deliberately did not do), and skips the test
 #     battery the pull request already ran on the same content. Sound only with up-to-date-before-merge:
@@ -31,7 +37,8 @@
 #   • schedule — the full battery with an unscoped lint, from a cold start, every night. This is the
 #     backstop for the interleaving window above, and it lands long before any deliberate
 #     `git push main:release` turns `main` into a deploy.
-#   • merge_group — the full battery on the exact post-merge tree the queue built, which closes the
+#   • merge_group — the full battery on the exact post-merge tree the queue built (a queued merge is
+#     the explicit ask: it is the tree that deploys), which closes the
 #     interleaving window at its source rather than catching it after the fact: every red check the
 #     gate found on 2026-09-02 was two branches that merged minutes apart and were never tested
 #     together. The setting that turns the queue on is the repository's, not this file's
@@ -78,6 +85,9 @@ name: gate
 on:
   pull_request:
     branches: [main]
+    # `labeled` and `unlabeled` are on the list so attaching the `run-tests` label re-runs the gate
+    # with the battery, and removing it re-runs without; the default three are GitHub's own.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. The push-to-main tier is
   # suspended: it re-verifies a tree the pull request already proved, so it is the cheapest tier to give
   # up. Uncomment to restore.
@@ -99,6 +109,11 @@ on:
   # produced explicitly for auto-merge to complete. Kept during the austerity window — it is what lets
   # the per-merge docs assembly land, and it is also the manual handle for running the sweep on demand.
   workflow_dispatch:
+    inputs:
+      test_battery:
+        description: "Run the test battery (node shards, Miniflare shards, the story suite)"
+        type: boolean
+        default: false
 
 # One in-flight run per ref PER TRIGGER; a newer push cancels the older run. The event name is part of
 # the group so the nightly sweep and a push to `main` — which share a ref — cannot cancel each other and
@@ -148,10 +163,10 @@ jobs:
           # a push as `before`. Anything else falls through to the merge-base with origin/main below.
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           EVENT_NAME: ${{ github.event_name }}
-          # A push to `main` is the one trigger that re-verifies a tree a pull request already proved.
-          # `github.ref` is checked as well as the event so a push to any other branch (there are none
-          # today, but the trigger list can grow) still gets the full battery.
-          IS_PUSH_TO_MAIN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          # The battery runs only when asked for (the tier note at the top of this file): a queued
+          # merge asks by being one, a dispatch asks with its input, a pull request asks with the
+          # `run-tests` label. A push to `main` never asks — it re-verifies a tree already proved.
+          BATTERY_ASKED: ${{ github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.test_battery == true) || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tests')) }}
         run: |
           base="$BASE"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base" 2>/dev/null; then
@@ -164,13 +179,12 @@ jobs:
           echo "diff base: $base"
           echo "changed files:"; echo "$files"
           emit() { echo "$1=$2" >> "$GITHUB_OUTPUT"; echo "filter: $1=$2"; }
-          # The test battery is skipped only on a push to `main`, where the pull request that produced
-          # the tree already ran it (see the tier note at the top of this file). Every other trigger —
-          # including the nightly sweep and a merge-queue build — runs it.
-          if [ "$IS_PUSH_TO_MAIN" = "true" ]; then
-            emit test_battery false
-          else
+          # The test battery runs only when asked for; the asking is decided above, in the expression
+          # language where the event payload lives, and read here as one word.
+          if [ "$BATTERY_ASKED" = "true" ]; then
             emit test_battery true
+          else
+            emit test_battery false
           fi
           if [ -z "$files" ]; then
             # An empty diff means base resolution found nothing to compare (e.g. the nightly schedule,
@@ -741,8 +755,8 @@ jobs:
   # The bulk of the tests, cheapest per file.
   test-node:
     needs: [classify, build-wasm]
-    # `test_battery` is false only on a push to `main`, where the pull request that produced this exact
-    # tree already ran these suites — see the tier note at the top of this file.
+    # `test_battery` is true only when the run asked for the battery (the `run-tests` label, the
+    # dispatch input, or a queued merge) — see the tier note at the top of this file.
     if: needs.classify.outputs.code == 'true' && needs.classify.outputs.test_battery == 'true'
     # Six shards, because of the 15-minute platform cap on this runner. On 2026-09-03 morning, with
     # two shards, shard 1 finished in 13 minutes and shard 2 was cancelled mid-run at 15 — every test it
