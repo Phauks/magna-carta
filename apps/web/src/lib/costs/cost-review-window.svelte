@@ -10,11 +10,14 @@
    * THE QUEUE IS TAKEN ONCE AND WALKED. It is a snapshot of what was submitted when Review opened,
    * so approving one cost cannot reshuffle the reviewer's place in the list underneath them. A cost
    * that has left the submitted state between then and now is skipped rather than shown.
+   *
+   * IT IS A READING PANEL WHOSE STEPS SIT BESIDE THE FACTS. The bar has nothing to commit: the act
+   * is one of three, taken against the cost in view, and the panel goes on to the next rather than
+   * closing — so the three sit in the body under the facts they decide, and the bar ends at Close.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as Dialog from "@magna-carta/design-system/dialog";
   import Button from "@magna-carta/design-system/button";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import Reply from "@lucide/svelte/icons/reply";
@@ -49,17 +52,20 @@
 
   // Opening starts the walk at the top. Reopening after a change starts the new queue at the top
   // too, which is the honest answer: the queue is not the same queue.
-  $effect(() => {
-    if (!open) return;
+  function restart(): void {
     position = 0;
     failure = null;
-  });
+  }
 
   const current = $derived(queue[position] ?? null);
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
+  const subtitle = $derived(
+    current === null ? "Nothing is waiting for review." : `${position + 1} of ${queue.length} submitted`,
+  );
 
   function step(): void {
     if (position + 1 >= queue.length) {
+      // The walk is over: the panel leaves. A prop changing, not a gesture, so it runs no guard.
       open = false;
       return;
     }
@@ -93,26 +99,8 @@
   </div>
 {/snippet}
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Review Costs</Dialog.Title>
-    <Dialog.Description>
-      {#if current === null}
-        Nothing is waiting for review.
-      {:else}
-        {position + 1} of {queue.length} submitted
-      {/if}
-    </Dialog.Description>
-
-    {#if failure !== null}
-      <FailureNotice
-        failure={failure.failure}
-        title="Nothing Changed"
-        fallback={failure.fallback}
-        whenSilent={failure.whenSilent}
-      />
-    {/if}
-
+<ActionDialog bind:open kind="reading" heading="Review Costs" {subtitle} onOpen={restart}>
+  {#snippet fields()}
     {#if current !== null}
       <dl class="flex flex-col gap-4 text-sm">
         {@render fact("Date Incurred", formatDate(current.incurredDate))}
@@ -129,46 +117,51 @@
         {@render fact("Entered By", "Not served", gapCellTitle("enteredBy"))}
       </dl>
       <p class="text-sm">{current.description}</p>
-    {/if}
 
-    <div class="flex flex-wrap items-center gap-8">
-      <Button
-        class="mr-auto"
-        variant="ghost"
-        disabled={sending}
-        onclick={() => (open = false)}
-      >
-        Close
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={current === null || sending}
-        title="Leave this cost submitted and look at the next"
-        onclick={step}
-      >
-        Skip
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={current === null || sending}
-        title="Return this cost to draft with a recorded reason"
-        onclick={() => {
-          if (current === null) return;
-          open = false;
-          onKickBack(current);
-        }}
-      >
-        <Reply class="size-16" aria-hidden="true" />
-        Kick Back
-      </Button>
-      <Button
-        disabled={current === null || sending}
-        title="Approve: the cost becomes billable on the next invoice"
-        onclick={() => void approve()}
-      >
-        <Stamp class="size-16" aria-hidden="true" />
-        Approve
-      </Button>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+      <!-- The three answers, under the facts they decide. Approve is the strong hand; Skip leaves
+           the cost as it is and walks on. -->
+      <div class="flex flex-wrap items-center justify-end gap-8">
+        <Button
+          variant="secondary"
+          disabled={sending}
+          title="Leave this cost submitted and look at the next"
+          onclick={step}
+        >
+          Skip
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={sending}
+          title="Return this cost to draft with a recorded reason"
+          onclick={() => {
+            if (current === null) return;
+            open = false;
+            onKickBack(current);
+          }}
+        >
+          <Reply class="size-16" aria-hidden="true" />
+          Kick Back
+        </Button>
+        <Button
+          disabled={sending}
+          title="Approve: the cost becomes billable on the next invoice"
+          onclick={() => void approve()}
+        >
+          <Stamp class="size-16" aria-hidden="true" />
+          {sending ? "Approving" : "Approve"}
+        </Button>
+      </div>
+    {/if}
+  {/snippet}
+
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Changed"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>
