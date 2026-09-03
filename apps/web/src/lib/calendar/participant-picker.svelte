@@ -20,12 +20,12 @@
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
   import Button from "@magna-carta/design-system/button";
+  import EntityPicker from "@magna-carta/design-system/entity-picker";
   import Input from "@magna-carta/design-system/input";
   import { badgeClasses } from "@magna-carta/design-system/badge";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import X from "@lucide/svelte/icons/x";
-  import { searchDirectory, type DirectorySearchHit } from "$lib/directory/directory-api.ts";
-  import { searchHitKindLabel } from "$lib/directory/entity-presentation.ts";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { memberRoleLine, type FirmMemberSummary } from "$lib/members/members-api.ts";
   import {
     entityParticipant,
@@ -111,63 +111,12 @@
   }
 
   // ---- the Directory ---------------------------------------------------------------------------
+  //
+  // The one picker over the directory (design-system EntityPicker) fed by the one adapter
+  // (`directoryPickerSearch`): the settle, the cap and the failure wording are its own, and what
+  // this file adds is which handles are already on the list and where a pick lands.
 
-  let directoryQuery = $state("");
-  let settledQuery = $state("");
-  let hits = $state<readonly DirectorySearchHit[]>([]);
-  let capped = $state(false);
-  let searching = $state(false);
-  let searchFailed = $state(false);
-
-  // The typed query settles before it is sent: a Directory search per keystroke is a request per
-  // keystroke, and the firm's own record is the authoritative match rather than the rows on screen.
-  const SETTLE_MILLISECONDS = 250;
-  $effect(() => {
-    const typed = directoryQuery;
-    const timer = setTimeout(() => (settledQuery = typed), SETTLE_MILLISECONDS);
-    return () => clearTimeout(timer);
-  });
-
-  $effect(() => {
-    const asked = settledQuery.trim();
-    if (asked === "") {
-      hits = [];
-      capped = false;
-      searchFailed = false;
-      return;
-    }
-    let live = true;
-    searching = true;
-    void (async () => {
-      const outcome = await searchDirectory(fetch, asked);
-      if (!live) return;
-      searching = false;
-      if (outcome.kind === "ok") {
-        hits = outcome.value.data;
-        capped = outcome.value.capped;
-        searchFailed = false;
-        return;
-      }
-      hits = [];
-      capped = false;
-      searchFailed = true;
-    })();
-    return () => {
-      live = false;
-    };
-  });
-
-  const offeredHits = $derived(hits.filter((hit) => !listedEntityIds.includes(hit.entityId)));
-
-  function pickEntity(picked: string | string[]): void {
-    const entityId = Array.isArray(picked) ? (picked[0] ?? "") : picked;
-    const hit = offeredHits.find((candidate) => candidate.entityId === entityId);
-    if (hit === undefined) return;
-    add(entityParticipant(hit.entityId, hit.displayName));
-    directoryQuery = "";
-    settledQuery = "";
-    hits = [];
-  }
+  const directorySearch = directoryPickerSearch(fetch);
 
   // ---- somebody else ---------------------------------------------------------------------------
 
@@ -269,37 +218,15 @@
         </Combobox.Content>
       </Combobox.Root>
     {:else if source === "entity"}
-      <Combobox.Root
-        type="single"
+      <!-- Remounted per pick by the key above, so each pick starts the picker clean. -->
+      <EntityPicker
+        search={directorySearch}
+        excluded={listedEntityIds}
+        label="Directory"
+        {inputId}
         {disabled}
-        items={offeredHits.map((hit) => ({ value: hit.entityId, label: hit.displayName }))}
-        inputValue={directoryQuery}
-        onValueChange={pickEntity}
-      >
-        <Combobox.Input
-          id={inputId}
-          fieldName="Directory"
-          autocomplete="off"
-          oninput={(event) => (directoryQuery = event.currentTarget.value)}
-        />
-        <Combobox.Content>
-          {#each offeredHits as hit (hit.entityId)}
-            <Combobox.Item value={hit.entityId} label={hit.displayName}>
-              {hit.displayName}
-              <span class="text-text-muted">&mdash; {searchHitKindLabel(hit.entityKind)}</span>
-            </Combobox.Item>
-          {/each}
-          {#if searchFailed}
-            <Combobox.GroupHeading>The Directory search could not be reached.</Combobox.GroupHeading>
-          {:else if searching}
-            <Combobox.GroupHeading>Searching the Directory.</Combobox.GroupHeading>
-          {:else if capped}
-            <Combobox.GroupHeading>
-              More matches exist than are listed. Type more of the name.
-            </Combobox.GroupHeading>
-          {/if}
-        </Combobox.Content>
-      </Combobox.Root>
+        onSelect={(entity) => add(entityParticipant(entity.identifier, entity.name))}
+      />
     {:else}
       <div class="flex items-center gap-8">
         <Input
