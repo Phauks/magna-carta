@@ -4,11 +4,6 @@
  */
 import Clock from "@lucide/svelte/icons/clock";
 import {
-  STATUS_VOCABULARIES,
-  statusEntry,
-  type StatusKey,
-} from "@magna-carta/design-system/status-register";
-import {
   factNumber,
   factText,
   navigateInto,
@@ -16,13 +11,7 @@ import {
   type Fact,
 } from "$lib/activity/contribution.ts";
 import { hoursFromMinutes } from "$lib/matters/time-api.ts";
-
-/** The chain's word for a status, from the one register the ledgers speak — or nothing. */
-export function ledgerStatusWord(status: string | null): string | undefined {
-  if (status === null || status === "draft") return undefined;
-  const chain: readonly string[] = STATUS_VOCABULARIES.workflowChain;
-  return chain.includes(status) ? statusEntry(status as StatusKey).label : undefined;
-}
+import { ledgerStatusWord } from "$lib/records/ledger-status-word.ts";
 
 export const timeEntryActivityContribution: ActivityContribution = {
   sourceKey: "timeEntry",

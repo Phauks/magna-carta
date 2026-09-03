@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { ACTIVITY_SECTIONS, navigateInto, type FactContext } from "$lib/activity/contribution.ts";
+import { navigateInto, type FactContext } from "$lib/activity/contribution.ts";
+import { ACTIVITY_WINDOW_KEYS } from "$lib/activity/window-keys.ts";
 import {
   ACTIVITY_CONTRIBUTIONS,
   ACTIVITY_CREATE_VERBS,
@@ -125,7 +126,7 @@ describe("every timeline source the platform declares can be read on the screen"
 
   it("names a section from the declared vocabulary, and the section that owns the source", () => {
     for (const contribution of ACTIVITY_CONTRIBUTIONS) {
-      expect(ACTIVITY_SECTIONS).toContain(contribution.section);
+      expect(contribution.section.length, contribution.sourceKey).toBeGreaterThan(0);
       const owner = sectionOwningTimelineSource(contribution.sourceKey);
       if (owner === undefined) {
         expect(
@@ -152,7 +153,12 @@ describe("every timeline source the platform declares can be read on the screen"
   });
 
   it("declares the Section vocabulary whole and the Type words the registry knows", () => {
-    expect(ACTIVITY_SECTION_VALUES).toEqual([...ACTIVITY_SECTIONS]);
+    // Every contribution's section word, once, so the filter offers a section with no rows yet.
+    expect(new Set(ACTIVITY_SECTION_VALUES)).toEqual(
+      new Set(ACTIVITY_CONTRIBUTIONS.map((contribution) => contribution.section)),
+    );
+    expect(ACTIVITY_SECTION_VALUES).toContain("Costs");
+    expect(new Set(ACTIVITY_SECTION_VALUES).size).toBe(ACTIVITY_SECTION_VALUES.length);
     expect(ACTIVITY_TYPE_VALUES).toContain("Note");
     expect(ACTIVITY_TYPE_VALUES).toContain("Deadline");
     expect(ACTIVITY_TYPE_VALUES).not.toContain("Document type");
@@ -161,6 +167,20 @@ describe("every timeline source the platform declares can be read on the screen"
 
   it("offers a create verb for every contribution with a window", () => {
     expect(ACTIVITY_CREATE_VERBS.map((verb) => verb.label)).toEqual(["New Note"]);
+  });
+
+  it("names only windows the register can host, for making a record and for opening one", () => {
+    const keys: readonly string[] = ACTIVITY_WINDOW_KEYS;
+    for (const verb of ACTIVITY_CREATE_VERBS) {
+      expect(keys, `${verb.sourceKey} creates in an unhosted window`).toContain(verb.window);
+    }
+    for (const contribution of ACTIVITY_CONTRIBUTIONS) {
+      const target = contribution.open(entry({ sourceKey: contribution.sourceKey }));
+      if (target.kind !== "window") continue;
+      expect(keys, `${contribution.sourceKey} opens in an unhosted window`).toContain(
+        target.window,
+      );
+    }
   });
 });
 

@@ -10,7 +10,7 @@
    * it opens. That is what lets the Activity section offer "+ New Note" and open a note in place
    * without knowing anything about notes beyond the fact that they have a window.
    *
-   * A NOTE IS READ BY ITS ID, NEVER FOUND ON A PAGE. Handed a `noteId`, the host reads that one note
+   * A NOTE IS READ BY ITS ID, NEVER FOUND ON A PAGE. Handed a `recordId`, the host reads that one note
    * through its own route and the matter's visibility; a note that cannot be read is a stated
    * failure in the window, not a blank one. The first cut of the Activity section named rows by
    * scanning a first page, and this is the exact shape that replaced it.
@@ -26,27 +26,19 @@
   import { listMatterFolders, type FolderSummary } from "$lib/file-manager/folder-api.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
 
+  import type { ActivityWindowProps } from "$lib/activity/contribution.ts";
+
+  // The one contract every hosted window takes (see $lib/activity/contribution.ts): `recordId` is
+  // the note to open, or null to write a new one.
   let {
     open = $bindable(false),
-    noteId = null,
+    recordId = null,
     matterId,
     matterTitle,
     onSaved,
     onDeleted,
     onAttachmentsUnwritten,
-  }: {
-    open?: boolean;
-    /** The note to open, or null to write a new one. */
-    noteId?: string | null;
-    matterId: string;
-    matterTitle: string;
-    /** A note landed. The host re-reads whatever it shows notes in. */
-    onSaved: (savedNoteId: string) => void;
-    /** The note opened here was deleted. */
-    onDeleted?: () => void;
-    /** The note landed but these documents did not attach; the host says so where it can. */
-    onAttachmentsUnwritten?: (names: readonly string[]) => void;
-  } = $props();
+  }: ActivityWindowProps = $props();
 
   const roster = new FirmRoster();
   let session = $state<SessionBootstrap | null>(null);
@@ -87,7 +79,7 @@
   // for, read afresh so what it shows is what the server holds now.
   $effect(() => {
     if (!open) return;
-    const wanted = noteId;
+    const wanted = recordId;
     readGeneration += 1;
     const generation = readGeneration;
     readFailure = null;
@@ -120,7 +112,7 @@
    */
   function afterWrite(savedNoteId: string): void {
     onSaved(savedNoteId);
-    if (noteId === null) return;
+    if (recordId === null) return;
     void readMatterNote(fetch, savedNoteId).then((outcome) => {
       if (outcome.kind === "ok") note = outcome.value;
     });

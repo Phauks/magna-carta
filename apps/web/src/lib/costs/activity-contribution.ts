@@ -10,7 +10,7 @@ import {
   type ActivityContribution,
   type Fact,
 } from "$lib/activity/contribution.ts";
-import { ledgerStatusWord } from "$lib/time/activity-contribution.ts";
+import { ledgerStatusWord } from "$lib/records/ledger-status-word.ts";
 
 export const costEntryActivityContribution: ActivityContribution = {
   sourceKey: "costEntry",

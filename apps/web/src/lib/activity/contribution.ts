@@ -23,6 +23,7 @@
  * supplies — the formatters pull Svelte components into a node test otherwise.
  */
 import type { Component } from "svelte";
+import type { ActivityWindowKey } from "./window-keys.ts";
 import type { ActivityEntry } from "$lib/matters/activity-api.ts";
 import { hasSurface } from "@magna-carta/design-system/maturity";
 import {
@@ -31,25 +32,13 @@ import {
 } from "$lib/matters/sections.ts";
 
 /**
- * The Section column's vocabulary: which part of the matter a row belongs to. A closed set the
- * registry declares, so the column's set filter can offer every section whether or not a row on
- * screen carries it — a matter with no costs yet still offers "Costs", and does not tell a reader
- * it can never have one.
+ * The Section column's word: which part of the matter a row belongs to. Each contribution declares
+ * its own, and the column's vocabulary is the set of them (contributions.ts) — declared by the
+ * registry rather than read off the rows, so a matter with no costs yet still offers "Costs" and
+ * does not tell a reader it can never have one. The fitness test holds the word to the owning
+ * section's own label, so no contribution can invent a section the strip does not have.
  */
-export const ACTIVITY_SECTIONS = [
-  "Matter",
-  "Files",
-  "Notes",
-  "Time",
-  "Costs",
-  "Trust",
-  "Calendar",
-  "Custodian",
-  "Conflicts",
-  "Emails",
-  "Firm",
-] as const;
-export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number];
+export type ActivitySection = string;
 
 /** What the owning source said about a row, where it said anything. */
 export interface DescribedRow {
@@ -88,8 +77,30 @@ export type OpenTarget =
   | { readonly kind: "navigate"; readonly href: string }
   | { readonly kind: "none"; readonly reason: string };
 
-/** The record windows the Activity section can host. A subsystem joins this union with its window. */
-export type ActivityWindow = "note";
+/**
+ * A record window the Activity register can host, by key. The keys live in window-keys.ts and the
+ * components behind them in windows.ts, beside the contributions — the register mounts whichever
+ * one a contribution names and never names one itself. A subsystem with a window adds one key and
+ * one entry there.
+ */
+export type ActivityWindow = ActivityWindowKey;
+
+/**
+ * What every hosted window takes: the register knows this and nothing else about it. A host reads
+ * its own record by id and gathers whatever else its window needs — the register hands it a matter
+ * and a record, and hears back when something landed.
+ */
+export interface ActivityWindowProps {
+  open: boolean;
+  /** The record to open, or null to make a new one. */
+  recordId: string | null;
+  matterId: string;
+  matterTitle: string;
+  onSaved: (savedRecordId: string) => void;
+  onDeleted?: () => void;
+  /** The record landed but these attachments did not; the register says so where it can. */
+  onAttachmentsUnwritten?: (names: readonly string[]) => void;
+}
 
 /** How one of this subsystem's records is made from the Activity section: the verb and its window. */
 export interface CreateVerb {

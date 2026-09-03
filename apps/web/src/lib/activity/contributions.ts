@@ -10,7 +10,7 @@
  */
 import { emailActivityContribution } from "./awaiting/email-activity-contribution.ts";
 import { trustMovementActivityContribution } from "./awaiting/trust-activity-contribution.ts";
-import { ACTIVITY_SECTIONS, type ActivityContribution, type OpenTarget } from "./contribution.ts";
+import type { ActivityContribution, OpenTarget } from "./contribution.ts";
 import { conflictsCheckActivityContribution } from "$lib/conflicts/activity-contribution.ts";
 import { costEntryActivityContribution } from "$lib/costs/activity-contribution.ts";
 import {
@@ -93,8 +93,13 @@ export function openTargetFor(entry: ActivityEntry): OpenTarget {
   );
 }
 
-/** The Section column's whole vocabulary, whether or not a row on screen carries each word. */
-export const ACTIVITY_SECTION_VALUES: readonly string[] = ACTIVITY_SECTIONS;
+/**
+ * The Section column's whole vocabulary, in registry order, whether or not a row on screen carries
+ * each word — every contribution's own section word, once.
+ */
+export const ACTIVITY_SECTION_VALUES: readonly string[] = [
+  ...new Set(ACTIVITY_CONTRIBUTIONS.map((contribution) => contribution.section)),
+];
 
 /**
  * Every Type word the registry declares. Open vocabularies (the firm's document types) are learned

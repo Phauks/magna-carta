@@ -43,9 +43,9 @@
   } from "./activity-columns.ts";
   import type { ActivityWindow } from "./contribution.ts";
   import { ACTIVITY_CREATE_VERBS } from "./contributions.ts";
+  import { ACTIVITY_WINDOWS } from "./windows.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { listMatterActivity, type ActivityEntry } from "$lib/matters/activity-api.ts";
-  import NoteWindowHost from "$lib/matters/note-window-host.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
 
@@ -129,17 +129,19 @@
 
   // --- opening and making records, through the contributions' own answers ---
 
-  let noteWindowOpen = $state(false);
-  let noteWindowNoteId = $state<string | null>(null);
+  // Which hosted window is up, on which record. The register names no window: it mounts whichever
+  // key a row or a verb named, from the map the contributions' own windows register in.
+  let windowKey = $state<ActivityWindow | null>(null);
+  let windowRecordId = $state<string | null>(null);
+  let windowOpen = $state(false);
   let unattachedNames = $state<readonly string[]>([]);
 
   /** Open a subsystem's window on one of its records, or on nothing to make a new one. */
   function openWindow(window: ActivityWindow, recordId: string | null): void {
-    // One case today; a subsystem that adds a window adds its case here and nowhere else.
-    if (window === "note") {
-      noteWindowNoteId = recordId;
-      noteWindowOpen = true;
-    }
+    if (!(window in ACTIVITY_WINDOWS)) return;
+    windowKey = window;
+    windowRecordId = recordId;
+    windowOpen = true;
   }
 
   function openRow(row: ActivityRow): void {
@@ -323,17 +325,22 @@
       <DataTable.GridFooter {grid} end={footerEnd} />
     {/if}
 
-    <NoteWindowHost
-      bind:open={noteWindowOpen}
-      noteId={noteWindowNoteId}
-      {matterId}
-      {matterTitle}
-      onSaved={() => {
-        unattachedNames = [];
-        reloadToken += 1;
-      }}
-      onDeleted={() => (reloadToken += 1)}
-      onAttachmentsUnwritten={(names) => (unattachedNames = names)}
-    />
+    {#if windowKey !== null}
+      {@const Host = ACTIVITY_WINDOWS[windowKey]}
+      {#if Host !== undefined}
+        <Host
+          bind:open={windowOpen}
+          recordId={windowRecordId}
+          {matterId}
+          {matterTitle}
+          onSaved={() => {
+            unattachedNames = [];
+            reloadToken += 1;
+          }}
+          onDeleted={() => (reloadToken += 1)}
+          onAttachmentsUnwritten={(names) => (unattachedNames = names)}
+        />
+      {/if}
+    {/if}
   {/if}
 </div>
