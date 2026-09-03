@@ -21,6 +21,7 @@ import {
   editMatterNote,
 } from "@magna-carta/notes/note-service";
 import {
+  readMatterNote,
   readMatterNoteDocuments,
   selectMatterNotesStatement,
   type MatterNoteDocumentRow,
@@ -244,6 +245,26 @@ const listNotesRoute = defineOpenAPIRoute(readMeta("listNotes"), {
     200: {
       description: "One page of notes",
       content: { "application/json": { schema: NotePage } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const getNoteRoute = defineOpenAPIRoute(readMeta("getNote"), {
+  method: "get",
+  path: "/api/v1/notes/{noteId}",
+  description:
+    "One note by its id, with the documents it points at — what a deep link into the matter's " +
+    "notes opens, through the same matter visibility the list reads under. A note on a matter the " +
+    "member may not see is not found, never partially shown.",
+  request: { params: noteIdParam },
+  responses: {
+    200: {
+      description: "The note",
+      content: { "application/json": { schema: NoteDetail } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -497,6 +518,34 @@ export function registerNotesRoutes(
       const { matterId } = c.req.valid("param");
       const { cursor, search } = c.req.valid("query");
       return c.json(await readNotesPage(firm.firmDatabase, matterId, cursor, search), 200);
+    },
+  );
+
+  // GET /api/v1/notes/{noteId}
+  app.openapi(
+    { ...getNoteRoute, middleware: chokepointMiddleware(chokepoint, getNoteRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { noteId } = c.req.valid("param");
+      const row = await readMatterNote(
+        firm.firmDatabase,
+        noteId as MatterNoteId,
+        visibleMatterPredicate(),
+      );
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such note in this firm.",
+        });
+      }
+      const documents = await readMatterNoteDocuments(
+        firm.firmDatabase,
+        [row.id],
+        visibleMatterPredicate(),
+      );
+      return c.json(noteDetail(row, documents), 200);
     },
   );
 

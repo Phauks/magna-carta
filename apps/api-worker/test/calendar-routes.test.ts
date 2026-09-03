@@ -295,7 +295,7 @@ describe("the matter timeline federates what is already recorded", () => {
     const timeline = await get(`/api/v1/matters/${secondMatterId}/timeline`);
     expect(timeline.status).toBe(200);
     const body = (await timeline.json()) as {
-      data: { sourceKey: string; sortKey: string; label: string | null }[];
+      data: { sourceKey: string; sortKey: string; label: string | null; title: string | null }[];
       nextCursor: string | null;
     };
     const sourceKeys = new Set(body.data.map((entry) => entry.sourceKey));
@@ -307,9 +307,17 @@ describe("the matter timeline federates what is already recorded", () => {
     // Newest first across heterogeneous time columns compared as text.
     const sortKeys = body.data.map((entry) => entry.sortKey);
     expect([...sortKeys].sort().toReversed()).toEqual(sortKeys);
-    // No privileged content on a merged page: the titles stay behind the link.
-    expect(JSON.stringify(body.data)).not.toContain("Estate conference");
-    expect(JSON.stringify(body.data)).not.toContain("Inventory due");
+    // The PROJECTION carries no privileged content — a label is a type code or a state, never a
+    // title — and the matter-scoped read then NAMES its rows through each source's own describe,
+    // behind that source's read capability, which this member holds.
+    expect(body.data.every((entry) => entry.label !== "Estate conference")).toBe(true);
+    expect(body.data.every((entry) => entry.label !== "Inventory due")).toBe(true);
+    expect(body.data.find((entry) => entry.sourceKey === "matterEvent")?.title).toBe(
+      "Estate conference",
+    );
+    expect(body.data.find((entry) => entry.sourceKey === "matterDeadline")?.title).toBe(
+      "Inventory due",
+    );
 
     const filtered = await get(`/api/v1/matters/${secondMatterId}/timeline?kind=matterEvent`);
     const filteredBody = (await filtered.json()) as { data: { sourceKey: string }[] };
@@ -526,6 +534,17 @@ describe("the firm's own scope: firm events, rooms, and bookings", () => {
     expect(booked.status).toBe(201);
     const bookedBody = (await booked.json()) as { id: string; conflicts: unknown[] };
     expect(bookedBody.conflicts).toHaveLength(0);
+
+    // The event's own window lists what it booked: the resource and the span, from the event's
+    // side rather than the room's.
+    const eventBookings = await get(`/api/v1/events/${hearingId}/bookings`);
+    expect(eventBookings.status).toBe(200);
+    const eventBookingsBody = (await eventBookings.json()) as {
+      data: { id: string; resourceId: string; startsAtTime: string | null }[];
+    };
+    expect(eventBookingsBody.data).toEqual([
+      expect.objectContaining({ id: bookedBody.id, resourceId: roomId, startsAtTime: "08:30" }),
+    ]);
 
     // The room being taken is NEVER a reason a hearing cannot be recorded: the second hearing
     // records, its booking lands, and the conflict is reported rather than refused.

@@ -66,6 +66,14 @@ export function listMatterNotes(
   return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/notes${suffix}`);
 }
 
+/** One note by its id, through the matter's visibility. Refused where the note is not on a matter the member may see. */
+export function readMatterNote(
+  fetchImpl: typeof fetch,
+  noteId: string,
+): Promise<ApiOutcome<MatterNote>> {
+  return requestJson(fetchImpl, `/api/v1/notes/${encodeURIComponent(noteId)}`);
+}
+
 export function createMatterNote(
   fetchImpl: typeof fetch,
   matterId: string,

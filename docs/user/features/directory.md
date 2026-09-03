@@ -22,6 +22,8 @@ Everything you entered is recorded together when you press Record Person, or not
 
 ## A record
 
+An open record shows an arrow at the top left of its header. It takes you back to the Directory, so a record opened from a search result or from a link in a matter always has a way back to the book it came from.
+
 A record answers the questions the firm keeps an answer to:
 
 - **Names**: every name the record has held, with the current one marked. Recording a marriage or a

@@ -1,3 +1,4 @@
+import type { Permission } from "@magna-carta/access-control/registry";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { TimeColumnShape } from "../types.ts";
 import type { VisibleMatterPredicate } from "../visibility.ts";
@@ -51,6 +52,12 @@ export interface SourceReadRequest {
 export interface TimelineRawRow {
   readonly sort_key: string;
   readonly row_id: string;
+  // What a reader OPENS, where that is not the row itself. A custody movement is the row the
+  // timeline walks and the identity a keyset compares, but the screen it opens into is organised
+  // by packet — so the deep link carries the packet, and collapsing the two would either break the
+  // ordering or land the reader on a page that cannot resolve the id. Matter-search draws the same
+  // line for the same reason. Equal to row_id wherever the row is its own destination.
+  readonly link_id?: string | null;
   readonly matter_id: string | null;
   readonly kind: string;
   readonly actor_user_id?: string | null;
@@ -74,6 +81,44 @@ export interface TimelineEntry {
   readonly actorUserId: string | null;
   readonly label: string | null;
   readonly link: string;
+  // THE DESCRIPTION, present only on a matter-scoped read that asked for one. Null on every entry
+  // the federated read projects: the words come from the owning source's own `describe`, for one
+  // matter, behind that source's own permission — never from the cross-matter projection above.
+  readonly title: string | null;
+  readonly typeText: string | null;
+  readonly facts: Readonly<Record<string, unknown>> | null;
+}
+
+// What a source is asked when a matter-scoped read wants its rows named: this matter, these rows.
+// Never "every row" — the ids are the page on screen, bounded by the page size — and never another
+// matter, which the builder binds rather than trusting the source to.
+export interface DescribeRequest {
+  readonly database: SqlDatabase;
+  readonly matterId: string;
+  readonly rowIds: readonly string[];
+  // REQUIRED, exactly as on the page read: a description is a second read of the same row and
+  // composes the same predicate, so a row the page could not show cannot be named either.
+  readonly visibility: VisibleMatterPredicate;
+}
+
+// The fixed columns every describe statement projects — the same words matter-search projects
+// for a hit, so a subsystem names a row once and both consolidations read it.
+export interface DescribedRawRow {
+  readonly row_id: string;
+  // What the reader recognises it by: a file's name, a note's opening line, an event's title.
+  readonly title: string;
+  // The subsystem's own word for what this row IS — a document type, an event type — or NULL where
+  // the source's noun is the right word already.
+  readonly type_text: string | null;
+  // The subsystem's own fields as one JSON object (SQLite's json_object), or NULL. Read ONLY by
+  // that subsystem's own presentation; the consolidating read carries it opaque.
+  readonly facts_json: string | null;
+}
+
+export interface RowDescription {
+  readonly title: string;
+  readonly typeText: string | null;
+  readonly facts: Readonly<Record<string, unknown>> | null;
 }
 
 // What a source's rows are anchored to for visibility. A 'matter'-anchored source composes the
@@ -116,6 +161,19 @@ export interface TimelineSource {
   // empty join-key set), so the caller issues nothing rather than a query that cannot hit.
   readonly buildStatements: (request: SourceReadRequest) => readonly SqlStatement[];
   readonly project: (row: TimelineRawRow) => TimelineEntry;
+  // The read capability a DESCRIPTION of these rows sits behind — null where every member of the
+  // firm may read the record (the file list, the ledgers). It gates `describe` and nothing else:
+  // the entry itself carries no content, so the federated read keeps showing that a note was
+  // written to a member who may not read notes; what it withholds is the words. Matter-search
+  // declares the same field for the same reason, and the two registries name the same capability
+  // for the same rows.
+  readonly permission: Permission | null;
+  // Name a page of this source's rows for ONE matter. Optional: a source without one keeps the
+  // platform's own sentence on the screen. Called only by a matter-scoped read that asked to
+  // describe, for a member standing inside that matter and holding `permission`; the firm-wide
+  // read never calls it, so nothing it projects reaches a cross-matter answer and the no-label
+  // discipline on the projection above is untouched. Returns [] where nothing can be named.
+  readonly describe?: (request: DescribeRequest) => readonly SqlStatement[];
 }
 
 // The registry itself: a frozen list, reviewed when it changes. The read count per page scales with

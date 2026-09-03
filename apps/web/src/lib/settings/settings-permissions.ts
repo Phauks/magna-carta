@@ -21,8 +21,13 @@
  */
 
 /** Mirrors SettingsSection.editPermissionArea (settings-sections.ts). */
-export type SettingsPermissionArea = "firm" | "billing" | "documents" | "integrations";
+export type SettingsPermissionArea = "firm" | "billing" | "documents" | "integrations" | "calendar";
 
+/**
+ * Still the mock described above. The "calendar" area is the first whose real answer exists —
+ * the session's `calendar:manage` — and its page reads that from the session directly rather than
+ * through here, so the nav's "View" tag on it is the mock's answer until this seam reads grants.
+ */
 export function canEditFirmSettings(area: SettingsPermissionArea): boolean {
   return area === "billing";
 }

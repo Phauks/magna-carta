@@ -198,4 +198,21 @@ describe("the tab's public surface", () => {
     expect(source.indexOf("From the Matter…")).toBeGreaterThan(-1);
     expect(source.indexOf("From the Matter…")).toBeLessThan(source.indexOf('prompt="Upload…"'));
   });
+
+  it("offers the upload surface only to a record kind that can actually take one", () => {
+    // A dropzone with no handler behind it swallows the file in silence: the person watches their
+    // document go in, nothing appears, and they cannot tell that from a failure. A record whose only
+    // source is the matter's own files (a matter note) gets no dropzone at all.
+    const guard = source.indexOf("{#if onAttachUpload}");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(source.indexOf('prompt="Upload…"'));
+  });
+
+  it("invites the reader to the sources this record actually has, and no others", () => {
+    // The empty state must not name an upload on a record that offers none.
+    expect(source).toContain("Point this record at a document the matter already holds.");
+    expect(source).toContain(
+      "Point this record at a document the matter already holds, or upload one.",
+    );
+  });
 });

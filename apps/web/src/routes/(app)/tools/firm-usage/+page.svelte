@@ -17,7 +17,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import ExportMenu from "$lib/export/export-menu.svelte";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
@@ -73,11 +73,12 @@
 
 <svelte:head><title>Firm Usage · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Firm Usage</Masthead.Title>
-  </Masthead.Heading>
-  <Masthead.Actions>
+<ScreenHeader
+  title="Firm Usage"
+  back="tools"
+  class="mb-24"
+>
+  {#snippet actions()}
     <ExportMenu
       disabled={usage === null}
       exportDocument={() => (usage === null ? null : firmUsageExportDocument(usage, new Date()))}
@@ -86,8 +87,8 @@
       <RefreshCw class="size-16" aria-hidden="true" />
       Refresh
     </Button>
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if failure !== null}
   <FailureNotice

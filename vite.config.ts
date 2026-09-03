@@ -145,6 +145,7 @@ export default defineConfig({
       "tooling/bootstrap/vitest.config.ts",
       "tooling/check-scoped/vitest.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
+      "tooling/lint-back-navigation/vitest.config.ts",
       "tooling/lint-cache-keys/vitest.config.ts",
       "tooling/lint-conflicts-vocabulary/vitest.config.ts",
       "tooling/lint-ledger-staleness/vitest.config.ts",

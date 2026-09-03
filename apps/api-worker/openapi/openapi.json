@@ -10403,6 +10403,25 @@
           },
           "link": {
             "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "typeText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "facts": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -10413,7 +10432,10 @@
           "matterId",
           "actorUserId",
           "label",
-          "link"
+          "link",
+          "title",
+          "typeText",
+          "facts"
         ]
       },
       "MatterEventPage": {
@@ -10827,6 +10849,41 @@
           "origin",
           "active"
         ]
+      },
+      "CalendarSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "weekStartsOn": {
+            "$ref": "#/components/schemas/CalendarWeekStartsOn"
+          }
+        },
+        "required": [
+          "weekStartsOn"
+        ]
+      },
+      "CalendarWeekStartsOn": {
+        "anyOf": [
+          {
+            "type": "number",
+            "enum": [
+              0
+            ]
+          },
+          {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          }
+        ]
+      },
+      "PatchCalendarSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "weekStartsOn": {
+            "$ref": "#/components/schemas/CalendarWeekStartsOn"
+          }
+        }
       },
       "CalendarCreatedResponse": {
         "type": "object",
@@ -11856,6 +11913,64 @@
           "eventTypeName",
           "link",
           "overlappingBookingIds"
+        ]
+      },
+      "EventBookings": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventBooking"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "EventBooking": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "startsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "resourceId",
+          "startsOn",
+          "startsAtTime",
+          "endsOn",
+          "endsAtTime",
+          "timeZone"
         ]
       },
       "BookingCreatedResponse": {
@@ -51509,7 +51624,7 @@
     },
     "/api/v1/matters/{matterId}/timeline": {
       "get": {
-        "description": "The matter's timeline, newest first: the events and deadlines recorded here merged with what every other part of the platform already recorded about this case — documents filed, mail captured, documents assembled, originals moved, client money moved, time and costs booked, conflicts checks run, and the matter's own opening and closing. Nothing is copied into a timeline table: each entry is read in place from the record its own subsystem keeps, so the timeline cannot disagree with the register behind it. An entry carries identifiers, a kind, and a non-privileged summary where its source has one — follow the link for the detail. `kind` is repeatable and narrows which sources are read at all.",
+        "description": "The matter's timeline, newest first: the events and deadlines recorded here merged with what every other part of the platform already recorded about this case — documents filed, mail captured, documents assembled, originals moved, client money moved, time and costs booked, conflicts checks run, and the matter's own opening and closing. Nothing is copied into a timeline table: each entry is read in place from the record its own subsystem keeps, so the timeline cannot disagree with the register behind it. An entry carries identifiers, a kind, and a non-privileged summary where its source has one. On this matter-scoped read each source also NAMES its rows — a title, its own word for what the row is, and its own facts — for the sources whose read capability the member holds; the words are absent, never invented, where a source has none to give or the member may not read them. `kind` is repeatable and narrows which sources are read at all.",
         "operationId": "calendar.matterTimeline",
         "tags": [
           "calendar"
@@ -52543,6 +52658,203 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CalendarCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is settled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar/settings": {
+      "get": {
+        "description": "The firm's calendar settings: which day its week begins on (0 for Sunday, 1 for Monday). A firm setting rather than a personal one, so every member reads the same week; Sunday until the firm says otherwise.",
+        "operationId": "calendar.getSettings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.getSettings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's calendar settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's calendar settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. Returns the settings after the write.",
+        "operationId": "calendar.updateSettings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.updateSettings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCalendarSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's calendar settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSettingsResponse"
                 }
               }
             }
@@ -54771,6 +55083,176 @@
         }
       }
     },
+    "/api/v1/events/{eventId}/bookings": {
+      "get": {
+        "description": "The live bookings a matter event holds: which resources it has booked and for what span. Read through the visible-matter predicate like the event itself; an event on an invisible matter is a 404.",
+        "operationId": "calendar.listEventBookings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.listEventBookings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "eventId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event's bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventBookings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm-events/{firmEventId}/bookings": {
+      "get": {
+        "description": "The live bookings a firm event holds: which resources it has booked and for what span.",
+        "operationId": "calendar.listFirmEventBookings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.listFirmEventBookings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firmEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmEventId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm event's bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventBookings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/resource-bookings": {
       "post": {
         "description": "Books a resource for exactly one event — a matter event or a firm event, never neither: 'book the pool car Friday' is a Reservation-type firm event with the booking attached. The window defaults from the event and is editable (the room from half past eight for a nine o'clock deposition); the zone freezes from the resource's office. A double-booking succeeds and the response reports the conflicts it created: rooms are double-booked on purpose, the front desk referees them, and a taken room must never be the reason a hearing cannot be recorded.",
@@ -55866,6 +56348,89 @@
       }
     },
     "/api/v1/notes/{noteId}": {
+      "get": {
+        "description": "One note by its id, with the documents it points at — what a deep link into the matter's notes opens, through the same matter visibility the list reads under. A note on a matter the member may not see is not found, never partially shown.",
+        "operationId": "notes.getNote",
+        "tags": [
+          "notes"
+        ],
+        "x-mc-operationId": "notes.getNote",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "notes:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "notes"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterNote_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "noteId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The note",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterNoteDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the note is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "description": "Changes a note's text, and when it says the thing happened. The previous text is replaced and is not kept: what the note said before is gone. Who made the change is recorded.",
         "operationId": "notes.editNote",

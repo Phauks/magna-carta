@@ -43,6 +43,14 @@ export function listMatterCostLedger(
   return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
 }
 
+/** One cost by its id — what a deep link hands the ledger when the row is not on the loaded page. */
+export function readCostLedgerEntry(
+  fetchImpl: typeof fetch,
+  costId: string,
+): Promise<ApiOutcome<CostLedgerEntry>> {
+  return requestJson(fetchImpl, `/api/v1/costs/${encodeURIComponent(costId)}`);
+}
+
 /** What the capture route answers: the identity of the cost it wrote. */
 export interface CostAcknowledgement {
   costEntryId: string;

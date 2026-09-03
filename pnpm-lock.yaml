@@ -1032,6 +1032,9 @@ importers:
 
   packages/calendar:
     dependencies:
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../access-control
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
@@ -1044,6 +1047,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

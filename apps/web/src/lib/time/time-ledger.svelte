@@ -41,7 +41,7 @@
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
-  import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
+  import { readTimeEntry, type TimeEntrySummary } from "$lib/matters/time-api.ts";
   import {
     TIME_COLUMN_IDENTIFIERS,
     chargeAmount,
@@ -73,6 +73,7 @@
     members,
     sessionUserId,
     loading = false,
+    openEntryId = null,
     onChanged,
   }: {
     /** Every entry on the matter, in every status: that is what a matter's time record is. */
@@ -82,6 +83,8 @@
     members: readonly FirmMemberSummary[];
     sessionUserId: string | null;
     loading?: boolean;
+    /** An entry to open on arrival — what a deep link into this section names. */
+    openEntryId?: string | null;
     /** Something was written; the matter's time wants re-reading. */
     onChanged: () => void;
   } = $props();
@@ -154,6 +157,26 @@
     windowEditing = editing && canWorkDraft(entry).allowed;
     windowOpen = true;
   }
+
+  /*
+   * The entry this ledger was asked to open, opened the way any entry opens: from the loaded page
+   * where it is on it, else read by its id — an entry older than the first page opens all the same.
+   * Once per id.
+   */
+  let honouredEntryId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = openEntryId;
+    if (wanted === null || loading || honouredEntryId === wanted) return;
+    honouredEntryId = wanted;
+    const loaded = entries.find((entry) => entry.id === wanted);
+    if (loaded !== undefined) {
+      openRecord(loaded, false);
+      return;
+    }
+    void readTimeEntry(fetch, wanted).then((outcome) => {
+      if (outcome.kind === "ok") openRecord(outcome.value, false);
+    });
+  });
 
   /*
    * The one create action this surface has, exported for the section page: the matter header's
