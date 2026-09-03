@@ -142,6 +142,7 @@ directory search before these existed; the one-implementation registry now refus
   carries an allowance for its hand-composed one; this family does not.
 - **`PARTIES_TAB_KEY`** is the agreement every record window imports, the twin of
   `ATTACHMENTS_TAB_KEY`.
+
 ## The maturity family, and the field primitives
 
 - **`src/lib/components/maturity/` is the one home of the maturity vocabulary** — the stage model
