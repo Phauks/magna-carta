@@ -38,8 +38,19 @@ export type RouteReversal =
    */
   | ({ readonly kind: "inverse" } & By)
   /**
-   * The previous values go back through the ordinary update route. The platform keeps no copy of
-   * them: a caller that wants to walk this back must be holding what it was.
+   * The route reverses ITSELF: called again with the previous values, it lands the same state. There
+   * is no other operation to name, which is why this arm carries no `by` — a field edit's reversal
+   * is another field edit, and `{ kind: "inverse", by: "<this route>" }` would be a self-reference
+   * that reads as a bug.
+   *
+   * NOT THE SAME AS `inverse` MERELY BECAUSE THE CALLER HOLDS THE OLD VALUE. Nearly every `inverse`
+   * needs that too — re-attaching a receipt needs the document, re-adding an address needs the
+   * address — so "who holds it" separates nothing. What separates this arm is that there is no
+   * COUNTERPART OPERATION: a clear answered by a set is `inverse`, because set and clear are two
+   * operations; a patch answered by a patch is this.
+   *
+   * It has no members while the gate is DELETE-only, because a DELETE that reverses itself does not
+   * arise. Its population is the PATCH and PUT tier.
    */
   | { readonly kind: "restatement" }
   /**

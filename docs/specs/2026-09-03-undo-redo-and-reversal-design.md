@@ -187,7 +187,7 @@ Produced by slice 1, over the thirty-three DELETE operations in the emitted cont
 | `restoration` | 2     | A named operation returns the subject to what it was: `files.delete` → `files.restore`, `tasks.completeTask` → `tasks.reopenTask`.  |
 | `restatement` | 1     | The previous value goes back through the ordinary write route (`customFields.clearValue`).                                          |
 
-**The nineteen `inverse` rows are the finding nobody expected.** More than half of what the platform calls deletion is not deletion at all — it is detaching, unlinking, revoking, clearing: a statement about a relationship, fully reversible by the route that made it, and in several cases already worded that way in the route's own description (`tasks.unlinkExternalTask`: "unlinking is a statement about the correspondence and never about the work"). None of those needs a confirmation dialog, and several have one.
+**The twenty `inverse` rows are the finding nobody expected.** More than half of what the platform calls deletion is not deletion at all — it is detaching, unlinking, revoking, clearing: a statement about a relationship, fully reversible by the route that made it, and in several cases already worded that way in the route's own description (`tasks.unlinkExternalTask`: "unlinking is a statement about the correspondence and never about the work"). None of those needs a confirmation dialog, and several have one.
 
 **The twelve `none` rows are the real deletion surface, and they are not one thing.** Reading their reasons sorts them into three groups:
 

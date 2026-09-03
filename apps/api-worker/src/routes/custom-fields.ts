@@ -736,7 +736,7 @@ const setValueRoute = defineOpenAPIRoute(mutationMeta("setValue"), {
 });
 
 const clearValueRoute = defineOpenAPIRoute(
-  { ...mutationMeta("clearValue"), reversal: { kind: "restatement" } },
+  { ...mutationMeta("clearValue"), reversal: { kind: "inverse", by: "customFields.setValue" } },
   {
     method: "delete",
     path: "/api/v1/custom-fields/values",

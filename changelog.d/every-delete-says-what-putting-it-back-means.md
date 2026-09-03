@@ -12,7 +12,7 @@ function checks the cross-references over the emitted document: a declaration re
 puts it back" is worth exactly as much as `files.restore` existing, and a surface rendering that
 sentence has no way to find out that it does not.
 
-**Nineteen of the thirty-three are `inverse`, which nobody expected.** More than half of what the
+**Twenty of the thirty-three are `inverse`, which nobody expected.** More than half of what the
 platform calls deletion is not deletion — it is detaching, unlinking, revoking, clearing: a statement
 about a relationship, fully reversible by the route that made it, and in several cases already worded
 that way in the route's own description. None of those needs a confirmation dialog, and several have

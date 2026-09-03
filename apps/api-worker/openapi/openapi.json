@@ -73468,7 +73468,8 @@
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
         "x-mc-reversal": {
-          "kind": "restatement"
+          "kind": "inverse",
+          "by": "customFields.setValue"
         },
         "x-mc-tags": [
           "customFields"
