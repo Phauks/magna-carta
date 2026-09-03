@@ -76,6 +76,7 @@
   import * as Popover from "@magna-carta/design-system/popover";
   import Separator from "@magna-carta/design-system/separator";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -336,7 +337,7 @@
     onclick={section.toggle}
   >
     <span class="flex items-center gap-8">
-      <span class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">{section.label}</span>
+      <FieldLabel as="span">{section.label}</FieldLabel>
       {#if section.collapsed && section.badge !== null}
         <Badge variant={section.badgeVariant}>{section.badge}</Badge>
       {/if}

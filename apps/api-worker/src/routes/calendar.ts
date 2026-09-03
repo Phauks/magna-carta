@@ -53,7 +53,11 @@ import {
   type FirmEventRow,
 } from "@magna-carta/calendar/firm-event-statements";
 import { createRelatedLink, deleteRelatedLink } from "@magna-carta/calendar/link-service";
-import { readContinuanceLinksForEvents, type LinkEnd } from "@magna-carta/calendar/link-statements";
+import {
+  readContinuanceLinksForEvents,
+  readLinksTouchingEvent,
+  type LinkEnd,
+} from "@magna-carta/calendar/link-statements";
 import { createFirmResource, updateFirmResource } from "@magna-carta/calendar/resource-service";
 import {
   readFirmResource,
@@ -82,6 +86,7 @@ import {
   FIRM_EVENT_AUDIENCES,
   FIRM_RESOURCE_KINDS,
   MATTER_DEADLINE_STATES,
+  CALENDAR_EVENT_LINK_KINDS,
   MATTER_EVENT_CATEGORIES,
   MATTER_EVENT_PARTICIPANT_KINDS,
   MATTER_EVENT_STATUSES,
@@ -1806,6 +1811,64 @@ const continueEventRoute = defineOpenAPIRoute(mutationMeta("continueEvent", "mat
   },
 });
 
+// One end of a link on the wire: exactly one of the two, the schema's own shape restated.
+const EventLinkEnd = z
+  .object({
+    matterEventId: z.string().nullable(),
+    firmEventId: z.string().nullable(),
+  })
+  .openapi("CalendarEventLinkEnd");
+
+const EventLinkDetail = z
+  .object({
+    id: z.string(),
+    kind: z.enum(CALENDAR_EVENT_LINK_KINDS),
+    from: EventLinkEnd,
+    to: EventLinkEnd,
+    note: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .openapi("CalendarEventLinkDetail");
+
+const EventLinks = z.object({ data: z.array(EventLinkDetail) }).openapi("CalendarEventLinks");
+
+const listEventLinksRoute = defineOpenAPIRoute(readMeta("listEventLinks", "matter"), {
+  method: "get",
+  path: "/api/v1/events/{eventId}/links",
+  description:
+    "Every link touching a matter event, from either side: the continuance it is part of and the " +
+    "settings it was related to by hand. Ends are identifiers; the other end's record is read on its " +
+    "own path, under its own visibility.",
+  request: { params: eventIdParam },
+  responses: {
+    200: {
+      description: "The event's links",
+      content: { "application/json": { schema: EventLinks } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const listFirmEventLinksRoute = defineOpenAPIRoute(readMeta("listFirmEventLinks", "firm"), {
+  method: "get",
+  path: "/api/v1/firm-events/{firmEventId}/links",
+  description: "Every link touching a firm event, from either side.",
+  request: { params: firmEventIdParam },
+  responses: {
+    200: {
+      description: "The firm event's links",
+      content: { "application/json": { schema: EventLinks } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
 const continuanceChainRoute = defineOpenAPIRoute(readMeta("continuanceChain", "matter"), {
   method: "get",
   path: "/api/v1/events/{eventId}/continuance-chain",
@@ -3345,6 +3408,59 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
     },
   );
 
+  // GET /api/v1/events/{eventId}/links
+  app.openapi(
+    { ...listEventLinksRoute, middleware: chokepointMiddleware(chokepoint, listEventLinksRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { eventId } = c.req.valid("param");
+      // Through the visible-matter predicate, as the event's own read is: a link is a fact about an
+      // event, and an event on an invisible matter has no facts here.
+      const event = await readMatterEventDetail(
+        firm.firmDatabase,
+        eventId as MatterEventId,
+        visibleMatterPredicate(),
+      );
+      if (event === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such event in this firm.",
+        });
+      }
+      const links = await readLinksTouchingEvent(firm.firmDatabase, {
+        matterEventId: eventId as MatterEventId,
+      });
+      return c.json({ data: links.map(eventLinkDetail) }, 200);
+    },
+  );
+
+  // GET /api/v1/firm-events/{firmEventId}/links
+  app.openapi(
+    {
+      ...listFirmEventLinksRoute,
+      middleware: chokepointMiddleware(chokepoint, listFirmEventLinksRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { firmEventId } = c.req.valid("param");
+      const event = await readFirmEvent(firm.firmDatabase, firmEventId as FirmEventId);
+      if (event === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such firm event in this firm.",
+        });
+      }
+      const links = await readLinksTouchingEvent(firm.firmDatabase, {
+        firmEventId: firmEventId as FirmEventId,
+      });
+      return c.json({ data: links.map(eventLinkDetail) }, 200);
+    },
+  );
+
   // GET /api/v1/events/{eventId}/continuance-chain
   app.openapi(
     {
@@ -3379,6 +3495,27 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       }
     },
   );
+}
+
+// A link row on the wire: both ends as the two optional identifiers the schema holds.
+function eventLinkDetail(row: {
+  readonly id: string;
+  readonly kind: (typeof CALENDAR_EVENT_LINK_KINDS)[number];
+  readonly from_matter_event_id: string | null;
+  readonly from_firm_event_id: string | null;
+  readonly to_matter_event_id: string | null;
+  readonly to_firm_event_id: string | null;
+  readonly note: string | null;
+  readonly created_at: string;
+}) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    from: { matterEventId: row.from_matter_event_id, firmEventId: row.from_firm_event_id },
+    to: { matterEventId: row.to_matter_event_id, firmEventId: row.to_firm_event_id },
+    note: row.note,
+    createdAt: row.created_at,
+  };
 }
 
 // One end of a link from the wire's two optional columns: exactly one, or nothing.

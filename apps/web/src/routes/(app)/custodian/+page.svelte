@@ -32,6 +32,7 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -48,6 +49,7 @@
   import NewPacketDialog from "$lib/custodian/new-packet-dialog.svelte";
   import PacketRegister from "$lib/custodian/packet-register.svelte";
   import PacketWindow from "$lib/custodian/packet-window.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   // ---- the firm's own container tree -----------------------------------------------------------
 
@@ -93,7 +95,7 @@
   const createRefusal = $derived.by((): string | undefined => {
     if (session === null) return "Reading your session.";
     if (!mayManage) {
-      return "Logging a packet needs the custody:manage permission, which this account does not hold.";
+      return permissionRefusal("Logging a packet", "custody:manage");
     }
     if (locations.length > 0 && !locations.some((location) => location.status === "active")) {
       return "A packet is logged into a container, and the firm has no open one to put it in.";
@@ -239,9 +241,9 @@
 
   <div class="grid min-h-0 flex-1 gap-24 lg:grid-cols-4">
     <div class="flex min-h-0 flex-col gap-12 lg:col-span-1">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         Where things are
-      </h2>
+      </FieldLabel>
       {#if occupancy.length === 0}
         <p class="text-xs text-text-muted">
           No container has been described yet. A custody tree is offices, safes, cabinets, shelves

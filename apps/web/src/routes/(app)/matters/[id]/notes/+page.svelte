@@ -29,6 +29,7 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { formatDate } from "@magna-carta/design-system/data-table";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
@@ -46,6 +47,7 @@
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
@@ -158,7 +160,7 @@
     refusal: isSample
       ? SAMPLE_MATTER_REFUSAL
       : !canWrite
-        ? "Writing a note needs the notes:write permission, which this account does not hold."
+        ? permissionRefusal("Writing a note", "notes:write")
         : windowOpen
           ? "A note is open in its window. Save it or close it first."
           : undefined,
@@ -246,9 +248,9 @@
 <section class="flex min-h-0 flex-1 flex-col gap-16">
   <div class="flex items-center justify-between gap-16 border-b border-border-strong pb-8">
     <div class="flex items-center gap-16">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         Notes
-      </h2>
+      </FieldLabel>
       <div class="flex items-center gap-4">
         <Search aria-hidden="true" class="size-16 text-text-muted" />
         <Input
