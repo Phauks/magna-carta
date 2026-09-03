@@ -369,17 +369,24 @@ describe("what each scope is allowed to read", () => {
 describe("the chip in its public scope", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
 
-  it("reads the aggregate from exactly one place, and that place refuses the public scope", () => {
+  it("reads each authenticated aggregate from exactly one place, and refuses the public scope", () => {
+    // Two reads now — the version aggregate and the database health — and each has ONE call site
+    // that guards on the scope before it touches the network. A second call site for either is how
+    // a signed-out panel starts making authenticated requests nobody remembered to guard.
     const calls = chip.match(/requestJson</g) ?? [];
-    expect(calls).toHaveLength(1);
-    const refreshBody = /async function refresh\([^)]*\): Promise<void> \{([\s\S]*?)\n  \}/.exec(
-      chip,
-    );
-    expect(refreshBody).not.toBeNull();
-    const body = refreshBody?.[1] ?? "";
-    expect(body).toContain("if (!readsAggregate) return;");
-    // The guard precedes the call, so no path through the function reaches the network first.
-    expect(body.indexOf("if (!readsAggregate) return;")).toBeLessThan(body.indexOf("requestJson<"));
+    expect(calls).toHaveLength(2);
+    for (const name of ["refresh", "refreshHealth"]) {
+      const body =
+        new RegExp(`async function ${name}\\([^)]*\\): Promise<void> \\{([\\s\\S]*?)\\n  \\}`).exec(
+          chip,
+        )?.[1] ?? "";
+      expect(body).toContain("if (!readsAggregate) return;");
+      // The guard precedes the call, so no path through the function reaches the network first.
+      expect(body.indexOf("if (!readsAggregate) return;")).toBeLessThan(
+        body.indexOf("requestJson<"),
+      );
+      expect(body.match(/requestJson</g) ?? []).toHaveLength(1);
+    }
   });
 
   it("never opens the read on a public panel, however the panel was opened", () => {
@@ -488,14 +495,18 @@ describe("the chip's row identities and refresh", () => {
     expect(chip).toMatch(/if \(copiedRow === rowKey\) copiedRow = null;\s*\}, 1000\);/);
   });
 
-  it("offers a refresh that re-runs the read and is inert while one is in flight", () => {
-    const refreshControl =
-      /<Button[^>]*aria-label="Refresh the version read"[\s\S]*?<\/Button>/.exec(chip);
+  it("offers one refresh that re-runs both reads and is inert while either is in flight", () => {
+    // One control for one panel: a reader pressing Refresh asked the panel to say what is true
+    // now, not to re-ask whichever half they happened to be looking at.
+    const refreshControl = /<Button[^>]*aria-label="Refresh the panel"[\s\S]*?<\/Button>/.exec(
+      chip,
+    );
     expect(refreshControl).not.toBeNull();
     const control = refreshControl?.[0] ?? "";
-    expect(control).toContain("disabled={loading}");
-    expect(control).toContain("aria-busy={loading}");
-    expect(control).toContain("onclick={() => refresh({ fresh: true })}");
+    expect(control).toContain("disabled={loading || healthLoading}");
+    expect(control).toContain("aria-busy={loading || healthLoading}");
+    expect(control).toContain("refresh({ fresh: true })");
+    expect(control).toContain("refreshHealth()");
   });
 
   it("the explicit gestures probe fresh; the automatic on-open read takes the cached path", () => {
@@ -636,7 +647,7 @@ describe("the panel header", () => {
     expect(header).toMatch(/\{#if updateAvailable\}[\s\S]*aria-label=\{RELOAD_ACTION_LABEL\}/);
     // Beside refresh, in that order, inside the one controls cluster.
     expect(header.indexOf("aria-label={RELOAD_ACTION_LABEL}")).toBeLessThan(
-      header.indexOf('aria-label="Refresh the version read"'),
+      header.indexOf('aria-label="Refresh the panel"'),
     );
   });
 
@@ -646,7 +657,7 @@ describe("the panel header", () => {
 
   it("offers reload in every scope and refresh only where there is an aggregate to re-read", () => {
     // The update poll reads a public asset of this bundle, so a signed-out tab gets stale too.
-    expect(header).toMatch(/\{#if readsAggregate\}[\s\S]*aria-label="Refresh the version read"/);
+    expect(header).toMatch(/\{#if readsAggregate\}[\s\S]*aria-label="Refresh the panel"/);
     expect(header.indexOf("aria-label={RELOAD_ACTION_LABEL}")).toBeLessThan(
       header.indexOf("{#if readsAggregate}"),
     );
@@ -666,15 +677,20 @@ describe("the fleet fold", () => {
   });
 
   it("is a disclosure: its own label names it and aria-expanded carries the state", () => {
-    expect(chip).toContain("{FLEET_SECTION_LABEL}");
-    expect(chip).toContain("aria-expanded={!fleetSectionPreference.collapsed}");
-    expect(chip).toContain("onclick={() => fleetSectionPreference.toggle()}");
+    // The mechanics live on the one sectionToggle snippet every fold in the panel renders through,
+    // so a second fold cannot arrive with a different idea of what a disclosure is.
+    expect(chip).toContain("aria-expanded={!section.collapsed}");
+    expect(chip).toContain("onclick={section.toggle}");
+    expect(chip).toContain("{section.label}");
+    expect(chip).toMatch(
+      /label: FLEET_SECTION_LABEL,[\s\S]*collapsed: fleetSectionPreference\.collapsed,[\s\S]*toggle: \(\) => fleetSectionPreference\.toggle\(\)/,
+    );
     expect(FLEET_SECTION_LABEL).toBe("Workers");
   });
 
   it("turns its caret rather than swapping the glyph, and holds still under reduced motion", () => {
     expect(chip).toContain("icons/chevron-right");
-    expect(chip).toMatch(/fleetSectionPreference\.collapsed\s*\?\s*''\s*:\s*'rotate-90'/);
+    expect(chip).toMatch(/section\.collapsed\s*\?\s*''\s*:\s*'rotate-90'/);
     expect(chip).toContain("motion-reduce:transition-none");
   });
 
@@ -694,9 +710,12 @@ describe("the fleet fold", () => {
   });
 
   it("shows that count on the heading exactly while the fold is shut", () => {
+    // Shut, the heading wears what the fold hides; open, the rows say it themselves and a badge
+    // repeating them is the same fact twice.
     expect(chip).toMatch(
-      /\{#if fleetSectionPreference\.collapsed && silentWorkers !== null\}[\s\S]*\{silentWorkers\}/,
+      /\{#if section\.collapsed && section\.badge !== null\}[\s\S]*\{section\.badge\}/,
     );
+    expect(chip).toContain("badge: summarizeSilentWorkers(deploymentRows.rest)");
   });
 
   it("remembers the fold per browser, and arrives open", () => {

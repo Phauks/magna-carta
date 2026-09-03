@@ -520,6 +520,29 @@ Worker has no `*_SERVICE` binding in `apps/api-worker/wrangler.jsonc` and no con
 project, so there is nothing to probe. Distinguish it from "Not reporting", which means the Worker
 exists and answers, just from a build predating the route. The surface is doing its job in both cases.
 
+### The database-health read is where a firm's own provisioning becomes visible
+
+`GET /api/v1/meta/database-health` sits beside the version read and answers the other half of "is
+this working": a timed round trip to the session firm's `FirmDatabase` Durable Object, the control
+plane's own answer and whether the firm's bucket exists, the applied migration lineage against the
+one the running build carries, the session member's row and roles, and the backlog of
+`member.provision` outbox rows for that firm.
+
+**It is the first place a stalled member mirror shows up as itself.** A firm whose owner has no
+member row yet has an empty permission set, so every permission-gated route answers 403 with the
+same within-firm-denial problem a genuinely ungranted role produces — a support report of "all my
+screens say I have no permission" has, until now, had no way to distinguish the two. The panel's
+Database section names it, and the Provisioning line beside it says whether the row is still pending
+(a sweep away) or dead-lettered.
+
+**A dead-lettered mirror is the operator seam, not a wait.** `sweepOutbox` marks a row `failed`
+terminally by design, so nothing re-dispatches it: the recovery is
+`requeueDeadLetteredMessageStatement` (`packages/data-access/src/outbox-statements.ts`) flipping the
+row back to `pending` for the next sweep. The read reports the count and never touches the rows.
+
+The route carries `permission: null` on purpose. A gated version of it would refuse exactly the
+session it exists to explain, which is the member whose permissions have not landed.
+
 ### Cron Triggers — two rules that have each cost a deploy
 
 **Cloudflare numbers days of the week 1 = Sunday through 7 = Saturday.** `0` is out of range, not a
