@@ -60,6 +60,7 @@
     type TaskState,
   } from "$lib/matters/tasks-api.ts";
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import PlanProposalReview from "$lib/matters/plan-proposal.svelte";
   import { plansOfferedFor, type MatterPlan } from "$lib/matters/matter-plans-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -700,8 +701,7 @@
                           <a
                             class="underline"
                             href={link.externalUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
+                            {...opensBeside("external")}
                           >
                             {link.externalId}
                           </a>
