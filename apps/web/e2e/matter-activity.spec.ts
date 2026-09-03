@@ -165,3 +165,17 @@ test("a row opens onto the record: a file in its inspector, a note in its window
     page.locator('[data-state="selected"]', { hasText: "Case Documents.zip" }).first(),
   ).toBeVisible({ timeout: 15_000 });
 });
+
+test("the Overview's Recent activity is the same register, one step from the whole chronology", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.goto(`/matters/${seededMatterId}/overview`);
+  await expect(page.getByRole("heading", { name: "Recent activity" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Client Letter.txt" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole("link", { name: "See all activity" }).click();
+  await expect(page).toHaveURL(/\/activity$/);
+  await expect(page.getByRole("heading", { name: "Activity", exact: true })).toBeVisible();
+});

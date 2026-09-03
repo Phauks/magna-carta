@@ -8,8 +8,9 @@ was done and when.
 
 ## Reading the Chronology
 
-Open a matter and choose **Activity** from the **Record** menu on the section strip. The newest entry
-is at the top. Each row shows:
+Open a matter and choose **Activity** from the **Record** menu on the section strip. The matter's
+Overview also shows its most recent activity, with **See all activity** taking you to the whole
+chronology. The newest entry is at the top. Each row shows:
 
 - **Date** and **Time** — when the thing happened. A hearing shows the day it is held; a document
   shows the moment it was added; a note shows the day the thing it describes happened, where the

@@ -157,8 +157,17 @@ export function activityRows(
   });
 }
 
-/** The declarative column model. Everything the register can do it does through this. */
-export function activityColumns(): readonly GridColumn<ActivityRow>[] {
+/**
+ * The declarative column model. Everything the register can do it does through this.
+ *
+ * `recent` is the Overview's tile: the same columns, with the ones a glance does not need (the
+ * clock time, the section word, the actor) starting hidden — the header menu brings any of them
+ * back, because a tile is the same grid, not a smaller one.
+ */
+export function activityColumns(
+  options: { recent?: boolean } = {},
+): readonly GridColumn<ActivityRow>[] {
+  const recent = options.recent === true;
   return [
     {
       id: ACTIVITY_COLUMN_IDENTIFIERS.date,
@@ -173,6 +182,7 @@ export function activityColumns(): readonly GridColumn<ActivityRow>[] {
       id: ACTIVITY_COLUMN_IDENTIFIERS.time,
       label: "Time",
       type: "text",
+      hidden: recent,
       value: (row) => row.time,
     },
     {
@@ -183,6 +193,7 @@ export function activityColumns(): readonly GridColumn<ActivityRow>[] {
       // filter on this column, like narrowing anything else.
       filter: "set",
       filterValues: ACTIVITY_SECTION_VALUES,
+      hidden: recent,
       value: (row) => row.section,
     },
     {
@@ -212,6 +223,7 @@ export function activityColumns(): readonly GridColumn<ActivityRow>[] {
       label: "Who",
       type: "text",
       filter: "set",
+      hidden: recent,
       value: (row) => row.who,
     },
   ];

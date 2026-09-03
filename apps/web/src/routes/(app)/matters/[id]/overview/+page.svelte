@@ -10,6 +10,7 @@
   import * as Card from "@magna-carta/design-system/card";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import ActivityRegister from "$lib/activity/activity-register.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
   import { matterStatusLabel } from "$lib/matters/matter-status.ts";
 
@@ -69,11 +70,9 @@
   });
 
   /* The figures that accrue against a matter once their surfaces ship — placeholders only. */
-  const ACCRUAL_TILES = [
-    { label: "Unbilled time" },
-    { label: "Trust balance" },
-    { label: "Recent activity" },
-  ];
+  const ACCRUAL_TILES = [{ label: "Unbilled time" }, { label: "Trust balance" }];
+
+  const isSample = $derived(matter.source === "sample");
 </script>
 
 <svelte:head>
@@ -115,7 +114,7 @@
     </section>
   {/if}
 
-  <div class="grid grid-cols-1 gap-16 sm:grid-cols-3">
+  <div class="grid grid-cols-1 gap-16 sm:grid-cols-2">
     {#each ACCRUAL_TILES as tile (tile.label)}
       <Card.Root>
         <Card.Content class="flex flex-col gap-12">
@@ -134,4 +133,23 @@
       </Card.Root>
     {/each}
   </div>
+
+  <!-- The newest of everything recorded on the matter: the one activity register with a row budget,
+       so what the Overview shows is what the Activity section shows, and nothing is summarised
+       twice. The whole chronology is one step away. -->
+  <section class="flex flex-col gap-16">
+    <div class="flex items-baseline justify-between gap-8 border-b border-border-strong pb-8">
+      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        Recent activity
+      </h2>
+      <a href={`/matters/${matter.id}/activity`} class="text-sm underline">See all activity</a>
+    </div>
+    <ActivityRegister
+      matterId={matter.id}
+      matterTitle={matter.title}
+      {isSample}
+      variant="recent"
+      limit={8}
+    />
+  </section>
 </div>

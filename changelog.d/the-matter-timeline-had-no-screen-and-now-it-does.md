@@ -24,6 +24,8 @@ The federated timeline has been built, tested and served since the calendar slic
 
 **What happened to a document after it arrived is on the chronology.** A sixteenth source, `fileHistory`, admits the File History view's own events — renamed, moved, deleted, restored, a new version, an earlier version restored, the document type set, held by the safety check — through the one join that confines the audit log's polymorphic subject to a matter, exactly as the History view reads them. A first version's commit stays out, because a document's arrival is already the row that says it was added. Each row is named by the file as it is called now, typed by the History view's own action word through the same `historyActionLabel`, and opens onto the file.
 
+**One register, two homes.** The Activity section's body is now `$lib/activity/activity-register.svelte`, and the Overview's "Recent activity" placeholder tile is that same register with a row budget of eight, the glance-level columns, and "See all activity" one step away — so what the Overview shows is what the Activity section shows, never a second summary of it. A firm-wide feed on the Home dashboard is the third home, and waits on the one design question it raises: whether a page spanning the member's matters may be described row by row, which the timeline's label discipline was written to refuse.
+
 **Nothing says a document was "filed".** To a lawyer, filing means filing with a court, and this platform files nothing with a court: a document is added to the matter, an email is saved to it. The source keys stay `documentFiled` and `emailFiled` because they are wire contracts — which is exactly why the words a person reads are decided in the contributions and not taken from them.
 
 Three deep links were repaired on the way. `emailFiled` pointed at a matter section spelled `email` and the three custody sources at `custody`; the app routes `emails` and `custodian`. A conflicts check has no matter section at all, so its rows state what happened and offer nowhere to go — the section registry says why, and the coverage lint keeps the answer current.
@@ -37,3 +39,5 @@ Three deep links were repaired on the way. `emailFiled` pointed at a matter sect
 **Find it, then open it.** Sort by any column, right-click a column heading to filter it, hide it, pin it or bring another back, and the footer tells you how many rows a filter is hiding. Narrowing to one part of the matter is the Section filter; narrowing to one kind of thing is the Type filter; narrowing to one person is Who. Each row opens the thing it describes, in the section that holds it.
 
 **Write a note from here.** "+ New Note" opens the same window the Notes section uses, and the note takes its place in the chronology the moment it is saved.
+
+**The Overview starts with it.** The matter's Overview now carries its most recent activity, with the whole chronology one step away.
