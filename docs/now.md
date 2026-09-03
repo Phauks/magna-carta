@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 792 nodes of the feature ledger in
+is the complete register rather than a digest: all 793 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**792 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**793 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **652 that are units of work**, for the reason set out under [What a roll-up is
+count the **653 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 286 | 44% |
+| Done | shipped | 287 | 44% |
 | Part-built | partial, in-build | 118 | 18% |
 | Ahead | designed, planned, researching, not-started | 207 | 32% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **652** | **100%** |
+| **All units of work** | | **653** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 286 | 44% |
+| `shipped` | 287 | 44% |
 | `partial` | 117 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 140 | 22% |
+| `not-started` | 140 | 21% |
 | `deferred` | 38 | 6% |
-| `cut` | 3 | 0% |
-| **All statuses** | **652** | **100%** |
+| `cut` | 3 | 1% |
+| **All statuses** | **653** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 792 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 793 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 286 of 652 (44%). Shipped plus partial is 403 (62%).**
+**Shipped alone is 287 of 653 (44%). Shipped plus partial is 404 (62%).**
 
 The 117 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**404 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**405 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 55 | 14% |
+| A person can open it today (`screen`) | 56 | 14% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 172 | 42% |
 | No user surface by nature (`internal`) | 177 | 44% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **404** | **100%** |
+| **Everything with something built** | **405** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -100,7 +100,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Calendar and Rules-Based Docketing | 12 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 18 | 67% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
-| Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
+| Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
 | Core Domain — Directory, Matters & Locations | 32 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 52% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 17 | 65% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **286** | **117** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **652** | **44%** |
+| **All areas** | **287** | **117** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **653** | **44%** |
 
 ## Where we have been
 
@@ -593,7 +593,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 7 units of work, 57% shipped. 4 done, 3 part-built, 0 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 63% shipped. 5 done, 3 part-built, 0 ahead, 0 parked.
 
 - `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
@@ -604,6 +604,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `conflicts.firm-wide-scope` · `shipped` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph. _Note: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph._
   - `conflicts.clearance` · `shipped` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected. _Note: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything._
   - `conflicts.log` · `shipped` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log. _Note: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it._
+  - `conflicts.read-surface` · `shipped` · **Reading the log back** — The reads the conflicts screens are built against — naming the party a hit is about, the full adjudication trail, the firm's own policy floor, the checks a firm has run, an earlier answer about the same party, and asking for a re-check on demand. _Note: The sixth read closed the register: readPriorConclusions carries an earlier check's answer about the same party onto a hit as `previouslyAnswered`, a field deliberately separate from `disposition` so the hit stays UNANSWERED — the owner's ruling of 2026-09-02, decided on the case where a company cleared as a former client re-surfaces as a current client's subsidiary, which is a different question on a higher bar. It needed conflicts_hit_entity_created_index: conflicts_hit carried only (check_id), so matching a party across earlier checks scanned an append-only table. What remains on conflicts-gaps.ts is the assembled report document, which is its own work._
 
 ### Core Domain — Directory, Matters & Locations
 

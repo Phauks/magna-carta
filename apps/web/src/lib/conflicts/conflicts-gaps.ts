@@ -24,36 +24,9 @@ export interface ConflictsGap {
 }
 
 export const CONFLICTS_GAPS = {
-  matchedPartyName: {
-    field: "Party",
-    waitsOn:
-      "a read that names many Directory entities in one request, so a hit list can say who matched without one request per row",
-  },
-  checkHistory: {
-    field: "Earlier Checks",
-    waitsOn: "a read that lists the checks a firm has run",
-  },
-  adjudicationTrail: {
-    field: "Adjudication Trail",
-    waitsOn:
-      "a read that serves every disposition recorded against a hit, not only the reviewer's latest word",
-  },
-  firmPolicy: {
-    field: "Firm Floor",
-    waitsOn: "a read that serves the firm's own conflicts policy",
-  },
-  previouslyConcluded: {
-    field: "Previously Concluded",
-    waitsOn:
-      "a read that matches a re-surfaced hit against the conclusion an earlier check's identical hit already carries",
-  },
   reportDocument: {
     field: "Assembled Report",
     waitsOn: "the conflicts report being assembled as a filed document rather than a printed sheet",
-  },
-  rescanNow: {
-    field: "Re-check This Matter",
-    waitsOn: "a route that asks for a re-check of one matter on demand",
   },
 } as const satisfies Readonly<Record<string, ConflictsGap>>;
 

@@ -62,6 +62,18 @@ export function reportedParty(entityId: string, names?: ReadonlyMap<string, stri
   return name === undefined || name.trim() === "" ? entityId : name;
 }
 
+/*
+ * A HIT's party reads off the hit itself, which the server resolves for every hit of the check.
+ * Before that, the sheet could only name a party a reviewer had opened — every other candidate
+ * printed as a handle, on the document a firm hands a court. The map is still consulted, because a
+ * waiver's consenting party is a different entity and is still read one at a time.
+ */
+export function reportedHitParty(hit: HitDetail, names?: ReadonlyMap<string, string>): string {
+  const name = hit.party?.displayName;
+  if (name !== undefined && name !== null && name.trim() !== "") return name;
+  return reportedParty(hit.entityId, names);
+}
+
 function memberText(userId: string | null, names?: ReadonlyMap<string, string>): string {
   if (userId === null) return "No acting member recorded";
   return personName(names?.get(userId) ?? null, { whenUnrecorded: userId });
@@ -159,7 +171,7 @@ function sourceFields(check: CheckWithHits["check"]): PrintSheetField[] {
 function hitSection(hit: HitDetail, index: number, context: ReportContext): PrintSheetSection {
   const answer = hit.disposition;
   const fields: PrintSheetField[] = [
-    { label: "Party", value: reportedParty(hit.entityId, context.entityNames) },
+    { label: "Party", value: reportedHitParty(hit, context.entityNames) },
     { label: "Kind", value: entityKindText(hit.entityId) || "Not recorded" },
     { label: "Source", value: sourceVocabulary(hit.sourceClass).label },
     { label: "Matched On", value: hit.matchedFields.join("; ") || "No channel recorded" },

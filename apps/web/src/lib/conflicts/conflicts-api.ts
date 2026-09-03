@@ -7,14 +7,14 @@
  * reads. Four facts about this contract shape every screen above it, and all four are recorded here
  * rather than rediscovered:
  *
- *   - THE SERVER NAMES NO ENTITY. A hit carries `entityId` and nothing else about who matched, and
- *     there is no batch entity-name read. Naming every row would be one request per row, which is
- *     the fan-out the platform forbids, so the list states the gap and a hit names its party when a
- *     reviewer opens it — one read for the hit under review, through the Directory surface's own
- *     module rather than through a second copy of it here.
- *   - THERE IS NO LISTING OF CHECKS. A check is reachable by its own identifier, and a matter's
- *     latest check through that matter's standing. Nothing answers "every check this firm has run",
- *     so no screen here offers one.
+ *   - THE SERVER NAMES THE ENTITY, since 2026-09-02. A hit carries `party` — the kind and the name
+ *     the Directory holds for it TODAY, resolved on the read rather than copied onto the append-only
+ *     log, so a reviewer deciding now sees the current name. It is null when the entity does not
+ *     resolve at all, which the log's append-only rule makes reachable (a merge can reshape an
+ *     entity an old hit names); that is an unresolved party and is never rendered as no party.
+ *   - THE CHECKS A FIRM HAS RUN ARE LISTABLE, since 2026-09-02: `listConflictsChecks` pages them
+ *     newest first, optionally narrowed to one matter. A line names what set the run going and who
+ *     asked where anybody did, and never a conclusion about what it found.
  *   - THE STATEMENT IS THE SERVER'S OWN WORDS. `statement` arrives as a list of sentences the
  *     platform wrote about its own search. Nothing here rewrites, summarizes, or reorders them: the
  *     whole value of the sentence is that the firm can defend the one its system produced.
@@ -150,9 +150,94 @@ export interface DispositionDetail {
   createdAt: string;
 }
 
+/** Who a hit is about, as the Directory names them today. */
+/**
+ * One act on a hit's trail. The same fields the check response's `disposition` carries, and a
+ * separate type for the same reason the wire keeps them separate: there, null means nobody has
+ * answered; here every entry is something that happened and there is no null to express.
+ */
+export interface DispositionTrailEntry {
+  id: string;
+  kind: DispositionKind;
+  rationale: string;
+  reviewerUserId: string;
+  waiver: WaiverDetail | null;
+  shortfalls: WaiverShortfall[];
+  createdAt: string;
+}
+
+export interface DispositionTrail {
+  hitId: string;
+  /** Oldest first: the trail reads as a narrative, and a reversal only makes sense after what it reverses. */
+  dispositions: DispositionTrailEntry[];
+}
+
+/**
+ * One line of the firm's check history. Narrow on purpose: the whole check — its recorded scope, its
+ * statement, its hits — is one identifier away, and a listing that carried all of it would read
+ * every check's inputs for a surface that shows none of them.
+ */
+export interface ConflictsCheckSummary {
+  id: string;
+  trigger: ConflictsTrigger;
+  /** Null for a check against a prospective party set with no matter. Not every check has one. */
+  matterId: string | null;
+  strictness: Strictness;
+  depth: number;
+  /** True when the firm's floor raised the scope above what was asked for — it searched WIDER. */
+  floorRaised: boolean;
+  /** Null on an automated run, which is nobody's act. Never the same as a manual run's actor. */
+  actorUserId: string | null;
+  /** manual, event or schedule. Null on a row written before the column existed. */
+  triggerSource: string | null;
+  hitCount: number;
+  createdAt: string;
+}
+
+export interface ConflictsCheckPage {
+  data: ConflictsCheckSummary[];
+  nextCursor: string | null;
+}
+
+/** The firm's mandatory minimum for every check. A per-run scope may add to it, never subtract. */
+export interface FirmConflictsPolicy {
+  floorSources: SourceClass[];
+  floorStrictness: Strictness;
+  /** A default rather than a floor: a caller may search shallower, and the check records what ran. */
+  defaultDepth: number;
+  edgeClassBudgets: Record<string, number>;
+  closureCap: number;
+  candidateCap: number;
+  /** The name rows the balanced band compares. Never empty. */
+  balancedNameRoles: string[];
+}
+
+export interface HitParty {
+  kind: "person" | "organization";
+  /** Null when the record exists and carries no name — not the same as an unresolved entity. */
+  displayName: string | null;
+}
+
+/**
+ * What the firm already said about the same party, on an EARLIER check.
+ *
+ * CONTEXT, never this hit's answer. A company cleared as a former client can re-surface as the
+ * subsidiary of a current one — same party, a different question, on a higher bar. So a hit carrying
+ * this is still unanswered, and no surface may render it as answered, pre-fill from it, or hide the
+ * hit because of it.
+ */
+export interface PriorConclusion {
+  checkId: string;
+  kind: DispositionKind;
+  reviewerUserId: string;
+  createdAt: string;
+}
+
 export interface HitDetail {
   id: string;
   entityId: string;
+  /** Null when the entity does not resolve to a live Directory record. Never "no party matched". */
+  party: HitParty | null;
   sourceClass: SourceClass;
   evidenceTier: EvidenceTier;
   /** Every channel that fired, in the domain's own words. Never a score. */
@@ -163,6 +248,8 @@ export interface HitDetail {
   createdAt: string;
   /** The reviewer's latest word on this hit, or null when nobody has answered it. */
   disposition: DispositionDetail | null;
+  /** An earlier check's answer about the same party. Context only — never this hit's answer. */
+  previouslyAnswered: PriorConclusion | null;
 }
 
 /** What the name comparison compared. `strictness` is a preset name; this names the channels. */
@@ -390,6 +477,67 @@ export function readConflictsCheck(
   checkId: string,
 ): Promise<ApiOutcome<CheckWithHits>> {
   return requestJson(fetchImpl, `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}`);
+}
+
+/**
+ * Every answer recorded against one hit, oldest first — the trail rather than the latest word.
+ *
+ * Read when a reviewer OPENS a hit, not with the list: the whole history of one candidate is the one
+ * thing only this view uses, and carrying it on the check response would grow every page view by it.
+ */
+export function readConflictsDispositionTrail(
+  fetchImpl: typeof fetch,
+  hitId: string,
+): Promise<ApiOutcome<DispositionTrail>> {
+  return requestJson(fetchImpl, `/api/v1/conflicts/hits/${encodeURIComponent(hitId)}/dispositions`);
+}
+
+/**
+ * The firm's own conflicts floor — what every check is held to, whatever a caller asks for.
+ *
+ * On `conflicts:read` because every member who can read a check is held to it: a reviewer looking at
+ * a check that fell short of the floor has to be able to see what the floor is.
+ */
+export function readFirmConflictsPolicy(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<FirmConflictsPolicy>> {
+  return requestJson(fetchImpl, "/api/v1/firm/conflicts-policy");
+}
+
+/**
+ * Run a fresh check against one matter's live parties, now, because a member asked.
+ *
+ * It sends NO scope, and there is none to send: the firm's floor is what runs. A screen composing a
+ * scope here would be a screen deciding how thoroughly the firm searches.
+ */
+export function recheckMatterConflicts(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  writeKey: string,
+): Promise<ApiOutcome<{ checkId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/matters/${encodeURIComponent(matterId)}/conflicts-rechecks`,
+    { method: "POST", body: {}, idempotencyKey: writeKey },
+  );
+}
+
+/**
+ * The checks this firm has run, newest first, one page at a time.
+ *
+ * `matterId` narrows to one matter's own history, which is also the shape the table's index serves
+ * directly; the firm-wide read has its own index, added when the load-profile plan probe measured
+ * it as a full table scan of a log that only grows.
+ */
+export function listConflictsChecks(
+  fetchImpl: typeof fetch,
+  options: { matterId?: string; cursor?: string } = {},
+): Promise<ApiOutcome<ConflictsCheckPage>> {
+  const parameters = new URLSearchParams();
+  if (options.matterId !== undefined) parameters.set("matterId", options.matterId);
+  if (options.cursor !== undefined) parameters.set("cursor", options.cursor);
+  const query = parameters.toString();
+  return requestJson(fetchImpl, `/api/v1/conflicts/checks${query === "" ? "" : `?${query}`}`);
 }
 
 /** Where one matter stands. Derived at read time, so a policy change shows up immediately. */

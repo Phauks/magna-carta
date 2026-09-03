@@ -3,7 +3,9 @@ import { loadEffectivePermissions } from "../session-context.ts";
 import { runConflictsCheck } from "@magna-carta/conflicts/run-check";
 import {
   recordDisposition,
-  readCurrentDisposition,
+  readDispositionTrail,
+  readHitDispositionStates,
+  readPriorConclusions,
   EmptyRationaleError,
   InvalidWaiverDateError,
   UnknownConsentingPartyError,
@@ -12,6 +14,17 @@ import {
   WaiverRecordNotApplicableError,
   WaiverRecordRequiredError,
 } from "@magna-carta/conflicts/disposition";
+import { readEntityDisplayNames } from "@magna-carta/conflicts/subject-facts";
+import {
+  selectConflictsChecksStatement,
+  type ConflictsCheckSummaryRow,
+} from "@magna-carta/conflicts/statements";
+import {
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  encodeCursor,
+} from "@magna-carta/data-access/cursor-pagination";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import {
   parseCheckInputs,
   parseCheckScope,
@@ -20,7 +33,7 @@ import {
 } from "@magna-carta/conflicts/posture";
 import { describeCheck, type ReportedSource } from "@magna-carta/conflicts/report-text";
 import { ConflictsIdempotencyConflictError } from "@magna-carta/conflicts/run-conflicts-effect";
-import { MAX_CANDIDATE_CAP } from "@magna-carta/conflicts/settings";
+import { MAX_CANDIDATE_CAP, readConflictsPolicy } from "@magna-carta/conflicts/settings";
 import { CONFLICTS_CHECK_TABLE, CONFLICTS_HIT_TABLE } from "@magna-carta/conflicts/statements";
 import {
   CONFLICTS_TRIGGERS,
@@ -122,6 +135,17 @@ interface HitRow {
   readonly created_at: string;
 }
 
+// Whether a hit exists in THIS firm's database. The firm scoping is the handle to the per-firm
+// database itself, as everywhere else here — there is no firm column to filter on because there is
+// no cross-firm table to filter.
+async function readHitById(database: SqlDatabase, hitId: string): Promise<{ id: string } | null> {
+  const { results } = await database
+    .prepare(`SELECT id FROM ${CONFLICTS_HIT_TABLE} WHERE id = ?1`)
+    .bind(hitId)
+    .all<{ id: string }>();
+  return results[0] ?? null;
+}
+
 async function readHitRows(database: SqlDatabase, checkId: string): Promise<HitRow[]> {
   const { results } = await database
     .prepare(
@@ -153,6 +177,12 @@ const MAX_CLOSURE_CAP = 5000;
 
 const checkIdParam = z.object({
   checkId: identifierPathParam("conflictsCheck", "checkId"),
+});
+
+// The listing's own query. `cursor` is the shared opaque continuation; `matterId` narrows to one
+// matter's history, which is also the shape the table's index actually serves.
+const checkHistoryQuery = cursorQuery.extend({
+  matterId: identifierField("matter").optional(),
 });
 
 const hitIdParam = z.object({
@@ -199,6 +229,67 @@ const CreateCheckRequest = z
   .openapi("CreateConflictsCheckRequest");
 
 const CreatedCheckResponse = z.object({ id: z.string() }).openapi("CreatedConflictsCheckResponse");
+
+/*
+ * The firm's own conflicts floor, as every check is judged against it. Read-only here: raising or
+ * lowering a floor is an administrative act on the same key family as the scan policy, and it is not
+ * built by this route.
+ *
+ * Every member who may read a check may read this, because every member is HELD to it — a reviewer
+ * looking at a check that fell short of the floor needs to be able to see what the floor is.
+ */
+const ConflictsPolicyResponse = z
+  .object({
+    // The classes a check must search whatever a caller asked for. `party` is always among them:
+    // conflicts impute across the whole firm, so the party corpus is not optional, and the read
+    // unions it back in even from a stored row that somehow lacks it.
+    floorSources: z.array(z.enum(SOURCE_CLASSES)),
+    floorStrictness: z.enum(STRICTNESS_LEVELS),
+    // A DEFAULT rather than a floor, unlike the two above: a caller may deliberately search
+    // shallower, and the check row records the depth that actually ran either way.
+    defaultDepth: z.number().int(),
+    edgeClassBudgets: z.record(z.string(), z.number().int()),
+    closureCap: z.number().int(),
+    candidateCap: z.number().int(),
+    // The name rows the BALANCED band compares. over_inclusive always searches every role, which is
+    // what keeps it a superset whatever this is set to.
+    balancedNameRoles: z.array(z.string()),
+  })
+  .openapi("ConflictsPolicyResponse");
+
+/*
+ * One line of the firm's check history. Narrow on purpose: this is a listing, and the whole check —
+ * its recorded scope, its statement, its hits — is one identifier away. Carrying the scope of every
+ * check on a page would read `inputs_json` for a surface that shows none of it.
+ */
+const CheckSummary = z
+  .object({
+    id: z.string(),
+    trigger: z.enum(CONFLICTS_TRIGGERS),
+    // Null for a check against a prospective party set with no matter — the pre-engagement screen
+    // the schema is already shaped for. A listing must not imply every check belongs to a matter.
+    matterId: z.string().nullable(),
+    strictness: z.enum(STRICTNESS_LEVELS),
+    depth: z.number().int(),
+    // True when the scope asked for fell below the firm's floor and was raised to it. On a listing
+    // it is the one fact worth carrying, because it says the check searched WIDER than requested.
+    floorRaised: z.boolean(),
+    // Null on an automated run, which is nobody's act. Distinct from a manual run whose actor the
+    // row records, and the two must never read alike.
+    actorUserId: z.string().nullable(),
+    // What set the run going: manual, event, or schedule. Null on a row written before the column
+    // existed, which reads as "the row does not say" rather than as any of the three.
+    triggerSource: z.string().nullable(),
+    hitCount: z.number().int(),
+    createdAt: z.string(),
+  })
+  .openapi("ConflictsCheckSummary");
+
+const CheckHistoryResponse = paginated(CheckSummary).openapi("ConflictsCheckPage");
+
+const CreatedRecheckResponse = z
+  .object({ checkId: z.string() })
+  .openapi("CreatedConflictsRecheckResponse");
 
 const GraphPathStep = z
   .object({
@@ -248,10 +339,27 @@ const DispositionDetail = z
   })
   .openapi("ConflictsDispositionDetail");
 
+// Who the hit is ABOUT, resolved from the Directory at read time rather than copied onto the log.
+// The log is append-only and records the entity by reference, so the name a reader sees is the name
+// the firm holds today — which is the right answer for a reviewer deciding now, and is why this is
+// not a column on conflicts_hit.
+const HitParty = z
+  .object({
+    kind: z.enum(["person", "organization"]),
+    // Null when the Directory holds the record and it carries no name at all. Distinct from the
+    // whole `party` being null, which says the entity does not resolve.
+    displayName: z.string().nullable(),
+  })
+  .openapi("ConflictsHitParty");
+
 const HitDetail = z
   .object({
     id: z.string(),
     entityId: z.string(),
+    // Null when the entity does not resolve to a live Directory record — a hit whose party the
+    // firm has since merged away, which the log's append-only rule makes reachable. The surface
+    // says so and names the id; it must never read as "no party matched".
+    party: HitParty.nullable(),
     sourceClass: z.enum(SOURCE_CLASSES),
     evidenceTier: z.number().int().min(1).max(4),
     matchedFields: z.array(z.string()),
@@ -483,6 +591,39 @@ const RecordDispositionRequest = z
   })
   .openapi("RecordConflictsDispositionRequest");
 
+// Every answer recorded against one hit, oldest first — the trail, not the latest word. The list is
+// unpaginated on purpose: it is bounded by how many times human reviewers have answered one
+// candidate, which is a handful, and a cursor on a compliance record a firm reads end to end would
+// be machinery serving nobody.
+/*
+ * A trail entry carries the same fields as the check response's `disposition`, and is deliberately a
+ * SEPARATE component rather than a reuse of it. Two reasons, one mechanical and one about meaning.
+ *
+ * Mechanically: `DispositionDetail` is used there as `.nullable()`, and zod-to-openapi carries the
+ * component name onto the nullable schema — so reusing the bare object here registers one name under
+ * two shapes, which that library resolves first-write-wins and the conformance gate refuses. It
+ * caught this on the first emit.
+ *
+ * In meaning: they answer different questions. There, `disposition` is the reviewer's LATEST word and
+ * null means nobody has answered. Here every entry is an act that happened, and there is no null to
+ * express — an unanswered hit is an empty trail.
+ */
+const DispositionTrailEntry = z
+  .object({
+    id: z.string(),
+    kind: z.enum(DISPOSITION_KINDS),
+    rationale: z.string(),
+    reviewerUserId: z.string(),
+    waiver: WaiverDetail.nullable(),
+    shortfalls: z.array(z.enum(WAIVER_SHORTFALLS)),
+    createdAt: z.string(),
+  })
+  .openapi("ConflictsDispositionTrailEntry");
+
+const DispositionTrailResponse = z
+  .object({ hitId: z.string(), dispositions: z.array(DispositionTrailEntry) })
+  .openapi("ConflictsDispositionTrailResponse");
+
 const CreatedDispositionResponse = z
   .object({ id: z.string() })
   .openapi("CreatedConflictsDispositionResponse");
@@ -641,6 +782,108 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
   },
 });
 
+const checkHistoryRoute = defineOpenAPIRoute(readMeta("listChecks", "conflicts:read"), {
+  method: "get",
+  path: "/api/v1/conflicts/checks",
+  description:
+    "The checks this firm has run, newest first, keyset-paginated. Filter by `matterId` for one " +
+    "matter's own history. Each line carries what set the run going, who asked for it where anybody " +
+    "did, the strictness and depth it ran at, whether the firm's floor raised the scope above what " +
+    "was requested, and how many candidates surfaced — never a conclusion about any of them, which " +
+    "is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and " +
+    "that is a fact about the run rather than a missing value.",
+  request: { query: checkHistoryQuery },
+  responses: {
+    200: {
+      description: "A page of the firm's conflicts checks, newest first",
+      content: { "application/json": { schema: CheckHistoryResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const firmPolicyRoute = defineOpenAPIRoute(readMeta("firmPolicy", "conflicts:read"), {
+  method: "get",
+  path: "/api/v1/firm/conflicts-policy",
+  description:
+    "The firm's conflicts floor: the source classes every check must search whatever a caller asks " +
+    "for, the strictness band it must reach, and the traversal and candidate bounds a run is held " +
+    "to. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a " +
+    "request would manufacture a check that searched less than the firm requires while the log " +
+    "faithfully recorded that a check happened. It reads on conflicts:read because every member who " +
+    "can read a check is held to this, and a reviewer looking at a check that fell short of the " +
+    "floor has to be able to see what the floor is.",
+  responses: {
+    200: {
+      description: "The firm's conflicts policy floor",
+      content: { "application/json": { schema: ConflictsPolicyResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    429: authErrors[429],
+  },
+});
+
+const matterRecheckRoute = defineOpenAPIRoute(mutationMeta("recheckMatter", "conflicts:run"), {
+  method: "post",
+  path: "/api/v1/matters/{matterId}/conflicts-rechecks",
+  description:
+    "Runs a fresh comprehensive check against this matter's own live parties, now, because a member " +
+    "asked for one. It takes NO scope, and that is the point of it existing beside the general " +
+    "check route: 're-check this matter' has no scope for a caller to state, and asking for one " +
+    "invites a screen to invent a narrower search than the firm requires. The firm's own policy " +
+    "floor is what runs. The check is recorded as a manual run naming the member who asked, and " +
+    "carries no cause — a cause is a corpus change the platform noticed, and a person asking now is " +
+    "not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays " +
+    "open, because the interval between a cause and the check that answered it is evidence about " +
+    "the firm's procedure and a manual run did not answer it.",
+  request: { headers: idempotencyKeyHeader, params: matterIdParam },
+  responses: {
+    201: {
+      description: "The check that ran",
+      content: { "application/json": { schema: CreatedRecheckResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    // The idempotency chokepoint's own refusal: one key, two different bodies. Declared because the
+    // shared conflicts error mapper can return it, and a response a route can produce but does not
+    // declare is a contract that lies about what a caller may receive.
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const dispositionTrailRoute = defineOpenAPIRoute(readMeta("hitDispositions", "conflicts:read"), {
+  method: "get",
+  path: "/api/v1/conflicts/hits/{hitId}/dispositions",
+  description:
+    "Every adjudication recorded against one hit, oldest first — the whole trail rather than the " +
+    "reviewer's latest word. The conflicts log is append-only, so a reviewer who cleared a hit and " +
+    "later reversed that call leaves both acts standing: the reversal is a second row, never an " +
+    "edit. This read is what makes that history producible. Each entry names the reviewer, carries " +
+    "the rationale they gave, and for a waiver carries the waiver's own record and what that record " +
+    "is short of, so an answer the firm cannot evidence never reads the same as one it can. A hit " +
+    "no reviewer has answered returns an empty trail, which is a fact about the hit and not about " +
+    "whether an interest is adverse.",
+  request: { params: hitIdParam },
+  responses: {
+    200: {
+      description: "Every disposition recorded against the hit, oldest first",
+      content: { "application/json": { schema: DispositionTrailResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
 const matterPostureRoute = defineOpenAPIRoute(readMeta("matterPosture", "conflicts:read"), {
   method: "get",
   path: "/api/v1/matters/{matterId}/conflicts-posture",
@@ -746,6 +989,99 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
     },
   );
 
+  // GET /api/v1/conflicts/checks
+  app.openapi(
+    { ...checkHistoryRoute, middleware: chokepointMiddleware(chokepoint, checkHistoryRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { cursor, matterId } = c.req.valid("query");
+      // One row past the page, which is how "there is more" is measured rather than estimated —
+      // the same probe every other listing here uses.
+      const { results } = await selectConflictsChecksStatement(firm.firmDatabase, {
+        matterId,
+        cursor: decodeCursor(cursor),
+        limit: DEFAULT_PAGE_SIZE + 1,
+      }).all<ConflictsCheckSummaryRow>();
+      const hasMore = results.length > DEFAULT_PAGE_SIZE;
+      const rows = hasMore ? results.slice(0, DEFAULT_PAGE_SIZE) : results;
+      const last = rows.at(-1);
+      return c.json(
+        {
+          data: rows.map((row) => ({
+            id: row.id,
+            trigger: row.trigger,
+            matterId: row.subject_matter_id,
+            strictness: row.strictness,
+            depth: row.depth,
+            floorRaised: row.floor_raised === 1,
+            actorUserId: row.actor_user_id,
+            triggerSource: row.trigger_source,
+            hitCount: row.hit_count,
+            createdAt: row.created_at,
+          })),
+          // Keyed on the same (created_at, id) pair the statement orders by, so the walk can
+          // neither skip a check nor show one twice.
+          nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
+        } as unknown as z.infer<typeof CheckHistoryResponse>,
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/firm/conflicts-policy
+  app.openapi(
+    { ...firmPolicyRoute, middleware: chokepointMiddleware(chokepoint, firmPolicyRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      // readConflictsPolicy falls back to the shipped default for a firm that has set nothing, and
+      // unions `party` back into the floor on every read — so a stored row that is corrupt or was
+      // hand-edited can never report a floor this platform would not actually run.
+      const policy = await readConflictsPolicy(firm.firmDatabase);
+      return c.json(policy as unknown as z.infer<typeof ConflictsPolicyResponse>, 200);
+    },
+  );
+
+  // POST /api/v1/matters/{matterId}/conflicts-rechecks
+  app.openapi(
+    { ...matterRecheckRoute, middleware: chokepointMiddleware(chokepoint, matterRecheckRoute) },
+    async (c) => {
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { matterId } = c.req.valid("param");
+      const context = await conflictsContext(c);
+      try {
+        // The firm's floor, read here rather than taken from the caller. resolveScope would raise a
+        // narrower request to it anyway, so this is not the enforcement — it is the reason the route
+        // needs no scope field at all.
+        const policy = await readConflictsPolicy(context.database);
+        const checkId = await runConflictsCheck(
+          context,
+          {
+            // A person asking for a re-check is asking for the full one; `preliminary` is the intake
+            // band and is not something this affordance should be able to select by accident.
+            trigger: "comprehensive",
+            matterId,
+            // Empty on purpose: runConflictsCheck reads the matter's own live parties. Naming
+            // subjects here would freeze the search to whoever the screen had listed when the button
+            // was drawn, which is precisely the staleness a re-check exists to answer.
+            subjectEntityIds: [],
+            scope: { sources: policy.floorSources, strictness: policy.floorStrictness },
+            triggerSource: "manual",
+          },
+          {
+            clock: { now: () => new Date().toISOString() },
+            actorUserId: userId,
+            randomSource: cryptoRandomSource,
+            idempotency,
+          },
+        );
+        return c.json({ checkId } as z.infer<typeof CreatedRecheckResponse>, 201);
+      } catch (caught) {
+        return conflictsErrorResponse(c, caught);
+      }
+    },
+  );
+
   // GET /api/v1/conflicts/checks/{checkId}
   app.openapi(
     { ...getCheckRoute, middleware: chokepointMiddleware(chokepoint, getCheckRoute) },
@@ -762,35 +1098,80 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         });
       }
       const hitRows = await readHitRows(firm.firmDatabase, checkId);
-      const hits = await Promise.all(
-        hitRows.map(async (hitRow) => {
-          const disposition = await readCurrentDisposition(firm.firmDatabase, hitRow.id);
-          return {
-            id: hitRow.id,
-            entityId: hitRow.entity_id,
-            sourceClass: hitRow.source_class,
-            evidenceTier: hitRow.evidence_tier,
-            matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],
-            graphPath: JSON.parse(hitRow.graph_path_json) as unknown[],
-            coParty: hitRow.co_party === 1,
-            createdAt: hitRow.created_at,
-            disposition:
-              disposition === null
-                ? null
-                : {
-                    id: disposition.id,
-                    kind: disposition.kind,
-                    rationale: disposition.rationale,
-                    reviewerUserId: disposition.reviewerUserId,
-                    waiver: disposition.waiver,
-                    // Derived on every read from the row itself, never stored: filing the
-                    // confirmation later is a second disposition row, and this answer moves with it.
-                    shortfalls: waiverShortfalls(disposition.kind, disposition.waiver),
-                    createdAt: disposition.createdAt,
-                  },
-          };
-        }),
+
+      /*
+       * Two set-valued reads, not two per hit.
+       *
+       * The dispositions were a per-hit readCurrentDisposition inside a Promise.all — the exact N+1
+       * readHitDispositionStates exists to replace, and whose own comment names this shape as the
+       * mistake: a check against a wide corpus surfaces hundreds of hits. It resolves every hit's
+       * latest word in one query, by the same created_at/rowid tie-break, so the answer is identical
+       * and the read is one round trip instead of one per hit.
+       *
+       * The party names are the second read, and they are what lets the hit list say who matched.
+       * The entity set is bounded by the hits already read, and the reader chunks it at D1's
+       * bound-parameter cap.
+       */
+      const [dispositionStates, partyNames, priorConclusions] = await Promise.all([
+        readHitDispositionStates(firm.firmDatabase, checkId),
+        readEntityDisplayNames(
+          firm.firmDatabase,
+          hitRows.map((hitRow) => hitRow.entity_id),
+        ),
+        // What the firm already said about these parties on any OTHER check. Set-valued for the
+        // same reason the other two are: a check against a wide corpus surfaces hundreds of hits.
+        readPriorConclusions(
+          firm.firmDatabase,
+          hitRows.map((hitRow) => hitRow.entity_id),
+          checkId,
+        ),
+      ]);
+      const dispositionByHit = new Map(
+        dispositionStates.map((state) => [state.hitId, state.disposition]),
       );
+
+      const hits = hitRows.map((hitRow) => {
+        const disposition = dispositionByHit.get(hitRow.id) ?? null;
+        // An entity the Directory no longer resolves is reported as UNRESOLVED, never as absent:
+        // the log is append-only, so an old hit can name an entity a later merge reshaped, and a
+        // hit whose party read as absent would invert what a conflicts hit means.
+        const party = partyNames.get(hitRow.entity_id) ?? null;
+        const earlier = priorConclusions.get(hitRow.entity_id) ?? null;
+        return {
+          id: hitRow.id,
+          entityId: hitRow.entity_id,
+          party,
+          previouslyAnswered:
+            earlier === null
+              ? null
+              : {
+                  checkId: earlier.checkId,
+                  kind: earlier.kind,
+                  reviewerUserId: earlier.reviewerUserId,
+                  createdAt: earlier.createdAt,
+                },
+          sourceClass: hitRow.source_class,
+          evidenceTier: hitRow.evidence_tier,
+          matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],
+          graphPath: JSON.parse(hitRow.graph_path_json) as unknown[],
+          coParty: hitRow.co_party === 1,
+          createdAt: hitRow.created_at,
+          disposition:
+            disposition === null
+              ? null
+              : {
+                  id: disposition.id,
+                  kind: disposition.kind,
+                  rationale: disposition.rationale,
+                  reviewerUserId: disposition.reviewerUserId,
+                  waiver: disposition.waiver,
+                  // Derived on every read from the row itself, never stored: filing the
+                  // confirmation later is a second disposition row, and this answer moves with it.
+                  shortfalls: waiverShortfalls(disposition.kind, disposition.waiver),
+                  createdAt: disposition.createdAt,
+                },
+        };
+      });
       const scope = parseCheckScope(checkRow.scope_json);
       const inputs = parseCheckInputs(checkRow.inputs_json);
       const sources: ReportedSource[] = reportedSourcesFor(scope, {
@@ -829,6 +1210,50 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         createdAt: checkRow.created_at,
       };
       return c.json({ check, statement, hits } as unknown as z.infer<typeof GetCheckResponse>, 200);
+    },
+  );
+
+  // GET /api/v1/conflicts/hits/{hitId}/dispositions
+  app.openapi(
+    {
+      ...dispositionTrailRoute,
+      middleware: chokepointMiddleware(chokepoint, dispositionTrailRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { hitId } = c.req.valid("param");
+      // The hit's existence IS checked here, unlike the matter posture read — and for the opposite
+      // reason. A hit is a row this firm either has or does not; "no such hit" is not a state with a
+      // meaning of its own to report, so an empty trail must mean "nobody has answered this hit"
+      // and nothing else. Conflating the two would let a mistyped handle read as an unanswered
+      // candidate.
+      const hit = await readHitById(firm.firmDatabase, hitId);
+      if (hit === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such conflicts hit in this firm.",
+        });
+      }
+      const dispositions = await readDispositionTrail(firm.firmDatabase, hitId);
+      return c.json(
+        {
+          hitId,
+          dispositions: dispositions.map((row) => ({
+            id: row.id,
+            kind: row.kind,
+            rationale: row.rationale,
+            reviewerUserId: row.reviewerUserId,
+            waiver: row.waiver,
+            // Derived on every read from the row itself, never stored: filing the confirmation later
+            // is a second disposition row, and this answer moves with it.
+            shortfalls: waiverShortfalls(row.kind, row.waiver),
+            createdAt: row.createdAt,
+          })),
+        } as unknown as z.infer<typeof DispositionTrailResponse>,
+        200,
+      );
     },
   );
 

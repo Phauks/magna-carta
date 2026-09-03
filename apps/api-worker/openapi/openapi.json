@@ -9321,6 +9321,163 @@
           "strictness"
         ]
       },
+      "ConflictsCheckPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsCheckSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ConflictsCheckSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "preliminary",
+              "comprehensive",
+              "new_party",
+              "entity_merged",
+              "entity_renamed",
+              "relationship_recorded",
+              "identifier_recorded",
+              "personnel_changed",
+              "periodic_rescan"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "strictness": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "over_inclusive"
+            ]
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "floorRaised": {
+            "type": "boolean"
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triggerSource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hitCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "trigger",
+          "matterId",
+          "strictness",
+          "depth",
+          "floorRaised",
+          "actorUserId",
+          "triggerSource",
+          "hitCount",
+          "createdAt"
+        ]
+      },
+      "ConflictsPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "floorSources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "party",
+                "graph",
+                "imputation",
+                "content"
+              ]
+            }
+          },
+          "floorStrictness": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "over_inclusive"
+            ]
+          },
+          "defaultDepth": {
+            "type": "integer"
+          },
+          "edgeClassBudgets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "closureCap": {
+            "type": "integer"
+          },
+          "candidateCap": {
+            "type": "integer"
+          },
+          "balancedNameRoles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "floorSources",
+          "floorStrictness",
+          "defaultDepth",
+          "edgeClassBudgets",
+          "closureCap",
+          "candidateCap",
+          "balancedNameRoles"
+        ]
+      },
+      "CreatedConflictsRecheckResponse": {
+        "type": "object",
+        "properties": {
+          "checkId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkId"
+        ]
+      },
       "ConflictsCheckWithHitsResponse": {
         "type": "object",
         "properties": {
@@ -9591,6 +9748,9 @@
           "entityId": {
             "type": "string"
           },
+          "party": {
+            "$ref": "#/components/schemas/ConflictsHitParty"
+          },
           "sourceClass": {
             "type": "string",
             "enum": [
@@ -9630,6 +9790,7 @@
         "required": [
           "id",
           "entityId",
+          "party",
           "sourceClass",
           "evidenceTier",
           "matchedFields",
@@ -9637,6 +9798,31 @@
           "coParty",
           "createdAt",
           "disposition"
+        ]
+      },
+      "ConflictsHitParty": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "displayName"
         ]
       },
       "ConflictsGraphPathStep": {
@@ -9754,6 +9940,74 @@
           "confirmedInWriting",
           "documentFileId",
           "givenOn"
+        ]
+      },
+      "ConflictsDispositionTrailResponse": {
+        "type": "object",
+        "properties": {
+          "hitId": {
+            "type": "string"
+          },
+          "dispositions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsDispositionTrailEntry"
+            }
+          }
+        },
+        "required": [
+          "hitId",
+          "dispositions"
+        ]
+      },
+      "ConflictsDispositionTrailEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cleared",
+              "waiver_obtained",
+              "wall_erected",
+              "representation_declined"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "reviewerUserId": {
+            "type": "string"
+          },
+          "waiver": {
+            "$ref": "#/components/schemas/ConflictsWaiverDetail"
+          },
+          "shortfalls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "consenting-party-unrecorded",
+                "consent-not-confirmed-in-writing",
+                "confirmation-not-filed",
+                "date-given-unrecorded"
+              ]
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "rationale",
+          "reviewerUserId",
+          "waiver",
+          "shortfalls",
+          "createdAt"
         ]
       },
       "MatterConflictsPostureResponse": {
@@ -51100,6 +51354,285 @@
             }
           }
         }
+      },
+      "get": {
+        "description": "The checks this firm has run, newest first, keyset-paginated. Filter by `matterId` for one matter's own history. Each line carries what set the run going, who asked for it where anybody did, the strictness and depth it ran at, whether the firm's floor raised the scope above what was requested, and how many candidates surfaced — never a conclusion about any of them, which is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and that is a fact about the run rather than a missing value.",
+        "operationId": "conflicts.listChecks",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.listChecks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "matterId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the firm's conflicts checks, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictsCheckPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/conflicts-policy": {
+      "get": {
+        "description": "The firm's conflicts floor: the source classes every check must search whatever a caller asks for, the strictness band it must reach, and the traversal and candidate bounds a run is held to. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a request would manufacture a check that searched less than the firm requires while the log faithfully recorded that a check happened. It reads on conflicts:read because every member who can read a check is held to this, and a reviewer looking at a check that fell short of the floor has to be able to see what the floor is.",
+        "operationId": "conflicts.firmPolicy",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.firmPolicy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's conflicts policy floor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictsPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/conflicts-rechecks": {
+      "post": {
+        "description": "Runs a fresh comprehensive check against this matter's own live parties, now, because a member asked for one. It takes NO scope, and that is the point of it existing beside the general check route: 're-check this matter' has no scope for a caller to state, and asking for one invites a screen to invent a narrower search than the firm requires. The firm's own policy floor is what runs. The check is recorded as a manual run naming the member who asked, and carries no cause — a cause is a corpus change the platform noticed, and a person asking now is not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays open, because the interval between a cause and the check that answered it is evidence about the firm's procedure and a manual run did not answer it.",
+        "operationId": "conflicts.recheckMatter",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.recheckMatter",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:run",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The check that ran",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedConflictsRecheckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/conflicts/checks/{checkId}": {
@@ -51187,14 +51720,14 @@
         }
       }
     },
-    "/api/v1/matters/{matterId}/conflicts-posture": {
+    "/api/v1/conflicts/hits/{hitId}/dispositions": {
       "get": {
-        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
-        "operationId": "conflicts.matterPosture",
+        "description": "Every adjudication recorded against one hit, oldest first — the whole trail rather than the reviewer's latest word. The conflicts log is append-only, so a reviewer who cleared a hit and later reversed that call leaves both acts standing: the reversal is a second row, never an edit. This read is what makes that history producible. Each entry names the reviewer, carries the rationale they gave, and for a waiver carries the waiver's own record and what that record is short of, so an answer the firm cannot evidence never reads the same as one it can. A hit no reviewer has answered returns an empty trail, which is a fact about the hit and not about whether an interest is adverse.",
+        "operationId": "conflicts.hitDispositions",
         "tags": [
           "conflicts"
         ],
-        "x-mc-operationId": "conflicts.matterPosture",
+        "x-mc-operationId": "conflicts.hitDispositions",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "conflicts:read",
@@ -51211,20 +51744,20 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+              "pattern": "^conflictsHit_[A-Za-z0-9_-]{21}$"
             },
             "required": true,
-            "name": "matterId",
+            "name": "hitId",
             "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "The matter's conflicts posture, derived at read time",
+            "description": "Every disposition recorded against the hit, oldest first",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MatterConflictsPostureResponse"
+                  "$ref": "#/components/schemas/ConflictsDispositionTrailResponse"
                 }
               }
             }
@@ -51259,16 +51792,6 @@
               }
             }
           },
-          "422": {
-            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
           "429": {
             "description": "Rate limit exceeded",
             "content": {
@@ -51280,9 +51803,7 @@
             }
           }
         }
-      }
-    },
-    "/api/v1/conflicts/hits/{hitId}/dispositions": {
+      },
       "post": {
         "description": "Records a reviewer's adjudication of a surfaced hit — clearing it, noting a waiver, recording that an ethical wall was erected, or declining the representation. Every call appends a new row; a reviewer who reverses an earlier call records a second disposition rather than editing the first, so the full history of the adjudication stays visible. A waiver carries a record of its own: who consented, whether that consent was confirmed in writing, the filed document evidencing the confirmation, and the date the waiver was given. The consenting party and the date are required, because they are the act being recorded. The written confirmation and its document are not, because a waiver can be given orally and confirmed afterwards — a waiver recorded without them is accepted and reports what it is short of, so it never reads the same as one the firm can evidence.",
         "operationId": "conflicts.recordDisposition",
@@ -51385,6 +51906,101 @@
           },
           "409": {
             "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/conflicts-posture": {
+      "get": {
+        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
+        "operationId": "conflicts.matterPosture",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.matterPosture",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's conflicts posture, derived at read time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterConflictsPostureResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {

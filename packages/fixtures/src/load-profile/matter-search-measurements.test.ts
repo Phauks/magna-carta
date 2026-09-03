@@ -296,9 +296,19 @@ describe("a matter search narrows by matter before it scans", () => {
       query: TERM,
     });
 
-    // Not vacuous: every registered source must have contributed a plan, or a source that quietly
-    // stopped building a statement would pass this by contributing nothing to scan.
-    expect(plans).toHaveLength(matterSearchSources.all().length);
+    // Not vacuous: every registered source must have contributed at least one plan, or a source
+    // that quietly stopped building a statement would pass this by contributing nothing to scan.
+    // Counted by SOURCE rather than by plan, because a source may answer from more than one
+    // statement — the files source reads folder names alongside file names, and labels its plans
+    // `matter-search.files.0` and `.1` — so a bare plan count would have to be revised every time
+    // a source gained a statement, and would say nothing about which source was missing.
+    const sourcesRepresented = new Set(plans.map((plan) => plan.label.split(".")[1]));
+    expect([...sourcesRepresented].toSorted()).toEqual(
+      matterSearchSources
+        .all()
+        .map((source) => source.key)
+        .toSorted(),
+    );
 
     const scans = findFullScans(plans, MATTER_SEARCH_PLAN_SCAN_ALLOWLIST);
     expect(scans, `full table scans in: ${scans.join(", ")}`).toEqual([]);

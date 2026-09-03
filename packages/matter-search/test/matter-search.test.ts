@@ -49,7 +49,7 @@ describe("a matter search answers from every section at once", () => {
 
   it("finds the record across four different subsystems from one query", async () => {
     const answer = await search("easement");
-    expect(titles(answer.groups, "files")).toEqual(["Easement survey.pdf"]);
+    expect(titles(answer.groups, "files")).toEqual(["Easement survey.pdf", "Easement exhibits"]);
     expect(titles(answer.groups, "custody")).toEqual(["Original easement deed"]);
     expect(group(answer.groups, "notes").hits[0]?.snippet).toBe("The easement runs east.");
   });
@@ -69,6 +69,53 @@ describe("a matter search answers from every section at once", () => {
     const hit = group(answer.groups, "parties").hits[0];
     expect(hit?.title).toBe("Marta Easton");
     expect(hit?.secondary).toBe("opposing_party · Trustee");
+  });
+});
+
+describe("the files source answers for folders as well as files", () => {
+  it("finds a folder by the name somebody gave it", async () => {
+    // The reported defect, as a test: a folder named and then searched for answered nothing,
+    // because the source queried file names and joined folders only to label a file's location.
+    const answer = await search("exhibits");
+    expect(titles(answer.groups, "files")).toEqual(["Easement exhibits"]);
+  });
+
+  it("says a folder is a folder, so a same-named file and folder are told apart", async () => {
+    const answer = await search("exhibits");
+    expect(group(answer.groups, "files").hits[0]?.secondary).toBe("Folder");
+  });
+
+  it("answers for both in one group rather than splitting the question in two", async () => {
+    const answer = await search("easement");
+    const files = group(answer.groups, "files");
+    expect(files.hits.map((hit) => hit.id)).toEqual(["file_survey", "folder_exhibits"]);
+    expect(files.matchedFields).toEqual(["file names", "folder names"]);
+  });
+
+  it("keeps another matter's folder out, exactly as it keeps its files out", async () => {
+    const answer = await search("bundle");
+    expect(titles(answer.groups, "files")).toEqual([]);
+  });
+
+  it("leaves folders alone when deleted files are asked for, having no deleted set", async () => {
+    // A folder is removed outright rather than soft-deleted, so the option changes the file
+    // statement and not this one. Asking for deleted records must not drop the folder either.
+    const answer = await search("easement", { includeDeleted: true });
+    expect(titles(answer.groups, "files")).toContain("Easement exhibits");
+    expect(titles(answer.groups, "files")).toContain("Easement draft (superseded).pdf");
+  });
+
+  it("merges the two statements by sort key rather than concatenating them", async () => {
+    /*
+     * The bug this pins: each statement sorts and limits its OWN rows, so concatenating them lets a
+     * first statement that fills the limit push every row of the second out of the group entirely.
+     * At a limit of one, the files statement alone returns two rows — without the merge in run.ts
+     * the folder could never place, whatever its date.
+     */
+    const answer = await search("easement", { limit: 1 });
+    const files = group(answer.groups, "files");
+    expect(files.hits).toHaveLength(1);
+    expect(files.hasMore).toBe(true);
   });
 });
 
@@ -145,9 +192,10 @@ describe("a source the reader cannot read says so", () => {
     expect(group(answer.groups, "notes").skipped).toBe("permission");
     expect(group(answer.groups, "custody").skipped).toBe("permission");
     // "Nothing matched" and "you cannot see this" must never look alike: the ungated sources still
-    // answer, and they answer with hits.
+    // answer, and they answer with hits. Two, because reading a matter's files is ungated and the
+    // source answers for its folders in the same group — the file and the folder both match.
     expect(group(answer.groups, "files").skipped).toBeNull();
-    expect(group(answer.groups, "files").hits).toHaveLength(1);
+    expect(group(answer.groups, "files").hits).toHaveLength(2);
   });
 
   it("issues no statement at all for a withheld source", async () => {
@@ -229,7 +277,7 @@ describe("the reader's text is text, never an instruction", () => {
 describe("deleted records join an answer only when asked for, and only where declared", () => {
   it("leaves a deleted file out by default", async () => {
     const answer = await search("easement");
-    expect(titles(answer.groups, "files")).toEqual(["Easement survey.pdf"]);
+    expect(titles(answer.groups, "files")).toEqual(["Easement survey.pdf", "Easement exhibits"]);
   });
 
   it("includes it when asked, so it can be restored rather than hunted for", async () => {
