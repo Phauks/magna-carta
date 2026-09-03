@@ -504,6 +504,7 @@ local to this surface:
   the loudest copy on a window whose point is to be short. Recorded here rather than promoted: the
   standing Soon rule still holds for a CONTROL, where the sentence is the only thing that explains a
   disabled affordance.
+
 ### 2026-09-02 — the calendar
 
 The first slice of the calendar interface shipped with the week starting on Sunday and the plan
