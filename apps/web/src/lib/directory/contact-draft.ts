@@ -129,9 +129,7 @@ export function contactDraftRefusal(draft: ContactDraft): string | null {
       return checked.ok ? null : checked.reason;
     }
     case "address":
-      return draft.street.trim() === "" && draft.city.trim() === ""
-        ? "A street or a city."
-        : null;
+      return draft.street.trim() === "" && draft.city.trim() === "" ? "A street or a city." : null;
   }
 }
 
@@ -264,15 +262,33 @@ export function contactRowFromDraft(draft: ContactDraft, id: string): ContactRow
   };
   switch (draft.kind) {
     case "email":
-      return { id, kind: "email", value: draft.address.trim(), use: contactUseLabel(draft.use), state, isPrimary: false };
+      return {
+        id,
+        kind: "email",
+        value: draft.address.trim(),
+        use: contactUseLabel(draft.use),
+        state,
+        isPrimary: false,
+      };
     case "telephone":
     case "fax": {
       const checked = checkPhoneEntry(draft.region, draft.number);
       const value = checked.ok
-        ? formatStoredPhone({ number: checked.number, countryRegionCode: checked.region, extension: part(draft.extension) })
+        ? formatStoredPhone({
+            number: checked.number,
+            countryRegionCode: checked.region,
+            extension: part(draft.extension),
+          })
         : draft.number;
       const use = contactUseLabel(draft.use);
-      return { id, kind: draft.kind, value, use: draft.kind === "fax" ? `${use} fax` : use, state, isPrimary: false };
+      return {
+        id,
+        kind: draft.kind,
+        value,
+        use: draft.kind === "fax" ? `${use} fax` : use,
+        state,
+        isPrimary: false,
+      };
     }
     case "address":
       return {

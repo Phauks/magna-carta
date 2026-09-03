@@ -78,7 +78,8 @@
     searchHitKindLabel,
   } from "$lib/directory/entity-presentation.ts";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
-  import NewEntityDialog from "$lib/directory/new-entity-dialog.svelte";
+  import NewOrganizationDialog from "$lib/directory/new-organization-dialog.svelte";
+  import NewPersonDialog from "$lib/directory/new-person-dialog.svelte";
 
   // ---- who is asking ---------------------------------------------------------------------------
 
@@ -497,8 +498,10 @@
   {/if}
 </div>
 
-<NewEntityDialog
-  bind:open={dialogOpen}
-  kind={dialogKind}
-  onCreated={(entityId) => void goto(entityRecordHref(entityId))}
-/>
+<!-- A person is recorded whole, every section reachable, on the side rail; an organization keeps
+     the one-section form until its record grows the same sections. -->
+{#if dialogKind === "person"}
+  <NewPersonDialog bind:open={dialogOpen} onCreated={(entityId) => void goto(entityRecordHref(entityId))} />
+{:else}
+  <NewOrganizationDialog bind:open={dialogOpen} onCreated={(entityId) => void goto(entityRecordHref(entityId))} />
+{/if}

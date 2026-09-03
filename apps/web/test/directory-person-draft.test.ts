@@ -15,15 +15,43 @@ import {
 function filled() {
   const draft = emptyPersonDraft();
   draft.name = { prefix: "Dr.", given: "Margaret", middle: "", family: "Okafor", suffix: "" };
-  draft.otherNames.push({ id: "n1", prefix: "", given: "Margaret", middle: "", family: "Adeyemi", suffix: "", nameRole: "maiden" });
+  draft.otherNames.push({
+    id: "n1",
+    prefix: "",
+    given: "Margaret",
+    middle: "",
+    family: "Adeyemi",
+    suffix: "",
+    nameRole: "maiden",
+  });
   draft.pronouns = pronounSetForChoice("she");
   draft.dateOfBirth = "1978-03-14";
   draft.contacts.push(
     { id: "c1", kind: "email", address: "m.okafor@example.com", use: "work" },
-    { id: "c2", kind: "telephone", region: "US", number: "(312) 555-0148", extension: "", use: "mobile" },
+    {
+      id: "c2",
+      kind: "telephone",
+      region: "US",
+      number: "(312) 555-0148",
+      extension: "",
+      use: "mobile",
+    },
   );
-  draft.identifiers.push({ id: "i1", type: "ssn", label: "", number: "123-45-6789", username: "", secret: "" });
-  draft.organizations.push({ id: "o1", organizationId: "directoryOrganization_x", organizationName: "Okafor Actuarial LLC", edgeType: "employment", role: "Principal" });
+  draft.identifiers.push({
+    id: "i1",
+    type: "ssn",
+    label: "",
+    number: "123-45-6789",
+    username: "",
+    secret: "",
+  });
+  draft.organizations.push({
+    id: "o1",
+    organizationId: "directoryOrganization_x",
+    organizationName: "Okafor Actuarial LLC",
+    edgeType: "employment",
+    role: "Principal",
+  });
   return draft;
 }
 
@@ -65,7 +93,14 @@ describe("the pronoun dropdown", () => {
     expect(pronounChoiceFor(null)).toBe(PRONOUNS_NOT_STATED);
     expect(pronounChoiceFor(pronounSetForChoice("they"))).toBe("they");
     expect(
-      pronounChoiceFor({ subject: "ze", object: "zir", possessiveDeterminer: "zir", possessivePronoun: "zirs", reflexive: "zirself", verbNumber: "singular" }),
+      pronounChoiceFor({
+        subject: "ze",
+        object: "zir",
+        possessiveDeterminer: "zir",
+        possessivePronoun: "zirs",
+        reflexive: "zirself",
+        verbNumber: "singular",
+      }),
     ).toBe(PRONOUNS_ANOTHER_SET);
   });
 });
@@ -81,12 +116,30 @@ describe("the one request", () => {
       dateOfBirth: "1978-03-14",
       pronouns: { subject: "she" },
     });
-    expect(request.otherNames).toEqual([{ given: "Margaret", family: "Adeyemi", nameRole: "maiden", prefix: null, middle: null, suffix: null }]);
+    expect(request.otherNames).toEqual([
+      {
+        given: "Margaret",
+        family: "Adeyemi",
+        nameRole: "maiden",
+        prefix: null,
+        middle: null,
+        suffix: null,
+      },
+    ]);
     expect(request.emails).toEqual([{ address: "m.okafor@example.com", contactUse: "work" }]);
-    expect(request.phones?.[0]).toMatchObject({ number: "+13125550148", contactSystem: "voice", countryRegionCode: "US" });
+    expect(request.phones?.[0]).toMatchObject({
+      number: "+13125550148",
+      contactSystem: "voice",
+      countryRegionCode: "US",
+    });
     expect(request.identifiers).toEqual([{ type: "ssn", number: "123-45-6789" }]);
     expect(request.organizations).toEqual([
-      { organizationId: "directoryOrganization_x", edgeType: "employment", personIs: "from", role: "Principal" },
+      {
+        organizationId: "directoryOrganization_x",
+        edgeType: "employment",
+        personIs: "from",
+        role: "Principal",
+      },
     ]);
     expect(request.dateOfDeath).toBeUndefined();
     expect(request.addresses).toBeUndefined();

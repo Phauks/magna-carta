@@ -71,7 +71,9 @@ export interface IdentifierRow {
   readonly recordedAt: string | null;
 }
 
-export function identifierRowsFrom(records: readonly DirectoryIdentifierRecord[]): readonly IdentifierRow[] {
+export function identifierRowsFrom(
+  records: readonly DirectoryIdentifierRecord[],
+): readonly IdentifierRow[] {
   return records.map((record) => ({
     id: record.id,
     type: record.type,

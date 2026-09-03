@@ -33,14 +33,14 @@ describe("a number carries its country", () => {
   });
 
   it("shows a stored number nationally at home and internationally abroad, with its extension", () => {
-    expect(formatStoredPhone({ number: "+13125550148", countryRegionCode: "US", extension: "12" })).toBe(
-      "(312) 555-0148 ext. 12",
-    );
-    expect(formatStoredPhone({ number: "+442079460000", countryRegionCode: "GB", extension: null })).toBe(
-      "+44 20 7946 0000",
-    );
-    expect(formatStoredPhone({ number: "not a number", countryRegionCode: null, extension: null })).toBe(
-      "not a number",
-    );
+    expect(
+      formatStoredPhone({ number: "+13125550148", countryRegionCode: "US", extension: "12" }),
+    ).toBe("(312) 555-0148 ext. 12");
+    expect(
+      formatStoredPhone({ number: "+442079460000", countryRegionCode: "GB", extension: null }),
+    ).toBe("+44 20 7946 0000");
+    expect(
+      formatStoredPhone({ number: "not a number", countryRegionCode: null, extension: null }),
+    ).toBe("not a number");
   });
 });

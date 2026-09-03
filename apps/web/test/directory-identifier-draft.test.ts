@@ -25,7 +25,13 @@ describe("an identifier draft", () => {
   it("is refused by the shared sentence until it fits, then becomes the request", () => {
     const short = { ...emptyIdentifierDraft("ssn"), number: "123-45-67" };
     expect(identifierDraftRefusal(short)).toBe("Nine digits, as 123-45-6789.");
-    const account = { ...emptyIdentifierDraft("account"), label: "Cook County e-filing", number: "CC-2291-0087", username: " mokafor ", secret: "hunter2" };
+    const account = {
+      ...emptyIdentifierDraft("account"),
+      label: "Cook County e-filing",
+      number: "CC-2291-0087",
+      username: " mokafor ",
+      secret: "hunter2",
+    };
     expect(identifierDraftRefusal(account)).toBeNull();
     expect(identifierRequestFrom(account)).toEqual({
       type: "account",
@@ -39,12 +45,28 @@ describe("an identifier draft", () => {
   it("lists a record and a draft the same way: the type, what it is of, and bullets", () => {
     expect(
       identifierRowsFrom([
-        { id: "one", type: "drivers_license", label: "Illinois", validFrom: null, validTo: null, recordedAt: "2026-09-03T00:00:00.000Z" },
+        {
+          id: "one",
+          type: "drivers_license",
+          label: "Illinois",
+          validFrom: null,
+          validTo: null,
+          recordedAt: "2026-09-03T00:00:00.000Z",
+        },
       ]),
     ).toEqual([
-      { id: "one", type: "drivers_license", typeLabel: "Driver's license", label: "Illinois", masked: "••••", recordedAt: "2026-09-03T00:00:00.000Z" },
+      {
+        id: "one",
+        type: "drivers_license",
+        typeLabel: "Driver's license",
+        label: "Illinois",
+        masked: "••••",
+        recordedAt: "2026-09-03T00:00:00.000Z",
+      },
     ]);
-    expect(identifierRowFromDraft({ ...emptyIdentifierDraft("ssn"), number: "123-45-6789" }, "draft")).toMatchObject({
+    expect(
+      identifierRowFromDraft({ ...emptyIdentifierDraft("ssn"), number: "123-45-6789" }, "draft"),
+    ).toMatchObject({
       typeLabel: "Social security number",
       label: null,
       masked: "•••-••-••••",

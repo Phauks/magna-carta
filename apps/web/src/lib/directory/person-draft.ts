@@ -84,9 +84,16 @@ export const PRONOUNS_ANOTHER_SET = "another";
 export function pronounChoiceFor(set: PronounSet | null): string {
   if (set === null) return PRONOUNS_NOT_STATED;
   const preset = PRONOUN_PRESETS.find((candidate) =>
-    (["subject", "object", "possessiveDeterminer", "possessivePronoun", "reflexive", "verbNumber"] as const).every(
-      (form) => candidate.set[form] === set[form],
-    ),
+    (
+      [
+        "subject",
+        "object",
+        "possessiveDeterminer",
+        "possessivePronoun",
+        "reflexive",
+        "verbNumber",
+      ] as const
+    ).every((form) => candidate.set[form] === set[form]),
   );
   return preset?.id ?? PRONOUNS_ANOTHER_SET;
 }
@@ -150,7 +157,11 @@ export function personSectionCounts(draft: PersonDraft): readonly PersonSectionC
     { id: "names", label: "Names", count: currentName + draft.otherNames.length },
     { id: "contact", label: "Contact", count: draft.contacts.length },
     { id: "pronouns", label: "Pronouns", count: null },
-    { id: "dates", label: "Dates", count: (draft.dateOfBirth === "" ? 0 : 1) + (draft.dateOfDeath === "" ? 0 : 1) },
+    {
+      id: "dates",
+      label: "Dates",
+      count: (draft.dateOfBirth === "" ? 0 : 1) + (draft.dateOfDeath === "" ? 0 : 1),
+    },
     { id: "identifiers", label: "Identifiers", count: draft.identifiers.length },
     { id: "organizations", label: "Organizations", count: draft.organizations.length },
   ];
@@ -179,12 +190,17 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
   if (name !== "") {
     lines.push({
       label: "Names",
-      value: draft.otherNames.length === 0 ? name : `${name} · ${plural(draft.otherNames.length, "other name", "other names")}`,
+      value:
+        draft.otherNames.length === 0
+          ? name
+          : `${name} · ${plural(draft.otherNames.length, "other name", "other names")}`,
     });
   }
   if (draft.contacts.length > 0) {
     const emails = draft.contacts.filter((contact) => contact.kind === "email").length;
-    const numbers = draft.contacts.filter((contact) => contact.kind === "telephone" || contact.kind === "fax").length;
+    const numbers = draft.contacts.filter(
+      (contact) => contact.kind === "telephone" || contact.kind === "fax",
+    ).length;
     const addresses = draft.contacts.filter((contact) => contact.kind === "address").length;
     lines.push({
       label: "Contact",
@@ -215,7 +231,10 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
     });
   }
   if (draft.identifiers.length > 0) {
-    lines.push({ label: "Identifiers", value: plural(draft.identifiers.length, "sealed", "sealed") });
+    lines.push({
+      label: "Identifiers",
+      value: plural(draft.identifiers.length, "sealed", "sealed"),
+    });
   }
   if (draft.organizations.length > 0) {
     lines.push({
