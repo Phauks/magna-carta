@@ -859,3 +859,139 @@ export function resourceKindLabel(kind: FirmResourceKind): string {
       return "Other";
   }
 }
+
+// ---- the event-type catalog's writes -----------------------------------------------------------
+//
+// A platform type's name and code are the shared vocabulary and immutable to a firm; a firm adds its
+// own types, recategorizes any, and retires the ones it does not use. Nothing here reactivates a
+// retired type: the contract carries no such write, and the page says so.
+
+export interface CreateEventTypeRequest {
+  name: string;
+  code?: string | null;
+  category?: EventTypeCategory;
+}
+
+export type UpdateEventTypeRequest = Partial<CreateEventTypeRequest>;
+
+export function createEventType(
+  fetchImpl: typeof fetch,
+  request: CreateEventTypeRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<CreatedRecord>> {
+  return requestJson(fetchImpl, "/api/v1/calendar/event-types", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export function updateEventType(
+  fetchImpl: typeof fetch,
+  eventTypeId: string,
+  request: UpdateEventTypeRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<Acknowledged>> {
+  return requestJson(fetchImpl, `/api/v1/calendar/event-types/${encodeURIComponent(eventTypeId)}`, {
+    method: "PATCH",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export function deactivateEventType(
+  fetchImpl: typeof fetch,
+  eventTypeId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<Acknowledged>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/calendar/event-types/${encodeURIComponent(eventTypeId)}/deactivate`,
+    { method: "POST", idempotencyKey },
+  );
+}
+
+/** The word a category reads as. */
+export function eventTypeCategoryLabel(category: EventTypeCategory): string {
+  switch (category) {
+    case "litigation":
+      return "Litigation";
+    case "transaction":
+      return "Transaction";
+    case "firm":
+      return "Firm";
+    case "other":
+      return "Other";
+  }
+}
+
+// ---- links between events ----------------------------------------------------------------------
+//
+// Two kinds: `continuance_of`, which only the continue operation writes, and `related`, which a
+// person records between two settings that belong together. Ends are identifiers; the other end's
+// record is read on its own path.
+
+export type EventLinkKind = "continuance_of" | "related";
+
+export interface EventLinkEnd {
+  matterEventId: string | null;
+  firmEventId: string | null;
+}
+
+export interface EventLink {
+  id: string;
+  kind: EventLinkKind;
+  from: EventLinkEnd;
+  to: EventLinkEnd;
+  note: string | null;
+  createdAt: string;
+}
+
+/** Every link touching an event, from either side. */
+export function listEventLinks(
+  fetchImpl: typeof fetch,
+  event: { kind: BookingEventKind; id: string },
+): Promise<ApiOutcome<{ data: EventLink[] }>> {
+  const path =
+    event.kind === "matterEvent"
+      ? `/api/v1/events/${encodeURIComponent(event.id)}/links`
+      : `/api/v1/firm-events/${encodeURIComponent(event.id)}/links`;
+  return requestJson(fetchImpl, path);
+}
+
+export interface CreateEventLinkRequest {
+  fromMatterEventId?: string | null;
+  fromFirmEventId?: string | null;
+  toMatterEventId?: string | null;
+  toFirmEventId?: string | null;
+  note?: string | null;
+}
+
+/** Relates two events. A continuance link is never written here; the continue operation writes it. */
+export function createEventLink(
+  fetchImpl: typeof fetch,
+  request: CreateEventLinkRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<CreatedRecord>> {
+  return requestJson(fetchImpl, "/api/v1/event-links", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+/** Removes a related link. A continuance link is refused: the chain is the record. */
+export function deleteEventLink(
+  fetchImpl: typeof fetch,
+  linkId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<Acknowledged>> {
+  return requestJson(fetchImpl, `/api/v1/event-links/${encodeURIComponent(linkId)}`, {
+    method: "DELETE",
+    idempotencyKey,
+  });
+}
+
+// ---- the matter timeline -----------------------------------------------------------------------
+
+export type TimelineDirection = "past" | "future" | "all";

@@ -29,6 +29,14 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "EVENT_BOOKINGS_LIMIT (200) is a backstop on a read whose natural size is a handful, not a " +
     "page; every booking hangs off exactly one event and is made one at a time from that " +
     "event's window, behind calendar:manage.",
+  "calendar.listEventLinks":
+    "Every link touching ONE matter event: its continuance (at most one each way, held by the " +
+    "schema's partial uniques) and the settings a person related it to by hand. Read through " +
+    "selectLinksTouchingEventStatement in packages/calendar/src/link-statements.ts, whose LIMIT " +
+    "(200) is a backstop on a read whose natural size is a handful.",
+  "calendar.listFirmEventLinks":
+    "The same read for a firm event, through the same statement and the same backstop " +
+    "(packages/calendar/src/link-statements.ts).",
   "calendar.listFirmEventBookings":
     "The same read for a firm event, through the same statement and the same backstop " +
     "(packages/calendar/src/booking-statements.ts, EVENT_BOOKINGS_LIMIT).",
