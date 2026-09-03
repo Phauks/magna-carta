@@ -29,6 +29,7 @@
     type MatterPartyEntry,
   } from "$lib/matters/party-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { DIRECTORY_EDIT_PERMISSION } from "$lib/directory/directory-api.ts";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { entityRecordHref, UNNAMED_ENTITY } from "$lib/directory/entity-presentation.ts";
@@ -57,6 +58,25 @@
   });
 
   const mayEdit = $derived(session?.permissions.includes(DIRECTORY_EDIT_PERMISSION) ?? false);
+
+  /*
+   * The matter header's New Party opens the parties tab's own add row — the tab keeps its inline
+   * Add… as the gesture on the list itself, the way the file manager keeps New Folder in its rail —
+   * and states the tab's refusal on the control.
+   */
+  let partiesTab = $state<ReturnType<typeof RecordParties> | null>(null);
+  claimMatterCreate("parties", () => ({
+    title: "Link a person or an organization to this matter.",
+    refusal: isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : session === null
+        ? "Reading your session."
+        : mayEdit
+          ? undefined
+          : linkDisabledReason,
+    run: () => partiesTab?.openAddRow(),
+  }));
+
   // Until the session is read nobody knows whether this account may change the list, so the tab is
   // still loading rather than refused: a refusal that vanishes when the answer arrives is a line
   // that unmounts, and the reader is left wondering what it said.
@@ -198,6 +218,7 @@
   {:else}
     <!-- A form is never full-width: the tab keeps a readable measure on the matter's canvas. -->
     <RecordParties
+      bind:this={partiesTab}
       class="max-w-xl"
       parties={recordParties}
       roles={PARTY_ROLE_OPTIONS}

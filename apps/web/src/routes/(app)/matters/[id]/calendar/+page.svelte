@@ -25,7 +25,6 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import Plus from "@lucide/svelte/icons/plus";
   import {
     deadlineStateLabel,
     deadlineTone,
@@ -39,12 +38,25 @@
     type CalendarEvent,
   } from "$lib/matters/calendar-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import { claimMatterCreate } from "$lib/matters/create-action.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
   const matter = $derived(data.matter);
   const isSample = $derived(matter.source === "sample");
+
+  /*
+   * Recording from this screen waits on the event and deadline forms, and the matter header's
+   * New Event says exactly that, disabled, rather than this screen drawing two disabled buttons of
+   * its own. When the forms land the claim becomes a menu — an event, a deadline — in the same
+   * control.
+   */
+  claimMatterCreate("calendar", () => ({
+    title: "Record an event on this matter.",
+    refusal: "Recording from this screen waits on the event and deadline forms.",
+    run: () => {},
+  }));
 
   // Two independent lists, so one failing does not blank the other: a firm whose deadline read
   // errored still needs to see its hearings.
@@ -98,17 +110,7 @@
       <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
         Calendar
       </h2>
-      <div class="flex items-center gap-8">
-        <Badge variant="neutral">Soon</Badge>
-        <Button variant="secondary" disabled>
-          <Plus aria-hidden="true" />
-          Record a deadline
-        </Button>
-        <Button variant="secondary" disabled>
-          <Plus aria-hidden="true" />
-          Record an event
-        </Button>
-      </div>
+      <Badge variant="neutral">Soon</Badge>
     </div>
     <p class="text-xs text-text-muted">
       Recording from this screen waits on the event and deadline forms. What has already been

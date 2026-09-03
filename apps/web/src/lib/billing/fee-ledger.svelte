@@ -36,7 +36,6 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
   import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
   import type { LedgerRecord } from "$lib/records/ledger-record-menu.ts";
@@ -143,7 +142,12 @@
     windowOpen = true;
   }
 
-  function openNewFee(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowFee = null;
     windowEditing = true;
     windowOpen = true;
@@ -212,7 +216,7 @@
       case "duplicate":
         // Duplicating starts a new draft from this fee's fields. Until a fee store exists, the
         // window opens on a blank draft rather than one pre-filled from a record nothing can copy.
-        openNewFee();
+        openNew();
         return;
       case "reclassify":
         reclassifyFee = first;
@@ -294,13 +298,8 @@
 {#snippet emptyLedger()}
   <EmptyState title="No Fees Recorded Yet">
     Flat charges for professional services land here &mdash; recorded by hand, and billed like any
-    other work in progress. A fee is never computed from time entries.
-    {#snippet actions()}
-      <Button onclick={openNewFee}>
-        <Plus class="size-16" aria-hidden="true" />
-        New Fee
-      </Button>
-    {/snippet}
+    other work in progress. A fee is never computed from time entries. New Fee, at the top of the
+    matter, records the first.
   </EmptyState>
 {/snippet}
 
@@ -330,8 +329,8 @@
     ONE ROW of verbs, and no strip of facts above the ledger. The fee arrangement used to lead this
     row; it now lives in the matter's status window, behind the seal in the masthead (owner ruling,
     2026-09-03), because it is a fact of the engagement rather than of the ledger and is rarely read.
-    New Fee records against whatever that window says, and the pane toggle ends the row as it does on
-    every ledger.
+    Recording a fee is the matter header's New Fee, not a button here (create-action.svelte.ts);
+    the pane toggle ends the row as it does on every ledger.
   -->
   <div class="flex flex-wrap items-center justify-end gap-8 text-sm">
     <span class="flex flex-1 flex-wrap items-center justify-end gap-8">
@@ -346,14 +345,6 @@
           Clear Filters
         </Button>
       {/if}
-      <Button
-        size="sm"
-        title="Record a flat charge for professional services on this matter. It saves as a draft."
-        onclick={openNewFee}
-      >
-        <Plus class="size-16" aria-hidden="true" />
-        New Fee
-      </Button>
       <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
            border of its own, and last in the row on every ledger. -->
       <Button

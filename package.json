@@ -32,6 +32,7 @@
     "lint:list-pagination": "node tooling/lint-list-pagination/index.mjs",
     "lint:one-ui": "node tooling/lint-one-ui/index.mjs",
     "lint:matter-search-coverage": "node tooling/lint-matter-search-coverage/index.mjs",
+    "lint:matter-create-control": "node tooling/lint-matter-create-control/index.mjs",
     "lint:test-registration": "node tooling/lint-test-registration.mjs",
     "lint:test-collection": "node tooling/lint-test-collection/index.mjs",
     "lint:affected-scope": "node tooling/affected-lint/scope-fitness.mjs",

@@ -33,6 +33,7 @@
     "@sveltejs/vite-plugin-svelte": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
+    "happy-dom": "catalog:",
     "svelte": "catalog:",
     "svelte-check": "catalog:",
     "tailwindcss": "catalog:"

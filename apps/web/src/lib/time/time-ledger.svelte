@@ -31,7 +31,6 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
   import {
     LedgerPanes,
     RecordMenu,
@@ -156,7 +155,12 @@
     windowOpen = true;
   }
 
-  function openLogTime(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowEntry = null;
     windowPrefill = null;
     windowEditing = true;
@@ -410,13 +414,8 @@
 
 {#snippet emptyLedger()}
   <EmptyState title="No Time Recorded Yet">
-    Timers, manual entries and the weekly grid all land here, billable or not.
-    {#snippet actions()}
-      <Button onclick={openLogTime}>
-        <Plus class="size-16" aria-hidden="true" />
-        Log Time
-      </Button>
-    {/snippet}
+    Timers, manual entries and the weekly grid all land here, billable or not. New Time, at the top
+    of the matter, records the first entry.
   </EmptyState>
 {/snippet}
 
@@ -446,17 +445,9 @@
         Clear Filters
       </Button>
     {/if}
-    <!-- Recording one entry on this matter is what this screen offers; the Time Sheet is the top
-         bar's, reachable from every screen including this one, and a second door to it here was a
-         control that took a reader somewhere they were already standing in front of. -->
-    <Button
-      size="sm"
-      title="Record one entry on this matter. It saves as a draft."
-      onclick={openLogTime}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Log Time
-    </Button>
+    <!-- Recording one entry on this matter is the matter header's New Time; the Time Sheet is the
+         top bar's, reachable from every screen including this one, and a second door to it here was
+         a control that took a reader somewhere they were already standing in front of. -->
     <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
          border of its own, reading its state through the glyph and never a filled box. -->
     <Button

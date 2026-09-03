@@ -73,7 +73,7 @@ the count under the table counts those. The screen says so when that applies.
 
 ## Opening a new matter
 
-Press **New matter**. Only the title is needed; everything else can be filled in later from the
+Press **New Matter**, at the top right beside the search. Only the title is needed; everything else can be filled in later from the
 matter itself.
 
 **Title** is what the firm calls the file, in its own words: "Pemberton v. Hale", "Estate of A.
