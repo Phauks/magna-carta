@@ -75,6 +75,44 @@ export type ServiceVersion = {
     buildTime: string | null;
 };
 
+export type DatabaseHealthResponse = {
+    controlPlane: DatabaseHealthControlPlane;
+    firmDatabase: DatabaseHealthFirmDatabase;
+    schema: DatabaseHealthSchema;
+    membership: DatabaseHealthMembership;
+    provisioning: DatabaseHealthProvisioning;
+    observedAt: string;
+};
+
+export type DatabaseHealthControlPlane = {
+    state: 'reachable' | 'unreachable';
+    bucketProvisioned: boolean;
+};
+
+export type DatabaseHealthFirmDatabase = {
+    state: 'reachable' | 'unreachable';
+    roundTripMilliseconds: number | null;
+};
+
+export type DatabaseHealthSchema = {
+    state: 'current' | 'behind' | 'unknown';
+    appliedCount: number;
+    appliedHead: string | null;
+    expectedHead: string;
+};
+
+export type DatabaseHealthMembership = {
+    state: 'active' | 'missing' | 'inactive' | 'unknown';
+    roles: Array<string>;
+    permissionCount: number;
+};
+
+export type DatabaseHealthProvisioning = {
+    state: 'read' | 'unknown';
+    pending: number;
+    deadLettered: number;
+};
+
 export type FirmUsageResponse = {
     storage: {
         totalBytes: number;
@@ -7341,6 +7379,39 @@ export type MetaVersionsResponses = {
 };
 
 export type MetaVersionsResponse2 = MetaVersionsResponses[keyof MetaVersionsResponses];
+
+export type MetaDatabaseHealthData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meta/database-health';
+};
+
+export type MetaDatabaseHealthErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MetaDatabaseHealthError = MetaDatabaseHealthErrors[keyof MetaDatabaseHealthErrors];
+
+export type MetaDatabaseHealthResponses = {
+    /**
+     * The firm database's health, as seen by this session
+     */
+    200: DatabaseHealthResponse;
+};
+
+export type MetaDatabaseHealthResponse = MetaDatabaseHealthResponses[keyof MetaDatabaseHealthResponses];
 
 export type FirmUsageGetData = {
     body?: never;
