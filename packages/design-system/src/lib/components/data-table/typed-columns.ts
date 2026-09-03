@@ -105,9 +105,7 @@ export function typedGlobalFilterFn<TData extends RowData>(
 }
 
 /** "end" for numeric/money columns (or an explicit `meta.align`), else "start". */
-export function columnAlign<TData extends RowData>(
-  column: Column<TData, unknown>,
-): "start" | "end" {
+export function columnAlign<TData extends RowData>(column: Column<TData>): "start" | "end" {
   const meta = column.columnDef.meta;
   if (meta?.align) return meta.align;
   return meta?.type === "money" || meta?.type === "number" ? "end" : "start";
@@ -115,7 +113,7 @@ export function columnAlign<TData extends RowData>(
 
 /** The per-column filter control kind, from `meta.filter` or derived from `meta.type` (undefined → no filter). */
 export function columnFilterKind<TData extends RowData>(
-  column: Column<TData, unknown>,
+  column: Column<TData>,
 ): ColumnFilterKind | undefined {
   const meta = column.columnDef.meta;
   if (meta?.filter) return meta.filter;
@@ -168,7 +166,7 @@ export function facetFilterFn<TData extends RowData>(
 }
 
 /** The column's display label — `meta.label`, else the string header, else a title-cased id. */
-export function columnLabel<TData extends RowData>(column: Column<TData, unknown>): string {
+export function columnLabel<TData extends RowData>(column: Column<TData>): string {
   const meta = column.columnDef.meta;
   if (meta?.label) return meta.label;
   const header = column.columnDef.header;

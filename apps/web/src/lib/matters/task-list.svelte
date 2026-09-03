@@ -68,6 +68,7 @@
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { ApiOutcome, Page } from "$lib/api/request.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   interface Props {
     /** What identifies the rows on screen, so a reload is told from a change of subject. */
@@ -455,7 +456,7 @@
           ? "This is a sample matter. There is no firm record behind it, so nothing can be recorded against it."
           : canWrite
             ? undefined
-            : "Adding a task needs the tasks:write permission, which this account does not hold."}
+            : permissionRefusal("Adding a task", "tasks:write")}
         onpress={openNew}
       />
     {/if}

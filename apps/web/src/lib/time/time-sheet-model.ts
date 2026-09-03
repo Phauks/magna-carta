@@ -263,7 +263,6 @@ export function clockText(seconds: number, toTheSecond: boolean): string {
   return `${String(wholeHours)}:${minutePart}:${String(wholeSeconds).padStart(2, "0")}`;
 }
 
-
 /**
  * Reading a duration somebody typed into a cell, as seconds.
  *

@@ -122,7 +122,6 @@ export function statusLabel(status: TimeEntryStatus): string {
   return statusEntry(timeEntryStatusKey(status)).label;
 }
 
-
 /**
  * Billable minutes and their money, over the entries that still count. A voided entry is excluded
  * from both: it is a line that was withdrawn, and adding it to a total would misstate the matter.

@@ -29,8 +29,8 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
   import {
     LedgerPanes,
     RecordMenu,
@@ -448,18 +448,10 @@
     <!-- Recording one entry on this matter is the matter header's New Time; the Time Sheet is the
          top bar's, reachable from every screen including this one, and a second door to it here was
          a control that took a reader somewhere they were already standing in front of. -->
-    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-         border of its own, reading its state through the glyph and never a filled box. -->
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
+    <DetailsPanel.Toggle
+      open={panelOpen}
+      onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
+    />
   </div>
 
   {#if actionFailure !== null}

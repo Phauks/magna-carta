@@ -98,13 +98,13 @@
     <!-- The universal information group, the same order on every page; history anchors the
          terminal edge. -->
     <Masthead.Actions class="flex-wrap justify-end">
-      <Badge variant="neutral" class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <Badge variant="neutral" caps>
         {badgeLabel ?? POSTURE_BADGES[posture]}
       </Badge>
       {#if preview}
         <!-- Demonstration pages only: these settings are not yet in effect — values persist on
              this device and govern nothing until the authenticated settings API wires in. -->
-        <Badge variant="info" class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        <Badge variant="info" caps>
           Preview
         </Badge>
       {/if}

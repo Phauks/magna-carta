@@ -1,6 +1,7 @@
 <script lang="ts">
   /*
-   * The details panel: the SMALLER altitude, beside the list.
+   * The cost ledger's details panel: what its three faces say, over the shared panel shell
+   * ($lib/details-panel), which carries the frame, the header grammar and the ruled sections.
    *
    * Three faces, one panel. Nothing selected, it speaks for the matter's cost position. One cost
    * selected, it shows that cost's identity, its standing and its facts. Several selected, it
@@ -24,11 +25,10 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import Printer from "@lucide/svelte/icons/printer";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import Send from "@lucide/svelte/icons/send";
   import Stamp from "@lucide/svelte/icons/stamp";
-  import X from "@lucide/svelte/icons/x";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
-  import FieldLabel from "@magna-carta/design-system/field-label";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Receipt from "@lucide/svelte/icons/receipt";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
@@ -94,45 +94,30 @@
   const payee = $derived(sole === null ? null : payeeState(sole));
 </script>
 
-{#snippet fact(label: string, value: string, title?: string)}
-  <div class="flex items-baseline justify-between gap-16">
-    <dt class="text-text-muted">{label}</dt>
-    <dd class="text-right tabular-nums" {title}>{value}</dd>
-  </div>
-{/snippet}
-
-<aside
-  class="flex h-full w-full flex-col border-l border-border-default bg-surface-default"
-  aria-label="Cost details"
->
+<DetailsPanel.Root label="Cost details">
   {#if sole !== null}
-    <header class="flex items-start gap-8 border-b border-border-default p-12">
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base leading-tight font-semibold">Cost Entry</h2>
-        <p class="text-xs text-text-muted" title={gapCellTitle("entryNumber")}>
-          {COST_LEDGER_GAPS.entryNumber.field} not yet recorded
-        </p>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Print this cost by itself"
-        aria-label="Print this cost by itself"
-        onclick={() => onPrint(sole)}
-      >
-        <Printer class="size-16" aria-hidden="true" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Let go of this cost and show the matter summary"
-        aria-label="Let go of this cost and show the matter summary"
-        onclick={onLetGo}
-      >
-        <X class="size-16" aria-hidden="true" />
-      </Button>
-    </header>
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
+    <DetailsPanel.Header>
+      <DetailsPanel.Title>Cost Entry</DetailsPanel.Title>
+      <DetailsPanel.Subtitle title={gapCellTitle("entryNumber")}>
+        {COST_LEDGER_GAPS.entryNumber.field} not yet recorded
+      </DetailsPanel.Subtitle>
+      {#snippet actions()}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Print this cost by itself"
+          aria-label="Print this cost by itself"
+          onclick={() => onPrint(sole)}
+        >
+          <Printer class="size-16" aria-hidden="true" />
+        </Button>
+        <DetailsPanel.Close
+          label="Let go of this cost and show the matter summary"
+          onclick={onLetGo}
+        />
+      {/snippet}
+    </DetailsPanel.Header>
+    <DetailsPanel.Body>
       <p class="text-sm">{sole.description}</p>
 
       <div class="flex flex-wrap items-center gap-8">
@@ -164,8 +149,7 @@
         {/snippet}
       </SoonAffordance>
 
-      <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <FieldLabel as="h3">Standing</FieldLabel>
+      <DetailsPanel.Section label="Standing">
         <div>
           <Badge {...statusBadgeAttributes(costStatusKey(sole.status))}>
             {statusEntry(costStatusKey(sole.status)).label}
@@ -191,52 +175,49 @@
             {/snippet}
           </SoonAffordance>
         {/if}
-      </section>
+      </DetailsPanel.Section>
 
-      <dl class="flex flex-col gap-4 border-t border-border-default pt-12 text-sm">
-        {@render fact("Date Incurred", formatDate(sole.incurredDate))}
-        {@render fact("Date Entered", "Not served", gapCellTitle("dateEntered"))}
-        {@render fact("Payee", payeeText(sole), payee?.kind === "gone" ? GONE_PAYEE_NOTE : undefined)}
-        {@render fact("Entered By", "Not served", gapCellTitle("enteredBy"))}
-        {@render fact("Amount", money(sole.amountMinor))}
-        {@render fact("Billing", billingSentence(sole.billable))}
-        {@render fact(
-          "Expense Code",
-          expenseCodeText(sole, expenseCodeLabels) === ""
+      <DetailsPanel.Facts ruled>
+        <DetailsPanel.Fact label="Date Incurred" value={formatDate(sole.incurredDate)} />
+        <DetailsPanel.Fact label="Date Entered" value="Not served" title={gapCellTitle("dateEntered")} />
+        <DetailsPanel.Fact
+          label="Payee"
+          value={payeeText(sole)}
+          title={payee?.kind === "gone" ? GONE_PAYEE_NOTE : undefined}
+        />
+        <DetailsPanel.Fact label="Entered By" value="Not served" title={gapCellTitle("enteredBy")} />
+        <DetailsPanel.Fact label="Amount" value={money(sole.amountMinor)} />
+        <DetailsPanel.Fact label="Billing" value={billingSentence(sole.billable)} />
+        <DetailsPanel.Fact
+          label="Expense Code"
+          value={expenseCodeText(sole, expenseCodeLabels) === ""
             ? "—"
-            : expenseCodeText(sole, expenseCodeLabels),
-        )}
-        {@render fact("Attachments", "Not served", gapCellTitle("attachments"))}
-        {@render fact("Source", sourceLabel(sole.source))}
-      </dl>
+            : expenseCodeText(sole, expenseCodeLabels)}
+        />
+        <DetailsPanel.Fact label="Attachments" value="Not served" title={gapCellTitle("attachments")} />
+        <DetailsPanel.Fact label="Source" value={sourceLabel(sole.source)} />
+      </DetailsPanel.Facts>
 
-      <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <FieldLabel as="h3">Internal Memo</FieldLabel>
+      <DetailsPanel.Section label="Internal Memo">
         <p class="text-xs text-text-muted">{gapCellTitle("memo")}</p>
-      </section>
+      </DetailsPanel.Section>
 
-      <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <FieldLabel as="h3">History</FieldLabel>
+      <DetailsPanel.Section label="History">
         <p class="text-xs text-text-muted">{gapCellTitle("history")}</p>
-      </section>
-    </div>
+      </DetailsPanel.Section>
+    </DetailsPanel.Body>
   {:else if selected.length > 1}
-    <header class="flex items-start gap-8 border-b border-border-default p-12">
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base leading-tight font-semibold">{selection.count} Costs Selected</h2>
-        <p class="text-xs text-text-muted">{selection.statusLine}</p>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Let go of all {selection.count} selected costs"
-        aria-label="Let go of all {selection.count} selected costs"
-        onclick={onLetGo}
-      >
-        <X class="size-16" aria-hidden="true" />
-      </Button>
-    </header>
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
+    <DetailsPanel.Header>
+      <DetailsPanel.Title>{selection.count} Costs Selected</DetailsPanel.Title>
+      <DetailsPanel.Subtitle>{selection.statusLine}</DetailsPanel.Subtitle>
+      {#snippet actions()}
+        <DetailsPanel.Close
+          label="Let go of all {selection.count} selected costs"
+          onclick={onLetGo}
+        />
+      {/snippet}
+    </DetailsPanel.Header>
+    <DetailsPanel.Body>
       {#if REVIEW_GATE_ENABLED}
         <div class="flex flex-wrap items-center gap-8">
           <Button
@@ -267,42 +248,41 @@
           </Button>
         </div>
       {/if}
-      <dl class="flex flex-col gap-4 text-sm">
-        {@render fact(
-          "Amount",
-          selection.excludesVoids
+      <DetailsPanel.Facts>
+        <DetailsPanel.Fact
+          label="Amount"
+          value={selection.excludesVoids
             ? `${money(selection.amountMinor)} (voids excluded)`
-            : money(selection.amountMinor),
-        )}
-        {@render fact("Billable", money(selection.billableMinor))}
-      </dl>
-    </div>
+            : money(selection.amountMinor)}
+        />
+        <DetailsPanel.Fact label="Billable" value={money(selection.billableMinor)} />
+      </DetailsPanel.Facts>
+    </DetailsPanel.Body>
   {:else}
-    <header class="border-b border-border-default p-12">
-      <h2 class="text-base leading-tight font-semibold">This Matter&rsquo;s Costs</h2>
-      <p class="text-xs text-text-muted">Select a cost for its details</p>
-    </header>
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
-      <dl class="flex flex-col gap-4 text-sm">
-        {@render fact(
-          "Costs",
-          summary.voidCount === 0
+    <DetailsPanel.Header>
+      <DetailsPanel.Title>This Matter&rsquo;s Costs</DetailsPanel.Title>
+      <DetailsPanel.Subtitle>Select a cost for its details</DetailsPanel.Subtitle>
+    </DetailsPanel.Header>
+    <DetailsPanel.Body>
+      <DetailsPanel.Facts>
+        <DetailsPanel.Fact
+          label="Costs"
+          value={summary.voidCount === 0
             ? String(summary.liveCount)
-            : `${String(summary.liveCount)} (${String(summary.voidCount)} void)`,
-        )}
-        {@render fact("Recorded", money(summary.recordedMinor))}
-        {@render fact("Absorbed", money(summary.absorbedMinor))}
-      </dl>
+            : `${String(summary.liveCount)} (${String(summary.voidCount)} void)`}
+        />
+        <DetailsPanel.Fact label="Recorded" value={money(summary.recordedMinor)} />
+        <DetailsPanel.Fact label="Absorbed" value={money(summary.absorbedMinor)} />
+      </DetailsPanel.Facts>
       {#if summary.largestPayees.length > 0}
-        <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-          <FieldLabel as="h3">Largest Payees</FieldLabel>
-          <dl class="flex flex-col gap-4 text-sm">
+        <DetailsPanel.Section label="Largest Payees">
+          <DetailsPanel.Facts>
             {#each summary.largestPayees as share (share.name)}
-              {@render fact(share.name, money(share.amountMinor))}
+              <DetailsPanel.Fact label={share.name} value={money(share.amountMinor)} />
             {/each}
-          </dl>
-        </section>
+          </DetailsPanel.Facts>
+        </DetailsPanel.Section>
       {/if}
-    </div>
+    </DetailsPanel.Body>
   {/if}
-</aside>
+</DetailsPanel.Root>

@@ -35,7 +35,6 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
   import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
   import type { LedgerRecord } from "$lib/records/ledger-record-menu.ts";
@@ -43,6 +42,7 @@
   import ReclassifyDialog from "$lib/records/reclassify-dialog.svelte";
   import { mayReclassify } from "$lib/records/reclassification.ts";
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import FeeDetailsPanel from "./fee-details-panel.svelte";
@@ -345,18 +345,10 @@
           Clear Filters
         </Button>
       {/if}
-      <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-           border of its own, and last in the row on every ledger. -->
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-pressed={panelOpen}
-        title="Show or hide the details panel"
-        aria-label="Show or hide the details panel"
-        onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-      >
-        <PanelRight class="size-16" aria-hidden="true" />
-      </Button>
+      <DetailsPanel.Toggle
+        open={panelOpen}
+        onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
+      />
     </span>
   </div>
 

@@ -57,6 +57,7 @@
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
@@ -174,7 +175,7 @@
     refusal: isSample
       ? SAMPLE_MATTER_REFUSAL
       : !canWrite
-        ? "Writing a note needs the notes:write permission, which this account does not hold."
+        ? permissionRefusal("Writing a note", "notes:write")
         : composing
           ? "A note is being written below. Save it or cancel it first."
           : undefined,

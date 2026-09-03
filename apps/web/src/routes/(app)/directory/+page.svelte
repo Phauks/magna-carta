@@ -79,6 +79,7 @@
   } from "$lib/directory/entity-presentation.ts";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import NewEntityDialog from "$lib/directory/new-entity-dialog.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   // ---- who is asking ---------------------------------------------------------------------------
 
@@ -100,7 +101,7 @@
       ? "Reading your session."
       : mayEdit
         ? undefined
-        : "Adding to the directory needs the directory:edit permission, which this account does not hold.",
+        : permissionRefusal("Adding to the directory", "directory:edit"),
   );
 
   // ---- what the screen is being asked -----------------------------------------------------------

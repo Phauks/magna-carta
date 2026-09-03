@@ -37,6 +37,7 @@
   import NewPacketDialog from "$lib/custodian/new-packet-dialog.svelte";
   import PacketRegister from "$lib/custodian/packet-register.svelte";
   import PacketWindow from "$lib/custodian/packet-window.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
@@ -74,7 +75,7 @@
   const createRefusal = $derived.by((): string | undefined => {
     if (session === null) return "Reading your session.";
     if (!session.permissions.includes(MANAGE_CUSTODY_PERMISSION)) {
-      return "Logging a packet needs the custody:manage permission, which this account does not hold.";
+      return permissionRefusal("Logging a packet", "custody:manage");
     }
     if (locations.length > 0 && !locations.some((location) => location.status === "active")) {
       return "A packet is logged into a container, and the firm has no open one to put it in.";

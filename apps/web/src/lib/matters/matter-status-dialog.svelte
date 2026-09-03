@@ -105,6 +105,7 @@
     type MatterCloseReadiness,
   } from "./matters-api.ts";
   import type { ApiOutcome } from "$lib/api/request.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { matter }: { matter: MatterRecord } = $props();
 
@@ -162,7 +163,7 @@
   const mayAmend = $derived(
     permissions === null || permissions.includes(BILLING_PERMISSIONS.configure),
   );
-  const AMEND_REFUSAL = `Amending the fee arrangement needs the ${BILLING_PERMISSIONS.configure} capability, which this account does not hold.`;
+  const AMEND_REFUSAL = permissionRefusal("Amending the fee arrangement", BILLING_PERMISSIONS.configure);
 
   const identifier = $props.id();
   const blockedDescriptionIdentifier = `${identifier}-blocked`;
@@ -308,11 +309,7 @@
   title={seal.meaning}
   onclick={() => (open = true)}
 >
-  <Badge
-    variant={seal.variant}
-    class="border-border-default uppercase hover:border-border-strong"
-    style="letter-spacing: var(--mc-tracking-caps)"
-  >
+  <Badge variant={seal.variant} class="border-border-default hover:border-border-strong" caps>
     {seal.label}
   </Badge>
 </button>
@@ -349,11 +346,7 @@
                beside the fact it changes, and the requirements that gate it read as the reason
                it is disabled rather than as a paragraph somewhere above a button. -->
           <dd class="flex flex-wrap items-center gap-8">
-            <Badge
-              variant={seal.variant}
-              class="uppercase"
-              style="letter-spacing: var(--mc-tracking-caps)"
-            >
+            <Badge variant={seal.variant} caps>
               {seal.label}
             </Badge>
             <Button

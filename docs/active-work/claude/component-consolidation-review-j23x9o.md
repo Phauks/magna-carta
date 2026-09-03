@@ -2,7 +2,7 @@
 worktree: C:/dev/magna-carta-worktrees/claude/component-consolidation-review-j23x9o
 area: Component consolidation — the details panel, the display vocabulary, the caps label register, the registry's reach, and two smaller repeats
 status: building
-touches: apps/web/src/lib/details-panel, apps/web/src/lib/time, apps/web/src/lib/costs, apps/web/src/lib/billing, apps/web/src/lib/matters/time-api.ts, apps/web/src/lib/matters/tasks-api.ts, packages/design-system/src/lib/formatters, packages/design-system/src/lib/components/data-table/typed-columns.ts, packages/design-system/src/lib/components/field-label, tooling/lint-one-ui/registry.json, changelog.d/
+touches: apps/web/src/lib/details-panel, apps/web/src/lib/access, apps/web/src/lib/billing/bill-actions.ts, apps/web/src/lib/time, apps/web/src/lib/costs, apps/web/src/lib/billing, apps/web/src/lib/matters/time-api.ts, apps/web/src/lib/matters/tasks-api.ts, packages/design-system/src/lib/formatters, packages/design-system/src/lib/components/data-table/typed-columns.ts, packages/design-system/src/lib/components/field-label, tooling/lint-one-ui/registry.json, changelog.d/
 ---
 
 # component-consolidation-review
@@ -28,6 +28,10 @@ search and the page masthead are genuinely single-homed and enforced. What follo
   of them wearing the caps tracking every design-system recipe uses. The register itself is not a
   new ruling: `.mc-masthead-eyebrow` and `.mc-eyebrow-link` already agree on it, and the new
   `FieldLabel` component simply stops it being retyped.
+- **The refusal sentence** — a control the account may not use was explained in two competing
+  wordings, seventeen sites in one and seven in the other. `apps/web/src/lib/access/refusal.ts` is
+  the one home. The seven shorter ones were in `apps/web/src/lib/billing/bill-actions.ts` and now
+  name the act as well as the permission, so those tooltips read differently than they did.
 - **`tooling/lint-one-ui/registry.json`** — entries added for the shared surfaces the registry did
   not yet name. An append to the `components` array, so the three streams that also touch this file
   (`calendar-ui-plan-eu523y`, `directory-ui-person-linking-fcot46`, `r2-bucket-isolation-review-pckokv`)
@@ -39,6 +43,16 @@ search and the page masthead are genuinely single-homed and enforced. What follo
 - `BackLink` and the return affordance — which is also why it is absent from the registry entries
   added here.
 - The undo/redo stacks (`MoveHistory`, `SheetHistory`) and their controls.
+- The file manager's inspector (`file-inspector.svelte`). It shares ONE class string with the
+  panel header and nothing else: it is sunken rather than raised, it is its own scroll container
+  with no separate body, its title is a rename control, and its close really closes. Its own comment
+  says the reading is deliberate — "the work area reads as more work area, not as a panel" — so it
+  is a different surface that happens to share a border, not a fifth copy. The port plan lists it as
+  a DetailsPanel consumer; on reading the code, it is not one.
+- The segmented pressed-pair group. Its three hand-rolled sites are all in calendar code
+  (`calendar-toolbar.svelte` twice, the matter's calendar section once) and `calendar-ui-plan-eu523y`
+  is in review across that whole area, so consolidating them now would collide with a stream about
+  to land. The pattern is real and the note is here so the next reader does not re-derive it.
 - `WipLedgerSurface`, the parameterized ledger template. It is the largest remaining repeat and it
   is deferred by the owner: it rewrites four shipped surfaces at once while three streams are live
   in them.

@@ -33,6 +33,7 @@
   import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { gapReason } from "./conflicts-gaps.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
   import {
     runConflictsCheck,
     RUN_CHECK_PERMISSION,
@@ -120,7 +121,7 @@
 
   const refusal = $derived.by((): string | null => {
     if (permissions !== null && !mayRun) {
-      return "Running a check needs the conflicts:run permission, which this account does not hold.";
+      return permissionRefusal("Running a check", "conflicts:run");
     }
     if (parties.length === 0 && matterId === null) {
       return "A check searches for the parties it is given. Name at least one.";

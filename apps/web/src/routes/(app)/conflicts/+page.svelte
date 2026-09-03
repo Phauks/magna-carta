@@ -28,6 +28,7 @@
   import { gapReason } from "$lib/conflicts/conflicts-gaps.ts";
   import { RUN_CHECK_PERMISSION } from "$lib/conflicts/conflicts-api.ts";
   import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
   import {
     listMatters,
     readSession,
@@ -112,8 +113,8 @@
   <Alert.Root variant="info" class="mb-16">
     <Alert.Title>Running A Check Is Not Available To This Account</Alert.Title>
     <Alert.Description>
-      Running a check needs the conflicts:run permission, which this account does not hold. Reading a
-      matter's standing is a separate permission.
+      {permissionRefusal("Running a check", "conflicts:run")} Reading a matter's standing is a
+      separate permission.
     </Alert.Description>
   </Alert.Root>
 {/if}

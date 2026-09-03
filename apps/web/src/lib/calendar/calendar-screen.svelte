@@ -31,6 +31,7 @@
   import RecordDeadlineDialog from "./record-deadline-dialog.svelte";
   import RecordEventDialog from "./record-event-dialog.svelte";
   import RecordFirmEventDialog from "./record-firm-event-dialog.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let {
     title,
@@ -69,7 +70,7 @@
     if (!context.sessionSettled) return "Reading your session.";
     if (context.session === null) return "Your session could not be read, so nothing can be recorded.";
     if (!context.mayManage) {
-      return "Recording on the calendar needs the calendar:manage permission, which this account does not hold.";
+      return permissionRefusal("Recording on the calendar", "calendar:manage");
     }
     return undefined;
   });

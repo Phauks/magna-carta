@@ -84,6 +84,10 @@
       "home": "packages/design-system/src/lib/components/data-table"
     },
     {
+      "name": "DetailsPanel",
+      "home": "apps/web/src/lib/details-panel"
+    },
+    {
       "name": "Masthead",
       "home": "packages/design-system/src/lib/components/masthead"
     },

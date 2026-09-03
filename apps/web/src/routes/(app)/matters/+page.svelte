@@ -68,6 +68,7 @@
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
   import NewMatterDialog from "$lib/matters/new-matter-dialog.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   // ---- what the screen is asking for ----------------------------------------------------------
 
@@ -146,7 +147,7 @@
       ? "Reading your session."
       : mayCreate
         ? undefined
-        : "Opening a matter needs the matters:create permission, which this account does not hold.",
+        : permissionRefusal("Opening a matter", "matters:create"),
   );
 
   // ---- the docket ------------------------------------------------------------------------------

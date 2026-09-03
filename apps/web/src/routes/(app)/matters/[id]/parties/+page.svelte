@@ -35,6 +35,7 @@
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { entityRecordHref, UNNAMED_ENTITY } from "$lib/directory/entity-presentation.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
@@ -84,7 +85,7 @@
   const linkDisabledReason = $derived(
     mayEdit
       ? undefined
-      : "Changing who is on a matter needs the directory:edit permission, which this account does not hold.",
+      : permissionRefusal("Changing who is on a matter", "directory:edit"),
   );
 
   // ---- the parties -----------------------------------------------------------------------------

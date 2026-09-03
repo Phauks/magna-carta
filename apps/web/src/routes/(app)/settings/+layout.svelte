@@ -134,11 +134,7 @@
                     >
                       {section.label}
                       {#if viewOnly(section)}
-                        <Badge
-                          variant="outline"
-                          class="text-xs uppercase"
-                          style="letter-spacing: var(--mc-tracking-caps)"
-                        >
+                        <Badge variant="outline" caps>
                           View
                         </Badge>
                       {/if}
