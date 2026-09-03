@@ -172,9 +172,17 @@ test("the Overview's Recent activity is the same register, one step from the who
   await signIn(page);
   await page.goto(`/matters/${seededMatterId}/overview`);
   await expect(page.getByRole("heading", { name: "Recent activity" })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "Client Letter.txt" })).toBeVisible({
-    timeout: 15_000,
-  });
+
+  // The tile is the register with a row budget: rows appear, and never more than eight of them.
+  // WHICH rows is the timeline's own order — a note sorts by the day it is about, so among the
+  // many same-day notes the walks before this one wrote, no one of them is certain to be on top.
+  const tile = page.getByRole("table", { name: "The newest entries recorded on this matter" });
+  await expect(tile).toBeVisible({ timeout: 15_000 });
+  await expect
+    .poll(async () => tile.getByRole("row").count(), { timeout: 15_000 })
+    .toBeGreaterThan(1);
+  expect(await tile.getByRole("row").count()).toBeLessThanOrEqual(9);
+
   await page.getByRole("link", { name: "See all activity" }).click();
   await expect(page).toHaveURL(/\/activity$/);
   await expect(page.getByRole("heading", { name: "Activity", exact: true })).toBeVisible();
