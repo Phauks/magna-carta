@@ -17,8 +17,9 @@
   import { onMount } from "svelte";
   import { guidanceFor } from "$lib/diagnostics/guidance.ts";
   import Download from "@lucide/svelte/icons/download";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
-  import { toast } from "@magna-carta/design-system/toast";
   import { MaturityDot } from "@magna-carta/design-system/maturity";
   import {
     DESTINATIONS,
@@ -53,6 +54,9 @@
   let open = $state(false);
   let items = $state<ShelfItem[]>([]);
   let lastSeen = $state<string>("");
+  // A download that failed, by item: stated under its row with the way to try again beside it. A
+  // toast has nowhere to put a retry, and vanishes before the reader has decided to.
+  let failedTakes = $state<Record<string, string>>({});
 
   function readLastSeen(): string {
     try {
@@ -120,9 +124,12 @@
     const format = item.downloadedFormats[0] ?? "xlsx";
     const outcome = await fetchShelfItem(fetch, item.id, format);
     if (outcome.kind !== "ok") {
-      // A toast has nowhere to put a handle or a remedy, so it takes the presenter's sentence
-      // rather than the whole record — the wording rules still apply, the furniture does not fit.
-      toast.error(guidanceFor(outcome.failure, "That download").message);
+      // The presenter's sentence rather than the whole record — the wording rules still apply, the
+      // furniture does not fit in a tray.
+      failedTakes = {
+        ...failedTakes,
+        [item.id]: guidanceFor(outcome.failure, "That download").message,
+      };
       markShelfChanged();
       return;
     }
@@ -147,9 +154,15 @@
           CONTENT_TYPES[format] ?? "application/octet-stream",
         );
       }
+      failedTakes = Object.fromEntries(
+        Object.entries(failedTakes).filter(([key]) => key !== item.id),
+      );
       open = false;
     } catch {
-      toast.error("That download could not be produced. Try again shortly.");
+      failedTakes = {
+        ...failedTakes,
+        [item.id]: "That download could not be produced. Try again shortly.",
+      };
     }
   }
 
@@ -203,6 +216,26 @@
                   : item.downloadedFormats.map((entry) => entry.toUpperCase()).join(", ")}
               </span>
             </button>
+            {#if failedTakes[item.id] !== undefined}
+              <div class="flex items-center gap-8 px-8 pb-4">
+                <span
+                  class="text-xs text-status-danger-subtle-foreground"
+                  role="status"
+                  title={failedTakes[item.id]}
+                >
+                  Download failed
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onclick={() => void take(item)}
+                  aria-label={`Retry downloading ${item.title}`}
+                >
+                  <RotateCcw class="size-16" aria-hidden="true" />
+                  Retry
+                </Button>
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>

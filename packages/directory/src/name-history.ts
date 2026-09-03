@@ -241,16 +241,16 @@ function isAddPersonNameInput(input: AddNameInput): input is AddPersonNameInput 
 //   - The entity row's denormalized name columns are NOT updated — the current name is unchanged.
 //
 // The entity kind is resolved from the id handle prefix; the caller does not need to pass it.
-export async function addName(
+/**
+ * Composes the rows one further name writes, without committing and without checking the entity:
+ * the caller either checked it or is creating it in the same batch.
+ */
+export function composeAddName(
   database: BatchDatabase,
   entityId: DirectoryPersonId | DirectoryOrganizationId,
   input: AddNameInput,
   options: DirectoryWriteOptions,
-): Promise<void> {
-  // Fail fast before any write: an alias must attach to a live entity (directory_name carries no FK to
-  // the node tables, so an unchecked entity id would insert an orphan name row and falsely report 201).
-  await assertEntityExists(database, entityId);
-
+): SqlStatement[] {
   const nameId: DirectoryNameId = newIdentifier("directoryName", options.randomSource);
   const now = options.clock.now();
   const entityKind = entityKindFromId(entityId);
@@ -327,6 +327,20 @@ export async function addName(
   statements.push(
     directoryAuditStatement(database, options, "directory.entity.name_added", entityId),
   );
+
+  return statements;
+}
+
+export async function addName(
+  database: BatchDatabase,
+  entityId: DirectoryPersonId | DirectoryOrganizationId,
+  input: AddNameInput,
+  options: DirectoryWriteOptions,
+): Promise<void> {
+  // Fail fast before any write: an alias must attach to a live entity (directory_name carries no FK to
+  // the node tables, so an unchecked entity id would insert an orphan name row and falsely report 201).
+  await assertEntityExists(database, entityId);
+  const statements = composeAddName(database, entityId, input, options);
 
   await runDirectoryEffect(database, options.idempotency, options.clock, () => ({
     statements,

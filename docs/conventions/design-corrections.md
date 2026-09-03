@@ -78,6 +78,16 @@ is usually the fastest way to understand the rule.
   scanned before anything else touches it"). It is read once, skipped ever after, and it takes room
   from the answer the reader came for. A fact that a reader must have to read the result correctly
   is part of the result, in its own row. _(file workbench, 2026-08-31)_
+- **A failed act states itself where it happened, with the way to try again beside it.** A download
+  that fails gets "Download failed" and a **Retry** button on its own row, on the Downloads page and
+  in the top-bar tray alike, never only in a toast: a toast vanishes, and the reader who watched it
+  go has nothing left to press. _(downloads, 2026-09-03)_
+- **Nothing is saved until the commit is pressed, and a panel never says otherwise.** The Upload
+  dialog opens before any byte moves and sends only on **Upload**; "Closing keeps what has already
+  landed in EWAAAE" was the line that made the owner afraid something had been saved behind their
+  back, and it had. The commit carries the act's own verb ("Upload", not "Save"), a failure reads as
+  one ("Upload failed", not "did not land"), and a panel carries no running commentary about what
+  it is doing on the reader's behalf. _(file manager upload, 2026-09-03)_
 
 ### Lists and tables
 
@@ -138,6 +148,12 @@ is usually the fastest way to understand the rule.
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
   screen and nothing scrolls. A gate behind a tab is a gate somebody has to remember to go and look
   at. _(new matter, 2026-08-30)_
+- **A creation screen's sections may stand as a rail inside its own dialog.** The one-rail ruling
+  under Controls is about the app shell: a second vertical navigation beside the shell's own makes
+  the member ask which one they are in. A dialog is not the canvas, and the sections of a record
+  being created are not module navigation; the owner chose the side rail for New Person from a
+  canvas of four directions on 2026-09-03, with a count on each section and the gate beside it.
+  _(new person, 2026-09-03)_
 - **A data-entry surface carries no helper prose.** Every visible line is a label, a value, or the
   one honest sentence a Soon capability owes about what it waits on. A block with nothing in it is
   not drawn at all rather than announcing its own emptiness. _(new matter, 2026-08-30)_

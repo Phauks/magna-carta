@@ -321,7 +321,7 @@ beforeAll(async () => {
 
   const sealed = await post(`/api/v1/directory/entities/${clientEntityId}/identifiers`, {
     type: "ssn",
-    value: SEALED_SOCIAL_SECURITY_NUMBER,
+    number: SEALED_SOCIAL_SECURITY_NUMBER,
   });
   expect(sealed.status, await sealed.clone().text()).toBe(201);
   identifierRowId =
