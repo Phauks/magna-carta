@@ -1,5 +1,5 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import type { SourceReadRequest, TimelineRawRow } from "./registry.ts";
+import type { DescribeRequest, SourceReadRequest, TimelineRawRow } from "./registry.ts";
 
 // The one place a source's SELECT is assembled, so the three properties every source has to have are
 // structural rather than remembered:
@@ -22,6 +22,9 @@ export interface BoundedSelectSpec {
   readonly sortColumn: string;
   // The row's own identifier column, the tiebreak that makes the order total.
   readonly idColumn: string;
+  // What a reader opens, where that differs from the row itself (see TimelineRawRow.link_id).
+  // Defaults to the row.
+  readonly linkIdExpression?: string;
   // The expression naming this row's matter — handed to the visibility predicate, and projected so
   // a merged page can say which case an entry belongs to.
   readonly matterExpression: string;
@@ -62,6 +65,7 @@ export function boundedSelect(database: SqlDatabase, spec: BoundedSelectSpec): S
   const order = request.ascending ? "ASC" : "DESC";
   const sql =
     `SELECT ${spec.sortColumn} AS sort_key, ${spec.idColumn} AS row_id, ` +
+    `${spec.linkIdExpression ?? spec.idColumn} AS link_id, ` +
     `${spec.matterExpression} AS matter_id, ${spec.kindExpression} AS kind, ` +
     `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label ` +
     `FROM ${spec.from} ` +
@@ -112,7 +116,7 @@ export function boundedFirmScopedSelect(
   const order = request.ascending ? "ASC" : "DESC";
   const sql =
     `SELECT ${spec.sortColumn} AS sort_key, ${spec.idColumn} AS row_id, ` +
-    `NULL AS matter_id, ${spec.kindExpression} AS kind, ` +
+    `${spec.idColumn} AS link_id, NULL AS matter_id, ${spec.kindExpression} AS kind, ` +
     `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label ` +
     `FROM ${spec.from} ` +
     `WHERE ${conditions.join(" AND ")} ` +
@@ -178,15 +182,84 @@ export function projectRow(
   actorUserId: string | null;
   label: string | null;
   link: string;
+  title: null;
+  typeText: null;
+  facts: null;
 } {
   return (row) => ({
     sourceKey,
     kind: row.kind,
     sortKey: row.sort_key,
+    // Never described by the projection: the words come from `describe`, on a matter-scoped read.
+    title: null,
+    typeText: null,
+    facts: null,
     rowId: row.row_id,
     matterId: row.matter_id,
     actorUserId: row.actor_user_id ?? null,
     label: row.label ?? null,
     link: linkFor(row),
   });
+}
+
+// The one place a source's DESCRIBE statement is assembled, so its properties are structural too:
+//
+//   1. The matter is BOUND here, not by the source. A description names rows of the one matter the
+//      reader is standing in; a source cannot decline the binding, so it cannot describe across
+//      matters however its own conditions are written.
+//   2. The row ids are the page on screen — a bounded list the caller holds, never a scan — and the
+//      LIMIT is that list's length, so a statement can never answer with more rows than it was
+//      asked about.
+//   3. The visible-matter predicate is composed before the LIMIT, exactly as the page read composes
+//      it: a row the page could not show cannot be named either.
+//
+// Column and table names are code-supplied literals; every caller value arrives as a binding.
+export interface DescribeSelectSpec {
+  readonly request: DescribeRequest;
+  readonly from: string;
+  readonly idColumn: string;
+  readonly matterExpression: string;
+  // What the reader recognises the row by. Never NULL.
+  readonly titleExpression: string;
+  // The subsystem's own word for what the row is, or the literal NULL.
+  readonly typeExpression: string;
+  // The subsystem's own fields as a json_object(...) expression, or the literal NULL.
+  readonly factsExpression: string;
+  // Source-specific narrowing (a soft-delete exclusion), with `?` placeholders in binding order.
+  readonly conditions?: readonly string[];
+  readonly bindings?: readonly unknown[];
+}
+
+export function describeSelect(database: SqlDatabase, spec: DescribeSelectSpec): SqlStatement {
+  const { request } = spec;
+  if (request.rowIds.length === 0) {
+    throw new Error("describeSelect: a description names at least one row; return [] instead");
+  }
+  const conditions: string[] = [`${spec.matterExpression} = ?`];
+  const bindings: unknown[] = [request.matterId];
+  conditions.push(`${spec.idColumn} IN (${request.rowIds.map(() => "?").join(", ")})`);
+  bindings.push(...request.rowIds);
+  conditions.push(...(spec.conditions ?? []));
+  bindings.push(...(spec.bindings ?? []));
+  conditions.push(request.visibility.fragmentFor(spec.matterExpression));
+  bindings.push(...request.visibility.bindings);
+  const sql =
+    `SELECT ${spec.idColumn} AS row_id, ${spec.titleExpression} AS title, ` +
+    `${spec.typeExpression} AS type_text, ${spec.factsExpression} AS facts_json ` +
+    `FROM ${spec.from} ` +
+    `WHERE ${conditions.join(" AND ")} ` +
+    `LIMIT ?`;
+  bindings.push(request.rowIds.length);
+  return database.prepare(sql).bind(...bindings);
+}
+
+// The first line of a free-text column, for a record that has no name of its own: a note leads
+// with its opening line, a time entry with the start of its narrative. Cut in SQL so the page
+// never carries a whole body to show one line of it.
+export function firstLineExpression(column: string): string {
+  return (
+    `CASE WHEN instr(${column}, char(10)) > 0 ` +
+    `THEN substr(${column}, 1, instr(${column}, char(10)) - 1) ` +
+    `ELSE substr(${column}, 1, 200) END`
+  );
 }

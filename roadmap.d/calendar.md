@@ -27,10 +27,20 @@
   name: Matter timeline (federated)
   scope: One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract.
   status: shipped
-  surface: awaiting-screen
   adrs: ADR-0051, ADR-0068
-  notes: Backend only — the calendar screens are their own slice.
-  evidence: Fourteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; every source declares its visibility anchor — matter anchors compose the required predicate, firm anchors sit on a reviewed allowlist — proven by a table-driven fitness test.
+  evidence: Fourteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; every source declares its visibility anchor — matter anchors compose the required predicate, firm anchors sit on a reviewed allowlist — proven by a table-driven fitness test. Read by the matter's Activity section since 2026-09-02.
+
+- id: calendar.timeline.activity-section
+  name: The matter's Activity section
+  scope: The federated timeline as a screen — one chronology per matter on the product's shared table, sorted and filtered by its own columns, each row named by the subsystem that owns it through that subsystem's own describe statement and contribution, opening into its section, and the first record (a note) written from it.
+  status: shipped
+  slices: 4-4-matter-notes
+  surface: screen
+  audience: public
+  public-name: Matter activity
+  public-summary: See everything that has happened on a case, in order, in one place — and write a note from there.
+  evidence: apps/web/src/lib/activity/activity-register.svelte over GET /api/v1/matters/{matterId}/timeline, mounted in full by apps/web/src/routes/(app)/matters/[id]/activity/+page.svelte and with a row budget as the Overview's Recent activity, rendered as a DataTable.Grid (apps/web/src/lib/activity/activity-columns.ts); the contract in apps/web/src/lib/activity/contribution.ts and the registry in apps/web/src/lib/activity/contributions.ts, one contribution per source beside its subsystem's code; the server's describe on seven sources (the file manager's history events among them, as the fileHistory source) in packages/calendar/src/sources/all.ts, run after the merge by packages/calendar/src/timeline.ts and pinned by packages/calendar/test/describe.test.ts; the registry pairing asserted by apps/web/test/activity-contributions.test.ts and section ownership by tooling/lint-matter-timeline-coverage/index.mjs; the two-subsystem walk, the head-menu walk, the file-identity walk and the write-a-note walk in apps/web/e2e/matter-activity.spec.ts.
+  notes: The screen names no source and switches on none. A subsystem joins the chronology with a `permission` and a `describe` on its timeline source and an ActivityContribution beside its own web code; the test fails until both exist, and the coverage lint fails until a section owns the source or declares it ownerless. The description is server-side, one statement per source present on the page, gated per source by the member's capabilities: a member without notes:read sees that a note was written and not what it said. The firm-wide read is never described. A file's Type is what the file manager identifies it as (its document type, else the identification's own label), never a name suffix; Section and Type are two columns with two filters. Opening a row follows the timeline's deep link into the owning section; sections honouring `?entry=` is the next step.
 
 - id: calendar.firm-events
   name: Firm events

@@ -1026,6 +1026,9 @@ importers:
 
   packages/calendar:
     dependencies:
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../access-control
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
