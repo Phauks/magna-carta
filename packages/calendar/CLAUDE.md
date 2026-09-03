@@ -24,6 +24,8 @@ ADR-0059, ADR-0068, ADR-0051.)
 - `src/time-zone.ts` — **the only calendar arithmetic in the package**: a civil date plus an optional
   wall-clock time, read in a named zone, as a UTC instant
 - `src/overdue.ts` — the read-time comparison, and nothing else
+- `src/settings.ts` — the firm's calendar settings over the per-firm setting table: the day the
+  week begins on (a FIRM setting, never a personal one, by the owner's ruling; Sunday by default)
 - `src/event-statements.ts` / `src/event-service.ts` — recording, editing, and cancelling an event,
   plus the participant replace-set
 - `src/event-type-statements.ts` / `src/event-type-service.ts` — the catalog, and the platform-row

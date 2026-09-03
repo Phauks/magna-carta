@@ -193,6 +193,12 @@ is usually the fastest way to understand the rule.
   the top bar does not emphasise it, it reclassifies it: the reader takes it for a status readout,
   or for a control of a different kind. Whatever a control has to say, it says with its own content.
   _(the top bar, 2026-09-02)_
+- **A calendar's week begins on the day the firm chose, and that is a firm setting, never a
+  personal preference.** The week is the unit a firm plans in, so two members of one firm looking
+  at the same week must see the same columns: a deadline "next week" has to name the same seven
+  days to everybody who reads it. Sunday by default, because United States legal practice reads a
+  Sunday-start week. It lives under Settings › Practice › Calendar, behind the calendar's own
+  manage right, and no per-member override exists. _(the calendar, 2026-09-02)_
 - **Only a surface nobody can open yet wears a maturity mark.** A screen a member can reach does
   not announce how finished it is: "Alpha" beside a working tab is a fact about the build, not
   about the matter, and once eight of fourteen tabs carry one the navigation reads as a release
@@ -685,6 +691,21 @@ local to this surface:
   the loudest copy on a window whose point is to be short. Recorded here rather than promoted: the
   standing Soon rule still holds for a CONTROL, where the sentence is the only thing that explains a
   disabled affordance.
+
+### 2026-09-02 — the calendar
+
+The first slice of the calendar interface shipped with the week starting on Sunday and the plan
+naming "the week-starts-on preference" as a later, personal setting. The owner's ruling: the day the
+week begins on is set by the FIRM. The generalizable rule is promoted above; what is local:
+
+- **The setting lives at Settings › Practice › Calendar**, the first settings page with a server
+  behind it (`GET`/`PATCH /api/v1/calendar/settings`), staged and saved through the same row and
+  footer as every other draft page but never through local storage. A member without the calendar
+  manage right sees the firm's answer engraved as a fact.
+- **The page shows no history.** The other draft pages render a per-browser ledger; for a firm-wide
+  fact that ledger would be one browser's recollection, silent about every change a colleague made.
+  The record is the audit row the server writes with the change; the page shows history once a
+  per-record audit read exists.
 
 ### 2026-09-01 — the matter screens, chrome-removal round
 

@@ -34,9 +34,14 @@ function matterSectionLink(
 // can name the people it concerns, so they are NOT projected: the label is the event's PLATFORM type
 // code where it has one, which is a shared vocabulary term rather than anything about a case, and
 // null for a type the firm invented (a firm-authored type name is free text like any other).
+//
+// A setting that was called off is its own KIND, `cancelledEvent`, rather than a status column the
+// projection does not carry: a firm-wide calendar has to draw a vacated hearing struck, because a
+// thing that was cancelled and a thing that never existed are different facts, and the status is a
+// closed word that says nothing about the case. The row stays on the calendar either way.
 const matterEventSource: TimelineSource = {
   key: "matterEvent",
-  kinds: ["event"],
+  kinds: ["event", "cancelledEvent"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
@@ -69,7 +74,8 @@ const matterEventSource: TimelineSource = {
         sortColumn: "matter_event.starts_on",
         idColumn: "matter_event.id",
         matterExpression: "matter_event.matter_id",
-        kindExpression: "'event'",
+        kindExpression:
+          "CASE WHEN matter_event.status = 'cancelled' THEN 'cancelledEvent' ELSE 'event' END",
         actorExpression: "matter_event.recorded_by",
         labelExpression:
           "CASE WHEN matter_event_type.origin = 'platform' THEN matter_event_type.code ELSE NULL END",
