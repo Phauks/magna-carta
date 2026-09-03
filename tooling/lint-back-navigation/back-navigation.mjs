@@ -175,34 +175,28 @@ export function componentImports(source) {
   return imports;
 }
 
-/** The local name a file imports the screen header under, or null. */
-export function screenHeaderLocalName(source) {
-  const match = new RegExp(
-    `^\\s*import\\s+([A-Za-z_$][\\w$]*)\\s+from\\s+"${SCREEN_HEADER_MODULE.replace("$", "\\$")}"`,
-    "mu",
-  ).exec(source);
-  return match === null ? null : match[1];
-}
-
 /**
- * Where a file's screen headers say they were entered from: a resolved path per `back`, or null for
- * a `back` this scan cannot read. A header with no `back` contributes nothing — it is a main screen.
+ * Where a file says it was entered from: one entry per `back` it names.
+ *
+ * The attribute is what the scan reads, not the element it sits on. A screen usually hands `back`
+ * to the header directly, but a shared screen body takes it as a prop and forwards it — the
+ * calendar's two routes are one component, and only the route knows whether it is the calendar or a
+ * screen under it. Reading the attribute rather than the element covers both, and the second rule
+ * (nothing but the header assembles a masthead) is what guarantees it reaches a real header.
+ *
+ * A STRING is a destination id and must resolve; an unknown one is a typo, reported. An IDENTIFIER
+ * is either a declared back target (resolved) or a forwarded prop — `{back}` inside the component
+ * that received it — which says nothing about any one screen and is passed over rather than
+ * counted against it.
  */
 export function backDestinations(source, { destinations, spelledOut }) {
-  const localName = screenHeaderLocalName(source);
-  if (localName === null) return [];
   const found = [];
-  for (const element of source.matchAll(new RegExp(`<${localName}\\b([^>]*)>`, "gu"))) {
-    const attributes = element[1];
-    const literal = /\bback\s*=\s*"([^"]*)"/u.exec(attributes);
-    if (literal !== null) {
-      found.push({ named: literal[1], to: destinations.get(literal[1]) ?? null });
-      continue;
-    }
-    const expression = /\bback\s*=\s*\{([^}]*)\}/u.exec(attributes);
-    if (expression === null) continue;
-    const name = expression[1].trim();
-    found.push({ named: name, to: spelledOut.get(name) ?? null });
+  for (const match of source.matchAll(/\bback\s*=\s*"([^"]*)"/gu)) {
+    found.push({ named: match[1], to: destinations.get(match[1]) ?? null });
+  }
+  for (const match of source.matchAll(/\bback\s*=\s*\{\s*([A-Za-z_$][\w$]*)\s*\}/gu)) {
+    const target = spelledOut.get(match[1]);
+    if (target !== undefined) found.push({ named: match[1], to: target });
   }
   return found;
 }

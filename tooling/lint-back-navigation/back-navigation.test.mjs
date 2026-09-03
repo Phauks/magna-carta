@@ -35,6 +35,7 @@ const DESTINATIONS = new Map([
   ["matters", "/matters"],
   ["tools", "/tools"],
   ["home", "/home"],
+  ["calendar", "/calendar"],
 ]);
 const SPELLED_OUT = new Map([["DEVELOPER_CONSOLE_BACK", "/developer-console"]]);
 
@@ -297,19 +298,67 @@ describe("naming where a screen came from", () => {
     expect(result.failures[0]).toContain("/home");
   });
 
-  it("refuses a back target that resolves to no destination", () => {
+  it("refuses a destination id the registry does not hold", () => {
     const result = audit(
       repositoryWith({
         "(app)": {
           directory: {
             "+page.svelte": PLAIN_PAGE,
-            "[id]": { "+page.svelte": pageNaming("{SOME_OTHER_SCREEN}") },
+            "[id]": { "+page.svelte": pageNaming("directoryy") },
           },
         },
       }),
     );
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0]).toContain("resolves to no destination");
+  });
+
+  it("passes over a forwarded `back`, which says nothing about any one screen", () => {
+    /*
+     * A shared screen body takes `back` as a prop and hands it on — the calendar's two routes are
+     * one component. The forwarding itself is not an answer, so a screen whose only `back` is a
+     * forwarded identifier still owes one; the route that passes the id is what answers.
+     */
+    const result = audit(
+      repositoryWith({
+        "(app)": {
+          directory: {
+            "+page.svelte": PLAIN_PAGE,
+            "[id]": { "+page.svelte": pageNaming("{back}") },
+          },
+        },
+      }),
+    );
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]).toContain("does not say so");
+  });
+
+  it("counts a `back` handed to a component that forwards it to the header", () => {
+    const result = audit({
+      apps: {
+        web: {
+          src: {
+            routes: {
+              "(app)": {
+                calendar: {
+                  "+page.svelte": PLAIN_PAGE,
+                  "firm-events": {
+                    "+page.svelte":
+                      '<script lang="ts">\n  import CalendarScreen from "$lib/calendar/calendar-screen.svelte";\n</script>\n<CalendarScreen title="Firm Events" back="calendar" />',
+                  },
+                },
+              },
+            },
+            lib: {
+              screen: { "screen-header.svelte": "<!-- the one header -->" },
+              calendar: { "calendar-screen.svelte": "<ScreenHeader {title} {back} />" },
+            },
+          },
+        },
+      },
+    });
+    expect(result.failures).toEqual([]);
+    expect(result.covered).toEqual(["/calendar/firm-events"]);
   });
 
   it("accepts a spelled-out back target for a screen outside the sidebar", () => {
