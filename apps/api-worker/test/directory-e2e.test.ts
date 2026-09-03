@@ -195,7 +195,7 @@ describe("directory e2e — full journey over the HTTP surface", () => {
       `/api/v1/directory/entities/${createdEntityIdentifiers.person}/identifiers`,
       {
         type: "ssn",
-        value: "123-45-6789",
+        number: "123-45-6789",
       },
     );
     expect(added.status).toBe(201);
