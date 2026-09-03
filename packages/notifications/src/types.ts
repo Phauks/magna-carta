@@ -9,6 +9,10 @@
 export const NOTIFICATION_CATEGORIES = Object.freeze([
   "deadlines",
   "calendar",
+  // Work with somebody's name on it. Separate from `deadlines`, which is what a court or a rule
+  // requires of the firm: diluting that category with "call the client back" is how a member stops
+  // reading the one whose whole point is that missing an entry is a malpractice event.
+  "tasks",
   "trust",
   "billing",
   "documents",
@@ -119,6 +123,10 @@ export const NOTIFICATION_SUBJECT_KINDS = Object.freeze([
   "searchIndexJob",
   "recoveryJob",
   "member",
+  // One piece of work with somebody's name on it. The row points at the task and stores nothing
+  // about it — no title, no body — because a task title on a matter is the client and the
+  // instruction, and this row outlives the access check that justified writing it.
+  "matterTask",
 ] as const);
 export type NotificationSubjectKind = (typeof NOTIFICATION_SUBJECT_KINDS)[number];
 
@@ -178,6 +186,17 @@ export const NOTIFICATION_AUDIENCES = Object.freeze([
   // The matter's responsible member plus everyone holding a currently-valid `matter_assignment` row
   // on it — the people carrying the file right now, ended assignments excluded.
   "matter-team",
+  // ONE MEMBER, named by the topic's own payload — the task's assignee, and the first audience here
+  // whose recipient is a property of the subject rather than of the matter or the firm.
+  //
+  // It is resolved from the PAYLOAD and never from the row. The person to tell is whoever was
+  // assigned at the moment of the write; if the task has moved on by the time the queue drains, the
+  // reassignment raised its own topic for its own recipient, and re-reading the row here would
+  // deliver the first notification to the second person and the second one to them again.
+  //
+  // Deliberately NOT `designated`, which is the firm's trust-compliance designation and resolves to
+  // nobody when unconfigured — a task assignment declared that way would deliver to no one, silently.
+  "named-recipient",
 ] as const);
 export type NotificationAudience = (typeof NOTIFICATION_AUDIENCES)[number];
 

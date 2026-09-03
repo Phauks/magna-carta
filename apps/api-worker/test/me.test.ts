@@ -216,6 +216,17 @@ describe("GET /api/v1/me", () => {
         "support:cosign",
         "support:manage",
         "support:request",
+        // The four task keys. tasks:read and tasks:write reach every seat that does firm work —
+        // Owner/Admin, Attorney, Paralegal and Billing, because chasing a retainer replenishment is
+        // a billing clerk's own work and a list that cannot hold it sends them to a spreadsheet.
+        // tasks:assign is separate because putting work in a colleague's NAME is a different act
+        // from fixing a due date, and a firm may reserve it without reserving the rest.
+        // tasks:managePlans is narrower again — Owner/Admin and Attorney — because a matter plan is
+        // a statement about how the firm practises rather than a piece of work.
+        "tasks:assign",
+        "tasks:managePlans",
+        "tasks:read",
+        "tasks:write",
         "templates:manage",
         "time:approve",
         "time:manageRates",

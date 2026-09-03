@@ -32,6 +32,7 @@ import {
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { resolveNaturalLanguageProvisioningPort } from "./natural-language-binding.ts";
 
@@ -171,13 +172,20 @@ export async function tearDownNaturalLanguageInstance(
     // Nothing to tear down. Still delete the feed: a firm can have fed objects from an earlier
     // enablement whose instance is already gone, and leaving them would leave the material that
     // prompted the opt-out sitting in the firm's bucket under a prefix built to be indexed.
-    await deleteNaturalLanguageFeed(env, firmDatabase, { kind: "firm" }, logger, now);
+    await deleteNaturalLanguageFeed(env, firmId, firmDatabase, { kind: "firm" }, logger, now);
     return;
   }
 
   await markInstanceTearingDownStatement(env.DB_CONTROL, firmId, now()).run();
 
-  const removed = await deleteNaturalLanguageFeed(env, firmDatabase, { kind: "firm" }, logger, now);
+  const removed = await deleteNaturalLanguageFeed(
+    env,
+    firmId,
+    firmDatabase,
+    { kind: "firm" },
+    logger,
+    now,
+  );
 
   const destroyed = await port.destroyInstance(instance.instanceName);
   if (!destroyed.ok) {
@@ -227,18 +235,30 @@ export async function tearDownNaturalLanguageInstance(
 // OBJECTS BEFORE ROWS. A crash between the two leaves a row marked live whose bytes are gone, which
 // reconciliation reports and the next pass repairs. The other order would leave bytes in the firm's
 // bucket that no catalog row names and no sweep can recognize as garbage.
+
+// Feed objects are the firm's bytes, so a deletion or a reconciliation addresses them the way every
+// other per-firm read does — through the one storage seam, from the firm id these entry points carry.
+async function feedBucket(env: Bindings, firmId: string): Promise<R2Bucket> {
+  return (await resolveFirmBucketForFirmId(env, firmId)).bucket;
+}
+
 export async function deleteNaturalLanguageFeed(
   env: Bindings,
+  firmId: string,
   firmDatabase: ProxyBatchDatabase,
   scope: FeedDeletionScope,
   logger: Logger,
   now: () => string = nowInstant,
 ): Promise<number> {
   let removed = 0;
+  // Resolved on the first page rather than up front: a firm with no rows to delete never had objects,
+  // and must not be refused for a bucket it was never going to be asked to reach.
+  let bucket: R2Bucket | null = null;
   for (;;) {
     const page = await readFeedObjectsForDeletion(firmDatabase, scope, DELETION_PAGE_SIZE);
     if (page.length === 0) break;
-    await env.R2.delete(page.map((row) => row.objectKey));
+    bucket ??= await feedBucket(env, firmId);
+    await bucket.delete(page.map((row) => row.objectKey));
     const removedAt = now();
     await commitEffectBatch(
       firmDatabase,
@@ -254,7 +274,7 @@ export async function deleteNaturalLanguageFeed(
     if (page.length < DELETION_PAGE_SIZE) break;
   }
 
-  await reconcileNaturalLanguageFeed(env, firmDatabase, scope, logger, now);
+  await reconcileNaturalLanguageFeed(env, firmId, firmDatabase, scope, logger, now);
   return removed;
 }
 
@@ -275,6 +295,7 @@ export interface FeedReconciliationReport {
 // confirmation a demonstration rather than an assertion.
 export async function reconcileNaturalLanguageFeed(
   env: Bindings,
+  firmId: string,
   firmDatabase: ProxyBatchDatabase,
   scope: FeedDeletionScope,
   logger: Logger,
@@ -284,7 +305,12 @@ export async function reconcileNaturalLanguageFeed(
     scope.kind === "matter"
       ? `${NATURAL_LANGUAGE_FEED_PREFIX}${scope.matterId}/`
       : NATURAL_LANGUAGE_FEED_PREFIX;
-  const listed = await env.R2.list({ prefix, limit: RECONCILIATION_PAGE_SIZE });
+  const listed = await (
+    await feedBucket(env, firmId)
+  ).list({
+    prefix,
+    limit: RECONCILIATION_PAGE_SIZE,
+  });
   const listedKeys = new Set(listed.objects.map((object) => object.key));
 
   const rows = await enumerateFeedObjects(firmDatabase, scope, RECONCILIATION_PAGE_SIZE);
@@ -334,11 +360,12 @@ export function handleNaturalLanguageTeardown(
 
 export async function handleNaturalLanguageFeedDeletion(
   env: Bindings,
+  firmId: string,
   firmDatabase: ProxyBatchDatabase,
   scope: FeedDeletionScope,
   logger: Logger,
 ): Promise<void> {
-  await deleteNaturalLanguageFeed(env, firmDatabase, scope, logger);
+  await deleteNaturalLanguageFeed(env, firmId, firmDatabase, scope, logger);
 }
 
 // Resolve the firm's database the way every other per-firm consumer does, for callers that have a

@@ -88,8 +88,12 @@ Marsh".
   approached the firm and nothing has been agreed yet. The consultation number is shown as soon as
   the file is recorded, so it can be written on an intake sheet straight away.
 
-**Client** is the client's name as it should print. Linking the matter to a full Directory record is
-a separate step, done on the matter's Parties page.
+**Client** is chosen from the firm's Directory. Type three characters of the name and pick the
+person or organization; the matter is linked to their record from the moment it exists, whether it
+opens outright or is recorded as a consultation, and nothing can be created without one. Someone
+not in the Directory yet is added there first. Once a client is chosen, **Open Client Record** takes
+you to them, and **Run Conflict Check** searches the firm's record for them before the matter is
+created, saying how many hits it found and where to read the report.
 
 **Client code** is your firm's own short code for that client, and matters only if your firm's
 numbering scheme uses one.

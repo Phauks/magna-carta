@@ -9,6 +9,7 @@
    * artifact hands back a short-lived URL the browser downloads directly.
    */
   import { onMount } from "svelte";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { guidanceFor } from "$lib/diagnostics/guidance.ts";
@@ -137,7 +138,7 @@
       for (const artifact of result.artifacts) {
         const outcome = await fetchShelfItem(fetch, artifact.id, "file");
         if (outcome.kind === "ok" && outcome.value.url !== undefined) {
-          globalThis.open(outcome.value.url, "_blank");
+          openBeside(outcome.value.url, "file");
         } else {
           unreachable.push(artifact);
         }

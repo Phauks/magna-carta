@@ -111,9 +111,8 @@
       </div>
     </div>
     <p class="text-xs text-text-muted">
-      Recording from this screen waits on the participant picker, so a judge, a court, or a witness
-      is chosen from the firm's directory rather than typed twice. What has already been recorded
-      against this matter is read here now, in every state.
+      Recording from this screen waits on the event and deadline forms. What has already been
+      recorded against this matter is read here now, in every state.
     </p>
   </div>
 

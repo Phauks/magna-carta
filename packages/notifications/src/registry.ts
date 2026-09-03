@@ -18,6 +18,13 @@ import {
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
 import { MATTER_CLOSED_TOPIC, MATTER_REOPENED_TOPIC } from "@magna-carta/matters/topics";
 import {
+  FIRM_TASK_ASSIGNED_TOPIC,
+  FIRM_TASK_REASSIGNED_TOPIC,
+  TASK_ASSIGNED_TOPIC,
+  TASK_REASSIGNED_TOPIC,
+} from "@magna-carta/tasks/notifications";
+import { TASK_PRIORITIES } from "@magna-carta/tasks/types";
+import {
   CUSTODY_CHECKOUT_OVERDUE_EMISSION_POINT,
   CUSTODY_OVERDUE_BUCKETS,
   CUSTODY_REVIEW_DUE_EMISSION_POINT,
@@ -91,6 +98,12 @@ export interface NotificationType {
   readonly audience: NotificationAudience;
   // Set exactly when `audience` is `capability-holders`: the capability whose holders hear it.
   readonly audienceCapability?: KnownPermission;
+  // Set exactly when `audience` is `named-recipient`: which field of the payload carries the one
+  // member's handle. Declared here rather than assumed by the resolver for the same reason
+  // `subjectPayloadKey` is — a producer's field name is the producer's to choose, and a generic
+  // consumer that guessed one would silently reach nobody for every producer that spelled it
+  // differently.
+  readonly audiencePayloadKey?: string;
   // Set when a declared audience is not resolvable yet and something narrower stands in, so the day
   // the real one lands the change is ONE resolver rather than a hunt through every type. NO TYPE
   // DECLARES ONE TODAY — `matter-team` did until `matter_assignment` gave it a real team to resolve,
@@ -528,6 +541,149 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     channels: ["in_app", "email"],
     emailContent: "category-count",
     deepLink: matterSectionLink("calendar"),
+  },
+  // TASKS — four types for two acts, split by whether the task is on a matter.
+  //
+  // The split is the `calendar.event.*` / `calendar.firmEvent.*` split exactly, and for the reason
+  // this registry already enforces two tests over: a matter-anchored type must resolve a matter, and
+  // a type that is not matter-anchored must not. A task's matter is nullable, so one type could not
+  // honestly be both — and the producer knows which it is holding, so it raises the right topic at
+  // the write rather than leaving a consumer to infer it from a field that happened to be null.
+  //
+  // All four reach ONE person, and that is the point rather than a narrowing to justify: a task is
+  // an obligation placed on a named member, not a fact about the case that the team shares. The
+  // matter-team audience is what a hearing gets, because a setting is everybody's to prepare for; an
+  // assignment is one person's to do. `named-recipient` reads that member from the payload.
+  {
+    key: "tasks.task.assigned",
+    category: "tasks",
+    // Attention rather than informational: somebody put work in your name and there may be a date on
+    // it. That is a thing to act on, which is the line between the two levels here.
+    severity: "attention",
+    mandatory: false,
+    audience: "named-recipient",
+    audiencePayloadKey: "assigneeUserId",
+    // Never raised when a member assigns themselves, so the actor is never in this audience anyway —
+    // declared false to say so rather than leaving it to the producer's discretion.
+    includeActor: false,
+    subscribesTo: TASK_ASSIGNED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // The priority and whether there is a date, and nothing else. NOT the title: a task title on a
+    // matter is routinely the client and the instruction ("Call Mrs. Herrera re the settlement
+    // offer"), and this row outlives the access check that justified writing it. NOT the date
+    // itself either, on the calendar's own reasoning about `rescheduled`: a due date moves, and a
+    // card stating one the record no longer agrees with is worse than a card stating none. Whether
+    // there IS a date does not go stale in the same way and is what tells a member to open it now.
+    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES }, dated: { kind: "boolean" } },
+    buildFacts: (payload) => {
+      const priority = payload["priority"];
+      return {
+        priority:
+          typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
+            ? priority
+            : "normal",
+        dated: typeof payload["dueOn"] === "string",
+      };
+    },
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("tasks"),
+  },
+  {
+    key: "tasks.task.reassigned",
+    category: "tasks",
+    severity: "attention",
+    mandatory: false,
+    audience: "named-recipient",
+    audiencePayloadKey: "assigneeUserId",
+    includeActor: false,
+    subscribesTo: TASK_REASSIGNED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES }, dated: { kind: "boolean" } },
+    buildFacts: (payload) => {
+      const priority = payload["priority"];
+      return {
+        priority:
+          typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
+            ? priority
+            : "normal",
+        dated: typeof payload["dueOn"] === "string",
+      };
+    },
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("tasks"),
+  },
+  // The same two acts on a task that is on no matter — renewing the malpractice policy, interviewing
+  // a candidate. No matter anchor, so no matter resolution, and the deep link goes to the member's
+  // own list rather than to a matter section that does not exist for this row.
+  {
+    key: "tasks.firmTask.assigned",
+    category: "tasks",
+    severity: "attention",
+    mandatory: false,
+    audience: "named-recipient",
+    audiencePayloadKey: "assigneeUserId",
+    includeActor: false,
+    subscribesTo: FIRM_TASK_ASSIGNED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    // Not behind the matter wall, because there is no matter whose visibility could decide it. The
+    // containment here is the audience: exactly the one member the task names.
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES }, dated: { kind: "boolean" } },
+    buildFacts: (payload) => {
+      const priority = payload["priority"];
+      return {
+        priority:
+          typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
+            ? priority
+            : "normal",
+        dated: typeof payload["dueOn"] === "string",
+      };
+    },
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/tasks?entry=${subjectId}`,
+  },
+  {
+    key: "tasks.firmTask.reassigned",
+    category: "tasks",
+    severity: "attention",
+    mandatory: false,
+    audience: "named-recipient",
+    audiencePayloadKey: "assigneeUserId",
+    includeActor: false,
+    subscribesTo: FIRM_TASK_REASSIGNED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES }, dated: { kind: "boolean" } },
+    buildFacts: (payload) => {
+      const priority = payload["priority"];
+      return {
+        priority:
+          typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
+            ? priority
+            : "normal",
+        dated: typeof payload["dueOn"] === "string",
+      };
+    },
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/tasks?entry=${subjectId}`,
   },
 ];
 

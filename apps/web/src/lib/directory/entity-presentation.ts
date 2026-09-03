@@ -105,5 +105,5 @@ export function entityDetailIdentifier(entity: DirectoryEntityDetail): string {
 
 /** Where an entity's record lives. One address, so nothing links to it two ways. */
 export function entityRecordHref(entityId: string): string {
-  return `/contacts/${encodeURIComponent(entityId)}`;
+  return `/directory/${encodeURIComponent(entityId)}`;
 }

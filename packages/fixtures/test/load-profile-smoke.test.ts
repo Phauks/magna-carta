@@ -80,6 +80,11 @@ import {
   timelinePageBounds,
   CALENDAR_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/calendar-measurements.ts";
+import {
+  taskMeasurementHandle,
+  taskMeasurements,
+  taskPageBounds,
+} from "../src/load-profile/tasks-measurements.ts";
 import { TIMELINE_SOURCES } from "@magna-carta/calendar/sources/all";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { readTrustThreeWayProof } from "@magna-carta/trust/reconciliation";
@@ -110,12 +115,10 @@ describe("load-profile smoke", () => {
     }
   });
 
-  // One test body seeds a snapshot and measures every operation in the catalogue (a warm-up and two
-  // timed iterations each), so its wall time is the sum of forty-odd measured statements. Under two
-  // seconds on a workstation; on a single-core runner sharing that core with the other test workers
-  // it passed vitest's five-second default on 2026-09-03 with every assertion still green. The
-  // timeout is generous because the test measures, and a measured operation that slows is reported
-  // by the measurement itself, not by a wall-clock cap on the harness.
+  // A seeded snapshot plus warm-up and measured iterations over every group is real work, and how
+  // long it takes is a fact about the machine: 1.6 s here, past the 5 s default on a shared two-core
+  // CI shard running the rest of this suite beside it. The budget states what the test costs, on the
+  // same terms as the other load-profile measurement tests in this package (60 s and 120 s).
   it("snapshots, measures every v1 operation, and keeps hot-path statements scan-free", async () => {
     const cacheDirectory = mkdtempSync(join(tmpdir(), "mc-smoke-cache-"));
     temporaryDirectories.push(cacheDirectory);
@@ -437,6 +440,39 @@ describe("load-profile smoke", () => {
     const filtered = bounds.find((bound) => bound.label === "timeline.firm-window-member-filtered");
     expect(filtered?.sourcesRead ?? 0).toBeLessThan(unfiltered?.sourcesRead ?? 0);
 
+    // The task measured set: the four-term keyset cursor, the firm-wide read that reaches the
+    // visibility fragment's matterless branch, and the grouped time read this slice added.
+    const taskHandle = taskMeasurementHandle(snapshot);
+    const taskResults = await runMeasurements(taskHandle, taskMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(taskResults.map((result) => result.name).sort()).toEqual(
+      [
+        "tasks.matter-page-1",
+        "tasks.matter-page-20",
+        "tasks.my-work-page-1",
+        "tasks.my-work-open-and-mine",
+        "tasks.search-within-matter",
+        "tasks.page-documents",
+        "tasks.page-time-summaries",
+        "tasks.page-time-summaries-own",
+      ].sort(),
+    );
+    for (const result of taskResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // THE assertion the grouped time read exists for: ONE statement for a whole page of tasks, not
+    // one per task. A plan cannot see the difference and a timing at this scale would not either,
+    // so the count is what states it — and every task asked about comes back answered for,
+    // including the ones with no time at all.
+    const taskBounds = await taskPageBounds(taskHandle);
+    const timeBound = taskBounds.find((bound) => bound.label === "tasks.page-time-summaries");
+    expect(timeBound?.statementCount).toBe(1);
+    expect(timeBound?.entriesReturned).toBe(timeBound?.sourcesRead);
+
     // And the proof is not merely timed but PROVEN honest: the generator puts a service charge on
     // every statement that the firm never records, so the open period cannot tie out and the proof
     // must say which leg is out rather than quietly agreeing.
@@ -704,5 +740,5 @@ describe("load-profile smoke", () => {
     expect(findFullScans(reportsPlans, REPORTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
-  }, 120_000);
+  }, 60_000);
 });

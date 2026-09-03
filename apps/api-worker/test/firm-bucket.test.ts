@@ -43,19 +43,31 @@ describe("resolveFirmBucket", () => {
     await readSide.bucket.delete(key);
   });
 
-  it("refuses a firm bucket that is not the bucket this Worker reads through", () => {
-    // Signing an upload into the firm's own bucket while every read goes through the bound binding
-    // would drop the bytes somewhere nothing here can reach: ingest would find no object, retry, and
-    // dead-letter. Refuse at resolve time instead.
-    expect(
-      () =>
-        resolveFirmBucket(
-          envWithRealPresigning({ R2_BUCKET_NAME: BOUND_BUCKET }),
-          FIRM_PROVISIONED_BUCKET,
-        ),
-      // The refusal names both buckets, so the member who reads it can hand the operator the two
-      // names that have to be reconciled.
-    ).toThrow(new RegExp(`${FIRM_PROVISIONED_BUCKET}[\\s\\S]*${BOUND_BUCKET}`));
+  it("hands back an S3-backed handle for a firm bucket this Worker has no binding to", () => {
+    // The bytes must reach the bucket the presigned URL names, and there is no runtime API that turns
+    // a bucket name into a binding. Until this landed the resolver refused outright, which is why
+    // uploads and the download shelf were down for every provisioned firm; now the name resolves to a
+    // handle that addresses that same bucket over R2's S3 API.
+    const resolved = resolveFirmBucket(
+      envWithRealPresigning({ R2_BUCKET_NAME: BOUND_BUCKET }),
+      FIRM_PROVISIONED_BUCKET,
+    );
+    expect(resolved.bucketName).toBe(FIRM_PROVISIONED_BUCKET);
+    expect(resolved.bucket).not.toBe(env.R2);
+    // The pair invariant is what makes this safe: the handle is built FROM the name that was resolved,
+    // so the two cannot describe different buckets.
+    expect(typeof resolved.bucket.get).toBe("function");
+    expect(typeof resolved.bucket.createMultipartUpload).toBe("function");
+  });
+
+  it("still reaches the bound bucket through its binding, not over the network", () => {
+    // The common case must not pay a signing round trip: a firm provisioned against the bound bucket
+    // resolves to the binding itself.
+    const resolved = resolveFirmBucket(
+      envWithRealPresigning({ R2_BUCKET_NAME: BOUND_BUCKET }),
+      BOUND_BUCKET,
+    );
+    expect(resolved.bucket).toBe(env.R2);
   });
 
   it("accepts the firm bucket when it is the bound bucket", () => {
@@ -68,10 +80,12 @@ describe("resolveFirmBucket", () => {
   });
 
   it("demands the bound bucket's name once real presigning is configured", () => {
-    // Without it there is nothing to compare a firm bucket against, so the mismatch above would go
-    // undetected — an unset value is a misconfiguration, not a licence to skip the check.
+    // Without it the binding cannot be told apart from a firm's own bucket, so nothing could prove a
+    // read reaches the bucket a presigned URL addresses. An unset value is a misconfiguration.
+    // The refusal is a NAMED fault (firm-bucket-fault.ts) that tells the member what is misconfigured
+    // and what the operator sets, rather than an Error ID that says nothing.
     expect(() => resolveFirmBucket(envWithRealPresigning({}), BOUND_BUCKET)).toThrow(
-      /R2_BUCKET_NAME/,
+      /does not name the storage bucket it reads through[\s\S]*R2_BUCKET_NAME/,
     );
   });
 

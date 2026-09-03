@@ -34,7 +34,7 @@
     type DuplicateCandidate,
   } from "./directory-api.ts";
   import { entityDetailIdentifier, entityRecordHref } from "./entity-presentation.ts";
-  import EntityIdentity from "./entity-identity.svelte";
+  import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import MergeDialog from "./merge-dialog.svelte";
 
   let {

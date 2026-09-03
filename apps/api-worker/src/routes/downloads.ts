@@ -168,7 +168,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
       const userId = requireChokepointUserId(c);
-      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
+      const firmBucket = resolveFirmBucket(c.env, firm.bucketName);
       const request = c.req.valid("json");
       const matterId: MatterId = request.matterId;
       const options = request.options;
@@ -403,10 +403,10 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         // Fast path (single-file bundles only): an identical optioned selection already built hands
         // back a fresh signed URL without re-running the container.
         if (options.split === null) {
-          const existing = await c.env.R2.head(outputKeyPrefix);
+          const existing = await firmBucket.bucket.head(outputKeyPrefix);
           if (existing !== null) {
             const url = await presignerForEnv(c.env).presignGet(
-              bucket,
+              firmBucket.bucketName,
               outputKeyPrefix,
               DOWNLOAD_TTL_SECONDS,
             );
@@ -420,7 +420,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         );
         const state = await coordinator.requestBundle({
           firmId,
-          bucketName: bucket,
+          bucketName: firmBucket.bucketName,
           manifestHash: cacheKey,
           entries,
           options,
@@ -444,7 +444,11 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       if (delivery === "redirect") {
         const only = resolved.entries[0] as ZipEntry;
         const presigner = presignerForEnv(c.env);
-        const url = await presigner.presignGet(bucket, only.r2Key, DOWNLOAD_TTL_SECONDS);
+        const url = await presigner.presignGet(
+          firmBucket.bucketName,
+          only.r2Key,
+          DOWNLOAD_TTL_SECONDS,
+        );
         await recordExport(delivery);
         return c.redirect(url, 302);
       }
@@ -456,10 +460,10 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         const entries = resolved.entries.map((entry) => ({ r2Key: entry.r2Key, path: entry.path }));
         const manifestHash = await bundleManifestHash(entries);
         const artifactKey = `bundles/${manifestHash}.zip`;
-        const existing = await c.env.R2.head(artifactKey);
+        const existing = await firmBucket.bucket.head(artifactKey);
         if (existing !== null) {
           const url = await presignerForEnv(c.env).presignGet(
-            bucket,
+            firmBucket.bucketName,
             artifactKey,
             DOWNLOAD_TTL_SECONDS,
           );
@@ -471,7 +475,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         );
         const state = await coordinator.requestBundle({
           firmId,
-          bucketName: bucket,
+          bucketName: firmBucket.bucketName,
           manifestHash,
           entries,
         });
@@ -484,7 +488,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       // streams within the Worker's limits. A missing object (reaped between resolve and stream) is
       // skipped rather than aborting the whole archive (zipEntriesFromR2, shared with the async build).
       await recordExport(delivery);
-      const zipStream = makeZip(zipEntriesFromR2(c.env.R2, resolved.entries));
+      const zipStream = makeZip(zipEntriesFromR2(firmBucket.bucket, resolved.entries));
       return new Response(zipStream, {
         status: 200,
         headers: {

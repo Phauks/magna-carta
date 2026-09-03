@@ -17,6 +17,10 @@ export type TimeEntryValidationCode =
   // Attachment guards: the file is not one of the entry's matter's own live documents, or the
   // link already exists / does not exist.
   | "file-not-on-matter"
+  // The task named is not one of this entry's matter's own tasks — it does not exist, it belongs to
+  // another matter, or it belongs to no matter at all (firm work, which no matter's time can serve).
+  // One code for all three on the file-not-on-matter model: the caller's remedy is the same.
+  | "task-not-on-matter"
   | "already-attached"
   | "not-attached"
   // Conversion guards: an entry already billed (or claimed by a draft bill), already void, or

@@ -200,6 +200,51 @@ describe("matter lifecycle routes", () => {
     expect(closed.status).toBe(200);
   });
 
+  it("writes the client's party link in the same batch as the matter, for both starting statuses", async () => {
+    const person = await post("/api/v1/directory/persons", {
+      given: "Eleanor",
+      family: "Pemberton",
+    });
+    expect(person.status).toBe(201);
+    const { id: clientEntityId } = (await person.json()) as { id: string };
+
+    for (const status of ["open", "prospective"] as const) {
+      const created = await post("/api/v1/matters", {
+        title: `Pemberton ${status}`,
+        status,
+        responsibleMemberId: ownerUserId,
+        clientDisplayName: "Eleanor Pemberton",
+        clientEntityId,
+      });
+      expect(created.status).toBe(201);
+      const { matterId } = (await created.json()) as { matterId: string };
+
+      const detail = await get(`/api/v1/matters/${matterId}`);
+      expect(detail.status).toBe(200);
+      expect(((await detail.json()) as { clientEntityId: string | null }).clientEntityId).toBe(
+        clientEntityId,
+      );
+
+      const parties = await get(`/api/v1/directory/matter-parties?matterId=${matterId}`);
+      expect(parties.status).toBe(200);
+      const { parties: rows } = (await parties.json()) as {
+        parties: { entityId: string; role: string }[];
+      };
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ entityId: clientEntityId, role: "client" });
+    }
+  });
+
+  it("refuses a client handle that is not a directory entity (422)", async () => {
+    const created = await post("/api/v1/matters", {
+      title: "Nobody's matter",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientEntityId: "matter_notAnEntity",
+    });
+    expect(created.status).toBe(422);
+  });
+
   it("returns 422 (not 500) when the draw needs a value the matter lacks", async () => {
     // Set a scheme whose counter scope keys off a required location_code segment.
     const locationScheme = [

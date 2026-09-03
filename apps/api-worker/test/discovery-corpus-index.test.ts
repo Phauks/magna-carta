@@ -36,6 +36,7 @@ import type { SearchIndexJob } from "../src/search/index-coordinator.ts";
 import { searchIndexQueue, type SearchIndexPorts } from "../src/search/index-consumer.ts";
 import { searchIndexJobName, type SearchIndexMessage } from "../src/search/index-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { seedFirmRow } from "./support/test-auth.ts";
 
 // A review set entering its own corpus, with the index engine ABSENT — which is not a test posture, it
 // is the deployed posture: no firm has a SEARCH_SERVICE binding. So the path that has to work today is
@@ -54,6 +55,7 @@ let recordCustodianId: RecordCustodianId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   firmId = newIdentifier("firm");
+  await seedFirmRow(firmId, "Discovery Corpus Index Firm");
   database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
   matterId = newIdentifier("matter");
   reviewSetId = newIdentifier("reviewSet");

@@ -1,0 +1,201 @@
+@layer components {
+  /*
+   * EntityIdentity — the mark for a person or an organization wherever one is named.
+   *
+   * It lives on WORK SURFACES — a directory row, a party list, a listbox row, a chip inside a
+   * field — so it stays calm: one weight of ink for the name, the muted ink for the glyph, the
+   * pronouns and the aside, and no fill in the default size. It inherits the size of the text
+   * around it rather than setting one, so the mark in a table cell reads at the table's size and
+   * the mark in a row reads at the row's.
+   */
+  .mc-entity-identity {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: var(--mc-space-8);
+    font-family: var(--mc-font-sans);
+    color: var(--mc-text-default);
+  }
+  /* The glyph sits a step down so it centres on the first line rather than on the cap height. */
+  .mc-entity-identity-glyph {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    margin-block-start: var(--mc-space-4);
+    color: var(--mc-text-muted);
+  }
+  .mc-entity-identity-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-entity-identity-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mc-space-8);
+  }
+  .mc-entity-identity-name {
+    color: var(--mc-text-default);
+    overflow-wrap: anywhere;
+  }
+  /* Where the record has an address the name is a link and wears the link register. */
+  .mc-entity-identity-link {
+    color: var(--mc-text-link);
+    text-decoration-line: underline;
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-entity-identity-link:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /*
+   * Where the caller opens the record some other way, the name is a control — a quiet one. It takes
+   * the link colour only under the pointer and on focus; at rest a list of names should read as a
+   * list of names rather than a wall of links.
+   */
+  .mc-entity-identity-open {
+    padding: var(--mc-space-0);
+    border-style: none;
+    background-color: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    text-align: start;
+    cursor: pointer;
+    transition-property: color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-entity-identity-open:hover {
+    color: var(--mc-text-link);
+    text-decoration-line: underline;
+  }
+  .mc-entity-identity-open:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-entity-identity-pronouns {
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  /* The second line: quieter, and the caller's to fill. */
+  .mc-entity-identity-aside {
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    overflow-wrap: anywhere;
+  }
+  /*
+   * Removing. A quiet icon control that lifts to the default ink under the pointer — deliberately
+   * NOT the danger colour, because taking a name off a field or a record destroys nothing.
+   */
+  .mc-entity-identity-remove {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--mc-density-control-sm);
+    min-block-size: var(--mc-density-control-sm);
+    padding: var(--mc-space-4);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-entity-identity-remove:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-entity-identity-remove:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /* After the hover rule, so a refused control reads muted at REST and not only under the pointer. */
+  .mc-entity-identity-remove:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-entity-identity-remove-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /* --- the chip ------------------------------------------------------------------------------ */
+
+  /*
+   * The sm size is a chip standing inside a field or beside a name: one line, the sunken surface
+   * and a hairline so it has an edge on the field's own ground, the small face so it does not
+   * out-weigh the control it sits in. The same register as the neutral badge, without the badge's
+   * semibold — a name is not a status.
+   */
+  .mc-entity-identity-sm {
+    align-items: center;
+    gap: var(--mc-space-4);
+    padding-block: var(--mc-space-4);
+    padding-inline-start: var(--mc-space-8);
+    padding-inline-end: var(--mc-space-4);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-sunken);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-tight);
+    white-space: nowrap;
+  }
+  .mc-entity-identity-sm .mc-entity-identity-glyph {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+    margin-block-start: var(--mc-space-0);
+  }
+  .mc-entity-identity-sm .mc-entity-identity-body {
+    gap: var(--mc-space-0);
+  }
+  .mc-entity-identity-sm .mc-entity-identity-line {
+    flex-wrap: nowrap;
+    gap: var(--mc-space-4);
+  }
+  /* The name is the chip's subject: it carries the weight and is the part allowed to truncate. */
+  .mc-entity-identity-sm .mc-entity-identity-name {
+    font-weight: var(--mc-weight-medium);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+  /* Flush, so the control never widens the chip's rhythm. */
+  .mc-entity-identity-sm .mc-entity-identity-remove {
+    min-inline-size: var(--mc-space-16);
+    min-block-size: var(--mc-space-16);
+    padding: var(--mc-space-0);
+    border-radius: var(--mc-radius-full);
+  }
+  .mc-entity-identity-sm .mc-entity-identity-remove-icon {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+}

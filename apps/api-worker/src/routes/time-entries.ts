@@ -93,6 +93,15 @@ const CreateTimeEntryRequest = z
     utbmsActivityCodeId: identifierField("utbmsCode").nullable().optional(),
     rateCardId: identifierField("rateCard").nullable().optional(),
     overrideRateE4: z.number().int().positive().nullable().optional(),
+    taskId: identifierField("matterTask")
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The task this time was worked on. Must be a task on this same matter: a task on " +
+          "another matter, or on no matter at all, is refused. One task per entry — time that " +
+          "served two tasks is recorded as two entries.",
+      }),
     memo: z
       .string()
       .nullable()
@@ -116,6 +125,14 @@ const PatchTimeEntryRequest = z
       .optional(),
     utbmsTaskCodeId: identifierField("utbmsCode").nullable().optional(),
     utbmsActivityCodeId: identifierField("utbmsCode").nullable().optional(),
+    taskId: identifierField("matterTask")
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The task this time was worked on. Null unlinks it; absent leaves it unchanged. A task " +
+          "named here must be on the entry's own matter.",
+      }),
     memo: z.string().nullable().optional().openapi({
       description: "The firm-internal note. Null clears it; absent leaves it unchanged.",
     }),
@@ -166,6 +183,8 @@ const TimeEntrySummary = z
     source: z.enum(["timer", "manual", "quick_add", "grid", "offline_sync", "calendar"]),
     // The invoice a billed entry rides; null until billing locks the row.
     invoiceId: z.string().nullable(),
+    // The task this time was worked on, when the timekeeper named one. Null on most entries.
+    taskId: z.string().nullable(),
     // Firm-internal note; never client-facing.
     memo: z.string().nullable(),
     // The matter-scoped reference ("2026-0147.0042"), immutable and never reused. Null on entries
@@ -927,6 +946,7 @@ function recordToSummary(item: TimeEntryRecordItem): z.infer<typeof TimeEntrySum
     status: item.status,
     source: item.source as z.infer<typeof TimeEntrySummary>["source"],
     invoiceId: item.invoiceId,
+    taskId: item.taskId,
     memo: item.memo,
     entryNumber: item.entryNumber,
     createdAt: item.createdAt,
@@ -1003,6 +1023,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
                     source: request.source,
                     utbmsTaskCodeId: request.utbmsTaskCodeId ?? undefined,
                     utbmsActivityCodeId: request.utbmsActivityCodeId ?? undefined,
+                    taskId: request.taskId ?? undefined,
                     memo: request.memo ?? undefined,
                     entryNumber,
                     rate,
@@ -1490,6 +1511,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
                       source: "grid",
                       utbmsTaskCodeId: entry.utbmsTaskCodeId ?? undefined,
                       utbmsActivityCodeId: entry.utbmsActivityCodeId ?? undefined,
+                      taskId: entry.taskId ?? undefined,
                       memo: entry.memo ?? undefined,
                       entryNumber,
                       rate: res.rate,
