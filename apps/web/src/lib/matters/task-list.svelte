@@ -27,8 +27,9 @@
   import Textarea from "@magna-carta/design-system/textarea";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import Plus from "@lucide/svelte/icons/plus";
+  import CreateControl from "@magna-carta/design-system/create-control";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Ban from "@lucide/svelte/icons/ban";
@@ -80,6 +81,12 @@
     showMatter?: boolean;
     /** A sample matter has no firm behind it and therefore nothing to read. */
     isSample?: boolean;
+    /**
+     * Whether the list draws its own New Task button. The member's own work list does; a matter's
+     * Tasks section does not, because the matter header's create control is that screen's one create
+     * button and the page puts openNew() behind it (create-action.svelte.ts).
+     */
+    ownNewButton?: boolean;
     heading: string;
     /** What to say when the record is genuinely empty, as opposed to filtered empty. */
     emptyTitle: string;
@@ -93,6 +100,7 @@
     matterTitle,
     showMatter = false,
     isSample = false,
+    ownNewButton = true,
     heading,
     emptyTitle,
     emptyDescription,
@@ -126,6 +134,11 @@
     states,
     ...(appliedSearch === "" ? {} : { search: appliedSearch }),
   });
+
+  /** Opens the composer, for a screen whose create control lives outside this list. */
+  export function openNew(): void {
+    composing = true;
+  }
 
   // Composing.
   let composing = $state(false);
@@ -432,11 +445,18 @@
     </div>
     {#if composing}
       <Button variant="secondary" disabled={saving} onclick={resetComposer}>Cancel</Button>
-    {:else}
-      <Button variant="secondary" disabled={isSample || !canWrite} onclick={() => (composing = true)}>
-        <Plus aria-hidden="true" />
-        New Task
-      </Button>
+    {:else if ownNewButton}
+      <!-- The one create control, the design system's, so My Work reads like every other screen. -->
+      <CreateControl
+        noun="Task"
+        title="Add a task, with whose it is and when it is due."
+        refusal={isSample
+          ? "This is a sample matter. There is no firm record behind it, so nothing can be recorded against it."
+          : canWrite
+            ? undefined
+            : "Adding a task needs the tasks:write permission, which this account does not hold."}
+        onpress={openNew}
+      />
     {/if}
   </div>
 
@@ -697,12 +717,10 @@
                                routing — so the handle is the honest thing to show. -->
                           {link.externalId}
                         {:else}
-                          <a
-                            class="underline"
-                            href={link.externalUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                          >
+                          <!-- The destination is another system entirely, so it opens beside the
+                               reader rather than in place — through the product's one gate for
+                               that, never a hand-written target. -->
+                          <a class="underline" href={link.externalUrl} {...opensBeside("external")}>
                             {link.externalId}
                           </a>
                         {/if}

@@ -27,6 +27,7 @@
   import Button from "@magna-carta/design-system/button";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { readSession } from "$lib/matters/matters-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -42,6 +43,23 @@
   // Bumped after a write, so the ledger re-reads what the server now holds rather than guessing.
   let reloadToken = $state(0);
   let reportOpen = $state(false);
+
+  /*
+   * The matter header's create control is this section's only create button: it answers the
+   * press by opening the ledger's own record window (create-action.svelte.ts). The ledger is off
+   * screen while a read has failed or on a sample matter, and the control says so instead of
+   * pressing into nothing.
+   */
+  let ledger = $state<ReturnType<typeof CostLedger> | null>(null);
+  claimMatterCreate("costs", () => ({
+    title: "Record a cost paid or consumed on this matter. It saves as a draft.",
+    refusal: isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : ledger === null
+        ? "The ledger is not on screen, so nothing can be recorded from it."
+        : undefined,
+    run: () => ledger?.openNew(),
+  }));
 
   $effect(() => {
     void (async () => {
@@ -104,6 +122,7 @@
        the counts footer stays on the bottom, so the page does not grow taller as costs arrive. -->
   <FullHeightSection>
     <CostLedger
+      bind:this={ledger}
       costs={costs ?? []}
       openCostId={entryFromUrl()}
       loading={costs === null}

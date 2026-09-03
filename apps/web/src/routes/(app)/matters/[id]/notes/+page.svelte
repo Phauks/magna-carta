@@ -29,7 +29,6 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { formatDate } from "@magna-carta/design-system/data-table";
-  import Plus from "@lucide/svelte/icons/plus";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
@@ -43,6 +42,7 @@
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { listMatterFolders, type FolderSummary } from "$lib/file-manager/folder-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -149,6 +149,22 @@
   // matter's notes, so the controls are refused rather than absent.
   const canWrite = $derived(session === null || session.permissions.includes("notes:write"));
 
+  /*
+   * The matter header's New Note opens the window; this screen keeps no button for it. The window
+   * is one at a time, so while one is open the control says so rather than opening a second.
+   */
+  claimMatterCreate("notes", () => ({
+    title: "Write a note on this matter. It is stamped with your name and the moment it is saved.",
+    refusal: isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : !canWrite
+        ? "Writing a note needs the notes:write permission, which this account does not hold."
+        : windowOpen
+          ? "A note is open in its window. Save it or close it first."
+          : undefined,
+    run: openNew,
+  }));
+
   function refresh(): void {
     reloadToken += 1;
   }
@@ -251,15 +267,6 @@
         {/if}
       </div>
     </div>
-    <Button
-      variant="secondary"
-      disabled={isSample || !canWrite}
-      title={canWrite ? "Write a note on this matter" : "Your account cannot write notes."}
-      onclick={openNew}
-    >
-      <Plus aria-hidden="true" />
-      New Note
-    </Button>
   </div>
 
   {#if unattachedNames.length > 0}

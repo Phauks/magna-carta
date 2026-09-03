@@ -97,7 +97,7 @@ export interface SettingsSection {
    * A declaration seam today — nothing enforces it yet; the settings permission model reads
    * it when firm settings pages ship.
    */
-  readonly editPermissionArea?: "firm" | "billing" | "documents" | "integrations";
+  readonly editPermissionArea?: "firm" | "billing" | "documents" | "integrations" | "calendar";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
    * is vacuous on such a page and set to "instant" (nothing staged, nothing to commit); the
@@ -226,6 +226,37 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "draft",
     editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // The firm's calendar settings: which day its week begins on. A FIRM setting rather than a
+    // personal preference (owner-ruled 2026-09-02): the week is the unit a firm plans in, and two
+    // members looking at the same week must see the same grid. Server-backed from the start — the
+    // page reads and writes GET/PATCH /api/v1/calendar/settings and never stages into local
+    // storage — and its edit right is the calendar's own `calendar:manage`, checked against the
+    // session on the page, because the area seam here is still a mock.
+    id: "calendar",
+    label: "Calendar",
+    href: "/settings/calendar",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "calendar",
+    shipped: true,
+  },
+  {
+    // The firm's bookable resources: rooms, vehicles, equipment. A CATALOG page rather than a
+    // settings form: each act (add, change, retire) commits through its own dialog against
+    // GET/POST/PATCH /api/v1/calendar/resources, so the posture is "applies immediately" and
+    // nothing is staged. Its edit right is the calendar's own `calendar:manage`, read from the
+    // session on the page, because the area seam here is still a mock.
+    id: "resources",
+    label: "Rooms and Resources",
+    href: "/settings/resources",
+    group: "practice",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "calendar",
     shipped: true,
   },
   {

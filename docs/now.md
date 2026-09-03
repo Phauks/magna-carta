@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 784 nodes of the feature ledger in
+is the complete register rather than a digest: all 792 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**784 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 139 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **645 that are units of work**, for the reason set out under [What a roll-up is
+**792 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **652 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 279 | 43% |
+| Done | shipped | 286 | 44% |
 | Part-built | partial, in-build | 118 | 18% |
 | Ahead | designed, planned, researching, not-started | 207 | 32% |
-| Parked | deferred, cut | 41 | 7% |
-| **All units of work** | | **645** | **100%** |
+| Parked | deferred, cut | 41 | 6% |
+| **All units of work** | | **652** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 279 | 43% |
+| `shipped` | 286 | 44% |
 | `partial` | 117 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
-| `planned` | 16 | 3% |
+| `planned` | 16 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 140 | 22% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **645** | **100%** |
+| **All statuses** | **652** | **100%** |
 
 ### What a roll-up is not
 
-**139 of the 784 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**140 of the 792 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 279 of 645 (43%). Shipped plus partial is 396 (61%).**
+**Shipped alone is 286 of 652 (44%). Shipped plus partial is 403 (62%).**
 
 The 117 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**397 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**404 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 45 | 11% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 175 | 44% |
-| No user surface by nature (`internal`) | 177 | 45% |
+| A person can open it today (`screen`) | 55 | 14% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 172 | 42% |
+| No user surface by nature (`internal`) | 177 | 44% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **397** | **100%** |
+| **Everything with something built** | **404** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -97,7 +97,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 17 | 3 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 59% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
-| Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 11 | 45% |
+| Calendar and Rules-Based Docketing | 12 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 18 | 67% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **279** | **117** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **645** | **43%** |
+| **All areas** | **286** | **117** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **652** | **44%** |
 
 ## Where we have been
 
@@ -524,16 +524,24 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Calendar and Rules-Based Docketing
 
-[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 11 units of work, 45% shipped. 5 done, 1 part-built, 5 ahead, 0 parked.
+[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 18 units of work, 67% shipped. 12 done, 1 part-built, 5 ahead, 0 parked.
 
 - `calendar` · `partial` · **Calendar and docketing** — Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
-  - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: The matter's Calendar section reads both records; recording from the screen waits on the event and deadline forms, so those actions render disabled; the participant picker it once named exists (EntityPicker) and is consumed when the forms are built. The firm-wide calendar screens remain their own slice._
+  - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: Read on the matter's Calendar section and on the firm calendar; recorded, edited, cancelled, continued, satisfied, vacated and superseded from those screens through the record forms and the entry window._
   - `calendar.timeline` · `shipped` · **Matter timeline (federated)** — One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract.
     - `calendar.timeline.activity-section` · `shipped` · **The matter's Activity section** — The federated timeline as a screen — one chronology per matter on the product's shared table, sorted and filtered by its own columns, each row named by the subsystem that owns it through that subsystem's own describe statement and contribution, opening into its section, and the first record (a note) written from it. _Note: The screen names no source and switches on none. A subsystem joins the chronology with a `permission` and a `describe` on its timeline source and an ActivityContribution beside its own web code; the test fails until both exist, and the coverage lint fails until a section owns the source or declares it ownerless. The description is server-side, one statement per source present on the page, gated per source by the member's capabilities: a member without notes:read sees that a note was written and not what it said. The firm-wide read is never described. A file's Type is what the file manager identifies it as (its document type, else the identification's own label), never a name suffix; Section and Type are two columns with two filters. Opening a row follows the timeline's deep link into the owning section; sections honouring `?entry=` is the next step._
-  - `calendar.firm-events` · `shipped` · **Firm events** — Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events. _Note: Backend only — the calendar screens are their own slice._
-  - `calendar.resources` · `shipped` · **Rooms and resources** — Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact. _Note: Backend only. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams._
-  - `calendar.links-continuance` · `shipped` · **Event links and continuance** — Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved. _Note: Backend only. Continuance binds matter events; a moved staff meeting stays an edit._
-  - `calendar.surface` · `partial` · **Calendar surface** — Calendar of matters, deadlines, and appointments. _Note: One screen of several. A month grid, a week view, an agenda list, and the firm-wide calendar are all still unbuilt, as is any way to record a date from a screen._
+  - `calendar.firm-events` · `shipped` · **Firm events** — Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events. _Note: On the firm calendar at /calendar beside the matters' settings, recorded from its Record menu, opened and edited in the entry window; /calendar/firm-events is the deep link the federated read emits._
+  - `calendar.resources` · `shipped` · **Rooms and resources** — Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact. _Note: The catalog is kept under Settings › Practice › Rooms and Resources; a room is booked from an event's window (its Rooms tab) and read on the room grid at /calendar/rooms. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams._
+  - `calendar.links-continuance` · `shipped` · **Event links and continuance** — Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved. _Note: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to. Related links are recorded through the API only until the links surface lands._
+  - `calendar.surface` · `partial` · **Calendar surface** — Calendar of matters, deadlines, and appointments. _Note: One reusable calendar component (CalendarView over the design system's CalendarGrid) embedded with a scope: the firm screen, the matter section, and later the dashboard, an entity and a room._
+    - `calendar.surface.firm-calendar` · `shipped` · **Firm calendar screen** — The firm-wide calendar at /calendar: month, week and agenda views over the federated read, the deadlines read and the firm-events read, with a Mine / Everyone scope and a Record menu. _Note: Paints kinds and matter numbers, never titles, on the firm-wide grid; the title is fetched for the one entry opened. The week is seven civil-day columns rather than a time axis (owner flag C3)._
+    - `calendar.surface.matter-section` · `shipped` · **Matter calendar section** — The matter's Calendar section: the deadlines and events tables as the List view, plus Month and Agenda views over the same component with the matter scope, and live record controls.
+    - `calendar.surface.entry-window` · `shipped` · **Entry window** — The one window an event, a firm event or a deadline opens in: the record, its participants and links, in-place editing, and the verbs (cancel, continue, satisfy, vacate, supersede). _Note: The History tab is a marked Soon seam until a per-record audit read exists; a deadline reached by deep link outside the window on screen says so rather than reading one by id, because no single-deadline route exists._
+    - `calendar.surface.record-forms` · `shipped` · **Record forms** — Recording an event on a matter, a deadline on a matter (including superseding one), and a firm event from a screen, with a participant picker over the roster, the directory and external names.
+    - `calendar.surface.firm-settings` · `shipped` · **Firm calendar settings** — What the firm decides once about how it reads its calendar, held in the per-firm setting table and edited under Settings › Practice › Calendar; today the day the week begins on. _Note: A firm setting, never a personal preference (owner ruling 2026-09-02); Sunday by default. Read by every member who can read the calendar, moved only under calendar:manage, audited, idempotent. The page is the first settings page with a server behind it and shows no per-browser history._
+    - `calendar.surface.kind-narrowing` · `shipped` · **Layers, the colleague picker and the settled filter** — Turning the timeline's date-bearing sources (custody due-backs and review dates) on over the firm calendar as a layer, reading one colleague's calendar beside Mine and Everyone, and narrowing the agenda to what is still coming. _Note: Only date-bearing sources are offered as layers; the timeline's history sources (time, costs, mail, documents, trust) stay in the matter timeline rather than flooding a month. Every refinement is mirrored into the address._
+    - `calendar.surface.embedded` · `partial` · **Calendar embedded on other surfaces** — The Today card on Home, the matter overview's agenda, and a directory entity's appearances, each the one component with a narrower scope. _Note: Home's Today card (today and tomorrow, the reader's own scope, six rows) and the matter overview's Coming up card (the next thirty days, six rows) are built; a directory entity's appearances wait on a participant read filterable by entity._
+    - `calendar.surface.room-grid` · `shipped` · **Room grid and bookings** — A resource's schedule over the availability read with conflicts painted, bookings on an event's window, and the resource catalog under Settings. _Note: The room grid is the one calendar component with the resource scope; a booking paints as its event, danger with a Double-booked line where the read pre-paired it, and opens the event's window. Booking takes the event's own window; changing a booking's span is recorded through the API until a reason to surface it appears._
   - `calendar.sync` · `not-started` · **Two-way Google/Outlook sync** — Two-way calendar synchronization via the email/calendar plugin.
   - `calendar.docketing` · `researching` · **Rules-based docketing** — Compute court dates and deadlines from jurisdiction/court rule sets, defaulting from the matter's jurisdiction or home Location.
     - `calendar.docketing.rule-sets` · `researching` · **Court rule sets** — Sourcing, encoding, and maintaining per-jurisdiction/court rule sets.
@@ -627,7 +635,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `matters.types` · `partial` · **Flexible matter types** — Matter types carrying type-specific fields for mixed practices, via the shared custom-fields engine. _Note: Backend shipped; practice-area templates explicitly deferred (status.d/1-4: "before first client"); UI not built._
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
-  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the status, what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
+  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the status, how the matter is engaged (the signed agreement on file and the fee arrangement it rests on, with Amend beside it and the history folded away; moved here from the Fees screen by the owner's ruling of 2026-09-03), what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
     - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
     - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
     - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
@@ -712,7 +720,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.components.storybook-catalog` · `shipped` · **Component catalog** — Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks. _Note: Histoire dead without Svelte 5 support, as the white paper records._
     - `design-system.components.icons` · `shipped` · **Lucide icons, no emojis** — Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   - `design-system.enforcement` · `partial` · **Machine enforcement** — Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
-  - `design-system.modal-shells` · `partial` · **Two modal shells and never a third** — Every modal surface in the product is one of two shells — RecordWindow for reading and changing a record, ActionDialog for an act asked of a reader — with one shared unsaved-work guard, and a source scan that recognizes a panel built outside them. _Note: The shell, the shared guard, the two rules, and the frame both shells sit on (styles/recipes/modal-frame.css — the record window's pane system, extracted with byte-identical screenshots as proof) are built. Three families have migrated — the custodian's three panels, ten across billing and costs, and the new-matter window as the frame's first context-pane caller — and the matter-status window landed on a fourth kind, `reading`, added as a strict arm of the props union for a panel that states a fact and seats its step beside it. The shell then took the seams its first fifteen callers repeated: Enter commits (the pane is a form, the commit its submit), `subtitle` takes a string, and `commitSoon` renders a commit not served yet inside the Soon affordance — for which the maturity family moved whole into the design system — beside two field primitives, `LabelledField` and `FieldRow`. The confirmation family followed — the file manager's three panels, the note and party removals, the settings recap and the attachment detach — and the shell gained the `done` outcome for a commit that stays to show what it came to. The four forms followed — move to another ledger (the first caller of `commitSoon`), fold two directory records, a new person or organization (the first caller of `LabelledField` and `FieldRow`), and the conflicts answer. The three send panels followed — the issue report, the problem report and the settings change request — each staying open on `done` to show its reference, its copy seated beside what it copies. The new-document flow was the last: its two paths share the one commit, whose verb follows the open path, and a document that landed leaves the panel done. Apply Trust Funds, excluded while the Soon affordance lived in the app, is a plain form with `commitSoon`. The four directory panes had been excluded as panes, and were carrying five real form dialogs; those migrated too. Every panel in scope is migrated. Six printed allowances remain, every one a named exclusion: a launcher, a Sheet, three full-screen surfaces, and a record window's shape. Filling the screen then became the frame's: the record window's expand moved beneath both shells, and ActionDialog offers it on its Dialog kinds with a session memory of its own, so a panel can open expanded by design — and the three full-screen surfaces came onto the shells: the time sheet as a reading panel opened expanded (its hand-built expand deleted), the safe-browse screenshot viewer likewise, and the cost review as a reading panel whose three answers sit beside the facts. Three printed allowances remain: the command palette, the settings ledger's Sheet, and the fee-arrangement window._
+  - `design-system.modal-shells` · `partial` · **Two modal shells and never a third** — Every modal surface in the product is one of two shells — RecordWindow for reading and changing a record, ActionDialog for an act asked of a reader — with one shared unsaved-work guard, and a source scan that recognizes a panel built outside them. _Note: The shell, the shared guard, the two rules, and the frame both shells sit on (styles/recipes/modal-frame.css — the record window's pane system, extracted with byte-identical screenshots as proof) are built. Three families have migrated — the custodian's three panels, ten across billing and costs, and the new-matter window as the frame's first context-pane caller — and the matter-status window landed on a fourth kind, `reading`, added as a strict arm of the props union for a panel that states a fact and seats its step beside it. The shell then took the seams its first fifteen callers repeated: Enter commits (the pane is a form, the commit its submit), `subtitle` takes a string, and `commitSoon` renders a commit not served yet inside the Soon affordance — for which the maturity family moved whole into the design system — beside two field primitives, `LabelledField` and `FieldRow`. The confirmation family followed — the file manager's three panels, the note and party removals, the settings recap and the attachment detach — and the shell gained the `done` outcome for a commit that stays to show what it came to. The four forms followed — move to another ledger (the first caller of `commitSoon`), fold two directory records, a new person or organization (the first caller of `LabelledField` and `FieldRow`), and the conflicts answer. The three send panels followed — the issue report, the problem report and the settings change request — each staying open on `done` to show its reference, its copy seated beside what it copies. The new-document flow was the last: its two paths share the one commit, whose verb follows the open path, and a document that landed leaves the panel done. Apply Trust Funds, excluded while the Soon affordance lived in the app, is a plain form with `commitSoon`. The four directory panes had been excluded as panes, and were carrying five real form dialogs; those migrated too. Every panel in scope is migrated. Six printed allowances remain, every one a named exclusion: a launcher, a Sheet, three full-screen surfaces, and a record window's shape. Filling the screen then became the frame's: the record window's expand moved beneath both shells, and ActionDialog offers it on its Dialog kinds with a session memory of its own, so a panel can open expanded by design — and the three full-screen surfaces came onto the shells: the time sheet as a reading panel opened expanded (its hand-built expand deleted), the safe-browse screenshot viewer likewise, and the cost review as a reading panel whose three answers sit beside the facts. Two printed allowances remain: the command palette and the settings ledger's Sheet; the fee-arrangement window is gone, its facts moved into the matter status window by the owner's ruling._
   - `design-system.directory-linking` · `partial` · **Directory-linking family** — One mark (EntityIdentity), one field (EntityPicker, which takes a search and never fetches) and one tab (RecordParties) for every surface that names, picks or links a person or an organization. _Note: Built against the matter's parties. The conflicts, custodian and cost pickers still carry their own combobox over the directory search and fold onto EntityPicker in a later slice; quick-create from the picker waits on the owner._
     - `design-system.enforcement.off-token-lint` · `shipped` · **Off-token value gates** — Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.
     - `design-system.enforcement.visual-regression` · `partial` · **Visual regression testing** — Playwright screenshots across every theme and mode over the story matrix; Argos the named upgrade. _Note: Harness and CI job built; first container-rendered baselines still pending; Argos not adopted._

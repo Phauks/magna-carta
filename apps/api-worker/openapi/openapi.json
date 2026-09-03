@@ -10643,6 +10643,41 @@
           "active"
         ]
       },
+      "CalendarSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "weekStartsOn": {
+            "$ref": "#/components/schemas/CalendarWeekStartsOn"
+          }
+        },
+        "required": [
+          "weekStartsOn"
+        ]
+      },
+      "CalendarWeekStartsOn": {
+        "anyOf": [
+          {
+            "type": "number",
+            "enum": [
+              0
+            ]
+          },
+          {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          }
+        ]
+      },
+      "PatchCalendarSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "weekStartsOn": {
+            "$ref": "#/components/schemas/CalendarWeekStartsOn"
+          }
+        }
+      },
       "CalendarCreatedResponse": {
         "type": "object",
         "properties": {
@@ -11671,6 +11706,64 @@
           "eventTypeName",
           "link",
           "overlappingBookingIds"
+        ]
+      },
+      "EventBookings": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventBooking"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "EventBooking": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "startsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "resourceId",
+          "startsOn",
+          "startsAtTime",
+          "endsOn",
+          "endsAtTime",
+          "timeZone"
         ]
       },
       "BookingCreatedResponse": {
@@ -25384,6 +25477,18 @@
               "string",
               "null"
             ]
+          },
+          "agreementFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "agreementFileName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -25399,7 +25504,9 @@
           "advanceDepositDestination",
           "currency",
           "validFrom",
-          "validTo"
+          "validTo",
+          "agreementFileId",
+          "agreementFileName"
         ]
       },
       "BillingArrangementRequest": {
@@ -25458,6 +25565,12 @@
           "validFrom": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "agreementFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -26859,6 +26972,29 @@
           "attachmentCount"
         ]
       },
+      "RoundingPolicy": {
+        "type": "object",
+        "properties": {
+          "incrementMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "The minimum billing increment a captured duration is rounded TO, in minutes. Six — a tenth of an hour — is the prevailing default. This is also what one BILLING UNIT is worth, which is why a screen that lets time be entered in units has to ask: a firm on quarter hours and a firm on tenths mean different amounts of work by 'two units'."
+          },
+          "roundingDirection": {
+            "type": "string",
+            "enum": [
+              "up",
+              "nearest",
+              "down"
+            ],
+            "description": "How a duration that falls between increments is resolved."
+          }
+        },
+        "required": [
+          "incrementMinutes",
+          "roundingDirection"
+        ]
+      },
       "TimeEntryEventsResponse": {
         "type": "object",
         "properties": {
@@ -27042,6 +27178,14 @@
               "null"
             ],
             "description": "The firm-internal note. Null clears it; absent leaves it unchanged."
+          },
+          "overrideRateE4": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "A rate for THIS entry, in ten-thousandths of a currency unit, sitting above every stored tier of the rate chain. Capture has always accepted one and the chain has always ranked it first; this is the same field on a draft the firm already holds, so an entry captured at the wrong rate is corrected rather than voided and typed again. A number sets it, null clears it and the entry falls back to the chain (matter, then client, then timekeeper, then role, then the card default) as of its work date, and absent leaves the rate exactly as it stands. Setting it re-computes the entry's amount. This does not weaken the rate snapshot: that rule says a rate card edited LATER never re-rates a standing entry, and it still holds — what changes here is somebody's deliberate answer for one entry, not a card's answer for all of them. An entry with no rate card resolves to no rate whatever is passed: an override is a rate ON a card."
           }
         }
       },
@@ -52385,6 +52529,203 @@
         }
       }
     },
+    "/api/v1/calendar/settings": {
+      "get": {
+        "description": "The firm's calendar settings: which day its week begins on (0 for Sunday, 1 for Monday). A firm setting rather than a personal one, so every member reads the same week; Sunday until the firm says otherwise.",
+        "operationId": "calendar.getSettings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.getSettings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's calendar settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's calendar settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. Returns the settings after the write.",
+        "operationId": "calendar.updateSettings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.updateSettings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCalendarSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's calendar settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is settled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events/{eventId}/cancel": {
       "post": {
         "description": "Marks an event cancelled, with an optional reason the record keeps. The record stays: a hearing that was taken off is a fact about the case, and a firm that has to show it was vacated cannot do that from a row that is gone. A hearing the court moved is continued, not cancelled — the continue operation records both settings.",
@@ -54515,6 +54856,176 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{eventId}/bookings": {
+      "get": {
+        "description": "The live bookings a matter event holds: which resources it has booked and for what span. Read through the visible-matter predicate like the event itself; an event on an invisible matter is a 404.",
+        "operationId": "calendar.listEventBookings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.listEventBookings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "eventId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event's bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventBookings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm-events/{firmEventId}/bookings": {
+      "get": {
+        "description": "The live bookings a firm event holds: which resources it has booked and for what span.",
+        "operationId": "calendar.listFirmEventBookings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.listFirmEventBookings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firmEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmEventId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm event's bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventBookings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -83390,6 +83901,104 @@
         }
       }
     },
+    "/api/v1/time-entries/rounding-policy": {
+      "get": {
+        "description": "The rounding policy in force for a capture, resolved through the same scope chain the capture itself uses: the matter's setting, then the timekeeper's, then the firm's. It is served because a screen cannot otherwise state two things it must — what an entry will actually be billed at once rounded, and what one billing unit is worth — and a screen that guesses either is a screen that records the wrong amount of time. Reads nothing about any entry, so it is safe to ask before one exists.",
+        "operationId": "timeEntries.roundingPolicy",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.roundingPolicy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$",
+              "description": "Resolve against this matter's setting first. Omitted, the firm's applies."
+            },
+            "required": false,
+            "description": "Resolve against this matter's setting first. Omitted, the firm's applies.",
+            "name": "matterId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$",
+              "description": "Resolve against this member's setting. Omitted, the firm's applies."
+            },
+            "required": false,
+            "description": "Resolve against this member's setting. Omitted, the firm's applies.",
+            "name": "timekeeperUserId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resolved policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoundingPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/time-entries/{id}": {
       "get": {
         "description": "Returns one time entry's detail.",
@@ -84650,6 +85259,130 @@
           "timeEntries"
         ],
         "x-mc-operationId": "timeEntries.void",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^timeEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The transition was applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/time-entries/{id}/unvoid": {
+      "post": {
+        "description": "Returns a voided time entry to draft, with its number, its narrative, its memo, its codes, its attachments and its history intact. Voiding is how a mistaken entry is retired and it is reversible for exactly one reason: people void the wrong row, and re-typing the entry loses everything the row carries. It restores the entry to DRAFT and never to submitted or approved — those were somebody's judgement about an entry that has since been withdrawn, and they have to be given again. Refused for an entry that is not void, and for the one void that must stay one: an entry voided by conversion into a cost, where the value already moved to the cost record and restoring the time would charge the same work twice.",
+        "operationId": "timeEntries.unvoid",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.unvoid",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "time:track",

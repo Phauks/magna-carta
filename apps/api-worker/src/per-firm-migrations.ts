@@ -90,6 +90,7 @@ import tasksSql from "@magna-carta/database/drizzle/per-firm/20260901T150000_tas
 import matterPlansSql from "@magna-carta/database/drizzle/per-firm/20260902T120000_matter-plans.sql";
 import timeEntryTaskLinkSql from "@magna-carta/database/drizzle/per-firm/20260902T190000_time-entry-task-link.sql";
 import taskSyncSeamsSql from "@magna-carta/database/drizzle/per-firm/20260902T230000_task-sync-seams.sql";
+import arrangementAgreementFileSql from "@magna-carta/database/drizzle/per-firm/20260903T000000_arrangement-agreement-file.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -193,6 +194,7 @@ export function perFirmMigrations(): Migration[] {
     "20260902T120000_matter-plans": matterPlansSql,
     "20260902T190000_time-entry-task-link": timeEntryTaskLinkSql,
     "20260902T230000_task-sync-seams": taskSyncSeamsSql,
+    "20260903T000000_arrangement-agreement-file": arrangementAgreementFileSql,
   });
 }
 

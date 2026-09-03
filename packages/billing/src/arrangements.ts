@@ -1,7 +1,12 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { BillingArrangementId, MatterId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  BillingArrangementId,
+  FileId,
+  MatterId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import { BillingValidationError } from "./billing-validation.ts";
 import type { BillingServiceOptions } from "./types.ts";
 
@@ -43,6 +48,14 @@ export interface BillingArrangementSnapshot {
   readonly currency: string;
   readonly validFrom: string;
   readonly validTo: string | null;
+  /**
+   * The signed agreement this version rests on, as a matter file — the intake agreement signed at
+   * opening, or the amendment signed later. Null where the version was recorded before the paper
+   * was filed, or predates the column. The name rides with the id so a reader can be told what the
+   * file is called without a second read; it is null where the file has since been deleted.
+   */
+  readonly agreementFileId: FileId | null;
+  readonly agreementFileName: string | null;
 }
 
 interface ArrangementRow {
@@ -59,9 +72,15 @@ interface ArrangementRow {
   currency: string;
   valid_from: string;
   valid_to: string | null;
+  agreement_file_id: string | null;
+  agreement_file_name: string | null;
 }
 
-const ARRANGEMENT_COLUMNS = `id, matter_id, version, kind, flat_fee_amount_minor, contingency_share_e4, contingency_basis, retainer_target_minor, retainer_threshold_minor, advance_deposit_destination, currency, valid_from, valid_to`;
+// The version's own columns, and the signed agreement's name joined beside its id. A LEFT JOIN, so a
+// version whose agreement was deleted still reads; the name is then null and the id still says what
+// was recorded.
+const ARRANGEMENT_COLUMNS = `a.id, a.matter_id, a.version, a.kind, a.flat_fee_amount_minor, a.contingency_share_e4, a.contingency_basis, a.retainer_target_minor, a.retainer_threshold_minor, a.advance_deposit_destination, a.currency, a.valid_from, a.valid_to, a.agreement_file_id, f.name AS agreement_file_name`;
+const ARRANGEMENT_FROM = `FROM matter_billing_arrangement a LEFT JOIN file f ON f.id = a.agreement_file_id AND f.deleted_at IS NULL`;
 
 function toSnapshot(row: ArrangementRow): BillingArrangementSnapshot {
   return {
@@ -78,6 +97,8 @@ function toSnapshot(row: ArrangementRow): BillingArrangementSnapshot {
     currency: row.currency,
     validFrom: row.valid_from,
     validTo: row.valid_to,
+    agreementFileId: row.agreement_file_id as FileId | null,
+    agreementFileName: row.agreement_file_id === null ? null : row.agreement_file_name,
   };
 }
 
@@ -89,7 +110,7 @@ export async function readBillingArrangementInForce(
 ): Promise<BillingArrangementSnapshot | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT ${ARRANGEMENT_COLUMNS} FROM matter_billing_arrangement WHERE matter_id = ?1 AND valid_to IS NULL`,
+      `SELECT ${ARRANGEMENT_COLUMNS} ${ARRANGEMENT_FROM} WHERE a.matter_id = ?1 AND a.valid_to IS NULL`,
     )
     .bind(matterId)
     .all<ArrangementRow>();
@@ -105,7 +126,7 @@ export async function readBillingArrangementHistory(
 ): Promise<BillingArrangementSnapshot[]> {
   const { results } = await database
     .prepare(
-      `SELECT ${ARRANGEMENT_COLUMNS} FROM matter_billing_arrangement WHERE matter_id = ?1 ORDER BY version DESC`,
+      `SELECT ${ARRANGEMENT_COLUMNS} ${ARRANGEMENT_FROM} WHERE a.matter_id = ?1 ORDER BY a.version DESC`,
     )
     .bind(matterId)
     .all<ArrangementRow>();
@@ -117,7 +138,7 @@ export async function readBillingArrangement(
   id: BillingArrangementId,
 ): Promise<BillingArrangementSnapshot | undefined> {
   const { results } = await database
-    .prepare(`SELECT ${ARRANGEMENT_COLUMNS} FROM matter_billing_arrangement WHERE id = ?1`)
+    .prepare(`SELECT ${ARRANGEMENT_COLUMNS} ${ARRANGEMENT_FROM} WHERE a.id = ?1`)
     .bind(id)
     .all<ArrangementRow>();
   const row = results[0];
@@ -135,6 +156,8 @@ export interface SetBillingArrangementInput {
   readonly advanceDepositDestination?: AdvanceDepositDestination | null;
   readonly currency: string;
   readonly validFrom: string; // civil PlainDate
+  /** The signed agreement this version rests on, as a matter file. Optional: the paper may follow. */
+  readonly agreementFileId?: FileId | null;
   readonly createdBy: UserId | null;
 }
 
@@ -226,6 +249,16 @@ export async function setBillingArrangement(
 ): Promise<ComposedBillingArrangement> {
   assertKindShape(input);
 
+  const agreementFileId = input.agreementFileId ?? null;
+  if (agreementFileId !== null && !(await fileExists(database, agreementFileId))) {
+    // Refused here rather than discovered on the day the agreement is asked for: a version pointing
+    // at a file that was already gone when it was recorded would produce a reference and no paper.
+    throw new BillingValidationError(
+      "billing-arrangement-invalid",
+      `the signed agreement ${agreementFileId} is not a live file on this firm's record: pick it from the matter's own files`,
+    );
+  }
+
   const inForce = await readBillingArrangementInForce(database, input.matterId);
   if (inForce && input.validFrom < inForce.validFrom) {
     // The amendment supersedes FORWARD only. Back-dating a version behind the one in force would
@@ -255,8 +288,8 @@ export async function setBillingArrangement(
   statements.push(
     database
       .prepare(
-        `INSERT INTO matter_billing_arrangement (id, matter_id, version, kind, flat_fee_amount_minor, contingency_share_e4, contingency_basis, retainer_target_minor, retainer_threshold_minor, advance_deposit_destination, currency, valid_from, valid_to, created_at, created_by)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL, ?13, ?14)`,
+        `INSERT INTO matter_billing_arrangement (id, matter_id, version, kind, flat_fee_amount_minor, contingency_share_e4, contingency_basis, retainer_target_minor, retainer_threshold_minor, advance_deposit_destination, currency, valid_from, valid_to, agreement_file_id, created_at, created_by)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL, ?13, ?14, ?15)`,
       )
       .bind(
         arrangementId,
@@ -271,11 +304,22 @@ export async function setBillingArrangement(
         input.advanceDepositDestination ?? null,
         input.currency,
         input.validFrom,
+        agreementFileId,
         now,
         input.createdBy,
       ),
   );
   return { arrangementId, version, effect: { statements, outboxMessages: [] } };
+}
+
+// Whether the signed agreement is a live file. The same check the conflicts waiver makes of its
+// evidencing document, and for the same reason: a reference the firm cannot produce is not a record.
+async function fileExists(database: SqlDatabase, fileId: string): Promise<boolean> {
+  const { results } = await database
+    .prepare(`SELECT id FROM file WHERE id = ?1 AND deleted_at IS NULL`)
+    .bind(fileId)
+    .all<{ id: string }>();
+  return results.length > 0;
 }
 
 // The arrangement a non-hourly composition requires, or a refusal that names what the matter

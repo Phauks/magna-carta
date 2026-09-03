@@ -118,5 +118,5 @@ export const ACTIVITY_TYPE_VALUES: readonly string[] = [
 export const ACTIVITY_CREATE_VERBS = ACTIVITY_CONTRIBUTIONS.flatMap((contribution) =>
   contribution.create === undefined
     ? []
-    : [{ sourceKey: contribution.sourceKey, ...contribution.create }],
+    : [{ sourceKey: contribution.sourceKey, icon: contribution.icon, ...contribution.create }],
 );

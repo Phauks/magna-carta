@@ -15,6 +15,7 @@
    * firm behind it and therefore nothing to read; it says so rather than showing an empty list.
    */
   import TaskList from "$lib/matters/task-list.svelte";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { listMatterTasks, type TaskListFilters } from "$lib/matters/tasks-api.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
@@ -22,6 +23,22 @@
 
   const matter = $derived(data.matter);
   const isSample = $derived(matter.source === "sample");
+
+  /*
+   * The matter header's New Task opens the list's composer; the list draws no button of its own
+   * here (create-action.svelte.ts). The permission refusal is stated by the list itself once the
+   * composer is open, so the control only refuses what it can know from here.
+   */
+  let list = $state<ReturnType<typeof TaskList> | null>(null);
+  claimMatterCreate("tasks", () => ({
+    title: "Add a task on this matter, with whose it is and when it is due.",
+    refusal: isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : list === null
+        ? "The tasks are not on screen, so nothing can be added to them."
+        : undefined,
+    run: () => list?.openNew(),
+  }));
 </script>
 
 <svelte:head>
@@ -29,6 +46,8 @@
 </svelte:head>
 
 <TaskList
+  bind:this={list}
+  ownNewButton={false}
   subject={matter.id}
   read={(cursor: string | undefined, filters: TaskListFilters) =>
     listMatterTasks(fetch, matter.id, cursor, filters)}

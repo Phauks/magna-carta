@@ -5,8 +5,9 @@ standing instruction, the reasoning behind a decision. Find them on a matter und
 
 ## Writing a Note
 
-Press **New Note**. The note opens in the same record window every other record opens in: the note
-itself on the left, what it carries on the right, and one row of actions underneath.
+Press **New Note** at the top of the matter, beside the search. The note opens in the same record
+window every other record opens in: the note itself on the left, what it carries on the right, and
+one row of actions underneath.
 
 Before you type anything the window shows you what the note will carry: which matter it lands on,
 whose name goes on it, and the moment it will be stamped with. Nothing is stored that you were not

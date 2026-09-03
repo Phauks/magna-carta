@@ -25,15 +25,12 @@
    * Who.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import ArrowUpRight from "@lucide/svelte/icons/arrow-up-right";
-  import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import Plus from "@lucide/svelte/icons/plus";
   import { goto } from "$app/navigation";
   import {
     ACTIVITY_COLUMN_IDENTIFIERS,
@@ -46,6 +43,7 @@
   import { ACTIVITY_WINDOWS } from "./windows.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { listMatterActivity, type ActivityEntry } from "$lib/matters/activity-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
 
@@ -151,6 +149,34 @@
     // "none": the row's own title says why there is nowhere to go.
   }
 
+  /*
+   * A screen carries ONE create control, in the matter header, and this register offers it every
+   * record a contribution can make from here: one verb as the control's own press, several as its
+   * choices. Only the section claims — a tile on another screen must not take that screen's control.
+   */
+  if (variant === "section") {
+    claimMatterCreate("activity", () => {
+      const refusal = isSample ? SAMPLE_MATTER_REFUSAL : undefined;
+      const [only] = ACTIVITY_CREATE_VERBS;
+      if (ACTIVITY_CREATE_VERBS.length === 1 && only !== undefined) {
+        return {
+          title: `${only.label} from the matter's activity.`,
+          refusal,
+          run: () => openWindow(only.window, null),
+        };
+      }
+      return {
+        title: "Record something on this matter.",
+        refusal,
+        choices: ACTIVITY_CREATE_VERBS.map((verb) => ({
+          label: verb.label,
+          icon: verb.icon,
+          run: () => openWindow(verb.window, null),
+        })),
+      };
+    });
+  }
+
   const grid = DataTable.createDataTableGrid<ActivityRow>({
     columns: () => activityColumns({ recent }),
     rows: () => rows,
@@ -248,40 +274,7 @@
       <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
         Activity
       </h2>
-      <!-- A screen with no way to create the thing it lists is not built. This one lists everything,
-           so its one primary control offers every record a contribution can make from here — one
-           verb as a button, several as a menu. -->
-      {#if ACTIVITY_CREATE_VERBS.length === 1}
-        {@const verb = ACTIVITY_CREATE_VERBS[0]}
-        {#if verb !== undefined}
-          <Button
-            variant="secondary"
-            disabled={isSample}
-            onclick={() => openWindow(verb.window, null)}
-          >
-            <Plus aria-hidden="true" />
-            {verb.label}
-          </Button>
-        {/if}
-      {:else if ACTIVITY_CREATE_VERBS.length > 1}
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            class={buttonClasses({ variant: "secondary", size: "default" })}
-            disabled={isSample}
-          >
-            <Plus class="size-16" aria-hidden="true" />
-            New
-            <ChevronDown class="size-16" aria-hidden="true" />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-            {#each ACTIVITY_CREATE_VERBS as verb (verb.sourceKey)}
-              <DropdownMenu.Item onSelect={() => openWindow(verb.window, null)}>
-                {verb.label}
-              </DropdownMenu.Item>
-            {/each}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      {/if}
+      <!-- The create control is the matter header's; this register claims it above. -->
     </div>
   {/if}
 

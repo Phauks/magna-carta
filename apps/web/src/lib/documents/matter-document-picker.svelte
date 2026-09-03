@@ -1,17 +1,16 @@
 <script lang="ts">
   /*
-   * The filed document that evidences a waiver's written confirmation — picked from the matter's own
-   * file store, never typed.
+   * A document picked from the matter's own file store, never typed.
    *
-   * A firm asked to produce a client's informed consent has to produce the document, not a note
-   * saying where it might be. So this is a picker over what the matter actually holds: whatever it
-   * returns is a file the platform can hand over on demand. A free-text field here would be the
-   * sentence the whole waiver record replaces, wearing a different label.
+   * The two records that use this — a conflicts waiver's written confirmation, a fee arrangement's
+   * signed agreement — are things a firm is asked to PRODUCE, and a note saying where a document
+   * might be is not the document. So whatever this returns is a file the platform can hand over on
+   * demand. A free-text field here would be the sentence the whole record replaces, wearing a
+   * different label.
    *
-   * A CHECK WITH NO MATTER CAN FILE NOTHING, AND SAYS SO. Files are matter-rooted, so a pre-consult
-   * check — run before the firm has a matter to file into — has nowhere to put the confirmation. The
-   * control renders refused with that reason rather than disappearing, and the waiver is recorded
-   * without it and reads as incomplete until a later answer supplies one.
+   * A RECORD WITH NO MATTER CAN FILE NOTHING, AND SAYS SO. Files are matter-rooted, so a surface
+   * that names no matter — a pre-consult conflicts check — has nowhere to put the paper. The
+   * control renders refused with the caller's own sentence rather than disappearing.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
   import { listMatterDocuments, type DocumentSummary } from "$lib/documents/document-api.ts";
@@ -20,17 +19,28 @@
     value = $bindable(null),
     matterId,
     inputId,
+    fieldName,
+    noMatterNote,
+    noFilesNote,
+    chosenNoun,
     disabled = false,
   }: {
     /** The chosen file's handle, or null where none has been chosen. */
     value?: string | null;
-    /** The matter whose files may be chosen. Null when the check names no matter. */
+    /** The matter whose files may be chosen. Null where the record names no matter. */
     matterId: string | null;
     /** The combobox input's id, so the consumer's Label can point at it. */
     inputId: string;
+    /** What the field is called, in the reader's words. */
+    fieldName: string;
+    /** What to say where there is no matter to file into. */
+    noMatterNote: string;
+    /** What to say where the matter holds no files yet. */
+    noFilesNote: string;
+    /** What the chosen file will be recorded as: "the evidencing document", "the signed agreement". */
+    chosenNoun: string;
     disabled?: boolean;
   } = $props();
-
   let documents = $state<readonly DocumentSummary[]>([]);
   let query = $state("");
   let reading = $state(false);
@@ -89,7 +99,7 @@
 >
   <Combobox.Input
     id={inputId}
-    fieldName="Evidencing Document"
+    {fieldName}
     autocomplete="off"
     oninput={(event) => (query = event.currentTarget.value)}
   />
@@ -101,19 +111,13 @@
 </Combobox.Root>
 
 {#if matterId === null}
-  <p class="text-xs text-text-muted">
-    This check names no matter, so there is nowhere to file the confirmation yet. The waiver can be
-    recorded without it and reads as incomplete until a later answer names the document.
-  </p>
+  <p class="text-xs text-text-muted">{noMatterNote}</p>
 {:else if readFailed}
   <p class="text-xs text-text-muted">The matter's files could not be reached.</p>
 {:else if reading}
   <p class="text-xs text-text-muted">Reading the matter's files.</p>
 {:else if documents.length === 0}
-  <p class="text-xs text-text-muted">
-    This matter holds no files yet. Filing the confirmation and recording a second answer is what
-    completes the record.
-  </p>
+  <p class="text-xs text-text-muted">{noFilesNote}</p>
 {:else if chosen !== null}
-  <p class="text-xs text-text-muted">{chosen.name} will be recorded as the evidencing document.</p>
+  <p class="text-xs text-text-muted">{chosen.name} will be recorded as {chosenNoun}.</p>
 {/if}

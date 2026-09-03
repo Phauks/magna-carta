@@ -37,7 +37,7 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -47,7 +47,7 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Building2 from "@lucide/svelte/icons/building-2";
   import ListFilter from "@lucide/svelte/icons/list-filter";
-  import Plus from "@lucide/svelte/icons/plus";
+  import CreateControl from "@magna-carta/design-system/create-control";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import UserPlus from "@lucide/svelte/icons/user-plus";
@@ -278,48 +278,9 @@
   {/if}
 {/snippet}
 
-{#snippet newRecordAction()}
-  <Button
-    variant="primary"
-    disabled={!mayEdit}
-    title={createDisabledReason}
-    onclick={() => openNew("person")}
-  >
-    <UserPlus class="size-16" aria-hidden="true" />
-    New person
-  </Button>
-{/snippet}
-
 <div class="flex h-full flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>Directory</Masthead.Title>
-    </Masthead.Heading>
-    <Masthead.Actions>
-      <!-- One primary action rather than a button per kind: the two records are the same gesture on
-           the same book, and spreading them across the top spends the row on a choice a menu makes
-           in one press. -->
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger
-          class={buttonClasses({ variant: "primary", size: "default" })}
-          disabled={!mayEdit}
-          title={createDisabledReason}
-        >
-          <Plus class="size-16" aria-hidden="true" />
-          New
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-          <DropdownMenu.Item onSelect={() => openNew("person")}>
-            <UserPlus class="size-16" aria-hidden="true" />
-            Person
-          </DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => openNew("organization")}>
-            <Building2 class="size-16" aria-hidden="true" />
-            Organization
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
-
+  <ScreenHeader title="Directory">
+    {#snippet actions()}
       {#if searchOpen}
         <Input
           bind:ref={searchField}
@@ -382,8 +343,22 @@
         </Popover.Root>
 
       {/if}
-    </Masthead.Actions>
-  </Masthead.Root>
+      <!-- The one create control (the design system's), LAST on the row: the search grows toward
+           the inline start as it opens, so the control after it is the one place that growth cannot
+           reach — the same order as the matter header and the custody register. -->
+      <!-- One create control rather than a button per kind: the two records are the same gesture on
+           the same book, and spreading them across the top spends the row on a choice a menu makes
+           in one press. -->
+      <CreateControl
+        title="Record a person or an organization."
+        refusal={mayEdit ? undefined : createDisabledReason}
+        choices={[
+          { label: "Person", icon: UserPlus, onselect: () => openNew("person") },
+          { label: "Organization", icon: Building2, onselect: () => openNew("organization") },
+        ]}
+      />
+    {/snippet}
+  </ScreenHeader>
 
   {#if createDisabledReason !== undefined && session !== null}
     <Alert.Root variant="info">
@@ -424,11 +399,8 @@
     {:else if hits.length === 0}
       <div class="min-h-0 flex-1">
         <EmptyState title="Nothing Matches That Search">
-          {#snippet actions()}
-            {@render newRecordAction()}
-          {/snippet}
-          No name on the firm's record answers to that, current or former. Recording them is what
-          puts them in front of the next conflicts check.
+          No name on the firm's record answers to that, current or former. Recording them, with New
+          at the top of the screen, is what puts them in front of the next conflicts check.
         </EmptyState>
       </div>
     {:else}
@@ -499,11 +471,8 @@
           </EmptyState>
         {:else}
           <EmptyState title="No Records Yet">
-            {#snippet actions()}
-              {@render newRecordAction()}
-            {/snippet}
-            Clients, opposing parties, counsel and courts all live here. Recording somebody is what
-            puts them in front of the next conflicts check.
+            Clients, opposing parties, counsel and courts all live here. Recording somebody, with
+            New at the top of the screen, is what puts them in front of the next conflicts check.
           </EmptyState>
         {/if}
       {/snippet}

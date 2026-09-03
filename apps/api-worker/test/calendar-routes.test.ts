@@ -535,6 +535,17 @@ describe("the firm's own scope: firm events, rooms, and bookings", () => {
     const bookedBody = (await booked.json()) as { id: string; conflicts: unknown[] };
     expect(bookedBody.conflicts).toHaveLength(0);
 
+    // The event's own window lists what it booked: the resource and the span, from the event's
+    // side rather than the room's.
+    const eventBookings = await get(`/api/v1/events/${hearingId}/bookings`);
+    expect(eventBookings.status).toBe(200);
+    const eventBookingsBody = (await eventBookings.json()) as {
+      data: { id: string; resourceId: string; startsAtTime: string | null }[];
+    };
+    expect(eventBookingsBody.data).toEqual([
+      expect.objectContaining({ id: bookedBody.id, resourceId: roomId, startsAtTime: "08:30" }),
+    ]);
+
     // The room being taken is NEVER a reason a hearing cannot be recorded: the second hearing
     // records, its booking lands, and the conflict is reported rather than refused.
     const second = await post(`/api/v1/matters/${matterId}/events`, {

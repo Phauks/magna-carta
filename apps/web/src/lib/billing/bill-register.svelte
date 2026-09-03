@@ -30,7 +30,6 @@
   import FileMinus from "@lucide/svelte/icons/file-minus";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
   import { LedgerPanes, RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
@@ -129,6 +128,15 @@
   let claiming = $state<string | null>(null);
 
   let draftOpen = $state(false);
+
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
+    draftOpen = true;
+  }
   let finalizeOpen = $state(false);
   let voidOpen = $state(false);
   let deliveryOpen = $state(false);
@@ -420,13 +428,7 @@
 {#snippet emptyRegister()}
   <EmptyState title="No Bills Yet">
     Every bill this client has been given appears here, with this matter&rsquo;s own share of each.
-    Draft one when there is work to bill.
-    {#snippet actions()}
-      <Button disabled={clientEntityId === null} onclick={() => (draftOpen = true)}>
-        <Plus class="size-16" aria-hidden="true" />
-        Draft Bill
-      </Button>
-    {/snippet}
+    Draft one when there is work to bill: New Bill, at the top of the matter, opens the draft.
   </EmptyState>
 {/snippet}
 
@@ -456,17 +458,6 @@
         Clear Filters
       </Button>
     {/if}
-    <Button
-      size="sm"
-      disabled={clientEntityId === null}
-      title={clientEntityId === null
-        ? "This matter's party record names no client, so there is nobody to bill."
-        : "Open a draft bill for this matter's client. Nothing is asserted to anybody until it is finalized."}
-      onclick={() => (draftOpen = true)}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Draft Bill
-    </Button>
     <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
          border of its own, and last in the row on every ledger. -->
     <Button

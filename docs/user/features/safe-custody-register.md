@@ -27,7 +27,7 @@ can never be returned to its owner and never be destroyed.
 
 ## Logging something into custody
 
-1. Open the register and press **New**.
+1. Open the register and press **New Packet**, at the top of the screen beside the search.
 2. Give it a name you would recognize on a shelf ("Smith family deeds").
 3. Choose the **container** it is going into — the safe, box, or shelf it will live in. Containers you
    have closed are not offered.
@@ -41,7 +41,7 @@ can never be returned to its owner and never be destroyed.
    a client whose last matter closed eleven years ago is the ordinary case, not an oversight. Where a
    packet is linked to a matter, closing that matter tells the person closing it that you still hold
    the property — and then closes the matter anyway. It never blocks, because holding a client's will
-   long after their last matter closed is what a safe-custody register is for. Pressing **New** from
+   long after their last matter closed is what a safe-custody register is for. Pressing **New Packet** from
    inside a matter's Custodian section fills this in for you and asks you everything else.
 
 The form will not let you record a packet without a name, an owner and a container, and it tells you

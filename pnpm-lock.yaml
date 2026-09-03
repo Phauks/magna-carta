@@ -874,6 +874,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.1.2
+      happy-dom:
+        specifier: 'catalog:'
+        version: 20.11.1
       svelte:
         specifier: 'catalog:'
         version: 5.56.2
@@ -1038,6 +1041,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

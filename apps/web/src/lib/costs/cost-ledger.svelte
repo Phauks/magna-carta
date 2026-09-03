@@ -36,7 +36,6 @@
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
   import {
     LedgerPanes,
     RecordMenu,
@@ -196,7 +195,12 @@
     });
   });
 
-  function openRecordACost(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowEntry = null;
     windowEditing = true;
     windowOpen = true;
@@ -313,7 +317,7 @@
         // Duplicating starts a new draft from this cost's fields. Until a duplicate route exists,
         // the window opens on a blank draft rather than one silently pre-filled from a record the
         // server was never asked to copy.
-        openRecordACost();
+        openNew();
         return;
       case "submit":
         submitCosts(targets.filter((cost) => cost.status === "draft"));
@@ -424,13 +428,7 @@
 {#snippet emptyLedger()}
   <EmptyState title="No Costs Recorded Yet">
     Filing fees, service, transcripts, experts: every cost paid or consumed for this matter lands
-    here.
-    {#snippet actions()}
-      <Button onclick={openRecordACost}>
-        <Plus class="size-16" aria-hidden="true" />
-        Record a Cost
-      </Button>
-    {/snippet}
+    here. New Cost, at the top of the matter, records the first.
   </EmptyState>
 {/snippet}
 
@@ -474,14 +472,6 @@
         {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
       </Button>
     {/if}
-    <Button
-      size="sm"
-      title="Record a cost paid or consumed on this matter. It saves as a draft."
-      onclick={openRecordACost}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Record a Cost
-    </Button>
     <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
          border of its own, and last in the row on every ledger. -->
     <Button
