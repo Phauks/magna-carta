@@ -659,3 +659,12 @@ set is asserted at the source. `ActionDialog` offers it on the Dialog kinds, `fo
 and never on a question. Both shells take a bindable `expanded`, which is how a panel opens
 expanded by design. The record window's frame-bearing stories are byte-identical before and after,
 per the standard for touching the frame; the three surfaces migrate in the pass that follows.
+
+The pass that followed brought the three onto the shells the same day. The time sheet is a reading
+panel opened expanded, its toolbar the first row of its pane and its identity the frame's header;
+its hand-built expand is deleted, and the windowed state it shrinks back to is the record width
+rather than its old 97vw. The screenshot viewer is a reading panel opened expanded. The cost review
+is a reading panel whose three answers sit under the facts they decide — Skip, Kick Back, Approve —
+and walks on to the next cost rather than closing, which is what the reading kind's "take a step
+from where it sits" was for. Three allowances remain: the command palette, the settings ledger's
+Sheet, and the fee-arrangement window.
