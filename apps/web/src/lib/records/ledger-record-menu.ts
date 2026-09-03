@@ -21,6 +21,7 @@
  */
 import ArrowRightLeft from "@lucide/svelte/icons/arrow-right-left";
 import CircleSlash from "@lucide/svelte/icons/circle-slash";
+import Undo2 from "@lucide/svelte/icons/undo-2";
 import Copy from "@lucide/svelte/icons/copy";
 import CopyPlus from "@lucide/svelte/icons/copy-plus";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
@@ -75,6 +76,15 @@ export interface LedgerMenuContext {
     /** Why it can, or why it cannot. Either way it is the verb's hover. */
     readonly reason: string;
   };
+  /**
+   * Whether this ledger can put a voided record back.
+   *
+   * Optional and absent by default, on the same terms as the move above: only the time ledger has
+   * the route today, and a ledger that cannot restore must not offer the verb — a menu that
+   * advertises an act nothing can perform is worse than one that does not mention it. Where it is
+   * absent a voided record simply reads "Already voided", which is what it did before.
+   */
+  readonly canRestoreVoid?: boolean;
 }
 
 /**
@@ -208,8 +218,22 @@ export function ledgerRecordMenu(
     };
   }
 
+  /*
+   * ONE SLOT, TWO VERBS, DECIDED BY WHAT THE RECORD ACTUALLY IS. A live record can be voided; a
+   * voided one, on a ledger that can restore, can be put back. They are opposites and they belong
+   * in the same place, so the gesture a person reaches for is in the position they already know.
+   */
   function voidVerb(): RecordMenuAction {
     const alreadyVoid = target.status === "void";
+    if (alreadyVoid && context.canRestoreVoid === true) {
+      return {
+        kind: "action",
+        identifier: "unvoid",
+        label: "Unvoid",
+        icon: Undo2,
+        ...oneRecordGesture(count, "Restoring is done one record at a time."),
+      };
+    }
     return {
       kind: "action",
       identifier: "void",

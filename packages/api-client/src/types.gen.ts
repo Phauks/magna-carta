@@ -6168,6 +6168,17 @@ export type TimeEntrySummary = {
     attachmentCount: number;
 };
 
+export type RoundingPolicy = {
+    /**
+     * The minimum billing increment a captured duration is rounded TO, in minutes. Six — a tenth of an hour — is the prevailing default. This is also what one BILLING UNIT is worth, which is why a screen that lets time be entered in units has to ask: a firm on quarter hours and a firm on tenths mean different amounts of work by 'two units'.
+     */
+    incrementMinutes: number;
+    /**
+     * How a duration that falls between increments is resolved.
+     */
+    roundingDirection: 'up' | 'nearest' | 'down';
+};
+
 export type TimeEntryEventsResponse = {
     data: Array<TimeEntryEventItem>;
     nextCursor: string | null;
@@ -6220,6 +6231,10 @@ export type PatchTimeEntryRequest = {
      * The firm-internal note. Null clears it; absent leaves it unchanged.
      */
     memo?: string | null;
+    /**
+     * A rate for THIS entry, in ten-thousandths of a currency unit, sitting above every stored tier of the rate chain. Capture has always accepted one and the chain has always ranked it first; this is the same field on a draft the firm already holds, so an entry captured at the wrong rate is corrected rather than voided and typed again. A number sets it, null clears it and the entry falls back to the chain (matter, then client, then timekeeper, then role, then the card default) as of its work date, and absent leaves the rate exactly as it stands. Setting it re-computes the entry's amount. This does not weaken the rate snapshot: that rule says a rate card edited LATER never re-rates a standing entry, and it still holds — what changes here is somebody's deliberate answer for one entry, not a card's answer for all of them. An entry with no rate card resolves to no rate whatever is passed: an override is a rate ON a card.
+     */
+    overrideRateE4?: number | null;
 };
 
 export type QuickAddPreviewResponse = {
@@ -29022,6 +29037,52 @@ export type TimeEntriesCreateResponses = {
 
 export type TimeEntriesCreateResponse = TimeEntriesCreateResponses[keyof TimeEntriesCreateResponses];
 
+export type TimeEntriesRoundingPolicyData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Resolve against this matter's setting first. Omitted, the firm's applies.
+         */
+        matterId?: string;
+        /**
+         * Resolve against this member's setting. Omitted, the firm's applies.
+         */
+        timekeeperUserId?: string;
+    };
+    url: '/api/v1/time-entries/rounding-policy';
+};
+
+export type TimeEntriesRoundingPolicyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesRoundingPolicyError = TimeEntriesRoundingPolicyErrors[keyof TimeEntriesRoundingPolicyErrors];
+
+export type TimeEntriesRoundingPolicyResponses = {
+    /**
+     * The resolved policy
+     */
+    200: RoundingPolicy;
+};
+
+export type TimeEntriesRoundingPolicyResponse = TimeEntriesRoundingPolicyResponses[keyof TimeEntriesRoundingPolicyResponses];
+
 export type TimeEntriesGetData = {
     body?: never;
     path: {
@@ -29607,6 +29668,60 @@ export type TimeEntriesVoidResponses = {
 };
 
 export type TimeEntriesVoidResponse = TimeEntriesVoidResponses[keyof TimeEntriesVoidResponses];
+
+export type TimeEntriesUnvoidData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/unvoid';
+};
+
+export type TimeEntriesUnvoidErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesUnvoidError = TimeEntriesUnvoidErrors[keyof TimeEntriesUnvoidErrors];
+
+export type TimeEntriesUnvoidResponses = {
+    /**
+     * The transition was applied
+     */
+    200: TimeEntryAck;
+};
+
+export type TimeEntriesUnvoidResponse = TimeEntriesUnvoidResponses[keyof TimeEntriesUnvoidResponses];
 
 export type TimeEntriesConvertToCostData = {
     body: ConvertToCostRequest;

@@ -27,6 +27,7 @@
   import Textarea from "@magna-carta/design-system/textarea";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import Plus from "@lucide/svelte/icons/plus";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
@@ -697,12 +698,10 @@
                                routing — so the handle is the honest thing to show. -->
                           {link.externalId}
                         {:else}
-                          <a
-                            class="underline"
-                            href={link.externalUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                          >
+                          <!-- The destination is another system entirely, so it opens beside the
+                               reader rather than in place — through the product's one gate for
+                               that, never a hand-written target. -->
+                          <a class="underline" href={link.externalUrl} {...opensBeside("external")}>
                             {link.externalId}
                           </a>
                         {/if}

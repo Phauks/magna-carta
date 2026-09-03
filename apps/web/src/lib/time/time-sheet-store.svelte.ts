@@ -22,7 +22,7 @@
  *
  * A MISFILED ENTRY MOVES; IT IS NOT RE-TYPED. Time gets recorded against the wrong matter, and the
  * remedy is a refile that keeps the entry's number, its memo, its codes, its files and its history
- * — not a strike and a fresh row, which loses all five and leaves a struck entry on a matter it was
+ * — not a void and a fresh row, which loses all five and leaves a voided entry on a matter it was
  * never really on. Moving it re-reads the rate and the rounding against the destination, because
  * both resolve through the matter, so the row's money follows the row. What a move cannot do is
  * take a written entry OFF a matter: the record has to be somewhere.
@@ -37,10 +37,16 @@
  * the firm made, and it reaches the record as one.
  *
  * SO ONLY WHAT CAN ACTUALLY BE PUT BACK IS OFFERED AS A STEP. The stack writes changed FIELDS back
- * through the update route, which is the only reversal this surface has. Striking an entry is not
- * one of them: nothing un-strikes an entry, so a strike pushes no step and says at the moment it
- * happens that undo does not reach it. Offering the step and then announcing a reversal that never
- * ran is the worse failure, because the reader believes the record went back.
+ * through the update route, which is the only reversal this surface has. Voiding an entry is not
+ * one of them — it is a status change on its own route, not a field the stack can rewrite — so a
+ * void pushes no step and says at the moment it happens that undo does not reach it. Offering the
+ * step and then announcing a reversal that never ran is the worse failure, because the reader
+ * believes the record went back.
+ *
+ * WHAT IT SAYS INSTEAD IS WHERE THE REPAIR IS. A void is no longer permanent: the entry can be put
+ * back to draft with everything it carries, from the ledger's own menu or from the record window.
+ * That is a different gesture from undo, in a different place, and the announcement names it —
+ * "undo does not reach this" is only half an answer if the other half exists.
  */
 import { untrack } from "svelte";
 import type { FirmMemberSummary } from "$lib/members/members-api.ts";
@@ -125,13 +131,13 @@ export class TimeSheetStore {
   #timerMatterId: string | null = null;
   readonly #saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /**
-   * Entries struck since this sheet opened.
+   * Entries voided since this sheet opened.
    *
-   * A snapshot taken before a strike still holds that row as a draft, so restoring it would put a
-   * struck entry back on the sheet as workable and then try to write to it. The strike is the newer
+   * A snapshot taken before a void still holds that row as a draft, so restoring it would put a
+   * voided entry back on the sheet as workable and then try to write to it. The void is the newer
    * fact and it survives the restore.
    */
-  readonly #struckIdentifiers = new Set<string>();
+  readonly #voidedIdentifiers = new Set<string>();
 
   constructor(context: SheetContext) {
     this.#context = context;
@@ -139,7 +145,7 @@ export class TimeSheetStore {
       () => this.rows.map((row) => ({ ...row })),
       (snapshot) => {
         this.rows = snapshot.map((row) =>
-          row.entryIdentifier !== null && this.#struckIdentifiers.has(row.entryIdentifier)
+          row.entryIdentifier !== null && this.#voidedIdentifiers.has(row.entryIdentifier)
             ? { ...row, status: "void" as const }
             : { ...row },
         );
@@ -431,13 +437,14 @@ export class TimeSheetStore {
   }
 
   /**
-   * Strike a row. It stays on the record, numbered, and counts toward nothing.
+   * Void a row. It stays on the record, numbered, and counts toward nothing.
    *
    * The two halves are different acts and they are offered on different terms. A row the server has
    * never seen is simply taken off the sheet, and putting it back is a step the stack can genuinely
-   * perform, so it gets one. A row that IS an entry is struck on the firm's record, and there is no
-   * route that un-strikes one — so no step is pushed and the announcement says as much, at the
-   * moment it is true, rather than leaving the reader to press undo and be told it worked.
+   * perform, so it gets one. A row that IS an entry is voided on the firm's record, which this
+   * stack cannot rewrite — so no step is pushed, and the announcement says both halves of the
+   * truth: undo will not reach it, and the entry can still be restored from the ledger or the
+   * record window, where the act that does reach it lives.
    */
   async voidRow(key: string): Promise<void> {
     const row = this.rowByKey(key);
@@ -452,14 +459,14 @@ export class TimeSheetStore {
     if (outcome.kind !== "ok") {
       this.#patchRow(key, {
         saveState: "failed",
-        saveFailure: "The entry was not struck. It is unchanged on the record.",
+        saveFailure: "The entry was not voided. It is unchanged on the record.",
       });
       return;
     }
-    this.#struckIdentifiers.add(row.entryIdentifier);
+    this.#voidedIdentifiers.add(row.entryIdentifier);
     this.#patchRow(key, { status: "void" });
     this.#context.announce(
-      "The entry was struck. It stays on the record and counts toward nothing. Undo does not reach it: nothing un-strikes an entry.",
+      "The entry was voided. It stays on the record and counts toward nothing. Undo does not reach it: restore it from the ledger or the record window.",
     );
     this.#context.onChanged();
   }

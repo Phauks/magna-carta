@@ -65,6 +65,8 @@ export interface DraftTimeEntry {
   readonly utbmsTaskCodeId?: string | null;
   readonly utbmsActivityCodeId?: string | null;
   readonly memo?: string | null;
+  /** A rate for this entry alone, in ten-thousandths of a currency unit. */
+  readonly overrideRateE4?: number | null;
   /**
    * The task this time was worked on, where the timekeeper named one. Omitted on nearly every
    * entry: time is captured against a MATTER, and naming a task is an extra. The server refuses a
@@ -114,6 +116,11 @@ export interface TimeEntryChanges {
   readonly utbmsActivityCodeId?: string | null;
   /** The firm's internal note. Null clears it; absent leaves it alone. */
   readonly memo?: string | null;
+  /**
+   * A rate for THIS entry, in ten-thousandths of a currency unit, above every tier of the chain.
+   * Null clears it and the chain answers again; absent leaves the entry's rate exactly as it is.
+   */
+  readonly overrideRateE4?: number | null;
   /** Null unlinks the task; absent leaves it alone. Refused on a billed or void entry. */
   readonly taskId?: string | null;
 }
@@ -223,13 +230,29 @@ export function refileTimeEntry(
   });
 }
 
-/** Strike an entry. It stays on the ledger, carries no value, and is not removed. */
+/** Void an entry. It stays on the ledger, carries no value, and is not removed. */
 export function voidTimeEntry(
   fetchImpl: typeof fetch,
   timeEntryId: string,
   idempotencyKey: string,
 ): Promise<ApiOutcome<unknown>> {
   return transition(fetchImpl, timeEntryId, "void", idempotencyKey);
+}
+
+/**
+ * Undo a void, putting the entry back to draft with everything it carries.
+ *
+ * The repair for a void nobody meant, and the reason it is worth a route: re-typing the entry loses
+ * its number, its memo, its codes, its attached documents and its history. Refused (409) for an
+ * entry that was never voided, and for one whose value became a cost entry — restoring that one
+ * would charge the same work twice.
+ */
+export function unvoidTimeEntry(
+  fetchImpl: typeof fetch,
+  timeEntryId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<unknown>> {
+  return transition(fetchImpl, timeEntryId, "unvoid", idempotencyKey);
 }
 
 /*
@@ -352,6 +375,93 @@ export function listUtbmsCodes(
 /** A fresh idempotency key for one write attempt and its retries. */
 export function writeKey(): string {
   return crypto.randomUUID();
+}
+
+/*
+ * ---------------------------------------------------------------------------------------------
+ * THE FIRM'S ROUNDING POLICY, and the three ways a duration can be typed.
+ *
+ * These belong together because two of the three depend on the policy. A billing UNIT is not a
+ * universal quantity — it is whatever increment the firm bills at, a tenth of an hour in most
+ * places and a quarter in some — so a screen that offers "units" and assumes six minutes records
+ * the wrong amount of work for half its customers. And the BILLED figure is the worked one rounded
+ * to that same increment, which is the other thing a capture screen has to be able to say.
+ * ---------------------------------------------------------------------------------------------
+ */
+
+/** How this firm turns worked minutes into billed ones, for this matter and this person. */
+export interface RoundingPolicy {
+  /** The increment billed time is rounded to, in minutes. Also what one unit is worth. */
+  readonly incrementMinutes: number;
+  readonly roundingDirection: "up" | "nearest" | "down";
+}
+
+/**
+ * Read the policy in force for a capture. Both scopes are optional: without them the answer is the
+ * firm's own, which is the right answer for a screen that has not been pointed at a matter yet.
+ */
+export function readRoundingPolicy(
+  fetchImpl: typeof fetch,
+  scope: { matterId?: string | null; timekeeperUserId?: string | null } = {},
+): Promise<ApiOutcome<RoundingPolicy>> {
+  const query = new URLSearchParams();
+  if (scope.matterId != null && scope.matterId !== "") query.set("matterId", scope.matterId);
+  if (scope.timekeeperUserId != null && scope.timekeeperUserId !== "") {
+    query.set("timekeeperUserId", scope.timekeeperUserId);
+  }
+  const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+  return requestJson(fetchImpl, `/api/v1/time-entries/rounding-policy${suffix}`);
+}
+
+/** Worked minutes as the firm will bill them. Mirrors the server's own rounding, for display. */
+export function roundToIncrement(minutes: number, policy: RoundingPolicy): number {
+  const increment = policy.incrementMinutes;
+  if (increment <= 0) return minutes;
+  const quotient = minutes / increment;
+  const units =
+    policy.roundingDirection === "up"
+      ? Math.ceil(quotient)
+      : policy.roundingDirection === "down"
+        ? Math.floor(quotient)
+        : Math.round(quotient);
+  return units * increment;
+}
+
+/**
+ * A clock time somebody typed, as minutes past midnight. Accepts "9", "9:30", "0930", "9:30 pm",
+ * "9pm" — the shapes people actually type into a start-and-end pair — and null for anything else.
+ */
+export function parseClockTime(text: string): number | null {
+  const trimmed = text.trim().toLowerCase();
+  if (trimmed === "") return null;
+  const match = /^(\d{1,2})(?::?([0-5]\d))?\s*(am|pm)?$/.exec(trimmed);
+  if (match === null) return null;
+  const meridiem = match[3];
+  let hours = Number(match[1]);
+  const minutes = match[2] === undefined ? 0 : Number(match[2]);
+  if (meridiem === undefined) {
+    if (hours > 23) return null;
+  } else {
+    if (hours < 1 || hours > 12) return null;
+    if (meridiem === "am") hours = hours === 12 ? 0 : hours;
+    else hours = hours === 12 ? 12 : hours + 12;
+  }
+  return hours * 60 + minutes;
+}
+
+/**
+ * How long somebody was at it, from the two clock times they were at it between.
+ *
+ * A span that ENDS EARLIER THAN IT STARTS is read as crossing midnight rather than refused: work
+ * that begins at 23:00 and ends at 01:00 is two hours of it, and that is a night most people in
+ * this product have had. A span of exactly zero is not a duration and answers null.
+ */
+export function parseTimeSpan(from: string, to: string): number | null {
+  const start = parseClockTime(from);
+  const end = parseClockTime(to);
+  if (start === null || end === null) return null;
+  const elapsed = end > start ? end - start : end === start ? 0 : end + 24 * 60 - start;
+  return elapsed === 0 ? null : elapsed;
 }
 
 /**
